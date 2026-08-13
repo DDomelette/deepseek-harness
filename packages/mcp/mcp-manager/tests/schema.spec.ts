@@ -16,7 +16,7 @@ describe('mcp-servers schema', () => {
     })
   })
 
-  it('applies streamable-http defaults and keeps headers secret-roled', () => {
+  it('applies streamable-http defaults', () => {
     const value = McpServersSchema({
       docs: { transport: 'streamable-http', url: 'https://example.com/mcp' },
     } as never)
