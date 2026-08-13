@@ -37,7 +37,7 @@ export class UsageTelemetry extends Service {
   private disposeSubscription: (() => boolean) | null = null
 
   private readonly onSessionEvent = (session: Session, event: SessionEvent): void => {
-    this.contain(() => this.handle(session, event))
+    this.contain(() => { this.handle(session, event) })
   }
 
   constructor(ctx: Context, config: UsageTelemetryConfig) {
