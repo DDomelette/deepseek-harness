@@ -6,6 +6,18 @@ import { join } from 'node:path'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import UsageTelemetry from '../src/index.ts'
 
+type ParsedUsageRow = {
+  v: number
+  time: number
+  sessionId: string
+  cwd?: string
+  model?: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
 let home: string
 
 beforeEach(async () => {
@@ -64,7 +76,7 @@ describe('UsageTelemetry service', () => {
     await new Promise(resolve => setTimeout(resolve, 50))
     const rows = await readRows()
     expect(rows).toHaveLength(1)
-    const parsed = JSON.parse(rows[0]!)
+    const parsed = JSON.parse(rows[0]!) as ParsedUsageRow
     expect(parsed).toEqual({
       v: 1, time: 2000, sessionId: 'session-1', cwd: 'D:\\Deepseek_Monitor', model: 'deepseek-v4-pro',
       inputTokens: 1404, outputTokens: 1089, cacheReadTokens: 46592, cacheWriteTokens: 0,
@@ -81,7 +93,7 @@ describe('UsageTelemetry service', () => {
     await new Promise(resolve => setTimeout(resolve, 50))
     const rows = await readRows()
     expect(rows).toHaveLength(1)
-    const parsed = JSON.parse(rows[0]!)
+    const parsed = JSON.parse(rows[0]!) as ParsedUsageRow
     expect(parsed.model).toBeUndefined()
     expect(parsed.inputTokens).toBe(10)
     expect(parsed.cacheWriteTokens).toBe(1)
