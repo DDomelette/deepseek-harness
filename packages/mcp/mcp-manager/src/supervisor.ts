@@ -123,6 +123,16 @@ export class McpServerSupervisor {
   }
 
   /**
+   * Resolved section from the latest `sync`, including the disabled entries
+   * `list()` omits. The reference is replaced (never mutated) on each sync, so
+   * a read stays a stable snapshot.
+   * @returns the current resolved `mcp-servers` section.
+   */
+  currentSection(): McpServersSection {
+    return this.section
+  }
+
+  /**
    * Stop reconciling and tear down the roster in reverse mount order.
    * @returns settlement after queued work drained and every live fiber is disposed.
    */
@@ -174,4 +184,37 @@ export class McpServerSupervisor {
 function errorMessage(error: unknown): string {
   /* v8 ignore next 2 -- cordis and mcp-client only ever throw Error instances */
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Live supervisors per app, keyed off `ctx.root` (multiple apps in one
+ * process — tests — must not see each other's rosters); the same pattern as
+ * mcp-client's `activeServerNames`. The manager plugin is the only registrant;
+ * the gateway reads its roster through this seam.
+ */
+const supervisors = new WeakMap<Context, McpServerSupervisor>()
+
+/**
+ * Publish a supervisor for the app owning `ctx`. The returned disposer
+ * unpublishes only when this supervisor is still the registered one, so a
+ * stale teardown never removes a newer registration.
+ * @param ctx - any context of the owning app; keyed on its root.
+ * @param supervisor - roster owner to publish.
+ * @returns unpublish disposer for the manager's teardown path.
+ */
+export function trackSupervisor(ctx: Context, supervisor: McpServerSupervisor): () => void {
+  const root = ctx.root
+  supervisors.set(root, supervisor)
+  return () => {
+    if (supervisors.get(root) === supervisor) supervisors.delete(root)
+  }
+}
+
+/**
+ * Look up the supervisor published for the app owning `ctx`.
+ * @param ctx - any context of the app to query.
+ * @returns the live supervisor, or undefined when no manager is mounted there.
+ */
+export function supervisorFor(ctx: Context): McpServerSupervisor | undefined {
+  return supervisors.get(ctx.root)
 }

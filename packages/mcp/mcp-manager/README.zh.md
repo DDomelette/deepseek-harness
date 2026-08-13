@@ -36,6 +36,10 @@
 
 `declarativeMcpServers(ctx)` 投影挂载 `dsh-mcp-client` 的 Loader 条目：serverName 和 transport 从条目配置读取，启用状态来自 Loader，并携带根 Fiber 相位。面板将它们以只读方式与设置管理的名册并排渲染；它们的生命周期始终由 `cordis.yml` 拥有。
 
+## 名册 Remote
+
+本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有命名空间注册与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。
+
 ## 与 dsh-mcp-client 的关系
 
 `dsh-mcp-client` 每个插件实例连接一个 MCP 服务器，并把它的工具注册到 `ctx.tools`。本包拥有面板写入的设置命名空间，自身从不连接任何服务器——每个生效条目都是一个 `dsh-mcp-client` 实例。
@@ -55,7 +59,3 @@
 #### KV Cache 影响
 
 自身没有 KV-cache 影响；新增、移除或切换条目对已挂载工具集的改变，与编辑等价的 `cordis.yml` 条目完全相同。
-
-## 已知限制与暂缓事项
-
-- **写入尚不会热挂载服务器**：命名空间会注册并校验，但按启用条目各挂载一个 `dsh-mcp-client` 实例的 supervisor 属于独立任务；在此之前该段只是惰性配置。

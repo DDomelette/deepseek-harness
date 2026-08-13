@@ -36,6 +36,10 @@ The `mcp-servers` section lives in the settings document (a namespace, not plugi
 
 `declarativeMcpServers(ctx)` projects the Loader entries that mount `dsh-mcp-client`: serverName and transport read from the entry config, enablement from the Loader, and the root Fiber phase. The panel renders these read-only next to the settings-managed roster; their lifecycle stays owned by `cordis.yml`.
 
+## Roster Remote
+
+The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the namespace registration and supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`.
+
 ## Relationship to dsh-mcp-client
 
 `dsh-mcp-client` connects to one MCP server per plugin instance and registers its tools on `ctx.tools`. This package owns the settings namespace the panel writes and never connects to a server itself — every entry in effect is a `dsh-mcp-client` instance.
@@ -55,7 +59,3 @@ No token cost of its own; each mounted server's tool definitions cost what `dsh-
 #### KV Cache effect
 
 No KV-cache effect of its own; adding, removing, or toggling an entry changes the mounted tool set exactly as editing the equivalent `cordis.yml` entry would.
-
-## Known Limitations and Deferred Work
-
-- **Writes do not hot-mount servers yet** — the namespace registers and validates, but the supervisor that mounts one `dsh-mcp-client` instance per enabled entry is a separate task; until then the section is inert configuration.

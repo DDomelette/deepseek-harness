@@ -1,22 +1,21 @@
 /**
  * MCP server manager: owns the `mcp-servers` settings namespace, hot-mounts
  * one dsh-mcp-client instance per enabled entry, and projects declarative
- * (cordis.yml) servers read-only alongside them.
+ * (cordis.yml) servers read-only alongside them. The default export is the
+ * plugin the Loader mounts: the `mcpServers` Remote gateway, whose lifecycle
+ * owns the namespace registration and the supervisor.
  *
  * @module @deepseek-ai/dsh-mcp-manager
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import type {} from '@deepseek-ai/cordis-plugin-loader'
-import { declarativeMcpServers } from './declarative.ts'
-import { MCP_SERVERS_NS, McpServersSchema, SERVER_NAME_PATTERN } from './schema.ts'
-import type { McpServersSection } from './schema.ts'
-import { McpServerSupervisor } from './supervisor.ts'
+import { McpServersGateway } from './gateway.ts'
 
 export * from './schema.ts'
 export * from './declarative.ts'
 export * from './supervisor.ts'
+export type * from './types.ts'
+export { McpServersGateway } from './gateway.ts'
 
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'mcp-manager'
@@ -25,31 +24,13 @@ export const name = 'mcp-manager'
 export const inject = ['settings', 'loader']
 
 /**
- * Register the namespace, mount the supervisor on the current section, and
- * keep the roster reconciled on every later commit. Effects dispose in
- * reverse registration order, so the watch detaches before the roster tears
- * down.
+ * Mount the manager as its gateway plugin: the gateway owns the namespace
+ * registration, the supervisor, and the Remote face in one fiber, so the
+ * namespace-apply and Loader default-export paths compose identically.
  * @param ctx - host context carrying settings and loader services.
  */
-export function apply(ctx: Context): void {
-  ctx.inject(['settings', 'loader'], (sctx) => {
-    const scope = sctx.settings.register(settingsNamespace(MCP_SERVERS_NS), McpServersSchema, {
-      applies: 'live',
-      validate: (section: McpServersSection) => {
-        const declarative = new Set(declarativeMcpServers(sctx).map(server => server.serverName))
-        for (const key of Object.keys(section)) {
-          if (!SERVER_NAME_PATTERN.test(key)) {
-            throw new Error(`mcp-servers: serverName "${key}" must match ${String(SERVER_NAME_PATTERN)}`)
-          }
-          if (declarative.has(key)) {
-            throw new Error(`mcp-servers: serverName "${key}" is already declared in cordis.yml — pick a unique name`)
-          }
-        }
-      },
-    })
-    const supervisor = new McpServerSupervisor(sctx)
-    supervisor.sync(scope.get())
-    sctx.effect(() => () => supervisor.dispose(), 'mcp-manager: roster teardown')
-    sctx.effect(() => scope.watch((next) => { supervisor.sync(next) }), 'mcp-manager: settings watch')
-  })
+export async function apply(ctx: Context): Promise<void> {
+  await ctx.plugin(McpServersGateway)
 }
+
+export default McpServersGateway

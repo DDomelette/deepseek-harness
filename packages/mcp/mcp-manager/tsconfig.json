@@ -24,6 +24,9 @@
       "path": "../../mcp/mcp-client"
     },
     {
+      "path": "../../typert/protocol"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]
