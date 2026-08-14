@@ -408,6 +408,24 @@ describe('settings domain', () => {
     expect(ctx.settings.describe().find(d => String(d.ns) === 'some-other-plugin')?.value).toEqual({})
   })
 
+  it('exposes the mcp-servers namespace to the Web client', async () => {
+    const ctx = await harness()
+    ctx.settings.register(settingsNamespace('mcp-servers'), z.dict(z.object({
+      enabled: z.boolean().default(true),
+    })))
+    const api = createApiProxy(ctx, DEFAULTS)
+
+    const described = expectOk(await api.settings.describe(request({})))
+    expect(described.namespaces.some(view => view.ns === 'mcp-servers')).toBe(true)
+    // The MCP panel is a section of the Web configuration page, so the write
+    // path must reach the seam, not stop at `settings-not-exposed`.
+    const mutated = expectOk(await api.settings.mutate(request({
+      ns: 'mcp-servers',
+      ops: [{ op: 'set', path: ['filesystem', 'enabled'], value: false }],
+    })))
+    expect(mutated.value).toEqual({ filesystem: { enabled: false } })
+  })
+
   it('serves product preference namespaces without invalidating the model catalog', async () => {
     const ctx = await harness()
     ctx.settings.register(settingsNamespace('ui-onboarding'), z.object({ welcomeNoticeVersion: z.string() }))
