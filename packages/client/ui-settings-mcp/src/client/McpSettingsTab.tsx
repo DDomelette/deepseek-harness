@@ -13,6 +13,7 @@ import {
   Button, IconPlusOutline16, IconSearchOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { AddServerForm, type NewServerDraft } from './AddServerForm.tsx'
 import type { McpLocaleKey } from './locales.ts'
 import css from './McpSettingsTab.module.css'
 
@@ -27,6 +28,12 @@ export interface McpSettingsTabInjected {
    * @returns settlement of the queued settings write.
    */
   setEnabled: (serverName: string, enabled: boolean) => Promise<void>
+  /**
+   * Persist one new server from a validated form draft.
+   * @param draft - the composed entry, secrets included.
+   * @returns null on acceptance, otherwise the locale key of the failure.
+   */
+  addServer: (draft: NewServerDraft) => Promise<McpLocaleKey | null>
 }
 
 /** Full component props assembled by the Settings slot renderer. */
@@ -54,7 +61,7 @@ function matches(entry: McpServerListEntry, normalizedQuery: string): boolean {
 }
 
 /** Render the MCP server roster with search, per-row switches, and the add entry. */
-export function McpSettingsTab({ list, setEnabled, t }: McpSettingsTabProps): ReactNode {
+export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTabProps): ReactNode {
   const [adding, setAdding] = useState(false)
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
@@ -104,13 +111,17 @@ export function McpSettingsTab({ list, setEnabled, t }: McpSettingsTabProps): Re
 
   return (
     <div className={css.section} aria-busy={state.status === 'loading'}>
-      {adding ? (
-        <div className={css.placeholder}>
-          <h3 className={css.placeholderTitle}>{t('addServer')}</h3>
-          <button type="button" className={css.backLink} onClick={() => { setAdding(false) }}>
-            {t('back')}
-          </button>
-        </div>
+      {adding && state.status === 'ready' ? (
+        <AddServerForm
+          existingNames={state.snapshot.entries.map(entry => entry.serverName)}
+          addServer={addServer}
+          t={t}
+          onDone={() => {
+            setAdding(false)
+            setRequest(value => value + 1)
+          }}
+          onCancel={() => { setAdding(false) }}
+        />
       ) : null}
       {!adding && state.status === 'loading' ? <p className={css.status}>{t('loading')}</p> : null}
       {!adding && state.status === 'error' ? (

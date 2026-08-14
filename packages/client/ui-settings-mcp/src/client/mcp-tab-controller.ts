@@ -11,6 +11,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { McpSettingsTabInjected } from './McpSettingsTab.tsx'
+import type { NewServerDraft } from './AddServerForm.tsx'
+import type { McpLocaleKey } from './locales.ts'
 
 /**
  * Settings namespace owning the panel-managed MCP roster. Spelled here rather
@@ -55,6 +57,7 @@ export class McpTabController {
     return {
       list: () => this.list(),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
+      addServer: draft => this.addServer(draft),
     }
   }
 
@@ -77,5 +80,19 @@ export class McpTabController {
   private async setEnabled(serverName: string, enabled: boolean): Promise<void> {
     if (this.scope.getSnapshot().value?.[serverName] === undefined) return
     await this.scope.setPath([serverName, 'enabled'], enabled)
+  }
+
+  /**
+   * Persist one new server as a single whole-entry path op. The entry is new
+   * and the draft carries every field the form collected — secrets included —
+   * so a whole-entry write loses nothing. The settings schema remains the
+   * server-side pattern guard; the scope's recovery read decides acceptance.
+   * @param draft - validated form draft.
+   * @returns null when the Host accepted the entry, otherwise the failure key.
+   */
+  private async addServer(draft: NewServerDraft): Promise<McpLocaleKey | null> {
+    const { serverName, ...entry } = draft
+    await this.scope.set(serverName, entry)
+    return this.scope.getSnapshot().value?.[serverName] === undefined ? 'saveFailed' : null
   }
 }

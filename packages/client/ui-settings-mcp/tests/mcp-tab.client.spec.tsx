@@ -8,6 +8,7 @@ import type {
   McpSettingsTabProps,
 } from '../src/client/McpSettingsTab.tsx'
 import { McpTabController, type McpServersSettings } from '../src/client/mcp-tab-controller.ts'
+import type { NewServerDraft } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 
@@ -34,6 +35,7 @@ function injected(overrides: Partial<McpSettingsTabInjected> = {}): McpSettingsT
   return {
     list: async () => SNAPSHOT,
     setEnabled: async () => {},
+    addServer: async () => null,
     ...overrides,
   }
 }
@@ -137,17 +139,35 @@ describe('McpSettingsTab', () => {
     expect((await screen.findByRole('alert')).textContent).toBe(en.error)
   })
 
-  it('shows the empty-roster guidance with the add entry and a placeholder add view', async () => {
+  it('shows the empty-roster guidance with the add entry and the add form', async () => {
     render(<McpSettingsTab {...props(injected({ list: async () => ({ entries: [] }) }))} />)
     expect(await screen.findByText(en.empty)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: en.addServer }))
     expect(screen.getByRole('heading', { name: en.addServer })).toBeTruthy()
+    expect(screen.getByLabelText(en.serverNameLabel)).toBeTruthy()
     expect(screen.queryByRole('searchbox')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: en.back }))
+    fireEvent.click(screen.getByRole('button', { name: en.cancel }))
     expect(await screen.findByText(en.empty)).toBeTruthy()
     expect(screen.getByRole('button', { name: en.addServer })).toBeTruthy()
+  })
+
+  it('re-reads the roster after an accepted add from a non-empty roster', async () => {
+    const list = vi.fn<McpSettingsTabInjected['list']>()
+      .mockResolvedValueOnce(SNAPSHOT)
+      .mockResolvedValueOnce(SNAPSHOT)
+    const addServer = vi.fn<McpSettingsTabInjected['addServer']>().mockResolvedValue(null)
+    render(<McpSettingsTab {...props(injected({ list, addServer }))} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: en.addServer }))
+    fireEvent.change(screen.getByLabelText(en.serverNameLabel), { target: { value: 'memory' } })
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: 'memorix' } })
+    fireEvent.click(screen.getByRole('button', { name: en.save }))
+
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
+    expect(await screen.findByRole('switch', { name: 'filesystem' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: en.addServer })).toBeNull()
   })
 
   it('shows a generic failure and retries into the roster', async () => {
@@ -235,5 +255,44 @@ describe('McpTabController', () => {
     const second = new McpTabController(absent.scope, { list: vi.fn() })
     await second.face().setEnabled('filesystem', true)
     expect(absent.setPath).not.toHaveBeenCalled()
+  })
+
+  it('persists a whole new entry and reports acceptance from the scope snapshot', async () => {
+    let value: McpServersSettings | undefined
+    const set = vi.fn<SettingsScope<McpServersSettings>['set']>(async () => {
+      value = { memory: { enabled: true, transport: 'stdio' } }
+    })
+    const setPath = vi.fn<SettingsScope<McpServersSettings>['setPath']>().mockResolvedValue()
+    const scope: SettingsScope<McpServersSettings> = {
+      getSnapshot: () => ({
+        status: value === undefined ? 'loading' : 'ready',
+        value, base: undefined, user: undefined, revision: 1, writable: true, mode: 'host',
+      }),
+      subscribe: () => () => {},
+      set,
+      setPath,
+      unset: async () => {},
+    }
+    const draft: NewServerDraft = {
+      serverName: 'memory', transport: 'stdio', command: 'memorix',
+      args: ['serve'], env: { TOKEN: 'abc' }, cwd: '/tmp/mem', toolCallTimeoutMs: 30_000,
+    }
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().addServer(draft)).resolves.toBeNull()
+    expect(set).toHaveBeenCalledWith('memory', {
+      transport: 'stdio', command: 'memorix', args: ['serve'], env: { TOKEN: 'abc' }, cwd: '/tmp/mem', toolCallTimeoutMs: 30_000,
+    })
+  })
+
+  it('reports a refused save while the scope never accepts the entry', async () => {
+    const { scope, set } = scopeStub({})
+    const controller = new McpTabController(scope, { list: vi.fn() })
+    const draft: NewServerDraft = {
+      serverName: 'memory', transport: 'streamable-http', url: 'http://localhost/mcp', headers: {},
+    }
+
+    await expect(controller.face().addServer(draft)).resolves.toBe('saveFailed')
+    expect(set).toHaveBeenCalledOnce()
   })
 })
