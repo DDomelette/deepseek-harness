@@ -20,20 +20,15 @@
   - heading "插件" [level=2]
   - paragraph: 配置和查看本部署已安装的插件。
   - tablist "插件视图":
-    - tab "插件配置" [selected]
-    - tab "MCP"
+    - tab "插件配置"
+    - tab "MCP" [selected]
     - tab "插件列表"
-  - tabpanel "插件配置":
-    - list:
-      - listitem:
-        - 'button "展开设置: 终端"':
-          - text: 终端 限制 agent 运行的每一条命令。
-          - img
-      - listitem:
-        - 'button "展开设置: Agent 循环"':
-          - text: Agent 循环 Agent 如何派发工具调用。
-          - img
-      - listitem:
-        - 'button "展开设置: 网页搜索"':
-          - text: 网页搜索 DeepSeek 搜索提供方。
-          - img
+  - tabpanel "MCP":
+    - img
+    - text: 搜索 MCP 服务器
+    - searchbox "搜索 MCP 服务器"
+    - button "添加 MCP 服务器":
+      - img
+    - heading "服务器" [level=3]
+    - text: "0"
+    - paragraph: 还没有 MCP 服务器，点右上角 + 添加。
