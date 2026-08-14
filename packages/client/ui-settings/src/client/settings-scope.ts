@@ -111,6 +111,20 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
     return this.write({ op: 'unset', path: [field] })
   }
 
+  /**
+   * Queue one deep path write; see {@link SettingsScope.setPath} for the
+   * ordering, revision, and recovery contract.
+   * @param path - non-empty path inside the namespace section.
+   * @param value - JSON-shaped value selected by the user.
+   * @returns settlement after the write and any latest-write recovery read.
+   */
+  setPath(path: readonly string[], value: unknown): Promise<void> {
+    if (path.length === 0) {
+      throw new TypeError('settings scope: setPath requires a non-empty path inside the namespace section')
+    }
+    return this.write({ op: 'set', path: [...path], value })
+  }
+
   private write(op: SettingsPathOpView): Promise<void> {
     this.readGeneration += 1
     const generation = ++this.writeGeneration

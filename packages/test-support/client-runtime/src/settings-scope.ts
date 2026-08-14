@@ -10,6 +10,8 @@ export interface StubSettingsScope<T> {
   set: ReturnType<typeof vi.fn>
   /** Spy behind `scope.unset`; resolves immediately. */
   unset: ReturnType<typeof vi.fn>
+  /** Spy behind `scope.setPath`; resolves immediately. */
+  setPath: ReturnType<typeof vi.fn>
   /** @returns how many listeners are currently subscribed (disposal assertions). */
   listenerCount(): number
   /**
@@ -33,6 +35,7 @@ export function stubSettingsScope<T>(): StubSettingsScope<T> {
   const listeners = new Set<() => void>()
   const set = vi.fn(() => Promise.resolve())
   const unset = vi.fn(() => Promise.resolve())
+  const setPath = vi.fn(() => Promise.resolve())
   return {
     scope: {
       getSnapshot: () => snapshot,
@@ -41,9 +44,11 @@ export function stubSettingsScope<T>(): StubSettingsScope<T> {
         return () => { listeners.delete(listener) }
       },
       set,
+      setPath,
       unset,
     },
     set,
+    setPath,
     unset,
     listenerCount: () => listeners.size,
     publish: (next) => {
