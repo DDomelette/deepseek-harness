@@ -199,6 +199,12 @@
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
 
+    # MCP server roster tab in Plugins settings: settings-managed rows with
+    # hot enablement switches plus read-only declarative rows, over the
+    # mcp-manager Remote and the `mcp-servers` settings scope.
+    - id: ui-settings-mcp
+      name: '@deepseek-ai/dsh-client-ui-settings-mcp'
+
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
 
