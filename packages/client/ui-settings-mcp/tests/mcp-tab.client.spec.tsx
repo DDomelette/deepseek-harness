@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import { McpSettingsTab } from '../src/client/McpSettingsTab.tsx'
@@ -8,6 +8,7 @@ import type {
   McpSettingsTabProps,
 } from '../src/client/McpSettingsTab.tsx'
 import { McpTabController, type McpServersSettings } from '../src/client/mcp-tab-controller.ts'
+import type { McpServerSettingsEntry } from '../src/client/mcp-tab-controller.ts'
 import type { NewServerDraft } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
@@ -15,6 +16,11 @@ import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-clie
 afterEach(cleanup)
 
 const t = ((key: McpLocaleKey): string => en[key]) as McpSettingsTabProps['t']
+
+/** Read an input/textarea's staged value from an HTMLElement query result. */
+function valueOf(el: HTMLElement): string {
+  return (el as HTMLInputElement | HTMLTextAreaElement).value
+}
 
 function props(injected: McpSettingsTabInjected): McpSettingsTabProps {
   return { t, ...injected } as McpSettingsTabProps
@@ -36,6 +42,9 @@ function injected(overrides: Partial<McpSettingsTabInjected> = {}): McpSettingsT
     list: async () => SNAPSHOT,
     setEnabled: async () => {},
     addServer: async () => null,
+    readEntry: () => undefined,
+    updateServer: async () => null,
+    removeServer: async () => {},
     ...overrides,
   }
 }
@@ -65,12 +74,14 @@ describe('McpSettingsTab', () => {
     expect(screen.getByText(en.enabledTag)).toBeTruthy()
     expect(screen.getByText(en.disabledTag)).toBeTruthy()
     for (const name of ['builtin', 'legacy']) {
-      const toggle = screen.getByRole('switch', { name })
-      expect(toggle).toHaveProperty('disabled', true)
-      expect(toggle).toHaveProperty('title', en.declarativeTag)
+      const row = screen.getByRole('switch', { name }).closest('li')!
+      expect(screen.getByRole('switch', { name })).toHaveProperty('disabled', true)
+      expect(screen.getByRole('switch', { name })).toHaveProperty('title', en.declarativeTag)
+      expect(within(row).getByRole('button', { name: en.settings })).toHaveProperty('disabled', true)
     }
-    for (const gear of screen.getAllByRole('button', { name: en.settings })) {
-      expect(gear).toHaveProperty('disabled', true)
+    for (const name of ['filesystem', 'paused']) {
+      const row = screen.getByRole('switch', { name }).closest('li')!
+      expect(within(row).getByRole('button', { name: en.settings })).toHaveProperty('disabled', false)
     }
 
     // Settings rows keep an enabled switch whose state is the roster enablement.
@@ -170,6 +181,71 @@ describe('McpSettingsTab', () => {
     expect(screen.queryByRole('heading', { name: en.addServer })).toBeNull()
   })
 
+  it('opens the inline editor from the gear and cancels back', async () => {
+    const entry: McpServerSettingsEntry = {
+      enabled: true, transport: 'stdio', command: 'memorix', args: ['serve'], cwd: '/tmp', toolCallTimeoutMs: 60_000,
+    }
+    const readEntry = vi.fn<McpSettingsTabInjected['readEntry']>(() => entry)
+    render(<McpSettingsTab {...props(injected({ readEntry }))} />)
+
+    const row = (await screen.findByRole('switch', { name: 'filesystem' })).closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: en.settings }))
+    expect(valueOf(await screen.findByLabelText(en.commandLabel))).toBe('memorix')
+
+    fireEvent.click(screen.getByRole('button', { name: en.cancel }))
+    expect(screen.queryByLabelText(en.commandLabel)).toBeNull()
+  })
+
+  it('reports a failed read while the scope holds no entry for the editing row', async () => {
+    render(<McpSettingsTab {...props(injected())} />)
+
+    const row = (await screen.findByRole('switch', { name: 'filesystem' })).closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: en.settings }))
+    expect(await screen.findByText(en.loadFailed)).toBeTruthy()
+    expect(screen.queryByLabelText(en.commandLabel)).toBeNull()
+  })
+
+  it('saves an edit through the injected face and re-reads the roster', async () => {
+    const entry: McpServerSettingsEntry = {
+      enabled: true, transport: 'stdio', command: 'memorix', args: ['serve'], cwd: '/tmp', toolCallTimeoutMs: 60_000,
+    }
+    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
+    const updateServer = vi.fn<McpSettingsTabInjected['updateServer']>().mockResolvedValue(null)
+    render(<McpSettingsTab {...props(injected({ list, updateServer, readEntry: () => entry }))} />)
+
+    const row = (await screen.findByRole('switch', { name: 'filesystem' })).closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: en.settings }))
+    fireEvent.change(await screen.findByLabelText(en.commandLabel), { target: { value: 'memorix2' } })
+    fireEvent.click(screen.getByRole('button', { name: en.save }))
+
+    await waitFor(() => { expect(updateServer).toHaveBeenCalledWith('filesystem', { command: 'memorix2' }) })
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
+    expect(screen.queryByLabelText(en.commandLabel)).toBeNull()
+  })
+
+  it('removes a server after confirmation and re-reads the roster', async () => {
+    const entry: McpServerSettingsEntry = {
+      enabled: true, transport: 'stdio', command: 'memorix', args: ['serve'], cwd: '/tmp', toolCallTimeoutMs: 60_000,
+    }
+    const withoutFilesystem: McpServerSnapshot = {
+      entries: SNAPSHOT.entries.filter(row => row.serverName !== 'filesystem'),
+    }
+    const list = vi.fn<McpSettingsTabInjected['list']>()
+      .mockResolvedValueOnce(SNAPSHOT)
+      .mockResolvedValueOnce(withoutFilesystem)
+    const removeServer = vi.fn<McpSettingsTabInjected['removeServer']>().mockResolvedValue()
+    render(<McpSettingsTab {...props(injected({ list, removeServer, readEntry: () => entry }))} />)
+
+    const row = (await screen.findByRole('switch', { name: 'filesystem' })).closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: en.settings }))
+    fireEvent.click(await screen.findByRole('button', { name: en.delete }))
+    fireEvent.click(screen.getByRole('button', { name: en.deleteConfirm }))
+
+    await waitFor(() => { expect(removeServer).toHaveBeenCalledWith('filesystem') })
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
+    await waitFor(() => { expect(screen.queryByRole('switch', { name: 'filesystem' })).toBeNull() })
+  })
+
   it('shows a generic failure and retries into the roster', async () => {
     const list = vi.fn<McpSettingsTabInjected['list']>()
       .mockRejectedValueOnce(new Error('private transport detail'))
@@ -214,14 +290,15 @@ describe('McpTabController', () => {
     }
     const set = vi.fn<SettingsScope<McpServersSettings>['set']>().mockResolvedValue()
     const setPath = vi.fn<SettingsScope<McpServersSettings>['setPath']>().mockResolvedValue()
+    const unset = vi.fn<SettingsScope<McpServersSettings>['unset']>().mockResolvedValue()
     const scope: SettingsScope<McpServersSettings> = {
       getSnapshot: () => snapshot,
       subscribe: () => () => {},
       set,
       setPath,
-      unset: async () => {},
+      unset,
     }
-    return { scope, set, setPath }
+    return { scope, set, setPath, unset }
   }
 
   it('unwraps the Remote envelope and rejects with the wire code', async () => {
@@ -294,5 +371,39 @@ describe('McpTabController', () => {
 
     await expect(controller.face().addServer(draft)).resolves.toBe('saveFailed')
     expect(set).toHaveBeenCalledOnce()
+  })
+
+  it('reads a redacted entry through the injected face', () => {
+    const { scope } = scopeStub({ filesystem: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    expect(controller.face().readEntry('filesystem')).toEqual({ enabled: true, transport: 'stdio', command: 'npx' })
+    expect(controller.face().readEntry('missing')).toBeUndefined()
+  })
+
+  it('applies an incremental patch as per-field deep path ops', async () => {
+    const { scope, set, setPath } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().updateServer('memory', { command: 'memorix', env: { TOKEN: 'abc' } })).resolves.toBeNull()
+    expect(set).not.toHaveBeenCalled()
+    expect(setPath).toHaveBeenNthCalledWith(1, ['memory', 'command'], 'memorix')
+    expect(setPath).toHaveBeenNthCalledWith(2, ['memory', 'env'], { TOKEN: 'abc' })
+  })
+
+  it('refuses an update while the scope holds no accepted entry for the row', async () => {
+    const { scope, setPath } = scopeStub({})
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().updateServer('memory', { command: 'memorix' })).resolves.toBe('loadFailed')
+    expect(setPath).not.toHaveBeenCalled()
+  })
+
+  it('removes a whole entry through an unset op', async () => {
+    const { scope, unset } = scopeStub({ memory: { enabled: true, transport: 'stdio' } })
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await controller.face().removeServer('memory')
+    expect(unset).toHaveBeenCalledWith('memory')
   })
 })

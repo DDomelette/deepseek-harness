@@ -47,6 +47,10 @@ export const zh = {
   invalidTimeout: '超时必须为正整数（毫秒）。',
   invalidKeyValue: '每行必须是 KEY=VALUE 格式。',
   saveFailed: '保存失败。',
+  keepSecretHint: '留空保持不变',
+  delete: '删除',
+  deleteConfirm: '确认删除',
+  loadFailed: '读取该服务器配置失败。',
 } satisfies Record<string, string>
 
 /** MCP roster locale key union. */
@@ -98,4 +102,8 @@ export const en = {
   invalidTimeout: 'The timeout must be a positive integer (milliseconds).',
   invalidKeyValue: 'Each line must be KEY=VALUE.',
   saveFailed: 'Failed to save.',
+  keepSecretHint: 'Leave blank to keep the stored value',
+  delete: 'Delete',
+  deleteConfirm: 'Confirm delete',
+  loadFailed: 'Failed to read this server configuration.',
 } satisfies Record<McpLocaleKey, string>

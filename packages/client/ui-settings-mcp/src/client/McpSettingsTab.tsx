@@ -14,6 +14,8 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { AddServerForm, type NewServerDraft } from './AddServerForm.tsx'
+import { EditServerForm, type ServerPatch } from './EditServerForm.tsx'
+import type { McpServerSettingsEntry } from './mcp-tab-controller.ts'
 import type { McpLocaleKey } from './locales.ts'
 import css from './McpSettingsTab.module.css'
 
@@ -34,6 +36,26 @@ export interface McpSettingsTabInjected {
    * @returns null on acceptance, otherwise the locale key of the failure.
    */
   addServer: (draft: NewServerDraft) => Promise<McpLocaleKey | null>
+  /**
+   * Read one settings-managed row's redacted entry for the edit form.
+   * @param serverName - the row's server name.
+   * @returns the accepted redacted entry, or undefined while the scope holds none.
+   */
+  readEntry: (serverName: string) => McpServerSettingsEntry | undefined
+  /**
+   * Apply one incremental patch as per-field path ops; unchanged and blank
+   * secret fields keep their stored values.
+   * @param serverName - the row's server name.
+   * @param patch - the fields the user changed.
+   * @returns null after the writes, otherwise the locale key of the failure.
+   */
+  updateServer: (serverName: string, patch: ServerPatch) => Promise<McpLocaleKey | null>
+  /**
+   * Remove one settings-managed server entry.
+   * @param serverName - the row's server name.
+   * @returns settlement of the queued settings clear.
+   */
+  removeServer: (serverName: string) => Promise<void>
 }
 
 /** Full component props assembled by the Settings slot renderer. */
@@ -61,8 +83,9 @@ function matches(entry: McpServerListEntry, normalizedQuery: string): boolean {
 }
 
 /** Render the MCP server roster with search, per-row switches, and the add entry. */
-export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTabProps): ReactNode {
+export function McpSettingsTab({ list, setEnabled, addServer, readEntry, updateServer, removeServer, t }: McpSettingsTabProps): ReactNode {
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<string | null>(null)
@@ -163,17 +186,19 @@ export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTa
             : null}
           {filteredEntries.length > 0 ? (
             <ul className={css.cards}>
-              {filteredEntries.map((entry) => {
-                const declarative = entry.source === 'declarative'
-                const status = entry.status
+              {filteredEntries.map((row) => {
+                const declarative = row.source === 'declarative'
+                const status = row.status
                 const statusLabel = status === null ? null : t(STATUS_KEYS[status])
+                const isEditing = editing === row.serverName
+                const current = isEditing ? readEntry(row.serverName) : undefined
                 return (
-                  <li className={css.card} key={entry.serverName} data-server-name={entry.serverName}>
+                  <li className={css.card} key={row.serverName} data-server-name={row.serverName}>
                     <div className={css.cardContent}>
                       <div className={css.cardMain}>
-                        <strong className={css.cardTitle} title={entry.serverName}>{entry.serverName}</strong>
-                        {status === 'failed' && entry.error !== undefined ? (
-                          <p className={css.errorText}>{entry.error}</p>
+                        <strong className={css.cardTitle} title={row.serverName}>{row.serverName}</strong>
+                        {status === 'failed' && row.error !== undefined ? (
+                          <p className={css.errorText}>{row.error}</p>
                         ) : null}
                       </div>
                       <span className={css.cardTrailing}>
@@ -181,8 +206,8 @@ export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTa
                           <span className={css.managedTag}>{t('declarativeTag')}</span>
                         ) : null}
                         {declarative ? (
-                          <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
-                            {t(entry.enabled ? 'enabledTag' : 'disabledTag')}
+                          <span className={css.configTag} data-enabled={row.enabled ? 'true' : 'false'}>
+                            {t(row.enabled ? 'enabledTag' : 'disabledTag')}
                           </span>
                         ) : null}
                         {statusLabel !== null ? (
@@ -194,14 +219,13 @@ export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTa
                             title={statusLabel}
                           />
                         ) : null}
-                        {/* TODO(ui-settings-mcp-edit): the gear's row edit view
-                            lands with the edit task; it ships disabled. */}
                         <button
                           type="button"
                           className={css.gearButton}
                           aria-label={t('settings')}
-                          disabled
+                          disabled={declarative}
                           {...(declarative ? { title: t('declarativeTag') } : {})}
+                          onClick={() => { setEditing(row.serverName) }}
                         >
                           <IconSettingsOutline16 aria-hidden="true" />
                         </button>
@@ -209,14 +233,31 @@ export function McpSettingsTab({ list, setEnabled, addServer, t }: McpSettingsTa
                           type="button"
                           className={css.switch}
                           role="switch"
-                          aria-checked={entry.enabled}
-                          aria-label={entry.serverName}
-                          disabled={declarative || pending === entry.serverName}
+                          aria-checked={row.enabled}
+                          aria-label={row.serverName}
+                          disabled={declarative || pending === row.serverName}
                           {...(declarative ? { title: t('declarativeTag') } : {})}
-                          onClick={() => { toggle(entry) }}
+                          onClick={() => { toggle(row) }}
                         />
                       </span>
                     </div>
+                    {isEditing && current === undefined ? <p className={css.editFailure}>{t('loadFailed')}</p> : null}
+                    {isEditing && current !== undefined ? (
+                      <div className={css.editArea}>
+                        <EditServerForm
+                          serverName={row.serverName}
+                          entry={current}
+                          updateServer={patch => updateServer(row.serverName, patch)}
+                          removeServer={() => removeServer(row.serverName)}
+                          t={t}
+                          onDone={() => {
+                            setEditing(null)
+                            setRequest(value => value + 1)
+                          }}
+                          onCancel={() => { setEditing(null) }}
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 )
               })}

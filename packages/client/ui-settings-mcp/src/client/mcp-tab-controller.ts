@@ -12,6 +12,7 @@ import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { McpSettingsTabInjected } from './McpSettingsTab.tsx'
 import type { NewServerDraft } from './AddServerForm.tsx'
+import type { ServerPatch } from './EditServerForm.tsx'
 import type { McpLocaleKey } from './locales.ts'
 
 /**
@@ -21,15 +22,26 @@ import type { McpLocaleKey } from './locales.ts'
 export const MCP_SERVERS_NS = 'mcp-servers'
 
 /**
- * The fields of one `mcp-servers` section entry this tab reads. The section
- * entry carries more (secrets included); writes preserve the rest by merging
- * over the scope snapshot's current entry rather than rebuilding it.
+ * The redacted fields of one `mcp-servers` section entry this tab reads. The
+ * section entry also carries `env`/`headers` secrets the wire never returns;
+ * every write therefore names the leaf fields it means instead of rebuilding
+ * the entry.
  */
 export interface McpServerSettingsEntry {
   /** Effective enablement of the server. */
   readonly enabled: boolean
   /** Transport the entry connects over. */
   readonly transport: 'stdio' | 'streamable-http'
+  /** stdio launch command. */
+  readonly command?: string
+  /** stdio arguments. */
+  readonly args?: string[]
+  /** stdio working directory. */
+  readonly cwd?: string
+  /** Streamable HTTP endpoint URL. */
+  readonly url?: string
+  /** Per-tool-call timeout in milliseconds. */
+  readonly toolCallTimeoutMs?: number
 }
 
 /** The `mcp-servers` section as the scope snapshot presents it: a dict keyed by serverName. */
@@ -58,6 +70,9 @@ export class McpTabController {
       list: () => this.list(),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
       addServer: draft => this.addServer(draft),
+      readEntry: serverName => this.scope.getSnapshot().value?.[serverName],
+      updateServer: (serverName, patch) => this.updateServer(serverName, patch),
+      removeServer: serverName => this.removeServer(serverName),
     }
   }
 
@@ -94,5 +109,34 @@ export class McpTabController {
     const { serverName, ...entry } = draft
     await this.scope.set(serverName, entry)
     return this.scope.getSnapshot().value?.[serverName] === undefined ? 'saveFailed' : null
+  }
+
+  /**
+   * Apply one incremental patch as per-field deep path ops. Only the leaves
+   * the patch names are written, so secret fields the edit form left blank
+   * keep their stored values. The Host's schema validation remains the
+   * authority; the roster re-read after the tab closes shows what landed.
+   * @param serverName - the row's server name.
+   * @param patch - the fields the user changed.
+   * @returns null after the queued writes, or the failure key when the scope
+   * holds no accepted entry for the row.
+   */
+  private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
+    if (this.scope.getSnapshot().value?.[serverName] === undefined) return 'loadFailed'
+    for (const [field, value] of Object.entries(patch)) {
+      await this.scope.setPath([serverName, field], value)
+    }
+    return null
+  }
+
+  /**
+   * Remove one server entry wholesale. The whole-entry unset is safe for
+   * removal: nothing survives the delete, so redacted secrets need no
+   * preservation.
+   * @param serverName - the row's server name.
+   * @returns settlement of the queued settings clear.
+   */
+  private async removeServer(serverName: string): Promise<void> {
+    await this.scope.unset(serverName)
   }
 }
