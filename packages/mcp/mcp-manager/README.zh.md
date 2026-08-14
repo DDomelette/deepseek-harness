@@ -59,3 +59,10 @@
 #### KV Cache 影响
 
 自身没有 KV-cache 影响；新增、移除或切换条目对已挂载工具集的改变，与编辑等价的 `cordis.yml` 条目完全相同。
+
+## 已知限制与暂缓事项
+
+- **仅生命周期状态** — `status` 上报挂载 fiber 的结算，而非存活状态；在默认 `failOnStartupError: false` 下，一台始终不应答初始连接的服务器仍会报告 `ready`。
+- **预设挂载的服务器不可见** — agent preset 内联挂载的 MCP 服务器不在 `ctx.loader.entries()` 中，因此也不在声明式名单里。
+- **以 serverName 为键** — 改名意味着删除条目并新增；settings 键即名称。
+- **面板是唯一编辑器** — 该分节是普通 settings 数据，无头部署可直接编辑 `settings.yaml`，但针对声明式名称的写时重名守卫只经 settings 缝生效。

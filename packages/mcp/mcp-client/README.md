@@ -31,6 +31,10 @@ One plugin instance per MCP server in `cordis.yml`:
 
 The model sees `mcp__github__create_issue`, `mcp__web__search`, … — the same server-qualified shape Claude Code and Codex use. HMR hot-swaps: editing the entry triggers disconnect + reconnect without process restart; an unchanged `serverName` reproduces identical tool names.
 
+## Settings-managed servers
+
+Declarative rows above remain the only composition-time path; this package has no settings surface of its own. The Web settings panel manages a separate roster through [`@deepseek-ai/dsh-mcp-manager`](../mcp-manager/README.md), which hot-mounts one instance of this package per enabled `mcp-servers` entry. The two rosters coexist: the manager refuses a settings entry whose `serverName` collides with a declarative row, and this package's own per-root `serverName` reservation is the load-time backstop.
+
 ## Config
 
 | Field | Transport | Required | Description |

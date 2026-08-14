@@ -1,26 +1,27 @@
-# MCP 配置页设计（Web 设置对话框）
+# MCP settings page design (Web settings dialog)
 
-日期：2026-08-13
-状态：已批准（待实现）
+English | [中文](2026-08-13-mcp-settings-page-design.zh.md)
 
-## 背景与目标
+Date: 2026-08-13 Status: approved (to implement)
 
-DeepSeek Harness 已完整支持 MCP（`@deepseek-ai/dsh-mcp-client`，一插件实例 = 一台 server，cordis.yml 声明式接入），但 Web 设置对话框没有 MCP 面板。本设计在「插件」设置页新增 MCP tab，复用现有 settings 通用配置管线：
+## Background and goals
 
-- 展示现有 MCP server（settings 管理的 + cordis.yml 声明式的）
-- 每台 server 的开关状态，切换热生效
-- 右上角圆角方形「+」按钮进入添加页（字段按 `dsh-mcp-client` Config schema）
-- MCP 服务器搜索框
-- 界面风格与现有设置页一致
+DeepSeek Harness already supports MCP end to end (`@deepseek-ai/dsh-mcp-client`, one plugin instance per server, wired declaratively through cordis.yml), but the Web settings dialog has no MCP panel. This design adds an MCP tab to the Plugins settings page, reusing the existing generic settings pipeline:
 
-## 已确认的关键决策
+- Show existing MCP servers (settings-managed and cordis.yml-declared)
+- Per-server enablement switch, applied hot
+- A rounded-square `+` button in the top-right corner opens the add page (fields follow the `dsh-mcp-client` Config schema)
+- MCP server search box
+- Visual style consistent with the existing settings page
 
-1. **持久化**：settings 命名空间 `mcp-servers`（$DSH_HOME/settings.yaml），复用 settings 管线（schema 校验、revision 冲突控制、secret 脱敏、api-proxy 白名单、document-updated 热更新）。不写 cordis.yml。
-2. **生效时机**：热生效——mcp-manager watch settings，开关/增删即时 disconnect/reconnect。
-3. **声明式共存**：cordis.yml 声明的 MCP server 列出但只读（来源标记「由配置文件管理」，开关/编辑禁用）。
-4. **实现路线**：新增 host 包 `dsh-mcp-manager` + client 包 `ui-settings-mcp`；不改动 mcp-client 的「一实例 = 一 server」模型。
+## Confirmed key decisions
 
-## 架构
+1. **Persistence**: the settings namespace `mcp-servers` ($DSH_HOME/settings.yaml), reusing the settings pipeline (schema validation, revision conflict control, secret redaction, api-proxy allowlist, document-updated hot reload). cordis.yml is not written.
+2. **Effect timing**: hot apply — mcp-manager watches settings; toggling, adding, or removing disconnects/reconnects immediately.
+3. **Declarative coexistence**: cordis.yml-declared MCP servers are listed read-only (source badge 「由配置文件管理」, switch/edit disabled).
+4. **Implementation route**: a new host package `dsh-mcp-manager` plus a new client package `ui-settings-mcp`; mcp-client's one-instance-per-server model stays unchanged.
+
+## Architecture
 
 ```
 host 侧
@@ -37,76 +38,76 @@ client 侧
     · ctx.slots.register({ name: 'settings.plugins.tab', id: 'mcp', order: 5 }, Component)
 ```
 
-新包装配走 `packages/client/AGENTS.md` 的新包 checklist：tsconfig 聚合面（host 包进 `tsconfig.host.json` references，client 包进 `tsconfig.client.json`）、`packages/bundle/web-app/cordis.patch.yml` 条目与 `package.json` 依赖、client 包的 `dsh.client` 清单行、host 包的 `invariant` 导出与双语 README 门禁。
+New-package assembly follows the `packages/client/AGENTS.md` new-package checklist: the tsconfig aggregate faces (the host package joins the `tsconfig.host.json` references, the client package joins `tsconfig.client.json`), the `packages/bundle/web-app/cordis.patch.yml` row and `package.json` dependency, the client package's `dsh.client` manifest row, and the host package's `invariant` export and bilingual README gates.
 
-## 数据模型（`mcp-servers` 命名空间）
+## Data model (the `mcp-servers` namespace)
 
-schemastery schema：`z.dict(serverSchema)`，key 为 serverName，沿用 mcp-client 的约束 `/^[A-Za-z0-9_-]{1,32}$/`。
+Schemastery schema: `z.dict(serverSchema)`, keyed by serverName, reusing the mcp-client constraint `/^[A-Za-z0-9_-]{1,32}$/`.
 
-serverSchema 字段（与 mcp-client Config schema 对齐）：
+serverSchema fields (aligned with the mcp-client Config schema):
 
-- `enabled: boolean`，默认 `true` —— 面板开关写的就是它
+- `enabled: boolean`, default `true` — the panel switch writes exactly this
 - `transport: 'stdio' | 'streamable-http'`
-- stdio：`command: string`、`args?: string[]`、`env?: dict<string>`（`role('secret')`）、`cwd?: string`
-- streamable-http：`url: string`、`headers?: dict<string>`（`role('secret')`）
-- `toolCallTimeoutMs?: number`，默认 60000
-- `failOnStartupError?: boolean`，默认 false
+- stdio: `command: string`, `args?: string[]`, `env?: dict<string>` (`role('secret')`), `cwd?: string`
+- streamable-http: `url: string`, `headers?: dict<string>` (`role('secret')`)
+- `toolCallTimeoutMs?: number`, default 60000
+- `failOnStartupError?: boolean`, default false
 
-约束：
+Constraints:
 
-- env/headers 为 secret 字段：describe 脱敏不回传，写入走 path-op，避免 replace 覆盖未见的 secret。
-- 重名防护分两层。写时拒绝：`settings.register` 的 `validate` 选项（`packages/settings/settings/src/index.ts:61`）在写入前比对 settings 字典 key 与 cordis.yml 声明式条目的 serverName，重名即拒绝本次写入——用户在面板添加重名 server 时当场收到拒绝。加载时兜底：mcp-client 按 `ctx.root` 维护活跃 serverName 集合、重复即 load 失败（`packages/mcp/mcp-client/src/index.ts:148-161`），拦截绕过面板的手改 settings.yaml。
+- env/headers are secret fields: describe redacts them off the wire, and writes go through path ops so a replace never clobbers secrets the caller has not seen.
+- Duplicate-name protection has two layers. Write-time refusal: the `validate` option of `settings.register` (`packages/settings/settings/src/index.ts:61`) compares the settings dict keys against the declarative entries' serverNames before a write, and refuses the write on a collision — a user adding a duplicate server in the panel gets the refusal immediately. Load-time backstop: mcp-client keeps the set of active serverNames per `ctx.root` and fails a duplicate at load (`packages/mcp/mcp-client/src/index.ts:148-161`), catching hand-edited settings.yaml that bypassed the panel.
 
-## mcp-manager 行为
+## mcp-manager behavior
 
-- 启动：读 resolved config，对每台 `enabled !== false` 的 server 执行 `ctx.plugin(McpClient, { serverName, transport, ... })`。
-- `settings/updated`：diff 前后值——新增 → 挂载；删除或 `enabled: false` → dispose；其余字段变更 → dispose 后重挂。所有挂载走 `ctx.effect()` 作用域清理。
-- `mcpServers.list()` 返回并集：
-  - settings 来源：`{ serverName, source: 'settings', enabled, status: 'connecting' | 'ready' | 'failed', error? }`
-  - declarative 来源：manager 直接读 `ctx.loader.entries()`，按 `entry.options.name === '@deepseek-ai/dsh-mcp-client'` 过滤（`entry.options.name` 是 Loader 条目的模块名；`moduleName` 仅是复述 plugin-inventory payload 时的字段名，本设计不复用该 payload），投影 `{ serverName（取自 entry config）, transport, enabled: !entry.disabled, fiberPhase, source: 'declarative' }`；不投影 env/headers 等敏感字段。
-- 连接状态跟踪：mcp-client 无对外状态面（`connection.ts` 仅内部 `startConnection`/`ready`/`dispose`），故 manager 在挂载点包装最小状态跟踪（挂载中 → connecting；`ctx.plugin()` 返回的可 await fiber 解决 → ready；拒绝或 fiber 失败 → failed + 错误摘要），不改动 mcp-client 的对外 API。
+- Startup: read the resolved config and run `ctx.plugin(McpClient, { serverName, transport, ... })` for every server whose `enabled !== false`.
+- `settings/updated`: diff the before and after values — added → mount; removed or `enabled: false` → dispose; any other field change → dispose then remount. Every mount is cleaned up through its `ctx.effect()` scope.
+- `mcpServers.list()` returns the union:
+  - settings source: `{ serverName, source: 'settings', enabled, status: 'connecting' | 'ready' | 'failed', error? }`
+  - declarative source: the manager reads `ctx.loader.entries()` directly and filters `entry.options.name === '@deepseek-ai/dsh-mcp-client'` (`entry.options.name` is the Loader entry's module name; `moduleName` is only the field name when restating the plugin-inventory payload, which this design does not reuse), projecting `{ serverName (from the entry config), transport, enabled: !entry.disabled, fiberPhase, source: 'declarative' }`; sensitive fields such as env/headers are never projected.
+- Connection status tracking: mcp-client has no public status face (`connection.ts` keeps `startConnection`/`ready`/`dispose` internal), so the manager wraps minimal status tracking at the mount point (mounting → connecting; the awaitable fiber `ctx.plugin()` returns settling → ready; rejection or fiber failure → failed with an error summary), without changing mcp-client's public API.
 
-## 界面（ui-settings-mcp）
+## UI (ui-settings-mcp)
 
-tab 顺序：插件配置（order 0）→ **MCP（order 5）** → 插件列表（order 10）。
+Tab order: plugin configuration (order 0) → **MCP (order 5)** → plugin list (order 10).
 
-列表页（结构参考用户提供的图二，风格对齐现有设置页）：
+List page (structure follows the user-provided figure two, style aligned with the existing settings page):
 
-- 顶部行：右侧搜索框（复用 plugin-inventory 的 `type="search"` 输入框模式，按 serverName 过滤）；其旁圆角方形「+」按钮（`Button variant="outline"` + add 图标，圆角与现有卡片一致）。
-- server 行：名称、来源徽标（声明式行显示「由配置文件管理」）、右侧齿轮（展开行内编辑表单）、开关 toggle。声明式行开关与齿轮禁用并附提示。
-- 空态：无 server 时显示引导文案 + 「+」入口。
+- Top row: a search box on the right (reusing the plugin-inventory `type="search"` input pattern, filtering by serverName); beside it the rounded-square `+` button (`Button variant="outline"` plus an add icon, radius matching the existing cards).
+- Server row: name, source badge (declarative rows show 「由配置文件管理」), a gear on the right (expands the inline edit form), and the enablement toggle. Declarative rows keep the switch and gear disabled with a hint.
+- Empty state: with no servers, guidance copy plus the `+` entry.
 
-添加页（点「+」进入页内视图切换）：
+Add page (the `+` switches to an in-page view):
 
-- 字段：名称（serverName 校验）、传输方式分段选择（stdio / streamable-http），按选择渲染对应字段（stdio：command/args/env/cwd；http：url/headers）、toolCallTimeoutMs。
-- 前端校验失败（重名、非法 serverName、缺 command/url）行内报错，不发 RPC。
-- 保存：经 settings scope 写 `{ op: 'set', path: [serverName], value }` path-op。
+- Fields: name (serverName validation), a segmented transport selector (stdio / streamable-http) rendering the matching fields (stdio: command/args/env/cwd; http: url/headers), and toolCallTimeoutMs.
+- Client-side validation failures (duplicate, invalid serverName, missing command/url) show inline errors and send no RPC.
+- Save: write the path op `{ op: 'set', path: [serverName], value }` through the settings scope.
 
-编辑 / 删除：
+Edit / delete:
 
-- 齿轮展开行内表单（与添加页同字段）；secret 字段（env/headers）脱敏显示，path-op 写不覆盖未见 secret。
-- 删除：`{ op: 'unset', path: [serverName] }`。
+- The gear expands an inline form (same fields as the add page); secret fields (env/headers) display redacted, and path-op writes never clobber unseen secrets.
+- Delete: `{ op: 'unset', path: [serverName] }`.
 
-技术约定（与现有卡片一致）：React 18 + CSS Modules + clsx；组件/图标用 `@deepseek-ai/dsh-client-ui-primitives`；状态用 `createSnapshotStore` / `SettingsScopeController`；双语 `ctx.locale.register(NS, { zh, en })`。
+Technical conventions (consistent with the existing cards): React 18 + CSS Modules + clsx; components/icons from `@deepseek-ai/dsh-client-ui-primitives`; state through `createSnapshotStore` / `SettingsScopeController`; bilingual `ctx.locale.register(NS, { zh, en })`.
 
-## 数据流与错误处理
+## Data flow and error handling
 
-- 读：经 `ctx.settingsScope.bind({ namespace: 'mcp-servers' })`（卡片同款模式，`SettingsScopeController` 内部走 `settings.describe`）+ `ctx.remote.mcpServers.list()` 合并渲染；失效订阅 `settings/document-updated`（由 `SettingsScopeBinder` 既有逻辑处理）与连接状态事件。
-- 写：统一经 settings scope 发 path-op（内部即 `settings.mutate` + `expectedRevision`）；`settings-conflict` 由 `SettingsScopeController` 自动重读（既有机制）。
-- 单台 server 连接失败只在该行显示失败状态，不阻断其余 server。
-- api-proxy 白名单外的读写返回 `settings-not-exposed`（本设计将 `mcp-servers` 加入 `WEB_SETTINGS_NAMESPACES`）。
+- Reads: merge `ctx.settingsScope.bind({ namespace: 'mcp-servers' })` (the same pattern the cards use; `SettingsScopeController` drives `settings.describe` internally) with `ctx.remote.mcpServers.list()` for rendering; invalidations subscribe to `settings/document-updated` (handled by the existing `SettingsScopeBinder` logic) and connection status events.
+- Writes: all go through the settings scope as path ops (which is `settings.mutate` plus `expectedRevision` underneath); `settings-conflict` is auto-reread by `SettingsScopeController` (the existing mechanism).
+- One server's connection failure shows the failed state on that row only and never blocks the other servers.
+- Reads and writes outside the api-proxy allowlist return `settings-not-exposed` (this design adds `mcp-servers` to `WEB_SETTINGS_NAMESPACES`).
 
-## 测试计划
+## Test plan
 
-- mcp-manager 单测（`packages/mcp/mcp-manager/tests/`）：schema 校验、diff 挂载/卸载、enabled 切换、写时重名拒绝（validate）与加载时兜底。
-- ui-settings-mcp client 单测（参照 `ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx`）：列表渲染、搜索过滤、添加表单校验。
-- e2e `apps/web/tests/mcp-config.e2e.ts`（参照 `plugin-config.e2e.ts`）：列表渲染、搜索过滤、开关写穿 `$DSH_HOME/settings.yaml`、添加流程、声明式只读行；更新受影响的 aria golden。
-- 按仓库测试政策补 keyless snapshot（经真实可运行示例的 transcript）。
-- 非平凡变更附 Agent Note（`.agents/notes/`）；更新 `docs/config-catalog.md`（新增 `mcp-servers` 命名空间条目）与新包 README。
+- mcp-manager unit tests (`packages/mcp/mcp-manager/tests/`): schema validation, diff mount/unmount, enabled toggling, write-time duplicate refusal (validate), and the load-time backstop.
+- ui-settings-mcp client unit tests (following `ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx`): list rendering, search filtering, add-form validation.
+- e2e `apps/web/tests/mcp-config.e2e.ts` (following `plugin-config.e2e.ts`): list rendering, search filtering, switch write-through to `$DSH_HOME/settings.yaml`, the add flow, declarative read-only rows; update the affected aria goldens.
+- Add keyless snapshots per the repository testing policy (transcripts through a real runnable example).
+- Non-trivial changes carry an Agent Note (`.agents/notes/`); update `docs/config-catalog.md` (the new `mcp-servers` namespace entry) and the new package READMEs.
 
-## 明确排除
+## Explicitly excluded
 
-- 不改写 cordis.yml（声明式条目保持只读展示）。
-- 不改动 `dsh-mcp-client` 的对外 API 与「一实例 = 一 server」模型。
-- 不做 MCP server 目录/市场（搜索框只过滤已配置的 server）。
-- agent-preset 内联挂载的 mcp-client 条目不在 `ctx.loader.entries()` 中（`packages/preset/agent-presets/README.md:117`），这类 server 不会出现在声明式行，也不在面板管理范围内。
+- cordis.yml is not rewritten (declarative entries stay read-only display).
+- `dsh-mcp-client`'s public API and one-instance-per-server model stay unchanged.
+- No MCP server directory/marketplace (the search box filters already-configured servers only).
+- mcp-client entries an agent preset mounts inline are absent from `ctx.loader.entries()` (`packages/preset/agent-presets/README.md:117`); such servers never appear among the declarative rows and stay outside the panel's management scope.

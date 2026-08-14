@@ -204,10 +204,15 @@ function remapBlockPaths(output: string, blocks: Block[]): string {
 
 const markdownGlobs = ['README.md', '.agents/notes/**/*.md', 'docs/**/*.md', 'packages/*/*.md', 'packages/*/*/*.md']
 
+/** Agent working documents whose code fences sketch files that do not exist yet. */
+function isSuperpowersPath(path: string): boolean {
+  return path.replaceAll('\\', '/').startsWith('docs/superpowers/')
+}
+
 const files: string[] = []
 for (const pattern of markdownGlobs) {
   for (const match of globSync(pattern, { cwd: root })) {
-    if (!isArchivedAgentNotePath(match)) files.push(resolve(root, match))
+    if (!isArchivedAgentNotePath(match) && !isSuperpowersPath(match)) files.push(resolve(root, match))
   }
 }
 files.sort()

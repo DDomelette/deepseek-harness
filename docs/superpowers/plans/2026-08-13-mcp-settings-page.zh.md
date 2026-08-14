@@ -1,33 +1,33 @@
-# MCP settings page implementation plan
+# MCP 设置页实现计划
 
-English | [中文](2026-08-13-mcp-settings-page.zh.md)
+[English](2026-08-13-mcp-settings-page.md) | 中文
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an MCP tab to the "Plugins" page of the Web settings dialog: show the settings-managed and cordis.yml-declared MCP server lists, a hot-apply toggle, a search box, and "+" add/edit/delete, styled consistently with the existing settings page.
+**Goal:** 在 Web 设置对话框「插件」页新增 MCP tab：展示 settings 管理与 cordis.yml 声明式的 MCP server 列表、热生效开关、搜索框、「+」添加/编辑/删除，风格与现有设置页一致。
 
-**Architecture:** A new host package `@deepseek-ai/dsh-mcp-manager` registers the `mcp-servers` settings namespace (`applies: 'live'`), watches it, diffs, and dynamically mounts/unmounts via `ctx.plugin(McpClient)`; the same package provides the Typert remote `mcpServers.list()` projecting both the settings and declarative sources. A new client package `@deepseek-ai/dsh-client-ui-settings-mcp` registers `settings.plugins.tab` (id `mcp`, order 5) and reads/writes via `ctx.settingsScope.bind({ namespace: 'mcp-servers' })`. The api-proxy allowlist adds `mcp-servers`.
+**Architecture:** 新 host 包 `@deepseek-ai/dsh-mcp-manager` 注册 settings 命名空间 `mcp-servers`（`applies: 'live'`），watch 后 diff 并动态 `ctx.plugin(McpClient)` 挂载/卸载；同包提供 Typert remote `mcpServers.list()` 投影 settings + declarative 两来源。新 client 包 `@deepseek-ai/dsh-client-ui-settings-mcp` 注册 `settings.plugins.tab`（id `mcp`，order 5），经 `ctx.settingsScope.bind({ namespace: 'mcp-servers' })` 读写。api-proxy 白名单加入 `mcp-servers`。
 
-**Tech Stack:** TypeScript ESM (strict), vendored Cordis, schemastery, React 18 + CSS Modules + clsx, `@deepseek-ai/dsh-client-ui-primitives`, vitest, Playwright e2e.
+**Tech Stack:** TypeScript ESM（strict）、vendored Cordis、schemastery、React 18 + CSS Modules + clsx、`@deepseek-ai/dsh-client-ui-primitives`、vitest、Playwright e2e。
 
-**Design document:** `docs/superpowers/specs/2026-08-13-mcp-settings-page-design.md` (approved; worktree branch `feat/mcp-settings-page`, working directory `.worktrees/mcp-settings-page`).
+**设计文档：** `docs/superpowers/specs/2026-08-13-mcp-settings-page-design.md`（已批准；工作树分支 `feat/mcp-settings-page`，工作目录 `.worktrees/mcp-settings-page`）。
 
 ## Global Constraints
 
-- All commands run under the worktree root `D:/Deepseek_Harness/.worktrees/mcp-settings-page`.
-- Package names: `@deepseek-ai/dsh-mcp-manager` on the host side, `@deepseek-ai/dsh-client-ui-<name>` on the client side; `@deepseek-ai/cordis` is a peerDependency + devDependency of every package.
-- ESM: `"type": "module"`; cross-package imports use package names, and local relative imports carry the `.ts` extension.
-- serverName constraint `/^[A-Za-z0-9_-]{1,32}$/` (same as mcp-client); the settings namespace literal `mcp-servers` is branded via `settingsNamespace()`.
-- Secret fields (`env`/`headers`) must use `role('secret')`; the wire face exposes a read-only redacted view, and writes go through path-ops.
-- Do not modify any file in `packages/mcp/mcp-client`; do not rewrite cordis.yml.
-- Every contribution goes through `ctx.effect()` / `ctx.on()`; misconfiguration fails loud; bilingual README + `README.i18n.yaml` pair (doc-sync gate).
-- Product copy is Chinese, code comments are English; JSDoc complies with `verify-export-jsdoc` (`@param`/`@returns` for every exported symbol).
-- Testing policy: client source is under the per-file 100% coverage gate (`pnpm run test:coverage`); the jsdom environment uses the `// @vitest-environment jsdom` pragma as the spec's first line.
-- Commit message format follows the repository's existing history (e.g. `feat: ...`); commit once at the end of each Task.
+- 所有命令在工作树根 `D:/Deepseek_Harness/.worktrees/mcp-settings-page` 下执行。
+- 包名：host 侧 `@deepseek-ai/dsh-mcp-manager`，client 侧 `@deepseek-ai/dsh-client-ui-<name>`；`@deepseek-ai/cordis` 是每个包的 peerDependency + devDependency。
+- ESM：`"type": "module"`；跨包用包名导入，本地相对导入带 `.ts` 扩展名。
+- serverName 约束 `/^[A-Za-z0-9_-]{1,32}$/`（与 mcp-client 一致）；settings 命名空间字面量 `mcp-servers`，经 `settingsNamespace()` 品牌化。
+- secret 字段（`env`/`headers`）必须 `role('secret')`；wire 面只读脱敏视图，写走 path-op。
+- 不改动 `packages/mcp/mcp-client` 的任何文件；不改写 cordis.yml。
+- 每个贡献走 `ctx.effect()` / `ctx.on()`；misconfiguration fails loud；双语 README + `README.i18n.yaml` 配对（doc-sync 门禁）。
+- 产品文案中文，代码注释英文；JSDoc 遵守 `verify-export-jsdoc`（每个导出符号 `@param`/`@returns`）。
+- 测试政策：client 源码在 per-file 100% 覆盖率门禁内（`pnpm run test:coverage`）；jsdom 环境用 spec 首行 `// @vitest-environment jsdom` pragma。
+- 提交信息格式遵循仓库既有历史（如 `feat: ...`）；每个 Task 结束提交一次。
 
 ---
 
-### Task 1: host package scaffold + `mcp-servers` schema + settings registration (with duplicate-name rejection on write)
+### Task 1: host 包脚手架 + `mcp-servers` schema + settings 注册（含写时重名拒绝）
 
 **Files:**
 - Create: `packages/mcp/mcp-manager/package.json`
@@ -36,20 +36,20 @@ English | [中文](2026-08-13-mcp-settings-page.zh.md)
 - Create: `packages/mcp/mcp-manager/src/declarative.ts`
 - Create: `packages/mcp/mcp-manager/src/index.ts`
 - Create: `packages/mcp/mcp-manager/src/invariant.ts`
-- Create: `packages/mcp/mcp-manager/README.md`, `README.zh.md`, `README.i18n.yaml`
-- Modify: `tsconfig.host.json` (insert into the references list in alphabetical order)
-- Test: `packages/mcp/mcp-manager/tests/schema.spec.ts`, `packages/mcp/mcp-manager/tests/register.spec.ts`
+- Create: `packages/mcp/mcp-manager/README.md`、`README.zh.md`、`README.i18n.yaml`
+- Modify: `tsconfig.host.json`（references 列表，按字母序插入）
+- Test: `packages/mcp/mcp-manager/tests/schema.spec.ts`、`packages/mcp/mcp-manager/tests/register.spec.ts`
 
 **Interfaces:**
-- Consumes: `settingsNamespace` / `SettingsRegisterOptions` (`@deepseek-ai/dsh-settings`); `ctx.loader.entries()` (the Context merge from `@deepseek-ai/cordis-plugin-loader`).
-- Produces (depended on by later Tasks):
-  - `MCP_SERVERS_NS: 'mcp-servers'` (`schema.ts`)
-  - `SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/` (`schema.ts`)
-  - `McpServersSchema: z<McpServersSection>`, `McpServerEntryConfig` (the fully resolved type of `enabled/transport/command?/args?/env?/cwd?/url?/headers?/toolCallTimeoutMs/failOnStartupError`, where every optional field is guaranteed a value after parsing), `McpServersSection = Record<string, McpServerEntryConfig>` (`schema.ts`)
-  - `declarativeMcpServers(ctx: Context): DeclarativeMcpServer[]`, where `DeclarativeMcpServer = { serverName: string; transport: 'stdio' | 'streamable-http'; enabled: boolean; fiberPhase: PluginFiberPhaseLike }` (`declarative.ts`; reused by Task 3's gateway)
-  - Plugin exports `name = 'mcp-manager'`, `inject`, `apply` (`index.ts`)
+- Consumes: `settingsNamespace` / `SettingsRegisterOptions`（`@deepseek-ai/dsh-settings`）；`ctx.loader.entries()`（`@deepseek-ai/cordis-plugin-loader` 的 Context merge）。
+- Produces（后续 Task 依赖）：
+  - `MCP_SERVERS_NS: 'mcp-servers'`（`schema.ts`）
+  - `SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/`（`schema.ts`）
+  - `McpServersSchema: z<McpServersSection>`、`McpServerEntryConfig`（`enabled/transport/command?/args?/env?/cwd?/url?/headers?/toolCallTimeoutMs/failOnStartupError` 的全解析类型，所有 optional 字段在解析后必有值）、`McpServersSection = Record<string, McpServerEntryConfig>`（`schema.ts`）
+  - `declarativeMcpServers(ctx: Context): DeclarativeMcpServer[]`，其中 `DeclarativeMcpServer = { serverName: string; transport: 'stdio' | 'streamable-http'; enabled: boolean; fiberPhase: PluginFiberPhaseLike }`（`declarative.ts`；Task 3 的 gateway 复用）
+  - 插件导出 `name = 'mcp-manager'`、`inject`、`apply`（`index.ts`）
 
-- [ ] **Step 1: Write a failing schema test** `packages/mcp/mcp-manager/tests/schema.spec.ts`
+- [ ] **Step 1: 写失败的 schema 测试** `packages/mcp/mcp-manager/tests/schema.spec.ts`
 
 ```ts ignore-check
 import { describe, expect, it } from 'vitest'
@@ -90,11 +90,11 @@ describe('mcp-servers schema', () => {
 })
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [ ] **Step 2: 运行确认失败**
 
-Run: `pnpm vitest run packages/mcp/mcp-manager/tests/schema.spec.ts` Expected: FAIL (module does not exist)
+Run: `pnpm vitest run packages/mcp/mcp-manager/tests/schema.spec.ts` Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: Implement the schema** `packages/mcp/mcp-manager/src/schema.ts`
+- [ ] **Step 3: 实现 schema** `packages/mcp/mcp-manager/src/schema.ts`
 
 ```ts ignore-check
 /**
@@ -170,11 +170,11 @@ export const McpServerEntrySchema = z.union([stdioEntry, httpEntry]) as unknown 
 export const McpServersSchema = z.dict(McpServerEntrySchema) as unknown as z<McpServersSection>
 ```
 
-- [ ] **Step 4: Run to confirm passing**
+- [ ] **Step 4: 运行确认通过**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/schema.spec.ts` Expected: PASS
 
-- [ ] **Step 5: Write a failing registration/duplicate-name-rejection test** `packages/mcp/mcp-manager/tests/register.spec.ts`
+- [ ] **Step 5: 写失败的注册/重名拒绝测试** `packages/mcp/mcp-manager/tests/register.spec.ts`
 
 ```ts ignore-check
 import { describe, expect, it } from 'vitest'
@@ -231,15 +231,15 @@ describe('mcp-manager settings registration', () => {
 })
 ```
 
-Here `settingsNamespaceLike` is `settingsNamespace` (imported from `@deepseek-ai/dsh-settings`); the `ctx.settings.update` signature is `update(ns, patch)` — the implementer adjusts the call shape to match the public `SettingsProvider` signature in `packages/settings/settings/src/index.ts`.
+其中 `settingsNamespaceLike` 即 `settingsNamespace`（从 `@deepseek-ai/dsh-settings` 导入）；`ctx.settings.update` 签名为 `update(ns, patch)`——实现者以 `packages/settings/settings/src/index.ts` 的 `SettingsProvider` 公开签名为准调整调用形状。
 
-- [ ] **Step 6: Run to confirm failure**
+- [ ] **Step 6: 运行确认失败**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/register.spec.ts` Expected: FAIL
 
-- [ ] **Step 7: Implement the declarative projection and plugin registration**
+- [ ] **Step 7: 实现 declarative 投影与插件注册**
 
-`packages/mcp/mcp-manager/src/declarative.ts`:
+`packages/mcp/mcp-manager/src/declarative.ts`：
 
 ```ts ignore-check
 /** Projection of cordis.yml-declared mcp-client Loader entries. */
@@ -294,7 +294,7 @@ export function declarativeMcpServers(ctx: Context): DeclarativeMcpServer[] {
 }
 ```
 
-`packages/mcp/mcp-manager/src/index.ts`:
+`packages/mcp/mcp-manager/src/index.ts`：
 
 ```ts ignore-check
 /**
@@ -346,9 +346,9 @@ export function apply(ctx: Context): void {
 }
 ```
 
-- [ ] **Step 8: Package scaffold**
+- [ ] **Step 8: 包脚手架**
 
-`packages/mcp/mcp-manager/package.json` (template: `packages/host/plugin-inventory/package.json`; the `./typert` and `./remote` exports are added only in Task 3, not in this Task):
+`packages/mcp/mcp-manager/package.json`（模板：`packages/host/plugin-inventory/package.json`；`./typert`、`./remote` 导出在 Task 3 才加，本 Task 不含）：
 
 ```json
 {
@@ -393,21 +393,21 @@ export function apply(ctx: Context): void {
 }
 ```
 
-`packages/mcp/mcp-manager/tsconfig.json` (template: `packages/host/plugin-inventory/tsconfig.json`, references follow the actual dependencies: `vendor/cordis`, `vendor/loader`, `../../settings/settings`, `../../runtime-diagnostics/invariants`, `../mcp-client`).
+`packages/mcp/mcp-manager/tsconfig.json`（模板：`packages/host/plugin-inventory/tsconfig.json`，references 按实际依赖：`vendor/cordis`、`vendor/loader`、`../../settings/settings`、`../../runtime-diagnostics/invariants`、`../mcp-client`）。
 
-`packages/mcp/mcp-manager/src/invariant.ts`: copy the structure of `packages/host/plugin-inventory/src/invariant.ts`, change `PACKAGE_NAME` to `'@deepseek-ai/dsh-mcp-manager'` and `name = 'mcp-manager-invariant'`; the invariant install body asserts "settings-managed serverNames have no intersection with declarative ones" (check `declarativeMcpServers` and the registered value; if registration has not happened, write an explained empty companion per the packages/AGENTS.md rules).
+`packages/mcp/mcp-manager/src/invariant.ts`：照抄 `packages/host/plugin-inventory/src/invariant.ts` 结构，`PACKAGE_NAME` 改为 `'@deepseek-ai/dsh-mcp-manager'`，`name = 'mcp-manager-invariant'`；invariant 安装体断言「settings 管理的 serverName 与 declarative 无交集」（查 `declarativeMcpServers` 与注册值；若注册未发生则按 packages/AGENTS.md 规则写 explained empty companion）。
 
-`tsconfig.host.json`: add `{ "path": "./packages/mcp/mcp-manager" }` to the `references` array in the existing sorted order.
+`tsconfig.host.json`：在 `references` 数组按现有排序加 `{ "path": "./packages/mcp/mcp-manager" }`。
 
-README.md / README.zh.md / README.i18n.yaml: follow the bilingual structure and i18n.yaml format of `packages/mcp/mcp-client/README.md`, covering: capability (settings namespace + hot mounting + read-only declarative projection), config table, and the relationship to mcp-client.
+README.md / README.zh.md / README.i18n.yaml：参照 `packages/mcp/mcp-client/README.md` 的双语结构与 i18n.yaml 格式，内容覆盖：能力（settings 命名空间 + 热挂载 + 只读 declarative 投影）、配置表、与 mcp-client 的关系。
 
-- [ ] **Step 9: Install dependencies and run tests**
+- [ ] **Step 9: 安装依赖并运行测试**
 
 Run: `pnpm install && pnpm vitest run packages/mcp/mcp-manager` Expected: PASS
 
-- [ ] **Step 10: Type check**
+- [ ] **Step 10: 类型检查**
 
-Run: `pnpm run build:lib:host` Expected: compiles
+Run: `pnpm run build:lib:host` Expected: 编译通过
 
 - [ ] **Step 11: Commit**
 
@@ -418,20 +418,20 @@ git commit -m "feat(mcp-manager): scaffold package with mcp-servers settings nam
 
 ---
 
-### Task 2: dynamic-mount supervisor (diff + ctx.plugin hot mounting + status tracking)
+### Task 2: 动态挂载 supervisor（diff + ctx.plugin 热挂载 + 状态跟踪）
 
 **Files:**
 - Create: `packages/mcp/mcp-manager/src/supervisor.ts`
-- Modify: `packages/mcp/mcp-manager/src/index.ts` (wire in the supervisor)
-- Test: `packages/mcp/mcp-manager/tests/supervisor.spec.ts`, `packages/mcp/mcp-manager/tests/mount.spec.ts`
+- Modify: `packages/mcp/mcp-manager/src/index.ts`（接入 supervisor）
+- Test: `packages/mcp/mcp-manager/tests/supervisor.spec.ts`、`packages/mcp/mcp-manager/tests/mount.spec.ts`
 
 **Interfaces:**
-- Consumes: Task 1's `McpServersSection` and `McpServerEntryConfig`; the namespace plugin object of `@deepseek-ai/dsh-mcp-client` (`import * as McpClient from '@deepseek-ai/dsh-mcp-client'`, `ctx.plugin(McpClient, config)` returns an awaitable `Fiber`, `fiber.dispose(): Promise<void>`).
-- Produces:
-  - `planServerDiff(prev: McpServersSection, next: McpServersSection): ServerAction[]`, `ServerAction = { kind: 'mount' | 'dispose' | 'remount'; serverName: string }` (pure function)
-  - `McpServerSupervisor`: `sync(next: McpServersSection): void`, `list(): ManagedServerState[]`, `dispose(): Promise<void>`; `ManagedServerState = { serverName: string; enabled: boolean; status: 'connecting' | 'ready' | 'failed'; error?: string }`
+- Consumes: Task 1 的 `McpServersSection`、`McpServerEntryConfig`；`@deepseek-ai/dsh-mcp-client` 的命名空间插件对象（`import * as McpClient from '@deepseek-ai/dsh-mcp-client'`，`ctx.plugin(McpClient, config)` 返回可 await 的 `Fiber`，`fiber.dispose(): Promise<void>`）。
+- Produces：
+  - `planServerDiff(prev: McpServersSection, next: McpServersSection): ServerAction[]`，`ServerAction = { kind: 'mount' | 'dispose' | 'remount'; serverName: string }`（纯函数）
+  - `McpServerSupervisor`：`sync(next: McpServersSection): void`、`list(): ManagedServerState[]`、`dispose(): Promise<void>`；`ManagedServerState = { serverName: string; enabled: boolean; status: 'connecting' | 'ready' | 'failed'; error?: string }`
 
-- [ ] **Step 1: Write a failing diff pure-function test** `tests/supervisor.spec.ts`
+- [ ] **Step 1: 写失败的 diff 纯函数测试** `tests/supervisor.spec.ts`
 
 ```ts ignore-check
 import { describe, expect, it } from 'vitest'
@@ -467,11 +467,11 @@ describe('planServerDiff', () => {
 })
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [ ] **Step 2: 运行确认失败**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/supervisor.spec.ts` Expected: FAIL
 
-- [ ] **Step 3: Implement the supervisor** `src/supervisor.ts`
+- [ ] **Step 3: 实现 supervisor** `src/supervisor.ts`
 
 ```ts ignore-check
 /**
@@ -589,15 +589,15 @@ export class McpServerSupervisor {
 }
 ```
 
-Note: disabled settings entries must also appear in `list()` (the panel shows them but marks their status disabled) — when implementing, change `list()` to iterate `this.section`: enabled ones read the mounts state, disabled ones return `{ serverName, enabled: false, status: 'failed' }`... no, the `status` semantics become `'connecting' | 'ready' | 'failed'`, and disabled entries report no status — see Task 3's list entry type (`status: McpServerStatus | null`, `null` for disabled). The implementer aligns to the Task 3 type.
+注意：disabled 的 settings 条目也要出现在 `list()`（面板要显示它但 status 标 disabled）——实现时把 `list()` 改为遍历 `this.section`：enabled 的读 mounts 状态，disabled 的返回 `{ serverName, enabled: false, status: 'failed' }`……不，`status` 语义改为 `'connecting' | 'ready' | 'failed'`，disabled 条目不上报 status——见 Task 3 的 list entry 类型（`status: McpServerStatus | null`，disabled 为 `null`）。实现者按 Task 3 类型对齐。
 
-- [ ] **Step 4: Run the diff test to confirm passing**
+- [ ] **Step 4: 运行 diff 测试确认通过**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/supervisor.spec.ts` Expected: PASS
 
-- [ ] **Step 5: Write the mount integration test** `tests/mount.spec.ts`
+- [ ] **Step 5: 写挂载集成测试** `tests/mount.spec.ts`
 
-Use the existing stdio fixture from `packages/mcp/mcp-client/tests/fixture-server.ts` (`command: process.execPath`, following the server-start approach in `mcp-client.e2e.ts:73`):
+用 `packages/mcp/mcp-client/tests/fixture-server.ts` 的既有 stdio fixture（`command: process.execPath`，参照 `mcp-client.e2e.ts:73` 的起服方式）：
 
 ```ts ignore-check
 import { describe, expect, it } from 'vitest'
@@ -623,15 +623,15 @@ describe('mcp-manager mounting', () => {
 })
 ```
 
-Inline the complete assertion code in each it (empty implementations are not allowed); the tool-existence assertions follow how `packages/mcp/mcp-client/tests/apply.spec.ts` reads `ctx.tools`.
+每个 it 内联完整断言代码（不允许留空实现）；工具存在性断言参照 `packages/mcp/mcp-client/tests/apply.spec.ts` 对 `ctx.tools` 的读法。
 
-- [ ] **Step 6: Run to confirm failure (supervisor not yet wired into index.ts)**
+- [ ] **Step 6: 运行确认失败（supervisor 尚未接入 index.ts）**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/mount.spec.ts` Expected: FAIL
 
-- [ ] **Step 7: Wire into index.ts**
+- [ ] **Step 7: 接入 index.ts**
 
-Inside `apply`'s `ctx.inject` callback, after registration:
+`apply` 的 `ctx.inject` 回调内、注册之后：
 
 ```ts ignore-check
 const scope = sctx.settings.register(/* …Task 1 内容… */)
@@ -641,7 +641,7 @@ sctx.effect(() => scope.watch((next) => { supervisor.sync(next) }), 'mcp-manager
 sctx.effect(() => () => supervisor.dispose(), 'mcp-manager: roster teardown')
 ```
 
-- [ ] **Step 8: Run all mcp-manager tests to confirm passing**
+- [ ] **Step 8: 运行全部 mcp-manager 测试确认通过**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager` Expected: PASS
 
@@ -659,22 +659,22 @@ git commit -m "feat(mcp-manager): hot-mount supervisor over the mcp-servers name
 **Files:**
 - Create: `packages/mcp/mcp-manager/src/types.ts`
 - Create: `packages/mcp/mcp-manager/src/gateway.ts`
-- Modify: `packages/mcp/mcp-manager/src/index.ts` (default-export the gateway; follow plugin-inventory's `export default PluginInventoryGateway`)
-- Modify: `packages/mcp/mcp-manager/package.json` (add `./typert` and `./remote` exports and `files` entries, peer/dev dependencies `@deepseek-ai/dsh-typert-protocol`, `@deepseek-ai/dsh-brand`)
-- Modify: `packages/mcp/mcp-manager/tsconfig.json` (add `../../typert/protocol`, `../../util/brand` to references)
-- Modify: `packages/bundle/web-app/cordis.patch.yml` (add the mcp-manager entry in the host section)
-- Modify: `packages/bundle/web-app/package.json` (add `@deepseek-ai/dsh-mcp-manager` to dependencies)
+- Modify: `packages/mcp/mcp-manager/src/index.ts`（default export gateway；参照 plugin-inventory `export default PluginInventoryGateway`）
+- Modify: `packages/mcp/mcp-manager/package.json`（加 `./typert`、`./remote` 导出与 `files` 条目、peer/dev 依赖 `@deepseek-ai/dsh-typert-protocol`、`@deepseek-ai/dsh-brand`）
+- Modify: `packages/mcp/mcp-manager/tsconfig.json`（references 加 `../../typert/protocol`、`../../util/brand`）
+- Modify: `packages/bundle/web-app/cordis.patch.yml`（host 区加 mcp-manager 条目）
+- Modify: `packages/bundle/web-app/package.json`（dependencies 加 `@deepseek-ai/dsh-mcp-manager`）
 - Test: `packages/mcp/mcp-manager/tests/gateway.spec.ts`
 
 **Interfaces:**
-- Consumes: Task 1's `declarativeMcpServers`; Task 2's `McpServerSupervisor.list()`; `TypertRemoteService`/`Remote` (`@deepseek-ai/dsh-typert-protocol`).
-- Produces (depended on by client Task 5):
-  - `McpServerStatus = 'connecting' | 'ready' | 'failed'` (`types.ts`)
+- Consumes: Task 1 `declarativeMcpServers`；Task 2 `McpServerSupervisor.list()`；`TypertRemoteService`/`Remote`（`@deepseek-ai/dsh-typert-protocol`）。
+- Produces（client Task 5 依赖）：
+  - `McpServerStatus = 'connecting' | 'ready' | 'failed'`（`types.ts`）
   - `McpServerListEntry = { serverName: string; transport: 'stdio' | 'streamable-http'; source: 'settings' | 'declarative'; enabled: boolean; status: McpServerStatus | null; error?: string }`
   - `McpServerSnapshot = { entries: readonly McpServerListEntry[] }`
-  - `McpServersGateway extends TypertRemoteService`, `@Remote('list') list(): McpServerSnapshot`; service name `'mcpServers'`
+  - `McpServersGateway extends TypertRemoteService`，`@Remote('list') list(): McpServerSnapshot`；service 名 `'mcpServers'`
 
-- [ ] **Step 1: Write a failing gateway test** `tests/gateway.spec.ts`
+- [ ] **Step 1: 写失败的 gateway 测试** `tests/gateway.spec.ts`
 
 ```ts ignore-check
 // 装配：host app + 假 loader（一条 declarative mcp-client 条目）+ settings 注册
@@ -685,13 +685,13 @@ git commit -m "feat(mcp-manager): hot-mount supervisor over the mcp-servers name
 // - 条目不含 env/headers 字段（敏感字段不投影）
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [ ] **Step 2: 运行确认失败**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager/tests/gateway.spec.ts` Expected: FAIL
 
-- [ ] **Step 3: Implement the types and gateway**
+- [ ] **Step 3: 实现 types 与 gateway**
 
-`src/types.ts`:
+`src/types.ts`：
 
 ```ts ignore-check
 /** Wire types of the mcpServers Remote face. */
@@ -721,7 +721,7 @@ export interface McpServerSnapshot {
 }
 ```
 
-`src/gateway.ts`:
+`src/gateway.ts`：
 
 ```ts ignore-check
 /** Remote-only service exposing the MCP server roster to trusted clients. */
@@ -780,28 +780,28 @@ export class McpServersGateway extends TypertRemoteService {
 export default McpServersGateway
 ```
 
-Implementer note: the concrete form of `supervisorFor`/`transportOf` depends on how the supervisor holds the section — store `McpServersSection` on the supervisor (`sync` already assigns `this.section`), and having `list()` produce rows that include transport directly is simpler than a second lookup. The implementation may extend `ManagedServerState` with a `transport` field and update Task 2's code and tests accordingly.
+实现者注意：`supervisorFor`/`transportOf` 的具体形态由 supervisor 对 section 的持有方式决定——把 `McpServersSection` 存在 supervisor 上（`sync` 已赋值 `this.section`），`list()` 直接产出含 transport 的行比二次查询更简。允许在实现中把 `ManagedServerState` 扩展出 `transport` 字段并同步修订 Task 2 代码与测试。
 
-Also note: mcp-client entries mounted inline by agent-preset are not in `ctx.loader.entries()` (`packages/preset/agent-presets/README.md:117`), so this projection naturally excludes them — this is a design decision (the spec's "explicit exclusion"), not an omission; the gateway's JSDoc states this.
+另注意：agent-preset 内联挂载的 mcp-client 条目不在 `ctx.loader.entries()` 中（`packages/preset/agent-presets/README.md:117`），本投影天然不含它们——这是设计决策（规格的「明确排除」），不是遗漏；gateway 的 JSDoc 写明这一点。
 
-- [ ] **Step 4: Wire into index.ts and generate typert artifacts**
+- [ ] **Step 4: 接入 index.ts 并生成 typert artifacts**
 
-index.ts: `export type * from './types.ts'`, `export { McpServersGateway }`, `export default McpServersGateway`; inside `apply`, store the supervisor in a module-level `WeakMap<Context, McpServerSupervisor>` (keyed by `ctx.root`) for the gateway to read.
+index.ts：`export type * from './types.ts'`、`export { McpServersGateway }`、`export default McpServersGateway`；`apply` 内把 supervisor 存入模块级 `WeakMap<Context, McpServerSupervisor>`（key 用 `ctx.root`）供 gateway 读取。
 
-package.json adds the export pair (following plugin-inventory):
+package.json 增加导出对（照 plugin-inventory）：
 
 ```json
 "./typert": { "types": "./lib/typert.host.d.ts", "default": "./lib/typert.host.js" },
 "./remote": { "types": "./lib/typert.remote-client.d.ts", "default": "./lib/typert.remote-client.js" }
 ```
 
-`files` adds `"lib/typert.host.js"`, `"lib/typert.host.d.ts"`, `"lib/typert.remote-client.js"`, `"lib/typert.remote-client.d.ts"`.
+`files` 增加 `"lib/typert.host.js"`, `"lib/typert.host.d.ts"`, `"lib/typert.remote-client.js"`, `"lib/typert.remote-client.d.ts"`。
 
-Run: `pnpm install && pnpm run build:lib:host` (tsdown's typertPlugin auto-scans `TypertRemoteService` subclasses and generates artifacts) Expected: `packages/mcp/mcp-manager/lib/typert.host.js` and `lib/typert.remote-client.js` are generated
+Run: `pnpm install && pnpm run build:lib:host`（tsdown 的 typertPlugin 自动扫描 `TypertRemoteService` 子类并生成 artifacts） Expected: `packages/mcp/mcp-manager/lib/typert.host.js` 与 `lib/typert.remote-client.js` 生成
 
-- [ ] **Step 5: web-app assembly**
+- [ ] **Step 5: web-app 组装**
 
-`packages/bundle/web-app/cordis.patch.yml`: after the plugin-inventory entry add:
+`packages/bundle/web-app/cordis.patch.yml`：在 plugin-inventory 条目后加：
 
 ```yaml
     # Settings-driven MCP server manager and its read-only roster Remote.
@@ -809,9 +809,9 @@ Run: `pnpm install && pnpm run build:lib:host` (tsdown's typertPlugin auto-scans
       name: '@deepseek-ai/dsh-mcp-manager'
 ```
 
-`packages/bundle/web-app/package.json`: add `"@deepseek-ai/dsh-mcp-manager": "workspace:^"` to dependencies.
+`packages/bundle/web-app/package.json`：dependencies 加 `"@deepseek-ai/dsh-mcp-manager": "workspace:^"`。
 
-- [ ] **Step 6: Run tests**
+- [ ] **Step 6: 运行测试**
 
 Run: `pnpm vitest run packages/mcp/mcp-manager` Expected: PASS
 
@@ -824,21 +824,21 @@ git commit -m "feat(mcp-manager): mcpServers.list remote over settings and decla
 
 ---
 
-### Task 4: api-proxy allowlist + api-remotes aggregation
+### Task 4: api-proxy 白名单 + api-remotes 聚合
 
 **Files:**
-- Modify: `packages/host/apiproxy/src/api-proxy.ts:127-130` (`WEB_SETTINGS_NAMESPACES`)
-- Modify: `packages/api/remotes/src/client/index.ts` (mount + type re-exports)
-- Modify: `packages/api/remotes/package.json` (add `@deepseek-ai/dsh-mcp-manager` to dependencies)
-- Test: `packages/host/apiproxy/tests/api-proxy-config.spec.ts` (add a case)
+- Modify: `packages/host/apiproxy/src/api-proxy.ts:127-130`（`WEB_SETTINGS_NAMESPACES`）
+- Modify: `packages/api/remotes/src/client/index.ts`（mount + 类型再导出）
+- Modify: `packages/api/remotes/package.json`（dependencies 加 `@deepseek-ai/dsh-mcp-manager`）
+- Test: `packages/host/apiproxy/tests/api-proxy-config.spec.ts`（追加用例）
 
 **Interfaces:**
-- Consumes: Task 3's `./remote` and `./types` exports.
-- Produces: `ctx.remote.mcpServers.list()` is available on the client side; `settings.describe/mutate` accept `mcp-servers`.
+- Consumes: Task 3 的 `./remote` 与 `./types` 导出。
+- Produces: client 侧 `ctx.remote.mcpServers.list()` 可用；`settings.describe/mutate` 接受 `mcp-servers`。
 
-- [ ] **Step 1: Write a failing allowlist test**
+- [ ] **Step 1: 写失败的白名单测试**
 
-Append to `api-proxy-config.spec.ts` (following the "serves model-provider and explicitly allowlisted Web namespaces only" case starting at L324):
+在 `api-proxy-config.spec.ts` 追加（参照 L324 起的 "serves model-provider and explicitly allowlisted Web namespaces only" 用例）：
 
 ```ts ignore-check
 it('exposes the mcp-servers namespace to the Web client', async () => {
@@ -852,15 +852,15 @@ it('exposes the mcp-servers namespace to the Web client', async () => {
 })
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [ ] **Step 2: 运行确认失败**
 
-Run: `pnpm vitest run packages/host/apiproxy/tests/api-proxy-config.spec.ts -t mcp-servers` Expected: FAIL (`settings-not-exposed` or namespaces does not contain it)
+Run: `pnpm vitest run packages/host/apiproxy/tests/api-proxy-config.spec.ts -t mcp-servers` Expected: FAIL（`settings-not-exposed` 或 namespaces 不含）
 
-- [ ] **Step 3: Add the allowlist and aggregation**
+- [ ] **Step 3: 加白名单与聚合**
 
-In `api-proxy.ts`, add `'mcp-servers'` to the `WEB_SETTINGS_NAMESPACES` array and update its JSDoc (L117-126, noting that the MCP panel is one section of that page).
+`api-proxy.ts` `WEB_SETTINGS_NAMESPACES` 数组加 `'mcp-servers'`，并更新其 JSDoc（L117-126，点明 MCP 面板是该页的一个 section）。
 
-`packages/api/remotes/src/client/index.ts`: follow pluginInventory's three-part pattern —
+`packages/api/remotes/src/client/index.ts`：照 pluginInventory 的三处模式——
 
 ```ts ignore-check
 import mcpServersRemote from '@deepseek-ai/dsh-mcp-manager/remote'
@@ -869,15 +869,15 @@ export type {} from '@deepseek-ai/dsh-mcp-manager/remote'
 // mount 列表：commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote, messageFeedbackRemote, mcpServersRemote
 ```
 
-`packages/api/remotes/package.json`: add `"@deepseek-ai/dsh-mcp-manager": "workspace:^"` to dependencies.
+`packages/api/remotes/package.json` dependencies 加 `"@deepseek-ai/dsh-mcp-manager": "workspace:^"`。
 
-- [ ] **Step 4: Run to confirm passing**
+- [ ] **Step 4: 运行确认通过**
 
 Run: `pnpm install && pnpm vitest run packages/host/apiproxy/tests/api-proxy-config.spec.ts` Expected: PASS
 
-- [ ] **Step 5: Type check**
+- [ ] **Step 5: 类型检查**
 
-Run: `pnpm run build:lib:host && pnpm run typecheck:contracts-ready` Expected: compiles
+Run: `pnpm run build:lib:host && pnpm run typecheck:contracts-ready` Expected: 编译通过
 
 - [ ] **Step 6: Commit**
 
@@ -888,13 +888,13 @@ git commit -m "feat(apiproxy): expose the mcp-servers namespace and mcpServers r
 
 ---
 
-### Task 5: client package scaffold + MCP tab list view (search + toggles + read-only declarative rows)
+### Task 5: client 包脚手架 + MCP tab 列表视图（搜索 + 开关 + 声明式只读行）
 
 **Files:**
 - Create: `packages/client/ui-settings-mcp/package.json`
 - Create: `packages/client/ui-settings-mcp/tsconfig.json`
 - Create: `packages/client/ui-settings-mcp/tsdown.config.ts`
-- Create: `packages/client/ui-settings-mcp/src/index.ts` (empty node-half apply)
+- Create: `packages/client/ui-settings-mcp/src/index.ts`（空 node-half apply）
 - Create: `packages/client/ui-settings-mcp/src/invariant.ts`
 - Create: `packages/client/ui-settings-mcp/src/css-modules.d.ts`
 - Create: `packages/client/ui-settings-mcp/src/client/index.ts`
@@ -903,22 +903,22 @@ git commit -m "feat(apiproxy): expose the mcp-servers namespace and mcpServers r
 - Create: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.tsx`
 - Create: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.module.css`
 - Create: `packages/client/ui-settings-mcp/README.md`
-- Modify: `tsconfig.client.json` (add `./packages/client/ui-settings-mcp` to references)
-- Modify: `packages/bundle/web-app/cordis.patch.yml` (add the ui-settings-mcp entry in the client section)
-- Modify: `packages/bundle/web-app/package.json` (add `@deepseek-ai/dsh-client-ui-settings-mcp` to dependencies)
+- Modify: `tsconfig.client.json`（references 加 `./packages/client/ui-settings-mcp`）
+- Modify: `packages/bundle/web-app/cordis.patch.yml`（client 区加 ui-settings-mcp 条目）
+- Modify: `packages/bundle/web-app/package.json`（dependencies 加 `@deepseek-ai/dsh-client-ui-settings-mcp`）
 - Test: `packages/client/ui-settings-mcp/tests/mcp-tab.client.spec.tsx`
 
 **Interfaces:**
-- Consumes: `ctx.settingsScope.bind({ namespace })` (`@deepseek-ai/dsh-client-ui-settings/client`) → `SettingsScopeController<McpServersSection>` (`set(serverName, value)` / `unset(serverName)` / `getSnapshot()`); `ctx.remote.mcpServers.list()` (Task 4); the `settings.plugins.tab` slot (declared by `ui-settings-plugins`).
-- Produces: the `McpSettingsTab` component + `McpSettingsTabInjected = { list(): Promise<McpServerSnapshot>; setEnabled(serverName: string, enabled: boolean): Promise<void> }`; the locale namespace `settings.mcp`.
+- Consumes: `ctx.settingsScope.bind({ namespace })`（`@deepseek-ai/dsh-client-ui-settings/client`）→ `SettingsScopeController<McpServersSection>`（`set(serverName, value)` / `unset(serverName)` / `getSnapshot()`）；`ctx.remote.mcpServers.list()`（Task 4）；slot `settings.plugins.tab`（`ui-settings-plugins` 声明）。
+- Produces：`McpSettingsTab` 组件 + `McpSettingsTabInjected = { list(): Promise<McpServerSnapshot>; setEnabled(serverName: string, enabled: boolean): Promise<void> }`；locale namespace `settings.mcp`。
 
-- [ ] **Step 1: Package scaffold** (strictly per the `packages/client/AGENTS.md` new-package checklist)
+- [ ] **Step 1: 包脚手架**（严格按 `packages/client/AGENTS.md` 新包 checklist）
 
-`package.json` template follows `packages/client/ui-settings-plugin-inventory/package.json`: name `@deepseek-ai/dsh-client-ui-settings-mcp`, exports `.`/`./invariant`/`./client`/`./src/*`/`./package.json`, the `dsh.client` manifest (inject lists `@deepseek-ai/dsh-api-remotes`, `@deepseek-ai/dsh-client-runtime`, `@deepseek-ai/dsh-client-ui-settings`, `@deepseek-ai/dsh-client-locale`, platform `web`), peer/dev dependencies same as the template plus `@deepseek-ai/dsh-client-test-runtime`, `@testing-library/react`.
+`package.json` 模板照 `packages/client/ui-settings-plugin-inventory/package.json`：name `@deepseek-ai/dsh-client-ui-settings-mcp`，exports `.`/`./invariant`/`./client`/`./src/*`/`./package.json`，`dsh.client` manifest（inject 列 `@deepseek-ai/dsh-api-remotes`、`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-settings`、`@deepseek-ai/dsh-client-locale`，platform `web`），peer/dev 依赖同模板外加 `@deepseek-ai/dsh-client-test-runtime`、`@testing-library/react`。
 
-`tsconfig.json` extends `../../../tsconfig.base.client.json`, and references are listed one per dependency (template: ui-settings-plugin-inventory/tsconfig.json).
+`tsconfig.json` extends `../../../tsconfig.base.client.json`，references 按依赖逐个列（模板：ui-settings-plugin-inventory/tsconfig.json）。
 
-`tsdown.config.ts` (following `packages/client/ui-settings-plugin-inventory/tsdown.config.ts`):
+`tsdown.config.ts`（照 `packages/client/ui-settings-plugin-inventory/tsdown.config.ts`）：
 
 ```ts ignore-check
 import { clientBundle } from '../tsdown.client.ts'
@@ -926,13 +926,13 @@ import { clientBundle } from '../tsdown.client.ts'
 export default clientBundle('@deepseek-ai/dsh-client-ui-settings-mcp', ['lib/types/index.js', 'lib/types/invariant.js'])
 ```
 
-`src/index.ts`: empty node-half (`export function apply(): void {}`, following the template package). `src/invariant.ts`: the client-side invariant companion (following the template package structure). `src/css-modules.d.ts`: `declare module '*.module.css'` (following the template package).
+`src/index.ts`：空 node-half（`export function apply(): void {}`，照模板包）。`src/invariant.ts`：client 侧 invariant companion（照模板包结构）。`src/css-modules.d.ts`：`declare module '*.module.css'`（照模板包）。
 
-All three registration surfaces are in place: the `tsconfig.client.json` references, the web-app cordis.patch.yml entry, and the web-app package.json dependency.
+三个注册面全部到位：`tsconfig.client.json` references、web-app cordis.patch.yml 条目、web-app package.json 依赖。
 
-- [ ] **Step 2: Write a failing component test** `tests/mcp-tab.client.spec.tsx`
+- [ ] **Step 2: 写失败的组件测试** `tests/mcp-tab.client.spec.tsx`
 
-First line is `// @vitest-environment jsdom`. Feed the component props directly (checklist "component tests feed props directly"):
+首行 `// @vitest-environment jsdom`。组件直接喂 props（checklist「component tests feed props directly」）：
 
 ```tsx
 // 场景：
@@ -944,13 +944,13 @@ First line is `// @vitest-environment jsdom`. Feed the component props directly 
 // 5. 连接失败行显示失败标记与错误摘要
 ```
 
-- [ ] **Step 3: Run to confirm failure**
+- [ ] **Step 3: 运行确认失败**
 
 Run: `pnpm vitest run packages/client/ui-settings-mcp` Expected: FAIL
 
-- [ ] **Step 4: Implement locales / controller / component / styles**
+- [ ] **Step 4: 实现 locales / controller / 组件 / 样式**
 
-`src/client/locales.ts` (zh is the key source of truth, en mirrors it; follow the `ui-settings-plugin-inventory/src/client/locales.ts` structure):
+`src/client/locales.ts`（zh 为 key 源头，en 镜像；照 `ui-settings-plugin-inventory/src/client/locales.ts` 结构）：
 
 ```ts ignore-check
 /** Copy dictionaries for the MCP Settings tab. */
@@ -1001,9 +1001,9 @@ export const en: Record<keyof typeof zh, string> = {
 export type McpLocaleKey = keyof typeof zh
 ```
 
-`src/client/mcp-tab-controller.ts`: wraps `ctx.settingsScope.bind({ namespace: 'mcp-servers' })` and `ctx.remote.mcpServers.list()`; `setEnabled(serverName, enabled)` reads that server's current value from the scope snapshot and writes it back with `scope.set(serverName, { ...current, enabled })` (a single path-op, preserving the remaining fields and unseen secrets).
+`src/client/mcp-tab-controller.ts`：封装 `ctx.settingsScope.bind({ namespace: 'mcp-servers' })` 与 `ctx.remote.mcpServers.list()`；`setEnabled(serverName, enabled)` 读 scope 快照中该 server 的当前值，以 `scope.set(serverName, { ...current, enabled })` 写回（单 path-op，保留其余字段与未见的 secret）。
 
-`src/client/index.ts` (following the ui-settings-plugin-inventory/src/client/index.ts structure):
+`src/client/index.ts`（照 ui-settings-plugin-inventory/src/client/index.ts 结构）：
 
 ```ts ignore-check
 /** MCP server roster tab in Web Plugins settings. */
@@ -1050,17 +1050,17 @@ export function apply(ctx: ClientContext): void {
 }
 ```
 
-`McpSettingsTab.tsx`: structure follows `PluginInventorySettingsTab.tsx` (loading/error/retry three states, search box, `<ul>` rows); differences: the top row's right side is a search box + a rounded-square "+" button (an add icon inside `<Button variant="outline" size="sm" aria-label={t('addServer')}>`, with `border-radius` using the same card token in CSS); the row end is a gear button + toggle (`<button role="switch" aria-checked=...>`, implemented with button+CSS if ui-primitives has no ready Switch, styled to match figure two); the declarative row's toggle and gear are `disabled` + `title={t('declarativeTag')}`. In this Task, "+" first only switches to an empty add-view placeholder (Task 6 fills in the form); the placeholder view includes a title and a back link — no form fields are rendered.
+`McpSettingsTab.tsx`：结构照 `PluginInventorySettingsTab.tsx`（loading/error/retry 三态、搜索框、`<ul>` 行）；差异：顶部行右侧是搜索框 + 圆角方形「+」按钮（`<Button variant="outline" size="sm" aria-label={t('addServer')}>` 内 add 图标，CSS 里 `border-radius` 用卡片同款 token）；行尾是齿轮按钮 + toggle（`<button role="switch" aria-checked=...>`，ui-primitives 若无现成 Switch 则用 button+CSS 实现，样式对齐图二）；declarative 行 toggle 与齿轮 `disabled` + `title={t('declarativeTag')}`。「+」本 Task 先只切换到空添加视图占位（Task 6 填表单），占位视图含标题与返回链接——不渲染表单字段。
 
-`McpSettingsTab.module.css`: only `--dsw-*` tokens (docs/web-styling.md), no literal color values; layout aligns with PluginInventorySettingsTab.module.css.
+`McpSettingsTab.module.css`：只用 `--dsw-*` token（docs/web-styling.md），无字面色值；版式对齐 PluginInventorySettingsTab.module.css。
 
-- [ ] **Step 5: Run to confirm passing + coverage**
+- [ ] **Step 5: 运行确认通过 + 覆盖率**
 
-Run: `pnpm vitest run packages/client/ui-settings-mcp --coverage` Expected: PASS, new package source files at 100% coverage
+Run: `pnpm vitest run packages/client/ui-settings-mcp --coverage` Expected: PASS，新包源文件 100% 覆盖
 
-- [ ] **Step 6: bundle and type check**
+- [ ] **Step 6: bundle 与类型检查**
 
-Run: `pnpm --filter @deepseek-ai/dsh-client-ui-settings-mcp bundle && pnpm run typecheck:contracts-ready` Expected: compiles
+Run: `pnpm --filter @deepseek-ai/dsh-client-ui-settings-mcp bundle && pnpm run typecheck:contracts-ready` Expected: 编译通过
 
 - [ ] **Step 7: Commit**
 
@@ -1071,21 +1071,21 @@ git commit -m "feat(ui-settings-mcp): MCP roster tab with search, toggles, and r
 
 ---
 
-### Task 6: add-server view (form + validation + save)
+### Task 6: 添加服务器视图（表单 + 校验 + 保存）
 
 **Files:**
 - Create: `packages/client/ui-settings-mcp/src/client/AddServerForm.tsx`
-- Create: `packages/client/ui-settings-mcp/src/client/AddServerForm.module.css` (if it cannot be combined with the main styles)
-- Modify: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.tsx` ("+" switches to the add view)
-- Modify: `packages/client/ui-settings-mcp/src/client/mcp-tab-controller.ts` (`addServer`)
-- Modify: `packages/client/ui-settings-mcp/src/client/locales.ts` (form copy)
+- Create: `packages/client/ui-settings-mcp/src/client/AddServerForm.module.css`（若与主样式无法合置）
+- Modify: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.tsx`（「+」切换到添加视图）
+- Modify: `packages/client/ui-settings-mcp/src/client/mcp-tab-controller.ts`（`addServer`）
+- Modify: `packages/client/ui-settings-mcp/src/client/locales.ts`（表单文案）
 - Test: `packages/client/ui-settings-mcp/tests/add-server.client.spec.tsx`
 
 **Interfaces:**
-- Consumes: Task 5's controller and component skeleton.
-- Produces: `McpSettingsTabInjected` adds `addServer(entry: NewServerDraft): Promise<string | null>` (returns the error key or null); `NewServerDraft = { serverName: string } & ({ transport: 'stdio'; command: string; args: string[]; env: Record<string, string>; cwd: string } | { transport: 'streamable-http'; url: string; headers: Record<string, string> }) & { toolCallTimeoutMs?: number }`.
+- Consumes: Task 5 的 controller 与组件骨架。
+- Produces: `McpSettingsTabInjected` 增加 `addServer(entry: NewServerDraft): Promise<string | null>`（返回错误 key 或 null）；`NewServerDraft = { serverName: string } & ({ transport: 'stdio'; command: string; args: string[]; env: Record<string, string>; cwd: string } | { transport: 'streamable-http'; url: string; headers: Record<string, string> }) & { toolCallTimeoutMs?: number }`。
 
-- [ ] **Step 1: Write a failing form test**
+- [ ] **Step 1: 写失败的表单测试**
 
 ```tsx
 // 场景：
@@ -1098,15 +1098,15 @@ git commit -m "feat(ui-settings-mcp): MCP roster tab with search, toggles, and r
 // 7. args 输入按行/逗号拆分；env/headers 以 KEY=VALUE 行解析
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [ ] **Step 2: 运行确认失败**
 
 Run: `pnpm vitest run packages/client/ui-settings-mcp` Expected: FAIL
 
-- [ ] **Step 3: Implement the form and save**
+- [ ] **Step 3: 实现表单与保存**
 
-`AddServerForm.tsx`: a controlled form; the local validation function `validateDraft(draft, existingNames): McpLocaleKey | null` is exported as a pure function for tests to call directly; field components reuse `ui-primitives` input widgets (following the `fields.tsx` usage in ui-settings-plugins).
+`AddServerForm.tsx`：受控表单；本地校验函数 `validateDraft(draft, existingNames): McpLocaleKey | null` 纯函数导出供测试直调；字段组件复用 `ui-primitives` 的输入件（参照 ui-settings-plugins 的 `fields.tsx` 用法）。
 
-controller:
+controller：
 
 ```ts ignore-check
 /**
@@ -1125,11 +1125,11 @@ async addServer(draft: NewServerDraft): Promise<McpLocaleKey | null> {
 }
 ```
 
-After saving, the view switches back to the list (component-local state).
+保存后视图切回列表（组件本地 state）。
 
-- [ ] **Step 4: Run to confirm passing + coverage**
+- [ ] **Step 4: 运行确认通过 + 覆盖率**
 
-Run: `pnpm vitest run packages/client/ui-settings-mcp --coverage` Expected: PASS, 100% coverage
+Run: `pnpm vitest run packages/client/ui-settings-mcp --coverage` Expected: PASS，100% 覆盖
 
 - [ ] **Step 5: Commit**
 
@@ -1140,19 +1140,19 @@ git commit -m "feat(ui-settings-mcp): add-server form with inline validation"
 
 ---
 
-### Task 7: edit / remove + secret redaction handling
+### Task 7: 编辑 / 删除 + secret 脱敏处理
 
 **Files:**
 - Create: `packages/client/ui-settings-mcp/src/client/EditServerForm.tsx`
-- Modify: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.tsx` (gear expands the edit view)
-- Modify: `packages/client/ui-settings-mcp/src/client/mcp-tab-controller.ts` (`updateServer` / `removeServer`)
+- Modify: `packages/client/ui-settings-mcp/src/client/McpSettingsTab.tsx`（齿轮展开编辑视图）
+- Modify: `packages/client/ui-settings-mcp/src/client/mcp-tab-controller.ts`（`updateServer` / `removeServer`）
 - Modify: `packages/client/ui-settings-mcp/src/client/locales.ts`
 - Test: `packages/client/ui-settings-mcp/tests/edit-server.client.spec.tsx`
 
 **Interfaces:**
-- Produces: `McpSettingsTabInjected` adds `updateServer(serverName: string, patch: Partial<NewServerDraft>): Promise<string | null>` and `removeServer(serverName: string): Promise<void>`.
+- Produces: `McpSettingsTabInjected` 增加 `updateServer(serverName: string, patch: Partial<NewServerDraft>): Promise<string | null>` 与 `removeServer(serverName: string): Promise<void>`。
 
-- [ ] **Step 1: Write a failing test**
+- [ ] **Step 1: 写失败的测试**
 
 ```tsx
 // 场景：
@@ -1164,9 +1164,9 @@ git commit -m "feat(ui-settings-mcp): add-server form with inline validation"
 // 5. declarative 行无齿轮/开关可用（disabled）
 ```
 
-- [ ] **Step 2: Run to confirm failure → Step 3: Implement → Step 4: Confirm passing**
+- [ ] **Step 2: 运行确认失败 → Step 3: 实现 → Step 4: 通过**
 
-controller:
+controller：
 
 ```ts ignore-check
 /** Apply a partial patch to one server entry, untouched fields (including
@@ -1184,7 +1184,7 @@ async removeServer(serverName: string): Promise<void> {
 }
 ```
 
-Note that `SettingsScopeController.set` is a whole-field `path: [serverName]` overwrite: the patch merge must be based on the snapshot's current value, and secret fields (env/headers) are absent from the redacted snapshot — so when the patch lacks env/headers, the merged value would clear them. Workaround: the controller reads `snapshot.secrets` (the descriptor's secret bit table) to decide whether the server has stored secrets; if so, the edit form's env/headers left empty means "keep unchanged", and on submit, if the user left them unfilled, the env/headers keys are not put into the merged value — but `set(serverName, value)` is a whole-value overwrite, so a missing key is cleared. Therefore `updateServer` must switch to fine-grained path-ops: `SettingsScopeController` only has set/unset(field). The implementer checks whether `SettingsScope` exposes arbitrary path writes; if not, add `setPath(path: string[], value: unknown)` to ui-settings' SettingsScopeController (a small change, committed with this Task along with its unit test), sending ops field by field and leaving secret keys untouched. Removing a whole server still uses `unset(serverName)`.
+注意 `SettingsScopeController.set` 是整字段 `path: [serverName]` 覆盖：patch 合并必须基于快照当前值，secret 字段（env/headers）在脱敏快照中缺失——因此 patch 里不含 env/headers 时，合并值会把它们清空。规避：controller 读 `snapshot.secrets`（descriptor 的 secret 位表）判断该 server 是否有已存 secret；有则编辑表单的 env/headers 留空表示「保持不变」，提交时若用户未填则不把 env/headers 键放进合并值——但 `set(serverName, value)` 是整值覆盖，缺键即清除。故 `updateServer` 必须改用细粒度 path-op：`SettingsScopeController` 只有 set/unset(field)。实现者检查 `SettingsScope` 是否暴露任意 path 写；若无，则在 ui-settings 的 SettingsScopeController 上加 `setPath(path: string[], value: unknown)`（小改动，随本 Task 提交并补其单测），逐字段发 op，不动 secret 键。删除整台 server 仍用 `unset(serverName)`。
 
 - [ ] **Step 5: Commit**
 
@@ -1195,18 +1195,18 @@ git commit -m "feat(ui-settings-mcp): edit and remove servers with secret-preser
 
 ---
 
-### Task 8: e2e tests and affected golden updates
+### Task 8: e2e 测试与受影响 golden 更新
 
 **Files:**
 - Create: `apps/web/tests/mcp-config.e2e.ts`
-- Create: `apps/web/tests/snapshots/mcp-config/` (aria golden)
-- Modify: `apps/web/tests/snapshots/plugin-config/section.expected.md` (the Plugins page gains the MCP tab, aria snapshot changes)
-- Modify: `tsconfig.host.json` (add `apps/web/tests/mcp-config.e2e.ts` to include)
+- Create: `apps/web/tests/snapshots/mcp-config/`（aria golden）
+- Modify: `apps/web/tests/snapshots/plugin-config/section.expected.md`（插件页新增 MCP tab，aria 快照变化）
+- Modify: `tsconfig.host.json`（include 加 `apps/web/tests/mcp-config.e2e.ts`）
 
 **Interfaces:**
-- Consumes: the complete UI from Tasks 5-7; `launchWebScaffold`, `captureStableAria`, `compareOrRefreshGolden`, `assertFixtureInventory` (`apps/web/tests/scaffold.ts`).
+- Consumes: Task 5-7 的完整 UI；`launchWebScaffold`、`captureStableAria`、`compareOrRefreshGolden`、`assertFixtureInventory`（`apps/web/tests/scaffold.ts`）。
 
-- [ ] **Step 1: Write the e2e** (structure follows `plugin-config.e2e.ts`: shared page, Chinese locale, `openPlugins()` then click the MCP tab)
+- [ ] **Step 1: 写 e2e**（结构照 `plugin-config.e2e.ts`：共享 page、中文 locale、`openPlugins()` 后点 MCP tab）
 
 ```ts ignore-check
 // 场景（每个 it 一个）：
@@ -1222,13 +1222,13 @@ git commit -m "feat(ui-settings-mcp): edit and remove servers with secret-preser
 // 7. assertFixtureInventory 锁定 snapshots/mcp-config 清单
 ```
 
-- [ ] **Step 2: Run and record the golden**
+- [ ] **Step 2: 运行并录制 golden**
 
-Run: `pnpm vitest run apps/web/tests/mcp-config.e2e.ts` (replay/refresh mode follows `webSnapshotMode()`; after the first run generates the golden, review that its content is reasonable)
+Run: `pnpm vitest run apps/web/tests/mcp-config.e2e.ts`（replay/refresh 模式参照 `webSnapshotMode()`；首次运行生成 golden 后复查其内容合理）
 
-Also update `plugin-config`'s `section.expected.md`: Run `DSH_SNAPSHOT=refresh pnpm vitest run apps/web/tests/plugin-config.e2e.ts`, and confirm via diff that the only change is the added MCP tab.
+同时更新 `plugin-config` 的 `section.expected.md`：Run `DSH_SNAPSHOT=refresh pnpm vitest run apps/web/tests/plugin-config.e2e.ts`，diff 确认变化仅为新增 MCP tab。
 
-Expected: all PASS
+Expected: 全部 PASS
 
 - [ ] **Step 3: Commit**
 
@@ -1239,21 +1239,21 @@ git commit -m "test(web): MCP settings tab e2e with settings.yaml write-through"
 
 ---
 
-### Task 9: documentation, Agent Note, wrap-up checks
+### Task 9: 文档、Agent Note、收尾检查
 
 **Files:**
-- Modify: `docs/config-catalog.md` (if it is generated, change the source and re-run `pnpm run gen-config-catalog`; check the file header marker first)
-- Create: `.agents/notes/implemented/feature/2026-08-13-mcp-settings-page.md` (per the `.agents/notes/README.md` format)
-- Modify: `packages/mcp/mcp-client/README.md` / `README.zh.md` (a "relationship to mcp-manager" section: declarative wiring is unchanged, panel management goes through mcp-manager)
-- Create/Update: finalize the new package READMEs (Tasks 1/5 created the skeletons, this Task fills in the required sections such as Model Experience)
+- Modify: `docs/config-catalog.md`（若是生成物则改源并重跑 `pnpm run gen-config-catalog`；先查文件头标记）
+- Create: `.agents/notes/implemented/feature/2026-08-13-mcp-settings-page.md`（按 `.agents/notes/README.md` 格式）
+- Modify: `packages/mcp/mcp-client/README.md` / `README.zh.md`（「与 mcp-manager 的关系」一节：声明式接入不变，面板管理走 mcp-manager）
+- Create/Update: 新包 README 定稿（Task 1/5 已建骨架，本 Task 补齐 Model Experience 等必需节）
 
-- [ ] **Step 1: Write the Agent Note** (content: the four decisions, data model, supervision model, the two-layer validate write-time rejection + mcp-client load fallback, secret handling, test surface)
+- [ ] **Step 1: 写 Agent Note**（内容：决策四条、数据模型、 supervise 模型、validate 写时拒绝 + mcp-client 加载兜底双层、secret 处理、测试面）
 
-- [ ] **Step 2: Update config-catalog and the mcp-client README**
+- [ ] **Step 2: 更新 config-catalog 与 mcp-client README**
 
-- [ ] **Step 3: Run the checks for this change surface per dsh-pre-push-checks**
+- [ ] **Step 3: 按 dsh-pre-push-checks 跑本变更面的检查**
 
-Run (in the worktree):
+Run（在工作树）:
 ```sh
 pnpm run test:gui                                   # client 套件
 pnpm vitest run packages/mcp/mcp-manager            # host 新包
@@ -1263,7 +1263,7 @@ pnpm run lint
 DSH_SNAPSHOT=replay pnpm run test:web               # 装配输出变化面
 pnpm run doc-sync                                   # 文档门禁
 ```
-Expected: all green; if some gate conflicts with the new package structure (knip/publint/workspace constraints), fix the package manifest per the error.
+Expected: 全绿；如某门禁与新包结构冲突（knip/publint/workspace constraints），按报错修正 package 清单。
 
 - [ ] **Step 4: Commit**
 
@@ -1274,6 +1274,6 @@ git commit -m "docs: MCP settings page catalogs, READMEs, and agent note"
 
 ---
 
-## Wrap-up (merge back to master)
+## 收尾（合并回 master）
 
-After all tasks are green: `git checkout master && git merge feat/mcp-settings-page` (or open a PR to the fork per the user's instructions). The design-document commits (`004165f0b2`, `b5bf57d9b0` on master) wait for the main workspace's WIP typecheck fix before `git push origin master`; the feature branch push is likewise done only after the gates pass.
+全部任务绿后：`git checkout master && git merge feat/mcp-settings-page`（或按用户指示开 PR 到 fork）。设计文档提交（master 上 `004165f0b2`、`b5bf57d9b0`）待主工作区 WIP 修复 typecheck 后 `git push origin master`；feature 分支推送同样等门禁可过后执行。

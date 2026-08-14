@@ -59,3 +59,10 @@ No token cost of its own; each mounted server's tool definitions cost what `dsh-
 #### KV Cache effect
 
 No KV-cache effect of its own; adding, removing, or toggling an entry changes the mounted tool set exactly as editing the equivalent `cordis.yml` entry would.
+
+## Known Limitations and Deferred Work
+
+- **Lifecycle status only** — `status` reports the mount fiber's settlement, not liveness; a server that never answers its initial connection still reports `ready` under the default `failOnStartupError: false`.
+- **Preset-mounted servers are invisible** — an MCP server an agent preset mounts inline is absent from `ctx.loader.entries()` and therefore from the declarative roster.
+- **Keyed by serverName** — renaming a server means removing the entry and adding a new one; the settings key is the name.
+- **Panel is the only editor** — the section is plain settings data, so a headless deployment can edit `settings.yaml` directly, but the write-time duplicate guard against declarative names only runs through the settings seam.
