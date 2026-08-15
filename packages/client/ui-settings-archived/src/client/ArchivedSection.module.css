@@ -1,0 +1,91 @@
+/* Archived conversations settings section. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.intro {
+  margin: 0;
+  color: var(--dsw-color-text-secondary, #6b7280);
+}
+
+.status,
+.empty {
+  margin: 0;
+  color: var(--dsw-color-text-secondary, #6b7280);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.count {
+  font-size: 12px;
+  color: var(--dsw-color-text-secondary, #6b7280);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--dsw-color-border, #e5e7eb);
+}
+
+.rowTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.running {
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--dsw-color-warning, #b45309);
+}
+
+.actionAnchor {
+  display: inline-flex;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.deleteButton {
+  color: var(--dsw-color-danger, #dc2626);
+}
+
+.dangerButton {
+  color: #ffffff;
+  background: var(--dsw-color-danger, #dc2626);
+}
+
+.error {
+  margin: 4px 0 0;
+  color: var(--dsw-color-danger, #dc2626);
+}
