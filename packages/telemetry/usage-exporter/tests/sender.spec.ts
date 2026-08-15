@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BatchSender } from '../src/sender.ts'
 import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
@@ -6,7 +6,7 @@ import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
 let server: Server | undefined
 afterEach(async () => { await new Promise<void>(resolve => server?.close(() => resolve())) })
 
-function listen(handler: (req, res, body: string) => void): Promise<number> {
+function listen(handler: (req: IncomingMessage, res: ServerResponse, body: string) => void): Promise<number> {
   return new Promise((resolve) => {
     server = createServer((req, res) => {
       let body = ''

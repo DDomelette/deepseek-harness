@@ -43,7 +43,8 @@ export const Config: z<Config> = z.object({
   startFrom: z.union([z.const('end'), z.const('beginning')]).default('end'),
 })
 
-/** Replaced by the apply-loop task. */
-export async function apply(_ctx: Context, _config: Config): Promise<void> {
-  throw new Error('usage-exporter: apply not implemented yet')
+import { runExporter } from './apply.ts'
+
+export async function apply(ctx: Context, config: Config): Promise<void> {
+  await runExporter(ctx, config)
 }

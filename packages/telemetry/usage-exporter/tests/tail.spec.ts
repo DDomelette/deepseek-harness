@@ -24,9 +24,11 @@ describe('UsageTailReader', () => {
 
     await appendFile(file, JSON.stringify(ROW) + '\n')
     const batch = await reader.nextBatch()
-    expect(batch?.rows).toHaveLength(1)
-    expect(batch?.startOffset).toBe(JSON.stringify(ROW).length + 1)
-    expect(batch?.batchId).toBe(batchIdFor('src', file, batch.startOffset, batch.endOffset!))
+    expect(batch).toBeDefined()
+    if (batch === undefined) throw new Error('expected a batch')
+    expect(batch.rows).toHaveLength(1)
+    expect(batch.startOffset).toBe(JSON.stringify(ROW).length + 1)
+    expect(batch.batchId).toBe(batchIdFor('src', file, batch.startOffset, batch.endOffset))
     await rm(root, { recursive: true, force: true })
   })
 
