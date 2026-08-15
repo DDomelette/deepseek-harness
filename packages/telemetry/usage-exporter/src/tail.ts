@@ -79,24 +79,44 @@ export class UsageTailReader {
         }
         const text = buffer.subarray(0, endOffset - cursor.offset).toString('utf8')
         const rows: UsageRow[] = []
-        for (const raw of text.split('\n')) {
+        let lineOffset = cursor.offset
+        const rawLines = text.split('\n')
+        // A trailing newline produces one final empty element; an EOF line
+        // without a newline is complete only when this read reached EOF.
+        const lineCount = rawLines.at(-1) === '' ? rawLines.length - 1 : rawLines.length
+        for (let index = 0; index < lineCount; index += 1) {
+          const raw = rawLines[index]
+          if (raw === undefined) continue
           const line = raw.trim()
+          const hasNewline = index < lineCount - 1 || endOffset === info.size
+          lineOffset += Buffer.byteLength(raw, 'utf8') + (hasNewline ? 1 : 0)
           if (line.length === 0) continue
           try {
             rows.push(usageRowSchema.parse(JSON.parse(line)))
           } catch (error) {
             logMalformed(file, String(error))
           }
-          if (rows.length >= maxBatchRows) break
+          if (rows.length >= maxBatchRows) {
+            // Never advance past the row that filled the batch: the remaining
+            // bytes stay for the next batch.
+            endOffset = lineOffset
+            break
+          }
         }
-        return {
-          sourceId,
-          file,
-          rows,
-          startOffset: cursor.offset,
-          endOffset,
-          batchId: batchIdFor(sourceId, file, cursor.offset, endOffset),
+        if (rows.length > 0) {
+          return {
+            sourceId,
+            file,
+            rows,
+            startOffset: cursor.offset,
+            endOffset,
+            batchId: batchIdFor(sourceId, file, cursor.offset, endOffset),
+          }
         }
+        // All read lines were blank or malformed. Advance past them without
+        // sending an empty batch, then look for a later batch/file.
+        cursorStore.set(file, { offset: endOffset })
+        await cursorStore.save()
       } finally {
         await handle.close()
       }
