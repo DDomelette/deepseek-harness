@@ -1072,17 +1072,16 @@ function summary(partial: Partial<SessionSummary> & { id: SessionId }): SessionS
 }
 
 function sessionsWith(rows: SessionSummary[]) {
-  const byId = Object.fromEntries(rows.map(row => [row.id, row])) as SessionListState['byId']
-  const snapshot = {
+  const listeners = new Set<() => void>()
+  const snapshot = (): SessionListState => ({
     ids: rows.map(row => row.id),
-    byId,
+    byId: Object.fromEntries(rows.map(row => [row.id, row])) as SessionListState['byId'],
     current: rows[0]?.id,
     phase: 'ready',
-  } as unknown as SessionListState
-  const listeners = new Set<() => void>()
+  }) as unknown as SessionListState
   return {
     list: {
-      getSnapshot: () => snapshot,
+      getSnapshot: snapshot,
       subscribe: (listener: () => void) => {
         listeners.add(listener)
         return () => { listeners.delete(listener) }
