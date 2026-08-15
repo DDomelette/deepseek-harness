@@ -26,7 +26,7 @@ When an `Events` entry's signature reaches a Host-only symbol (a Service, `Agent
 
 All five events ride this path, and their dedicated `HostFrame` variants or Client aliases are gone. Model consumers subscribe directly to both owner inputs, `llm/adapters-updated` and `settings/document-updated`; preset-derived consumers subscribe to `agent-preset/selected`. Frames that actually project or deduplicate data stay dedicated: `host/workspace-changed`/`-removed`/`host/archived-sessions-changed` (view derivation plus per-connection dedup state), and `host/session-added`/`-removed`/`host/session-status`/`host/agent-error` (live-object projection or frame-time derived fields).
 
-`skills/change`, `tools/change`, and `system-prompt/change` have the same shape but **no consumer today**; under "require a current owner and need" they stay out of the allowlist and are recorded here only as the extension seat.
+`skills/change` now enters the allowlist because the Skills settings page refetches its session catalog after an enablement commit. `tools/change` and `system-prompt/change` have the same shape but no consumer today, so they remain extension seats rather than selected events.
 
 ### Consumer contract (dsh-typert-protocol)
 
@@ -78,6 +78,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   'credentials/updated',
   'llm/adapters-updated',
   'settings/document-updated',
+  'skills/change',
 ] as const
 
 // types.ts — the type face, derived
@@ -88,7 +89,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 ```
 
-Forwarding one more event is therefore **one line in that array**: the type projection, `$on`'s key surface, and the Host forwarding loop all derive from it. `ctx.remote.$on('slots/changed', …)` (a Client-local event) and `$on('skills/change', …)` (declared but unselected) are both **compile errors**.
+Forwarding one more event is therefore **one line in that array**: the type projection, `$on`'s key surface, and the Host forwarding loop all derive from it. `ctx.remote.$on('slots/changed', …)` remains a **compile error** because it is a Client-local event; `$on('skills/change', …)` is valid because the allowlist selects it.
 
 The Host face adds one shape assertion, binding the Host event vocabulary to that same array:
 
@@ -134,7 +135,7 @@ The few Client-owned symbols are therefore **mirrored** on the test side (`scaff
 | `host/apiproxy` | `HostFrame` gains `host/remote-event` and loses the five dedicated passthrough or invalidation variants with their zod branches; `events.host()` subscribes by allowlist and validates through `assertJsonArgs` |
 | `dsh-session` | `src/types.ts` re-exports `JsonValue` so wire contract files can use the client-safe subpath |
 | `client/runtime` | The five Client-event bridge branches collapse into `ctx.remote.$dispatch(frame.event, frame.args)`, adding a `remote` injection and deleting their duplicated `Events` declarations |
-| Seven consumers | ui-commands / ui-model-selection / ui-settings-models / ui-settings-general / ui-permission / ui-agent-preset / ui-skill subscribe through `ctx.remote.$on(...)`, following `ui-goal`'s precedent for the type-only facade import and the `'remote'` injection |
+| Eight consumers | ui-commands / ui-model-selection / ui-settings-models / ui-settings-general / ui-permission / ui-agent-preset / ui-skill / ui-settings-skills subscribe through `ctx.remote.$on(...)`, following `ui-goal`'s precedent for the type-only facade import and the `'remote'` injection |
 | `client/connection` | The fixture's `emitHost` produces `host/remote-event` |
 | `apps/web/tests` + `apps/cli` | Client symbols mirrored on the test side (see above); `apps/cli/tsconfig.json` drops its 15 Client project references |
 
@@ -157,7 +158,7 @@ The few Client-owned symbols are therefore **mirrored** on the test side (`scaff
 What pins this behavior:
 
 - A real composition test puts one `host/remote-event` frame on the real host stream per Host emit, with `event` the Host name and `args` equal element for element.
-- Type-level negatives reject three candidate classes: a name that is not an event, a Scope-bound event (`goal/changed`), and an event whose return is not `void`. `$on('slots/changed', …)` (Client-local) and `$on('skills/change', …)` (declared but unselected) both fail to compile, so `$on`'s key surface equals the allowlist.
+- Type-level negatives reject three candidate classes: a name that is not an event, a Scope-bound event (`goal/changed`), and an event whose return is not `void`. `$on('slots/changed', …)` (Client-local) fails to compile, while the selected `$on('skills/change', …)` key compiles, so `$on`'s key surface equals the allowlist.
 - On the consumer side, `$on('settings/document-updated', …)` resolves `ns` as `SettingsNamespace`: the brand survives the wire.
 - `$on`'s disposer belongs to the calling fiber, and two registrations of one function object retire independently — a table keyed on listener identity would collapse them, so subscriptions are addressed by registration.
 - Delivery contains a listener that throws AND one that rejects a returned promise: the declared return is `void`, so nobody awaits an async listener, and its rejection would otherwise escape this containment entirely. Delivery iterates a snapshot, so subscribing or disposing mid-frame cannot change who receives that frame.

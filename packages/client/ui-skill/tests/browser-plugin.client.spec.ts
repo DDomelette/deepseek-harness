@@ -293,6 +293,16 @@ describe('catalog cache', () => {
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(4)
   })
+
+  it('skills/change clears every cached session catalog', async () => {
+    const { list, payloads } = countingList()
+    const { ctx, source } = await bench(list)
+    await source.candidates(proj('s1'), req(''))
+    expect(payloads).toHaveLength(1)
+    ctx.remote.$dispatch('skills/change', [])
+    await source.candidates(proj('s1'), req(''))
+    expect(payloads).toHaveLength(2)
+  })
 })
 
 describe('lexicon', () => {

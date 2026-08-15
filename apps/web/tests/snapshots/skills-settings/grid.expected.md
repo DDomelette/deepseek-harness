@@ -1,0 +1,29 @@
+- dialog "Settings":
+  - navigation:
+    - text: Settings
+    - button "General":
+      - img
+      - text: General
+    - button "Models":
+      - img
+      - text: Models
+    - button "Plugins":
+      - img
+      - text: Plugins
+    - button "Agent presets":
+      - img
+      - text: Agent presets
+    - button "Skills":
+      - img
+      - text: Skills
+  - button "Open configuration file"
+  - button "Close":
+    - img
+    - text: Close
+  - heading "Skills" [level=2]
+  - paragraph: Skills extend what the agent can do. Grouped by their declared group or their discovery source — open a group to switch individual skills on or off.
+  - list:
+    - listitem:
+      - button "User skills 1 skill"
+    - listitem:
+      - button "superpowers 2 skills"

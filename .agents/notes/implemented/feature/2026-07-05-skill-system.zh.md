@@ -20,7 +20,7 @@ DeepSeek Harness 使用同一原语，使项目特定的评审、插件编写和
 
 本地提供方按先到先得的排名顺序扫描 cwd 敏感的项目根目录、自定义根目录和用户根目录：项目 `.dsh`、项目 `.agents`、`customSkillDirs`、用户 `.dsh`，然后是用户 `.agents`。用户 `.dsh/skills` 扫描跳过 `.system`，以免系统拥有的目录被当作普通用户内容处理。本地提供方不会合成内置系统 skill；已配置的 bundled 根目录和专用提供方会提供额外 skill。
 
-每个 skill 是带 YAML frontmatter 的 `<name>/SKILL.md` 或 `<name>.md`。`name` 和 `description` 为必填；`whenToUse`、`metadata`、`disable-model-invocation` 和 `user-invocable` 为可选。名称采用 kebab-case。调用字段会投影到类型化的嵌套策略中，具体由[模型与用户独立调用决策](2026-07-28-skill-invocation-policy.md)定义；解析器会拒绝旧的驼峰拼写。YAML frontmatter 使用 `yaml` 包解析，而非 `js-yaml` 或手写解析器：`yaml` 是本包已声明的现代解析器，足以满足有限的 frontmatter 需求，窄解析器要么拒绝用户预期可用的合法 YAML，要么膨胀为一个未经评审的 YAML 子集。
+每个 skill 是带 YAML frontmatter 的 `<name>/SKILL.md` 或 `<name>.md`。`name` 和 `description` 为必填；`whenToUse`、`group`、`metadata`、`disable-model-invocation` 和 `user-invocable` 为可选。名称采用 kebab-case。`group` 是由[用户可控 skill 设置](2026-08-14-skill-settings-panel.md)使用的不透明展示元数据。调用字段会投影到类型化的嵌套策略中，具体由[模型与用户独立调用决策](2026-07-28-skill-invocation-policy.md)定义；解析器会拒绝旧的驼峰拼写。YAML frontmatter 使用 `yaml` 包解析，而非 `js-yaml` 或手写解析器：`yaml` 是本包已声明的现代解析器，足以满足有限的 frontmatter 需求，窄解析器要么拒绝用户预期可用的合法 YAML，要么膨胀为一个未经评审的 YAML 子集。
 
 本地 skill 的文件系统 I/O 在加载了文件系统服务时通过 `ctx.fs` 进行：项目根目录查找使用 `resolve` 和 `stat` 探测 `.git`，根目录发现使用 `listDir`，skill 读取使用 `readText`。Node 文件系统作为后备，供在不挂载 fs seam 的最小上下文中加载 `dsh-skill-filesystem` 时使用。缺失的根目录、不可读或格式错误的 skill 文件、以及提供方 `list()` 的瞬态失败均降级为警告并跳过，使一个坏源不会导致所有 agent 请求失败；格式错误的候选项仍然快速失败，因为它们违反了提供方约定。
 

@@ -22,6 +22,7 @@ import { SessionQueryError, type SessionSearchCursor } from '@deepseek-ai/dsh-se
 import { SubagentError } from '@deepseek-ai/dsh-subagent'
 import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai/dsh-subagent'
 import { isUserInvocable } from '@deepseek-ai/dsh-skill'
+import { SKILL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-skill-settings'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import {
   workspaceDomainState, workspaceRecord, WorkspaceId as brandWorkspaceId,
@@ -115,16 +116,17 @@ const DEFAULT_MAX_MESSAGES = 50
 
 /**
  * Non-model settings namespaces intentionally served to the Web client. The
- * plugin-owned entries (`agent-loop`, `bash`, `web-search-deepseek`) are the
- * host-plane sections the plugin configuration page edits; a namespace absent
- * here answers `settings-not-exposed` even when its owner registered it, so
- * adding a section to that page is a decision made here rather than by the
- * registering plugin. Moving that declaration to `settings.register()`, so a
- * plugin can expose its own configuration without a change in this package,
- * is deferred work.
+ * plugin-owned entries (`agent-loop`, `shell`, `skills`,
+ * `web-search-deepseek`) are the host-plane sections the configuration
+ * surfaces edit; a namespace absent here answers `settings-not-exposed` even
+ * when its owner registered it, so adding a section to those surfaces is a
+ * decision made here rather than by the registering plugin. Moving that
+ * declaration to `settings.register()`, so a plugin can expose its own
+ * configuration without a change in this package, is deferred work.
  */
 const WEB_SETTINGS_NAMESPACES = [
   'agent-loop', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
+  SKILL_SETTINGS_NAMESPACE,
 ] as const
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */
@@ -1957,6 +1959,21 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     return exposed
   }
 
+  /**
+   * The user-disabled skill names from the settings seam's `skills`
+   * namespace. The read is defensive: the namespace value is validated only
+   * while `dsh-skill-settings` is mounted, and an externally edited document
+   * may hold an unreadable section the seam kept out of its last good value.
+   */
+  function disabledSkillNames(): ReadonlySet<string> {
+    const settings = ctx.get('settings')
+    if (settings === undefined) return new Set()
+    const value = settings.get(SKILL_SETTINGS_NAMESPACE)
+    if (typeof value !== 'object' || value === null) return new Set()
+    const disabled = (value as { disabled?: unknown }).disabled
+    return new Set(Array.isArray(disabled) ? disabled.filter((entry): entry is string => typeof entry === 'string') : [])
+  }
+
   /** Refuse a namespace outside the explicit configuration-client boundary. */
   function notExposed(request: RpcRequest<unknown>, ns: string): RpcResponse<SettingsNamespaceView> {
     return err(request, {
@@ -3253,6 +3270,54 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           })
         } catch (error: unknown) {
           return err(request, { code: 'internal', message: `skill listing failed: ${String(error)}`, details: {} })
+        }
+      },
+
+      // The settings-panel view: every skill the addressed session's
+      // composition serves — the same cwd/scope resolution as `list`, but
+      // unfiltered by invocation policy and carrying grouping metadata plus
+      // the user-disabled marker. Invocation flags are the effective ones
+      // (the settings-backed override is already applied by the registry
+      // read).
+      async catalog(request) {
+        const { sessionId } = request.payload
+        const session = ctx.sessions.get(sessionId)
+        if (session === undefined) {
+          return err(request, {
+            code: 'session-not-found',
+            message: `session "${sessionId}" not found (not attached)`,
+            details: { sessionId },
+          })
+        }
+        if (session.header.cwd === undefined) {
+          return err(request, { code: 'internal', message: `session "${sessionId}" has no project cwd`, details: {} })
+        }
+        const cwd = session.header.cwd
+        const live = ctx.agents.get(sessionId)
+        const presets = ctx.get('agentPresets')
+        const scoped = live === undefined ? undefined : presets?.serviceFor(live, 'skills')
+        const skillRegistry = scoped ?? ctx.get('skills')
+        if (skillRegistry === undefined) {
+          return err(request, { code: 'internal', message: 'skill registry is absent: neither this session\'s agent preset nor the host composition mounts @deepseek-ai/dsh-skill', details: {} })
+        }
+        const scope = await presenterScopeFor(sessionId, session)
+        const disabled = disabledSkillNames()
+        try {
+          const skills = await skillRegistry.list({ cwd, scope })
+          return ok(request, {
+            skills: skills.map(skill => ({
+              name: skill.name,
+              description: skill.description,
+              ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
+              ...skill.group === undefined ? {} : { group: skill.group },
+              source: skill.source,
+              modelInvocable: skill.invocation.modelInvocable,
+              userInvocable: skill.invocation.userInvocable,
+              disabled: disabled.has(skill.name),
+            })),
+          })
+        } catch (error: unknown) {
+          return err(request, { code: 'internal', message: `skill catalog failed: ${String(error)}`, details: {} })
         }
       },
     },
