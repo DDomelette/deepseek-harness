@@ -411,6 +411,7 @@ it('renders the card title and stages the opposite switch value', () => {
   } as unknown as UsageTelemetryCardProps
   render(<UsageTelemetryCard {...props} />)
   expect(screen.getByText(en.usageTelemetryTitle)).toBeTruthy()
+  fireEvent.click(screen.getByText(en.usageTelemetryTitle))
   fireEvent.click(screen.getByRole('checkbox', { name: en.usageTelemetryEnabled }))
   expect(edit).toHaveBeenCalledWith('enabled', 'false')
 })
