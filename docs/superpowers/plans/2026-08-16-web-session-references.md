@@ -761,6 +761,10 @@ git commit -m "test(session-reference): pin snapshot-before-direct order in real
     "lib/client.js",
     "lib/types/**/*.d.ts"
   ],
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
