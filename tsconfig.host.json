@@ -164,6 +164,7 @@
     { "path": "./packages/identity/anonymous-user-id" },
     { "path": "./packages/session/session-telemetry-otel" },
     { "path": "./packages/telemetry/usage-telemetry" },
+    { "path": "./packages/telemetry/usage-exporter" },
     { "path": "./packages/core/system-prompt" },
     { "path": "./packages/core/agent" },
     { "path": "./packages/core/agent-default-model" },

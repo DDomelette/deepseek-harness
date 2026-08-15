@@ -1444,6 +1444,9 @@ importers:
       '@deepseek-ai/dsh-storage-json':
         specifier: workspace:^
         version: link:../../storage/storage-json
+      '@deepseek-ai/dsh-usage-exporter':
+        specifier: workspace:^
+        version: link:../../telemetry/usage-exporter
       '@deepseek-ai/dsh-usage-telemetry':
         specifier: workspace:^
         version: link:../../telemetry/usage-telemetry
@@ -7688,6 +7691,31 @@ importers:
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:^
         version: link:../../util/timeout
+
+  packages/telemetry/usage-exporter:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../util/home-paths
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-usage-telemetry':
+        specifier: workspace:^
+        version: link:../usage-telemetry
+      yaml:
+        specifier: ^2.4.2
+        version: 2.9.0
 
   packages/telemetry/usage-telemetry:
     dependencies:
