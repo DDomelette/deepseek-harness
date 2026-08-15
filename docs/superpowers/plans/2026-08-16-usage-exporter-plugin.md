@@ -475,7 +475,7 @@ export class UsageTailReader {
     const { root, sourceId, cursorStore, startFrom, maxBatchBytes, maxBatchRows, logMalformed } = this.options
     const names = (await readdir(root)).filter(name => FILE_PATTERN.test(name)).sort()
     if (names.length === 0) return
-    const active = new Set(names)
+    const active = new Set(names.map(name => join(root, name)))
     cursorStore.prune(active)
 
     for (const name of names) {
