@@ -106,7 +106,7 @@ Schemastery `Config`：
 | `maxAttempts` | number | 5 | 瞬时失败重试次数 |
 | `baseRetryMs` | number | 1000 | 指数退避基数 |
 | `maxRetryMs` | number | 30000 | 退避上限 |
-| `heartbeatIntervalMs` | number | 60000 | 租约心跳间隔；实现时以 `min(pushLeaseMs / 3, 60000)` 封顶 |
+| `heartbeatIntervalMs` | number | 60000 | 租约心跳间隔；部署时必须满足 TokenMonitor 侧 `pushLeaseMs > 3 × heartbeatIntervalMs`（默认 10min > 3×60s） |
 | `startFrom` | `'end' \| 'beginning'` | `'end'` | 首次启用从当前 EOF 开始 tail；`beginning` 为显式回填 |
 
 ### 数据流

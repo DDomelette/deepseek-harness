@@ -87,7 +87,7 @@ export class UsageTelemetryCardController {
       },
       resetField: (field) => {
         if (field !== 'enabled') throw new Error(`usage telemetry card has no field ${field}`)
-        this.draft = this.scope.getSnapshot().base?.enabled ?? true
+        this.draft = (this.scope.getSnapshot().base as UsageTelemetrySettings | undefined)?.enabled ?? true
         this.failed = false
         this.store.set(this.projection())
       },
