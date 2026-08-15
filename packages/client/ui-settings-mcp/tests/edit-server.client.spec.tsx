@@ -243,7 +243,12 @@ describe('editPatch', () => {
 
   it('names only the moved fields for a stdio entry', () => {
     const result = editPatch(STDIO_ENTRY, 'memory', stdio({ args: '-y\nother', cwd: '/new', timeout: '' }))
-    expect(result).toEqual({ patch: { args: ['-y', 'other'], cwd: '/new' } })
+    expect(result).toEqual({ patch: { args: ['-y', 'other'], cwd: '/new', unsetTimeout: true } })
+  })
+
+  it('resets a cleared timeout through an unset marker', () => {
+    const result = editPatch(STDIO_ENTRY, 'memory', stdio({ timeout: '' }))
+    expect(result).toEqual({ patch: { unsetTimeout: true } })
   })
 
   it('builds an http patch from changed url, headers, and timeout', () => {

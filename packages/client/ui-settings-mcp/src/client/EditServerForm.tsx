@@ -27,6 +27,12 @@ export type ServerPatch = {
   headers?: Record<string, string>
   toolCallTimeoutMs?: number
   reconnect?: ReconnectDraft
+  /**
+   * Cleared timeout fields reset to the schema/composition default instead of
+   * being written: a cleared number has no JSON value that means "absent", so
+   * the controller emits an `unset` path op for it.
+   */
+  unsetTimeout?: true
 }
 
 /** Raw field text this form stages. */
@@ -106,6 +112,7 @@ export function editPatch(
   if (state.cwd !== (entry.cwd ?? '')) patch.cwd = state.cwd
   if (state.url !== (entry.url ?? '')) patch.url = state.url
   if (timeout !== undefined && timeout !== entry.toolCallTimeoutMs) patch.toolCallTimeoutMs = timeout
+  if (timeout === undefined && entry.toolCallTimeoutMs !== undefined) patch.unsetTimeout = true
   if (env !== undefined) patch.env = env.values
   if (headers !== undefined) patch.headers = headers.values
   const currentReconnect = entry.reconnect ?? DEFAULT_RECONNECT_POLICY
