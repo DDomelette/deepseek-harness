@@ -867,9 +867,11 @@ export const apply = (ctx: Context): Promise<() => void> =>
 
 ```ts
 // @vitest-environment jsdom
-import { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { describe, expect, it } from 'vitest'
 import { encodeSessionReferenceUri, formatSessionReferenceMention } from '../src/client/uri.ts'
+
+const sid = (id: string): SessionId => id as SessionId
 
 describe('browser session-reference URI encoder', () => {
   it.each([
@@ -879,11 +881,11 @@ describe('browser session-reference URI encoder', () => {
     ['line1\nline2', 'ImxpbmUxXG5saW5lMiI'],
     ['x/y/z', 'IngveS96Ig'],
   ] as const)('encodes %j exactly like the host encoder', (id, payload) => {
-    expect(encodeSessionReferenceUri(SessionId(id))).toBe(`dsh-session:${payload}`)
+    expect(encodeSessionReferenceUri(sid(id))).toBe(`dsh-session:${payload}`)
   })
 
   it('escapes label brackets and backslashes in the mention', () => {
-    expect(formatSessionReferenceMention(SessionId('s-1'), '源]会话'))
+    expect(formatSessionReferenceMention(sid('s-1'), '源]会话'))
       .toBe('@[源\\]会话](dsh-session:InMtMSI)')
   })
 })
