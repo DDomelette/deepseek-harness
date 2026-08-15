@@ -1502,6 +1502,17 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the exact Cordis effect disposer, preserving composite teardown order and invalidating caches.',
       },
       {
+        signature: 'registerInvocationOverride(override: SkillInvocationOverride): () => void',
+        description: 'Register the one invocation-policy override resolver. The registry applies it to every produced summary and loaded definition, so changes in the resolver\'s answers take effect on the next read without cache invalidation. After committing changed answers, the owner calls notifyInvocationOverrideChange so catalog observers refetch. A second registration while one is active fails loud.',
+        parameters: [{ name: 'override', description: 'resolver consulted with each skill name.' }],
+        returns: 'the disposer removing the exact registration and notifying catalog observers when it was still active.',
+      },
+      {
+        signature: 'notifyInvocationOverrideChange(): void',
+        description: 'Notify catalog observers after the active invocation override\'s answers change. Listener failures are contained so every observer receives the notification and none becomes load-bearing for the policy commit.',
+        parameters: [],
+      },
+      {
         signature: 'async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>',
         description: 'List invocation-neutral skill summaries for a workspace. Consumers apply model or user invocation policy at their operational boundary. Lookup options and provider candidates are readonly same-process values borrowed throughout discovery.',
         parameters: [{ name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects project roots, and `signal` cancels discovery.' }],
@@ -2457,8 +2468,8 @@ export const EVENT_API: readonly EventApiEntry[] = [
     name: 'skills/change',
     mode: 'emit',
     signature: '\'skills/change\'(): void',
-    summary: 'A skill provider, runtime contribution, or provider-backed catalog may have changed.',
-    description: 'A skill provider, runtime contribution, or provider-backed catalog may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.',
+    summary: 'A skill provider, runtime contribution, or effective invocation policy may have changed.',
+    description: 'A skill provider, runtime contribution, or effective invocation policy may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.',
     parameters: [],
   },
   {
@@ -4022,6 +4033,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SkillDefinition extends SkillSummary {\n    readonly content: string;\n    readonly path?: string;\n    readonly metadata?: Readonly<Record<string, unknown>>;\n}',
   },
   {
+    name: 'SkillInvocationOverride',
+    declaration: 'export type SkillInvocationOverride = (name: string) => SkillInvocationPolicy | undefined;',
+  },
+  {
     name: 'SkillInvocationPolicy',
     declaration: 'export interface SkillInvocationPolicy {\n    readonly modelInvocable: boolean;\n    readonly userInvocable: boolean;\n}',
   },
@@ -4055,7 +4070,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SkillSummary',
-    declaration: 'export interface SkillSummary {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly invocation: SkillInvocationPolicy;\n    readonly source: SkillSource;\n    readonly provider: string;\n    readonly resourceBase?: SkillResourceBase;\n}',
+    declaration: 'export interface SkillSummary {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly group?: string;\n    readonly invocation: SkillInvocationPolicy;\n    readonly source: SkillSource;\n    readonly provider: string;\n    readonly resourceBase?: SkillResourceBase;\n}',
   },
   {
     name: 'SkillViewOptions',

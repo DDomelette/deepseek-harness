@@ -26,7 +26,7 @@ Host 拥有 `agent-preset/selected`、`commands/change`、`credentials/updated`�
 
 五条事件全部走这条路径，专用帧与 Client 别名都已删除。模型消费方直接订阅 `llm/adapters-updated` 和 `settings/document-updated`；preset 消费方订阅 `agent-preset/selected`。真正需要投影或去重的数据仍保留专用帧。
 
-`skills/change`、`tools/change`、`system-prompt/change` 是同形状的纯失效事件但目前**没有任何消费者**，按「每个抽象都要有当前 owner 与需求」不进名单，只作为扩展位记录在此。
+`skills/change` 现已进入名单，因为「技能」设置页会在启用状态提交后重新拉取会话目录。`tools/change` 与 `system-prompt/change` 形状相同，但目前没有消费方，因此仍是扩展位而非已选事件。
 
 ### 消费端契约（dsh-typert-protocol）
 
@@ -78,6 +78,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   'credentials/updated',
   'llm/adapters-updated',
   'settings/document-updated',
+  'skills/change',
 ] as const
 
 // types.ts — the type face, derived
@@ -88,7 +89,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 ```
 
-于是**加一个事件只改这一行数组**：类型投影、`$on` 的键面、host 的转发循环全部从它派生。`ctx.remote.$on('slots/changed', …)`（client 本地事件）或 `$on('skills/change', …)`（名单没开）都是**编译错误**。
+于是**加一个事件只改这一行数组**：类型投影、`$on` 的键面、host 的转发循环全部从它派生。`ctx.remote.$on('slots/changed', …)` 仍是**编译错误**，因为它是 client 本地事件；`$on('skills/change', …)` 则因名单已选中而合法。
 
 host 半再加一处形状断言，把 host 事件词汇的约束落到同一份名单上：
 
@@ -135,7 +136,7 @@ zod 侧 `args: z.array(z.unknown())`：帧本身来自 `JSON.parse`，元素必�
 | `host/apiproxy` | `HostFrame` 增 `host/remote-event`、删除五个专用变体及其 zod；`events.host()` 按名单挂监听并通过 `assertJsonArgs` 校验 |
 | `dsh-session` | `src/types.ts` 补 `export type { JsonValue }`，让 wire 契约文件能走 client-safe 子路径 |
 | `client/runtime` | 五条 Client 事件桥分支收敛为 `ctx.remote.$dispatch(frame.event, frame.args)`，并删除重复声明 |
-| 5 个消费者 | ui-commands / ui-settings-models / ui-settings-general / ui-permission / ui-agent-preset 改订 `ctx.remote.$on(...)`；照 `ui-goal` 先例 type-only 引 `@deepseek-ai/dsh-api-remotes/client` 并把 `'remote'` 加进 `inject` |
+| 8 个消费者 | ui-commands / ui-model-selection / ui-settings-models / ui-settings-general / ui-permission / ui-agent-preset / ui-skill / ui-settings-skills 改订 `ctx.remote.$on(...)`；照 `ui-goal` 先例 type-only 引 `@deepseek-ai/dsh-api-remotes/client` 并把 `'remote'` 加进 `inject` |
 | `client/connection` | fixture 的 `emitHost` 造 `host/remote-event` |
 | `apps/web/tests` + `apps/cli` | 客户端符号镜像（见上节）；`apps/cli/tsconfig.json` 删 15 条 client 工程引用 |
 
@@ -158,7 +159,7 @@ zod 侧 `args: z.array(z.unknown())`：帧本身来自 `JSON.parse`，元素必�
 钉住该行为的东西：
 
 - 一个真组合测试：host 每 emit 一次，真实 host 流就出一帧 `host/remote-event`，`event` 为 host 原名、`args` 与实参逐元素相等。
-- 类型层负例拒绝三类候选：不是事件的名字、绑 Scope 的事件（`goal/changed`）、返回值非 `void` 的事件。`$on('slots/changed', …)`（client 本地事件）与 `$on('skills/change', …)`（已声明但未选中）都编译失败——因此 `$on` 的键面恰好等于名单。
+- 类型层负例拒绝三类候选：不是事件的名字、绑 Scope 的事件（`goal/changed`）、返回值非 `void` 的事件。`$on('slots/changed', …)`（client 本地事件）编译失败，而已选中的 `$on('skills/change', …)` 键可编译，因此 `$on` 的键面恰好等于名单。
 - 消费端 `$on('settings/document-updated', …)` 把 `ns` 解析为 `SettingsNamespace`：brand 穿过 wire 存活。
 - `$on` 的 disposer 归属调用方 fiber；同一个函数对象订阅两次时两条注册各自独立退订——按 listener 身份做键的表会把它们合并，所以订阅按注册项寻址。
 - 投递同时收容抛出的 listener 与拒绝所返回 promise 的 listener：声明返回值是 `void`，没人 await 异步 listener，其拒绝否则会完全逃出这层收容。投递遍历快照，因此派发中订阅或退订都不会改变本帧的接收者集合。

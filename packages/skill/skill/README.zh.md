@@ -17,10 +17,12 @@
 - `ctx.skills.list({ cwd?, signal?, scope? })` 借用只读视图选项，然后返回当前工作区中的全部胜出摘要；这些摘要在全局层与观察 scope 链之间合并，并按名称排序。消费方在自身边界调用 `isModelInvocable(skill)` 或 `isUserInvocable(skill)`。
 - `ctx.skills.get(name, { cwd?, signal?, scope? })` 在发现和加载中使用同一组只读选项和胜出候选项；在发现或缓存命中后重新检查取消，让提供方加载与信号竞速，验证已加载定义，然后无论调用策略如何都将其返回。
 - `ctx.skills.register(skill): () => void` 将只读运行时嵌入式 skill 注册进调用方上下文所在层，省略时添加允许模型和用户调用的策略以及 `provider: "runtime"`。同层同名运行时注册使用先到先得：重复项会记录警告，并获得无操作 disposer。成功注册会返回精确的 Cordis disposer，以供有序组合拆卸。
+- `ctx.skills.registerInvocationOverride(override): () => void` 注册唯一的调用策略覆盖解析器：`override(name)` 为该 skill 返回替代策略，返回 `undefined` 则保留 skill 自身的策略。注册表对每个产出的摘要和已加载定义都应用该解析器，因此策略变化在下一次读取时即生效，无需缓存失效。已有一个注册时再次注册会大声失败；精确 disposer 移除仍活跃的注册时会广播 `skills/change`，让持有目录的消费方重新拉取。[`@deepseek-ai/dsh-skill-settings`](../skill-settings) 注册面向用户的设置覆盖。
+- `ctx.skills.notifyInvocationOverrideChange(): void` 在活动覆盖解析器的答案变化后广播 `skills/change`。监听器失败会被隔离，因此任何观察者都不能否决策略提交或阻止后续观察者执行。
 
 ### 事件
 
-- `skills/change` 是一条不带过滤条件的失效通知，在提供方或运行时贡献注册或释放后，以及活动提供方的注册控制触发失效后发出。它不携带目录或 diff；每个消费方都使用自身的查找选项重新获取 `snapshot()`。监听器抛错或 Promise 拒绝会被记录，既不能否决注册表变更，也不能阻止后续监听器执行。
+- `skills/change` 是一条不带过滤条件的失效通知，在提供方或运行时贡献注册或释放后、活动提供方的注册控制触发失效后、调用策略覆盖所有者宣告答案变化时，以及活跃覆盖被移除后发出。它不携带目录或 diff；每个消费方都使用自身的查找选项重新获取 `snapshot()`。监听器抛错或 Promise 拒绝会被记录，既不能否决注册表变更或策略提交，也不能阻止后续监听器执行。
 
 ### 配置
 
@@ -31,6 +33,10 @@
 ### 调用策略
 
 `SkillSummary.invocation` 是一个必填的类型化策略对象，其正向布尔字段 `modelInvocable` 和 `userInvocable` 分别描述两个接口。提供方会在每个候选项和定义中返回这一已解析形状；只有 `SkillRegistration` 输入可以省略它，此时 `register()` 会补入 `{ modelInvocable: true, userInvocable: true }`。注册表保留全部四种组合，使一次发现结果可以同时服务面向模型的工具、面向用户的命令和受信内部调用方，而不会混淆各自的目录。
+
+已注册的调用策略覆盖会替换匹配 skill 在每个产出摘要和已加载定义中的策略，因此所有消费方——模型目录、`skill` 工具、用户显式手势和配置列表——对哪些 skill 已关闭保持一致。未注册覆盖时，摘要和定义保留提供方的策略。
+
+摘要、候选项、定义和运行时注册上可选的 `group` 字段是展示层可据此聚合的标签；注册表把它视为不透明元数据，不与其他 skill 合并或校验。
 
 | 策略 | 模型 | 用户 |
 |---|---|---|

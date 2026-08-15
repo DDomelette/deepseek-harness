@@ -98,6 +98,34 @@ describe('createFixtureApi commands/skills', () => {
     const missingSession = await api.skills.list(req({ sessionId: sid('fx-nope') }))
     expect(missingSession.result).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
   })
+
+  it('serves the configuration catalog for the addressed session', async () => {
+    const api = createFixtureApi()
+    const response = await api.skills.catalog(req({ sessionId: sid('fx-alpha') }))
+    if (!response.result.ok) throw new Error('skill catalog failed')
+    expect(response.result.value.skills).toEqual([
+      {
+        name: 'fixture-demo',
+        description: 'fixture 技能样本',
+        whenToUse: '仅供 UI 目录渲染验收',
+        group: 'fixture',
+        source: 'user-dsh',
+        modelInvocable: true,
+        userInvocable: true,
+        disabled: false,
+      },
+      {
+        name: 'fixture-user-only',
+        description: 'fixture 仅用户技能样本',
+        source: 'user-dsh',
+        modelInvocable: false,
+        userInvocable: true,
+        disabled: false,
+      },
+    ])
+    const missingSession = await api.skills.catalog(req({ sessionId: sid('fx-nope') }))
+    expect(missingSession.result).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
+  })
 })
 
 describe('FixtureApiClient command/skill dispatch', () => {

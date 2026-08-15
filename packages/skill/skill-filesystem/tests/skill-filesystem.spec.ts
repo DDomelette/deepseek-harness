@@ -242,6 +242,7 @@ describe('FileSystemSkillProvider', () => {
       'name: rich-skill',
       'description: rich description',
       'whenToUse: For richer local parsing',
+      'group: superpowers',
       'disable-model-invocation: off',
       'user-invocable: YES',
       'metadata:',
@@ -250,6 +251,7 @@ describe('FileSystemSkillProvider', () => {
       '',
       'Rich body.',
     ].join('\n'))
+    await writeFile(join(root, 'bad-group.md'), '---\nname: bad-group\ndescription: bad group\ngroup: 3\n---\n\nBad group.\n')
     await writeFile(join(root, 'bad.md'), '---\nname: Bad_Name\ndescription: bad\n---\n\nbad')
     await writeFile(join(root, 'missing-description.md'), '---\nname: missing-description\n---\n\nbad')
     await writeFile(join(root, 'no-frontmatter.md'), 'No frontmatter.')
@@ -271,6 +273,7 @@ describe('FileSystemSkillProvider', () => {
     await rm(join(root, 'flat-skill.md'))
 
     expect(listedBeforeDelete.map(skill => skill.name)).toEqual([
+      'bad-group',
       'flat-skill',
       'model-only-skill',
       'no-trailing-body',
@@ -292,9 +295,12 @@ describe('FileSystemSkillProvider', () => {
     })
     expect(await ctx.skills.get('rich-skill')).toMatchObject({
       whenToUse: 'For richer local parsing',
+      group: 'superpowers',
       invocation: { modelInvocable: true, userInvocable: true },
       metadata: { owner: 'tests' },
     })
+    expect(listedBeforeDelete.find(skill => skill.name === 'rich-skill')?.group).toBe('superpowers')
+    expect((await ctx.skills.get('bad-group'))?.group).toBeUndefined()
     expect(await ctx.skills.get('Bad_Name')).toBeUndefined()
   })
 

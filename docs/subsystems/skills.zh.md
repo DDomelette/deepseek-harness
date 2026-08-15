@@ -112,6 +112,8 @@ interface SkillSummary {
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
+  /** Optional grouping label that presentation surfaces aggregate by. */
+  readonly group?: string
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -274,6 +276,26 @@ registerProvider(create: (control: SkillProviderControl) => SkillProvider): () =
 register(skill: SkillRegistration): () => void
 
 /**
+ * Register the one invocation-policy override resolver. The registry
+ * applies it to every produced summary and loaded definition, so changes
+ * in the resolver's answers take effect on the next read without cache
+ * invalidation. After committing changed answers, the owner calls
+ * {@link notifyInvocationOverrideChange} so catalog observers refetch. A
+ * second registration while one is active fails loud.
+ * @param override - resolver consulted with each skill name.
+ * @returns the disposer removing the exact registration and notifying
+ * catalog observers when it was still active.
+ */
+registerInvocationOverride(override: SkillInvocationOverride): () => void
+
+/**
+ * Notify catalog observers after the active invocation override's answers
+ * change. Listener failures are contained so every observer receives the
+ * notification and none becomes load-bearing for the policy commit.
+ */
+notifyInvocationOverrideChange(): void
+
+/**
  * List invocation-neutral skill summaries for a workspace. Consumers apply
  * model or user invocation policy at their operational boundary. Lookup
  * options and provider candidates are readonly same-process values borrowed
@@ -304,7 +326,7 @@ async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>
 async get(name: string, options: SkillViewOptions = {}): Promise<SkillDefinition | undefined>
 ```
 
-Source: [`packages/skill/skill/src/index.ts:357`](../../packages/skill/skill/src/index.ts)
+Source: [`packages/skill/skill/src/index.ts:338`](../../packages/skill/skill/src/index.ts)
 
 <a id="skills-events"></a>
 
@@ -314,18 +336,18 @@ Source: [`packages/skill/skill/src/index.ts:357`](../../packages/skill/skill/src
 
 #### `skills/change` — emit
 
-A skill provider, runtime contribution, or provider-backed catalog may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.
+A skill provider, runtime contribution, or effective invocation policy may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.
 
 ```ts cordis-catalog
 /**
- * A skill provider, runtime contribution, or provider-backed catalog may
- * have changed. This is an unfiltered invalidation notification; consumers
- * refetch the catalog for their own lookup options. Listener failures are
- * contained and cannot veto the registry mutation.
+ * A skill provider, runtime contribution, or effective invocation policy
+ * may have changed. This is an unfiltered invalidation notification;
+ * consumers refetch the catalog for their own lookup options. Listener
+ * failures are contained and cannot veto the registry mutation.
  * @mode emit
  */
 'skills/change'(): void
 ```
 
-Source: [`packages/skill/skill/src/index.ts:297`](../../packages/skill/skill/src/index.ts)
+Source: [`packages/skill/skill/src/types.ts:41`](../../packages/skill/skill/src/types.ts)
 <!-- END GENERATED cordis-surface -->

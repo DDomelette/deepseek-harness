@@ -3,7 +3,7 @@
 // deferred-controlled timing). Streams are hand pumps: pushMux/pushHost.
 import type {
   ClientResponse, HostFrame, IApiClient, ModelSelection, MuxFrame,
-  RpcError, RpcReceipt, RpcRequest, RpcResponse, SessionId, SessionModels, SessionSearchItem, SkillEntry,
+  RpcError, RpcReceipt, RpcRequest, RpcResponse, SessionId, SessionModels, SessionSearchItem, SkillCatalogEntry, SkillEntry,
   WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import { RpcId } from '@deepseek-ai/dsh-client-connection/client'
@@ -226,6 +226,8 @@ export class FakeApiClient implements IApiClient {
   // skill lists without casts.
   onSkillList: (payload: unknown) => Promise<RpcResponse<{ skills: SkillEntry[] }>>
     = () => Promise.resolve(ok({ skills: [] }))
+  onSkillCatalog: (payload: unknown) => Promise<RpcResponse<{ skills: SkillCatalogEntry[] }>>
+    = () => Promise.resolve(ok({ skills: [] }))
 
 
   readonly agentPresets: IApiClient['agentPresets'] = {
@@ -246,6 +248,7 @@ export class FakeApiClient implements IApiClient {
 
   readonly skills: IApiClient['skills'] = {
     list: (payload: unknown) => this.record('skill.list', payload, this.onSkillList(payload)),
+    catalog: (payload: unknown) => this.record('skill.catalog', payload, this.onSkillCatalog(payload)),
   }
 
   readonly goals: IApiClient['goals'] = {
