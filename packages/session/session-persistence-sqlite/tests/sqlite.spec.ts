@@ -55,6 +55,7 @@ runPersistenceContract('sqlite', async () => {
   const fiber = await ctx.plugin(SqliteSessionPersistence, { path: ':memory:' })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => { await fiber.dispose() },
   }
 })
@@ -672,6 +673,25 @@ describe('SqliteSessionPersistence: durability and crash semantics', () => {
     expect(await b.ctx.sessionPersistence.listSnapshots()).toEqual(before)
     await b.dispose()
   })
+  it('delete removes the sessions row and every events row in one transaction', async () => {
+    const path = await freshDbPath()
+    const b = await backend(path)
+    try {
+      const m = meta('delete-sqlite', '/work')
+      await b.ctx.sessionPersistence.create(m)
+      await b.ctx.sessionPersistence.append(m.id, oneTurnLog())
+      await b.ctx.sessionPersistence.delete(m.id)
+      const db = openDatabase(path, 'wal')
+      const rows = db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE id = ?').get(m.id) as { n: number }
+      expect(rows.n).toBe(0)
+      const events = db.prepare('SELECT COUNT(*) AS n FROM events WHERE session_id = ?').get(m.id) as { n: number }
+      expect(events.n).toBe(0)
+      db.close()
+    } finally {
+      await b.dispose()
+    }
+  })
+
 })
 
 describe('SqliteSessionPersistence: edge cases', () => {
