@@ -1,4 +1,4 @@
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Complete pin state returned by every Remote method. */
 export interface SessionPinsSnapshot {
