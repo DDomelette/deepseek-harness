@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -16,6 +16,23 @@ describe('CursorStore', () => {
     const second = new CursorStore(path)
     await second.load()
     expect(second.get('/tmp/usage-2026-08-16.jsonl')).toEqual({ offset: 42 })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('drops invalid cursor entries and recovers from malformed JSON', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'usage-exporter-cursor-'))
+    const path = join(dir, 'cursor.json')
+    await writeFile(path, JSON.stringify({ version: 1, files: { 'bad-negative.jsonl': { offset: -1 }, 'bad-float.jsonl': { offset: 1.5 }, 'good.jsonl': { offset: 3 } } }))
+    const store = new CursorStore(path)
+    await store.load()
+    expect(store.get('bad-negative.jsonl')).toBeUndefined()
+    expect(store.get('bad-float.jsonl')).toBeUndefined()
+    expect(store.get('good.jsonl')).toEqual({ offset: 3 })
+
+    await writeFile(path, '{oops')
+    const recovered = new CursorStore(path)
+    await recovered.load()
+    expect(recovered.get('good.jsonl')).toBeUndefined()
     await rm(dir, { recursive: true, force: true })
   })
 

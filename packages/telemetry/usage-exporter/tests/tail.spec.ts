@@ -32,6 +32,30 @@ describe('UsageTailReader', () => {
     await rm(root, { recursive: true, force: true })
   })
 
+  it('does not advance past the row that fills maxBatchRows', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'usage-exporter-tail-'))
+    const file = join(root, 'usage-2026-08-16.jsonl')
+    await writeFile(file, [ROW, ROW, ROW].map(row => JSON.stringify(row)).join('\n') + '\n')
+    const store = await cursor(root)
+    const reader = new UsageTailReader({ root, sourceId: 'src', cursorStore: store, startFrom: 'beginning', maxBatchBytes: 65536, maxBatchRows: 1, logMalformed: () => {} })
+
+    const first = await reader.nextBatch()
+    expect(first).toBeDefined()
+    if (first === undefined) throw new Error('expected the first batch')
+    expect(first.rows).toHaveLength(1)
+    expect(first.endOffset).toBe(first.startOffset + JSON.stringify(ROW).length + 1)
+    store.set(file, { offset: first.endOffset })
+    await store.save()
+
+    const second = await reader.nextBatch()
+    expect(second).toBeDefined()
+    if (second === undefined) throw new Error('expected the second batch')
+    expect(second.rows).toHaveLength(1)
+    expect(second.startOffset).toBe(first.endOffset)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
   it('skips a malformed line and advances past it', async () => {
     const root = await mkdtemp(join(tmpdir(), 'usage-exporter-tail-'))
     const file = join(root, 'usage-2026-08-16.jsonl')

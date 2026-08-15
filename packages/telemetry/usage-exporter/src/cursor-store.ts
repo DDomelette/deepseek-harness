@@ -15,11 +15,20 @@ export class CursorStore {
   async load(): Promise<void> {
     try {
       const parsed = JSON.parse(await readFile(this.path, 'utf8')) as RawCursorState
-      if (parsed.version === 1 && typeof parsed.files === 'object' && parsed.files !== null) {
-        this.state = { version: 1, files: parsed.files as Record<string, FileCursor> }
+      if (parsed.version !== 1 || typeof parsed.files !== 'object' || parsed.files === null) return
+      const files: Record<string, FileCursor> = {}
+      for (const [file, value] of Object.entries(parsed.files as Record<string, unknown>)) {
+        if (typeof file !== 'string' || file.length === 0) continue
+        if (typeof value !== 'object' || value === null) continue
+        const offset = (value as { offset?: unknown }).offset
+        if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) continue
+        files[file] = { offset }
       }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      this.state = { version: 1, files }
+    } catch {
+      // A malformed cursor is recoverable state: start from an empty cursor
+      // rather than letting one damaged file strand the exporter.
+      this.state = { version: 1, files: {} }
     }
   }
 
