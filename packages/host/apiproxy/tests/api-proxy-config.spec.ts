@@ -23,6 +23,7 @@ import type { HostFrame } from '../src/api/index.ts'
 import type { RpcRequest, RpcResponse } from '../src/api/rpc.ts'
 import { RpcId } from '../src/api/rpc.ts'
 import { AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-default-model'
+import { USAGE_TELEMETRY_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-usage-telemetry'
 import { createApiProxy } from '../src/api-proxy.ts'
 
 const DEFAULTS = { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' }
@@ -424,6 +425,22 @@ describe('settings domain', () => {
       ops: [{ op: 'set', path: ['filesystem', 'enabled'], value: false }],
     })))
     expect(mutated.value).toEqual({ filesystem: { enabled: false } })
+  })
+
+  it('exposes the usage-telemetry namespace to the Web client', async () => {
+    const ctx = await harness()
+    ctx.settings.register(USAGE_TELEMETRY_SETTINGS_NAMESPACE, z.object({
+      enabled: z.boolean().default(true),
+    }))
+    const api = createApiProxy(ctx, DEFAULTS)
+
+    const described = expectOk(await api.settings.describe(request({})))
+    expect(described.namespaces.some(view => view.ns === 'usage-telemetry')).toBe(true)
+    const mutated = expectOk(await api.settings.update(request({
+      ns: 'usage-telemetry',
+      patch: { enabled: false },
+    })))
+    expect(mutated.value).toEqual({ enabled: false })
   })
 
   it('serves product preference namespaces without invalidating the model catalog', async () => {

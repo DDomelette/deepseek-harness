@@ -45,7 +45,7 @@ import { USAGE_TELEMETRY_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-usage-telem
 it('exposes the usage-telemetry namespace to the Web client', async () => {
   const ctx = await harness()
   ctx.settings.register(USAGE_TELEMETRY_SETTINGS_NAMESPACE, z.object({
-    enabled: z.boolean().required(),
+    enabled: z.boolean().default(true),
   }))
   const api = createApiProxy(ctx, DEFAULTS)
 
