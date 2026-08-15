@@ -1208,3 +1208,34 @@ describe('background-job mirror', () => {
     expect(seen).toHaveBeenCalled()
   })
 })
+
+describe('session deletion', () => {
+  it('deletes recursively over the wire and removes every returned id', async () => {
+    const api = new FakeApiClient()
+    api.onSessionDelete = () => Promise.resolve(ok({ deletedSessionIds: [S2, S1] as never[] }))
+    const manager = new SessionManager(api, fakeRemote())
+    manager.handleHostEnvelope({ rpcId: 'a1' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
+    manager.handleHostEnvelope({ rpcId: 'a2' as never, payload: { type: 'host/session-added', blank: true, sessionId: S2 } })
+    const result = await manager.deleteSession(S1)
+    expect(result).toMatchObject({ ok: true })
+    expect(api.callsOf('session.delete')).toEqual([{ sessionId: S1, recursive: true }])
+    expect(manager.getListSnapshot().items.map(item => item.sessionId)).toEqual([])
+  })
+
+  it('applies host/session-deleted as a permanent removal', () => {
+    const manager = new SessionManager(new FakeApiClient(), fakeRemote())
+    manager.handleHostEnvelope({ rpcId: 'a' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
+    manager.handleHostEnvelope({ rpcId: 'd' as never, payload: { type: 'host/session-deleted', sessionId: S1 } })
+    expect(manager.getListSnapshot().items.map(item => item.sessionId)).toEqual([])
+  })
+
+  it('maps host refusal codes to a failed result without removing rows', async () => {
+    const api = new FakeApiClient()
+    api.onSessionDelete = () => Promise.resolve(err({ code: 'session-running', message: 'running', details: { runningSessionIds: [S1] as never[] } }))
+    const manager = new SessionManager(api, fakeRemote())
+    manager.handleHostEnvelope({ rpcId: 'a' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
+    const result = await manager.deleteSession(S1)
+    expect(result).toMatchObject({ ok: false, error: { code: 'session-running' } })
+    expect(manager.getListSnapshot().items.map(item => item.sessionId)).toEqual([S1])
+  })
+})

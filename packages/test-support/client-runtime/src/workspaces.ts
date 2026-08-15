@@ -214,6 +214,15 @@ export class TestWorkspaces implements IWorkspaces {
   }
 
   /**
+   * Refresh the workspace baseline (recorded; fixture callers drive
+   * snapshots explicitly).
+   */
+  refresh(): Promise<void> {
+    this.calls.push({ method: 'refresh', args: [] })
+    return Promise.resolve()
+  }
+
+  /**
    * Unarchive a session (recorded). The default mirrors the production face's
    * observable effect: the id leaves the list state's archive set.
    * @param sessionId - session to unarchive.

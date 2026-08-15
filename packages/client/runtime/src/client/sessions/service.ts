@@ -432,6 +432,16 @@ export class SessionRuntime implements ISessions {
   }
 
   /**
+   * Permanently delete one session and its descendant subagent sessions on
+   * the host, then remove the returned ids from the list store.
+   * @param sessionId - archived target to delete recursively.
+   */
+  async deleteSession(sessionId: SessionId): Promise<void> {
+    const result = await this.manager.deleteSession(sessionId)
+    if (!result.ok) throw new Error(`session delete failed: ${result.error.code}: ${result.error.message}`)
+  }
+
+  /**
    * Search the Host's visible message-content index. Results stay
    * request-local; the list snapshot remains the metadata authority.
    * @param query - non-blank literal phrase.

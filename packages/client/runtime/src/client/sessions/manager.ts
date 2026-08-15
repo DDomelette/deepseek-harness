@@ -603,6 +603,35 @@ export class SessionManager {
   }
 
   /**
+   * Contract session.delete; on success remove every durably deleted id from
+   * the list store without waiting for the host frame.
+   * @param sessionId - archived target to delete recursively.
+   * @returns the host result.
+   */
+  async deleteSession(sessionId: SessionId): Promise<RpcResult<{ deletedSessionIds: SessionId[] }>> {
+    try {
+      const { result } = await this.api.sessions.delete({ sessionId, recursive: true })
+      if (result.ok) this.removeDeleted(result.value.deletedSessionIds)
+      return result
+    } catch (error) {
+      return transportError(error)
+    }
+  }
+
+  /** Remove durably deleted ids from every list-side projection. */
+  private removeDeleted(ids: readonly SessionId[]): void {
+    for (const id of ids) {
+      this.recordMutation({ kind: 'remove', sessionId: id })
+      this.sessions.get(id)?.handleRemoved()
+      this.pendingBuffers.delete(id)
+      this.pendingInteractions.delete(id)
+      this.jobsBySession.delete(id)
+      this.projectionStores.delete(id)
+      this.updateCatalogActivity(id, false)
+    }
+  }
+
+  /**
    * Insert-or-enrich a locally synthesized summary: a new id prepends; an
    * existing entry only gains fields it lacks (the session-added frame and the
    * create() echo race — whichever lands second must fill the placeholder's
@@ -858,6 +887,10 @@ export class SessionManager {
           if (address.parentSessionId !== frame.sessionId) continue
           this.sessions.get(childId)?.handleSubagentParentAvailable(false)
         }
+        return
+      }
+      case 'host/session-deleted': {
+        this.removeDeleted([frame.sessionId])
         return
       }
       case 'host/session-status': {

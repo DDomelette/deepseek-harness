@@ -747,3 +747,24 @@ describe('coverage tails (branch duals)', () => {
   })
 
 })
+
+describe('deleteSession', () => {
+  it('deletes recursively and removes the returned rows from the service list', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'root' }, { id: 'child' }])
+    b.api.onSessionDelete = () => Promise.resolve(ok({ deletedSessionIds: [sid('child'), sid('root')] }))
+    await b.svc.deleteSession(sid('root'))
+    expect(b.api.callsOf('session.delete')).toEqual([{ sessionId: sid('root'), recursive: true }])
+    expect(b.svc.list.getSnapshot().ids).toEqual([])
+  })
+
+  it('maps a host refusal to a thrown error and keeps the rows', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'root' }])
+    b.api.onSessionDelete = () => Promise.resolve(err({
+      code: 'session-running', message: 'running', details: { runningSessionIds: [sid('root')] },
+    }))
+    await expect(b.svc.deleteSession(sid('root'))).rejects.toThrow(/session-running/)
+    expect(b.svc.list.getSnapshot().ids).toEqual([sid('root')])
+  })
+})
