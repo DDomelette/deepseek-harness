@@ -461,6 +461,9 @@ export function batchIdFor(sourceId: string, file: string, startOffset: number, 
 }
 
 export class UsageTailReader {
+  /** First poll snapshots pre-existing files at EOF; files created later start at zero. */
+  private initialized = false
+
   constructor(private readonly options: {
     root: string
     sourceId: string
@@ -474,6 +477,17 @@ export class UsageTailReader {
   async nextBatch(): Promise<UsageBatch | undefined> {
     const { root, sourceId, cursorStore, startFrom, maxBatchBytes, maxBatchRows, logMalformed } = this.options
     const names = (await readdir(root)).filter(name => FILE_PATTERN.test(name)).sort()
+    if (!this.initialized) {
+      if (startFrom === 'end') {
+        for (const name of names) {
+          const file = join(root, name)
+          const info = await stat(file)
+          cursorStore.set(file, { offset: info.size })
+        }
+      }
+      this.initialized = true
+      await cursorStore.save()
+    }
     if (names.length === 0) return
     const active = new Set(names.map(name => join(root, name)))
     cursorStore.prune(active)
@@ -482,10 +496,7 @@ export class UsageTailReader {
       const file = join(root, name)
       const info = await stat(file)
       let cursor = cursorStore.get(file)
-      if (cursor === undefined) {
-        cursor = { offset: startFrom === 'end' ? info.size : 0 }
-        cursorStore.set(file, cursor)
-      } else if (info.size < cursor.offset) {
+      if (cursor === undefined || info.size < cursor.offset) {
         cursor = { offset: 0 }
         cursorStore.set(file, cursor)
       }
@@ -774,7 +785,13 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
   const rootId = rootIdFor(root)
   const cursor = new CursorStore(config.cursorPath ?? dshHomePath('storages', 'usage-exporter.json'))
   await cursor.load()
-  const sender = new BatchSender({ endpoint: config.endpoint, token: config.token, sourceId, rootId, requestTimeoutMs: config.requestTimeoutMs })
+  const sender = new BatchSender({
+    endpoint: config.endpoint,
+    token: config.token,
+    sourceId,
+    rootId,
+    requestTimeoutMs: config.requestTimeoutMs,
+  })
   const reader = new UsageTailReader({
     root, sourceId, cursorStore: cursor, startFrom: config.startFrom,
     maxBatchBytes: config.maxBatchBytes, maxBatchRows: config.maxBatchRows,
