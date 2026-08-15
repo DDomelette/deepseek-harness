@@ -17,7 +17,7 @@ A new Host package `@deepseek-ai/dsh-mcp-manager` (`packages/mcp/mcp-manager`) a
 - settings-managed servers from the `mcp-servers` settings namespace, whose schema mirrors the `dsh-mcp-client` Config plus an `enabled` flag, keyed by `serverName` — editable in the tab;
 - declarative rows projected from `ctx.loader.entries()` where the module is `@deepseek-ai/dsh-mcp-client`, shown read-only (badge 由配置文件管理, switch and gear disabled).
 
-`dsh-mcp-client` itself is untouched: the manager hot-mounts one instance per enabled settings entry.
+The manager hot-mounts one `dsh-mcp-client` instance per enabled settings entry. The client's one-instance-per-server model stays unchanged; its reconnect schema is exported so the manager can reuse the same validation and defaults.
 
 ### Persistence and hot apply
 
@@ -29,11 +29,11 @@ A settings entry whose `serverName` collides with a declarative row is refused a
 
 ### Secret handling
 
-`env` and `headers` are `role('secret')` schema fields. The wire never returns them, so every client write names the leaves it means: the enablement switch writes path `[serverName, enabled]`; the editor sends one per-field deep path op per changed field and leaves blank env/headers fields out of the patch entirely. This required extending the client settings scope contract with `SettingsScope.setPath` — the shared contract previously exposed only whole-field set/unset, and a whole-field write rebuilt from the redacted view silently deletes stored secrets.
+`env` and `headers` are `role('secret')` schema fields. The wire never returns them, so every client write names the leaves it means: the enablement switch writes path `[serverName, enabled]`; the editor submits every changed leaf together through `SettingsScope.mutate` and leaves blank env/headers fields out of the transaction entirely. The shared settings scope provides both single-path `setPath` and atomic multi-path `mutate`, because a whole-field write rebuilt from the redacted view silently deletes stored secrets while separate transactions can partially apply one edit.
 
 ### Status reporting
 
-The gateway reports mount lifecycle only (connecting → ready/failed), not liveness: with `failOnStartupError: false` an unreachable server still activates and `dsh-mcp-client` reconnects internally, so `ready` means activation settled, not that the server answered. The tab's status dot labels read 运行中/启动失败 accordingly. `dsh-mcp-client`'s public API gains nothing; the supervisor wraps the mount fiber.
+The gateway reports mount lifecycle only (connecting → ready/failed), not liveness: with `failOnStartupError: false` an unreachable server still activates and `dsh-mcp-client` reconnects internally, so `ready` means activation settled, not that the server answered. The tab's status dot labels read 运行中/启动失败 accordingly. The manager broadcasts a payload-free `mcp-servers/change` invalidation after roster and lifecycle transitions; an open tab refetches and uses a request generation guard so an older response cannot replace a newer snapshot.
 
 ## Alternatives considered
 
@@ -47,16 +47,18 @@ The gateway reports mount lifecycle only (connecting → ready/failed), not live
 
 - A duplicate settings/declarative name fails the write (validate hook) and would fail the mount (`dsh-mcp-client` reservation) — loud at both layers.
 - Toggling, editing, or removing a server takes effect without a Host restart; the supervisor remounts on the settings commit.
+- The add and edit forms expose the complete automatic-reconnect policy validated by `dsh-mcp-client`.
+- An open tab converges on Host lifecycle changes and connection resets without remounting the browser component.
 - Blank secret fields mean "keep the stored value"; clearing all env/headers from the UI is deliberately unsupported — delete and re-add to start without secrets.
 - The status dot reports lifecycle, not liveness; a crash-looping server keeps showing 运行中 while `dsh-mcp-client` retries, per the [reconnect Agent Note](2026-08-06-mcp-client-auto-reconnect.md).
 - Renaming a server is not offered: the dict key is the name, so rename is remove + add.
 
 ## Testing
 
-- `packages/mcp/mcp-manager`: schema, registration and write-time refusal, supervisor diff and mount/dispose/remount, gateway merge; per-file 100% coverage.
-- `packages/client/ui-settings-mcp`: tab, add form, edit form, controller per-leaf writes; 100% coverage.
-- `apps/web/tests/mcp-config.e2e.ts`: real scaffold — add/toggle/remove write through to `$DSH_HOME/settings.yaml`, search, and the declarative row under the memorix example overlay; aria golden in `snapshots/mcp-config`.
-- `SettingsScope.setPath`: unit tests in `packages/client/ui-settings/tests/settings-scope.client.spec.ts`.
+- `packages/mcp/mcp-manager`: schema and reconnect defaults, registration and write-time refusal, supervisor diff and mount/dispose/remount, lifecycle invalidation, gateway merge; per-file 100% coverage.
+- `packages/client/ui-settings-mcp`: tab invalidation and stale-response ordering, add/edit reconnect fields, controller atomic writes and refusal handling; 100% coverage.
+- `apps/web/tests/mcp-config.e2e.ts`: real scaffold — add with reconnect policy, toggle, and remove write through to `$DSH_HOME/settings.yaml`, plus search and the declarative row under the memorix example overlay; roster and add-form aria goldens live in `snapshots/mcp-config`.
+- `SettingsScope.setPath` and `SettingsScope.mutate`: unit tests in `packages/client/ui-settings/tests/settings-scope.client.spec.ts`.
 
 ## Deferred
 

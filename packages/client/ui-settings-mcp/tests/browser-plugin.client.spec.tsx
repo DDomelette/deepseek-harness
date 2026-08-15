@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
+import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, NS } from '../src/client/index.ts'
 import { McpSettingsTab } from '../src/client/McpSettingsTab.tsx'
 import type { McpSettingsTabInjected } from '../src/client/McpSettingsTab.tsx'
@@ -24,15 +24,12 @@ async function bench() {
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
-  class RemoteService extends Service {
-    constructor(serviceCtx: Context) {
-      super(serviceCtx, 'remote')
-    }
-  }
-  new RemoteService(ctx)
+  const remote = new TestRemote(ctx)
   const list = vi.fn<() => Promise<ListResult>>()
     .mockResolvedValue({ ok: true, value: EMPTY })
-  ctx.provide('remote.mcpServers', { list })
+  const mcpServers = { list }
+  Object.assign(remote, { mcpServers })
+  ctx.provide('remote.mcpServers', mcpServers)
   const set = vi.fn<(field: string, value: unknown) => Promise<void>>().mockResolvedValue()
   const setPath = vi.fn<(path: readonly string[], value: unknown) => Promise<void>>().mockResolvedValue()
   const scope = {
@@ -85,6 +82,16 @@ describe('ui-settings-mcp browser plugin', () => {
     expect(b.list).toHaveBeenCalledOnce()
     b.list.mockResolvedValueOnce({ ok: false, error: { code: 'REMOTE_ERROR', message: 'unavailable' } })
     await expect(injected.list()).rejects.toThrow('mcpServers.list failed: REMOTE_ERROR: unavailable')
+
+    const listener = vi.fn()
+    const disposeSubscription = injected.subscribeRoster(listener)
+    b.ctx.remote.$dispatch('mcp-servers/change', [])
+    b.ctx.emit('connection/reset')
+    expect(listener).toHaveBeenCalledTimes(2)
+    disposeSubscription()
+    b.ctx.remote.$dispatch('mcp-servers/change', [])
+    b.ctx.emit('connection/reset')
+    expect(listener).toHaveBeenCalledTimes(2)
 
     await injected.setEnabled('filesystem', false)
     expect(b.set).not.toHaveBeenCalled()

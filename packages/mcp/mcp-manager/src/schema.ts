@@ -6,6 +6,8 @@
  */
 
 import z from '@deepseek-ai/schemastery'
+import { ReconnectConfigSchema } from '@deepseek-ai/dsh-mcp-client'
+import type { ReconnectConfig } from '@deepseek-ai/dsh-mcp-client'
 
 /** Settings namespace owning the panel-managed MCP server roster. */
 export const MCP_SERVERS_NS = 'mcp-servers'
@@ -26,6 +28,7 @@ export interface McpStdioEntry {
   cwd: string
   toolCallTimeoutMs: number
   failOnStartupError: boolean
+  reconnect: Required<ReconnectConfig>
 }
 
 /** Fully resolved settings entry for one Streamable HTTP MCP server. */
@@ -36,6 +39,7 @@ export interface McpHttpEntry {
   headers: Record<string, string>
   toolCallTimeoutMs: number
   failOnStartupError: boolean
+  reconnect: Required<ReconnectConfig>
 }
 
 /** Fully resolved settings entry for one MCP server. */
@@ -53,6 +57,7 @@ const stdioEntry = z.object({
   cwd: z.string().default(''),
   toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
   failOnStartupError: z.boolean().default(false),
+  reconnect: ReconnectConfigSchema,
 })
 
 const httpEntry = z.object({
@@ -62,6 +67,7 @@ const httpEntry = z.object({
   headers: z.dict(String).default({}).role('secret'),
   toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
   failOnStartupError: z.boolean().default(false),
+  reconnect: ReconnectConfigSchema,
 })
 
 /** Schema of one dict entry; the key carries the serverName. */

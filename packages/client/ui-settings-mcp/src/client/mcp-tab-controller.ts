@@ -9,11 +9,12 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: the wire types plus the ctx.remote Context merge carrying the
 // generated `mcpServers` namespace face.
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope, SettingsScopeMutation } from '@deepseek-ai/dsh-client-runtime/client'
 import type { McpSettingsTabInjected } from './McpSettingsTab.tsx'
 import type { NewServerDraft } from './AddServerForm.tsx'
 import type { ServerPatch } from './EditServerForm.tsx'
 import type { McpLocaleKey } from './locales.ts'
+import type { ReconnectDraft } from './ReconnectFields.tsx'
 
 /**
  * Settings namespace owning the panel-managed MCP roster. Spelled here rather
@@ -42,6 +43,8 @@ export interface McpServerSettingsEntry {
   readonly url?: string
   /** Per-tool-call timeout in milliseconds. */
   readonly toolCallTimeoutMs?: number
+  /** Automatic reconnect policy. */
+  readonly reconnect?: ReconnectDraft
 }
 
 /** The `mcp-servers` section as the scope snapshot presents it: a dict keyed by serverName. */
@@ -49,6 +52,9 @@ export type McpServersSettings = Record<string, McpServerSettingsEntry>
 
 /** The generated `mcpServers` Remote namespace face, narrowed from ctx.remote. */
 type McpServersRemote = Context['remote']['mcpServers']
+
+/** Settings and Remote methods owned by the controller, excluding Host invalidation wiring. */
+export type McpTabControllerFace = Omit<McpSettingsTabInjected, 'subscribeRoster'>
 
 /** Bridges the `mcp-servers` scope and the mcpServers Remote onto the tab's injected face. */
 export class McpTabController {
@@ -65,7 +71,7 @@ export class McpTabController {
    * Build the face the tab's slot registration injects.
    * @returns roster reads plus enablement writes.
    */
-  face(): McpSettingsTabInjected {
+  face(): McpTabControllerFace {
     return {
       list: () => this.list(),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
@@ -112,21 +118,21 @@ export class McpTabController {
   }
 
   /**
-   * Apply one incremental patch as per-field deep path ops. Only the leaves
-   * the patch names are written, so secret fields the edit form left blank
-   * keep their stored values. The Host's schema validation remains the
-   * authority; the roster re-read after the tab closes shows what landed.
+   * Apply one incremental patch as a single atomic group of deep path ops.
+   * Only the leaves the patch names are written, so secret fields the edit
+   * form left blank keep their stored values. A conflict, schema refusal, or
+   * transport failure leaves every field unchanged and keeps the editor open.
    * @param serverName - the row's server name.
    * @param patch - the fields the user changed.
-   * @returns null after the queued writes, or the failure key when the scope
-   * holds no accepted entry for the row.
+   * @returns null when the Host accepted every edit, otherwise the failure key.
    */
   private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
     if (this.scope.getSnapshot().value?.[serverName] === undefined) return 'loadFailed'
-    for (const [field, value] of Object.entries(patch)) {
-      await this.scope.setPath([serverName, field], value)
-    }
-    return null
+    const ops: SettingsScopeMutation[] = Object.entries(patch).map(([field, value]) => ({
+      op: 'set', path: [serverName, field], value,
+    }))
+    if (ops.length === 0) return null
+    return await this.scope.mutate(ops) ? null : 'saveFailed'
   }
 
   /**
@@ -134,9 +140,9 @@ export class McpTabController {
    * removal: nothing survives the delete, so redacted secrets need no
    * preservation.
    * @param serverName - the row's server name.
-   * @returns settlement of the queued settings clear.
+   * @returns null when the Host accepted the removal, otherwise the failure key.
    */
-  private async removeServer(serverName: string): Promise<void> {
-    await this.scope.unset(serverName)
+  private async removeServer(serverName: string): Promise<McpLocaleKey | null> {
+    return await this.scope.mutate([{ op: 'unset', path: [serverName] }]) ? null : 'saveFailed'
   }
 }

@@ -11,6 +11,10 @@ import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpServerSettingsEntry } from './mcp-tab-controller.ts'
 import { parseKeyValues, splitArgs, validateDraft, type NewServerDraft } from './AddServerForm.tsx'
 import type { McpLocaleKey } from './locales.ts'
+import {
+  DEFAULT_RECONNECT_FORM, DEFAULT_RECONNECT_POLICY, parseReconnect, ReconnectFields,
+  type ReconnectDraft, type ReconnectFormState,
+} from './ReconnectFields.tsx'
 import css from './AddServerForm.module.css'
 
 /** Incremental update for one server entry: only the fields the user changed. */
@@ -22,6 +26,7 @@ export type ServerPatch = {
   env?: Record<string, string>
   headers?: Record<string, string>
   toolCallTimeoutMs?: number
+  reconnect?: ReconnectDraft
 }
 
 /** Raw field text this form stages. */
@@ -33,6 +38,14 @@ export interface FormState {
   url: string
   headers: string
   timeout: string
+  reconnect: ReconnectFormState
+}
+
+function sameReconnect(left: ReconnectDraft, right: ReconnectDraft): boolean {
+  return left.enabled === right.enabled
+    && left.initialDelayMs === right.initialDelayMs
+    && left.maxDelayMs === right.maxDelayMs
+    && left.maxAttempts === right.maxAttempts
 }
 
 /** Prefill the editable text from the redacted entry; secrets always start blank. */
@@ -45,6 +58,14 @@ function stateFrom(entry: McpServerSettingsEntry): FormState {
     url: entry.url ?? '',
     headers: '',
     timeout: entry.toolCallTimeoutMs === undefined ? '' : String(entry.toolCallTimeoutMs),
+    reconnect: entry.reconnect === undefined
+      ? { ...DEFAULT_RECONNECT_FORM }
+      : {
+        enabled: entry.reconnect.enabled,
+        initialDelayMs: String(entry.reconnect.initialDelayMs),
+        maxDelayMs: String(entry.reconnect.maxDelayMs),
+        maxAttempts: String(entry.reconnect.maxAttempts),
+      },
   }
 }
 
@@ -68,6 +89,8 @@ export function editPatch(
   if (env !== undefined && 'error' in env) return { error: env.error }
   const headers = state.headers.trim() === '' ? undefined : parseKeyValues(state.headers)
   if (headers !== undefined && 'error' in headers) return { error: headers.error }
+  const parsedReconnect = parseReconnect(state.reconnect)
+  if ('error' in parsedReconnect) return parsedReconnect
 
   const args = splitArgs(state.args)
   const shared = { serverName, ...(timeout === undefined ? {} : { toolCallTimeoutMs: timeout }) }
@@ -85,6 +108,10 @@ export function editPatch(
   if (timeout !== undefined && timeout !== entry.toolCallTimeoutMs) patch.toolCallTimeoutMs = timeout
   if (env !== undefined) patch.env = env.values
   if (headers !== undefined) patch.headers = headers.values
+  const currentReconnect = entry.reconnect ?? DEFAULT_RECONNECT_POLICY
+  if (!sameReconnect(parsedReconnect.reconnect, currentReconnect)) {
+    patch.reconnect = parsedReconnect.reconnect
+  }
   return { patch }
 }
 
@@ -96,8 +123,8 @@ export interface EditServerFormProps {
   entry: McpServerSettingsEntry
   /** Commit one incremental patch; resolves null on acceptance or an error key. */
   updateServer: (patch: ServerPatch) => Promise<McpLocaleKey | null>
-  /** Remove the server after confirmation. */
-  removeServer: () => Promise<void>
+  /** Remove the server after confirmation; resolves null on acceptance or an error key. */
+  removeServer: () => Promise<McpLocaleKey | null>
   /** Dictionary binder for this namespace's copy. */
   t: (key: McpLocaleKey) => string
   /** The tab closes the view and re-reads the roster after acceptance or removal. */
@@ -154,7 +181,14 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
     if (removeBusy) return
     setRemoveBusy(true)
     void removeServer().then(
-      () => { onDone() },
+      (failure) => {
+        if (failure === null) {
+          onDone()
+          return
+        }
+        setRemoveBusy(false)
+        setSaveError(failure)
+      },
       () => {
         setRemoveBusy(false)
         setSaveError('saveFailed')
@@ -200,6 +234,12 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
         <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
         <Input id={`mcp-timeout-${serverName}`} type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
+      <ReconnectFields
+        idPrefix={`mcp-edit-${serverName}`}
+        state={state.reconnect}
+        setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
+        t={t}
+      />
       {blocked !== null ? <p role="alert" className={css.error}>{t(blocked)}</p> : null}
       {saveError !== null && blocked === null ? <p role="alert" className={css.error}>{t(saveError)}</p> : null}
       <div className={css.actions}>

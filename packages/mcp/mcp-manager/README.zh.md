@@ -31,6 +31,10 @@
 | `headers` | http | 否 | 额外标头；带 `role('secret')` |
 | `toolCallTimeoutMs` | 两者 | 否 | 每次 `callTool` 调用的超时（默认 60000） |
 | `failOnStartupError` | 两者 | 否 | 将初始连接或工具同步失败视为该条目的致命错误（默认 `false`） |
+| `reconnect.enabled` | 两者 | 否 | 连接丢失后是否启动自动重连（默认 `true`） |
+| `reconnect.initialDelayMs` | 两者 | 否 | 首次重连尝试前的延迟（默认 500） |
+| `reconnect.maxDelayMs` | 两者 | 否 | 指数退避的最大延迟（默认 30000） |
+| `reconnect.maxAttempts` | 两者 | 否 | 停止前的最大重连尝试次数（默认 10） |
 
 ## Declarative 投影
 
@@ -38,7 +42,7 @@
 
 ## 名册 Remote
 
-本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有命名空间注册与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。
+本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有命名空间注册与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。设置名单或挂载生命周期状态变化后，管理器会发出不带载荷的 `mcp-servers/change` 失效通知；Remote 消费端重新读取 `list()`，而不把事件本身当作快照。
 
 ## 与 dsh-mcp-client 的关系
 

@@ -34,7 +34,17 @@ export function apply(ctx: ClientContext): void {
     ctx.settingsScope.bind<McpServersSettings>({ namespace: MCP_SERVERS_NS }),
     ctx.remote.mcpServers,
   )
-  const injected = (): McpSettingsTabInjected => controller.face()
+  const face = controller.face()
+  const injected = (): McpSettingsTabInjected => ({
+    ...face,
+    subscribeRoster: (listener) => {
+      const disposers = [
+        ctx.remote.$on('mcp-servers/change', listener),
+        ctx.on('connection/reset', listener),
+      ]
+      return () => { for (const dispose of disposers) dispose() }
+    },
+  })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',

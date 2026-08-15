@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import * as McpManager from '../src/index.ts'
+import McpManager from '../src/index.ts'
 import { declarativeMcpServers, MCP_CLIENT_MODULE } from '../src/declarative.ts'
 import { MCP_SERVERS_NS } from '../src/schema.ts'
 import { MemorySettings, fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
@@ -41,7 +41,28 @@ describe('mcp-manager settings registration', () => {
       alpha: { transport: 'stdio', command: 'memorix' },
     })
     expect(ctx.settings.get(settingsNamespace(MCP_SERVERS_NS))).toMatchObject({
-      alpha: { enabled: true, command: 'memorix', toolCallTimeoutMs: 60_000 },
+      alpha: {
+        enabled: true,
+        command: 'memorix',
+        toolCallTimeoutMs: 60_000,
+        reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
+      },
+    })
+  })
+
+  it('preserves and resolves a partial reconnect policy for the mounted client', async () => {
+    const ctx = await boot()
+    await ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+      alpha: {
+        transport: 'stdio',
+        command: 'memorix',
+        reconnect: { enabled: false, initialDelayMs: 750 },
+      },
+    })
+    expect(ctx.settings.get(settingsNamespace(MCP_SERVERS_NS))).toMatchObject({
+      alpha: {
+        reconnect: { enabled: false, initialDelayMs: 750, maxDelayMs: 30_000, maxAttempts: 10 },
+      },
     })
   })
 

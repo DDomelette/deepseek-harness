@@ -12,12 +12,13 @@ afterEach(cleanup)
 const t = ((key: McpLocaleKey): string => en[key])
 
 type UpdateServer = (patch: ServerPatch) => Promise<McpLocaleKey | null>
+type RemoveServer = () => Promise<McpLocaleKey | null>
 
 interface FormProps {
   serverName?: string
   entry?: McpServerSettingsEntry
   updateServer?: UpdateServer
-  removeServer?: () => Promise<void>
+  removeServer?: RemoveServer
   onDone?: () => void
   onCancel?: () => void
 }
@@ -39,6 +40,7 @@ const STDIO_ENTRY: McpServerSettingsEntry = {
   args: ['-y', 'serve'],
   cwd: '/tmp/mem',
   toolCallTimeoutMs: 30_000,
+  reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
 }
 
 const HTTP_ENTRY: McpServerSettingsEntry = {
@@ -46,6 +48,7 @@ const HTTP_ENTRY: McpServerSettingsEntry = {
   transport: 'streamable-http',
   url: 'http://localhost:3000/mcp',
   toolCallTimeoutMs: 60_000,
+  reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
 }
 
 function props(overrides: FormProps = {}): EditServerFormProps {
@@ -53,7 +56,7 @@ function props(overrides: FormProps = {}): EditServerFormProps {
     serverName: 'memory',
     entry: STDIO_ENTRY,
     updateServer: async () => null,
-    removeServer: async () => {},
+    removeServer: async () => null,
     onDone: () => {},
     onCancel: () => {},
     t,
@@ -97,6 +100,23 @@ describe('EditServerForm', () => {
     expect(updateServer).toHaveBeenCalledWith({ command: 'memorix', toolCallTimeoutMs: 45_000 })
   })
 
+  it('prefills and updates the reconnect policy as one complete block', async () => {
+    const updateServer = vi.fn<UpdateServer>().mockResolvedValue(null)
+    render(<EditServerForm {...props({ updateServer })} />)
+
+    expect(screen.getByRole('checkbox', { name: en.reconnectEnabledLabel })).toHaveProperty('checked', true)
+    expect(valueOf(screen.getByLabelText(en.reconnectMaxAttemptsLabel))).toBe('10')
+    fireEvent.click(screen.getByRole('checkbox', { name: en.reconnectEnabledLabel }))
+    fireEvent.change(screen.getByLabelText(en.reconnectMaxAttemptsLabel), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: en.save }))
+
+    await waitFor(() => {
+      expect(updateServer).toHaveBeenCalledWith({
+        reconnect: { enabled: false, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 3 },
+      })
+    })
+  })
+
   it('includes a typed env dict and nothing else', async () => {
     const updateServer = vi.fn<UpdateServer>().mockResolvedValue(null)
     render(<EditServerForm {...props({ updateServer })} />)
@@ -138,7 +158,7 @@ describe('EditServerForm', () => {
   })
 
   it('asks for confirmation before removing and cancels cleanly', async () => {
-    const removeServer = vi.fn<() => Promise<void>>().mockResolvedValue()
+    const removeServer = vi.fn<RemoveServer>().mockResolvedValue(null)
     const onDone = vi.fn()
     render(<EditServerForm {...props({ removeServer, onDone })} />)
 
@@ -184,13 +204,26 @@ describe('EditServerForm', () => {
   })
 
   it('reports a rejecting remove and stays in the confirm state', async () => {
-    const removeServer = vi.fn<() => Promise<void>>(async () => { throw new Error('transport down') })
+    const removeServer = vi.fn<RemoveServer>(async () => { throw new Error('transport down') })
     render(<EditServerForm {...props({ removeServer })} />)
 
     fireEvent.click(screen.getByRole('button', { name: en.delete }))
     fireEvent.click(screen.getByRole('button', { name: en.deleteConfirm }))
 
     expect((await screen.findByText(en.saveFailed)).textContent).toBe(en.saveFailed)
+    expect(screen.getByRole('button', { name: en.deleteConfirm })).toBeTruthy()
+  })
+
+  it('reports a refused remove and stays in the confirm state', async () => {
+    const onDone = vi.fn()
+    const removeServer = vi.fn<RemoveServer>().mockResolvedValue('saveFailed')
+    render(<EditServerForm {...props({ removeServer, onDone })} />)
+
+    fireEvent.click(screen.getByRole('button', { name: en.delete }))
+    fireEvent.click(screen.getByRole('button', { name: en.deleteConfirm }))
+
+    expect((await screen.findByText(en.saveFailed)).textContent).toBe(en.saveFailed)
+    expect(onDone).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: en.deleteConfirm })).toBeTruthy()
   })
 })
@@ -204,6 +237,7 @@ describe('editPatch', () => {
     url: '',
     headers: '',
     timeout: '30000',
+    reconnect: { enabled: true, initialDelayMs: '500', maxDelayMs: '30000', maxAttempts: '10' },
     ...state,
   })
 
@@ -215,13 +249,35 @@ describe('editPatch', () => {
   it('builds an http patch from changed url, headers, and timeout', () => {
     const result = editPatch(HTTP_ENTRY, 'web', {
       command: '', args: '', env: '', cwd: '', url: 'http://localhost:4000/mcp', headers: 'A=B', timeout: '90000',
+      reconnect: { enabled: true, initialDelayMs: '500', maxDelayMs: '30000', maxAttempts: '10' },
     })
     expect(result).toEqual({ patch: { url: 'http://localhost:4000/mcp', headers: { A: 'B' }, toolCallTimeoutMs: 90_000 } })
+  })
+
+  it('does not treat reconnect property order as a policy change', () => {
+    const reordered: McpServerSettingsEntry = {
+      ...HTTP_ENTRY,
+      reconnect: { maxAttempts: 10, maxDelayMs: 30_000, initialDelayMs: 500, enabled: true },
+    }
+    const result = editPatch(reordered, 'web', {
+      command: '', args: '', env: '', cwd: '', url: 'http://localhost:3000/mcp', headers: '', timeout: '60000',
+      reconnect: { enabled: true, initialDelayMs: '500', maxDelayMs: '30000', maxAttempts: '10' },
+    })
+    expect(result).toEqual({ patch: {} })
+  })
+
+  it('rejects an invalid reconnect policy while editing', () => {
+    const result = editPatch(HTTP_ENTRY, 'web', {
+      command: '', args: '', env: '', cwd: '', url: 'http://localhost:3000/mcp', headers: '', timeout: '60000',
+      reconnect: { enabled: true, initialDelayMs: '30001', maxDelayMs: '30000', maxAttempts: '10' },
+    })
+    expect(result).toEqual({ error: 'invalidReconnect' })
   })
 
   it('rejects a malformed typed header line', () => {
     const result = editPatch(HTTP_ENTRY, 'web', {
       command: '', args: '', env: '', cwd: '', url: 'http://localhost:3000/mcp', headers: 'NO_EQUALS', timeout: '60000',
+      reconnect: { enabled: true, initialDelayMs: '500', maxDelayMs: '30000', maxAttempts: '10' },
     })
     expect(result).toEqual({ error: 'invalidKeyValue' })
   })
@@ -230,6 +286,7 @@ describe('editPatch', () => {
     const sparse: McpServerSettingsEntry = { enabled: true, transport: 'streamable-http', url: 'http://localhost:3000/mcp' }
     const result = editPatch(sparse, 'web', {
       command: '', args: '', env: '', cwd: '', url: 'http://localhost:3000/mcp', headers: '', timeout: '',
+      reconnect: { enabled: true, initialDelayMs: '500', maxDelayMs: '30000', maxAttempts: '10' },
     })
     expect(result).toEqual({ patch: {} })
   })

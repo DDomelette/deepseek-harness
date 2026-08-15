@@ -8,13 +8,17 @@ import { useMemo, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpLocaleKey } from './locales.ts'
+import {
+  DEFAULT_RECONNECT_FORM, parseReconnect, ReconnectFields,
+  type ReconnectDraft, type ReconnectFormState,
+} from './ReconnectFields.tsx'
 import css from './AddServerForm.module.css'
 
 /** Commit draft for one new MCP server entry, mirroring the settings schema. */
 export type NewServerDraft = { serverName: string } & (
   | { transport: 'stdio'; command: string; args: string[]; env: Record<string, string>; cwd: string }
   | { transport: 'streamable-http'; url: string; headers: Record<string, string> }
-) & { toolCallTimeoutMs?: number }
+) & { toolCallTimeoutMs?: number; reconnect?: ReconnectDraft }
 
 /** Valid serverName, identical to the settings schema and mcp-client. */
 export const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
@@ -74,6 +78,7 @@ interface FormState {
   url: string
   headers: string
   timeout: string
+  reconnect: ReconnectFormState
 }
 
 const EMPTY: FormState = {
@@ -86,13 +91,20 @@ const EMPTY: FormState = {
   url: '',
   headers: '',
   timeout: '',
+  reconnect: { ...DEFAULT_RECONNECT_FORM },
 }
 
 /** Compose the staged text into a typed draft, or the parse failure that blocks it. */
 function draftFrom(state: FormState): { draft: NewServerDraft } | { error: McpLocaleKey } {
   const timeout = state.timeout.trim() === '' ? undefined : Number(state.timeout)
   if (timeout !== undefined && (!Number.isInteger(timeout) || timeout <= 0)) return { error: 'invalidTimeout' }
-  const shared = { serverName: state.name.trim(), ...(timeout === undefined ? {} : { toolCallTimeoutMs: timeout }) }
+  const parsedReconnect = parseReconnect(state.reconnect)
+  if ('error' in parsedReconnect) return parsedReconnect
+  const shared = {
+    serverName: state.name.trim(),
+    ...(timeout === undefined ? {} : { toolCallTimeoutMs: timeout }),
+    ...(parsedReconnect.changed ? { reconnect: parsedReconnect.reconnect } : {}),
+  }
   if (state.transport === 'stdio') {
     const env = parseKeyValues(state.env)
     if ('error' in env) return env
@@ -227,6 +239,12 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
         <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
         <Input id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
+      <ReconnectFields
+        idPrefix="mcp-add"
+        state={state.reconnect}
+        setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
+        t={t}
+      />
       {blocked !== null ? <p role="alert" className={css.error}>{t(blocked)}</p> : null}
       {saveError !== null && blocked === null ? <p role="alert" className={css.error}>{t(saveError)}</p> : null}
       <div className={css.actions}>

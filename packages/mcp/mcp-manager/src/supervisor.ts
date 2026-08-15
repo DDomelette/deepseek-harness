@@ -94,7 +94,9 @@ export class McpServerSupervisor {
   sync(next: McpServersSection): void {
     if (this.disposed) return
     const actions = planServerDiff(this.section, next)
+    const changed = !deepEqualJson(this.section, next)
     this.section = next
+    if (changed) this.notifyChange()
     if (!actions.length) return
     const reconcile = async (): Promise<void> => {
       for (const action of actions) {
@@ -153,10 +155,12 @@ export class McpServerSupervisor {
       // host fiber; the entry fails loud in its state instead of breaking
       // the rest of the roster.
       this.mounts.set(serverName, { fiber: null, state: { ...state, status: 'failed', error: errorMessage(error) } })
+      this.notifyChange()
       return
     }
     const mount: Mount = { fiber, state }
     this.mounts.set(serverName, mount)
+    this.notifyChange()
     // ctx.plugin returns an awaitable Fiber: settlement means the initial
     // connection plus tool discovery finished; rejection means startup failed.
     void Promise.resolve(fiber).then(
@@ -170,6 +174,7 @@ export class McpServerSupervisor {
     // the live mount absorbs the outcome.
     if (this.mounts.get(mount.state.serverName) !== mount) return
     mount.state = { ...mount.state, ...update }
+    this.notifyChange()
   }
 
   private async unmount(serverName: string): Promise<void> {
@@ -177,6 +182,20 @@ export class McpServerSupervisor {
     if (!mount) return
     this.mounts.delete(serverName)
     await mount.fiber?.dispose()
+  }
+
+  /** Notify roster observers without making their refresh work load-bearing. */
+  private notifyChange(): void {
+    for (const callback of this.ctx.events.dispatch('emit', ['mcp-servers/change'])) {
+      try {
+        const returned: unknown = callback()
+        void Promise.resolve(returned).catch((error: unknown) => {
+          this.ctx.logger.warn(`mcp-servers/change listener rejected: ${errorMessage(error)}`)
+        })
+      } catch (error: unknown) {
+        this.ctx.logger.warn(`mcp-servers/change listener threw: ${errorMessage(error)}`)
+      }
+    }
   }
 }
 

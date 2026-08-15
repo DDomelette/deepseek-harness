@@ -12,7 +12,7 @@ import type { Fiber } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import * as McpManager from '../src/index.ts'
+import McpManager from '../src/index.ts'
 import { McpServerSupervisor } from '../src/supervisor.ts'
 import type { ManagedServerState } from '../src/supervisor.ts'
 import { MCP_SERVERS_NS } from '../src/schema.ts'
@@ -34,6 +34,7 @@ function fixtureEntry(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
     cwd: '',
     toolCallTimeoutMs: 15_000,
     failOnStartupError: false,
+    reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
     ...over,
   }
 }
@@ -66,6 +67,50 @@ async function writeEntry(ctx: Context, serverName: string, entry: Partial<McpSt
 }
 
 describe('McpServerSupervisor mounting', () => {
+  it('invalidates roster readers when mount lifecycle settles', async () => {
+    const ctx = await mountRegistry()
+    const supervisor = new McpServerSupervisor(ctx)
+    const observed: ManagedServerState['status'][] = []
+    ctx.on('mcp-servers/change', () => {
+      const status = supervisor.list()[0]?.status
+      if (status !== undefined) observed.push(status)
+    })
+    try {
+      supervisor.sync({ echo: fixtureEntry() })
+      await vi.waitFor(() => {
+        expect(observed).toContain('ready')
+      }, { timeout: MOUNT_TIMEOUT })
+      expect(observed).toContain('connecting')
+    } finally {
+      await supervisor.dispose()
+      await ctx.fiber.dispose()
+    }
+  }, 30_000)
+
+  it('contains synchronous and asynchronous roster observer failures', async () => {
+    const ctx = await mountRegistry()
+    const supervisor = new McpServerSupervisor(ctx)
+    const warnings: string[] = []
+    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    ctx.on('mcp-servers/change', () => { throw new Error('observer threw') })
+    // oxlint-disable-next-line typescript/no-misused-promises -- deliberate rejection proves notification containment
+    ctx.on('mcp-servers/change', () => Promise.reject(new Error('observer rejected')))
+    let observed = 0
+    ctx.on('mcp-servers/change', () => { observed += 1 })
+    try {
+      expect(() => { supervisor.sync({ parked: fixtureEntry({ enabled: false }) }) }).not.toThrow()
+      await vi.waitFor(() => { expect(warnings).toHaveLength(2) })
+      expect(observed).toBe(1)
+      expect(warnings).toEqual([
+        'mcp-servers/change listener threw: observer threw',
+        'mcp-servers/change listener rejected: observer rejected',
+      ])
+    } finally {
+      await supervisor.dispose()
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('mounts an enabled entry, tracks it to ready, and registers its tools', async () => {
     const ctx = await mountRegistry()
     const supervisor = new McpServerSupervisor(ctx)

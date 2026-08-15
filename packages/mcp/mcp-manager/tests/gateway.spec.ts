@@ -11,7 +11,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
-import McpServersGateway from '../src/gateway.ts'
+import McpServersGateway from '../src/index.ts'
 import { McpServerSupervisor, trackSupervisor } from '../src/supervisor.ts'
 import { MCP_SERVERS_NS } from '../src/schema.ts'
 import type { McpStdioEntry } from '../src/schema.ts'
@@ -64,6 +64,7 @@ function fixtureEntry(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
     cwd: '',
     toolCallTimeoutMs: 15_000,
     failOnStartupError: false,
+    reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
     ...over,
   }
 }

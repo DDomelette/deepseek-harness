@@ -11,6 +11,7 @@ const stdio = (over: Partial<McpStdioEntry> = {}): McpStdioEntry => ({
   cwd: '',
   toolCallTimeoutMs: 60_000,
   failOnStartupError: false,
+  reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
   ...over,
 })
 

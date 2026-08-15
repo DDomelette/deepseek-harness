@@ -31,6 +31,10 @@ The `mcp-servers` section lives in the settings document (a namespace, not plugi
 | `headers` | http | no | Extra headers; `role('secret')` |
 | `toolCallTimeoutMs` | both | no | Timeout per `callTool` invocation (default 60000) |
 | `failOnStartupError` | both | no | Treat initial connection or tool synchronization failure as fatal for the entry (default `false`) |
+| `reconnect.enabled` | both | no | Whether a lost connection starts automatic reconnect (default `true`) |
+| `reconnect.initialDelayMs` | both | no | Delay before the first reconnect attempt (default 500) |
+| `reconnect.maxDelayMs` | both | no | Maximum exponential-backoff delay (default 30000) |
+| `reconnect.maxAttempts` | both | no | Maximum reconnect attempts before stopping (default 10) |
 
 ## Declarative projection
 
@@ -38,7 +42,7 @@ The `mcp-servers` section lives in the settings document (a namespace, not plugi
 
 ## Roster Remote
 
-The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the namespace registration and supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`.
+The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the namespace registration and supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`. The manager emits payload-free `mcp-servers/change` invalidations after the settings roster or a mount lifecycle state changes; Remote consumers refetch `list()` instead of treating the event as a snapshot.
 
 ## Relationship to dsh-mcp-client
 

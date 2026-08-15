@@ -384,12 +384,55 @@ describe('SettingsScopeController', () => {
     expect(scope.getSnapshot()).toMatchObject({ revision: 4 })
   })
 
+  it('submits multiple path edits atomically and reports Host acceptance', async () => {
+    const mutate = vi.fn().mockResolvedValueOnce(ok(view({ preference: 'dark' }, 4)))
+    const describeCall = vi.fn().mockResolvedValueOnce(described({ preference: 'light' }, 3))
+    const scope = new SettingsScopeController<UiTestSettings>(
+      { settings: { describe: describeCall, mutate } } as never,
+      { namespace: 'ui-test' },
+    )
+    await scope.load()
+
+    await expect(scope.mutate([
+      { op: 'set', path: ['nested', 'first'], value: true },
+      { op: 'unset', path: ['nested', 'second'] },
+    ])).resolves.toBe(true)
+
+    expect(mutate).toHaveBeenCalledWith({
+      ns: 'ui-test',
+      ops: [
+        { op: 'set', path: ['nested', 'first'], value: true },
+        { op: 'unset', path: ['nested', 'second'] },
+      ],
+      expectedRevision: 3,
+    })
+  })
+
+  it('reports a refused atomic mutation after recovering Host state', async () => {
+    const mutate = vi.fn().mockResolvedValueOnce(rejected())
+    const describeCall = vi.fn()
+      .mockResolvedValueOnce(described({ preference: 'dark' }, 3))
+      .mockResolvedValueOnce(described({ preference: 'light' }, 5))
+    const scope = new SettingsScopeController<UiTestSettings>(
+      { settings: { describe: describeCall, mutate } } as never,
+      { namespace: 'ui-test' },
+    )
+    await scope.load()
+
+    await expect(scope.mutate([
+      { op: 'set', path: ['nested', 'first'], value: true },
+      { op: 'unset', path: ['nested', 'second'] },
+    ])).resolves.toBe(false)
+    expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'light' }, revision: 5 })
+  })
+
   it('refuses an empty setPath that would address the section root', () => {
     const scope = new SettingsScopeController<UiTestSettings>(
       { settings: { describe: vi.fn() } } as never,
       { namespace: 'ui-test' },
     )
     expect(() => scope.setPath([], true)).toThrow(/non-empty path/)
+    expect(() => scope.mutate([{ op: 'unset', path: [] }])).toThrow(/non-empty paths/)
   })
 })
 describe('SettingsScopeBinder.bind', () => {

@@ -19,6 +19,7 @@ import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/mcp-config', import.meta.url))
 const ROSTER_EXPECTED = join(SNAPSHOT_DIR, 'roster.expected.md')
+const ADD_FORM_EXPECTED = join(SNAPSHOT_DIR, 'add-form.expected.md')
 const MODE = webSnapshotMode()
 
 /** The fake stdio command the write-through scenarios add; it never spawns. */
@@ -80,6 +81,11 @@ describe('web e2e: MCP settings tab', () => {
 
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(ROSTER_EXPECTED, snapshot, MODE)
+
+    await dialog.getByRole('button', { name: '添加 MCP 服务器' }).click()
+    await dialog.getByRole('group', { name: '自动重连' }).waitFor()
+    const addFormSnapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
+    await compareOrRefreshGolden(ADD_FORM_EXPECTED, addFormSnapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
@@ -89,10 +95,17 @@ describe('web e2e: MCP settings tab', () => {
     await dialog.getByRole('button', { name: '添加 MCP 服务器' }).click()
     await dialog.getByLabel('名称').fill('memory')
     await dialog.getByLabel('命令').fill(FAKE_COMMAND)
+    await dialog.getByLabel('首次延迟（毫秒）').fill('750')
+    await dialog.getByLabel('最大尝试次数').fill('4')
     await dialog.getByRole('button', { name: '保存', exact: true }).click()
 
     await expect
-      .poll(async () => (await settingsDocument()).includes('command: ' + FAKE_COMMAND), { timeout: 10_000 })
+      .poll(async () => {
+        const document = await settingsDocument()
+        return document.includes('command: ' + FAKE_COMMAND)
+          && document.includes('initialDelayMs: 750')
+          && document.includes('maxAttempts: 4')
+      }, { timeout: 10_000 })
       .toBe(true)
     await dialog.locator('[data-server-name="memory"]').waitFor({ timeout: 10_000 })
     expect(tripwire.pageErrors).toEqual([])
@@ -150,7 +163,7 @@ describe('web e2e: MCP settings tab', () => {
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     expect(tripwire.warnings).toEqual([])
-    await assertFixtureInventory(SNAPSHOT_DIR, ['roster.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['add-form.expected.md', 'roster.expected.md'])
   })
 })
 

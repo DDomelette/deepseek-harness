@@ -1,15 +1,25 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RECONNECT_DEFAULTS } from '@deepseek-ai/dsh-mcp-client'
+import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import {
   AddServerForm, parseKeyValues, SERVER_NAME_PATTERN, splitArgs, validateDraft,
   type AddServerFormProps, type NewServerDraft,
 } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
+import {
+  DEFAULT_RECONNECT_POLICY, MAX_RECONNECT_DELAY_MS,
+} from '../src/client/ReconnectFields.tsx'
 
 afterEach(cleanup)
 
 const t = ((key: McpLocaleKey): string => en[key])
+
+it('keeps browser reconnect constants aligned with their runtime owners', () => {
+  expect(DEFAULT_RECONNECT_POLICY).toEqual(RECONNECT_DEFAULTS)
+  expect(MAX_RECONNECT_DELAY_MS).toBe(MAX_TIMER_DELAY_MS)
+})
 
 interface FormProps {
   existingNames?: readonly string[]
@@ -63,6 +73,26 @@ describe('AddServerForm', () => {
     expect(screen.getByLabelText(en.headersLabel)).toBeTruthy()
     expect(screen.getByLabelText(en.timeoutLabel)).toBeTruthy()
     expect(screen.getByRole('radio', { name: en.transportHttp }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('validates and commits the automatic reconnect policy', async () => {
+    const addServer = vi.fn<AddServer>().mockResolvedValue(null)
+    render(<AddServerForm {...props({ addServer })} />)
+    fireEvent.change(screen.getByLabelText(en.serverNameLabel), { target: { value: 'memory' } })
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: 'memorix' } })
+
+    expect(screen.getByRole('checkbox', { name: en.reconnectEnabledLabel })).toHaveProperty('checked', true)
+    expect(screen.getByLabelText<HTMLInputElement>(en.reconnectInitialDelayLabel).value).toBe('500')
+    expect(screen.getByLabelText<HTMLInputElement>(en.reconnectMaxDelayLabel).value).toBe('30000')
+    fireEvent.change(screen.getByLabelText(en.reconnectMaxAttemptsLabel), { target: { value: '0' } })
+    expect(screen.getByText(en.invalidReconnect)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: en.reconnectEnabledLabel }))
+    fireEvent.change(screen.getByLabelText(en.reconnectMaxAttemptsLabel), { target: { value: '4' } })
+    fireEvent.click(screen.getByRole('button', { name: en.save }))
+    expect(addServer).toHaveBeenCalledWith(expect.objectContaining({
+      reconnect: { enabled: false, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 4 },
+    }))
   })
 
   it('blocks submission with an inline error for an invalid name', async () => {

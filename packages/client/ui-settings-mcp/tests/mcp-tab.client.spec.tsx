@@ -40,16 +40,94 @@ const SNAPSHOT: McpServerSnapshot = {
 function injected(overrides: Partial<McpSettingsTabInjected> = {}): McpSettingsTabInjected {
   return {
     list: async () => SNAPSHOT,
+    subscribeRoster: () => () => {},
     setEnabled: async () => {},
     addServer: async () => null,
     readEntry: () => undefined,
     updateServer: async () => null,
-    removeServer: async () => {},
+    removeServer: async () => null,
     ...overrides,
   }
 }
 
 describe('McpSettingsTab', () => {
+  it('refreshes an open roster after a pushed lifecycle invalidation', async () => {
+    let invalidate = (): void => {}
+    const connecting: McpServerSnapshot = {
+      entries: [{ serverName: 'filesystem', transport: 'stdio', source: 'settings', enabled: true, status: 'connecting' }],
+    }
+    const ready: McpServerSnapshot = {
+      entries: [{ serverName: 'filesystem', transport: 'stdio', source: 'settings', enabled: true, status: 'ready' }],
+    }
+    const list = vi.fn<McpSettingsTabInjected['list']>()
+      .mockResolvedValueOnce(connecting)
+      .mockResolvedValueOnce(ready)
+    const subscribeRoster = (listener: () => void): (() => void) => {
+      invalidate = listener
+      return () => {}
+    }
+    render(<McpSettingsTab {...props(injected({ list, subscribeRoster }))} />)
+
+    expect(await screen.findByRole('img', { name: en.connecting })).toBeTruthy()
+    act(() => { invalidate() })
+    expect(await screen.findByRole('img', { name: en.ready })).toBeTruthy()
+    expect(list).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not let an older pushed refresh overwrite a newer write refresh', async () => {
+    let invalidate = (): void => {}
+    const stale = Promise.withResolvers<McpServerSnapshot>()
+    const fresh = Promise.withResolvers<McpServerSnapshot>()
+    const flipped: McpServerSnapshot = {
+      entries: SNAPSHOT.entries.map(entry => entry.serverName === 'filesystem'
+        ? { ...entry, enabled: false, status: null }
+        : entry),
+    }
+    const list = vi.fn<McpSettingsTabInjected['list']>()
+      .mockResolvedValueOnce(SNAPSHOT)
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(fresh.promise)
+    const write = Promise.withResolvers<undefined>()
+    render(<McpSettingsTab {...props(injected({
+      list,
+      setEnabled: () => write.promise,
+      subscribeRoster: (listener) => {
+        invalidate = listener
+        return () => {}
+      },
+    }))} />)
+
+    fireEvent.click(await screen.findByRole('switch', { name: 'filesystem' }))
+    act(() => { invalidate() })
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
+    await act(async () => { write.resolve(undefined) })
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(3) })
+    await act(async () => { fresh.resolve(flipped) })
+    expect(screen.getByRole('switch', { name: 'filesystem' }).getAttribute('aria-checked')).toBe('false')
+
+    await act(async () => { stale.resolve(SNAPSHOT) })
+    expect(screen.getByRole('switch', { name: 'filesystem' }).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('unsubscribes and ignores a retained invalidation callback after unmount', async () => {
+    let invalidate = (): void => {}
+    const dispose = vi.fn()
+    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
+    const view = render(<McpSettingsTab {...props(injected({
+      list,
+      subscribeRoster: (listener) => {
+        invalidate = listener
+        return dispose
+      },
+    }))} />)
+    await screen.findByRole('switch', { name: 'filesystem' })
+
+    view.unmount()
+    expect(dispose).toHaveBeenCalledOnce()
+    act(() => { invalidate() })
+    expect(list).toHaveBeenCalledOnce()
+  })
+
   it('renders settings rows with lifecycle status and declarative rows read-only', async () => {
     const deferred = Promise.withResolvers<McpServerSnapshot>()
     const list = vi.fn(() => deferred.promise)
@@ -150,6 +228,22 @@ describe('McpSettingsTab', () => {
     expect((await screen.findByRole('alert')).textContent).toBe(en.error)
   })
 
+  it('contains a synchronous enablement failure and does not publish after unmount', async () => {
+    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
+    const synchronousFailure = vi.fn(() => { throw new Error('write refused') }) as McpSettingsTabInjected['setEnabled']
+    const failed = render(<McpSettingsTab {...props(injected({ list, setEnabled: synchronousFailure }))} />)
+    fireEvent.click(await screen.findByRole('switch', { name: 'filesystem' }))
+    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
+    expect(screen.queryByRole('alert')).toBeNull()
+    failed.unmount()
+
+    const write = Promise.withResolvers<undefined>()
+    const pending = render(<McpSettingsTab {...props(injected({ setEnabled: () => write.promise }))} />)
+    fireEvent.click(await screen.findByRole('switch', { name: 'filesystem' }))
+    pending.unmount()
+    await act(async () => { write.resolve(undefined) })
+  })
+
   it('shows the empty-roster guidance with the add entry and the add form', async () => {
     render(<McpSettingsTab {...props(injected({ list: async () => ({ entries: [] }) }))} />)
     expect(await screen.findByText(en.empty)).toBeTruthy()
@@ -233,7 +327,7 @@ describe('McpSettingsTab', () => {
     const list = vi.fn<McpSettingsTabInjected['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockResolvedValueOnce(withoutFilesystem)
-    const removeServer = vi.fn<McpSettingsTabInjected['removeServer']>().mockResolvedValue()
+    const removeServer = vi.fn<McpSettingsTabInjected['removeServer']>().mockResolvedValue(null)
     render(<McpSettingsTab {...props(injected({ list, removeServer, readEntry: () => entry }))} />)
 
     const row = (await screen.findByRole('switch', { name: 'filesystem' })).closest('li')!
@@ -291,14 +385,16 @@ describe('McpTabController', () => {
     const set = vi.fn<SettingsScope<McpServersSettings>['set']>().mockResolvedValue()
     const setPath = vi.fn<SettingsScope<McpServersSettings>['setPath']>().mockResolvedValue()
     const unset = vi.fn<SettingsScope<McpServersSettings>['unset']>().mockResolvedValue()
+    const mutate = vi.fn<SettingsScope<McpServersSettings>['mutate']>().mockResolvedValue(true)
     const scope: SettingsScope<McpServersSettings> = {
       getSnapshot: () => snapshot,
       subscribe: () => () => {},
       set,
       setPath,
       unset,
+      mutate,
     }
-    return { scope, set, setPath, unset }
+    return { scope, set, setPath, unset, mutate }
   }
 
   it('unwraps the Remote envelope and rejects with the wire code', async () => {
@@ -349,6 +445,7 @@ describe('McpTabController', () => {
       set,
       setPath,
       unset: async () => {},
+      mutate: async () => true,
     }
     const draft: NewServerDraft = {
       serverName: 'memory', transport: 'stdio', command: 'memorix',
@@ -381,14 +478,33 @@ describe('McpTabController', () => {
     expect(controller.face().readEntry('missing')).toBeUndefined()
   })
 
-  it('applies an incremental patch as per-field deep path ops', async () => {
-    const { scope, set, setPath } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+  it('applies an incremental patch as one atomic path mutation', async () => {
+    const { scope, set, setPath, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
     const controller = new McpTabController(scope, { list: vi.fn() })
 
     await expect(controller.face().updateServer('memory', { command: 'memorix', env: { TOKEN: 'abc' } })).resolves.toBeNull()
     expect(set).not.toHaveBeenCalled()
-    expect(setPath).toHaveBeenNthCalledWith(1, ['memory', 'command'], 'memorix')
-    expect(setPath).toHaveBeenNthCalledWith(2, ['memory', 'env'], { TOKEN: 'abc' })
+    expect(setPath).not.toHaveBeenCalled()
+    expect(mutate).toHaveBeenCalledWith([
+      { op: 'set', path: ['memory', 'command'], value: 'memorix' },
+      { op: 'set', path: ['memory', 'env'], value: { TOKEN: 'abc' } },
+    ])
+  })
+
+  it('reports a refused atomic update', async () => {
+    const { scope, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    mutate.mockResolvedValue(false)
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().updateServer('memory', { command: 'memorix' })).resolves.toBe('saveFailed')
+  })
+
+  it('accepts an unchanged entry without sending an empty transaction', async () => {
+    const { scope, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().updateServer('memory', {})).resolves.toBeNull()
+    expect(mutate).not.toHaveBeenCalled()
   })
 
   it('refuses an update while the scope holds no accepted entry for the row', async () => {
@@ -399,11 +515,15 @@ describe('McpTabController', () => {
     expect(setPath).not.toHaveBeenCalled()
   })
 
-  it('removes a whole entry through an unset op', async () => {
-    const { scope, unset } = scopeStub({ memory: { enabled: true, transport: 'stdio' } })
+  it('removes a whole entry through an atomic unset and reports refusal', async () => {
+    const { scope, unset, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio' } })
     const controller = new McpTabController(scope, { list: vi.fn() })
 
-    await controller.face().removeServer('memory')
-    expect(unset).toHaveBeenCalledWith('memory')
+    await expect(controller.face().removeServer('memory')).resolves.toBeNull()
+    expect(unset).not.toHaveBeenCalled()
+    expect(mutate).toHaveBeenCalledWith([{ op: 'unset', path: ['memory'] }])
+
+    mutate.mockResolvedValueOnce(false)
+    await expect(controller.face().removeServer('memory')).resolves.toBe('saveFailed')
   })
 })
