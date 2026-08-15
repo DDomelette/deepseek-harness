@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Cordis, Schemastery, React 18, CSS Modules, Vitest.
 
-**Spec:** `docs/superpowers/specs/2026-08-16-dsh-usage-telemetry-push-design.md` (Part A).
+**Spec:** `docs/superpowers/specs/2026-08-16-dsh-usage-telemetry-push-design.zh.md` (Part A).
 
 ## Global Constraints
 

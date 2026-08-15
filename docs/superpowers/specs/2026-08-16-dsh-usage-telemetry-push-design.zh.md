@@ -1,7 +1,5 @@
 # DSH Usage 遥测设置开关与主动推送 Exporter — 设计
 
-[English](2026-08-16-dsh-usage-telemetry-push-design.md) | 中文
-
 日期：2026-08-16
 状态：草稿，待评审
 
@@ -108,6 +106,7 @@ Schemastery `Config`：
 | `maxAttempts` | number | 5 | 瞬时失败重试次数 |
 | `baseRetryMs` | number | 1000 | 指数退避基数 |
 | `maxRetryMs` | number | 30000 | 退避上限 |
+| `heartbeatIntervalMs` | number | 60000 | 租约心跳间隔；实现时以 `min(pushLeaseMs / 3, 60000)` 封顶 |
 | `startFrom` | `'end' \| 'beginning'` | `'end'` | 首次启用从当前 EOF 开始 tail；`beginning` 为显式回填 |
 
 ### 数据流
@@ -119,13 +118,16 @@ usage-exporter ──poll+tail───────┘
   │ parse and validate each line (v1 row schema)
   │ accumulate rows into a batch
   │ build batchId = sha256(sourceId, file identity, [startOffset, endOffset))
+  │ 从实际生效的遥测根目录派生 rootId
+  │ 心跳定时器:每 heartbeatIntervalMs 发送 { sourceId, rootId, heartbeat: true }
   ▼
 POST {endpoint}
   Authorization: Bearer <token>
-  { sourceId, batchId, sentAt, rows }
+  { sourceId, rootId, batchId, sentAt, rows }
   │
-  ├─ 2xx / duplicate-batch ──> persist cursor past the batch
-  ├─ 429/5xx/network ─────────> retry same batchId with backoff
+  ├─ 2xx / duplicate-batch ──> 持久化游标,越过该 batch
+  ├─ 429/5xx/网络 ─────────────> 用同一个 batchId 退避重试,最多 maxAttempts 次
+  ├─ 重试耗尽 ─────────────────> 判定为 abandoned,记日志并推进游标(本地文件仍是事实来源)
   └─ 400/401/413 permanent ───> log, advance cursor (local file remains source of truth)
 ```
 
@@ -144,6 +146,10 @@ POST {endpoint}
   重试复用同一 id。
 - 重试不重新切分行：相同字节区间始终形成相同 batch。
 - 重启后从最后确认的游标继续；未确认的行在下一轮 poll 后重试。
+- 重试窗口以单次 poll 周期内的 `maxAttempts` 为界：耗尽后 batch 判定为
+  abandoned 并推进游标，后续行继续流动；被放弃的行仍留在本地 JSONL 中，
+  可交给文件扫描兜底。因此 Monitor 的 batch 注册表 TTL 只需覆盖这个有界
+  重试窗口。
 - Monitor 侧幂等键是 `(sourceId, batchId)`，**不用行内容指纹**，因此不同
   batch 中字节完全相同的合法行不会被合并漏计。
 
@@ -154,7 +160,7 @@ POST {endpoint}
 | 本地畸形行 | 记一次日志，跳过该行，推进 offset |
 | 401 | 记录 `usage-exporter: ingestion unauthorized`，退避到 `maxRetryMs`，保留游标 |
 | 400/413 | 记永久拒绝，推进游标，避免一个毒 batch 卡死队列 |
-| 429/5xx/网络 | 最多 `maxAttempts` 次指数退避，然后保留游标等待下一轮 poll |
+| 429/5xx/网络 | 最多 `maxAttempts` 次指数退避；仍失败则判定为 abandoned、记日志并推进游标，让后续行继续流动 |
 | 服务端重复 batch | 视为成功并推进游标 |
 | 资源释放 | 停止轮询，等待在途请求，持久化最后确认的游标 |
 
@@ -167,12 +173,28 @@ POST {endpoint}
   的 `cwd` 脱敏选项；
 - 除 v1 行和信封元数据外，不发送任何新字段。
 
+### `rootId` 与心跳
+
+- `rootId = 'root:' + sha256(UTF-8(规范化遥测根路径))`。
+- exporter 的规范化输入是**实际生效的遥测根目录**：配置了
+  `telemetryRoot` 就用它，否则用
+  `path.resolve(join(resolveDshHome(), 'telemetry'))`。Windows 上把
+  `\` 替换为 `/` 并整串 `toLowerCase()`；非 Windows 保持原串。
+- TokenMonitor 对 `resolveTelemetryRoot(store, env)` 的结果执行同一规范化，
+  因此原生路径空间下两边结果可比较相等。
+- 跨命名空间根（WSL `/home/...` 与 Windows `\\wsl.localhost\...`）在 v1
+  中刻意不自动匹配；需要时在 Monitor 侧显式设置 `collectionMode = push`。
+- exporter 每 `heartbeatIntervalMs` 发送一次
+  `{ sourceId, rootId, heartbeat: true }`（不带 `batchId` 和 `rows`），
+  空闲期也持续续租，避免 Monitor 的 `auto` 模式因租约到期重新开启文件轮询
+  导致重复计数。
+
 ## 5. 与 TokenMonitor 的交互
 
 Monitor 交接文档（`2026-08-16-dsh-usage-ingest-handoff.md`，已交付到
 TokenMonitor 仓库）定义：
 
-- `POST /api/v1/dsh/usage`，携带 `sourceId`、`batchId`、`sentAt` 与 v1 rows；
+- `POST /api/v1/dsh/usage`，携带 `sourceId`、`rootId`、`batchId`、`sentAt` 与 v1 rows；另有续租心跳形态；
 - 以 `(sourceId, batchId)` 为幂等键，带 TTL；
 - 与现有文件扫描器相同的行 → `UsageRecord` 映射；
 - 某遥测根目录进入 push 模式后，停止日常 `localLog` 轮询，但保留手动回填。
