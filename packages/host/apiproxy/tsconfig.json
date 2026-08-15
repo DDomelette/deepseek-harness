@@ -63,6 +63,9 @@
       "path": "../../session/session-projection-cache"
     },
     {
+      "path": "../../session/session-flags"
+    },
+    {
       "path": "../../session-query/session-query"
     },
     {

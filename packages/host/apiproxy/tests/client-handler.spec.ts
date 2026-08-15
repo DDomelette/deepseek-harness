@@ -81,7 +81,7 @@ function scriptedApi(overrides: {
       ...overrides.host,
     },
     workspace: {
-      list: r => ok(r, { items: [], archivedSessionIds: [] }),
+      list: r => ok(r, { items: [], archivedSessionIds: [], sessionFlags: {} }),
       create: r => ok(r, { workspace: { workspaceId: 'w1' as never, path: '/t', title: 't', sessionIds: [], createdAt: '0', updatedAt: '0' }, created: true }),
       rename: r => ok(r, { workspace: { workspaceId: 'w1' as never, path: '/t', title: 't', sessionIds: [], createdAt: '0', updatedAt: '0' } }),
       delete: r => ok(r, { deleted: true as const }),

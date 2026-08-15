@@ -7,7 +7,7 @@
 import { z } from 'zod'
 import type { RequestPayload, ResponseValue } from './rpc-map.ts'
 import type { Wire } from './rpc.schema.ts'
-import type { WorkspaceView } from './workspace.ts'
+import type { SessionFlags, WorkspaceView } from './workspace.ts'
 import { sessionIdSchema, workspaceIdSchema } from './sessions.schema.ts'
 
 export { workspaceIdSchema } from './sessions.schema.ts'
@@ -25,10 +25,15 @@ export const workspaceViewSchema = z.object({
 /** workspace.list request payload (empty object literal). */
 export const workspaceListRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'workspace.list'>>>
 
+const sessionFlagsSchema = z.object({
+  pinned: z.boolean().optional(),
+}) satisfies z.ZodType<Wire<SessionFlags>>
+
 /** workspace.list response value. */
 export const workspaceListValueSchema = z.object({
   items: z.array(workspaceViewSchema),
   archivedSessionIds: z.array(sessionIdSchema),
+  sessionFlags: z.record(sessionIdSchema, sessionFlagsSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'workspace.list'>>>
 
 /** workspace.create request payload: the existing directory to adopt. */

@@ -5,6 +5,7 @@ import type {
   DirectoryListing, IApiClient, RpcError,
   SessionId, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { SnapshotStore } from '../contract/store.ts'
 import { createSnapshotStore } from '../contract/store.ts'
 import type { SessionsPort, SessionsPortList } from '../contract/sessions-port.ts'
@@ -22,6 +23,8 @@ export interface WorkspaceListState {
    * build their own transient Set.
    */
   archivedSessionIds: readonly SessionId[]
+  /** Generic session flags merged from host providers; absent for pre-baseline or legacy test fixtures. */
+  sessionFlags?: Readonly<Record<SessionId, SessionFlags>>
   state: 'idle' | 'loading' | 'error'
   phase: WorkspaceListPhase
   error: RpcError | null
@@ -66,7 +69,7 @@ export class WorkspaceRuntime implements IWorkspaces {
   constructor(ctx: Context, private readonly api: IApiClient, private readonly sessions: SessionsPort) {
     this.manager = new WorkspaceManager(api)
     this.list = createSnapshotStore<WorkspaceListState>({
-      items: [], archivedSessionIds: [], state: 'idle', phase: 'pending', error: null,
+      items: [], archivedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'pending', error: null,
       baselinesReady: false, recentWorkspaceId: undefined,
     })
     this.manager.subscribe(() => { this.project() })
@@ -345,6 +348,7 @@ export class WorkspaceRuntime implements IWorkspaces {
     this.list.set({
       items: workspace.items,
       archivedSessionIds: workspace.archivedSessionIds,
+      sessionFlags: workspace.sessionFlags,
       state: workspace.state,
       phase: workspace.phase,
       error: workspace.error,

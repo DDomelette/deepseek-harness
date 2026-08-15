@@ -24,6 +24,7 @@ import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai
 import { isUserInvocable } from '@deepseek-ai/dsh-skill'
 import { SKILL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-skill-settings'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
+import type {} from '@deepseek-ai/dsh-session-flags'
 import {
   workspaceDomainState, workspaceRecord, WorkspaceId as brandWorkspaceId,
   WorkspaceMoveInvalidError, WorkspaceOrderInvalidError, WorkspaceUnknownSessionError,
@@ -2820,9 +2821,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
     workspace: {
       list(request) {
+        const sessionFlags = ctx.get('sessionFlags') as
+          { snapshot(): { flags: Record<string, { pinned?: boolean }> } } | undefined
         return Promise.resolve(ok(request, {
           items: ctx.workspaceRegistry.list().map(workspaceView),
           archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds],
+          sessionFlags: sessionFlags?.snapshot().flags ?? {},
         }))
       },
 

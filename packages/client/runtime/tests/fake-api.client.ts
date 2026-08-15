@@ -184,8 +184,11 @@ export class FakeApiClient implements IApiClient {
 
   // The archive-set field defaults at the binding below so list stubs keep
   // the pre-archive `{ items }` shape; a stub carrying the field wins.
-  onWorkspaceList: (payload: unknown) => Promise<RpcResponse<{ items: never[]; archivedSessionIds?: never[] }>> =
-    () => Promise.resolve(ok({ items: [] }))
+  onWorkspaceList: (payload: unknown) => Promise<RpcResponse<{
+    items: never[]
+    archivedSessionIds?: never[]
+    sessionFlags?: Record<string, { pinned?: boolean }>
+  }>> = () => Promise.resolve(ok({ items: [] }))
   onWorkspaceCreate: (payload: unknown) => Promise<RpcResponse<{ workspace: WorkspaceView; created: boolean }>> =
     () => Promise.resolve(ok({ workspace: fakeWorkspace('fk-ws'), created: true }))
 
@@ -207,7 +210,13 @@ export class FakeApiClient implements IApiClient {
   readonly workspace: IApiClient['workspace'] = {
     list: (payload: unknown) => this.record('workspace.list', payload, this.onWorkspaceList(payload).then(response => (
       response.result.ok
-        ? { ...response, result: { ok: true as const, value: { archivedSessionIds: [] as never[], ...response.result.value } } }
+        ? {
+          ...response,
+          result: {
+            ok: true as const,
+            value: { archivedSessionIds: [] as never[], sessionFlags: {}, ...response.result.value },
+          },
+        }
         : response
     )) as ReturnType<IApiClient['workspace']['list']>),
     create: (payload: unknown) => this.record('workspace.create', payload, this.onWorkspaceCreate(payload)),

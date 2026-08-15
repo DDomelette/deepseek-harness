@@ -2567,6 +2567,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       list: request => ok(request, {
         items: workspaces.map(w => ({ ...w })),
         archivedSessionIds: [...archivedSessionIds],
+        sessionFlags: {},
       }),
       create: (request) => {
         const { path } = request.payload
