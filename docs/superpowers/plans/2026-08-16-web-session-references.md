@@ -523,7 +523,7 @@ function normalizeDirectMessage(content: readonly ContentBlock[]): NormalizedMes
 /** Host plugin body: prepended pre-step listener over the root context. */
 export function apply(ctx: Context): void {
   ctx.on('agent/pre-step', async (
-    { agent, messages, signal },
+    { agent, signal },
     next,
   ): Promise<PreStepDecision> => {
     const decision = await next()
