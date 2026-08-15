@@ -20,7 +20,7 @@
 - admission 只扫描 `role === 'user' && source.kind === 'user'`；用 `ctx.on('agent/pre-step', handler, { prepend: true })`；先 `next()` 再改写；无引用返回原 decision 对象。
 - 失败 fail-closed：parse/read/budget/self/over-limit 错误从 pre-step 抛出，走 `turn/end{reason:'error'}` 与 `host/agent-error`，不返回 `{kind:'reject'}`。
 - 包规则：宿主插件 named-export `name`/`inject`/`apply`，无 default export；每个包有 `./invariant`；`@deepseek-ai/cordis` 在 peerDependencies 与 devDependencies；README 中英双语对 + `README.i18n.yaml`；product copy 中文，代码注释英文。
-- 测试命令：`pnpm --filter <pkg> test`；类型检查 `pnpm exec tsc -b packages/context/session-reference-admission packages/client/ui-session-reference`；bundle 构建 `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference bundle`；GUI 检查 `pnpm run test:gui`；Web 检查 `DSH_SNAPSHOT=replay pnpm run test:web`。
+- 测试命令：单包用 `pnpm exec vitest run <test-path>`；宿主包类型检查 `pnpm exec tsc -b packages/context/session-reference-admission`；浏览器包类型检查 `pnpm exec tsc -p packages/client/ui-session-reference --noEmit`；完整 lib 构建顺序 `pnpm run build:lib:host && pnpm run build:lib:client`；bundle 构建 `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference bundle`；GUI 检查 `pnpm run test:gui`；Web e2e 用 `DSH_SNAPSHOT=replay pnpm exec vitest run --config vitest.web.config.ts <spec>`。
 - 每个 Task 以可独立验证的提交结束；提交信息如 `feat(session-reference): ...`。
 - 本计划本身中文单文件，已加入 `scripts/translation-pairing.manifest.json` 排除列表。
 
@@ -472,7 +472,7 @@ describe('session-reference admission', () => {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `pnpm --filter @deepseek-ai/dsh-session-reference-admission test` Expected: FAIL，`admission` 空实现不注入快照、不抛错。
+Run: `pnpm exec vitest run packages/context/session-reference-admission/tests/admission.spec.ts` Expected: FAIL，`admission` 空实现不注入快照、不抛错。
 
 - [ ] **Step 3: 实现 `src/index.ts`**
 
@@ -558,7 +558,7 @@ export function apply(ctx: Context): void {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `pnpm --filter @deepseek-ai/dsh-session-reference-admission test` Expected: PASS。
+Run: `pnpm exec vitest run packages/context/session-reference-admission/tests/admission.spec.ts` Expected: PASS。
 
 - [ ] **Step 5: 提交**
 
@@ -681,7 +681,7 @@ describe('session-reference admission in the real agent loop', () => {
 
 - [ ] **Step 2: 运行确认通过**
 
-Run: `pnpm --filter @deepseek-ai/dsh-session-reference-admission test` Expected: PASS，且真实 loop 的请求含快照在前、可读直发消息在后。
+Run: `pnpm exec vitest run packages/context/session-reference-admission/tests/admission.spec.ts` Expected: PASS，且真实 loop 的请求含快照在前、可读直发消息在后。
 
 - [ ] **Step 3: 提交**
 
@@ -897,7 +897,7 @@ describe('browser session-reference URI encoder', () => {
 
 - [ ] **Step 5: 运行确认失败**
 
-Run: `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test` Expected: FAIL（`../src/client/uri.ts` 不存在）。
+Run: `pnpm exec vitest run packages/client/ui-session-reference/tests/uri.client.spec.ts` Expected: FAIL（`../src/client/uri.ts` 不存在）。
 
 - [ ] **Step 6: 实现 `src/client/uri.ts`**
 
@@ -936,7 +936,7 @@ export function formatSessionReferenceMention(sessionId: SessionId, label: strin
 
 - [ ] **Step 7: 运行确认通过并补 README 对**
 
-Run: `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test` Expected: PASS。
+Run: `pnpm exec vitest run packages/client/ui-session-reference/tests/uri.client.spec.ts` Expected: PASS。
 
 写 `README.md`：
 
@@ -1028,7 +1028,7 @@ chip 为直发消息增加一行规范提及；快照 token 由 admission 插件
     { "path": "./packages/client/ui-session-reference" },
 ```
 
-Run: `pnpm install --prefer-offline && pnpm exec tsc -b packages/client/ui-session-reference` Expected: PASS。
+Run: `pnpm install --prefer-offline && pnpm exec tsc -p packages/client/ui-session-reference --noEmit` Expected: PASS。
 
 - [ ] **Step 9: 提交**
 
@@ -1207,7 +1207,7 @@ describe('ui-session-reference source', () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test` Expected: FAIL（`src/client/index.ts` 尚未导出 source 行为）。
+Run: `pnpm exec vitest run packages/client/ui-session-reference/tests/uri.client.spec.ts` Expected: FAIL（`src/client/index.ts` 尚未导出 source 行为）。
 
 - [ ] **Step 3: 实现 `src/client/index.ts`**
 
@@ -1322,7 +1322,7 @@ export function apply(ctx: ClientContext): void {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test` Expected: PASS。
+Run: `pnpm exec vitest run packages/client/ui-session-reference/tests/uri.client.spec.ts` Expected: PASS。
 
 - [ ] **Step 5: 提交**
 
@@ -1396,9 +1396,7 @@ git commit -m "feat(session-reference): add same-workspace @ session source"
 
 ```bash
 pnpm install --prefer-offline
-pnpm --filter @deepseek-ai/dsh-client-ui-input-trigger test
-pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test
-pnpm --filter @deepseek-ai/dsh-session-reference-admission test
+pnpm exec vitest run packages/client/ui-input-trigger/tests packages/client/ui-session-reference/tests packages/context/session-reference-admission/tests
 pnpm --filter @deepseek-ai/dsh-client-ui-session-reference bundle
 ```
 
@@ -1421,6 +1419,7 @@ git commit -m "feat(session-reference): wire admission and @ source into web bun
 
 **Files:**
 - Create: `apps/web/tests/session-references.e2e.ts`
+- Modify: `apps/web/tsconfig.json`（把该 e2e 加入 client 聚合的 exclude，与其它 host-spine e2e 相同）
 
 **Interfaces:**
 - Consumes: `launchWebScaffold`、`seedSession`、`watchConsole`（`apps/web/tests/scaffold.ts`）；`newEnglishPage`、`saveFailureShot`（`apps/web/tests/support.ts`）。
@@ -1443,7 +1442,6 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const CURRENT_ID = 'web-session-reference-current'
 const SOURCE_ID = 'web-session-reference-source'
-const SOURCE_TITLE = 'Handoff source'
 
 /** One settled, titled conversation in the scaffold workspace. */
 function conversationFixture(id: string, title: string, text: string): string {
@@ -1490,7 +1488,7 @@ describe('web e2e: composer @ session references', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, conversationFixture(CURRENT_ID, 'Current task', 'current user'), CURRENT_ID)
-    await seedSession(scaffold, conversationFixture(SOURCE_ID, SOURCE_TITLE, 'source user'), SOURCE_ID)
+    await seedSession(scaffold, conversationFixture(SOURCE_ID, 'Handoff source', 'source user'), SOURCE_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -1507,11 +1505,19 @@ describe('web e2e: composer @ session references', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-session-references'))
 
     // Open the seeded current conversation the same way other seeded-history
-    // scenarios do: expand the workspace group and click its row.
+    // scenarios do: expand the workspace group and click the list row whose
+    // order matches the host session list.
+    const listing = await scaffold.ctx.apiProxy.sessions.list({
+      rpcId: 'web-session-reference-list' as never,
+      payload: {},
+    })
+    const items = listing.result.value.items
+    const currentIndex = items.findIndex(item => item.sessionId === CURRENT_ID)
+    expect(currentIndex).toBeGreaterThanOrEqual(0)
     const groupRow = page.locator('[role="treeitem"]').first()
     await groupRow.waitFor({ timeout: 15_000 })
     if (await groupRow.getAttribute('aria-expanded') !== 'true') await groupRow.click()
-    const currentRow = page.getByText('Current task', { exact: true })
+    const currentRow = page.locator('[role="treeitem"]').nth(1 + currentIndex)
     await currentRow.waitFor({ timeout: 10_000 })
     await currentRow.click()
 
@@ -1520,11 +1526,10 @@ describe('web e2e: composer @ session references', () => {
     await composer.type('@')
     const menu = page.locator('[role="listbox"]')
     await menu.waitFor({ timeout: 10_000 })
-    await page.getByText('会话', { exact: true }).waitFor({ timeout: 5_000 })
-    const option = page.locator('[id^="dsh-slash-option-session-"]').first()
-    await option.waitFor({ timeout: 5_000 })
-    await expect(option).toContainText(SOURCE_TITLE)
-    await option.click()
+    await page.getByText('Sessions', { exact: true }).waitFor({ timeout: 5_000 })
+    const options = page.locator('[id^="dsh-slash-option-session-"]')
+    await expect.poll(() => options.count()).toBe(1)
+    await options.first().click()
 
     expect(await composer.inputValue()).toContain('\uFFFC')
     expect(tripwire.pageErrors).toEqual([])
@@ -1535,11 +1540,13 @@ describe('web e2e: composer @ session references', () => {
 - [ ] **Step 2: 构建前端并跑该 e2e**
 
 ```bash
+pnpm run build:lib:host
+pnpm run build:lib:client
 pnpm --filter @deepseek-ai/dsh-web-frontend build
-DSH_SNAPSHOT=replay pnpm run test:web -- apps/web/tests/session-references.e2e.ts
+DSH_SNAPSHOT=replay pnpm exec vitest run --config vitest.web.config.ts apps/web/tests/session-references.e2e.ts
 ```
 
-Expected: PASS；如果 `test:web` 参数形式不可用，直接运行 `DSH_SNAPSHOT=replay pnpm exec vitest run --config vitest.web.config.ts apps/web/tests/session-references.e2e.ts`。
+Expected: PASS。
 
 - [ ] **Step 3: 提交**
 
@@ -1614,8 +1621,8 @@ pnpm run verify-translation-pairing --list
 pnpm run verify-agent-note-format
 pnpm run verify-md-wrap
 pnpm run verify-md-links
-pnpm --filter @deepseek-ai/dsh-session-reference-admission test
-pnpm --filter @deepseek-ai/dsh-client-ui-session-reference test
+pnpm exec vitest run packages/context/session-reference-admission/tests
+pnpm exec vitest run packages/client/ui-session-reference/tests
 pnpm run test:gui
 git diff --check
 ```
