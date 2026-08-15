@@ -4,16 +4,16 @@ import { BatchSender } from '../src/sender.ts'
 import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
 
 let server: Server | undefined
-afterEach(async () => { await new Promise<void>(resolve => server?.close(() => resolve())) })
+afterEach(async () => { await new Promise<void>((resolve) => { server?.close(() => { resolve() }) }) })
 
 function listen(handler: (req: IncomingMessage, res: ServerResponse, body: string) => void): Promise<number> {
   return new Promise((resolve) => {
     server = createServer((req, res) => {
       let body = ''
-      req.on('data', (chunk) => { body += chunk })
+      req.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
       req.on('end', () => { handler(req, res, body) })
     })
-    server.listen(0, '127.0.0.1', () => resolve((server!.address() as { port: number }).port))
+    server.listen(0, '127.0.0.1', () => { resolve((server!.address() as { port: number }).port) })
   })
 }
 
@@ -34,9 +34,19 @@ describe('BatchSender', () => {
       res.writeHead(500).end('{}')
     })
     const sender = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 't', sourceId: 'src', rootId: 'root:abc', requestTimeoutMs: 5000 })
-    expect(await sender.send(rows, 'sha256:abc')).toEqual({ kind: 'retryable', status: 500, message: expect.any(String) })
+    const retryable = await sender.send(rows, 'sha256:abc')
+    expect(retryable.kind).toBe('retryable')
+    if (retryable.kind === 'retryable') {
+      expect(retryable.status).toBe(500)
+      expect(typeof retryable.message).toBe('string')
+    }
     const noAuth = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 'wrong', sourceId: 'src', rootId: 'root:abc', requestTimeoutMs: 5000 })
-    expect(await noAuth.send(rows, 'sha256:abc')).toEqual({ kind: 'permanent', status: 401, message: expect.any(String) })
+    const permanent = await noAuth.send(rows, 'sha256:abc')
+    expect(permanent.kind).toBe('permanent')
+    if (permanent.kind === 'permanent') {
+      expect(permanent.status).toBe(401)
+      expect(typeof permanent.message).toBe('string')
+    }
   })
 
   it('sends a heartbeat envelope without rows or batchId', async () => {

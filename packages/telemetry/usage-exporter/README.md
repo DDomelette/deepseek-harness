@@ -21,11 +21,19 @@ The plugin tails `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl` with an offset cur
 
 ## Model Experience
 
-None: this package sends telemetry rows over HTTP and registers no model-facing tools, prompts, or instructions.
+### Usage push
 
-### KV Cache effect
+#### What the model sees
 
-None: it neither assembles nor sends provider requests.
+No prompt, message, tool schema, tool result, or model-call change. The plugin tails existing `usage-*.jsonl` files and sends rows over `POST /api/v1/dsh/usage`.
+
+#### Token effect
+
+No direct token effect.
+
+#### KV Cache effect
+
+No direct effect; the plugin neither assembles nor sends provider requests.
 
 ## Known Limitations and Deferred Work
 

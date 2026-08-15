@@ -39,7 +39,7 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
         const outcome = await sender.send(batch.rows, batch.batchId)
         if (outcome.kind === 'accepted' || outcome.kind === 'duplicate') break
         if (outcome.kind === 'permanent') {
-          ctx.logger.warn(`usage-exporter: dropping batch ${batch.batchId}: ${outcome.status ?? ''} ${outcome.message}`)
+          ctx.logger.warn(`usage-exporter: dropping batch ${batch.batchId}: ${outcome.status} ${outcome.message}`)
           break
         }
         if (attempt < config.maxAttempts) {
@@ -57,13 +57,13 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
   const timer = setInterval(() => { tick() }, config.pollIntervalMs)
   timer.unref()
   const heartbeat = setInterval(() => {
-    void sender.sendHeartbeat().catch((error) => { ctx.logger.warn(`usage-exporter: heartbeat failed: ${String(error)}`) })
+    void sender.sendHeartbeat().catch((error: unknown) => { ctx.logger.warn(`usage-exporter: heartbeat failed: ${String(error)}`) })
   }, config.heartbeatIntervalMs)
   heartbeat.unref()
-  ctx.effect(() => () => clearInterval(timer), 'usage-exporter: poll timer')
-  ctx.effect(() => () => clearInterval(heartbeat), 'usage-exporter: heartbeat timer')
+  ctx.effect(() => () => { clearInterval(timer) }, 'usage-exporter: poll timer')
+  ctx.effect(() => () => { clearInterval(heartbeat) }, 'usage-exporter: heartbeat timer')
   ctx.effect(() => async () => { await inFlight }, 'usage-exporter: drain in-flight send')
-  void tick()
+  tick()
 }
 
 export function rootIdFor(root: string): string {

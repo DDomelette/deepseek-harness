@@ -29,8 +29,9 @@ describe('usage-exporter package surface', () => {
     expect(() => Config({ endpoint: 'https://example.test/x', maxBatchRows: 0 } as never)).toThrow()
   })
 
-  it('apply is a stub until the loop task lands', async () => {
+  it('rejects a non-http(s) endpoint before starting its loop', async () => {
     const ctx = new Context()
-    await expect(apply(ctx, Config({ endpoint: 'https://example.test/x' } as never))).rejects.toThrow('not implemented')
+    await expect(apply(ctx, Config({ endpoint: 'ftp://example.test/x' } as never))).rejects.toThrow('endpoint must use https')
+    await ctx.fiber.dispose()
   })
 })
