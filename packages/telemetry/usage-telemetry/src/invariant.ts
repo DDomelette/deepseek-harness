@@ -15,11 +15,11 @@ export const name = 'usage-telemetry-invariant'
 export const inject = ['invariants']
 
 /**
- * No runtime invariant: the package's whole output is a fire-and-forget JSONL
- * append outside every authoritative event stream, and its capture side never
- * appends session events (it only reads `session/event` and writes files), so
- * no event/data relation exists for an independent companion to observe. The
- * row schema is pinned by the frozen v1 {@link ./schema.ts} and its unit tests.
+ * No runtime invariant: `llm/stream` is the capture point, but the package's
+ * only result is an external JSONL append rather than a harness event stream or
+ * mutable registry value. An independent companion therefore has no
+ * authoritative in-process result to relate to the call. The row schema is
+ * pinned by the frozen v1 {@link ./schema.ts} and its unit tests.
  */
 const install: InvariantInstaller = () => {}
 

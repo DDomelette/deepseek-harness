@@ -11,12 +11,13 @@ DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everythin
 ```
 vendor/      Vendored Cordis source — manifest + sync procedure in vendor/README.md
 packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
-  core/        product API spine: session, system-prompt, tools, agent, agent-loop
+  core/        API spine: session, system-prompt, tools, agent, agent-loop
   api/         Remote BFF assembly and Typert RPC gateway
   typert/      type graph generator, loader, and runtime registry
-  llm/         LLM capability: Service Definition/Consumer + DeepSeek providers
+  llm/         LLM service + DeepSeek providers
+  telemetry/   local usage capture
   e2b/         E2B POC: sandbox + FS/subprocess adapters
-  shell/        bash capability: Service Definition + local/pwsh providers + shell Consumers
+  shell/        bash service + local/pwsh providers + tool Consumers
   subprocess/  subprocess capability + local process-tree provider
   terminal/         persistent sessions
   fs/          filesystem capability + policy

@@ -1,109 +1,137 @@
 /**
- * Usage telemetry service: appends one JSONL row per completed model request
- * (assistant/message with usage) to $DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl.
- * Standalone cordis Service (NOT a SessionTelemetryBackend — that slot is
- * occupied by the OTel backend in the shipped bundles and allows exactly one
- * implementation). Enabled by default; the optional settings service may
- * override via the `usage-telemetry` namespace (`enabled: false`).
+ * Usage telemetry service: appends one JSONL row for each session-attributed
+ * live `llm/stream` invocation that yields provider usage to
+ * $DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl.
+ * This standalone Cordis service is not a SessionTelemetryBackend; the shipped
+ * OTel backend owns that singleton slot. The shipped Web composition enables
+ * local capture, and the optional settings service may override the composition
+ * value through the `usage-telemetry` namespace.
  *
  * @module @deepseek-ai/dsh-usage-telemetry
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
-import type { TokenUsage } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import { join } from 'node:path'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+// Merges the optional live session store onto the Cordis Context interface.
+import type {} from '@deepseek-ai/dsh-session'
 // Merges `settings` onto the cordis Context interface and brands the namespace id.
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { createUsageWriter, type UsageWriter } from './writer.ts'
 import { serializeRow, USAGE_ROW_VERSION, type UsageRow } from './schema.ts'
 
-export interface UsageTelemetryConfig {
+/** Configuration for local usage telemetry capture. */
+export interface Config {
+  /** Whether live LLM usage is appended to local telemetry files. */
   enabled: boolean
 }
 
-export const UsageTelemetryConfig: z<UsageTelemetryConfig> = z.object({
+/** Validated usage telemetry configuration. */
+export const Config: z<Config> = z.object({
   enabled: z.boolean().required(),
 })
 
+/** User-settings namespace controlling local usage telemetry. */
+export const USAGE_TELEMETRY_SETTINGS_NAMESPACE = settingsNamespace('usage-telemetry')
+
+/** Captures provider usage from session-attributed streaming model calls. */
 export class UsageTelemetry extends Service {
-  static Config = UsageTelemetryConfig
+  static Config = Config
 
   private enabled: boolean
+  private configSource!: () => Config
   private readonly writer: UsageWriter
-  private readonly lastModel = new WeakMap<Session, string | undefined>()
+  private readonly writes = new Set<Promise<void>>()
   private disposeSubscription: (() => boolean) | null = null
+  private stopping = false
 
-  private readonly onSessionEvent = (session: Session, event: SessionEvent): void => {
-    this.contain(() => { this.handle(session, event) })
-  }
-
-  constructor(ctx: Context, config: UsageTelemetryConfig) {
+  constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'usageTelemetry')
     this.enabled = config.enabled
     this.writer = createUsageWriter({ root: join(resolveDshHome(), 'telemetry') })
   }
 
-  protected [Service.init](): void {
+  protected *[Service.init](): Generator<() => Promise<void>, void, void> {
+    yield async () => {
+      this.stopping = true
+      this.disposeSubscription?.()
+      this.disposeSubscription = null
+      await Promise.allSettled([...this.writes])
+    }
     this.syncSubscription()
-    // Optional settings override: `usage-telemetry:\n  enabled: false` in
-    // settings.yaml disables the emitter. Absent a settings provider the
-    // composition config stays authoritative.
-    this.ctx.inject(['settings'], (sctx) => {
-      const scope = sctx.settings.register(settingsNamespace('usage-telemetry'), UsageTelemetryConfig, {
-        base: { enabled: this.enabled },
-      })
-      this.enabled = scope.get().enabled
-      this.syncSubscription()
-      scope.watch(() => {
-        this.enabled = scope.get().enabled
-        this.syncSubscription()
-      })
-    })
+    installSettingsSection(
+      this.ctx,
+      USAGE_TELEMETRY_SETTINGS_NAMESPACE,
+      Config,
+      { enabled: this.config.enabled },
+      {
+        setSource: (source) => { this.configSource = source },
+        onChange: () => {
+          this.enabled = this.configSource().enabled
+          this.syncSubscription()
+        },
+      },
+    )
   }
 
-  /** Subscribe exactly while enabled (spec: a disabled emitter costs nothing). */
+  /** Keep the waterfall subscription active only while capture is enabled. */
   private syncSubscription(): void {
     if (this.enabled && this.disposeSubscription === null) {
-      this.disposeSubscription = this.ctx.on('session/event', this.onSessionEvent)
+      this.disposeSubscription = this.ctx.on('llm/stream', this.onStream)
     } else if (!this.enabled && this.disposeSubscription !== null) {
       this.disposeSubscription()
       this.disposeSubscription = null
     }
   }
 
-  private handle(session: Session, event: SessionEvent): void {
-    if (event.type === 'request/header') {
-      this.lastModel.set(session, event.data.header.config.model)
-      return
-    }
-    if (event.type !== 'assistant/message' || event.data.usage === undefined) return
+  private readonly onStream = (
+    options: GenerateOptions,
+    next: () => AsyncIterable<StreamChunk>,
+  ): AsyncIterable<StreamChunk> => this.observeStream(options, next)
 
-    const usage: TokenUsage = event.data.usage
-    const cwd = session.header.cwd
-    const model = this.lastModel.get(session)
-    const row: UsageRow = {
-      v: USAGE_ROW_VERSION,
-      time: event.time,
-      sessionId: String(session.id),
-      ...(cwd === undefined ? {} : { cwd }),
-      ...(model === undefined || model.length === 0 ? {} : { model }),
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      cacheReadTokens: usage.cacheReadTokens ?? 0,
-      cacheWriteTokens: usage.cacheWriteTokens ?? 0,
+  private async *observeStream(
+    options: GenerateOptions,
+    next: () => AsyncIterable<StreamChunk>,
+  ): AsyncIterable<StreamChunk> {
+    let observed: { usage: TokenUsage; time: number } | undefined
+    try {
+      for await (const chunk of next()) {
+        if (chunk.type === 'usage') observed = { usage: chunk.usage, time: Date.now() }
+        yield chunk
+      }
+    } finally {
+      if (observed !== undefined && options.sessionId !== undefined) this.record(options, options.sessionId, observed)
     }
-    void this.writer.write(serializeRow(row)).catch((error: unknown) => {
-      this.ctx.logger.warn(`usage telemetry: write failed: ${String(error)}`)
-    })
   }
 
-  /** cordis emit is stop-on-throw: nothing here may escape into the event path. */
-  private contain(step: () => void): void {
+  private record(
+    options: GenerateOptions,
+    sessionId: NonNullable<GenerateOptions['sessionId']>,
+    observed: { usage: TokenUsage; time: number },
+  ): void {
+    if (this.stopping) return
     try {
-      step()
+      const cwd = this.ctx.get('sessions')?.get(sessionId)?.header.cwd
+      const row: UsageRow = {
+        v: USAGE_ROW_VERSION,
+        time: observed.time,
+        sessionId: String(sessionId),
+        ...(cwd === undefined ? {} : { cwd }),
+        model: options.model,
+        inputTokens: observed.usage.inputTokens,
+        outputTokens: observed.usage.outputTokens,
+        cacheReadTokens: observed.usage.cacheReadTokens ?? 0,
+        cacheWriteTokens: observed.usage.cacheWriteTokens ?? 0,
+      }
+      const write = this.writer.write(serializeRow(row))
+      this.writes.add(write)
+      void write
+        .catch((error: unknown) => {
+          this.ctx.logger.warn(`usage telemetry: write failed: ${String(error)}`)
+        })
+        .finally(() => { this.writes.delete(write) })
     } catch (error) {
       this.ctx.logger.warn(`usage telemetry: capture step failed: ${String(error)}`)
     }

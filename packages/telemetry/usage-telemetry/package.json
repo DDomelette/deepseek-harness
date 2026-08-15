@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-usage-telemetry",
-  "description": "Usage telemetry: appends one JSONL row per completed model request to $DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl for external consumption monitoring",
+  "description": "Usage telemetry: appends one JSONL row for each session-attributed llm/stream invocation that reports provider usage",
   "version": "0.1.0-rc.5",
   "publishConfig": {
     "access": "public"
@@ -18,11 +18,16 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
   "files": [
     "lib/index.js",
+    "lib/invariant.js",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
@@ -43,6 +48,7 @@
     "@deepseek-ai/dsh-home-paths": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/dsh-loader-smoke": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-settings": "workspace:^"
   }
