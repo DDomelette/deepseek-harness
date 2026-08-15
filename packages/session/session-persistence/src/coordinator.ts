@@ -17,6 +17,7 @@ import {
 } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionId, SessionHeader } from '@deepseek-ai/dsh-session'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+import { SessionPersistenceNotFoundError } from './index.ts'
 import type { SessionInspection, SessionLocation } from './index.ts'
 import type { SessionPersistenceRevision } from './revision.ts'
 import { observeQueuedAbort, SessionPreparations } from './preparations.ts'
@@ -191,6 +192,12 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * only, `closers = []`).
    */
   commitRepair(meta: SessionHeader, tornMarker: TornMarker | undefined, closers: readonly SessionEvent[]): Promise<void>
+
+  /**
+   * Delete one stored session's physical artifact. Returns `false` when no
+   * materialized artifact exists; any non-absence I/O failure propagates.
+   */
+  deleteStored(id: SessionId, signal?: AbortSignal): Promise<boolean>
 
   /**
    * List all stored (materialized) sessions' metadata.
@@ -867,6 +874,30 @@ export class PersistenceCoordinator<TornMarker = unknown> {
     const whole = await this.readStoredPrefix(id, signal)
     // Sequential fallback: contiguous seqs from 0 make the suffix an index slice.
     return { meta: whole.meta, events: whole.events.slice(fromSeq) }
+  }
+
+  /**
+   * Permanently delete one session's stored log on the per-id chain.
+   * An un-materialized create intent is cancelled; an id neither tracked nor
+   * stored rejects with {@link SessionPersistenceNotFoundError}.
+   * @param id - persisted session to delete.
+   */
+  delete(id: SessionId): Promise<void> {
+    return this.serialize(id, () => this.deleteCore(id))
+  }
+
+  private async deleteCore(id: SessionId): Promise<void> {
+    await this.waitForRetirement(id)
+    const state = this.states.get(id)
+    if (state === undefined || !state.materialized) {
+      const deleted = await this.backend.deleteStored(id)
+      if (state === undefined && !deleted) throw new SessionPersistenceNotFoundError(id)
+    } else {
+      await this.backend.deleteStored(id)
+    }
+    this.states.delete(id)
+    this.preparations.invalidate(id)
+    this.ctx.emit('session-persistence/deleted', { id })
   }
 
   /** Read one detached physical prefix without logical recovery or caching. */

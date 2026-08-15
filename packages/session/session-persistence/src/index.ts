@@ -14,6 +14,14 @@ import type { SessionPersistenceRevision } from './revision.ts'
 export type { SessionHeader } from '@deepseek-ai/dsh-session'
 export { SessionPersistenceRevision } from './revision.ts'
 
+/** A delete requested an id this backend neither tracks nor has stored. */
+export class SessionPersistenceNotFoundError extends Error {
+  constructor(readonly sessionId: SessionId) {
+    super(`session "${sessionId}" not found`)
+    this.name = 'SessionPersistenceNotFoundError'
+  }
+}
+
 /** Lightweight immutable source identity returned without loading a full log. */
 export interface SessionPersistenceSnapshot {
   /** Detached metadata for one materialized session. */
@@ -60,6 +68,10 @@ export type {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     sessionPersistence: SessionPersistence
+  }
+  interface Events {
+    /** One stored session log was permanently deleted. */
+    'session-persistence/deleted'(event: { id: SessionId }): void
   }
 }
 
@@ -219,6 +231,14 @@ export abstract class SessionPersistence extends Service {
    */
   abstract readFrom(id: SessionId, fromSeq: number, signal?: AbortSignal):
   Promise<{ meta: SessionHeader; events: SessionEvent[] }>
+
+  /**
+   * Permanently delete one session's stored log, serialized with in-flight
+   * operations for the same id. An un-materialized create intent is cancelled;
+   * an unknown id rejects with {@link SessionPersistenceNotFoundError}.
+   * @param id - persisted session to delete.
+   */
+  abstract delete(id: SessionId): Promise<void>
 
   /**
    * Lightweight listing from metadata, without a full-log parse.
