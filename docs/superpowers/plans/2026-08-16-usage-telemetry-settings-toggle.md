@@ -295,7 +295,7 @@ export class UsageTelemetryCardController {
       hooks: { usageTelemetryCard: this.store },
       edit: (field, text) => {
         if (field !== 'enabled') throw new Error(`usage telemetry card has no field ${field}`)
-        this.draft = text === 'false'
+        this.draft = text === 'true'
         this.failed = false
         this.store.set(this.projection())
       },
