@@ -775,16 +775,30 @@ In `WorkspaceBrowser.tsx`:
 </div>
 ```
 
-- [ ] **Step 5: Render the pinned section above the tree**
+- [ ] **Step 5: Render the pinned section inside the shared scroll list**
 
-In `WorkspaceBrowser`, immediately inside `listArea`, before the search/tree branch, add:
+Pass `renderPinned: (owner: PinnedSectionOwnerProps) => ReactNode` into both `SessionTree` and `FlatList`; do not render it from `listArea` or `SearchResults`.
+
+In `SessionTree`, immediately inside the `.list` div before the `groups.length === 0` empty-state branch, render:
 
 ```tsx
-{wide && normalizedQuery === '' && renderSlot('sidebar.workspaces.pinned', {
-  wide,
-  view: groupBy === 'flat' ? 'flat' : 'grouped',
-})}
+{renderPinned({ wide: true, view: 'grouped' })}
 ```
+
+In `FlatList`, immediately inside the `.list` div before the flat rows, render:
+
+```tsx
+{renderPinned({ wide: true, view: 'flat' })}
+```
+
+In `WorkspaceBrowser`, bind:
+
+```ts
+const renderPinned = (owner: PinnedSectionOwnerProps) =>
+  normalizedQuery === '' ? renderSlot('sidebar.workspaces.pinned', owner) : null
+```
+
+and pass `renderPinned` to `SessionTree` and `FlatList` in the browse branch only. Search mode never receives it, so the pinned section is absent during search (Q4=C) and the pinned section scrolls together with the project list (single scroll container).
 
 - [ ] **Step 6: Render the row action slot**
 
