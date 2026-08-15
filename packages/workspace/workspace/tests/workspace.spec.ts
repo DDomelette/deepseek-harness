@@ -941,4 +941,29 @@ describe('registry-global session archive', () => {
     const upgraded = await harness({ pool: legacy })
     expect(upgraded.registry.archivedSessionIds).toEqual([])
   })
+
+  it('unarchiveSession removes the id from the archive set and is idempotent', async () => {
+    const dir = await makeDir('unarchive-home')
+    const result = await harness({ sessions: [header('s1', dir, 100)] })
+    await result.registry.archiveSession(SessionId('s1'))
+    expect(result.registry.archivedSessionIds).toEqual(['s1'])
+    await result.registry.unarchiveSession(SessionId('s1'))
+    expect(result.registry.archivedSessionIds).toEqual([])
+    await result.registry.unarchiveSession(SessionId('s1'))
+    expect(result.registry.archivedSessionIds).toEqual([])
+    await result.registry.unarchiveSession(SessionId('never-archived'))
+    expect(result.registry.archivedSessionIds).toEqual([])
+  })
+
+  it('forgetSession removes archive membership and every workspace account slot', async () => {
+    const dir = await makeDir('forget-home')
+    const result = await harness({ sessions: [header('s1', dir, 100)] })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('s1'))
+    await result.registry.forgetSession(SessionId('s1'))
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(workspace.sessionIds).toEqual([])
+    await result.registry.forgetSession(SessionId('s1'))
+    expect(result.registry.archivedSessionIds).toEqual([])
+  })
 })
