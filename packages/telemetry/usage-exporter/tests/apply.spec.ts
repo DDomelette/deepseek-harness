@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { appendFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { Config, apply } from '@deepseek-ai/dsh-usage-exporter'
 
 let server: Server | undefined
-afterEach(async () => { await new Promise<void>(resolve => server?.close(() => resolve())) })
+afterEach(async () => { await new Promise<void>((resolve) => { server?.close(() => { resolve() }) }) })
 
 const ROW = { v: 1, time: 1, sessionId: 's', model: 'm', inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
 
@@ -15,15 +15,15 @@ describe('usage-exporter apply', () => {
   it('pushes appended rows and advances the cursor', async () => {
     const received: Array<{ batchId: string; rows: unknown[] }> = []
     const port = await new Promise<number>((resolve) => {
-      server = createServer((_req, res) => {
+      server = createServer((req: IncomingMessage, res: ServerResponse) => {
         let body = ''
-        _req.on('data', (chunk) => { body += chunk })
-        _req.on('end', () => {
-          received.push(JSON.parse(body))
+        req.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
+        req.on('end', () => {
+          received.push(JSON.parse(body) as { batchId: string; rows: unknown[] })
           res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true, accepted: received.at(-1)!.rows.length, duplicates: 0 }))
         })
       })
-      server.listen(0, '127.0.0.1', () => resolve((server!.address() as { port: number }).port))
+      server.listen(0, '127.0.0.1', () => { resolve((server!.address() as { port: number }).port) })
     })
     const root = await mkdtemp(join(tmpdir(), 'usage-exporter-apply-'))
     await mkdir(join(root, 'telemetry'), { recursive: true })

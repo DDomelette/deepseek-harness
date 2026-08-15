@@ -5,6 +5,7 @@ import { dirname } from 'node:path'
 
 export interface FileCursor { offset: number }
 interface CursorState { version: 1; files: Record<string, FileCursor> }
+interface RawCursorState { version?: unknown; files?: unknown }
 
 export class CursorStore {
   private state: CursorState = { version: 1, files: {} }
@@ -13,9 +14,9 @@ export class CursorStore {
 
   async load(): Promise<void> {
     try {
-      const parsed = JSON.parse(await readFile(this.path, 'utf8')) as CursorState
-      if (parsed?.version === 1 && typeof parsed.files === 'object' && parsed.files !== null) {
-        this.state = parsed
+      const parsed = JSON.parse(await readFile(this.path, 'utf8')) as RawCursorState
+      if (parsed.version === 1 && typeof parsed.files === 'object' && parsed.files !== null) {
+        this.state = { version: 1, files: parsed.files as Record<string, FileCursor> }
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
