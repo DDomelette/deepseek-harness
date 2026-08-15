@@ -79,6 +79,11 @@
         writeEveryEvents: 200
         writeIntervalMs: 5000
 
+    - id: usage-telemetry
+      name: '@deepseek-ai/dsh-usage-telemetry'
+      config:
+        enabled: true
+
     # Whole-log turn/step counts for the chat stats strip (the sessionStats
     # projection key); the projection registry itself is a base-layer row.
     - id: session-stats
@@ -204,6 +209,9 @@
     # mcp-manager Remote and the `mcp-servers` settings scope.
     - id: ui-settings-mcp
       name: '@deepseek-ai/dsh-client-ui-settings-mcp'
+
+    - id: ui-settings-skills
+      name: '@deepseek-ai/dsh-client-ui-settings-skills'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'

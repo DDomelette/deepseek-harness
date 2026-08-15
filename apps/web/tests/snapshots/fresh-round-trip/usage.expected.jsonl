@@ -1,0 +1,2 @@
+{"v":1,"time":0,"sessionId":"{{sessionId}}","cwd":"{{cwd}}/workspace","model":"deepseek-v4-flash","inputTokens":122,"outputTokens":85,"cacheReadTokens":7680,"cacheWriteTokens":0}
+{"v":1,"time":0,"sessionId":"{{sessionId}}","cwd":"{{cwd}}/workspace","model":"deepseek-v4-flash","inputTokens":97,"outputTokens":26,"cacheReadTokens":7808,"cacheWriteTokens":0}

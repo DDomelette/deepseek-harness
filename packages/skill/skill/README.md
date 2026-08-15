@@ -17,10 +17,12 @@ The registry is host+per-scope layered over [`@deepseek-ai/dsh-scope`](../../cor
 - `ctx.skills.list({ cwd?, signal?, scope? })` Borrows the readonly view options, then returns every winning summary for the current workspace, merged across the global layer and the viewing scope's chain and sorted by name. Consumers apply `isModelInvocable(skill)` or `isUserInvocable(skill)` at their own boundary.
 - `ctx.skills.get(name, { cwd?, signal?, scope? })` Uses the same readonly options and winning candidate for discovery and loading, rechecks cancellation after discovery or a cache hit, races provider loading against the signal, validates the loaded definition, then returns it regardless of invocation policy.
 - `ctx.skills.register(skill): () => void` Registers a readonly runtime embedded skill into the calling context's layer, adding the all-invocable policy and `provider: "runtime"` when omitted. Same-name runtime registrations in one layer are first-wins: a duplicate logs a warning and gets a no-op disposer. Successful registrations return the exact Cordis disposer for ordered composite teardown.
+- `ctx.skills.registerInvocationOverride(override): () => void` Registers the one invocation-policy override resolver: `override(name)` returns a replacement policy for that skill, or `undefined` to keep the skill's own policy. The registry applies the resolver to every produced summary and loaded definition, so policy changes take effect on the next read without cache invalidation. A second registration while one is active fails loud; the exact disposer removes an active registration and broadcasts `skills/change` so held catalogs refetch. [`@deepseek-ai/dsh-skill-settings`](../skill-settings) registers the user-facing settings override.
+- `ctx.skills.notifyInvocationOverrideChange(): void` Fans `skills/change` out after the active override resolver's answers change. Listener failures are contained so no observer can veto the policy commit or starve later observers.
 
 ### Events
 
-- `skills/change` is an unfiltered invalidation notification emitted after a provider or runtime contribution is registered or disposed and after an active provider's registration control invalidates. It carries no catalog or diff: each consumer refetches `snapshot()` with its own lookup options. Listener throws and rejected promises are logged and cannot veto the registry mutation or starve later listeners.
+- `skills/change` is an unfiltered invalidation notification emitted after a provider or runtime contribution is registered or disposed, after an active provider's registration control invalidates, when an invocation-override owner announces changed answers, and when the active override is removed. It carries no catalog or diff: each consumer refetches `snapshot()` with its own lookup options. Listener throws and rejected promises are logged and cannot veto the registry mutation or policy commit or starve later listeners.
 
 ### Config
 
@@ -31,6 +33,10 @@ The registry is host+per-scope layered over [`@deepseek-ai/dsh-scope`](../../cor
 ### Invocation policy
 
 `SkillSummary.invocation` is a required typed policy object whose positive booleans `modelInvocable` and `userInvocable` describe the two surfaces independently. Providers return this resolved shape on every candidate and definition; only the `SkillRegistration` input may omit it, in which case `register()` supplies `{ modelInvocable: true, userInvocable: true }`. The registry keeps all four combinations so one discovery result can serve model-facing tools, human-facing commands, and trusted internal callers without conflating their catalogs.
+
+A registered invocation override replaces the policy of matching skills in every produced summary and loaded definition, so all consumers — the model catalog, the `skill` tool, the user-explicit gesture, and configuration listings — agree on which skills are off. Without an override registration, summaries and definitions keep their provider policy.
+
+The optional `group` field on summaries, candidates, definitions, and runtime registrations is a presentation label aggregation surfaces may group by; the registry treats it as opaque metadata and does not merge or validate against other skills.
 
 | Policy | Model | User |
 |---|---|---|
