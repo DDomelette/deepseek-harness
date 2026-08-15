@@ -265,7 +265,10 @@ describe('mcp-manager settings wiring', () => {
   it('mounts on a settings commit and disposes on enabled: false', async () => {
     const { ctx } = await boot()
     try {
-      await writeEntry(ctx, 'echo', {})
+      // Non-empty env regresses the frozen-settings clone path: Schemastery
+      // writes adapted dict entries back onto its input and strict-mode
+      // assignment on a frozen map fails the whole mcp-client config check.
+      await writeEntry(ctx, 'echo', { env: { DSH_FIXTURE_MARKER: 'frozen' } })
       await vi.waitFor(() => {
         expect(ctx.tools.get('mcp__echo__add')).toBeDefined()
       }, { timeout: MOUNT_TIMEOUT })
