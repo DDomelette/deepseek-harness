@@ -84,6 +84,13 @@
       config:
         enabled: true
 
+    # Optional push exporter. The capture core remains the local JSONL;
+    # enable this row and configure endpoint/sourceId to push the same rows
+    # to DeepSeek Monitor's ingestion endpoint.
+    - id: usage-exporter
+      name: '@deepseek-ai/dsh-usage-exporter'
+      disabled: true
+
     # Whole-log turn/step counts for the chat stats strip (the sessionStats
     # projection key); the projection registry itself is a base-layer row.
     - id: session-stats
