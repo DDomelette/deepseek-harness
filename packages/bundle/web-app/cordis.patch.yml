@@ -79,6 +79,11 @@
         writeEveryEvents: 200
         writeIntervalMs: 5000
 
+    - id: usage-telemetry
+      name: '@deepseek-ai/dsh-usage-telemetry'
+      config:
+        enabled: true
+
     # Whole-log turn/step counts for the chat stats strip (the sessionStats
     # projection key); the projection registry itself is a base-layer row.
     - id: session-stats

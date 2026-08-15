@@ -2814,6 +2814,20 @@ export interface Config {
 
 来源：[`packages/typert/loader/src/index.ts:47`](../packages/typert/loader/src/index.ts)
 
+<a id="deepseek-aidsh-usage-telemetry"></a>
+
+## `@deepseek-ai/dsh-usage-telemetry`
+
+```ts config-catalog
+/** Configuration for local usage telemetry capture. */
+export interface Config {
+  /** Whether live LLM usage is appended to local telemetry files. */
+  enabled: boolean
+}
+```
+
+来源：[`packages/telemetry/usage-telemetry/src/index.ts:26`](../packages/telemetry/usage-telemetry/src/index.ts)
+
 <a id="deepseek-aidsh-user-approval"></a>
 
 ## `@deepseek-ai/dsh-user-approval`

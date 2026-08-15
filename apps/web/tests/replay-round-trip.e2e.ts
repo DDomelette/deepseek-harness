@@ -8,7 +8,7 @@
 // is asserted from the persisted assistant/chunk events, not transient DOM.
 // Record: DSH_SNAPSHOT=record rewrites session.jsonl, then a keyless
 // DSH_SNAPSHOT=refresh regenerates ui.expected.md.
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -26,7 +26,49 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/fresh-round-trip', impor
 const FIXTURE = fileURLToPath(new URL('./snapshots/fresh-round-trip/session.jsonl', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/fresh-round-trip/ui.expected.md', import.meta.url))
 const SYSTEM_PROMPT_EXPECTED = fileURLToPath(new URL('./snapshots/fresh-round-trip/system-prompt.expected.md', import.meta.url))
+const USAGE_EXPECTED = fileURLToPath(new URL('./snapshots/fresh-round-trip/usage.expected.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
+
+const USAGE_TIME_FLOOR = Date.UTC(2000, 0, 1)
+
+async function readUsageRows(telemetryRoot: string): Promise<Record<string, unknown>[]> {
+  const files = await readdir(telemetryRoot).catch((error: unknown) => {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return []
+    throw error
+  })
+  const contents = await Promise.all(files.sort().filter(file => /^usage-.*\.jsonl$/.test(file))
+    .map(file => readFile(join(telemetryRoot, file), 'utf8')))
+  return contents.flatMap(content => content.split('\n').filter(Boolean)
+    .map(line => JSON.parse(line) as Record<string, unknown>))
+}
+
+function normalizeUsageRows(
+  rows: Record<string, unknown>[], sessionId: SessionId, cwd: string,
+): string {
+  const counters = [
+    { inputTokens: 122, outputTokens: 85, cacheReadTokens: 7680, cacheWriteTokens: 0 },
+    { inputTokens: 97, outputTokens: 26, cacheReadTokens: 7808, cacheWriteTokens: 0 },
+  ]
+  return rows.map((row, index) => {
+    expect(Number.isSafeInteger(row.time)).toBe(true)
+    expect(row.time).toEqual(expect.any(Number))
+    expect(row.time as number).toBeGreaterThanOrEqual(USAGE_TIME_FLOOR)
+    expect(row).toEqual({
+      v: 1,
+      time: row.time,
+      sessionId,
+      cwd,
+      model: 'deepseek-v4-flash',
+      ...counters[index],
+    })
+    return {
+      ...row,
+      time: 0,
+      sessionId: '{{sessionId}}',
+      cwd: '{{cwd}}/workspace',
+    }
+  }).map(row => JSON.stringify(row)).join('\n')
+}
 
 // The scenario's one drive prompt. Record sends it; replay asserts the
 // committed fixture recorded exactly it, so drive script and fixture cannot
@@ -90,6 +132,15 @@ describe('web e2e: fresh round trip through the real assembly', () => {
       .split(join(scaffold.workspaceCwd, 'workspace')).join('{{cwd}}')
       .split(scaffold.baseUrl).join('{{webUrl}}')
     await compareOrRefreshGolden(SYSTEM_PROMPT_EXPECTED, prefix, MODE)
+  })
+
+  it.skipIf(MODE === 'record')('records attempt-scoped usage from the shipped Web composition', async () => {
+    if (settledSessionId === undefined) throw new Error('the drive turn did not publish a session id')
+    const telemetryRoot = join(scaffold.harnessHome, 'telemetry')
+    await expect.poll(async () => readUsageRows(telemetryRoot), { timeout: 15_000 }).toHaveLength(2)
+    const rows = await readUsageRows(telemetryRoot)
+    const cwd = join(scaffold.workspaceCwd, 'workspace')
+    await compareOrRefreshGolden(USAGE_EXPECTED, normalizeUsageRows(rows, settledSessionId, cwd), MODE)
   })
 
   it('exposes the assembled Web URL to the real bash tool', async () => {
@@ -166,6 +217,8 @@ describe('web e2e: fresh round trip through the real assembly', () => {
   it.skipIf(MODE === 'record')('stayed clean: no pageerrors, no reconnect self-healing, no server errors', async () => {
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
-    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'system-prompt.expected.md', 'ui.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, [
+      'session.jsonl', 'system-prompt.expected.md', 'ui.expected.md', 'usage.expected.jsonl',
+    ])
   })
 })

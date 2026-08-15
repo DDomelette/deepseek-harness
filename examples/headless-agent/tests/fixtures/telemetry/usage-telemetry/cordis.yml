@@ -1,0 +1,22 @@
+- id: usage-telemetry-mock-llm
+  name: './mock-llm.ts'
+
+- id: usage-telemetry
+  name: '@deepseek-ai/dsh-usage-telemetry'
+  config:
+    enabled: true
+
+- id: agent-spine
+  name: '@deepseek-ai/dsh-agent-spine-demo'
+  config:
+    agents:
+      - id: main
+        provider: usage-telemetry-mock
+        model: usage-telemetry-mock-model
+        cwd: !!js process.cwd()
+    persona: 'Exercise local usage telemetry.'
+    workspaceContext: false
+    skills:
+      enabled: false
+    toolBash: false
+    toolJobs: false

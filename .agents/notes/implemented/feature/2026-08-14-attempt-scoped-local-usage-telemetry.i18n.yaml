@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-14-attempt-scoped-local-usage-telemetry.md
+2026-08-14-attempt-scoped-local-usage-telemetry.md: c669db024367314eb54d17b99db1902e9a86053e
+2026-08-14-attempt-scoped-local-usage-telemetry.zh.md: 6868987f1c45e2b4fd5b7a5f27cc0013e7726be1
