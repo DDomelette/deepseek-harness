@@ -33,6 +33,9 @@ export interface RpcErrorDetailsMap {
   'bad-request': { issues: ZodIssue[] }
   'cancelled': {}
   'session-not-found': { sessionId: SessionId }
+  'session-running': { runningSessionIds: SessionId[] }
+  'session-has-descendants': { sessionId: SessionId }
+  'session-deletion-unavailable': {}
   'model-unavailable': { provider: string; model: string }
   'session-conflict': { sessionId: SessionId; requestedCwd: string; existingCwd?: string }
   'invalid-time-zone': { value: string }

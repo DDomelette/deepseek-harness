@@ -370,4 +370,11 @@ export interface SessionsApi {
    */
   cancel(request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<{ accepted: true }>>
 
+  /**
+   * Permanently deletes one session and, when `recursive` is true, its
+   * descendant subagent sessions leaves-first.
+   */
+  delete(request: RpcRequest<{ sessionId: SessionId; recursive?: boolean }>):
+  Promise<RpcResponse<{ deletedSessionIds: SessionId[] }>>
+
 }

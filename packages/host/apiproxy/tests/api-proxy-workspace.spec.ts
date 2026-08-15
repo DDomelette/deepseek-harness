@@ -6,6 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentFactory } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionHeader } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
@@ -13,6 +14,7 @@ import UserQuestionService from '@deepseek-ai/dsh-user-questions'
 import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
 import type { DirectoryPickerCapability } from '@deepseek-ai/dsh-host-directory-picker'
 import WorkspaceRegistry from '@deepseek-ai/dsh-workspace'
+import { SessionDeletionError } from '@deepseek-ai/dsh-session-deletion'
 import type { HostFrame, WorkspaceId } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { RpcRequest, RpcResponse } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
@@ -64,6 +66,10 @@ async function harness(
   extras: {
     openPath?: (path: string, signal: AbortSignal) => Promise<void>
     canOpenPath?: () => boolean
+    sessionPersistence?: { list(): Promise<SessionHeader[]>; locate?: (meta: SessionHeader) => undefined }
+    sessionDeletion?: {
+      delete(input: { sessionId: SessionId; recursive: boolean }): Promise<{ deletedSessionIds: SessionId[] }>
+    }
   } = {},
 ) {
   const ctx = new Context()
@@ -75,7 +81,8 @@ async function harness(
   const storageDomain = new DomainFacility(ctx, { backend: 'memory', routes: {} })
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
-  ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
+  ctx.provide('sessionPersistence', extras.sessionPersistence ?? { list: () => Promise.resolve([]) } as never)
+  if (extras.sessionDeletion !== undefined) ctx.provide('sessionDeletion', extras.sessionDeletion as never)
   await ctx.plugin(WorkspaceRegistry)
 
   const factory: AgentFactory = {
@@ -566,5 +573,70 @@ describe('Host Workspace increments', () => {
       error: { code: 'session-not-found', details: { sessionId: 'session-ghost' } },
     })
     abort.abort()
+  })
+})
+
+describe('session.delete and workspace.unarchiveSession', () => {
+  it('delegates recursive deletion and returns the deleted ids', async () => {
+    const deletion = {
+      delete: vi.fn(async () => ({
+        deletedSessionIds: [SessionId('s-leaf'), SessionId('s-root')],
+      })),
+    }
+    const { api } = await harness(undefined, undefined, { sessionDeletion: deletion })
+    const response = await api.sessions.delete(request({ sessionId: SessionId('s-root'), recursive: true }))
+    expect(expectOk(response).deletedSessionIds).toEqual([SessionId('s-leaf'), SessionId('s-root')])
+    expect(deletion.delete).toHaveBeenCalledWith({ sessionId: SessionId('s-root'), recursive: true })
+  })
+
+  it('reports session-deletion-unavailable without the plugin', async () => {
+    const { api } = await harness()
+    const response = await api.sessions.delete(request({ sessionId: SessionId('s1'), recursive: true }))
+    expect(response.result).toMatchObject({
+      ok: false,
+      error: { code: 'session-deletion-unavailable', details: {} },
+    })
+  })
+
+  it('maps session-running and session-has-descendants to their wire codes', async () => {
+    const running = new SessionDeletionError('session-running', 'running', [SessionId('s-child')])
+    const deletion = { delete: vi.fn(async () => { throw running }) }
+    const first = await harness(undefined, undefined, { sessionDeletion: deletion })
+    const runningResponse = await first.api.sessions.delete(request({ sessionId: SessionId('s-root'), recursive: true }))
+    expect(runningResponse.result).toMatchObject({
+      ok: false,
+      error: { code: 'session-running', details: { runningSessionIds: ['s-child'] } },
+    })
+
+    const descendants = new SessionDeletionError('session-has-descendants', 'descendants')
+    const second = await harness(undefined, undefined, {
+      sessionDeletion: { delete: vi.fn(async () => { throw descendants }) },
+    })
+    const descendantsResponse = await second.api.sessions.delete(request({ sessionId: SessionId('s-root'), recursive: false }))
+    expect(descendantsResponse.result).toMatchObject({
+      ok: false,
+      error: { code: 'session-has-descendants' },
+    })
+  })
+
+  it('keeps archived cwd-less cold sessions in session.list', async () => {
+    const cwdLess: SessionHeader = { version: 0, id: SessionId('cwd-less-archived'), createdAt: 1000 }
+    const { api, ctx } = await harness(undefined, undefined, {
+      sessionPersistence: { list: async () => [cwdLess], locate: () => undefined },
+    })
+    await ctx.workspaceRegistry.archiveSession(cwdLess.id)
+    const listed = expectOk(await api.sessions.list(request({})))
+    expect(listed.items.map(item => item.sessionId)).toContain(cwdLess.id)
+  })
+
+  it('unarchiveSession removes the id and returns the full archive set', async () => {
+    const { api, ctx, root } = await harness()
+    const workspace = expectOk(await api.workspace.create(request({ path: stageDir(root, 'unarchive-home') }))).workspace
+    const sessionId = SessionId('session-to-unarchive')
+    expectOk(await api.sessions.create(request({ workspaceId: workspace.workspaceId, sessionId })))
+    expectOk(await api.workspace.archiveSession(request({ sessionId })))
+    const value = expectOk(await api.workspace.unarchiveSession(request({ sessionId })))
+    expect(value.archivedSessionIds).toEqual([])
+    expect(ctx.workspaceRegistry.archivedSessionIds).toEqual([])
   })
 })
