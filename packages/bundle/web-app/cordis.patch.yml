@@ -73,6 +73,12 @@
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
 
+    - id: session-flags
+      name: '@deepseek-ai/dsh-session-flags'
+
+    - id: session-pins
+      name: '@deepseek-ai/dsh-session-pins'
+
     - id: session-projection-cache
       name: '@deepseek-ai/dsh-session-projection-cache'
       config:
@@ -236,6 +242,9 @@
 
     - id: ui-workspace
       name: '@deepseek-ai/dsh-client-ui-workspace'
+
+    - id: ui-pinned-sessions
+      name: '@deepseek-ai/dsh-client-ui-pinned-sessions'
 
     # Input triggers: the '/' | '@' pipeline (ui-input-trigger), the command surface over
     # it (ui-commands), and the two reference sources (ui-skill / ui-subagent).

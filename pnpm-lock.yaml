@@ -1339,6 +1339,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-permission-presets':
         specifier: workspace:^
         version: link:../../client/ui-permission-presets
+      '@deepseek-ai/dsh-client-ui-pinned-sessions':
+        specifier: workspace:^
+        version: link:../../client/ui-pinned-sessions
       '@deepseek-ai/dsh-client-ui-plan':
         specifier: workspace:^
         version: link:../../client/ui-plan
@@ -1429,9 +1432,15 @@ importers:
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:^
         version: link:../../feedback/message-feedback
+      '@deepseek-ai/dsh-session-flags':
+        specifier: workspace:^
+        version: link:../../session/session-flags
       '@deepseek-ai/dsh-session-log-export':
         specifier: workspace:^
         version: link:../../session-query/session-log-export
+      '@deepseek-ai/dsh-session-pins':
+        specifier: workspace:^
+        version: link:../../session/session-pins
       '@deepseek-ai/dsh-session-projection-cache':
         specifier: workspace:^
         version: link:../../session/session-projection-cache
