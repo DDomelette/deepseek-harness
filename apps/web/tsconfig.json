@@ -61,6 +61,7 @@
     "tests/message-feedback.e2e.ts",
     "tests/markdown-images.e2e.ts",
     "tests/math-rendering.e2e.ts",
+    "tests/mcp-config.e2e.ts",
     "tests/markdown-cjk-strong.e2e.ts",
     "tests/markdown-inline-code-links.e2e.ts",
     "tests/queue-actions.e2e.ts",

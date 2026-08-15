@@ -31,6 +31,10 @@ MCP 客户端桥接插件：连接外部 [Model Context Protocol](https://modelc
 
 模型会看到 `mcp__github__create_issue`、`mcp__web__search` 等工具，这与 Claude Code 和 Codex 使用的服务器限定形状相同。HMR（热模块替换）支持热替换：编辑配置项会触发断开 + 重新连接，无需重启进程；`serverName` 不变时会生成完全相同的工具名称。
 
+## 设置托管服务器
+
+以上声明式条目仍是唯一的组合期接入方式；本包自身没有设置界面。Web 设置面板通过 [`@deepseek-ai/dsh-mcp-manager`](../mcp-manager/README.md) 管理另一份名单，该管理器为每个启用的 `mcp-servers` 条目热挂载一个本包实例。两份名单并存：管理器拒绝与声明式行重名的设置条目，本包自身按 root 的 `serverName` 保留是加载期的兜底。
+
 ## 配置
 
 | 字段 | 传输 | 必填 | 描述 |

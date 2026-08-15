@@ -48,6 +48,11 @@ export interface SettingsScopeSpec<T> {
   decode?: (section: unknown) => T | undefined
 }
 
+/** One path-addressed edit submitted through a settings namespace scope. */
+export type SettingsScopeMutation =
+  | { readonly op: 'set'; readonly path: readonly string[]; readonly value: unknown }
+  | { readonly op: 'unset'; readonly path: readonly string[] }
+
 /**
  * Reactive owner handle over one namespace's durable section — the browser
  * mirror of the Host-side `SettingsScope` owner seam. Domain services read
@@ -78,4 +83,22 @@ export interface SettingsScope<T> {
    * @returns settlement after the clear and any latest-write recovery read.
    */
   unset(field: string): Promise<void>
+  /**
+   * Queue one deep path write. The path names a field inside the section, so
+   * the write replaces that leaf alone and leaves sibling fields — including
+   * secret-role fields a redacted wire view never returned — untouched.
+   * Shares {@link set}'s ordering, revision, and recovery contract.
+   * @param path - non-empty path inside the namespace section, e.g. `[serverName, 'enabled']`.
+   * @param value - JSON-shaped value selected by the user.
+   * @returns settlement after the write and any latest-write recovery read.
+   */
+  setPath(path: readonly string[], value: unknown): Promise<void>
+  /**
+   * Queue multiple deep path edits as one revision-fenced Host transaction.
+   * The Host accepts every op or none of them; a refusal or transport failure
+   * reloads authoritative state before resolving false.
+   * @param ops - path edits applied atomically in their listed order.
+   * @returns whether the Host accepted the complete transaction.
+   */
+  mutate(ops: readonly SettingsScopeMutation[]): Promise<boolean>
 }

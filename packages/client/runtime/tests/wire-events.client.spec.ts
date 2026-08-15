@@ -37,6 +37,7 @@ function forwardedEventContracts(ctx: Context): void {
   // @ts-expect-error -- client-local event outside the allowlist
   ctx.remote.$on('slots/changed', () => {})
   ctx.remote.$on('skills/change', () => {})
+  ctx.remote.$on('mcp-servers/change', () => {})
 }
 void forwardedEventContracts
 

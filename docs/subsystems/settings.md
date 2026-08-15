@@ -254,6 +254,28 @@ async mutate(ns: SettingsNamespace, ops: readonly SettingsPathOp[], expectedRevi
 
 Source: [`packages/settings/settings/src/index.ts:350`](../../packages/settings/settings/src/index.ts)
 
+<a id="mcp-servers-events"></a>
+
+### `mcp-servers/*` events
+
+<a id="mcp-serverschange--emit"></a>
+
+#### `mcp-servers/change` — emit
+
+The settings-managed MCP roster or one mount lifecycle state changed. This is an unfiltered invalidation notification; consumers refetch the roster through `mcpServers.list()`.
+
+```ts cordis-catalog
+/**
+ * The settings-managed MCP roster or one mount lifecycle state changed.
+ * This is an unfiltered invalidation notification; consumers refetch the
+ * roster through `mcpServers.list()`.
+ * @mode emit
+ */
+'mcp-servers/change'(): void
+```
+
+Source: [`packages/mcp/mcp-manager/src/types.ts:13`](../../packages/mcp/mcp-manager/src/types.ts)
+
 <a id="settings-events"></a>
 
 ### `settings/*` events

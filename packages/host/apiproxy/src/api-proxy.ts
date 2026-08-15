@@ -76,6 +76,8 @@ import type {} from '@deepseek-ai/dsh-commands'
 // rebuild the api-remotes cycle this direction exists to avoid.
 import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
 import type {} from '@deepseek-ai/dsh-skill'
+// Type-only: resolves the settings-managed MCP roster invalidation forwarded below.
+import type {} from '@deepseek-ai/dsh-mcp-manager/types'
 // The settings/credentials seams: brand guards run at this wire boundary; the
 // service reads stay optional (`ctx.get`) so a composition without either
 // provider still serves every other domain.
@@ -116,16 +118,16 @@ const DEFAULT_MAX_MESSAGES = 50
 
 /**
  * Non-model settings namespaces intentionally served to the Web client. The
- * plugin-owned entries (`agent-loop`, `shell`, `skills`,
+ * plugin-owned entries (`agent-loop`, `mcp-servers`, `shell`, `skills`, and
  * `web-search-deepseek`) are the host-plane sections the configuration
- * surfaces edit; a namespace absent here answers `settings-not-exposed` even
+ * surfaces edit. A namespace absent here answers `settings-not-exposed` even
  * when its owner registered it, so adding a section to those surfaces is a
  * decision made here rather than by the registering plugin. Moving that
  * declaration to `settings.register()`, so a plugin can expose its own
  * configuration without a change in this package, is deferred work.
  */
 const WEB_SETTINGS_NAMESPACES = [
-  'agent-loop', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
+  'agent-loop', 'shell', 'locale', 'mcp-servers', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
   SKILL_SETTINGS_NAMESPACE,
 ] as const
 

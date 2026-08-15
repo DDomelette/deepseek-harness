@@ -99,6 +99,10 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Settings-driven MCP server manager and its read-only roster Remote.
+    - id: mcp-manager
+      name: '@deepseek-ai/dsh-mcp-manager'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -199,6 +203,12 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    # MCP server roster tab in Plugins settings: settings-managed rows with
+    # hot enablement switches plus read-only declarative rows, over the
+    # mcp-manager Remote and the `mcp-servers` settings scope.
+    - id: ui-settings-mcp
+      name: '@deepseek-ai/dsh-client-ui-settings-mcp'
 
     - id: ui-settings-skills
       name: '@deepseek-ai/dsh-client-ui-settings-skills'

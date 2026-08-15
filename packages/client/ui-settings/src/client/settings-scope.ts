@@ -13,7 +13,7 @@ import type {
 import { rehydrateSchema, validateDraft } from '@deepseek-ai/dsh-client-schema-form'
 import {
   createSnapshotStore, type SettingsScope, type SettingsScopeSnapshot,
-  type SettingsScopeSpec, type SnapshotStore,
+  type SettingsScopeMutation, type SettingsScopeSpec, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only, and deliberately NOT `@deepseek-ai/dsh-api-remotes/client`: this
 // package is reachable from the Host build graph through its feature-package
@@ -87,7 +87,7 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
    */
   load(): Promise<void> {
     const generation = ++this.readGeneration
-    return this.enqueue(() => this.read(generation))
+    return this.enqueue(() => this.read(generation), undefined)
   }
 
   /**
@@ -98,7 +98,7 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
    * @returns settlement after the write and any latest-write recovery read.
    */
   set(field: string, value: unknown): Promise<void> {
-    return this.write({ op: 'set', path: [field], value })
+    return this.mutate([{ op: 'set', path: [field], value }]).then(() => {})
   }
 
   /**
@@ -108,10 +108,33 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
    * @returns settlement after the clear and any latest-write recovery read.
    */
   unset(field: string): Promise<void> {
-    return this.write({ op: 'unset', path: [field] })
+    return this.mutate([{ op: 'unset', path: [field] }]).then(() => {})
   }
 
-  private write(op: SettingsPathOpView): Promise<void> {
+  /**
+   * Queue one deep path write; see {@link SettingsScope.setPath} for the
+   * ordering, revision, and recovery contract.
+   * @param path - non-empty path inside the namespace section.
+   * @param value - JSON-shaped value selected by the user.
+   * @returns settlement after the write and any latest-write recovery read.
+   */
+  setPath(path: readonly string[], value: unknown): Promise<void> {
+    if (path.length === 0) {
+      throw new TypeError('settings scope: setPath requires a non-empty path inside the namespace section')
+    }
+    return this.mutate([{ op: 'set', path, value }]).then(() => {})
+  }
+
+  /**
+   * Queue one atomic group of deep path edits and report Host acceptance.
+   * @param ops - ordered edits inside this namespace section.
+   * @returns whether the complete group was accepted.
+   */
+  mutate(ops: readonly SettingsScopeMutation[]): Promise<boolean> {
+    if (ops.some(op => op.path.length === 0)) {
+      throw new TypeError('settings scope: mutate requires non-empty paths inside the namespace section')
+    }
+    const wireOps: SettingsPathOpView[] = ops.map(op => ({ ...op, path: [...op.path] }))
     this.readGeneration += 1
     const generation = ++this.writeGeneration
     return this.enqueue(async () => {
@@ -120,19 +143,20 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
       try {
         response = await this.api.settings.mutate({
           ns: this.spec.namespace,
-          ops: [op],
+          ops: wireOps,
           ...(revision === undefined ? {} : { expectedRevision: revision }),
         })
       } catch (_settingsWriteFailure) {
         if (!this.disposed && generation === this.writeGeneration) await this.read(++this.readGeneration)
-        return
+        return false
       }
       if (!response.result.ok) {
         if (!this.disposed && generation === this.writeGeneration) await this.read(++this.readGeneration)
-        return
+        return false
       }
       this.accept(response.result.value, generation === this.writeGeneration)
-    })
+      return true
+    }, false)
   }
 
   /**
@@ -146,15 +170,15 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
     await this.tail
   }
 
-  private enqueue(operation: () => Promise<void>): Promise<void> {
-    if (this.persistence === 'memory' || this.disposed) return Promise.resolve()
+  private enqueue<T>(operation: () => Promise<T>, skipped: T): Promise<T> {
+    if (this.persistence === 'memory' || this.disposed) return Promise.resolve(skipped)
     const task = this.tail.then(async () => {
-      if (this.disposed) return
-      await operation()
+      if (this.disposed) return skipped
+      return await operation()
     })
     // The returned task carries its own settlement to the caller; the queue
     // tail is kept fulfilled so one failed subscriber cannot strand later operations.
-    this.tail = task.catch(() => {})
+    this.tail = task.then(() => {}, () => {})
     return task
   }
 
