@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Cordis, Schemastery, Node `node:fs/promises`, global `fetch`, Vitest.
 
-**Spec:** `docs/superpowers/specs/2026-08-16-dsh-usage-telemetry-push-design.md` (Part B).
+**Spec:** `docs/superpowers/specs/2026-08-16-dsh-usage-telemetry-push-design.zh.md` (Part B).
 **Monitor contract:** TokenMonitor worktree `docs/superpowers/specs/2026-08-16-dsh-usage-ingest-handoff.md`.
 
 ## Global Constraints
@@ -38,7 +38,7 @@
 - Consumes: `z` from `@deepseek-ai/schemastery`, `resolveDshHome`/`dshHomePath` from `@deepseek-ai/dsh-home-paths`.
 - Produces:
   - `export const name = 'usage-exporter'`
-  - `export interface Config { endpoint: string; token: string; sourceId: string; telemetryRoot?: string; cursorPath?: string; pollIntervalMs: number; maxBatchRows: number; maxBatchBytes: number; requestTimeoutMs: number; maxAttempts: number; baseRetryMs: number; maxRetryMs: number; startFrom: 'end' | 'beginning' }`
+  - `export interface Config { endpoint: string; token: string; sourceId: string; telemetryRoot?: string; cursorPath?: string; pollIntervalMs: number; maxBatchRows: number; maxBatchBytes: number; requestTimeoutMs: number; maxAttempts: number; baseRetryMs: number; maxRetryMs: number; heartbeatIntervalMs: number; startFrom: 'end' | 'beginning' }`
   - `export const Config` (Schemastery schema) with the defaults in the spec table.
   - `export async function apply(ctx: Context, config: Config): Promise<void>`; the first commit is a schema-only stub that throws `new Error('usage-exporter: apply not implemented yet')` if called, so later tasks replace it.
 
@@ -69,6 +69,7 @@ describe('usage-exporter package surface', () => {
       maxAttempts: 5,
       baseRetryMs: 1000,
       maxRetryMs: 30_000,
+      heartbeatIntervalMs: 60_000,
       startFrom: 'end',
     })
   })
@@ -211,6 +212,7 @@ export interface Config {
   maxAttempts: number
   baseRetryMs: number
   maxRetryMs: number
+  heartbeatIntervalMs: number
   startFrom: 'end' | 'beginning'
 }
 
@@ -227,6 +229,7 @@ export const Config: z<Config> = z.object({
   maxAttempts: z.number().step(1).min(1).max(20).default(5),
   baseRetryMs: z.number().step(1).min(100).max(60_000).default(1000),
   maxRetryMs: z.number().step(1).min(100).max(300_000).default(30_000),
+  heartbeatIntervalMs: z.number().step(1).min(5_000).max(300_000).default(60_000),
   startFrom: z.union([z.const('end'), z.const('beginning')]).default('end'),
 })
 
@@ -548,7 +551,7 @@ git commit -m "feat(usage-exporter): add tail reader with deterministic batches"
 **Interfaces:**
 - Produces:
   - `export type SendOutcome = { kind: 'accepted'; accepted: number } | { kind: 'duplicate'; duplicates: number } | { kind: 'permanent'; status: number; message: string } | { kind: 'retryable'; status?: number; message: string }`
-  - `export class BatchSender { constructor(options: { endpoint: string; token: string; sourceId: string; requestTimeoutMs: number }); send(rows: UsageRow[], batchId: string): Promise<SendOutcome> }`
+  - `export class BatchSender { constructor(options: { endpoint: string; token: string; sourceId: string; rootId: string; requestTimeoutMs: number }); send(rows: UsageRow[], batchId: string): Promise<SendOutcome>; sendHeartbeat(): Promise<SendOutcome> }`
 
 - [ ] **Step 1: Write failing tests with a local HTTP fixture**
 
@@ -577,7 +580,7 @@ const rows: UsageRow[] = [{ v: 1, time: 1, sessionId: 's', inputTokens: 1, outpu
 describe('BatchSender', () => {
   it('classifies an accepted batch', async () => {
     const port = await listen((_req, res) => { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true, accepted: 1, duplicates: 0 })) })
-    const sender = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: '', sourceId: 'src', requestTimeoutMs: 5000 })
+    const sender = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: '', sourceId: 'src', rootId: 'root:abc', requestTimeoutMs: 5000 })
     expect(await sender.send(rows, 'sha256:abc')).toEqual({ kind: 'accepted', accepted: 1 })
   })
 
@@ -586,9 +589,9 @@ describe('BatchSender', () => {
       if (req.headers.authorization !== 'Bearer t') { res.writeHead(401).end('{}'); return }
       res.writeHead(500).end('{}')
     })
-    const sender = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 't', sourceId: 'src', requestTimeoutMs: 5000 })
+    const sender = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 't', sourceId: 'src', rootId: 'root:abc', requestTimeoutMs: 5000 })
     expect(await sender.send(rows, 'sha256:abc')).toEqual({ kind: 'retryable', status: 500, message: expect.any(String) })
-    const noAuth = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 'wrong', sourceId: 'src', requestTimeoutMs: 5000 })
+    const noAuth = new BatchSender({ endpoint: `http://127.0.0.1:${port}/api/v1/dsh/usage`, token: 'wrong', sourceId: 'src', rootId: 'root:abc', requestTimeoutMs: 5000 })
     expect(await noAuth.send(rows, 'sha256:abc')).toEqual({ kind: 'permanent', status: 401, message: expect.any(String) })
   })
 })
@@ -614,6 +617,7 @@ export class BatchSender {
     endpoint: string
     token: string
     sourceId: string
+    rootId: string
     requestTimeoutMs: number
   }) {
     const url = new URL(options.endpoint)
@@ -624,6 +628,14 @@ export class BatchSender {
   }
 
   async send(rows: UsageRow[], batchId: string): Promise<SendOutcome> {
+    return this.post({ sourceId: this.options.sourceId, rootId: this.options.rootId, batchId, sentAt: Date.now(), rows })
+  }
+
+  async sendHeartbeat(): Promise<SendOutcome> {
+    return this.post({ sourceId: this.options.sourceId, rootId: this.options.rootId, heartbeat: true, sentAt: Date.now() })
+  }
+
+  private async post(envelope: Record<string, unknown>): Promise<SendOutcome> {
     const controller = new AbortController()
     const timer = setTimeout(() => { controller.abort() }, this.options.requestTimeoutMs)
     try {
@@ -633,7 +645,7 @@ export class BatchSender {
           'content-type': 'application/json',
           ...(this.options.token.length > 0 ? { authorization: `Bearer ${this.options.token}` } : {}),
         },
-        body: JSON.stringify({ sourceId: this.options.sourceId, batchId, sentAt: Date.now(), rows }),
+        body: JSON.stringify(envelope),
         signal: controller.signal,
       })
       const message = await response.text().catch(() => '')
@@ -748,7 +760,7 @@ describe('usage-exporter apply', () => {
 
 import { createHash } from 'node:crypto'
 import { hostname } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { dshHomePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { CursorStore } from './cursor-store.ts'
@@ -759,9 +771,10 @@ import type { Config } from './index.ts'
 export async function runExporter(ctx: Context, config: Config): Promise<void> {
   const sourceId = config.sourceId.length > 0 ? config.sourceId : defaultSourceId()
   const root = config.telemetryRoot ?? join(resolveDshHome(), 'telemetry')
+  const rootId = rootIdFor(root)
   const cursor = new CursorStore(config.cursorPath ?? dshHomePath('storages', 'usage-exporter.json'))
   await cursor.load()
-  const sender = new BatchSender({ endpoint: config.endpoint, token: config.token, sourceId, requestTimeoutMs: config.requestTimeoutMs })
+  const sender = new BatchSender({ endpoint: config.endpoint, token: config.token, sourceId, rootId, requestTimeoutMs: config.requestTimeoutMs })
   const reader = new UsageTailReader({
     root, sourceId, cursorStore: cursor, startFrom: config.startFrom,
     maxBatchBytes: config.maxBatchBytes, maxBatchRows: config.maxBatchRows,
@@ -785,7 +798,7 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
           const delay = Math.min(config.baseRetryMs * 2 ** (attempt - 1), config.maxRetryMs)
           await new Promise(resolve => setTimeout(resolve, delay))
         } else {
-          ctx.logger.warn(`usage-exporter: batch ${batch.batchId} still failing; will retry next poll`)
+          ctx.logger.warn(`usage-exporter: abandoning batch ${batch.batchId} after ${config.maxAttempts} attempts; local file remains for backfill`)
         }
       }
       cursor.set(batch.file, { offset: batch.endOffset })
@@ -795,9 +808,20 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
 
   const timer = setInterval(() => { tick() }, config.pollIntervalMs)
   timer.unref()
+  const heartbeat = setInterval(() => {
+    void sender.sendHeartbeat().catch(error => { ctx.logger.warn(`usage-exporter: heartbeat failed: ${String(error)}`) })
+  }, config.heartbeatIntervalMs)
+  heartbeat.unref()
   ctx.effect(() => () => clearInterval(timer), 'usage-exporter: poll timer')
+  ctx.effect(() => () => clearInterval(heartbeat), 'usage-exporter: heartbeat timer')
   ctx.effect(() => async () => { await inFlight }, 'usage-exporter: drain in-flight send')
   void tick()
+}
+
+export function rootIdFor(root: string): string {
+  let canonical = resolve(root)
+  if (process.platform === 'win32') canonical = canonical.replaceAll('\\', '/').toLowerCase()
+  return 'root:' + createHash('sha256').update(canonical, 'utf8').digest('hex')
 }
 
 function defaultSourceId(): string {
