@@ -50,12 +50,40 @@ export interface DirectoryFlowOwnerProps {
   onError: (message: string) => void
 }
 
+/** Owner share of the pinned-sessions section rendered above the project tree. */
+export interface PinnedSectionOwnerProps {
+  /** Whether the sidebar renders wide content (the section is hidden on the rail). */
+  wide: boolean
+  /** Active browsing shape: workspace groups or one flat list. */
+  view: 'grouped' | 'flat'
+}
+
+/** Owner share of one action rendered inside a session row before the ellipsis menu. */
+export interface SessionRowActionOwnerProps {
+  sessionId: SessionId
+  /** The row lives in the hierarchy-free flat list. */
+  flat: boolean
+  /** The row is the provisional blank New Session placeholder. */
+  blank: boolean
+}
+
+/** Owner share of one extra marker rendered in a search-result row. */
+export interface SearchResultExtraOwnerProps {
+  sessionId: SessionId
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /** Directory-flow hole under the conversation empty-state picker (declared by the WorkspacePicker entry). */
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
+    /** Pinned-sessions section above the project tree (declared by the WorkspaceBrowser entry). */
+    'sidebar.workspaces.pinned': { kind: 'single'; scope: 'root'; owner: PinnedSectionOwnerProps }
+    /** Per-row actions before the ellipsis menu (declared by the WorkspaceBrowser entry). */
+    'sidebar.workspaces.sessionActions': { kind: 'list'; scope: 'root'; owner: SessionRowActionOwnerProps }
+    /** Extra marker in search-result rows (declared by the WorkspaceBrowser entry). */
+    'sidebar.workspaces.searchResultExtra': { kind: 'list'; scope: 'root'; owner: SearchResultExtraOwnerProps }
   }
 }
 
@@ -140,7 +168,12 @@ export type WorkspaceBrowserInjected = DirectoryPickingInjected & {
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
 export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
-  & PropsRenderSlots<'sidebar.workspaces.directoryFlow'>
+  & PropsRenderSlots<
+    | 'sidebar.workspaces.directoryFlow'
+    | 'sidebar.workspaces.pinned'
+    | 'sidebar.workspaces.sessionActions'
+    | 'sidebar.workspaces.searchResultExtra'
+  >
   & PropsStore<ReturnType<typeof createWorkspaceViewStore>>
   & Omit<WorkspaceBrowserInjected, 'hooks'>
   & DirectoryPickingHooks
