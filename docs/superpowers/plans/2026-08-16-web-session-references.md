@@ -125,7 +125,7 @@
       "path": "../../llm/llm"
     },
     {
-      "path": "./session-reference"
+      "path": "../session-reference"
     },
     {
       "path": "../../runtime-diagnostics/invariants"
