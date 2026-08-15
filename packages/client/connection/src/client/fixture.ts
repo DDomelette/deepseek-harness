@@ -2788,6 +2788,32 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           ],
         })
       },
+      catalog: (request) => {
+        const missing = requireSession(request)
+        if (missing !== undefined) return missing
+        return ok(request, {
+          skills: [
+            {
+              name: 'fixture-demo',
+              description: 'fixture 技能样本',
+              whenToUse: '仅供 UI 目录渲染验收',
+              group: 'fixture',
+              source: 'user-dsh',
+              modelInvocable: true,
+              userInvocable: true,
+              disabled: false,
+            },
+            {
+              name: 'fixture-user-only',
+              description: 'fixture 仅用户技能样本',
+              source: 'user-dsh',
+              modelInvocable: false,
+              userInvocable: true,
+              disabled: false,
+            },
+          ],
+        })
+      },
     },
     goals: {
       // Compatibility face only: old API Proxy payloads and acknowledgements
@@ -3106,6 +3132,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'workspace.insertSessionBefore': return this.api.workspace.insertSessionBefore(request)
       case 'workspace.archiveSession': return this.api.workspace.archiveSession(request)
       case 'skill.list': return this.api.skills.list(request)
+      case 'skill.catalog': return this.api.skills.catalog(request)
       case 'agentPreset.list': return this.api.agentPresets.list(request)
       case 'agentPreset.select': return this.api.agentPresets.select(request)
       case 'agentPreset.read': return this.api.agentPresets.read(request)

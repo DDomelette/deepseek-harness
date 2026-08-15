@@ -1043,6 +1043,113 @@ describe('SkillRegistry registry', () => {
   })
 })
 
+describe('SkillRegistry invocation overrides', () => {
+  it('replaces the invocation policy of overridden skills in summaries and loaded definitions', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    registerProvider(ctx, new MemoryProvider([memorySkill('keep-skill', 'Keep', 10), memorySkill('disabled-skill', 'Disabled', 10)]))
+    ctx.skills.registerInvocationOverride(name => name === 'disabled-skill'
+      ? { modelInvocable: false, userInvocable: false }
+      : undefined)
+
+    const listed = await ctx.skills.list()
+    expect(listed.find(skill => skill.name === 'disabled-skill')?.invocation)
+      .toEqual({ modelInvocable: false, userInvocable: false })
+    expect(listed.find(skill => skill.name === 'keep-skill')?.invocation)
+      .toEqual({ modelInvocable: true, userInvocable: true })
+    expect(listed.filter(isModelInvocable).map(skill => skill.name)).toEqual(['keep-skill'])
+    expect(listed.filter(isUserInvocable).map(skill => skill.name)).toEqual(['keep-skill'])
+    expect((await ctx.skills.get('disabled-skill'))?.invocation)
+      .toEqual({ modelInvocable: false, userInvocable: false })
+  })
+
+  it('re-applies overrides on cached catalogs and reverts through the disposer', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    const provider = new MemoryProvider([memorySkill('toggle-skill', 'Toggle', 10)])
+    registerProvider(ctx, provider)
+    let disabled = false
+    const dispose = ctx.skills.registerInvocationOverride(name => name === 'toggle-skill' && disabled
+      ? { modelInvocable: false, userInvocable: false }
+      : undefined)
+
+    expect((await ctx.skills.list())[0]?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
+    disabled = true
+    expect((await ctx.skills.list())[0]?.invocation).toEqual({ modelInvocable: false, userInvocable: false })
+    expect(provider.listCalls).toBe(1)
+    dispose()
+    expect((await ctx.skills.list())[0]?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
+    expect(provider.listCalls).toBe(1)
+  })
+
+  it('refuses a second override registration and keeps stale disposers inert', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    const disposeFirst = ctx.skills.registerInvocationOverride(() => undefined)
+    expect(() => ctx.skills.registerInvocationOverride(() => undefined)).toThrow('already registered')
+    disposeFirst()
+    const disposeSecond = ctx.skills.registerInvocationOverride(name => name === 'x'
+      ? { modelInvocable: true, userInvocable: true }
+      : undefined)
+    disposeFirst()
+    expect((await ctx.skills.list())).toEqual([])
+    disposeSecond()
+    expect(() => ctx.skills.registerInvocationOverride(() => undefined)).not.toThrow()
+  })
+})
+
+describe('SkillRegistry group metadata', () => {
+  it('carries an optional group from runtime registrations through summaries and definitions', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    ctx.skills.register({
+      name: 'grouped-skill',
+      description: 'Grouped',
+      source: 'runtime',
+      group: 'superpowers',
+      content: 'Grouped body.',
+    })
+    ctx.skills.register({
+      name: 'solo-skill',
+      description: 'Solo',
+      source: 'runtime',
+      content: 'Solo body.',
+    })
+
+    const listed = await ctx.skills.list()
+    expect(listed.find(skill => skill.name === 'grouped-skill')?.group).toBe('superpowers')
+    expect(listed.find(skill => skill.name === 'solo-skill')?.group).toBeUndefined()
+    expect((await ctx.skills.get('grouped-skill'))?.group).toBe('superpowers')
+  })
+
+  it('rejects non-string group fields on provider candidates and loaded definitions', async () => {
+    const badCandidate = new Context()
+    await badCandidate.plugin(SkillRegistry)
+    registerProvider(badCandidate, {
+      name: 'bad-group-candidate',
+      list: () => Promise.resolve([{
+        ...memorySkill('bad-group-candidate', 'Bad group', 1),
+        provider: 'bad-group-candidate',
+        group: 3 as unknown as string,
+      }]),
+      get: () => Promise.resolve(undefined),
+    })
+    await expect(badCandidate.skills.list()).rejects.toThrow('non-string group')
+
+    const badDefinition = new Context()
+    await badDefinition.plugin(SkillRegistry)
+    registerProvider(badDefinition, {
+      name: 'bad-group-definition',
+      list: () => Promise.resolve([{
+        ...memorySkill('bad-group-definition', 'Bad group', 1),
+        provider: 'bad-group-definition',
+      }]),
+      get: candidate => Promise.resolve({ ...candidate, group: 3 as unknown as string, content: 'Body.' }),
+    })
+    await expect(badDefinition.skills.get('bad-group-definition')).rejects.toThrow('group must be a string')
+  })
+})
+
 describe('renderSkillContent', () => {
   it('renders a directory-based skill with the shared wrapper', () => {
     const text = renderSkillContent({

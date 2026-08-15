@@ -240,6 +240,9 @@
     - id: skill-filesystem
       name: '@deepseek-ai/dsh-skill-filesystem'
 
+    - id: skill-settings
+      name: '@deepseek-ai/dsh-skill-settings'
+
     - id: skill-badge
       name: '@deepseek-ai/dsh-skill-badge'
       disabled: true

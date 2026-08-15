@@ -116,6 +116,9 @@ const PRIVILEGED_METHODS = new Set([
   'credentials.set',
   'credentials.unset',
   'llm.discoverModels',
+  // The configuration-surface skill catalog names every registered skill:
+  // reading it is reconnaissance on the deployment's composition.
+  'skill.catalog',
 ])
 
 /**
