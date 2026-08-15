@@ -44,6 +44,10 @@
     "lib/client.js",
     "lib/types/**/*.d.ts"
   ],
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
