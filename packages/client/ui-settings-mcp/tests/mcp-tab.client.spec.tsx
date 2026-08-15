@@ -491,6 +491,19 @@ describe('McpTabController', () => {
     ])
   })
 
+  it('emits an unset path op for a cleared timeout', async () => {
+    const { scope, set, setPath, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const controller = new McpTabController(scope, { list: vi.fn() })
+
+    await expect(controller.face().updateServer('memory', { unsetTimeout: true, command: 'memorix' })).resolves.toBeNull()
+    expect(set).not.toHaveBeenCalled()
+    expect(setPath).not.toHaveBeenCalled()
+    expect(mutate).toHaveBeenCalledWith([
+      { op: 'unset', path: ['memory', 'toolCallTimeoutMs'] },
+      { op: 'set', path: ['memory', 'command'], value: 'memorix' },
+    ])
+  })
+
   it('reports a refused atomic update', async () => {
     const { scope, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
     mutate.mockResolvedValue(false)
