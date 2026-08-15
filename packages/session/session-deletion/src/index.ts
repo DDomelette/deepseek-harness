@@ -63,6 +63,9 @@ function leavesFirst(
   return order
 }
 
+/**
+ * Recursive session-deletion service registered as `ctx.sessionDeletion`.
+ */
 export default class SessionDeletionService extends Service {
   static inject = ['sessions', 'sessionPersistence']
 
@@ -76,7 +79,9 @@ export default class SessionDeletionService extends Service {
    * @param input - target and recursion switch.
    * @returns the ids durably deleted, in deletion order.
    */
-  async delete(input: SessionDeletionInput): Promise<SessionDeletionResult> {
+  async delete(
+    input: { readonly sessionId: SessionId; readonly recursive: boolean },
+  ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
     const { sessionId, recursive } = input
     const identities = new Map<SessionId, SessionIdentity>()
     const identityFor = (parentSession: SessionId | undefined): SessionIdentity => ({

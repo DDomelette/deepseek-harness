@@ -213,6 +213,20 @@ insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly Workspac
 archiveSession(sessionId: SessionId): Promise<void>
 
 /**
+ * Remove one id from the registry-global archive set. Unknown and
+ * already-unarchived ids resolve without writing.
+ * @param sessionId - session to unarchive.
+ */
+unarchiveSession(sessionId: SessionId): Promise<void>
+
+/**
+ * Remove one deleted session from every workspace account, the archive set,
+ * and the header/path indexes. Unknown ids resolve without writing.
+ * @param sessionId - deleted session to forget.
+ */
+forgetSession(sessionId: SessionId): Promise<void>
+
+/**
  * Resolve by canonical directory path without creating or mutating a
  * workspace. A missing path rejects during `realpath`; an existing unowned
  * directory returns `undefined`.

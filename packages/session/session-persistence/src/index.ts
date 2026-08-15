@@ -70,7 +70,11 @@ declare module '@deepseek-ai/cordis' {
     sessionPersistence: SessionPersistence
   }
   interface Events {
-    /** One stored session log was permanently deleted. */
+    /**
+     * One stored session log was permanently deleted.
+     * @mode emit
+     * @param event - the deleted session id.
+     */
     'session-persistence/deleted'(event: { id: SessionId }): void
   }
 }

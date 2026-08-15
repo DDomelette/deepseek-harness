@@ -243,6 +243,26 @@ Both implement the same abstract `SessionPersistence` (locate/create/append/prep
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxsessiondeletion--sessiondeletionservice"></a>
+
+### `ctx.sessionDeletion` — `SessionDeletionService`
+
+Recursive session-deletion service registered as `ctx.sessionDeletion`.
+
+```ts cordis-catalog
+/**
+ * Permanently delete one session and, when `recursive` is true, its
+ * descendant subagent sessions leaves-first.
+ * @param input - target and recursion switch.
+ * @returns the ids durably deleted, in deletion order.
+ */
+async delete( input: { readonly sessionId: SessionId; readonly recursive: boolean }, ): Promise<{ readonly deletedSessionIds: SessionId[] }>
+```
+
+Types: [SessionId](core.md)
+
+Source: [`packages/session/session-deletion/src/index.ts:69`](../../packages/session/session-deletion/src/index.ts)
+
 <a id="ctxsessionpersistence--sessionpersistence-abstract-seam"></a>
 
 ### `ctx.sessionPersistence` — `SessionPersistence` (abstract seam)
@@ -360,6 +380,14 @@ abstract inspect(id: SessionId, signal?: AbortSignal): Promise<SessionInspection
 abstract readFrom(id: SessionId, fromSeq: number, signal?: AbortSignal): Promise<{ meta: SessionHeader; events: SessionEvent[] }>
 
 /**
+ * Permanently delete one session's stored log, serialized with in-flight
+ * operations for the same id. An un-materialized create intent is cancelled;
+ * an unknown id rejects with {@link SessionPersistenceNotFoundError}.
+ * @param id - persisted session to delete.
+ */
+abstract delete(id: SessionId): Promise<void>
+
+/**
  * Lightweight listing from metadata, without a full-log parse.
  * @param signal - optional cancellation for backend listing work.
  * @returns one header per materialized session.
@@ -381,5 +409,28 @@ abstract listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot
 
 Types: [SessionEvent](session.md) · [SessionId](core.md)
 
-Source: [`packages/session/session-persistence/src/index.ts:84`](../../packages/session/session-persistence/src/index.ts)
+Source: [`packages/session/session-persistence/src/index.ts:100`](../../packages/session/session-persistence/src/index.ts)
+
+<a id="session-persistence-events"></a>
+
+### `session-persistence/*` events
+
+<a id="session-persistencedeleted--emit"></a>
+
+#### `session-persistence/deleted` — emit
+
+One stored session log was permanently deleted.
+
+```ts cordis-catalog
+/**
+ * One stored session log was permanently deleted.
+ * @mode emit
+ * @param event - the deleted session id.
+ */
+'session-persistence/deleted'(event: { id: SessionId }): void
+```
+
+Types: [SessionId](core.md)
+
+Source: [`packages/session/session-persistence/src/index.ts:78`](../../packages/session/session-persistence/src/index.ts)
 <!-- END GENERATED cordis-surface -->
