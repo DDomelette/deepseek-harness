@@ -146,7 +146,12 @@ export class McpServerSupervisor {
 
   private mount(serverName: string, entry: McpServerEntryConfig): void {
     const state: ManagedServerState = { serverName, transport: entry.transport, enabled: true, status: 'connecting' }
-    const { enabled: _enabled, ...config } = entry
+    // The settings seam hands out deep-frozen resolved sections. Schemastery's
+    // dict/object validation writes adapted values back onto its input, so a
+    // frozen nested env/headers/reconnect map makes mcp-client's config check
+    // throw in strict mode. Clone before the spread: mcp-client must receive a
+    // writable plain copy, never the frozen settings snapshot.
+    const { enabled: _enabled, ...config } = structuredClone(entry)
     let fiber: Fiber
     try {
       fiber = this.ctx.plugin(McpClient, { ...config, serverName })

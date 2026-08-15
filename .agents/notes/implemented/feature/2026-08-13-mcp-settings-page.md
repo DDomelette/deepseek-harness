@@ -31,6 +31,10 @@ A settings entry whose `serverName` collides with a declarative row is refused a
 
 `env` and `headers` are `role('secret')` schema fields. The wire never returns them, so every client write names the leaves it means: the enablement switch writes path `[serverName, enabled]`; the editor submits every changed leaf together through `SettingsScope.mutate` and leaves blank env/headers fields out of the transaction entirely. The shared settings scope provides both single-path `setPath` and atomic multi-path `mutate`, because a whole-field write rebuilt from the redacted view silently deletes stored secrets while separate transactions can partially apply one edit.
 
+### Frozen settings snapshots
+
+The settings seam hands out deep-frozen resolved sections. Schemastery's object/dict validation writes adapted values back onto its input, so passing a frozen entry with a non-empty `env`/`headers` map into `ctx.plugin(McpClient, ...)` made the config check throw in strict mode and report as `invalid config` even though the value matched the schema. The supervisor therefore `structuredClone`s the entry before mounting: `dsh-mcp-client` only ever receives a writable plain copy, never the frozen settings snapshot.
+
 ### Status reporting
 
 The gateway reports mount lifecycle only (connecting → ready/failed), not liveness: with `failOnStartupError: false` an unreachable server still activates and `dsh-mcp-client` reconnects internally, so `ready` means activation settled, not that the server answered. The tab's status dot labels read 运行中/启动失败 accordingly. The manager broadcasts a payload-free `mcp-servers/change` invalidation after roster and lifecycle transitions; an open tab refetches and uses a request generation guard so an older response cannot replace a newer snapshot.
@@ -55,7 +59,7 @@ The gateway reports mount lifecycle only (connecting → ready/failed), not live
 
 ## Testing
 
-- `packages/mcp/mcp-manager`: schema and reconnect defaults, registration and write-time refusal, supervisor diff and mount/dispose/remount, lifecycle invalidation, gateway merge; per-file 100% coverage.
+- `packages/mcp/mcp-manager`: schema and reconnect defaults, registration and write-time refusal, supervisor diff and mount/dispose/remount, lifecycle invalidation, gateway merge, and a settings commit with a non-empty frozen `env` map regressing the clone-before-mount path; per-file 100% coverage.
 - `packages/client/ui-settings-mcp`: tab invalidation and stale-response ordering, add/edit reconnect fields, controller atomic writes and refusal handling; 100% coverage.
 - `apps/web/tests/mcp-config.e2e.ts`: real scaffold — add with reconnect policy, toggle, and remove write through to `$DSH_HOME/settings.yaml`, plus search and the declarative row under the memorix example overlay; roster and add-form aria goldens live in `snapshots/mcp-config`.
 - `SettingsScope.setPath` and `SettingsScope.mutate`: unit tests in `packages/client/ui-settings/tests/settings-scope.client.spec.ts`.
