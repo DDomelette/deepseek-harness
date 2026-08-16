@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
-import { deriveArchivedGroups } from '@deepseek-ai/dsh-client-ui-settings-archived/client'
+import { countDescendants, deriveArchivedGroups } from '@deepseek-ai/dsh-client-ui-settings-archived/client'
 
 const sid = (value: string): SessionId => value as SessionId
 const wid = (value: string): WorkspaceId => value as WorkspaceId
@@ -63,5 +63,15 @@ describe('deriveArchivedGroups', () => {
     )
     expect(groups).toHaveLength(1)
     expect(groups[0]?.rows.map(row => row.id)).toEqual([sid('a1')])
+  })
+})
+
+
+describe('countDescendants', () => {
+  it('stops on a parentId cycle instead of recursing forever', () => {
+    const state = sessions([['a', 1], ['b', 2]])
+    state.byId[sid('a')] = { ...state.byId[sid('a')]!, parentId: sid('b') }
+    state.byId[sid('b')] = { ...state.byId[sid('b')]!, parentId: sid('a') }
+    expect(countDescendants(state, sid('a'))).toBe(2)
   })
 })

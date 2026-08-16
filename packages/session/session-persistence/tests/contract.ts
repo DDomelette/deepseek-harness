@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest'
 import { SESSION_FORMAT_VERSION, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader, SurfaceEventType, SurfaceIntent } from '@deepseek-ai/dsh-session'
 import { CallId, MessageId, createMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
-import { SessionPersistenceNotFoundError } from '../src/index.ts'
 import type { SessionPersistence } from '../src/index.ts'
 
 /** A backend under test plus its teardown. */
@@ -469,7 +468,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
       const { persistence, dispose } = await make()
       try {
         await expect(persistence.delete(SessionId('ghost-delete')))
-          .rejects.toBeInstanceOf(SessionPersistenceNotFoundError)
+          .rejects.toMatchObject({ name: 'SessionPersistenceNotFoundError', sessionId: SessionId('ghost-delete') })
       } finally {
         await dispose()
       }

@@ -50,3 +50,29 @@ export function deriveArchivedGroups(
   if (loose.length > 0) groups.push({ key: UNGROUPED_KEY, title: '', rows: loose })
   return groups
 }
+
+
+/** Count descendants below one session, stopping on lineage cycles. */
+export function countDescendants(sessions: SessionListState, rootId: SessionId): number {
+  const children = new Map<string, string[]>()
+  for (const row of Object.values(sessions.byId)) {
+    if (row.parentId === undefined) continue
+    const list = children.get(row.parentId) ?? []
+    list.push(row.id)
+    children.set(row.parentId, list)
+  }
+  const visiting = new Set<string>()
+  const seen = new Set<string>()
+  const count = (id: string): number => {
+    if (visiting.has(id) || seen.has(id)) return 0
+    visiting.add(id)
+    let total = 0
+    for (const child of children.get(id) ?? []) {
+      total += 1 + count(child)
+    }
+    visiting.delete(id)
+    seen.add(id)
+    return total
+  }
+  return count(rootId)
+}

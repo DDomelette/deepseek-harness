@@ -1,15 +1,18 @@
 /**
  * Recursive session-deletion orchestration (`ctx.sessionDeletion`). The
- * service owns running checks, descendant closure, leaf-to-root ordering,
- * already-gone resumption, and optional workspace/archive cleanup. It never
- * reaches into the runtime to cancel sessions; callers cancel first.
+ * service persists a complete deletion plan before the first destructive
+ * write, then advances per-member persistence and workspace cleanup steps.
+ * Retries load the plan instead of re-deriving lineage from remaining logs.
+ * It never cancels running sessions; callers cancel first.
  * @module @deepseek-ai/dsh-session-deletion
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
+import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type {} from '@deepseek-ai/dsh-workspace'
+import { deletionDomainSpec, type DeletionPlanRecord } from './spec.ts'
 
 export type SessionDeletionErrorCode =
   | 'session-not-found'
@@ -63,39 +66,89 @@ function leavesFirst(
   return order
 }
 
+/** A cross-package duplicate of the seam error is still recognizable by shape. */
+function isNotFound(error: unknown): boolean {
+  return error instanceof SessionPersistenceNotFoundError
+    || (error instanceof Error && error.name === 'SessionPersistenceNotFoundError')
+}
+
 /**
  * Recursive session-deletion service registered as `ctx.sessionDeletion`.
  */
 export default class SessionDeletionService extends Service {
-  static inject = ['sessions', 'sessionPersistence']
+  static inject = ['sessions', 'sessionPersistence', 'storageDomain']
+
+  private table?: KvTable<SessionId, DeletionPlanRecord>
+  private readonly tails = new Map<SessionId, Promise<unknown>>()
+  /** Members of an in-flight plan; `session/created` rolls back these ids. */
+  private readonly activeMembers = new Set<SessionId>()
 
   constructor(ctx: Context) {
     super(ctx, 'sessionDeletion')
+    // This listener is the synchronous lifecycle boundary: a session that
+    // attaches while its id is in an active deletion plan rolls back instead
+    // of racing the destructive writes.
+    this.ctx.on('session/created', (session) => {
+      if (!this.activeMembers.has(session.header.id)) return
+      throw new SessionDeletionError(
+        'session-running',
+        `cannot create session "${session.header.id}" while it is being deleted`,
+        [session.header.id],
+      )
+    })
+  }
+
+  /** Open the durable deletion-plan domain. */
+  protected async [Service.init](): Promise<void> {
+    const domain = await this.ctx.storageDomain.open(deletionDomainSpec)
+    this.ctx.effect(() => () => domain.close(), 'session-deletion.domainClose')
+    this.table = domain.table('plans')
+  }
+
+  private requireTable(): KvTable<SessionId, DeletionPlanRecord> {
+    if (this.table === undefined) throw new Error('session deletion service is not started yet')
+    return this.table
+  }
+
+  private serialize<T>(id: SessionId, operation: () => Promise<T>): Promise<T> {
+    const prior = this.tails.get(id) ?? Promise.resolve()
+    const result = prior.then(operation, operation)
+    const tail = result.then(() => undefined, () => undefined)
+    this.tails.set(id, tail)
+    void tail.then(() => {
+      if (this.tails.get(id) === tail) this.tails.delete(id)
+    })
+    return result
   }
 
   /**
    * Permanently delete one session and, when `recursive` is true, its
    * descendant subagent sessions leaves-first.
    * @param input - target and recursion switch.
-   * @returns the ids durably deleted, in deletion order.
+   * @returns every plan member, in plan order.
    */
-  async delete(
+  delete(
+    input: { readonly sessionId: SessionId; readonly recursive: boolean },
+  ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
+    return this.serialize(input.sessionId, () => this.deleteCore(input))
+  }
+
+  private async deleteCore(
     input: { readonly sessionId: SessionId; readonly recursive: boolean },
   ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
     const { sessionId, recursive } = input
+    const table = this.requireTable()
+    const existingPlan = table.get(sessionId)
+
     const identities = new Map<SessionId, SessionIdentity>()
-    const identityFor = (parentSession: SessionId | undefined): SessionIdentity => ({
-      parentSession,
-    })
     for (const session of this.ctx.sessions.list()) {
-      const identity = identityFor(session.header.parentSession)
-      identities.set(session.header.id, identity)
+      identities.set(session.header.id, {
+        parentSession: session.header.parentSession,
+      })
     }
-    for (const meta of await this.ctx.sessionPersistence.list()) {
-      identities.set(meta.id, identityFor(meta.parentSession))
-    }
-    if (!identities.has(sessionId)) {
-      throw new SessionDeletionError('session-not-found', `session "${sessionId}" does not exist`)
+    const persisted = await this.ctx.sessionPersistence.list()
+    for (const meta of persisted) {
+      identities.set(meta.id, { parentSession: meta.parentSession })
     }
 
     const closure = new Set<SessionId>()
@@ -107,6 +160,7 @@ export default class SessionDeletionService extends Service {
       }
     }
     visit(sessionId)
+
     const children = new Map<SessionId, SessionId[]>()
     for (const id of closure) {
       const parent = identities.get(id)?.parentSession
@@ -115,34 +169,108 @@ export default class SessionDeletionService extends Service {
       siblings.push(id)
       children.set(parent, siblings)
     }
+    const currentOrder = leavesFirst([...closure], children)
 
-    const running = [...closure].filter(id => this.ctx.sessions.get(id) !== undefined)
-    if (running.length > 0) {
-      throw new SessionDeletionError(
-        'session-running',
-        `cannot delete running session(s): ${running.join(', ')}`,
-        running,
-      )
-    }
     if (!recursive && closure.size > 1) {
       throw new SessionDeletionError(
         'session-has-descendants',
         `session "${sessionId}" has descendant subagent sessions; pass recursive: true to delete them too`,
       )
     }
-
-    const deletedSessionIds: SessionId[] = []
-    for (const id of leavesFirst([...closure], children)) {
-      try {
-        await this.ctx.sessionPersistence.delete(id)
-        deletedSessionIds.push(id)
-      } catch (error) {
-        if (error instanceof SessionPersistenceNotFoundError) continue
-        throw error
-      }
-      const registry = this.ctx.get('workspaceRegistry')
-      await registry?.forgetSession(id)
+    if (existingPlan === undefined && !identities.has(sessionId)) {
+      throw new SessionDeletionError('session-not-found', `session "${sessionId}" does not exist`)
     }
-    return { deletedSessionIds }
+
+    // Merge the durable plan with any newly discovered members. Existing
+    // progress is authoritative; new members start pending.
+    const byId = new Map(existingPlan?.members.map(member => [member.sessionId, member]) ?? [])
+    const ordered = [...(existingPlan?.members ?? [])]
+    for (const id of currentOrder) {
+      if (byId.has(id)) continue
+      ordered.push({ sessionId: id, persistence: 'pending', workspace: 'pending' })
+    }
+    const plan: DeletionPlanRecord = {
+      rootSessionId: sessionId,
+      recursive,
+      members: ordered,
+      createdAt: existingPlan?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    const running = plan.members
+      .map(member => member.sessionId)
+      .filter(id => this.ctx.sessions.get(id) !== undefined)
+    if (running.length > 0) {
+      throw new SessionDeletionError(
+        'session-running',
+        `cannot delete attached session(s): ${running.join(', ')}`,
+        running,
+      )
+    }
+
+    // The plan is durable before the first destructive write. From here on,
+    // the active-member listener is the attach boundary.
+    for (const member of plan.members) this.activeMembers.add(member.sessionId)
+    try {
+      await table.put(sessionId, plan)
+      let latest = plan
+      for (const member of latest.members) {
+        if (member.persistence === 'pending') {
+          const stillLive = this.ctx.sessions.get(member.sessionId) !== undefined
+          if (stillLive) {
+            throw new SessionDeletionError(
+              'session-running',
+              `session "${member.sessionId}" became attached during deletion`,
+              [member.sessionId],
+            )
+          }
+          try {
+            await this.ctx.sessionPersistence.delete(member.sessionId)
+            latest = await this.advance(latest, member.sessionId, {
+              persistence: 'done',
+            })
+          } catch (error) {
+            if (!isNotFound(error)) throw error
+            latest = await this.advance(latest, member.sessionId, {
+              persistence: 'missing',
+            })
+          }
+        }
+        if (member.workspace === 'pending') {
+          const registry = this.ctx.get('workspaceRegistry')
+          if (registry === undefined) {
+            latest = await this.advance(latest, member.sessionId, {
+              workspace: 'skipped',
+            })
+          } else {
+            await registry.forgetSession(member.sessionId)
+            latest = await this.advance(latest, member.sessionId, {
+              workspace: 'done',
+            })
+          }
+        }
+      }
+      await table.delete(sessionId)
+      return { deletedSessionIds: latest.members.map(member => member.sessionId) }
+    } finally {
+      for (const member of plan.members) this.activeMembers.delete(member.sessionId)
+    }
+  }
+
+  /** Persist one member-state transition before the next operation. */
+  private async advance(
+    plan: DeletionPlanRecord,
+    sessionId: SessionId,
+    patch: Partial<{ persistence: 'done' | 'missing'; workspace: 'done' | 'skipped' }>,
+  ): Promise<DeletionPlanRecord> {
+    const next: DeletionPlanRecord = {
+      ...plan,
+      updatedAt: new Date().toISOString(),
+      members: plan.members.map(member => member.sessionId === sessionId
+        ? { ...member, ...patch }
+        : member),
+    }
+    await this.requireTable().put(plan.rootSessionId, next)
+    return next
   }
 }

@@ -297,8 +297,6 @@ export class WorkspaceRegistry extends Service {
 
   /**
    * Whether a session is live, header-indexed, or present in a fresh
-   * persistence listing.  /**
-   * Whether a session is live, header-indexed, or present in a fresh
    * persistence listing. Only a definite miss returns false — a failing
    * `sessionPersistence.list()` propagates so storage faults never
    * masquerade as an unknown session.

@@ -254,14 +254,14 @@ Recursive session-deletion service registered as `ctx.sessionDeletion`.
  * Permanently delete one session and, when `recursive` is true, its
  * descendant subagent sessions leaves-first.
  * @param input - target and recursion switch.
- * @returns the ids durably deleted, in deletion order.
+ * @returns every plan member, in plan order.
  */
-async delete( input: { readonly sessionId: SessionId; readonly recursive: boolean }, ): Promise<{ readonly deletedSessionIds: SessionId[] }>
+delete( input: { readonly sessionId: SessionId; readonly recursive: boolean }, ): Promise<{ readonly deletedSessionIds: SessionId[] }>
 ```
 
 Types: [SessionId](core.md)
 
-Source: [`packages/session/session-deletion/src/index.ts:69`](../../packages/session/session-deletion/src/index.ts)
+Source: [`packages/session/session-deletion/src/index.ts:78`](../../packages/session/session-deletion/src/index.ts)
 
 <a id="ctxsessionpersistence--sessionpersistence-abstract-seam"></a>
 
@@ -409,7 +409,7 @@ abstract listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot
 
 Types: [SessionEvent](session.md) · [SessionId](core.md)
 
-Source: [`packages/session/session-persistence/src/index.ts:100`](../../packages/session/session-persistence/src/index.ts)
+Source: [`packages/session/session-persistence/src/index.ts:93`](../../packages/session/session-persistence/src/index.ts)
 
 <a id="session-persistence-events"></a>
 
@@ -432,5 +432,5 @@ One stored session log was permanently deleted.
 
 Types: [SessionId](core.md)
 
-Source: [`packages/session/session-persistence/src/index.ts:78`](../../packages/session/session-persistence/src/index.ts)
+Source: [`packages/session/session-persistence/src/index.ts:71`](../../packages/session/session-persistence/src/index.ts)
 <!-- END GENERATED cordis-surface -->

@@ -11,7 +11,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { ArchivedSection, type ArchivedSectionInjected } from './ArchivedSection.tsx'
 import { en, zh, type ArchivedSettingsKey } from './locales.ts'
 
-export { deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
+export { countDescendants, deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
 export type { ArchivedSectionInjected, ArchivedSectionProps } from './ArchivedSection.tsx'
 export type { ArchivedSettingsKey } from './locales.ts'
 

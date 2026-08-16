@@ -1011,10 +1011,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Recursive session-deletion service registered as `ctx.sessionDeletion`.',
     methods: [
       {
-        signature: 'async delete( input: { readonly sessionId: SessionId; readonly recursive: boolean }, ): Promise<{ readonly deletedSessionIds: SessionId[] }>',
+        signature: 'delete( input: { readonly sessionId: SessionId; readonly recursive: boolean }, ): Promise<{ readonly deletedSessionIds: SessionId[] }>',
         description: 'Permanently delete one session and, when `recursive` is true, its descendant subagent sessions leaves-first.',
         parameters: [{ name: 'input', description: 'target and recursion switch.' }],
-        returns: 'the ids durably deleted, in deletion order.',
+        returns: 'every plan member, in plan order.',
       },
     ],
   },

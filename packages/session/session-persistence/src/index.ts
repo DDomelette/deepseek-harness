@@ -11,16 +11,9 @@ import type { SessionEvent, SessionId, SessionHeader } from '@deepseek-ai/dsh-se
 import type { SessionPersistenceRevision } from './revision.ts'
 
 // Re-export the metadata vocabulary so Consumers import it from the Service Definition.
+export { SessionPersistenceNotFoundError } from './errors.ts'
 export type { SessionHeader } from '@deepseek-ai/dsh-session'
 export { SessionPersistenceRevision } from './revision.ts'
-
-/** A delete requested an id this backend neither tracks nor has stored. */
-export class SessionPersistenceNotFoundError extends Error {
-  constructor(readonly sessionId: SessionId) {
-    super(`session "${sessionId}" not found`)
-    this.name = 'SessionPersistenceNotFoundError'
-  }
-}
 
 /** Lightweight immutable source identity returned without loading a full log. */
 export interface SessionPersistenceSnapshot {

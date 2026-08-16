@@ -11,7 +11,7 @@ import {
   Button, IconCloseFill14, IconRefreshOutline16, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
+import { countDescendants, deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
 import css from './ArchivedSection.module.css'
 
 export interface ArchivedSectionInjected {
@@ -49,27 +49,10 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
   )
   const loading = sessions.phase !== 'ready' || !workspaces.baselinesReady
 
-  const descendantCounts = useMemo(() => {
-    const children = new Map<string, string[]>()
-    for (const row of Object.values(sessions.byId)) {
-      if (row.parentId === undefined) continue
-      const list = children.get(row.parentId) ?? []
-      list.push(row.id)
-      children.set(row.parentId, list)
-    }
-    const counts = new Map<string, number>()
-    const count = (id: string): number => {
-      const cached = counts.get(id)
-      if (cached !== undefined) return cached
-      let total = 0
-      for (const child of children.get(id) ?? []) {
-        total += 1 + count(child)
-      }
-      counts.set(id, total)
-      return total
-    }
-    return count
-  }, [sessions.byId])
+  const descendantCounts = useMemo(
+    () => (id: SessionId): number => countDescendants(sessions, id),
+    [sessions],
+  )
 
   const markBusy = (id: SessionId, busyNow: boolean): void => {
     setBusy((current) => {
