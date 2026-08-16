@@ -9,15 +9,23 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
+import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { freezeMessage, type ContentBlock, type UserMessage } from '@deepseek-ai/dsh-llm'
-import { parseSessionReferenceText, type SessionReferenceInput } from '@deepseek-ai/dsh-session-reference'
+import type { SessionRecord } from '@deepseek-ai/dsh-session-query'
+import {
+  parseSessionReferenceText,
+  SessionReferenceError,
+  type SessionReferenceInput,
+} from '@deepseek-ai/dsh-session-reference'
 
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'session-reference-admission'
 
-/** The resolver whose snapshots this plugin admits into pre-step decisions. */
-export const inject = ['sessionReferenceResolver']
+/** The resolver and corpus whose records admit session-reference snapshots. */
+export const inject = ['sessionReferenceResolver', 'sessionQuery']
+
+/** Rejection for references crossing the current workspace boundary. */
+const WORKSPACE_BOUNDARY_MESSAGE = 'session reference crosses the current workspace boundary'
 
 /** One direct message after mention parsing. */
 interface NormalizedMessage {
@@ -41,6 +49,30 @@ function normalizeDirectMessage(content: readonly ContentBlock[]): NormalizedMes
   return found ? { content: normalized, references } : undefined
 }
 
+/** Reject references whose source session is outside the target workspace. */
+function assertSameWorkspace(
+  agent: Agent,
+  references: readonly SessionReferenceInput[],
+  records: readonly SessionRecord[],
+): void {
+  const targetCwd = agent.session.header.cwd
+  if (targetCwd === undefined) {
+    throw new SessionReferenceError(
+      `${WORKSPACE_BOUNDARY_MESSAGE}: current session has no cwd`,
+      'SESSION_REFERENCE_INVALID_REFERENCE',
+    )
+  }
+  const cwdById = new Map(records.map(record => [record.header.id, record.header.cwd]))
+  for (const reference of references) {
+    if (cwdById.get(reference.sessionId) !== targetCwd) {
+      throw new SessionReferenceError(
+        `${WORKSPACE_BOUNDARY_MESSAGE}: ${reference.sessionId}`,
+        'SESSION_REFERENCE_INVALID_REFERENCE',
+      )
+    }
+  }
+}
+
 /** Host plugin body: prepended pre-step listener over the root context. */
 export function apply(ctx: Context): void {
   ctx.on('agent/pre-step', async (
@@ -61,6 +93,9 @@ export function apply(ctx: Context): void {
         output.push(message)
         continue
       }
+      const records = await ctx.sessionQuery.listSessions(signal)
+      signal.throwIfAborted()
+      assertSameWorkspace(agent, normalized.references, records)
       const prepared = await ctx.sessionReferenceResolver.prepare(
         agent,
         normalized.content,

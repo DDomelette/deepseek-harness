@@ -7,12 +7,12 @@
 ## Public API
 
 - `name = 'session-reference-admission'`
-- `inject = ['sessionReferenceResolver']`
+- `inject = ['sessionReferenceResolver', 'sessionQuery']`
 - `apply(ctx)` 在 context 生命周期内注册监听器；无配置。
 
 ## Behavior
 
-`decision.messages` 中每个满足 `role === 'user'` 且 `source.kind === 'user'` 的条目按内容块调用 `parseSessionReferenceText()`。非文本块原样保留。对有引用的消息，`ctx.sessionReferenceResolver.prepare()` 读取并投影源会话；直发消息替换为 `freezeMessage({ ...message, content: prepared.content })`，保留 id 与 source，`prepared.additionalContext` 插到其正前方。
+`decision.messages` 中每个满足 `role === 'user'` 且 `source.kind === 'user'` 的条目按内容块调用 `parseSessionReferenceText()`。非文本块原样保留。对有引用的消息，每个源会话的 `cwd` 先经 `ctx.sessionQuery.listSessions()` 与当前会话重查，不一致即抛出。随后 `ctx.sessionReferenceResolver.prepare()` 读取并投影源会话；直发消息替换为 `freezeMessage({ ...message, content: prepared.content })`，保留 id 与 source，`prepared.additionalContext` 插到其正前方。
 
 无引用时原 decision 对象原样返回。malformed 显式提及、源读取失败或预算/上限错误从监听器抛出，agent loop 记录 `turn/end{reason:'error'}`，绝不发送部分上下文。
 

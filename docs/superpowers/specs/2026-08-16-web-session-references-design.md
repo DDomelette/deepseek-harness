@@ -11,7 +11,7 @@ Date: 2026-08-16 Status: approved (ready for implementation plan)
 ## 已确认决策
 
 1. **快照引用**——源会话在发送时点读取一次并冻结；之后源会话的变化不影响已投递消息。
-2. **严格同工作区候选**——与当前会话 `cwd` 相同、非 blank、非 `origin: 'subagent'`，并排除当前会话自身。
+2. **严格同工作区候选与准入**——`same-cwd` 同时是候选发现规则与宿主授权边界；候选只显示与当前会话 `cwd` 相同、非 blank、非 `origin: 'subagent'` 且排除自身的会话，admission 在 prepare 前用 `ctx.sessionQuery.listSessions` 重查源会话 `cwd`，不一致即拒绝。
 3. **内置且默认启用**——两个插件随 Web bundle 发布，并可通过组合补丁移除。
 4. **基于既有 seam 的插件对**——一个宿主 pre-step 准入插件加一个浏览器 `@` source 插件；apiproxy、wire schema、输入状态机与 `InputTriggerCandidate` 契约均不改动。
 
@@ -22,7 +22,7 @@ Date: 2026-08-16 Status: approved (ready for implementation plan)
 | `@deepseek-ai/dsh-session-reference-admission` | `packages/context/session-reference-admission` | 宿主半：在 `agent/pre-step` 解析规范提及，调用 `ctx.sessionReferenceResolver.prepare` 并注入快照 |
 | `@deepseek-ai/dsh-client-ui-session-reference` | `packages/client/ui-session-reference` | 浏览器半：注册 `@` `session` source，提供候选、插入 chip 并序列化规范提及 |
 
-宿主插件声明 `inject: ['sessionReferenceResolver']`，无配置。浏览器插件声明 `dsh.client`，其中 `inject: ['@deepseek-ai/dsh-client-runtime', '@deepseek-ai/dsh-client-ui-input-trigger']`、`platform: 'web'`。
+宿主插件声明 `inject: ['sessionReferenceResolver', 'sessionQuery']`，无配置。浏览器插件声明 `dsh.client`，其中 `inject: ['@deepseek-ai/dsh-client-runtime', '@deepseek-ai/dsh-client-ui-input-trigger']`、`platform: 'web'`。
 
 ```text
 composer "@"
@@ -52,7 +52,7 @@ composer "@"
 
 准入插件以 `ctx.on('agent/pre-step', handler, { prepend: true })` 注册。作为最外层，它先调用 `next()`，待所有其他监听器运行后再转换下游决策。它原样返回 `reject` 决策。
 
-对 `decision.messages` 中每个满足 `role === 'user'` 且 `source.kind === 'user'` 的条目，handler 用 `parseSessionReferenceText()` 解析每个文本内容块，并原位保留非文本块。无引用的消息按身份透传。对有引用的消息，它调用：
+对 `decision.messages` 中每个满足 `role === 'user'` 且 `source.kind === 'user'` 的条目，handler 用 `parseSessionReferenceText()` 解析每个文本内容块，并原位保留非文本块。无引用的消息按身份透传。对有引用的消息，handler 先经 `ctx.sessionQuery.listSessions` 校验每个源会话与当前会话 `cwd` 全等，再调用：
 
 ```text
 prepared = ctx.sessionReferenceResolver.prepare(agent, readableContent, references, signal)
@@ -77,7 +77,7 @@ prepared = ctx.sessionReferenceResolver.prepare(agent, readableContent, referenc
 
 宿主失败选择抛出而不是返回 `{ kind: 'reject' }`，因为 rejected proposal 记录 `reason: 'blocked'` 且没有用户可见原因，而抛出会到达既有 `turn/end` 错误卡片与 `host/agent-error` 中继。
 
-快照复用既有 resolver 的信任边界：发送时点冻结、只读、每源上限 65,536 字节、每消息最多三源、仅投影 direct user 文本、assistant 文本与压缩检查点，并带固定的不可信内容警告。候选发现只暴露侧栏已有元数据。只有 `source.kind === 'user'` 消息中的显式规范提及才会触发源读取。
+快照复用既有 resolver 的信任边界：发送时点冻结、只读、每源上限 65,536 字节、每消息最多三源、仅投影 direct user 文本、assistant 文本与压缩检查点，并带固定的不可信内容警告。候选发现只暴露侧栏已有元数据；宿主准入对每个源会话重查 `cwd`，跨工作区的规范提及即使手写或粘贴也会被拒绝。只有 `source.kind === 'user'` 消息中的显式规范提及才会触发源读取。
 
 宿主插件记录 malformed 提及与 prepare 失败，包含 session id 与错误码。浏览器 source 复用 input-trigger 的 console 失败记录与输入机提交 notice。v1 不新增遥测。
 
