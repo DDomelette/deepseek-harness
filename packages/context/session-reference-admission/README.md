@@ -7,12 +7,12 @@ Host plugin that admits canonical `dsh-session:` mentions in direct user message
 ## Public API
 
 - `name = 'session-reference-admission'`
-- `inject = ['sessionReferenceResolver']`
+- `inject = ['sessionReferenceResolver', 'sessionQuery']`
 - `apply(ctx)` registers the listener for the context lifetime; no config.
 
 ## Behavior
 
-Each `decision.messages` entry with `role === 'user'` and `source.kind === 'user'` is scanned with `parseSessionReferenceText()` block by block. Non-text blocks pass through unchanged. For a message with references, `ctx.sessionReferenceResolver.prepare()` reads and projects the sources; the direct message is replaced with `freezeMessage({ ...message, content: prepared.content })`, preserving id and source, and `prepared.additionalContext` is inserted immediately before it.
+Each `decision.messages` entry with `role === 'user'` and `source.kind === 'user'` is scanned with `parseSessionReferenceText()` block by block. Non-text blocks pass through unchanged. For a message with references, every source session's `cwd` is revalidated against the current session's `cwd` through `ctx.sessionQuery.listSessions()`; a mismatch throws before preparation. `ctx.sessionReferenceResolver.prepare()` then reads and projects the sources; the direct message is replaced with `freezeMessage({ ...message, content: prepared.content })`, preserving id and source, and `prepared.additionalContext` is inserted immediately before it.
 
 No references means the original decision object is returned unchanged. A malformed explicit mention, a failed source read, or a budget/limit error is thrown from the listener, so the agent loop records `turn/end{reason:'error'}` and never sends partial context.
 

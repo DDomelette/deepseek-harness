@@ -10,7 +10,7 @@ Web composer 已有 `@` 触发流水线，宿主也已有 `@deepseek-ai/dsh-sess
 
 ## Decision
 
-两个插件接通既有组件。`@deepseek-ai/dsh-session-reference-admission` 注册最外层 `agent/pre-step` 监听器，解析直发消息中的规范 `dsh-session:` 提及；它调用 `ctx.sessionReferenceResolver.prepare`，把直发消息替换为可读的 `@label` 文本并保留 id 与 source，再把快照消息插到其正前方。`@deepseek-ai/dsh-client-ui-session-reference` 在热着的 `ctx.sessions.list` 上注册 `@` `session` input-trigger source：同 cwd、非 blank、非 subagent 且排除当前会话，上限 50，`order: -1`。选中后插入结构化 `ReferenceInsert` chip，其 codec 序列化规范提及。
+两个插件接通既有组件。`@deepseek-ai/dsh-session-reference-admission` 注册最外层 `agent/pre-step` 监听器，解析直发消息中的规范 `dsh-session:` 提及；它经 `ctx.sessionQuery.listSessions` 把每个源会话的 `cwd` 与当前会话重查，调用 `ctx.sessionReferenceResolver.prepare`，把直发消息替换为可读的 `@label` 文本并保留 id 与 source，再把快照消息插到其正前方。`@deepseek-ai/dsh-client-ui-session-reference` 在热着的 `ctx.sessions.list` 上注册 `@` `session` input-trigger source：同 cwd、非 blank、非 subagent 且排除当前会话，上限 50，`order: -1`。选中后插入结构化 `ReferenceInsert` chip，其 codec 序列化规范提及。
 
 失败按 fail-closed 处理：malformed 提及、不可读源、预算或上限错误从 pre-step 抛出，轮次以错误卡片结束且不发送部分上下文。浏览器 codec 在提交前对 ready 列表重新校验所选会话，提前失败时保留草稿。
 
