@@ -80,11 +80,22 @@ export class SessionPinsService extends TypertRemoteService {
     return snapshotOf(state)
   }
 
+  /**
+   * Read the current durable pin state without exposing its mutable storage arrays.
+   *
+   * @returns A detached snapshot of the pin set and its order overrides.
+   */
   @Remote('list')
   list(): SessionPinsSnapshot {
     return snapshotOf(this.requireState())
   }
 
+  /**
+   * Add or remove one session id and persist the complete pin state.
+   *
+   * @param input - Session id and desired pin membership.
+   * @returns The committed pin snapshot.
+   */
   @Remote('setPinned')
   setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot> {
     return this.enqueue(async () => {
@@ -110,6 +121,12 @@ export class SessionPinsService extends TypertRemoteService {
     })
   }
 
+  /**
+   * Persist an order override for the supplied pinned sessions in one group.
+   *
+   * @param input - Group key and pinned session ids in display order.
+   * @returns The committed pin snapshot.
+   */
   @Remote('reorderGroup')
   reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot> {
     return this.enqueue(async () => {
@@ -124,6 +141,12 @@ export class SessionPinsService extends TypertRemoteService {
     })
   }
 
+  /**
+   * Persist the flat-view order for the complete pin set.
+   *
+   * @param input - Every pinned session id in display order.
+   * @returns The committed pin snapshot.
+   */
   @Remote('reorderFlat')
   reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot> {
     return this.enqueue(async () => {

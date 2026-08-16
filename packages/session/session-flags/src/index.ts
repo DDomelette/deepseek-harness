@@ -19,7 +19,12 @@ export class SessionFlagRegistry extends Service {
     super(ctx, 'sessionFlags')
   }
 
-  /** Register one provider; the returned disposer removes it. */
+  /**
+   * Register one flag provider. Provider ids are unique within the registry.
+   *
+   * @param provider - Synchronous source of flags keyed by session id.
+   * @returns Disposer that removes the provider.
+   */
   registerProvider(provider: SessionFlagProvider): () => void {
     if (this.providers.some(entry => entry.id === provider.id)) {
       throw new Error(`duplicate session flag provider "${provider.id}"`)
@@ -31,7 +36,12 @@ export class SessionFlagRegistry extends Service {
     }
   }
 
-  /** Merge successful providers now; a complete projection becomes the last good one. */
+  /**
+   * Merge providers in registration order. Failed providers are logged and skipped; if every
+   * provider fails, the registry returns the last complete snapshot when one is available.
+   *
+   * @returns Merged flags and whether every provider completed.
+   */
   snapshot(): SessionFlagsSnapshot {
     const flags: Record<SessionId, SessionFlags> = {}
     let failed = false

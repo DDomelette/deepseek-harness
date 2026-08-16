@@ -3,6 +3,7 @@ import type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
 
 export type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
 
+/** Client state for the durable pin snapshot and its latest load or mutation error. */
 export interface PinnedSessionsState {
   snapshot: SessionPinsSnapshot
   ready: boolean
@@ -16,6 +17,11 @@ type PinnedSessionsActions = {
   fail: (draft: PinnedSessionsState, error: string) => void
 }
 
+/**
+ * Create the pinned-sessions store with an empty, not-yet-loaded snapshot.
+ *
+ * @returns Store handle exposing commit, optimistic update, rollback, and failure actions.
+ */
 export function createPinnedSessionsStore(): EngineStoreHandle<PinnedSessionsState, PinnedSessionsActions> {
   return defineStore({
     init: (): PinnedSessionsState => ({

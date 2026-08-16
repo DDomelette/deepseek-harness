@@ -251,6 +251,7 @@ function sessionNode(
  * @param workspaces - real workspaces in stable Host order.
  * @param archivedSessionIds - registry-global archive set.
  * @param view - local expansion arrays.
+ * @param sessionFlags - presentation flags used to exclude pinned sessions from ordinary groups.
  * @returns group sections in render order.
  */
 export function deriveGroups(
@@ -298,6 +299,7 @@ export function deriveGroups(
  * (see {@link deriveSearchResults}).
  * @param list - sessions list snapshot.
  * @param archivedSessionIds - registry-global archive set.
+ * @param sessionFlags - presentation flags used to exclude pinned sessions from the flat list.
  * @returns flat rows in render order.
  */
 export function deriveFlat(
@@ -341,6 +343,7 @@ export interface RelativeTime {
  * @param archivedSessionIds - registry-global archive set (members never match).
  * @param content - ranked Host content-search page.
  * @param limit - protocol-owned maximum merged row count.
+ * @param sessionFlags - presentation flags used to rank pinned search matches first.
  * @returns bounded deduplicated flat rows and a refine-query hint bit.
  */
 export function deriveSearchResults(

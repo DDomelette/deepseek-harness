@@ -313,7 +313,11 @@ export class WorkspaceManager {
     this.notifier.markDirty()
   }
 
-  /** Replace the session flags map only when membership actually changed. */
+  /**
+   * Replace the session flags map only when membership actually changed.
+   *
+   * @param sessionFlags - Complete replacement map keyed by session id.
+   */
   installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
     const entries = Object.entries(sessionFlags)
     const current = this.sessionFlags

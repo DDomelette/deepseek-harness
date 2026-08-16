@@ -31,6 +31,13 @@ flowchart LR
   pkg_subagent_inprocess["subagent-inprocess"]
   pkg_invariants["invariants"]
   pkg_message_feedback["message-feedback"]
+  pkg_session_deletion["session-deletion"]
+  svc_sessionDeletion["ctx.sessionDeletion<br/>Durable session deletion"]
+  pkg_apiproxy["apiproxy"]
+  pkg_session_flags["session-flags"]
+  svc_sessionFlags["ctx.sessionFlags<br/>Session presentation flags"]
+  pkg_session_pins["session-pins"]
+  svc_sessionPins["ctx.sessionPins<br/>Durable pinned-session state"]
   svc_invariants["ctx.invariants<br/>Package-owned invariant registry"]
   pkg_scope["scope"]
   pkg_typert_registry["typert-registry"]
@@ -47,7 +54,6 @@ flowchart LR
   pkg_settings["settings"]
   svc_settings["ctx.settings<br/>User-settings seam"]
   pkg_settings_file["settings-file"]
-  pkg_apiproxy["apiproxy"]
   pkg_credentials["credentials"]
   svc_credentials["ctx.credentials<br/>Credential seam"]
   pkg_credentials_local["credentials-local"]
@@ -242,9 +248,13 @@ flowchart LR
   pkg_sandbox_local --> svc_sandbox
   pkg_sandbox_policy --> svc_sandboxPolicy
   pkg_session --> svc_sessions
+  pkg_session_deletion --> svc_sessionDeletion
+  pkg_session_flags --> svc_sessionFlags
   pkg_session_persistence --> svc_sessionPersistence
   pkg_session_persistence_jsonl --> svc_sessionPersistence
   pkg_session_persistence_sqlite --> svc_sessionPersistence
+  pkg_session_pins --> svc_sessionFlags
+  pkg_session_pins --> svc_sessionPins
   pkg_session_projection --> svc_sessionProjections
   pkg_session_projection_cache --> svc_sessionProjectionCache
   pkg_session_query --> svc_sessionQuery
@@ -333,6 +343,8 @@ flowchart LR
   svc_sandboxPolicy --> pkg_bash_sandbox
   svc_sandboxPolicy --> pkg_fs_sandbox
   svc_sandboxPolicy --> pkg_terminal_bash
+  svc_sessionDeletion --> pkg_apiproxy
+  svc_sessionFlags --> pkg_apiproxy
   svc_sessionPersistence --> pkg_agent_loop
   svc_sessionPersistence --> pkg_hooks_claude_code
   svc_sessionPersistence --> pkg_hooks_codex
@@ -416,6 +428,9 @@ flowchart LR
 | `ctx.tokenMeter` | `core` | [`token-meter`](../packages/llm/token-meter) | - | [`compaction-basic`](../packages/compaction/compaction-basic) | - | Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements. |
 | `ctx.toolResultPruner` | `core` | [`compaction-tool-result-pruner`](../packages/compaction/compaction-tool-result-pruner) | - | [`compaction-basic`](../packages/compaction/compaction-basic) | - | Rewrites oversized current tool results through replayable single-node surface replacements before summary compaction. |
 | `ctx.sessions` | `core` | [`session`](../packages/core/session) | - | [`agent-loop`](../packages/core/agent-loop), [`agent`](../packages/core/agent), [`session-persistence`](../packages/session/session-persistence), [`session-query`](../packages/session-query/session-query), [`session-query-sqlite`](../packages/session-query/session-query-sqlite), `subagent-inprocess`, [`invariants`](../packages/runtime-diagnostics/invariants), [`message-feedback`](../packages/feedback/message-feedback) | - | Owns append-only Session instances and emits the durable session event feed. |
+| `ctx.sessionDeletion` | `core` | [`session-deletion`](../packages/session/session-deletion) | - | `apiproxy` | - | Persists recursive deletion plans, rejects live members, deletes stored sessions leaves-first, and removes their workspace memberships. |
+| `ctx.sessionFlags` | `seam` | [`session-flags`](../packages/session/session-flags) | [`session-pins`](../packages/session/session-pins) | `apiproxy` | - | Providers publish per-session presentation flags; the registry merges them in registration order for host projections. |
+| `ctx.sessionPins` | `core` | [`session-pins`](../packages/session/session-pins) | - | - | - | Owns the session_pins storage domain, serializes mutations, publishes pin flags, and exposes the Typert Remote API. |
 | `ctx.invariants` | `core` | [`invariants`](../packages/runtime-diagnostics/invariants) | - | [`session`](../packages/core/session), [`agent`](../packages/core/agent), [`scope`](../packages/core/scope), [`agent-loop`](../packages/core/agent-loop) | - | Companion subpaths register owner-local checks; the service owns selection, uniqueness, child fibers, and package-attributed failures. |
 | `ctx.typert` | `core` | [`typert-registry`](../packages/typert/registry) | - | [`typert-loader`](../packages/typert/loader), [`api-gateway`](../packages/api/gateway) | - | Plugins register live zod contributions directly or through dsh-typert-loader; the API gateway consumes invocation descriptors and providers, while other runtime consumers query schemas and reflection metadata at their own edges. |
 | `ctx.typertGateway` | `core` | [`api-gateway`](../packages/api/gateway) | - | - | - | Associates generated Remote descriptors with live Cordis services, resolves registered identities, and exposes unary calls through the shared Connection RPC carrier. |

@@ -10,8 +10,10 @@ const sessionPinsDomainState = z.object({
   flatOrder: sessionIds.default([]),
 })
 
+/** Persisted global state for the `session_pins` storage domain. */
 export type SessionPinsDomainState = z.infer<typeof sessionPinsDomainState>
 
+/** Versioned storage-domain specification for pinned session membership and ordering. */
 export const sessionPinsDomainSpec = defineDomain({
   name: 'session_pins',
   version: 1,
