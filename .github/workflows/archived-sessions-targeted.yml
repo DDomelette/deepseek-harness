@@ -1,0 +1,39 @@
+name: Archived sessions targeted verification
+
+on:
+  pull_request:
+    paths:
+      - 'packages/session/session-persistence/**'
+      - 'packages/session/session-persistence-jsonl/**'
+      - 'packages/session/session-persistence-sqlite/**'
+      - 'packages/session/session-deletion/**'
+      - 'packages/workspace/workspace/**'
+      - 'packages/host/apiproxy/**'
+      - 'packages/client/runtime/**'
+      - 'packages/client/ui-settings-archived/**'
+      - 'packages/bundle/web-app/**'
+      - 'apps/web/tests/archived-sessions-settings.e2e.ts'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      PRIMARY_NODE_VERSION: '24'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Targeted typecheck
+        run: pnpm run typecheck:archived-sessions
+
+      - name: Targeted tests
+        run: pnpm run test:archived-sessions
