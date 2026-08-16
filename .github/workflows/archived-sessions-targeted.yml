@@ -38,5 +38,8 @@ jobs:
       - name: Targeted tests
         run: pnpm run test:archived-sessions
 
+      - name: Install Playwright Chromium and system dependencies
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
+
       - name: Targeted web test
         run: pnpm run test:archived-sessions:web
