@@ -18,13 +18,17 @@ DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `se
 
 ## 模型体验
 
-无直接影响：插件不注册工具、提示词或会话事件。侧栏展示与搜索排序由客户端置顶插件记录。
+### 请求上下文与条件
 
-### Token 效果
+#### What the model sees
+
+本包没有模型可见界面。`sidebar.workspaces` 的展示与搜索排序由客户端置顶插件记录。
+
+#### Token 效果
 
 零直接 token。
 
-### KV Cache 效果
+#### KV Cache 效果
 
 与实时请求无关；本包从不触碰请求前缀。
 

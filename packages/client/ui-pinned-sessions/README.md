@@ -24,13 +24,17 @@ The plugin owns a root-scoped `defineStore` handle: `snapshot`, `ready`, and `er
 
 ## Model Experience
 
-No direct effect: the plugin renders sidebar chrome only and registers no tools, prompts, or session events.
+### Request context and condition
 
-### Token effect
+#### What the model sees
+
+No model-facing surface from this package. The plugin renders `sidebar.workspaces` chrome only and registers no tools, prompts, or session events.
+
+#### Token effect
 
 Zero direct tokens.
 
-### KV Cache effect
+#### KV Cache effect
 
 Independent of live requests.
 

@@ -17,13 +17,17 @@ Generic per-session presentation flags for the DeepSeek Harness. Providers regis
 
 ## Model Experience
 
-No direct effect: this package registers no tools, prompts, or session events. Consumers such as the sidebar workspace browser surface the flags through their own documented paths.
+### Request context and condition
 
-### Token effect
+#### What the model sees
+
+No model-facing surface from this package. Consumers such as the `sidebar.workspaces` browser surface the flags through their own documented paths.
+
+#### Token effect
 
 Zero direct tokens.
 
-### KV Cache effect
+#### KV Cache effect
 
 Independent of live requests; this package never touches request prefixes.
 

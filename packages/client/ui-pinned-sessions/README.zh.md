@@ -24,13 +24,17 @@ DeepSeek Harness 侧栏的会话置顶浏览器插件。它把置顶栏、行内
 
 ## 模型体验
 
-无直接影响：插件只渲染侧栏界面，不注册工具、提示词或会话事件。
+### 请求上下文与条件
 
-### Token 效果
+#### What the model sees
+
+本包没有模型可见界面。插件只渲染 `sidebar.workspaces` 界面，不注册工具、提示词或会话事件。
+
+#### Token 效果
 
 零直接 token。
 
-### KV Cache 效果
+#### KV Cache 效果
 
 与实时请求无关。
 

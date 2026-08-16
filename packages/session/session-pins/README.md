@@ -18,13 +18,17 @@ A reorder that names an id not currently pinned, duplicates an id, or (for flat)
 
 ## Model Experience
 
-No direct effect: the plugin registers no tools, prompts, or session events. The sidebar surface and search ordering are documented by the client pinned-sessions plugin.
+### Request context and condition
 
-### Token effect
+#### What the model sees
+
+No model-facing surface from this package. The `sidebar.workspaces` surface and search ordering are documented by the client pinned-sessions plugin.
+
+#### Token effect
 
 Zero direct tokens.
 
-### KV Cache effect
+#### KV Cache effect
 
 Independent of live requests; this package never touches request prefixes.
 

@@ -3,6 +3,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   DirectoryListing, IWorkspaces, SessionId, SnapshotStore, WorkspaceId, WorkspaceListState, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { workspaceListState } from './fixtures.ts'
 import type { Stabilizer } from './fixtures.ts'
 
@@ -211,5 +212,10 @@ export class TestWorkspaces implements IWorkspaces {
     await this.update((draft) => {
       draft.archivedSessionIds = [...draft.archivedSessionIds, sessionId]
     })
+  }
+
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
+    this.calls.push({ method: 'installSessionFlags', args: [sessionFlags] })
+    void this.update((draft) => { draft.sessionFlags = sessionFlags })
   }
 }

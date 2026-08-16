@@ -302,7 +302,7 @@ export class WorkspaceManager {
   }
 
   /** Replace the session flags map only when membership actually changed. */
-  private installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
     const entries = Object.entries(sessionFlags)
     const current = this.sessionFlags
     if (entries.length === Object.keys(current).length

@@ -24,6 +24,8 @@ export type {
   WorkspaceBrowserInjected, WorkspaceBrowserProps, WorkspacePickerInjected, WorkspacePickerProps,
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
+export type { SessionNode } from './tree.ts'
+export { SearchResultItem, SessionNodeItem, type RowDragProps } from './rows/Rows.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {

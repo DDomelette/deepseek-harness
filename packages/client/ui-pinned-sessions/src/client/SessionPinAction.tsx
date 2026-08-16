@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PinnedSessionsInjected } from './index.ts'
+import type { SessionPinInjected } from './index.ts'
 import type { createPinnedSessionsStore } from './stores.ts'
 import css from './SessionPinAction.module.css'
 
@@ -8,7 +8,7 @@ export function SessionPinAction({
   sessionId, blank, useStore, setPinned, t,
 }: PropsRuntime<'sidebar.workspaces.sessionActions'>
   & PropsStore<ReturnType<typeof createPinnedSessionsStore>>
-  & PinnedSessionsInjected
+  & SessionPinInjected
   & PropsLocale<'sessionPins'>) {
   const ready = useStore(s => s.ready)
   const snapshot = useStore(s => s.snapshot)

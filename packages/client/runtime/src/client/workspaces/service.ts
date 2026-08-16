@@ -320,6 +320,10 @@ export class WorkspaceRuntime implements IWorkspaces {
     return this.manager.refresh()
   }
 
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
+    this.manager.installSessionFlags(sessionFlags)
+  }
+
   /**
    * Route a Host stream envelope into the Workspace object layer.
    * @param envelope - validated Host stream envelope.
