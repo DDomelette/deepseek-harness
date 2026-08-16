@@ -1019,6 +1019,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'sessionFlags',
+    summary: 'Merges presentation-flag providers in registration order; later providers win per key.',
+    description: 'Merges presentation-flag providers in registration order; later providers win per key.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: SessionFlagProvider): () => void',
+        description: 'Register one flag provider. Provider ids are unique within the registry.',
+        parameters: [{ name: 'provider', description: 'Synchronous source of flags keyed by session id.' }],
+        returns: 'Disposer that removes the provider.',
+      },
+      {
+        signature: 'snapshot(): SessionFlagsSnapshot',
+        description: 'Merge providers in registration order. Failed providers are logged and skipped; if every provider fails, the registry returns the last complete snapshot when one is available.',
+        parameters: [],
+        returns: 'Merged flags and whether every provider completed.',
+      },
+    ],
+  },
+  {
     key: 'sessionPersistence',
     summary: 'Durable append-only session storage.',
     description: 'Durable append-only session storage. Implementations preserve contiguous, losslessly JSON-serializable events; append resolves only after durability, and load balances a complete interrupted tail without rewriting committed events.',
@@ -1091,6 +1110,37 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List materialized sessions with cheap per-log change tokens.\n\nRepeated observations of an unchanged log return the same revision. A successful mutating load repair changes the next listed revision. Revisions also distinguish independently backed stores so backend-local counters cannot compare equal across different persistence sources.',
         parameters: [{ name: 'signal', description: 'optional cancellation for backend snapshot-listing work.' }],
         returns: 'one header and opaque revision per materialized session without loading full logs.',
+      },
+    ],
+  },
+  {
+    key: 'sessionPins',
+    summary: 'Durable pin set plus its Typert Remote.',
+    description: 'Durable pin set plus its Typert Remote.',
+    methods: [
+      {
+        signature: '@Remote(\'list\') list(): SessionPinsSnapshot',
+        description: 'Read the current durable pin state without exposing its mutable storage arrays.',
+        parameters: [],
+        returns: 'A detached snapshot of the pin set and its order overrides.',
+      },
+      {
+        signature: '@Remote(\'setPinned\') setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot>',
+        description: 'Add or remove one session id and persist the complete pin state.',
+        parameters: [{ name: 'input', description: 'Session id and desired pin membership.' }],
+        returns: 'The committed pin snapshot.',
+      },
+      {
+        signature: '@Remote(\'reorderGroup\') reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot>',
+        description: 'Persist an order override for the supplied pinned sessions in one group.',
+        parameters: [{ name: 'input', description: 'Group key and pinned session ids in display order.' }],
+        returns: 'The committed pin snapshot.',
+      },
+      {
+        signature: '@Remote(\'reorderFlat\') reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot>',
+        description: 'Persist the flat-view order for the complete pin set.',
+        parameters: [{ name: 'input', description: 'Every pinned session id in display order.' }],
+        returns: 'The committed pin snapshot.',
       },
     ],
   },
@@ -3845,6 +3895,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionEventWindow {\n    session: SessionHeader;\n    target: SessionEvent;\n    events: SessionEvent[];\n    startSeq: number;\n    endSeq: number;\n}',
   },
   {
+    name: 'SessionFlagProvider',
+    declaration: 'export interface SessionFlagProvider {\n    readonly id: string;\n    list(): Readonly<Record<SessionId, SessionFlags>>;\n}',
+  },
+  {
+    name: 'SessionFlagsSnapshot',
+    declaration: 'export interface SessionFlagsSnapshot {\n    readonly flags: Readonly<Record<SessionId, SessionFlags>>;\n    readonly complete: boolean;\n}',
+  },
+  {
     name: 'SessionForkSource',
     declaration: 'export type SessionForkSource = Session | SessionId;',
   },
@@ -3883,6 +3941,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionPersistenceSnapshot',
     declaration: 'export interface SessionPersistenceSnapshot {\n    header: SessionHeader;\n    revision: SessionPersistenceRevision;\n}',
+  },
+  {
+    name: 'SessionPinsSnapshot',
+    declaration: 'export interface SessionPinsSnapshot {\n    readonly pinnedSessionIds: readonly SessionId[];\n    readonly groupOrder: Readonly<Record<string, readonly SessionId[]>>;\n    readonly flatOrder: readonly SessionId[];\n}',
   },
   {
     name: 'SessionPreparation',

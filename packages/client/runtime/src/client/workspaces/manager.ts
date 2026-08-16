@@ -3,7 +3,7 @@
 import type {
   HostFrame, IApiClient, RpcError, RpcRequest, RpcResult, SessionId, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import { transportError } from '@deepseek-ai/dsh-host-apiproxy/api'
+import { transportError, type SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { Notifier } from '../sessions/notifier.ts'
 import { Workspace, type WorkspaceCreateInput } from './workspace.ts'
 
@@ -21,6 +21,8 @@ export interface WorkspaceListSnapshot {
    * lookups build their own transient Set where they need one.
    */
   archivedSessionIds: readonly SessionId[]
+  /** Generic session flags merged from host providers. */
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>>
   state: 'idle' | 'loading' | 'error'
   phase: WorkspaceListPhase
   error: RpcError | null
@@ -39,6 +41,7 @@ export class WorkspaceManager {
   // Full-snapshot state (list response / unary response / changed frame all
   // carry the complete set), so deltas never merge — installs replace.
   private archivedSessionIds: readonly SessionId[] = []
+  private sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {}
   private state: WorkspaceListSnapshot['state'] = 'idle'
   private phase: WorkspaceListPhase = 'pending'
   private error: RpcError | null = null
@@ -98,7 +101,10 @@ export class WorkspaceManager {
           items = items.filter(workspace => !this.removedIds.has(workspace.workspaceId))
           for (const delta of frames) items = applyWorkspaceDelta(items, delta)
           this.installViews(items)
-          if (!this.archivedSupersedesRefresh) this.installArchived(result.value.archivedSessionIds)
+          if (!this.archivedSupersedesRefresh) {
+            this.installArchived(result.value.archivedSessionIds)
+            this.installSessionFlags(result.value.sessionFlags)
+          }
           this.state = 'idle'
           this.phase = 'ready'
         } else {
@@ -287,6 +293,7 @@ export class WorkspaceManager {
     return {
       items: this.itemViews(),
       archivedSessionIds: this.archivedSessionIds,
+      sessionFlags: this.sessionFlags,
       state: this.state,
       phase: this.phase,
       error: this.error,
@@ -303,6 +310,23 @@ export class WorkspaceManager {
     if (archivedSessionIds.length === this.archivedSessionIds.length
       && archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])) return
     this.archivedSessionIds = [...archivedSessionIds]
+    this.notifier.markDirty()
+  }
+
+  /**
+   * Replace the session flags map only when membership actually changed.
+   *
+   * @param sessionFlags - Complete replacement map keyed by session id.
+   */
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
+    const entries = Object.entries(sessionFlags)
+    const current = this.sessionFlags
+    if (entries.length === Object.keys(current).length
+      && entries.every(([id, flags]) => {
+        const before = current[id as SessionId]
+        return before !== undefined && before.pinned === flags.pinned
+      })) return
+    this.sessionFlags = { ...sessionFlags }
     this.notifier.markDirty()
   }
 

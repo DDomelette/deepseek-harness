@@ -1,0 +1,137 @@
+.sessionRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--dsw-alias-label-primary);
+}
+
+.sessionRow:hover,
+.sessionRow.selected {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.sessionRow.menuOpen {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.sessionRow .title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 6px 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.flatWithoutStatus .title {
+  margin-left: 0;
+}
+
+.slot {
+  flex: none;
+  width: 16px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.time {
+  flex: none;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowActions {
+  flex: none;
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.sessionRow:hover .rowActions,
+.sessionRow.menuOpen .rowActions {
+  display: inline-flex;
+}
+
+.sessionRow:hover .time,
+.sessionRow.menuOpen .time {
+  display: none;
+}
+
+.iconButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.iconButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dropBefore::before,
+.dropAfter::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 4px;
+  height: 2px;
+  background: var(--dsw-alias-state-business-primary);
+  border-radius: 1px;
+}
+
+.dropBefore::before {
+  top: -2px;
+}
+
+.dropAfter::after {
+  bottom: -2px;
+}
+
+.hoverContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hoverTitle {
+  font-weight: 600;
+}
+
+.hoverTime,
+.hoverStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}

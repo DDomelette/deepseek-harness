@@ -9,7 +9,7 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconCloseFill14, IconPersonalizationOutline16,
@@ -18,7 +18,11 @@ import {
 import type {
   SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import type { WorkspaceBrowserProps } from './contract/slots.ts'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
+import type {
+  PinnedSectionOwnerProps, SearchResultExtraOwnerProps, SessionRowActionOwnerProps,
+  WorkspaceBrowserProps,
+} from './contract/slots.ts'
 import type { SessionNode, SessionOrderBy } from './tree.ts'
 import { deriveFlat, deriveGroups, deriveSearchResults, UNGROUPED_KEY } from './tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
@@ -233,6 +237,12 @@ type SessionTreeProps = Pick<
   setSessionOrder: (accountKey: string, order: string[]) => void
   /** Registry-global archive set (hidden rows). */
   archivedSessionIds: readonly SessionNode['id'][]
+  /** Generic host session flags (pinned rows are filtered out). */
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>>
+  /** Render the pinned-sessions section at the top of the shared scroll list. */
+  renderPinned: (owner: PinnedSectionOwnerProps) => ReactNode
+  /** Render extra per-row actions before the ellipsis menu. */
+  renderSessionActions: (owner: SessionRowActionOwnerProps) => ReactNode
   /** Open the browser-owned rename dialog for a real Workspace group. */
   onRenameRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
   /** Open the browser-owned delete-confirmation dialog for a real Workspace group. */
@@ -248,6 +258,7 @@ type SessionTreeProps = Pick<
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
   useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
+  sessionFlags, renderPinned, renderSessionActions,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
@@ -324,8 +335,8 @@ function SessionTree({
       ...(sessionOrderByAccount[UNGROUPED_KEY] === undefined
         ? {}
         : { ungroupedOrder: sessionOrderByAccount[UNGROUPED_KEY] }),
-    }),
-    [list, orderedWorkspaces, archivedSessionIds, expandedGroups, sessionOrderByAccount],
+    }, sessionFlags),
+    [list, orderedWorkspaces, archivedSessionIds, expandedGroups, sessionOrderByAccount, sessionFlags],
   )
   const now = Date.now()
   const commitSessionDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
@@ -388,6 +399,7 @@ function SessionTree({
         role="tree"
         aria-label={t('section.sessions')}
       >
+        {renderPinned({ wide: true, view: 'grouped' })}
         {groups.length === 0 && (
           <div className={css.empty}>{t('empty.none')}</div>
         )}
@@ -477,6 +489,9 @@ function SessionTree({
                     },
                   }}
               />
+              {group.accountSize > 0 && group.sessions.length === 0 && (
+                <div className={css.emptyProject}>{t('sessions.emptyPinned')}</div>
+              )}
               {(expandedSessionGroups.includes(group.key)
                 ? group.sessions
                 : group.sessions.slice(0, COLLAPSED_SESSION_LIMIT)
@@ -516,6 +531,7 @@ function SessionTree({
                     onRename={onSessionRename}
                     onFork={forkSession}
                     onArchive={onSessionArchive}
+                    renderSessionActions={renderSessionActions}
                     drag={dragProps}
                     t={t}
                   />
@@ -545,6 +561,7 @@ function SessionTree({
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
   useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
+  sessionFlags, renderPinned, renderSessionActions,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
 }: Pick<
   SessionTreeProps,
@@ -554,6 +571,9 @@ function FlatList({
   | 'onSessionRename'
   | 'onSessionArchive'
   | 'archivedSessionIds'
+  | 'sessionFlags'
+  | 'renderPinned'
+  | 'renderSessionActions'
   | 'orderBy'
   | 'sessionOrderByAccount'
   | 'sessionUpdatedAtByAccount'
@@ -563,8 +583,8 @@ function FlatList({
 >) {
   const list = useSessions(s => s)
   const baseRows = useMemo(
-    () => deriveFlat(list, archivedSessionIds),
-    [list, archivedSessionIds],
+    () => deriveFlat(list, archivedSessionIds, sessionFlags),
+    [list, archivedSessionIds, sessionFlags],
   )
   const sessionIds = useMemo(() => baseRows.map(row => row.id), [baseRows])
   const previousOrderBy = useRef(orderBy)
@@ -617,6 +637,7 @@ function FlatList({
   return (
     <div className={clsx(css.treeBody, css.wide)}>
       <div className={clsx(css.list, css.flatList)} role="tree" aria-label={t('section.sessions')}>
+        {renderPinned({ wide: true, view: 'flat' })}
         {rows.length === 0 && (
           <div className={css.empty}>{t('empty.none')}</div>
         )}
@@ -632,6 +653,7 @@ function FlatList({
               onRename={onSessionRename}
               onFork={forkSession}
               onArchive={onSessionArchive}
+              renderSessionActions={renderSessionActions}
               flat
               drag={{
                 start: () => {
@@ -675,6 +697,8 @@ function SearchResults({
   open,
   workspaces,
   archivedSessionIds,
+  sessionFlags,
+  renderSearchResultExtra,
   query,
   remote,
   resultLimit,
@@ -682,6 +706,8 @@ function SearchResults({
 }: Pick<SessionTreeProps, 'useSessions' | 'open' | 't'> & {
   workspaces: readonly WorkspaceView[]
   archivedSessionIds: readonly SessionNode['id'][]
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>>
+  renderSearchResultExtra: (owner: SearchResultExtraOwnerProps) => ReactNode
   query: string
   remote: RemoteSearchState
   resultLimit: number
@@ -691,8 +717,8 @@ function SearchResults({
     ? remote
     : { query, status: 'loading' as const, items: [], hasMore: false }
   const results = useMemo(
-    () => deriveSearchResults(list, workspaces, query, archivedSessionIds, currentRemote, resultLimit),
-    [list, workspaces, query, archivedSessionIds, currentRemote, resultLimit],
+    () => deriveSearchResults(list, workspaces, query, archivedSessionIds, currentRemote, resultLimit, sessionFlags),
+    [list, workspaces, query, archivedSessionIds, currentRemote, resultLimit, sessionFlags],
   )
   const pending = currentRemote.status === 'loading'
   const failed = currentRemote.status === 'error'
@@ -707,6 +733,7 @@ function SearchResults({
               result={result}
               currentId={list.current}
               onOpen={open}
+              renderSearchResultExtra={renderSearchResultExtra}
               t={t}
             />
           ))}
@@ -764,6 +791,13 @@ export function WorkspaceBrowser({
   const workspaces = useWorkspaces(state => state.items)
   const workspacePhase = useWorkspaces(state => state.phase)
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
+  const sessionFlags = useWorkspaces(state => state.sessionFlags ?? {})
+  const renderPinned = (owner: PinnedSectionOwnerProps): ReactNode =>
+    normalizedQuery === '' ? renderSlot('sidebar.workspaces.pinned', owner) : null
+  const renderSessionActions = (owner: SessionRowActionOwnerProps): ReactNode =>
+    renderSlot('sidebar.workspaces.sessionActions', owner)
+  const renderSearchResultExtra = (owner: SearchResultExtraOwnerProps): ReactNode =>
+    renderSlot('sidebar.workspaces.searchResultExtra', owner)
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
@@ -1113,6 +1147,8 @@ export function WorkspaceBrowser({
               open={open}
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
+              sessionFlags={sessionFlags}
+              renderSearchResultExtra={renderSearchResultExtra}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}
@@ -1125,6 +1161,9 @@ export function WorkspaceBrowser({
                 useSessions={useSessions} open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
                 archivedSessionIds={archivedSessionIds}
+                sessionFlags={sessionFlags}
+                renderPinned={renderPinned}
+                renderSessionActions={renderSessionActions}
                 orderBy={orderBy}
                 sessionOrderByAccount={sessionOrderByAccount}
                 sessionUpdatedAtByAccount={sessionUpdatedAtByAccount}
@@ -1147,6 +1186,9 @@ export function WorkspaceBrowser({
                 syncSessionOrderAccount={actions.syncSessionOrderAccount}
                 setSessionOrder={actions.setSessionOrder}
                 archivedSessionIds={archivedSessionIds}
+                sessionFlags={sessionFlags}
+                renderPinned={renderPinned}
+                renderSessionActions={renderSessionActions}
                 startSession={startSession}
                 open={open}
                 insertWorkspaceBefore={insertWorkspaceBefore}

@@ -17,6 +17,11 @@ import type { RpcRequest, RpcResponse } from './rpc.ts'
  */
 export type WorkspaceId = Branded<'WorkspaceId'>
 
+/** Browser-safe presentation flags carried by `workspace.list`. */
+export interface SessionFlags {
+  readonly pinned?: boolean
+}
+
 /** One workspace row: the record projection every workspace.* value carries. */
 export interface WorkspaceView {
   workspaceId: WorkspaceId
@@ -43,7 +48,11 @@ export interface WorkspaceApi {
    * `host/archived-sessions-changed`). Archived sessions stay in their
    * workspace's `sessionIds` account; grouping surfaces hide them.
    */
-  list(request: RpcRequest<{}>): Promise<RpcResponse<{ items: WorkspaceView[]; archivedSessionIds: SessionId[] }>>
+  list(request: RpcRequest<{}>): Promise<RpcResponse<{
+    items: WorkspaceView[]
+    archivedSessionIds: SessionId[]
+    sessionFlags: Record<SessionId, SessionFlags>
+  }>>
 
   /**
    * Creates (or idempotently resolves) a workspace over an EXISTING directory

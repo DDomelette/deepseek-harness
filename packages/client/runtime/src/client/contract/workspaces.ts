@@ -7,6 +7,7 @@
  * widening what features may do to the workspaces domain.
  */
 import type { DirectoryListing, SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { WorkspaceListState } from '../workspaces/service.ts'
 import type { ObservableSnapshot } from './store.ts'
 
@@ -100,4 +101,10 @@ export interface IWorkspaces {
    * Re-pull the workspace baseline, reusing an in-flight pull.
    */
   refresh(): Promise<void>
+  /**
+   * Replace the local sessionFlags mirror from a same-client producer.
+   * Host baselines remain authoritative on the next `workspace.list`.
+   * @param sessionFlags - complete replacement map.
+   */
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void
 }

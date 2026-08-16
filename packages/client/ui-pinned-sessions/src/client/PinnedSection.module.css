@@ -1,0 +1,161 @@
+.pinnedRoot {
+  margin: 0 0 8px;
+}
+
+.pinnedHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 4px;
+  color: #9cc0ff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.count {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(77, 141, 255, 0.14);
+  color: #9cc0ff;
+  font-size: 11px;
+}
+
+.group {
+  margin: 2px 0 8px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.groupLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.groupCount {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.sessionRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--dsw-alias-label-primary);
+}
+
+.sessionRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.sessionRow:hover .time {
+  display: none;
+}
+
+.dropBefore::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 4px;
+  top: -2px;
+  height: 2px;
+  background: var(--dsw-alias-state-business-primary);
+  border-radius: 1px;
+}
+
+.dot {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  width: 16px;
+}
+
+.dot i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7a7a84;
+}
+
+.dotRunning {
+  background: #4d8dff !important;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 6px 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.time {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.unpin {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #7fb0ff;
+}
+
+.sessionRow:hover .unpin {
+  display: inline-flex;
+}
+
+.unpin:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pinIcon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.divider {
+  position: relative;
+  height: 1px;
+  margin: 8px 4px 10px;
+  background: var(--dsw-alias-border-l2);
+}
+
+.divider span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 8px;
+  background: var(--dsw-specific-sidebar-fill);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+}

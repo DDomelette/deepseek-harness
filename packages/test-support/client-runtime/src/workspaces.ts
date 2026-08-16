@@ -3,6 +3,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   DirectoryListing, IWorkspaces, SessionId, SnapshotStore, WorkspaceId, WorkspaceListState, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { workspaceListState } from './fixtures.ts'
 import type { Stabilizer } from './fixtures.ts'
 
@@ -214,15 +215,6 @@ export class TestWorkspaces implements IWorkspaces {
   }
 
   /**
-   * Refresh the workspace baseline (recorded; fixture callers drive
-   * snapshots explicitly).
-   */
-  refresh(): Promise<void> {
-    this.calls.push({ method: 'refresh', args: [] })
-    return Promise.resolve()
-  }
-
-  /**
    * Unarchive a session (recorded). The default mirrors the production face's
    * observable effect: the id leaves the list state's archive set.
    * @param sessionId - session to unarchive.
@@ -237,5 +229,19 @@ export class TestWorkspaces implements IWorkspaces {
     await this.update((draft) => {
       draft.archivedSessionIds = draft.archivedSessionIds.filter(id => id !== sessionId)
     })
+  }
+
+  /**
+   * Refresh the workspace baseline (recorded; fixture callers drive
+   * snapshots explicitly).
+   */
+  refresh(): Promise<void> {
+    this.calls.push({ method: 'refresh', args: [] })
+    return Promise.resolve()
+  }
+
+  installSessionFlags(sessionFlags: Readonly<Record<SessionId, SessionFlags>>): void {
+    this.calls.push({ method: 'installSessionFlags', args: [sessionFlags] })
+    void this.update((draft) => { draft.sessionFlags = sessionFlags })
   }
 }

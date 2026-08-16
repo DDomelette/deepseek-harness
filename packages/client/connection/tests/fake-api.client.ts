@@ -152,7 +152,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   readonly workspace: IApiClient['workspace'] = {
-    list: (payload: unknown) => this.record('workspace.list', payload, Promise.resolve(ok({ items: [], archivedSessionIds: [] }))),
+    list: (payload: unknown) => this.record('workspace.list', payload, Promise.resolve(ok({ items: [], archivedSessionIds: [], sessionFlags: {} }))),
     create: (payload: unknown) => this.record('workspace.create', payload, Promise.resolve(ok({
       workspace: { workspaceId: 'fk-ws' as never, path: '/f/ws', title: 'ws', sessionIds: [], createdAt: '0', updatedAt: '0' },
       created: true,

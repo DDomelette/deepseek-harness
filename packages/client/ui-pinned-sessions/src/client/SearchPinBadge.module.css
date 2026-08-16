@@ -1,0 +1,16 @@
+.searchPinBadge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #7fb0ff;
+  pointer-events: none;
+}
+
+.pinIcon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}

@@ -203,6 +203,36 @@ describe('deriveGroups', () => {
     const looseGroups = deriveGroups({ ...list(owned, loose), current: loose.id }, [ws], noArchive, view())
     expect(looseGroups.find(group => group.key === UNGROUPED_KEY)!.containsCurrent).toBe(true)
   })
+
+  it('filters pinned members but keeps the project group and its account size', () => {
+    const pinned = summary('pinned', 3)
+    const kept = summary('kept', 2)
+    const sessions = list(pinned, kept)
+    const groups = deriveGroups(
+      sessions,
+      [workspace('project', ['pinned', 'kept'])],
+      noArchive,
+      view(['project']),
+      { [pinned.id]: { pinned: true } },
+    )
+    expect(groups[0]!.sessions.map(node => node.id)).toEqual([kept.id])
+    expect(groups[0]!.sessionCount).toBe(1)
+    expect(groups[0]!.accountSize).toBe(2)
+  })
+
+  it('keeps an all-pinned project group with zero visible rows', () => {
+    const pinned = summary('pinned', 3)
+    const groups = deriveGroups(
+      list(pinned),
+      [workspace('project', ['pinned'])],
+      noArchive,
+      view(['project']),
+      { [pinned.id]: { pinned: true } },
+    )
+    expect(groups[0]!.sessions).toEqual([])
+    expect(groups[0]!.sessionCount).toBe(0)
+    expect(groups[0]!.accountSize).toBe(1)
+  })
 })
 
 describe('deriveFlat', () => {
@@ -248,6 +278,13 @@ describe('deriveFlat', () => {
     const kept = summary('kept', 1)
     const gone = summary('gone', 2)
     expect(deriveFlat(list(kept, gone), archived('gone')).map(row => row.id)).toEqual([kept.id])
+  })
+
+  it('hides pinned sessions in flat mode', () => {
+    const kept = summary('kept', 1)
+    const pinned = summary('pinned', 2)
+    expect(deriveFlat(list(kept, pinned), noArchive, { [pinned.id]: { pinned: true } }).map(row => row.id))
+      .toEqual([kept.id])
   })
 })
 
@@ -357,6 +394,23 @@ describe('deriveSearchResults', () => {
       10,
     )
     expect(result.items).toEqual([])
+  })
+
+  it('ranks pinned matches before unpinned matches of either source', () => {
+    const pinned = summary('pinned', 1)
+    pinned.displayTitle = 'Needle pinned'
+    const content = summary('content', 9)
+    content.displayTitle = 'Ordinary'
+    const result = deriveSearchResults(
+      list(content, pinned),
+      [],
+      'needle',
+      noArchive,
+      { items: [{ sessionId: content.id, snippet: 'needle body' }], hasMore: false },
+      10,
+      { [pinned.id]: { pinned: true } },
+    )
+    expect(result.items.map(item => item.id)).toEqual([pinned.id, content.id])
   })
 
   it('uses the supplied cap and preserves either local overflow or backend hasMore', () => {

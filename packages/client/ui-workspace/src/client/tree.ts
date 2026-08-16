@@ -8,6 +8,7 @@ import {
   type SessionSearchResultItem, type SessionSummary, type SubagentDescendantSummary,
   type WorkspaceId, type WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
@@ -45,8 +46,10 @@ export interface GroupNode {
   /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
   createdAt: number | undefined
   label: string
-  /** Total visible sessions in the group. */
+  /** Visible sessions after flag filtering (pinned rows excluded). */
   sessionCount: number
+  /** Visible sessions before flag filtering; used for the empty-group placeholder. */
+  accountSize: number
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
   containsCurrent: boolean
@@ -88,6 +91,7 @@ interface Group {
   cwd: string | undefined
   createdAt: number | undefined
   label: string
+  accountSize: number
   sessions: SessionSummary[]
 }
 
@@ -137,6 +141,7 @@ function buildGroup(
   cwd: string | undefined,
   createdAt: number | undefined,
   label: string,
+  accountSize: number,
   members: readonly SessionSummary[],
   order: 'account' | 'recency',
 ): Group {
@@ -144,7 +149,7 @@ function buildGroup(
   // Real Workspace order comes from sessionIds. Ungrouped falls back to
   // recency until the browser supplies its persisted local order.
   if (order === 'recency') sessions.sort(byRecency)
-  return { key, workspaceId, cwd, createdAt, label, sessions }
+  return { key, workspaceId, cwd, createdAt, label, accountSize, sessions }
 }
 
 /** Apply a stored Ungrouped order and append newly loose Sessions by recency. */
@@ -175,22 +180,26 @@ function groupByWorkspace(
   list: SessionListState,
   workspaces: readonly WorkspaceView[],
   archived: ReadonlySet<SessionId>,
+  pinned: ReadonlySet<SessionId>,
   ungroupedOrder: readonly string[] | undefined,
 ): Group[] {
   const groups: Group[] = []
   const accounted = new Set<SessionId>()
   for (const workspace of workspaces) {
     const members: SessionSummary[] = []
+    let accountSize = 0
     for (const id of workspace.sessionIds) {
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
       if (!sessionVisible(summary, list.current, archived)) continue
+      accountSize++
+      if (pinned.has(id)) continue
       members.push(summary)
     }
     groups.push(buildGroup(
       workspace.workspaceId, workspace.workspaceId, workspace.path,
-      Date.parse(workspace.createdAt), workspace.title, members, 'account',
+      Date.parse(workspace.createdAt), workspace.title, accountSize, members, 'account',
     ))
   }
   const stray = list.ids
@@ -204,7 +213,10 @@ function groupByWorkspace(
       undefined,
       undefined,
       UNGROUPED_LABEL,
-      ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
+      stray.length,
+      ungroupedOrder === undefined
+        ? stray.filter(s => !pinned.has(s.id))
+        : orderedUngrouped(stray.filter(s => !pinned.has(s.id)), ungroupedOrder),
       ungroupedOrder === undefined ? 'recency' : 'account',
     ))
   }
@@ -239,6 +251,7 @@ function sessionNode(
  * @param workspaces - real workspaces in stable Host order.
  * @param archivedSessionIds - registry-global archive set.
  * @param view - local expansion arrays.
+ * @param sessionFlags - presentation flags used to exclude pinned sessions from ordinary groups.
  * @returns group sections in render order.
  */
 export function deriveGroups(
@@ -246,8 +259,14 @@ export function deriveGroups(
   workspaces: readonly WorkspaceView[],
   archivedSessionIds: readonly SessionId[],
   view: TreeView,
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
 ): GroupNode[] {
   const archived = new Set(archivedSessionIds)
+  const pinned = new Set(
+    Object.entries(sessionFlags)
+      .filter(([, flags]) => flags.pinned === true)
+      .map(([id]) => id as SessionId),
+  )
   const expandedGroups = new Set(view.expandedGroups)
   const descendants = indexSubagentDescendants(list.byId)
   const currentGroup = list.current === undefined
@@ -255,7 +274,7 @@ export function deriveGroups(
     : (workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId as string | undefined)
         ?? UNGROUPED_KEY
   const groups: GroupNode[] = []
-  for (const g of groupByWorkspace(list, workspaces, archived, view.ungroupedOrder)) {
+  for (const g of groupByWorkspace(list, workspaces, archived, pinned, view.ungroupedOrder)) {
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -264,6 +283,7 @@ export function deriveGroups(
       createdAt: g.createdAt,
       label: g.label,
       sessionCount: g.sessions.length,
+      accountSize: g.accountSize,
       expanded,
       containsCurrent: g.key === currentGroup,
       sessions: expanded ? g.sessions.map(session => sessionNode(session, descendants)) : [],
@@ -279,18 +299,25 @@ export function deriveGroups(
  * (see {@link deriveSearchResults}).
  * @param list - sessions list snapshot.
  * @param archivedSessionIds - registry-global archive set.
+ * @param sessionFlags - presentation flags used to exclude pinned sessions from the flat list.
  * @returns flat rows in render order.
  */
 export function deriveFlat(
   list: SessionListState,
   archivedSessionIds: readonly SessionId[],
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
 ): SessionNode[] {
   const archived = new Set(archivedSessionIds)
+  const pinned = new Set(
+    Object.entries(sessionFlags)
+      .filter(([, flags]) => flags.pinned === true)
+      .map(([id]) => id as SessionId),
+  )
   const descendants = indexSubagentDescendants(list.byId)
   const rows: SessionSummary[] = []
   for (const id of list.ids) {
     const s = list.byId[id]
-    if (s === undefined || !sessionVisible(s, list.current, archived)) continue
+    if (s === undefined || !sessionVisible(s, list.current, archived) || pinned.has(id)) continue
     rows.push(s)
   }
   rows.sort(byRecency)
@@ -316,6 +343,7 @@ export interface RelativeTime {
  * @param archivedSessionIds - registry-global archive set (members never match).
  * @param content - ranked Host content-search page.
  * @param limit - protocol-owned maximum merged row count.
+ * @param sessionFlags - presentation flags used to rank pinned search matches first.
  * @returns bounded deduplicated flat rows and a refine-query hint bit.
  */
 export function deriveSearchResults(
@@ -325,10 +353,16 @@ export function deriveSearchResults(
   archivedSessionIds: readonly SessionId[],
   content: { items: readonly SessionSearchResultItem[]; hasMore: boolean },
   limit: number,
+  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
 ): SearchResultSet {
   const q = query.trim().toLowerCase()
   if (q === '') return { items: [], hasMore: false }
   const archived = new Set(archivedSessionIds)
+  const pinned = new Set(
+    Object.entries(sessionFlags)
+      .filter(([, flags]) => flags.pinned === true)
+      .map(([id]) => id as SessionId),
+  )
   const descendants = indexSubagentDescendants(list.byId)
 
   const workspaceBySession = new Map<SessionId, string>()
@@ -371,6 +405,7 @@ export function deriveSearchResults(
     const summary = list.byId[item.sessionId]
     if (summary !== undefined && !summary.blank && sessionVisible(summary, list.current, archived)) include(summary)
   }
+  ordered.sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)))
 
   return {
     items: ordered.slice(0, limit).map((summary) => {

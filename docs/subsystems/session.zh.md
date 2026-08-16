@@ -614,6 +614,73 @@ interface TurnEndReasonMap {
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxsessionflags--sessionflagregistry"></a>
+
+### `ctx.sessionFlags` — `SessionFlagRegistry`
+
+Merges presentation-flag providers in registration order; later providers win per key.
+
+```ts cordis-catalog
+/**
+ * Register one flag provider. Provider ids are unique within the registry.
+ *
+ * @param provider - Synchronous source of flags keyed by session id.
+ * @returns Disposer that removes the provider.
+ */
+registerProvider(provider: SessionFlagProvider): () => void
+
+/**
+ * Merge providers in registration order. Failed providers are logged and skipped; if every
+ * provider fails, the registry returns the last complete snapshot when one is available.
+ *
+ * @returns Merged flags and whether every provider completed.
+ */
+snapshot(): SessionFlagsSnapshot
+```
+
+Source: [`packages/session/session-flags/src/index.ts:14`](../../packages/session/session-flags/src/index.ts)
+
+<a id="ctxsessionpins--sessionpinsservice"></a>
+
+### `ctx.sessionPins` — `SessionPinsService`
+
+Durable pin set plus its Typert Remote.
+
+```ts cordis-catalog
+/**
+ * Read the current durable pin state without exposing its mutable storage arrays.
+ *
+ * @returns A detached snapshot of the pin set and its order overrides.
+ */
+@Remote('list') list(): SessionPinsSnapshot
+
+/**
+ * Add or remove one session id and persist the complete pin state.
+ *
+ * @param input - Session id and desired pin membership.
+ * @returns The committed pin snapshot.
+ */
+@Remote('setPinned') setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot>
+
+/**
+ * Persist an order override for the supplied pinned sessions in one group.
+ *
+ * @param input - Group key and pinned session ids in display order.
+ * @returns The committed pin snapshot.
+ */
+@Remote('reorderGroup') reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot>
+
+/**
+ * Persist the flat-view order for the complete pin set.
+ *
+ * @param input - Every pinned session id in display order.
+ * @returns The committed pin snapshot.
+ */
+@Remote('reorderFlat') reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot>
+```
+
+Source: [`packages/session/session-pins/src/index.ts:36`](../../packages/session/session-pins/src/index.ts)
+
 <a id="ctxsessions--sessionstore"></a>
 
 ### `ctx.sessions` — `SessionStore`

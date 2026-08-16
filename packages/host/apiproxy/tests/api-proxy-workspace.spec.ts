@@ -14,6 +14,7 @@ import UserQuestionService from '@deepseek-ai/dsh-user-questions'
 import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
 import type { DirectoryPickerCapability } from '@deepseek-ai/dsh-host-directory-picker'
 import WorkspaceRegistry from '@deepseek-ai/dsh-workspace'
+import SessionFlagRegistry from '@deepseek-ai/dsh-session-flags'
 import { SessionDeletionError } from '@deepseek-ai/dsh-session-deletion'
 import type { HostFrame, WorkspaceId } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { RpcRequest, RpcResponse } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
@@ -573,6 +574,19 @@ describe('Host Workspace increments', () => {
       error: { code: 'session-not-found', details: { sessionId: 'session-ghost' } },
     })
     abort.abort()
+  })
+})
+
+describe('workspace.list sessionFlags', () => {
+  it('carries the merged provider projection', async () => {
+    const { api, ctx } = await harness()
+    await ctx.plugin(SessionFlagRegistry)
+    ctx.sessionFlags.registerProvider({
+      id: 'test-pins',
+      list: () => ({ [SessionId('flagged')]: { pinned: true } }),
+    })
+    const listed = expectOk(await api.workspace.list(request({})))
+    expect(listed.sessionFlags).toEqual({ [SessionId('flagged')]: { pinned: true } })
   })
 })
 

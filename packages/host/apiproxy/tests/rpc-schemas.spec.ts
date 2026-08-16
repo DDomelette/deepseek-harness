@@ -358,8 +358,15 @@ describe('workspace domain schemas', () => {
     expect(workspaceViewSchema.parse(view).sessionIds).toEqual(['s1'])
     expect(() => workspaceViewSchema.parse({ ...view, sessionIds: 's1' })).toThrow()
     expect(workspaceListRequestSchema.parse({})).toEqual({})
-    expect(workspaceListValueSchema.parse({ items: [view], archivedSessionIds: ['s1'] }).items).toHaveLength(1)
-    expect(() => workspaceListValueSchema.parse({ items: [view] })).toThrow()
+    const listValue = workspaceListValueSchema.parse({
+      items: [view],
+      archivedSessionIds: ['s1'],
+      sessionFlags: { s1: { pinned: true } },
+    })
+    expect(listValue.items).toHaveLength(1)
+    expect(listValue.sessionFlags).toEqual({ s1: { pinned: true } })
+    expect(() => workspaceListValueSchema.parse({ items: [view], sessionFlags: {} })).toThrow()
+    expect(() => workspaceListValueSchema.parse({ items: [view], archivedSessionIds: [] })).toThrow()
   })
 
   it('archiveSession request/value carry the id and the full updated set', () => {
