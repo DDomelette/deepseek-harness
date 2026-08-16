@@ -15,7 +15,7 @@
 - 所有命令在 worktree 根 `/home/huawei/deepseek-harness/.worktrees/feature/web-session-references` 下执行。
 - 只创建 `packages/context/session-reference-admission`、`packages/client/ui-session-reference`；只修改 `tsconfig.host.json`、`tsconfig.client.json`、`packages/client/ui-input-trigger/src/client/locales.ts`、`packages/bundle/web-app/package.json`、`packages/bundle/web-app/cordis.patch.yml`、`scripts/translation-pairing.manifest.json` 以及新包的 README/tests；不修改 apiproxy、wire、input machine、`InputTriggerCandidate`。
 - 规范提及格式：`@[label](dsh-session:<base64url(JSON.stringify(sessionId))>)`；browser 编码器与 host `Buffer.toString('base64url')` 的已知字面量全等。
-- 候选过滤：与当前会话 `cwd` 全等、非 blank、非 `origin: 'subagent'`、排除自己；上限 50；`order: -1`。
+- 候选过滤：与当前会话 `cwd` 全等、非 blank、非 `origin: 'subagent'`、排除自己；上限 50；`order: -1`。宿主准入在 prepare 前用 `ctx.sessionQuery.listSessions` 对每个源会话 `cwd` 重查，跨工作区拒绝。
 - 快照上限沿用 resolver 默认值：`maxReferences: 3`、`maxReferenceBytes: 65536`；browser 的 50 项上限不读 `candidateLimit`。
 - admission 只扫描 `role === 'user' && source.kind === 'user'`；用 `ctx.on('agent/pre-step', handler, { prepend: true })`；先 `next()` 再改写；无引用返回原 decision 对象。
 - 失败 fail-closed：parse/read/budget/self/over-limit 错误从 pre-step 抛出，走 `turn/end{reason:'error'}` 与 `host/agent-error`，不返回 `{kind:'reject'}`。
@@ -488,15 +488,23 @@ Run: `pnpm exec vitest run packages/context/session-reference-admission/tests/ad
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
+import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { freezeMessage, type ContentBlock, type UserMessage } from '@deepseek-ai/dsh-llm'
-import { parseSessionReferenceText, type SessionReferenceInput } from '@deepseek-ai/dsh-session-reference'
+import type { SessionRecord } from '@deepseek-ai/dsh-session-query'
+import {
+  parseSessionReferenceText,
+  SessionReferenceError,
+  type SessionReferenceInput,
+} from '@deepseek-ai/dsh-session-reference'
 
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'session-reference-admission'
 
-/** The resolver whose snapshots this plugin admits into pre-step decisions. */
-export const inject = ['sessionReferenceResolver']
+/** The resolver and corpus whose records admit session-reference snapshots. */
+export const inject = ['sessionReferenceResolver', 'sessionQuery']
+
+/** Rejection for references crossing the current workspace boundary. */
+const WORKSPACE_BOUNDARY_MESSAGE = 'session reference crosses the current workspace boundary'
 
 /** One direct message after mention parsing. */
 interface NormalizedMessage {
@@ -520,6 +528,30 @@ function normalizeDirectMessage(content: readonly ContentBlock[]): NormalizedMes
   return found ? { content: normalized, references } : undefined
 }
 
+/** Reject references whose source session is outside the target workspace. */
+function assertSameWorkspace(
+  agent: Agent,
+  references: readonly SessionReferenceInput[],
+  records: readonly SessionRecord[],
+): void {
+  const targetCwd = agent.session.header.cwd
+  if (targetCwd === undefined) {
+    throw new SessionReferenceError(
+      `${WORKSPACE_BOUNDARY_MESSAGE}: current session has no cwd`,
+      'SESSION_REFERENCE_INVALID_REFERENCE',
+    )
+  }
+  const cwdById = new Map(records.map(record => [record.header.id, record.header.cwd]))
+  for (const reference of references) {
+    if (cwdById.get(reference.sessionId) !== targetCwd) {
+      throw new SessionReferenceError(
+        `${WORKSPACE_BOUNDARY_MESSAGE}: ${reference.sessionId}`,
+        'SESSION_REFERENCE_INVALID_REFERENCE',
+      )
+    }
+  }
+}
+
 /** Host plugin body: prepended pre-step listener over the root context. */
 export function apply(ctx: Context): void {
   ctx.on('agent/pre-step', async (
@@ -540,6 +572,9 @@ export function apply(ctx: Context): void {
         output.push(message)
         continue
       }
+      const records = await ctx.sessionQuery.listSessions(signal)
+      signal.throwIfAborted()
+      assertSameWorkspace(agent, normalized.references, records)
       const prepared = await ctx.sessionReferenceResolver.prepare(
         agent,
         normalized.content,
@@ -554,6 +589,7 @@ export function apply(ctx: Context): void {
     return changed ? { kind: 'enter', messages: output } : decision
   }, { prepend: true })
 }
+
 ```
 
 - [ ] **Step 4: 运行测试确认通过**
@@ -584,10 +620,18 @@ git commit -m "feat(session-reference): admit canonical mentions at pre-step"
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createMessage, createUserMessage, LlmAdapter, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
+import {
+  CallId,
+  createMessage,
+  createUserMessage,
+  LlmAdapter,
+  type GenerateOptions,
+  type StreamChunk,
+} from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
 import SessionReferenceResolver, { formatSessionReferenceMention } from '@deepseek-ai/dsh-session-reference'
+import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import * as admission from '@deepseek-ai/dsh-session-reference-admission'
 import { describe, expect, it } from 'vitest'
 
@@ -616,67 +660,130 @@ function textResponse(text: string): StreamChunk[] {
   ]
 }
 
+function toolCallResponse(): StreamChunk[] {
+  return [
+    { type: 'block-start', index: 0, blockType: 'tool-call' },
+    {
+      type: 'block-end',
+      index: 0,
+      block: { type: 'tool-call', id: CallId('echo-1'), name: 'echo', arguments: '{"text":"ping"}' },
+    },
+    { type: 'finish', reason: { kind: 'tool-calls' } },
+  ]
+}
+
 class ScriptedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
 
+  constructor(private readonly script: StreamChunk[][]) {
+    super()
+  }
+
   override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
-    yield* textResponse('ok')
+    const chunks = this.script.shift()
+    if (chunks === undefined) throw new Error('ScriptedAdapter: script exhausted')
+    yield* chunks
   }
 }
 
-async function harness() {
+async function harness(script: StreamChunk[][] = [textResponse('ok')]) {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(TestSessionQueryEngine)
   await ctx.plugin(SessionReferenceResolver)
   await ctx.plugin(admission)
   await ctx.plugin(AgentLoop, { agents: [] })
-  const adapter = new ScriptedAdapter()
+  ctx.tools.register(defineContentToolFixture({
+    name: 'echo',
+    description: 'echo text',
+    parameters: { text: { type: 'string', required: true } },
+    execute: async ({ text }) => [{ type: 'text', text: String(text) }],
+  }))
+  const adapter = new ScriptedAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
   return { ctx, adapter }
 }
 
-describe('session-reference admission in the real agent loop', () => {
-  it('sends the snapshot immediately before the readable direct message', async () => {
-    const { ctx, adapter } = await harness()
-    const source = ctx.sessions.create(SessionId('source'), { meta: { cwd: '/work' } })
-    source.append('turn/start', { turn: 1 })
-    source.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'source user' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    source.append('assistant/message', {
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'text', text: 'source assistant' }],
-        source: { kind: 'model', provider: 'mock', model: 'mock' },
-      }),
-    }, { surfaceOp: 'append' })
-    source.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+function appendSourceConversation(ctx: Context): SessionId {
+  const source = ctx.sessions.create(SessionId('source'), { meta: { cwd: '/work' } })
+  source.append('turn/start', { turn: 1 })
+  source.append('user/message', createUserMessage({
+    content: [{ type: 'text', text: 'source user' }],
+    source: { kind: 'user' },
+  }), { surfaceOp: 'append' })
+  source.append('assistant/message', {
+    turn: 1,
+    step: 1,
+    message: createMessage({
+      role: 'assistant',
+      content: [{ type: 'text', text: 'source assistant' }],
+      source: { kind: 'model', provider: 'mock', model: 'mock' },
+    }),
+  }, { surfaceOp: 'append' })
+  source.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  return source.id
+}
 
-    const target = ctx.agentLoop.create(SessionId('target'), { provider: 'mock', model: 'mock' })
+function createTarget(ctx: Context): ReturnType<AgentLoop['create']> {
+  return ctx.agentLoop.create(SessionId('target'), { provider: 'mock', model: 'mock' }, { cwd: '/work' })
+}
+
+function assertSnapshotBeforeDirect(messages: GenerateOptions['messages']): void {
+  const snapshotIndex = messages.findIndex(message =>
+    message.role === 'user' && message.source.kind === 'session-reference')
+  const directIndex = messages.findLastIndex(message =>
+    message.role === 'user' && message.source.kind === 'user')
+  expect(snapshotIndex).toBeGreaterThanOrEqual(0)
+  expect(directIndex).toBe(snapshotIndex + 1)
+}
+
+describe('session-reference admission in the real agent loop', () => {
+  it('sends the snapshot immediately before the readable followup message', async () => {
+    const { ctx, adapter } = await harness()
+    const sourceId = appendSourceConversation(ctx)
+    const target = createTarget(ctx)
     target.followup(createUserMessage({
       content: [{
         type: 'text',
-        text: `交接 ${formatSessionReferenceMention({ sessionId: source.id, label: '源' })} 请继续`,
+        text: `交接 ${formatSessionReferenceMention({ sessionId: sourceId, label: '源' })} 请继续`,
       }],
       source: { kind: 'user' },
     }))
     await target.whenIdle()
 
     expect(adapter.requests).toHaveLength(1)
-    const messages = adapter.requests[0]!.messages
-    const snapshotIndex = messages.findIndex(message =>
-      message.role === 'user' && message.source.kind === 'session-reference')
-    const directIndex = messages.findIndex(message =>
-      message.role === 'user' && message.source.kind === 'user')
-    expect(snapshotIndex).toBeGreaterThanOrEqual(0)
-    expect(directIndex).toBe(snapshotIndex + 1)
+    assertSnapshotBeforeDirect(adapter.requests[0]!.messages)
+  })
+
+  it('sends the snapshot before a steering message claimed while the target is running', async () => {
+    const { ctx, adapter } = await harness([toolCallResponse(), textResponse('steering done')])
+    const sourceId = appendSourceConversation(ctx)
+    const target = createTarget(ctx)
+    target.followup(createUserMessage({
+      content: [{ type: 'text', text: 'run the echo tool' }],
+      source: { kind: 'user' },
+    }))
+    while (adapter.requests.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    }
+    target.steer(createUserMessage({
+      content: [{
+        type: 'text',
+        text: `继续参考 ${formatSessionReferenceMention({ sessionId: sourceId, label: '源' })}`,
+      }],
+      source: { kind: 'user' },
+    }))
+    await target.whenIdle()
+
+    expect(adapter.requests.length).toBeGreaterThanOrEqual(2)
+    const referenceRequest = adapter.requests.find(request =>
+      request.messages.some(message => message.source.kind === 'session-reference'))
+    expect(referenceRequest).toBeDefined()
+    assertSnapshotBeforeDirect(referenceRequest!.messages)
   })
 })
+
 ```
 
 - [ ] **Step 2: 运行确认通过**
