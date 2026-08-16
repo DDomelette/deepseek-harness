@@ -2,9 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
-import {
-  SessionNodeItem, type RowDragProps, type SessionNode,
-} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import { PinnedSessionRow, type PinnedRowNode } from './PinnedSessionRow.tsx'
 import { SessionPinAction } from './SessionPinAction.tsx'
 import type { PinnedSessionsInjected } from './index.ts'
 import type { createPinnedSessionsStore } from './stores.ts'
@@ -13,16 +11,15 @@ import css from './PinnedSection.module.css'
 interface PinnedGroup {
   key: string
   label: string
-  nodes: SessionNode[]
+  nodes: PinnedRowNode[]
 }
 
-const nodeOf = (session: SessionSummary): SessionNode => ({
+const nodeOf = (session: SessionSummary): PinnedRowNode => ({
   id: session.id,
   title: session.displayTitle,
   blank: session.blank,
   ...(session.pendingInteraction === undefined ? {} : { pendingInteraction: session.pendingInteraction }),
   running: session.running,
-  runningSubagentCount: 0,
   completed: session.completed === true,
   updatedAt: session.updatedAt,
 })
@@ -125,8 +122,15 @@ export function PinnedSection({
     />
   )
 
-  const makeDrag = (group: PinnedGroup, node: SessionNode): RowDragProps | undefined => {
-    const commit = (over: SessionNode, half: 'before' | 'after'): void => {
+  const makeDrag = (group: PinnedGroup, node: PinnedRowNode): {
+    start: () => void
+    active: boolean
+    marker: 'before' | 'after' | null
+    hover: (half: 'before' | 'after') => void
+    drop: (half: 'before' | 'after') => void
+    end: () => void
+  } | undefined => {
+    const commit = (over: PinnedRowNode, half: 'before' | 'after'): void => {
       if (drag === null || drag.sourceId === over.id) return
       const ids = group.nodes.map(item => item.id)
       const from = ids.indexOf(drag.sourceId)
@@ -162,7 +166,7 @@ export function PinnedSection({
             </div>
           )}
           {group.nodes.map(node => (
-            <SessionNodeItem
+            <PinnedSessionRow
               key={node.id}
               node={node}
               currentId={sessions.current}
@@ -171,7 +175,7 @@ export function PinnedSection({
               onRename={(id, title) => { void renameSession(id, title) }}
               onFork={forkSession}
               onArchive={(id) => { void archiveSession(id) }}
-              renderSessionActions={rowAction}
+              pinAction={rowAction({ sessionId: node.id, flat: view === 'flat', blank: node.blank })}
               drag={makeDrag(group, node)}
               flat={view === 'flat'}
               t={workspaceT}
