@@ -87,6 +87,13 @@
       config:
         enabled: true
 
+    # Optional push exporter. The capture core remains the local JSONL;
+    # enable this row and configure endpoint/sourceId to push the same rows
+    # to DeepSeek Monitor's ingestion endpoint.
+    - id: usage-exporter
+      name: '@deepseek-ai/dsh-usage-exporter'
+      disabled: true
+
     # Whole-log turn/step counts for the chat stats strip (the sessionStats
     # projection key); the projection registry itself is a base-layer row.
     - id: session-stats
@@ -101,6 +108,14 @@
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
+
+    # Cross-session snapshot resolver and its pre-step admission for canonical
+    # dsh-session: mentions in direct user messages.
+    - id: session-reference
+      name: '@deepseek-ai/dsh-session-reference'
+
+    - id: session-reference-admission
+      name: '@deepseek-ai/dsh-session-reference-admission'
 
     # Settings-driven MCP server manager and its read-only roster Remote.
     - id: mcp-manager
@@ -244,7 +259,7 @@
       name: '@deepseek-ai/dsh-client-ui-workspace'
 
     # Input triggers: the '/' | '@' pipeline (ui-input-trigger), the command surface over
-    # it (ui-commands), and the two reference sources (ui-skill / ui-subagent).
+    # it (ui-commands), and the reference sources (ui-skill / ui-subagent / ui-session-reference).
     - id: ui-input-trigger
       name: '@deepseek-ai/dsh-client-ui-input-trigger'
 
@@ -256,6 +271,10 @@
 
     - id: ui-subagent
       name: '@deepseek-ai/dsh-client-ui-subagent'
+
+    # '@' source for same-workspace conversation snapshot references.
+    - id: ui-session-reference
+      name: '@deepseek-ai/dsh-client-ui-session-reference'
 
     # Background jobs: the session-header list over the jobsBySession mirror.
     - id: ui-jobs

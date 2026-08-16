@@ -11,6 +11,8 @@ export type PluginsSettingsLocaleKey =
   | 'webSearchTitle' | 'webSearchDescription'
   | 'webSearchApiKey' | 'webSearchApiKeyHint' | 'webSearchApiKeySet' | 'webSearchApiKeyUnset'
   | 'webSearchBaseUrl' | 'webSearchBaseUrlHint' | 'webSearchMaxUses' | 'webSearchMaxUsesHint'
+  | 'usageTelemetryTitle' | 'usageTelemetryDescription'
+  | 'usageTelemetryEnabled' | 'usageTelemetryEnabledHint'
 
 /** English copy. */
 export const en: Record<PluginsSettingsLocaleKey, string> = {
@@ -51,6 +53,10 @@ export const en: Record<PluginsSettingsLocaleKey, string> = {
   webSearchBaseUrlHint: 'Leave blank to use the provider default.',
   webSearchMaxUses: 'Max searches per request',
   webSearchMaxUsesHint: 'How many times one request may search before it must answer.',
+  usageTelemetryTitle: 'Usage telemetry',
+  usageTelemetryDescription: 'Records each model call to the local usage file.',
+  usageTelemetryEnabled: 'Record usage locally',
+  usageTelemetryEnabledHint: 'DeepSeek Monitor and other external tools read the local telemetry file.',
 }
 
 /** Simplified Chinese copy. */
@@ -92,4 +98,8 @@ export const zh: Record<PluginsSettingsLocaleKey, string> = {
   webSearchBaseUrlHint: '留空则使用提供方默认地址。',
   webSearchMaxUses: '单次请求最多搜索次数',
   webSearchMaxUsesHint: '一次请求在必须作答前最多可以搜索多少次。',
+  usageTelemetryTitle: 'Usage 遥测',
+  usageTelemetryDescription: '把每次模型调用记录到本地 usage 文件。',
+  usageTelemetryEnabled: '本地记录 usage',
+  usageTelemetryEnabledHint: 'DeepSeek Monitor 等外部工具会读取本地遥测文件。',
 }

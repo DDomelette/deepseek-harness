@@ -1339,6 +1339,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-plan':
         specifier: workspace:^
         version: link:../../client/ui-plan
+      '@deepseek-ai/dsh-client-ui-session-reference':
+        specifier: workspace:^
+        version: link:../../client/ui-session-reference
       '@deepseek-ai/dsh-client-ui-settings':
         specifier: workspace:^
         version: link:../../client/ui-settings
@@ -1435,6 +1438,12 @@ importers:
       '@deepseek-ai/dsh-session-projection-cache':
         specifier: workspace:^
         version: link:../../session/session-projection-cache
+      '@deepseek-ai/dsh-session-reference':
+        specifier: workspace:^
+        version: link:../../context/session-reference
+      '@deepseek-ai/dsh-session-reference-admission':
+        specifier: workspace:^
+        version: link:../../context/session-reference-admission
       '@deepseek-ai/dsh-session-stats':
         specifier: workspace:^
         version: link:../../session/session-stats
@@ -1447,6 +1456,9 @@ importers:
       '@deepseek-ai/dsh-storage-json':
         specifier: workspace:^
         version: link:../../storage/storage-json
+      '@deepseek-ai/dsh-usage-exporter':
+        specifier: workspace:^
+        version: link:../../telemetry/usage-exporter
       '@deepseek-ai/dsh-usage-telemetry':
         specifier: workspace:^
         version: link:../../telemetry/usage-telemetry
@@ -2427,6 +2439,21 @@ importers:
       '@types/react-dom':
         specifier: ~18.3.0
         version: 18.3.7(@types/react@18.3.31)
+
+  packages/client/ui-session-reference:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: workspace:^
+        version: link:../runtime
+      '@deepseek-ai/dsh-client-ui-input-trigger':
+        specifier: workspace:^
+        version: link:../ui-input-trigger
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
 
   packages/client/ui-settings:
     dependencies:
@@ -3544,6 +3571,36 @@ importers:
       '@deepseek-ai/dsh-session-query':
         specifier: workspace:^
         version: link:../../session-query/session-query
+
+  packages/context/session-reference-admission:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-agent-loop':
+        specifier: workspace:^
+        version: link:../../core/agent-loop
+      '@deepseek-ai/dsh-agent-loop-testkit':
+        specifier: workspace:^
+        version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:^
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-session-query':
+        specifier: workspace:^
+        version: link:../../session-query/session-query
+      '@deepseek-ai/dsh-session-reference':
+        specifier: workspace:^
+        version: link:../session-reference
 
   packages/context/time-context:
     dependencies:
@@ -4936,6 +4993,9 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: workspace:^
         version: link:../../core/tools
+      '@deepseek-ai/dsh-usage-telemetry':
+        specifier: workspace:^
+        version: link:../../telemetry/usage-telemetry
       '@deepseek-ai/dsh-user-approval':
         specifier: workspace:^
         version: link:../../interaction/user-approval
@@ -7761,6 +7821,31 @@ importers:
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:^
         version: link:../../util/timeout
+
+  packages/telemetry/usage-exporter:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../util/home-paths
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-usage-telemetry':
+        specifier: workspace:^
+        version: link:../usage-telemetry
+      yaml:
+        specifier: ^2.4.2
+        version: 2.9.0
 
   packages/telemetry/usage-telemetry:
     dependencies:

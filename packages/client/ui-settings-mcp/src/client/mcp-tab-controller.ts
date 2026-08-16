@@ -128,9 +128,14 @@ export class McpTabController {
    */
   private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
     if (this.scope.getSnapshot().value?.[serverName] === undefined) return 'loadFailed'
-    const ops: SettingsScopeMutation[] = Object.entries(patch).map(([field, value]) => ({
-      op: 'set', path: [serverName, field], value,
-    }))
+    const { unsetTimeout, ...fields } = patch
+    const ops: SettingsScopeMutation[] = []
+    if (unsetTimeout === true) {
+      ops.push({ op: 'unset', path: [serverName, 'toolCallTimeoutMs'] })
+    }
+    for (const [field, value] of Object.entries(fields)) {
+      ops.push({ op: 'set', path: [serverName, field], value })
+    }
     if (ops.length === 0) return null
     return await this.scope.mutate(ops) ? null : 'saveFailed'
   }
