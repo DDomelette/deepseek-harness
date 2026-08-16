@@ -31,6 +31,10 @@ MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台�
 
 `env` 与 `headers` 是 `role('secret')` schema 字段。协议从不回传它们，因此客户端的每次写入都点名它要写的叶子：启用开关写路径 `[serverName, enabled]`；编辑器通过 `SettingsScope.mutate` 一次提交全部变更叶子，留空的 env/headers 字段完全不进入事务。共享 settings scope 同时提供单路径 `setPath` 和原子多路径 `mutate`，因为从脱敏视图重建的整字段写会静默删除已存 secret，而分离事务可能只应用一次编辑的一部分。
 
+### 冻结的 settings 快照
+
+settings seam 交出的解析分节是深度冻结的。Schemastery 的 object/dict 校验会把适配后的值写回输入对象，因此把带非空 `env`/`headers` 映射的冻结条目传入 `ctx.plugin(McpClient, ...)` 时，配置校验会在严格模式下抛错，并表现为 `invalid config`——即使该值本身符合 schema。因此监督器在挂载前先 `structuredClone` 该条目：`dsh-mcp-client` 只会收到可写的普通副本，永远不会收到冻结的 settings 快照。
+
 ### 状态上报
 
 gateway 只上报挂载生命周期（connecting → ready/failed），不上报存活状态：`failOnStartupError: false` 时不可达的服务器仍会激活，`dsh-mcp-client` 在内部重连，因此 `ready` 表示激活已结算，而非服务器应答成功。标签页的状态点文案相应为「运行中／启动失败」。名单与生命周期发生转换后，管理器会广播不带载荷的 `mcp-servers/change` 失效通知；已打开的标签页重新读取，并用请求代际守卫阻止旧响应替换较新的快照。
@@ -55,7 +59,7 @@ gateway 只上报挂载生命周期（connecting → ready/failed），不上报
 
 ## Testing
 
-- `packages/mcp/mcp-manager`：schema 与重连默认值、注册与写时拒绝、监督器 diff 与挂载/卸载/重挂载、生命周期失效通知、gateway 合并；逐文件 100% 覆盖。
+- `packages/mcp/mcp-manager`：schema 与重连默认值、注册与写时拒绝、监督器 diff 与挂载/卸载/重挂载、生命周期失效通知、gateway 合并，以及带非空冻结 `env` 映射的 settings 提交（回归挂载前克隆路径）；逐文件 100% 覆盖。
 - `packages/client/ui-settings-mcp`：标签页失效通知与旧响应排序、添加/编辑重连字段、控制器原子写入与拒绝处理；100% 覆盖。
 - `apps/web/tests/mcp-config.e2e.ts`：真实 scaffold——带重连策略的新增、开关与删除写穿到 `$DSH_HOME/settings.yaml`，并覆盖搜索及 memorix 示例 overlay 下的声明式行；名单与添加表单的 aria golden 位于 `snapshots/mcp-config`。
 - `SettingsScope.setPath` 与 `SettingsScope.mutate`：`packages/client/ui-settings/tests/settings-scope.client.spec.ts` 中的单元测试。

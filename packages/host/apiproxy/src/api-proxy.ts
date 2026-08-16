@@ -23,6 +23,7 @@ import { SubagentError } from '@deepseek-ai/dsh-subagent'
 import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai/dsh-subagent'
 import { isUserInvocable } from '@deepseek-ai/dsh-skill'
 import { SKILL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-skill-settings'
+import { USAGE_TELEMETRY_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-usage-telemetry'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import type {} from '@deepseek-ai/dsh-session-flags'
 import {
@@ -130,6 +131,7 @@ const DEFAULT_MAX_MESSAGES = 50
 const WEB_SETTINGS_NAMESPACES = [
   'agent-loop', 'shell', 'locale', 'mcp-servers', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
   SKILL_SETTINGS_NAMESPACE,
+  USAGE_TELEMETRY_SETTINGS_NAMESPACE,
 ] as const
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */

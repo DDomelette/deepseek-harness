@@ -42,7 +42,7 @@
       - /placeholder: 每行或逗号分隔，例如 -y, @modelcontextprotocol/server-memory
     - text: 环境变量
     - textbox "环境变量":
-      - /placeholder: KEY=VALUE，每行一项
+      - /placeholder: KEY=VALUE 或 KEY: VALUE，每行一项
     - text: 工作目录
     - textbox "工作目录"
     - text: 调用超时（毫秒）

@@ -223,12 +223,16 @@ describe('AddServerForm pure helpers', () => {
     expect(splitArgs('')).toEqual([])
   })
 
-  it('parses KEY=VALUE lines and rejects malformed non-empty lines', () => {
+  it('parses KEY=VALUE or KEY: VALUE lines and rejects malformed non-empty lines', () => {
     expect(parseKeyValues('TOKEN=abc\n\nFLAG=1\n  SPACED = x  ')).toEqual({
       values: { TOKEN: 'abc', FLAG: '1', SPACED: 'x' },
     })
-    expect(parseKeyValues('TOKEN=abc\nNO_EQUALS')).toEqual({ error: 'invalidKeyValue' })
+    expect(parseKeyValues('Authorization: Bearer abc\nX-Custom: y=z')).toEqual({
+      values: { Authorization: 'Bearer abc', 'X-Custom': 'y=z' },
+    })
+    expect(parseKeyValues('TOKEN=abc\nNO_SEPARATOR')).toEqual({ error: 'invalidKeyValue' })
     expect(parseKeyValues('=value')).toEqual({ error: 'invalidKeyValue' })
+    expect(parseKeyValues(':value')).toEqual({ error: 'invalidKeyValue' })
     expect(parseKeyValues('')).toEqual({ values: {} })
   })
 

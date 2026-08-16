@@ -33,8 +33,10 @@ export function splitArgs(text: string): string[] {
 }
 
 /**
- * Parse KEY=VALUE lines into a record. Malformed non-empty lines fail the
- * whole parse so a mistyped line cannot silently drop a credential.
+ * Parse KEY=VALUE (or header-style KEY: VALUE) lines into a record. The
+ * earliest separator wins, so values may contain the other separator.
+ * Malformed non-empty lines fail the whole parse so a mistyped line cannot
+ * silently drop a credential.
  * @param text - raw multiline text.
  * @returns the parsed record, or the locale key of the first malformed line.
  */
@@ -43,9 +45,12 @@ export function parseKeyValues(text: string): { values: Record<string, string> }
   for (const raw of text.split('\n')) {
     const line = raw.trim()
     if (line.length === 0) continue
-    const equals = line.indexOf('=')
-    if (equals <= 0) return { error: 'invalidKeyValue' }
-    values[line.slice(0, equals).trim()] = line.slice(equals + 1).trim()
+    const separators = [line.indexOf('='), line.indexOf(':')].filter(index => index > 0)
+    if (separators.length === 0) return { error: 'invalidKeyValue' }
+    const split = Math.min(...separators)
+    const key = line.slice(0, split).trim()
+    if (key.length === 0) return { error: 'invalidKeyValue' }
+    values[key] = line.slice(split + 1).trim()
   }
   return { values }
 }

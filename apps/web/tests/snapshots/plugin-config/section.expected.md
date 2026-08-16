@@ -40,3 +40,7 @@
         - 'button "展开设置: 网页搜索"':
           - text: 网页搜索 DeepSeek 搜索提供方。
           - img
+      - listitem:
+        - 'button "展开设置: Usage 遥测"':
+          - text: Usage 遥测 把每次模型调用记录到本地 usage 文件。
+          - img
