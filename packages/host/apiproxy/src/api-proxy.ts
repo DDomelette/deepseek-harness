@@ -18,6 +18,8 @@ import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
 import { isAppendSurfaceEvent, isJsonValue } from '@deepseek-ai/dsh-session'
 import type { JsonValue, Session, SessionEvent, SessionEventMap, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
+import { SessionDeletionError } from '@deepseek-ai/dsh-session-deletion'
+import type {} from '@deepseek-ai/dsh-session-deletion'
 import { SessionQueryError, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
 import { SubagentError } from '@deepseek-ai/dsh-subagent'
 import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai/dsh-subagent'
@@ -1744,8 +1746,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const attached = new Set(items.map(item => item.sessionId))
     const persistence = ctx.get('sessionPersistence')
     if (persistence !== undefined) {
+      const workspaceRegistry = ctx.get('workspaceRegistry')
+      const archived = new Set(workspaceRegistry?.archivedSessionIds ?? [])
       const cold = (await persistence.list(signal))
-        .filter(meta => !attached.has(meta.id) && meta.cwd !== undefined)
+        .filter(meta => !attached.has(meta.id) && (meta.cwd !== undefined || archived.has(meta.id)))
       signal?.throwIfAborted()
       for (let offset = 0; offset < cold.length; offset += COLD_SUMMARY_BATCH_SIZE) {
         signal?.throwIfAborted()
@@ -2183,6 +2187,47 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             message: `session search failed: ${String(error)}`,
             details: {},
           })
+        }
+      },
+
+      async delete(request) {
+        const deletion = ctx.get('sessionDeletion')
+        if (deletion === undefined) {
+          return err(request, {
+            code: 'session-deletion-unavailable',
+            message: 'session deletion is unavailable: this deployment does not mount @deepseek-ai/dsh-session-deletion',
+            details: {},
+          })
+        }
+        try {
+          const { deletedSessionIds } = await deletion.delete({
+            sessionId: request.payload.sessionId,
+            recursive: request.payload.recursive === true,
+          })
+          return ok(request, { deletedSessionIds: [...deletedSessionIds] })
+        } catch (error) {
+          if (error instanceof SessionDeletionError) {
+            if (error.code === 'session-not-found') {
+              return err(request, {
+                code: 'session-not-found',
+                message: error.message,
+                details: { sessionId: request.payload.sessionId },
+              })
+            }
+            if (error.code === 'session-running') {
+              return err(request, {
+                code: 'session-running',
+                message: error.message,
+                details: { runningSessionIds: [...(error.runningSessionIds ?? [])] },
+              })
+            }
+            return err(request, {
+              code: 'session-has-descendants',
+              message: error.message,
+              details: { sessionId: request.payload.sessionId },
+            })
+          }
+          throw error
         }
       },
 
@@ -2943,6 +2988,11 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         return ok(request, { archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds] })
       },
+
+      async unarchiveSession(request) {
+        await ctx.workspaceRegistry.unarchiveSession(request.payload.sessionId)
+        return ok(request, { archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds] })
+      },
     },
 
     host: {
@@ -3629,6 +3679,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           }),
           ctx.on('session/disposed', (session: Session) => {
             queue.push(frame({ type: 'host/session-removed', sessionId: session.id }))
+          }),
+          ctx.on('session-persistence/deleted', ({ id }) => {
+            queue.push(frame({ type: 'host/session-deleted', sessionId: id }))
           }),
           ctx.on('agent/status', ({ agent, status }: { agent: Agent; status: AgentStatus }) => {
             queue.push(frame({ type: 'host/session-status', sessionId: agent.id, running: status === 'running' }))

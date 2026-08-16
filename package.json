@@ -17,6 +17,11 @@
     "website"
   ],
   "scripts": {
+    "typecheck:archived-sessions": "pnpm run build:lib:host && tsc -b packages/session/session-persistence packages/session/session-persistence-jsonl packages/session/session-persistence-sqlite packages/session/session-deletion packages/workspace/workspace packages/host/apiproxy packages/client/runtime packages/client/ui-settings-archived --pretty false",
+    "test:archived-sessions": "vitest run packages/session/session-persistence/tests/persistence.spec.ts packages/session/session-persistence-jsonl/tests/jsonl.spec.ts packages/session/session-persistence-jsonl/tests/zstd.spec.ts packages/session/session-persistence-sqlite/tests/sqlite.spec.ts packages/session/session-deletion/tests/deletion.spec.ts packages/workspace/workspace/tests packages/host/apiproxy/tests/rpc-schemas.spec.ts packages/host/apiproxy/tests/client-handler.spec.ts packages/host/apiproxy/tests/fetch-carrier.spec.ts packages/host/apiproxy/tests/api-proxy-workspace.spec.ts packages/host/apiproxy/tests/api-proxy-cold.spec.ts packages/client/runtime/tests/manager.client.spec.ts packages/client/runtime/tests/sessions-service.client.spec.ts packages/client/runtime/tests/workspaces-service.client.spec.ts packages/client/ui-settings-archived/tests packages/typert/generator/tests/cordis-catalog.spec.ts",
+    "test:archived-sessions:web": "pnpm run build && vitest run --config vitest.web.config.ts apps/web/tests/archived-sessions-settings.e2e.ts",
+    "verify:archived-sessions": "pnpm run typecheck:archived-sessions && pnpm run test:archived-sessions",
+
     "build": "npm run build:lib && npm run build:web",
     "build:lib": "npm run build:lib:host && npm run build:lib:client",
     "build:lib:host": "tsc -b tsconfig.host.json && tsdown --env.DSH_BUILD_FACE host",

@@ -57,6 +57,9 @@
       "path": "../../session/session-persistence"
     },
     {
+      "path": "../../session/session-deletion"
+    },
+    {
       "path": "../../session/session-projection"
     },
     {

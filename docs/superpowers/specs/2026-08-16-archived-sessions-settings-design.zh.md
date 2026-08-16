@@ -75,11 +75,13 @@ deriveArchivedGroups(sessions, workspaces)
 2. 由 live 与持久化 header 计算 `parentSessionId` 传递闭包。
 3. 当任一成员已附加时，以 `session-running` 拒绝整个级联。
 4. 当 `recursive` 为 false 且存在后代时，以 `session-has-descendants` 拒绝。
-5. 先删叶子再删根；已消失的 id 跳过。
-6. 每次持久删除后，`workspaceRegistry.forgetSession(id)` 移除归档条目与所有工作区记账槽位。
-7. 响应 `deletedSessionIds`；网关发布 `host/session-deleted`。
+5. 在第一次破坏性写入前，把完整删除计划持久化到 `session_deletion` domain；每个成员的 persistence/workspace 状态迁移在下一步操作前落盘。
+6. 先删叶子再删根；重试读取既有计划，而不是从剩余日志重新推导 lineage。
+7. 成员执行删除时已 NotFound：标记为 `missing` 后仍执行 `workspaceRegistry.forgetSession(id)`。
+8. 活动计划成员的 `session/created` 事件回滚 attach，封住 running-check 与 live 生命周期之间的 TOCTOU。
+9. 响应 `deletedSessionIds`；网关发布 `host/session-deleted`。
 
-`session-persistence/deleted` 是派生索引的清理信号。工作区变更复用现有 `domain/changed` 帧与 `host/archived-sessions-changed` 快照。
+`session-persistence/deleted` 是派生索引的清理信号。工作区变更复用现有 `domain/changed` 帧与 `host/archived-sessions-changed` 快照。永久删除的数据边界是会话持久化日志、workspace 记账与归档集合；Spec 已声明的附件、导出与 feedback sidecar 不保证级联擦除。
 
 ### 错误码
 

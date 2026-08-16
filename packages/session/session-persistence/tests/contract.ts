@@ -8,6 +8,7 @@
  * @module @deepseek-ai/dsh-session-persistence/tests/contract
  */
 
+import type { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import { SESSION_FORMAT_VERSION, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader, SurfaceEventType, SurfaceIntent } from '@deepseek-ai/dsh-session'
@@ -17,6 +18,7 @@ import type { SessionPersistence } from '../src/index.ts'
 /** A backend under test plus its teardown. */
 export interface ContractBackend {
   persistence: SessionPersistence
+  ctx: Context
   dispose: () => Promise<void>
 }
 
@@ -424,6 +426,64 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           ] as unknown as SessionEvent[]
           await expect(persistence.append(mi.id, events)).rejects.toThrow(/losslessly JSON-serializable/)
         }
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete removes a materialized session and emits session-persistence/deleted', async () => {
+      const { persistence, ctx, dispose } = await make()
+      try {
+        const m = meta('delete-me', '/work')
+        const seen: string[] = []
+        const off = ctx.on('session-persistence/deleted', (event) => { seen.push(event.id) })
+        await persistence.create(m)
+        await persistence.append(m.id, oneTurnLog())
+        await persistence.delete(m.id)
+        expect(seen).toEqual([m.id])
+        expect((await persistence.list()).map(header => header.id)).not.toContain(m.id)
+        expect((await persistence.listSnapshots()).map(snapshot => snapshot.header.id)).not.toContain(m.id)
+        await expect(persistence.load(m.id)).rejects.toThrow()
+        off()
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete cancels an un-materialized create intent and frees the id for reuse', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const m = meta('delete-intent')
+        await persistence.create(m)
+        await persistence.delete(m.id)
+        await persistence.create(m)
+        await persistence.append(m.id, oneTurnLog())
+        expect((await persistence.load(m.id)).meta.id).toBe(m.id)
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete rejects an unknown id with SessionPersistenceNotFoundError', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        await expect(persistence.delete(SessionId('ghost-delete')))
+          .rejects.toMatchObject({ name: 'SessionPersistenceNotFoundError', sessionId: SessionId('ghost-delete') })
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete serializes with an in-flight append for the same id', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const m = meta('delete-race', '/work')
+        await persistence.create(m)
+        await Promise.all([
+          persistence.append(m.id, oneTurnLog()),
+          persistence.delete(m.id),
+        ])
+        expect((await persistence.list()).map(header => header.id)).not.toContain(m.id)
       } finally {
         await dispose()
       }

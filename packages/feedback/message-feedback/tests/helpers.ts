@@ -142,6 +142,10 @@ class TestPersistence extends SessionPersistence {
       : Promise.resolve(stored)
   }
 
+  delete(_id: SessionId): Promise<void> {
+    return Promise.reject(new Error('delete is not supported by this test persistence'))
+  }
+
   async readFrom(
     id: SessionId,
     fromSeq: number,

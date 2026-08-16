@@ -198,6 +198,10 @@ export class SqliteSessionPersistence extends SessionPersistence implements Pers
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  delete(id: SessionId): Promise<void> {
+    return this.coordinator.delete(id)
+  }
+
   // One method serves both public `list` and the backend hook; delegating it to
   // the coordinator would call this hook recursively.
 
@@ -347,6 +351,24 @@ export class SqliteSessionPersistence extends SessionPersistence implements Pers
       .all() as unknown as SessionRow[]
     signal?.throwIfAborted()
     return rows.map(rowToMeta)
+  }
+
+  /** Delete one stored session's rows in one transaction; absent rows return false. */
+  async deleteStored(id: SessionId, signal?: AbortSignal): Promise<boolean> {
+    signal?.throwIfAborted()
+    await this.ready
+    signal?.throwIfAborted()
+    if (this.rowFor(id) === undefined) return false
+    this.db.exec('BEGIN')
+    try {
+      this.db.prepare('DELETE FROM events WHERE session_id = ?').run(id)
+      this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
+      this.db.exec('COMMIT')
+    } catch (error) {
+      this.db.exec('ROLLBACK')
+      throw error
+    }
+    return true
   }
 
   /** List metadata with a source-qualified monotonic revision per session. */

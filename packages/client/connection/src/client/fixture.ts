@@ -1562,7 +1562,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   let nextWorkspace = 1
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
-  const archivedSessionIds: SessionId[] = []
+  let archivedSessionIds: SessionId[] = []
 
   // In-memory browse tree behind the fixture's `browse` picker capability —
   // deterministic content mirroring the design mock so assembled Web tests
@@ -2506,6 +2506,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         }
         return ok(request, { accepted: true as const })
       },
+      delete: request => ok(request, { deletedSessionIds: [request.payload.sessionId] }),
     },
     subagents: {
       list: request => ok(request, { entries: [], parentAvailable: true }),
@@ -2693,6 +2694,13 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           archivedSessionIds.push(sessionId)
           emitHost({ type: 'host/archived-sessions-changed', archivedSessionIds: [...archivedSessionIds] })
         }
+        return ok(request, { archivedSessionIds: [...archivedSessionIds] })
+      },
+      unarchiveSession: (request) => {
+        const missing = requireSession(request)
+        if (missing !== undefined) return missing
+        archivedSessionIds = archivedSessionIds.filter(id => id !== request.payload.sessionId)
+        emitHost({ type: 'host/archived-sessions-changed', archivedSessionIds: [...archivedSessionIds] })
         return ok(request, { archivedSessionIds: [...archivedSessionIds] })
       },
     },
@@ -3116,6 +3124,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'session.attachment': return this.api.sessions.attachment(request)
       case 'session.updateQueue': return this.api.sessions.updateQueue(request)
       case 'session.cancel': return this.api.sessions.cancel(request)
+      case 'session.delete': return this.api.sessions.delete(request)
       case 'subagent.list': return this.api.subagents.list(request)
       case 'subagent.history': return this.api.subagents.history(request)
       case 'subagent.prompt': return this.api.subagents.prompt(request, signal)
@@ -3132,6 +3141,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'workspace.insertBefore': return this.api.workspace.insertBefore(request)
       case 'workspace.insertSessionBefore': return this.api.workspace.insertSessionBefore(request)
       case 'workspace.archiveSession': return this.api.workspace.archiveSession(request)
+      case 'workspace.unarchiveSession': return this.api.workspace.unarchiveSession(request)
       case 'skill.list': return this.api.skills.list(request)
       case 'skill.catalog': return this.api.skills.catalog(request)
       case 'agentPreset.list': return this.api.agentPresets.list(request)

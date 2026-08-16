@@ -78,6 +78,10 @@ class TracePersistence extends SessionPersistence {
     return Promise.resolve(structuredClone(entry))
   }
 
+  delete(_id: SessionIdType): Promise<void> {
+    return Promise.reject(new Error('delete is not supported by this test persistence'))
+  }
+
   async readFrom(id: SessionIdType, fromSeq: number): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
     const whole = await this.inspect(id)
     return { meta: whole.meta, events: whole.events.filter(event => event.seq >= fromSeq) }

@@ -58,6 +58,7 @@
     "@deepseek-ai/dsh-mcp-manager": "workspace:^",
     "@deepseek-ai/dsh-native-command": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-session-deletion": "workspace:^",
     "@deepseek-ai/dsh-session-flags": "workspace:^",
     "@deepseek-ai/dsh-session-persistence": "workspace:^",
     "@deepseek-ai/dsh-session-projection": "workspace:^",

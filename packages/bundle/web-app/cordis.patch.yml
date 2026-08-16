@@ -73,6 +73,9 @@
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
 
+    - id: session-deletion
+      name: '@deepseek-ai/dsh-session-deletion'
+
     - id: session-flags
       name: '@deepseek-ai/dsh-session-flags'
 
@@ -233,6 +236,9 @@
 
     - id: ui-settings-skills
       name: '@deepseek-ai/dsh-client-ui-settings-skills'
+
+    - id: ui-settings-archived
+      name: '@deepseek-ai/dsh-client-ui-settings-archived'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
