@@ -37,9 +37,16 @@ export class SessionPinsService extends TypertRemoteService {
   static inject = ['storageDomain', 'sessionFlags']
 
   private global?: DomainGlobal<SessionPinsDomainState>
+  private operationTail: Promise<void> = Promise.resolve()
 
   constructor(ctx: Context) {
     super(ctx, 'sessionPins')
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.operationTail.then(operation, operation)
+    this.operationTail = next.then(() => undefined, () => undefined)
+    return next
   }
 
   protected async [Service.init](): Promise<void> {
@@ -79,47 +86,71 @@ export class SessionPinsService extends TypertRemoteService {
   }
 
   @Remote('setPinned')
-  async setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot> {
-    const sessionId = SessionId(input.sessionId)
-    const current = this.requireState()
-    const pinnedSessionIds = new Set(current.pinnedSessionIds)
-    const flatOrder = [...current.flatOrder]
-    let groupOrder: Record<string, SessionId[]>
-    if (input.pinned) {
-      pinnedSessionIds.add(sessionId)
-      groupOrder = cloneOrder(current.groupOrder)
-    } else {
-      pinnedSessionIds.delete(sessionId)
-      groupOrder = {}
-      for (const [key, ids] of Object.entries(cloneOrder(current.groupOrder))) {
-        const next = ids.filter(id => id !== sessionId)
-        if (next.length > 0) groupOrder[key] = next
+  setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot> {
+    return this.enqueue(async () => {
+      this.assertSessionId(input.sessionId)
+      const sessionId = SessionId(input.sessionId)
+      const current = this.requireState()
+      const pinnedSessionIds = new Set(current.pinnedSessionIds)
+      const flatOrder = [...current.flatOrder]
+      let groupOrder: Record<string, SessionId[]>
+      if (input.pinned) {
+        pinnedSessionIds.add(sessionId)
+        groupOrder = cloneOrder(current.groupOrder)
+      } else {
+        pinnedSessionIds.delete(sessionId)
+        groupOrder = {}
+        for (const [key, ids] of Object.entries(cloneOrder(current.groupOrder))) {
+          const next = ids.filter(id => id !== sessionId)
+          if (next.length > 0) groupOrder[key] = next
+        }
+        flatOrder.splice(0, flatOrder.length, ...flatOrder.filter(id => id !== sessionId))
       }
-      flatOrder.splice(0, flatOrder.length, ...flatOrder.filter(id => id !== sessionId))
-    }
-    return this.commit({ ...current, pinnedSessionIds: [...pinnedSessionIds], groupOrder, flatOrder })
+      return this.commit({ ...current, pinnedSessionIds: [...pinnedSessionIds], groupOrder, flatOrder })
+    })
   }
 
   @Remote('reorderGroup')
-  async reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot> {
-    const ordered = input.orderedIds.map(SessionId)
-    const current = this.requireState()
-    const pinned = new Set(current.pinnedSessionIds)
-    if (ordered.some(id => !pinned.has(id)) || new Set(ordered).size !== ordered.length) {
-      throw new SessionPinsInvalidError(ordered)
-    }
-    return this.commit({ ...current, groupOrder: { ...cloneOrder(current.groupOrder), [input.groupKey]: ordered } })
+  reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot> {
+    return this.enqueue(async () => {
+      this.assertGroupKey(input.groupKey)
+      const ordered = this.assertOrderedIds(input.orderedIds)
+      const current = this.requireState()
+      const pinned = new Set(current.pinnedSessionIds)
+      if (ordered.some(id => !pinned.has(id)) || new Set(ordered).size !== ordered.length) {
+        throw new SessionPinsInvalidError(ordered)
+      }
+      return this.commit({ ...current, groupOrder: { ...cloneOrder(current.groupOrder), [input.groupKey]: ordered } })
+    })
   }
 
   @Remote('reorderFlat')
-  async reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot> {
-    const ordered = input.orderedIds.map(SessionId)
-    const current = this.requireState()
-    const pinned = new Set(current.pinnedSessionIds)
-    if (ordered.length !== pinned.size || ordered.some(id => !pinned.has(id))) {
-      throw new SessionPinsInvalidError(ordered)
+  reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot> {
+    return this.enqueue(async () => {
+      const ordered = this.assertOrderedIds(input.orderedIds)
+      const current = this.requireState()
+      const pinned = new Set(current.pinnedSessionIds)
+      if (ordered.length !== pinned.size || ordered.some(id => !pinned.has(id))) {
+        throw new SessionPinsInvalidError(ordered)
+      }
+      return this.commit({ ...current, flatOrder: ordered })
+    })
+  }
+
+  private assertSessionId(value: string): void {
+    if (value.trim() === '' || value.length > 256) {
+      throw new SessionPinsInvalidError([])
     }
-    return this.commit({ ...current, flatOrder: ordered })
+  }
+
+  private assertGroupKey(value: string): void {
+    if (value.length > 256) throw new SessionPinsInvalidError([])
+  }
+
+  private assertOrderedIds(values: readonly string[]): SessionId[] {
+    if (values.length > 10_000) throw new SessionPinsInvalidError([])
+    for (const value of values) this.assertSessionId(value)
+    return values.map(SessionId)
   }
 }
 

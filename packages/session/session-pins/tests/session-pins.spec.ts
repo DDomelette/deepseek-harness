@@ -58,4 +58,16 @@ describe('session pins service', () => {
     const flat = await loaded.sessionPins.reorderFlat({ orderedIds: ['s2', 's1'] })
     expect(flat.flatOrder).toEqual([SessionId('s2'), SessionId('s1')])
   })
+
+  it('serializes concurrent mutations without losing pins', async () => {
+    const { ctx: loaded } = await boot()
+    await Promise.all([
+      loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true }),
+      loaded.sessionPins.setPinned({ sessionId: 's2', pinned: true }),
+      loaded.sessionPins.setPinned({ sessionId: 's3', pinned: true }),
+    ])
+    expect(loaded.sessionPins.list().pinnedSessionIds).toEqual([
+      SessionId('s1'), SessionId('s2'), SessionId('s3'),
+    ])
+  })
 })
