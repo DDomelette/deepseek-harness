@@ -29,15 +29,15 @@ async function bench(listSnapshot = snapshot, remoteOverrides: Record<string, un
     installSessionFlags: (flags: unknown) => { installedFlags.push(flags) },
     archiveSession: async () => {},
   } as never)
-  ctx.provide('remote', {
-    sessionPins: {
-      list: async () => ok(listSnapshot),
-      setPinned: async () => ok(listSnapshot),
-      reorderGroup: async () => ok(listSnapshot),
-      reorderFlat: async () => ok(listSnapshot),
-      ...remoteOverrides,
-    },
-  } as never)
+  const sessionPins = {
+    list: async () => ok(listSnapshot),
+    setPinned: async () => ok(listSnapshot),
+    reorderGroup: async () => ok(listSnapshot),
+    reorderFlat: async () => ok(listSnapshot),
+    ...remoteOverrides,
+  }
+  ctx.provide('remote', { sessionPins } as never)
+  ctx.provide('remote.sessionPins', sessionPins)
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, opened, installedFlags }
 }
 
@@ -54,7 +54,7 @@ function declare(slots: SlotRegistry): void {
 
 describe('ui-pinned-sessions apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'remote'])
+    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'remote', 'remote.sessionPins'])
   })
 
   it('registers the three workspace slots and disposes them with the fiber', async () => {

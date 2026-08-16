@@ -49,7 +49,7 @@ const flagsOf = (snapshot: SessionPinsSnapshot): Readonly<Record<SessionId, { pi
 }
 
 /** Services required by the pinned-sessions client plugin. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'remote']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'remote', 'remote.sessionPins']
 
 /** Register the pinned section, row action, and search badge entries. */
 export function apply(ctx: ClientContext): void {
