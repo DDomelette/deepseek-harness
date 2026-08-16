@@ -11,6 +11,7 @@ import type { SessionEvent, SessionId, SessionHeader } from '@deepseek-ai/dsh-se
 import type { SessionPersistenceRevision } from './revision.ts'
 
 // Re-export the metadata vocabulary so Consumers import it from the Service Definition.
+export { SessionPersistenceNotFoundError } from './errors.ts'
 export type { SessionHeader } from '@deepseek-ai/dsh-session'
 export { SessionPersistenceRevision } from './revision.ts'
 
@@ -60,6 +61,14 @@ export type {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     sessionPersistence: SessionPersistence
+  }
+  interface Events {
+    /**
+     * One stored session log was permanently deleted.
+     * @mode emit
+     * @param event - the deleted session id.
+     */
+    'session-persistence/deleted'(event: { id: SessionId }): void
   }
 }
 
@@ -219,6 +228,14 @@ export abstract class SessionPersistence extends Service {
    */
   abstract readFrom(id: SessionId, fromSeq: number, signal?: AbortSignal):
   Promise<{ meta: SessionHeader; events: SessionEvent[] }>
+
+  /**
+   * Permanently delete one session's stored log, serialized with in-flight
+   * operations for the same id. An un-materialized create intent is cancelled;
+   * an unknown id rejects with {@link SessionPersistenceNotFoundError}.
+   * @param id - persisted session to delete.
+   */
+  abstract delete(id: SessionId): Promise<void>
 
   /**
    * Lightweight listing from metadata, without a full-log parse.

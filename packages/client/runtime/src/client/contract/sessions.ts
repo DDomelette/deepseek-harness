@@ -96,6 +96,17 @@ export interface ISessions {
    */
   fork(opts: { sessionId: SessionId; atSeq?: number; increaseTitle?: boolean }): Promise<SessionId>
   /**
+   * Permanently delete one session and its descendant subagent sessions on
+   * the host, then remove the returned ids from the list store.
+   * @param sessionId - archived target to delete recursively.
+   * @throws when the host refuses the deletion.
+   */
+  deleteSession(sessionId: SessionId): Promise<void>
+  /**
+   * Re-pull the full session.list baseline, reusing an in-flight pull.
+   */
+  refresh(): Promise<void>
+  /**
    * Register a per-session standard-props provider (hooks become `use<Name>`
    * selector hooks on the render side; props spread verbatim).
    * @param descriptor - static member roster plus per-session resolver.

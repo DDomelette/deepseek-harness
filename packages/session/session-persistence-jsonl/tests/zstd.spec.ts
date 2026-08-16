@@ -119,6 +119,7 @@ runPersistenceContract('jsonl-zstd', async () => {
   const fiber = await ctx.plugin(JsonlSessionPersistence, { root })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => {
       await fiber.dispose()
       await rm(root, { recursive: true, force: true })
@@ -693,6 +694,20 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       .rejects.toThrow(/first frame is not exactly one header line/)
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/header frame failed validation/)
   })
+})
+
+it('delete removes the configured .jsonl.zstd artifact', async () => {
+  const root = await freshRoot()
+  const ctx = await mount(root)
+  const m = meta('delete-file-zstd', '/work')
+  await ctx.sessionPersistence.create(m)
+  await ctx.sessionPersistence.append(m.id, oneTurnLog())
+  const location = ctx.sessionPersistence.locate(m)
+  if (location === undefined) throw new Error('JSONL backend must expose a location')
+  await stat(location.path)
+  await ctx.sessionPersistence.delete(m.id)
+  await expect(stat(location.path)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect((await ctx.sessionPersistence.list()).map(header => header.id)).not.toContain(m.id)
 })
 
 describe('JsonlSessionPersistence: encoding selection', () => {

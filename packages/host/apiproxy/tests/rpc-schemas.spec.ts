@@ -7,7 +7,8 @@ import {
 import { z } from 'zod'
 import {
   contentBlockSchema, sessionCancelRequestSchema, sessionCancelValueSchema, sessionCreateRequestSchema,
-  sessionCreateValueSchema, sessionEventSchema, sessionHistoryRequestSchema, sessionHistoryValueSchema,
+  sessionCreateValueSchema, sessionDeleteRequestSchema, sessionDeleteValueSchema,
+  sessionEventSchema, sessionHistoryRequestSchema, sessionHistoryValueSchema,
   sessionIdSchema, sessionListRequestSchema, sessionListValueSchema, sessionModelsRequestSchema,
   sessionModelsValueSchema, sessionPromptRequestSchema, sessionPromptValueSchema,
   sessionSearchRequestSchema, sessionSearchValueSchema, sessionSelectModelRequestSchema,
@@ -21,6 +22,7 @@ import {
 } from '../src/api/host.schema.ts'
 import {
   workspaceArchiveSessionRequestSchema, workspaceArchiveSessionValueSchema,
+  workspaceUnarchiveSessionRequestSchema, workspaceUnarchiveSessionValueSchema,
   workspaceCreateRequestSchema, workspaceCreateValueSchema, workspaceIdSchema,
   workspaceDeleteRequestSchema, workspaceDeleteValueSchema,
   workspaceInsertBeforeRequestSchema, workspaceInsertBeforeValueSchema,
@@ -366,6 +368,18 @@ describe('workspace domain schemas', () => {
     expect(workspaceArchiveSessionValueSchema.parse({ archivedSessionIds: ['s1', 's2'] }).archivedSessionIds)
       .toEqual(['s1', 's2'])
     expect(() => workspaceArchiveSessionValueSchema.parse({ archivedSessionIds: 's1' })).toThrow()
+  })
+
+  it('session.delete request/value carry recursive and deletedSessionIds', () => {
+    expect(sessionDeleteRequestSchema.parse({ sessionId: 's1', recursive: true }))
+      .toEqual({ sessionId: 's1', recursive: true })
+    expect(sessionDeleteRequestSchema.parse({ sessionId: 's1' }).recursive).toBeUndefined()
+    expect(sessionDeleteValueSchema.parse({ deletedSessionIds: ['s1'] }).deletedSessionIds).toEqual(['s1'])
+  })
+
+  it('workspace.unarchiveSession request/value carry the id and full set', () => {
+    expect(workspaceUnarchiveSessionRequestSchema.parse({ sessionId: 's1' }).sessionId).toBe('s1')
+    expect(workspaceUnarchiveSessionValueSchema.parse({ archivedSessionIds: [] }).archivedSessionIds).toEqual([])
   })
 
   it('insertSessionBefore accepts an anchored and an anchorless move', () => {

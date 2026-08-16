@@ -107,6 +107,7 @@ runPersistenceContract('jsonl-none', async () => {
   const fiber = await ctx.plugin(JsonlSessionPersistence, { root: dir, compression: 'none' })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => {
       await fiber.dispose()
       await rm(dir, { recursive: true, force: true })
@@ -777,6 +778,18 @@ describe('JsonlSessionPersistence: durability and crash semantics', () => {
     await walk(root)
     expect(all.length).toBeGreaterThan(0)
     expect(all.every(p => p.startsWith(root))).toBe(true)
+  })
+
+  it('delete removes the configured .jsonl artifact and its session from list', async () => {
+    const m = meta('delete-file', '/work')
+    await ctx.sessionPersistence.create(m)
+    await ctx.sessionPersistence.append(m.id, oneTurnLog())
+    const location = ctx.sessionPersistence.locate(m)
+    if (location === undefined) throw new Error('JSONL backend must expose a location')
+    await stat(location.path)
+    await ctx.sessionPersistence.delete(m.id)
+    await expect(stat(location.path)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect((await ctx.sessionPersistence.list()).map(header => header.id)).not.toContain(m.id)
   })
 })
 

@@ -118,6 +118,10 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  delete(id: SessionId): Promise<void> {
+    return this.coordinator.delete(id)
+  }
+
   // --- PersistenceBackend hooks (the Map storage primitives) ---
 
   // A Map-backed store has no torn tails, so `tornMarker` is never set.
@@ -151,6 +155,11 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
     }
   }
 
+  async deleteStored(id: SessionId, signal?: AbortSignal): Promise<boolean> {
+    signal?.throwIfAborted()
+    return this.store.delete(id)
+  }
+
   async commitRepair(m: SessionHeader, _tornMarker: undefined, closers: readonly SessionEvent[]): Promise<void> {
     // No torn tails in a Map store, so `_tornMarker` is always undefined; only the
     // synthetic closers are appended (the same DELETE+INSERT a DB backend does,
@@ -181,6 +190,7 @@ class ControlledBackend implements PersistenceBackend<never> {
   readonly store: MemoryStore = new Map()
   readonly lifecycle: string[] = []
   appendAttempts = 0
+  deleteAttempts = 0
   loadAttempts = 0
   repairAttempts = 0
   beforeAppend?: (attempt: number) => Promise<void>
@@ -191,6 +201,12 @@ class ControlledBackend implements PersistenceBackend<never> {
   loadStoredFrom(id: SessionId, fromSeq: number, signal?: AbortSignal): Promise<StoredSuffix | undefined> {
     if (this.seekHook === undefined) throw new Error('seekHook not configured for this test')
     return this.seekHook(id, fromSeq, signal)
+  }
+
+  async deleteStored(id: SessionId, signal?: AbortSignal): Promise<boolean> {
+    signal?.throwIfAborted()
+    this.deleteAttempts += 1
+    return this.store.delete(id)
   }
 
   async loadStored(id: SessionId, signal?: AbortSignal): Promise<StoredPrefix<never> | undefined> {
@@ -244,6 +260,7 @@ runPersistenceContract('memory', async () => {
   const fiber = await ctx.plugin(MemoryPersistence)
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => { await fiber.dispose() },
   }
 })

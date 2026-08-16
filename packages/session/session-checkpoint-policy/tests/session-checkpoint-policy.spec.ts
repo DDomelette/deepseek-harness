@@ -24,6 +24,9 @@ class TestPersistence extends SessionPersistence {
   inspect(_id: SessionId): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
     return Promise.reject(new Error('not used'))
   }
+  delete(_id: SessionId): Promise<void> {
+    return Promise.reject(new Error('delete is not supported by this test persistence'))
+  }
   readFrom(_id: SessionId, _fromSeq: number): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
     return Promise.reject(new Error('not used'))
   }
