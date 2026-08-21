@@ -4,11 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
+import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-skills/client'
 import { SkillsSection } from '../src/client/SkillsSection.tsx'
-
-usePinnedBrowserLanguages('zh-CN')
 
 async function bench(): Promise<{
   ctx: Context
@@ -20,6 +18,7 @@ async function bench(): Promise<{
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
+  locale.setLocale('zh')
   ctx.provide('locale', locale)
   new TestRemote(ctx)
   ctx.provide('connection', { api: {}, isLoopback: true } as never)

@@ -8,10 +8,11 @@ import type { ConversationSnapshot, UseProjection } from '@deepseek-ai/dsh-clien
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: merges the sessionStats key into SessionProjectionMap for useProjection.
 import type {} from '@deepseek-ai/dsh-session-stats/client'
-import type { ContextPressureProjection, TokenUsageProjection } from '@deepseek-ai/dsh-token-meter/client'
+import type { TokenUsageProjection } from '@deepseek-ai/dsh-token-meter/client'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { formatTokensPerSecond } from './message-chrome.ts'
-import { assistantStepReading } from './turn-metrics.ts'
+import { assistantStepReading } from '../turn-metrics.ts'
+import { formatTokens } from '../stats.ts'
 import css from './StatsLine.module.css'
 
 interface WindowStats {
@@ -77,19 +78,6 @@ export function deriveStats(nodes: ConversationSnapshot['nodes']): WindowStats {
 }
 
 /**
- * Compact token count: 517 / 12.2K / 517K / 1.2M (one decimal under three digits).
- * @param n - token count.
- * @returns display string.
- */
-export function formatTokens(n: number): string {
-  const scaled = (v: number): string =>
-    v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)
-  if (n < 1_000) return String(n)
-  if (n < 1_000_000) return `${scaled(n / 1_000)}K`
-  return `${scaled(n / 1_000_000)}M`
-}
-
-/**
  * Compact duration: 45.2s under a minute, 2m42s from there on.
  * @param ms - duration in milliseconds.
  * @returns display string.
@@ -101,16 +89,64 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(whole / 60)}m${whole % 60}s`
 }
 
+/** Round a cache-read ratio to an integer percentage, with positive ties rounded up. */
+function roundedIntegerPercent(cacheReadTokens: number, denominator: number): number {
+  const denominatorQuotient = Math.floor(denominator / 200)
+  const denominatorRemainder = denominator % 200
+  let lower = 0
+  let upper = 100
+  while (lower < upper) {
+    const candidate = Math.floor((lower + upper + 1) / 2)
+    const factor = candidate * 2 - 1
+    const threshold = factor * denominatorQuotient
+      + Math.ceil(factor * denominatorRemainder / 200)
+    if (cacheReadTokens >= threshold) {
+      lower = candidate
+    } else {
+      upper = candidate - 1
+    }
+  }
+  return lower
+}
+
 /**
- * Cache-hit share of prompt-side input over the whole durable log.
+ * Display-ready cache-hit share of prompt-side input over the whole durable log.
  * @param usage - the session's token-usage projection value.
- * @returns rounded integer percent, or null when no input was billed.
+ * @returns integer text when integer rounding stays below 100, otherwise the
+ * minimum decimal precision that still rounds below 100; a full hit returns
+ * 100, and no billed input returns null.
  */
-export function cacheHitPercent(usage: TokenUsageProjection): number | null {
+export function cacheHitPercent(usage: TokenUsageProjection): string | null {
   const denominator = billedInputTokens(usage)
-  return denominator === 0
-    ? null
-    : Math.round(usage.cacheReadTokens / denominator * 100)
+  if (denominator === 0) return null
+  const missedInputTokens = usage.uncachedInputTokens + usage.cacheWriteTokens
+  if (missedInputTokens === 0) return '100'
+
+  const integerPercent = roundedIntegerPercent(usage.cacheReadTokens, denominator)
+  if (integerPercent < 100) return String(integerPercent)
+
+  // At the first distinguishing precision, the rounded result is 100 minus
+  // one to five units in the final decimal place. Scale only while the next
+  // multiplication remains at or below the denominator, then derive that
+  // final digit through exact small-factor comparisons.
+  let decimalPlaces = 1
+  let scaledDoubleGap = missedInputTokens * 200
+  const denominatorTens = Math.floor(denominator / 10)
+  while (scaledDoubleGap <= denominatorTens) {
+    scaledDoubleGap *= 10
+    decimalPlaces += 1
+  }
+  const denominatorOnes = denominator % 10
+  let roundedLoss = 5
+  for (let loss = 1; loss < 5; loss += 1) {
+    const factor = loss * 2 + 1
+    const threshold = factor * denominatorTens + Math.floor(factor * denominatorOnes / 10)
+    if (scaledDoubleGap <= threshold) {
+      roundedLoss = loss
+      break
+    }
+  }
+  return `99.${'9'.repeat(decimalPlaces - 1)}${10 - roundedLoss}`
 }
 
 /**
@@ -120,36 +156,6 @@ export function cacheHitPercent(usage: TokenUsageProjection): number | null {
  */
 export function billedInputTokens(usage: TokenUsageProjection): number {
   return usage.uncachedInputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
-}
-
-interface ContextOccupancy {
-  percent: number
-  usedTokens: number
-  contextWindow: number
-}
-
-/**
- * Approximate context occupancy, using the TUI's integer rounding and upper
- * clamp. The numerator is `projectedTokens` — the provider sample carried
- * forward over the surface's movement since — so compaction shows immediately
- * instead of waiting for the next request to report usage; it falls back to the
- * bare sample only for a log whose projection predates that field. Numerator
- * and capacity remain independent last-wins projection fields, so this is a
- * reference figure rather than an exact measurement of one request (see the
- * token-meter README).
- * @param pressure - the session's context-pressure projection value.
- * @returns occupancy with its numerator and denominator, or null until both values are known.
- */
-export function contextOccupancy(
-  pressure: ContextPressureProjection | undefined,
-): ContextOccupancy | null {
-  const usedTokens = pressure?.projectedTokens ?? pressure?.pressureTokens
-  if (usedTokens === undefined || pressure?.contextWindow === undefined) return null
-  return {
-    percent: Math.min(100, Math.round(usedTokens / pressure.contextWindow * 100)),
-    usedTokens,
-    contextWindow: pressure.contextWindow,
-  }
 }
 
 /** Props: the conversation-snapshot selector plus the projection read seat. */

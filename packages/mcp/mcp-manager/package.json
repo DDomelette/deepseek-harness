@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-mcp-manager",
   "description": "Settings-driven MCP server manager: hot-mounts dsh-mcp-client instances from the mcp-servers namespace",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.1-rc.1",
   "publishConfig": {
     "access": "public"
   },

@@ -6,7 +6,7 @@
 
 ## 配置与组合
 
-`enabled` 控制服务是否订阅 `llm/stream`。随附的 Web 组合启用该包；部署可以替换该 Cordis 配置项，或设置标准的 `usage-telemetry` settings 区段。生成的[配置目录](../../../docs/config-catalog.md)列出了经验证的配置。
+`enabled` 控制服务是否订阅 `llm/stream`。随附的 Web 组合启用该包；部署可以替换该 Cordis 配置项，或设置标准的 `usage-telemetry` settings 区段。生成的[配置目录](../../../docs/config-catalog.zh.md)列出了经验证的配置。
 
 ```yaml
 - id: usage-telemetry
@@ -44,7 +44,7 @@ settings 提供方处于连接状态时覆盖组合值。它脱离后，服务�
 
 ## Replay token meter
 
-[replay token meter](../../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.md) 折叠持久化分片和会话事件以估算请求压力。它既不读取本地 usage JSONL，也不接收遥测行；usage telemetry 同样不读取或改变 replay token meter。因此，两种机制不会引入重复计数关系。
+[replay token meter](../../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.zh.md) 折叠持久化分片和会话事件以估算请求压力。它既不读取本地 usage JSONL，也不接收遥测行；usage telemetry 同样不读取或改变 replay token meter。因此，两种机制不会引入重复计数关系。
 
 ## Model Experience
 

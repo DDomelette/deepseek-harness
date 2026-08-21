@@ -22,7 +22,7 @@ v1 行包含 `v`、`time`、`sessionId`、可选 `cwd`、可选 `model` 和四�
 
 ## 与 replay token 计量的分工
 
-[replay token meter](../architecture/2026-07-15-replay-token-meter-service.md) 折叠持久化会话事件以估算当前模型可见请求，并且仅在请求信封仍匹配时复用成功调用的 usage 锚点。本地 usage telemetry 为外部消耗监控记录每次实时、带会话归属的模型调用的提供方 usage。它既不馈送也不回放 token meter，token meter 也不读取遥测文件。这种分离保持计量器的单次折叠记账，且不引入重复计数关系。
+[replay token meter](../architecture/2026-07-15-replay-token-meter-service.zh.md) 折叠持久化会话事件以估算当前模型可见请求，并且仅在请求信封仍匹配时复用成功调用的 usage 锚点。本地 usage telemetry 为外部消耗监控记录每次实时、带会话归属的模型调用的提供方 usage。它既不馈送也不回放 token meter，token meter 也不读取遥测文件。这种分离保持计量器的单次折叠记账，且不引入重复计数关系。
 
 ## 考虑过的替代方案
 

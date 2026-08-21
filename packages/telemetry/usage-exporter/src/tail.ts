@@ -8,6 +8,7 @@ import type { CursorStore } from './cursor-store.ts'
 
 const FILE_PATTERN = /^usage-\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\.jsonl$/
 
+/** Contiguous telemetry-file range ready for idempotent ingestion. */
 export interface UsageBatch {
   sourceId: string
   batchId: string
@@ -17,10 +18,19 @@ export interface UsageBatch {
   endOffset: number
 }
 
+/**
+ * Derive the stable idempotency id for one source file range.
+ * @param sourceId - Exporter source identity.
+ * @param file - Telemetry file represented by the range.
+ * @param startOffset - Inclusive byte offset.
+ * @param endOffset - Exclusive byte offset.
+ * @returns A SHA-256-prefixed batch identifier.
+ */
 export function batchIdFor(sourceId: string, file: string, startOffset: number, endOffset: number): string {
   return 'sha256:' + createHash('sha256').update([sourceId, file, String(startOffset), String(endOffset)].join('\0'), 'utf8').digest('hex')
 }
 
+/** Cursor-aware reader for ordered daily usage telemetry JSONL files. */
 export class UsageTailReader {
   /** First poll snapshots pre-existing files at EOF; files created later start at zero. */
   private initialized = false
@@ -35,6 +45,10 @@ export class UsageTailReader {
     logMalformed: (file: string, message: string) => void
   }) {}
 
+  /**
+   * Read the next bounded batch and advance past blank or malformed rows.
+   * @returns The next non-empty batch, or `undefined` when no data is ready.
+   */
   async nextBatch(): Promise<UsageBatch | undefined> {
     const { root, sourceId, cursorStore, startFrom, maxBatchBytes, maxBatchRows, logMalformed } = this.options
     const names = (await readdir(root)).filter(name => FILE_PATTERN.test(name)).sort()

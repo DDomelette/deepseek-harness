@@ -658,7 +658,7 @@ git commit -m "feat(mcp-manager): hot-mount supervisor over the mcp-servers name
 
 **Files:**
 - Create: `packages/mcp/mcp-manager/src/types.ts`
-- Create: `packages/mcp/mcp-manager/src/gateway.ts`
+- Create: `packages/mcp/mcp-manager/src/index.ts`
 - Modify: `packages/mcp/mcp-manager/src/index.ts`（default export gateway；参照 plugin-inventory `export default PluginInventoryGateway`）
 - Modify: `packages/mcp/mcp-manager/package.json`（加 `./typert`、`./remote` 导出与 `files` 条目、peer/dev 依赖 `@deepseek-ai/dsh-typert-protocol`、`@deepseek-ai/dsh-brand`）
 - Modify: `packages/mcp/mcp-manager/tsconfig.json`（references 加 `../../typert/protocol`、`../../util/brand`）

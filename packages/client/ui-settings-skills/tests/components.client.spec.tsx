@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RpcResponse, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
+import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { SkillsSection, type SkillsSectionInjected } from '../src/client/SkillsSection.tsx'
 import { SkillsSettingsStore } from '../src/client/store.ts'

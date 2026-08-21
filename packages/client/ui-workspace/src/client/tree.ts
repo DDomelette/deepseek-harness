@@ -6,9 +6,11 @@
 import {
   indexSubagentDescendants, type PendingInteractionStatus, type SessionId, type SessionListState,
   type SessionSearchResultItem, type SessionSummary, type SubagentDescendantSummary,
-  type WorkspaceId, type WorkspaceView,
+  type WorkspaceId, type WorkspaceListState, type WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
+
+/** One session's presentation flags from the runtime workspace mirror. */
+export type SessionFlags = NonNullable<WorkspaceListState['sessionFlags']>[SessionId]
 
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''

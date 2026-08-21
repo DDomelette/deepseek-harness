@@ -8,11 +8,11 @@ English | [中文](2026-07-28-themed-scrollbars-and-reserved-gutter.zh.md)
 
 `design-platform.css` declares four `--dsw-alias-scrollbar-*` tokens (`bg-l1`, `bg-l2`, `hover-l1`, `hover-l2`) in both palettes, and no rule anywhere in the client read them. A defined token with no consumer is not a theme: every scrolling region rendered the user agent's own scrollbar, which knows nothing about the palette, so the dark theme showed a light native bar against dark surfaces.
 
-The visible symptom that surfaced the gap was elsewhere. The workspace browser's session list (`.list` in `WorkspaceBrowser.module.css`) is the sidebar's only scrolling region, and each row's trailing content sits flush against the row's 8px right padding — `.time` in `rows/Rows.module.css` is `flex: none`, as are the action buttons that replace it on hover. An overlaid scrollbar therefore painted on top of the relative timestamp. Reserving space in that one list would have left the bar itself unthemed, so the two halves are one change.
+The visible symptom that surfaced the gap was elsewhere. The workspace browser's session list (`.list` in `WorkspaceBrowser.module.css`) is the sidebar's only scrolling region, and each row's trailing content sits flush against the row's 8px right padding — `.time` in `src/client/Rows.module.css` is `flex: none`, as are the action buttons that replace it on hover. An overlaid scrollbar therefore painted on top of the relative timestamp. Reserving space in that one list would have left the bar itself unthemed, so the two halves are one change.
 
 ## Decision
 
-`packages/client/ui-theme/src/styles/scrollbar.css` is the sole consumer of the four tokens, and the fifth ui-theme sheet in the shell's import chain (`packages/client/web/src/base.css`). It follows `design-platform.css` there because it reads that sheet's tokens.
+`packages/client/ui-theme/src/styles/scrollbar.css` is the sole consumer of the four tokens and the third global sheet imported by ui-theme's dynamic client entry. It follows `design-platform.css` there because it reads that sheet's tokens; both compile into ui-theme's plugin-owned client bundle.
 
 The rules sit on `body`, not `html`. `design-platform.css` declares the `--dsw-alias-*` tokens on `body`, with the dark overrides on `body[data-ds-dark-theme]`, and custom properties inherit only downward; an `html` rule resolves them to the guaranteed-invalid value, at which point `scrollbar-color` computes to `auto` and no theming happens at all.
 

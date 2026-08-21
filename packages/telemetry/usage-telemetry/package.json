@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-usage-telemetry",
   "description": "Usage telemetry: appends one JSONL row for each session-attributed llm/stream invocation that reports provider usage",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.1-rc.1",
   "publishConfig": {
     "access": "public"
   },

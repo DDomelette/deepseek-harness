@@ -4,11 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-archived/client'
 import { ArchivedSection } from '../src/client/ArchivedSection.tsx'
-
-usePinnedBrowserLanguages('zh-CN')
 
 function declare(slots: SlotRegistry): void {
   slots.register({
@@ -32,6 +29,7 @@ async function bench(): Promise<{
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
+  locale.setLocale('zh')
   ctx.provide('locale', locale)
   const sessions = {
     open: vi.fn(),

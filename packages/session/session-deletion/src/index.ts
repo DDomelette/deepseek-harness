@@ -14,11 +14,13 @@ import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type {} from '@deepseek-ai/dsh-workspace'
 import { deletionDomainSpec, type DeletionPlanRecord } from './spec.ts'
 
+/** Closed failure codes callers can map to transport-specific errors. */
 export type SessionDeletionErrorCode =
   | 'session-not-found'
   | 'session-running'
   | 'session-has-descendants'
 
+/** Domain error raised when a requested session deletion cannot start. */
 export class SessionDeletionError extends Error {
   constructor(
     readonly code: SessionDeletionErrorCode,
@@ -30,11 +32,13 @@ export class SessionDeletionError extends Error {
   }
 }
 
+/** Target and descendant policy for one deletion request. */
 export interface SessionDeletionInput {
   readonly sessionId: SessionId
   readonly recursive: boolean
 }
 
+/** Sessions permanently removed by one completed deletion plan. */
 export interface SessionDeletionResult {
   readonly deletedSessionIds: SessionId[]
 }

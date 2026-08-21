@@ -25,4 +25,21 @@ The plugin registers `settings.section` entry `archived` at order 40. The page d
 
 ## Model Experience
 
-No model tokens, tools, or prompts; the plugin is user-visible Web UI only.
+### Request context and condition
+
+#### What the model sees
+
+No model-facing surface from this package. The plugin renders the archived-conversations `settings.section` entry only and registers no tools, prompts, or session events.
+
+#### Token effect
+
+Zero direct tokens.
+
+#### KV Cache effect
+
+Independent of live requests.
+
+## Known Limitations and Deferred Work
+
+- **Archive dates are not reconstructed for older records** — sessions archived before archive-time metadata show the unknown-time placeholder.
+- **The inventory shares the existing session baseline** — the page has no independent archived-session search or pagination RPC.

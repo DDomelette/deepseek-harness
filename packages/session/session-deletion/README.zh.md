@@ -31,9 +31,21 @@ DeepSeek Harness 的递归会话删除编排插件。
 
 ## 模型体验
 
-该插件不注册工具、不注入提示词，也不写入会话事件。
+### 请求上下文与条件
 
-## 限制
+#### What the model sees
+
+本包没有模型可见界面。`ctx.sessionDeletion` 服务不注册工具、不注入提示词，也不写入会话事件。
+
+#### Token 效果
+
+零直接 token。
+
+#### KV Cache 效果
+
+与实时请求无关。
+
+## 已知限制与暂缓事项
 
 - 该服务不会取消运行中的会话；调用方需先取消。
 - 仅当未挂载 `workspaceRegistry` 时才跳过 workspace 清理。

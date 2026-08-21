@@ -10,6 +10,12 @@ import { BatchSender } from './sender.ts'
 import { UsageTailReader } from './tail.ts'
 import type { Config } from './index.ts'
 
+/**
+ * Register the polling, retry, heartbeat, and shutdown work for one exporter.
+ * @param ctx - Plugin context that owns timers, logging, and disposal.
+ * @param config - Validated endpoint, cursor, batching, and retry settings.
+ * @returns A promise that settles after initial exporter setup completes.
+ */
 export async function runExporter(ctx: Context, config: Config): Promise<void> {
   const sourceId = config.sourceId.length > 0 ? config.sourceId : defaultSourceId()
   const root = config.telemetryRoot ?? join(resolveDshHome(), 'telemetry')
@@ -66,6 +72,11 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
   tick()
 }
 
+/**
+ * Derive the stable Monitor root id for one normalized telemetry directory.
+ * @param root - Telemetry directory represented by the id.
+ * @returns A `root:` identifier containing the normalized path's SHA-256 digest.
+ */
 export function rootIdFor(root: string): string {
   let canonical = resolve(root)
   if (process.platform === 'win32') canonical = canonical.replaceAll('\\', '/').toLowerCase()

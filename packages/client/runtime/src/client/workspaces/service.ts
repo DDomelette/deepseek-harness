@@ -9,36 +9,8 @@ import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { SnapshotStore } from '../contract/store.ts'
 import { createSnapshotStore } from '../contract/store.ts'
 import type { SessionsPort, SessionsPortList } from '../contract/sessions-port.ts'
-import type { IWorkspaces } from '../contract/workspaces.ts'
-import { WorkspaceManager, type WorkspaceListPhase } from './manager.ts'
-
-/** Workspace list plus the two-baseline readiness and default-target projection. */
-export interface WorkspaceListState {
-  items: readonly WorkspaceView[]
-  /**
-   * Registry-global archive set in Host order: grouping surfaces hide these
-   * sessions everywhere (workspace groups and the ungrouped bucket) while
-   * their session logs and workspace accounting slots remain. A plain array
-   * (store-engine vocabulary; immer drafts reject Sets) — membership lookups
-   * build their own transient Set.
-   */
-  archivedSessionIds: readonly SessionId[]
-  /**
-   * ISO-8601 archive instants keyed by session id, key-equal to
-   * `archivedSessionIds`; sessions archived before the Host recorded times
-   * carry no entry.
-   */
-  archivedSessionAts: Readonly<Record<SessionId, string>>
-  /** Generic session flags merged from host providers; absent for pre-baseline or legacy test fixtures. */
-  sessionFlags?: Readonly<Record<SessionId, SessionFlags>>
-  state: 'idle' | 'loading' | 'error'
-  phase: WorkspaceListPhase
-  error: RpcError | null
-  /** True only after both workspace.list and session.list have succeeded. */
-  baselinesReady: boolean
-  /** Most recently active Workspace, derived without changing `items` order. */
-  recentWorkspaceId: WorkspaceId | undefined
-}
+import type { IWorkspaces, WorkspaceListState } from '../contract/workspaces.ts'
+import { WorkspaceManager } from './manager.ts'
 
 /** Structured create failure for UI flows that distinguish Host business errors. */
 export class WorkspaceCreateError extends Error {
@@ -62,7 +34,7 @@ export class WorkspaceRuntime implements IWorkspaces {
   readonly list: SnapshotStore<WorkspaceListState>
   /** Workspace baseline and frame owner. */
   private readonly manager: WorkspaceManager
-  /** In-flight blank-session creates keyed by workspace (connectWorkspace coalescing). */
+  /** In-flight blank-session connects keyed by workspace (reuse or create). */
   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
   /** Guards the runtime-owned one-shot initial-selection subscription. */
   private initialSelectionStarted = false
@@ -85,9 +57,11 @@ export class WorkspaceRuntime implements IWorkspaces {
 
   /**
    * Resolve the session a New Session flow lands in once this Workspace is
-   * chosen: reuse the workspace's existing blank session when one is in the
-   * list mirror, else create a fresh one on the host (`session.create` births
-   * the full Session+Agent — the client holds no intermediate state). The
+   * chosen: explicitly adopt the workspace's existing blank session when one
+   * is in the list mirror, else create a fresh one on the host
+   * (`session.create` births or resumes the full Session+Agent — the client
+   * holds no intermediate state). The adoption tells optional default owners
+   * that this exact session passed the reuse checks.
    * caller owns navigation: take the returned id to `sessions.open`.
    * Resolution guarantee (both arms): the returned id is already in the list
    * store and `sessions.binding(id)` resolves synchronously — draft hand-off
@@ -116,7 +90,13 @@ export class WorkspaceRuntime implements IWorkspaces {
       const summary = sessions.byId[id]
       if (summary !== undefined && summary.blank && summary.cwd === workspace.path
         && workspace.sessionIds.includes(summary.id)
-        && !archived.includes(summary.id)) return summary.id
+        && !archived.includes(summary.id)) {
+        return this.sessions.create({
+          workspaceId,
+          sessionId: summary.id,
+          reuseWorkspaceBlank: true,
+        })
+      }
     }
     const attempt = this.sessions.create({ workspaceId })
       .finally(() => { this.connecting.delete(workspaceId) })

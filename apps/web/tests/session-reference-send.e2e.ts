@@ -1,8 +1,7 @@
 // Web e2e scenario: the complete session-reference send chain. The browser
 // inserts a chip, the submit serializes the canonical mention, the prompt RPC
-// carries it unchanged, host admission prepares the snapshot, and the model
-// request (replayed keylessly) consumes the snapshot immediately before the
-// readable direct message.
+// carries it unchanged, host admission records the readable direct message,
+// and the model request (replayed keylessly) consumes its recall snapshot.
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -97,13 +96,14 @@ describe('web e2e: session-reference chip to model request', () => {
     if (replayDir !== undefined) await rm(replayDir, { recursive: true, force: true })
   })
 
-  it('submits a picked session and sends snapshot then readable direct message', async () => {
+  it('submits a picked session and records the direct message before its recall snapshot', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-session-reference-send'))
 
     const listing = await scaffold.ctx.apiProxy.sessions.list({
       rpcId: 'web-session-reference-send-list' as never,
       payload: {},
     })
+    if (!listing.result.ok) throw new Error(`session.list failed: ${listing.result.error.message}`)
     const items = listing.result.value.items
     const currentIndex = items.findIndex(item => item.sessionId === CURRENT_ID)
     expect(currentIndex).toBeGreaterThanOrEqual(0)
@@ -116,14 +116,13 @@ describe('web e2e: session-reference chip to model request', () => {
 
     const composer = page.locator('textarea:enabled').last()
     await composer.click()
-    await composer.type('@')
+    await composer.pressSequentially('@')
     const menu = page.locator('[role="listbox"]')
     await menu.waitFor({ timeout: 10_000 })
-    await page.getByText('Sessions', { exact: true }).waitFor({ timeout: 5_000 })
-    const options = page.locator('[id^="dsh-slash-option-session-"]')
-    await expect.poll(() => options.count()).toBe(1)
-    await options.first().click()
-    await composer.type(' 请继续')
+    const option = menu.getByRole('option', { name: /Session · Handoff send/ })
+    await option.waitFor({ timeout: 5_000 })
+    await option.click()
+    await composer.pressSequentially(' 请继续')
     const promptRequest = page.waitForRequest(request =>
       request.method() === 'POST' && new URL(request.url()).pathname === '/api/session.prompt')
     await composer.press('Enter')
@@ -142,7 +141,7 @@ describe('web e2e: session-reference chip to model request', () => {
     const snapshotIndex = userMessages.findIndex(message => message.source.kind === 'session-reference')
     const directIndex = userMessages.findLastIndex(message => message.source.kind === 'user')
     expect(snapshotIndex).toBeGreaterThanOrEqual(0)
-    expect(directIndex).toBe(snapshotIndex + 1)
+    expect(snapshotIndex).toBe(directIndex + 1)
     const directText = userMessages[directIndex]!.content
       .flatMap(block => block.type === 'text' ? [block.text] : [])
       .join('\n')

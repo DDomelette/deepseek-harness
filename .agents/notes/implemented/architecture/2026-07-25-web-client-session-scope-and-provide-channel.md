@@ -1,4 +1,4 @@
-# Agent Note: Web client Agent-scope parity model and the provisioning channel (agents/scope / blank reuse / provide)
+# Agent Note: Web client Agent-scope parity model and the provisioning channel (`runtime/src/client/agent-scope.ts` / blank reuse / provide)
 
 Status: implemented
 
@@ -30,7 +30,7 @@ Host-side `session.create(workspaceId)` produces Session + Agent + cwd in one pi
 
 ### Agent scope: the actx is the sole session carrier in the client-side cordis world
 
-The runtime's `agents/scope.ts` matches the host's `dsh-scope` at the mechanism layer (fiber + tag + filter; no value import: the host package carries the scoped-events `Events` merge, which would collide with the Context merge inside the client program):
+`runtime/src/client/agent-scope.ts` matches the host's `dsh-scope` at the mechanism layer (fiber + tag + filter; no value import: the host package carries the scoped-events `Events` merge, which would collide with the Context merge inside the client program):
 
 - `createScope(ctx, key)`: a no-op plugin fiber plus `extend({[kScope]: key, [Context.filter]: …})` — the filter lives directly on the actx: untagged listeners receive globally, tagged ones receive only their own scope.
 - Dispatch is the cordis primitives with thisArg = the actx itself: `actx.bail(actx, event, req)` / `actx.emit(actx, event, payload)`.
@@ -85,7 +85,7 @@ A session "materialized but with no first prompt" is governed by the summary-der
 
 ### Per-session provisioning: the `sessions.provide` standard-kit channel
 
-The sole provisioning path by which session slot components fetch their own session data. Plugins declare a fixed key map through the static descriptor `sessions.provide({hooks, props, resolve})` (a duplicate key throws at registration); `resolve(binding)` materializes values for a specific session and tears them down with the scope. Web-react's `standardKit` single loop binds the hooks compartment into `use<Name>` selector hooks (`observableHook`→uSES, anti-tearing) and passes the props compartment through as-is.
+The sole provisioning path by which session slot components fetch their own session data. Plugins declare a fixed key map through the static descriptor `sessions.provide({hooks, props, resolve})` (a duplicate key throws at registration); `resolve(binding)` materializes values for a specific session and tears them down with the scope. ui-renderer's `standardKit` single loop binds the hooks compartment into `use<Name>` selector hooks (`observableHook`→uSES, anti-tearing) and passes the props compartment through as-is.
 
 Slot scope is the closed set `root | session-maybe | session`:
 

@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-pinned-sessions",
   "description": "Pinned-sessions sidebar section and row actions for the DeepSeek Harness",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.1-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -52,18 +52,15 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-primitives": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
     "@deepseek-ai/dsh-session-pins": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
-    "react": "^18.2.0"
+    "@deepseek-ai/dsh-client-locale": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-client-locale": "workspace:^",
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
-    "@deepseek-ai/dsh-client-test-runtime": "workspace:^",
     "@deepseek-ai/dsh-client-ui-primitives": "workspace:^",
     "@deepseek-ai/dsh-client-ui-slots": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",

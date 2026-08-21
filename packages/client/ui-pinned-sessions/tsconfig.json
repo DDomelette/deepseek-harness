@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../api/remotes/tsconfig.client.json"
+    },
+    {
       "path": "../locale"
     },
     {
@@ -25,6 +28,9 @@
     },
     {
       "path": "../../runtime-diagnostics/invariants"
+    },
+    {
+      "path": "../../session/session-pins"
     },
     {
       "path": "../../../vendor/cordis"

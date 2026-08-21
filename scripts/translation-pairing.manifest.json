@@ -7,11 +7,6 @@
     "docs/cordis-api/inherited.md",
     "docs/i18n/style-samples.md",
     "docs/i18n/terminology.md",
-    "docs/i18n/translation-prompt.md",
-    "docs/superpowers/plans/2026-08-16-archived-sessions-settings.md",
-    "docs/superpowers/plans/2026-08-16-web-session-references.md",
-    "docs/superpowers/specs/2026-08-16-archived-sessions-settings-design.zh.md",
-    "docs/superpowers/specs/2026-08-16-pinned-sessions-design.md",
-    "docs/superpowers/specs/2026-08-16-web-session-references-design.md"
+    "docs/i18n/translation-prompt.md"
   ]
 }

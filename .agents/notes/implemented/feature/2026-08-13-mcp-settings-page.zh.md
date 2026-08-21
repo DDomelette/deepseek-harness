@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台服务器一行 `@deepseek-ai/dsh-mcp-client`，见 [mcp-client Agent Note](2026-07-07-mcp-client-plugin.md)。Web 用户若不编辑配置文件并热重载，就无法新增、停用、编辑或删除服务器。设置对话框的「插件」分区没有 MCP 页面。
+MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台服务器一行 `@deepseek-ai/dsh-mcp-client`，见 [mcp-client Agent Note](2026-07-07-mcp-client-plugin.zh.md)。Web 用户若不编辑配置文件并热重载，就无法新增、停用、编辑或删除服务器。设置对话框的「插件」分区没有 MCP 页面。
 
 ## Decision
 
@@ -54,7 +54,7 @@ gateway 只上报挂载生命周期（connecting → ready/failed），不上报
 - 添加与编辑表单暴露由 `dsh-mcp-client` 校验的完整自动重连策略。
 - 已打开的标签页无需重新挂载浏览器组件，即可收敛到 Host 生命周期变化与连接重置后的状态。
 - 留空的 secret 字段表示「保持已存值」；从 UI 清空全部 env/headers 有意不支持——删除后重新添加即可从无 secret 状态开始。
-- 状态点上报生命周期而非存活；崩溃循环的服务器在 `dsh-mcp-client` 重试期间持续显示「运行中」，见 [重连 Agent Note](2026-08-06-mcp-client-auto-reconnect.md)。
+- 状态点上报生命周期而非存活；崩溃循环的服务器在 `dsh-mcp-client` 重试期间持续显示「运行中」，见 [重连 Agent Note](2026-08-06-mcp-client-auto-reconnect.zh.md)。
 - 不提供改名：字典键即名称，改名等于删除加新增。
 
 ## Testing

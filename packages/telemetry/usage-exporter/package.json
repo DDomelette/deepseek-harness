@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-usage-exporter",
   "description": "Usage exporter: tails the local usage telemetry JSONL and pushes deterministic batches over HTTP",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.1-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -32,8 +32,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:^",
-    "zod": "^4.4.3"
+    "@deepseek-ai/schemastery": "workspace:^"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",

@@ -30,4 +30,4 @@ Sidebar workspace 浏览区的会话行菜单里，「Delete session」一直是
 
 ## 后果
 
-已归档设置页（settings 板块 `archived`）是查看、详情、恢复与删除的入口；[详情对话框笔记](2026-08-21-archived-details-and-archive-times.md)在此集合之上扩展了它展示的归档时刻。`workspace.list` 响应形状变化是 pre-release 直改（无兼容层）。e2e（workspace-management）钉住了「归档→行消失→reload 后仍隐藏、日志仍在」的全链路；domain 层测试钉住幂等、未知 id 拒绝、跨重启恢复与旧介质默认升级。
+已归档设置页（settings 板块 `archived`）是查看、详情、恢复与删除的入口；[详情对话框笔记](2026-08-21-archived-details-and-archive-times.zh.md)在此集合之上扩展了它展示的归档时刻。`workspace.list` 响应形状变化是 pre-release 直改（无兼容层）。e2e（workspace-management）钉住了「归档→行消失→reload 后仍隐藏、日志仍在」的全链路；domain 层测试钉住幂等、未知 id 拒绝、跨重启恢复与旧介质默认升级。

@@ -1,13 +1,12 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentFactory } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionHeader } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
+import type { Session, SessionHeader } from '@deepseek-ai/dsh-session'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import UserQuestionService from '@deepseek-ai/dsh-user-questions'
@@ -71,6 +70,7 @@ async function harness(
     sessionDeletion?: {
       delete(input: { sessionId: SessionId; recursive: boolean }): Promise<{ deletedSessionIds: SessionId[] }>
     }
+    refreshDefaultForReuse?: (session: Session) => void
   } = {},
 ) {
   const ctx = new Context()
@@ -110,6 +110,11 @@ async function harness(
   // Structural picker fake: the gateway only reads capability(); a stable
   // object per harness mirrors the seam's stability contract.
   ctx.provide('directoryPicker', { capability: () => picker } as never)
+  if (extras.refreshDefaultForReuse !== undefined) {
+    ctx.provide('permissionPresets', {
+      refreshDefaultForReuse: extras.refreshDefaultForReuse,
+    } as never)
+  }
   const api = createApiProxy(ctx, {
     defaultModelSelection: () => ({ provider: 'test', model: 'test-model' }),
     cwd: root,
@@ -242,6 +247,7 @@ describe('host.openPath', () => {
     const headless = await harness(undefined, undefined, { canOpenPath: () => false })
     expect(expectOk(await visible.api.host.describe(request({}))).canOpenPath).toBe(true)
     expect(expectOk(await headless.api.host.describe(request({}))).canOpenPath).toBe(false)
+    expect(expectOk(await visible.api.host.describe(request({}))).home).toBe(homedir())
   })
 
   it('opens through the injected native boundary', async () => {
@@ -372,6 +378,63 @@ describe('workspace.insertBefore', () => {
 })
 
 describe('session creation and Workspace membership', () => {
+  it('notifies the permission owner only while the confirmed reuse target remains eligible', async () => {
+    const refreshDefaultForReuse = vi.fn<(session: Session) => void>()
+    const { api, ctx, root } = await harness(undefined, undefined, { refreshDefaultForReuse })
+    const workspace = expectOk(await api.workspace.create(request({
+      path: stageDir(root, 'permission-refresh'),
+    }))).workspace
+    const reusedId = SessionId('session-reused-blank')
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: reusedId,
+    })))
+    expect(refreshDefaultForReuse).not.toHaveBeenCalled()
+
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: reusedId,
+      reuseWorkspaceBlank: true,
+    })))
+    expect(refreshDefaultForReuse).toHaveBeenCalledOnce()
+    expect(refreshDefaultForReuse.mock.calls[0]?.[0].id).toBe(reusedId)
+
+    const reused = ctx.sessions.get(reusedId)
+    if (reused === undefined) throw new Error('reused session was not published')
+    reused.append('turn/start', { turn: 1 })
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: reusedId,
+      reuseWorkspaceBlank: true,
+    })))
+    expect(refreshDefaultForReuse).toHaveBeenCalledOnce()
+
+    const archivedId = SessionId('session-archived-blank')
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: archivedId,
+    })))
+    expectOk(await api.workspace.archiveSession(request({ sessionId: archivedId })))
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: archivedId,
+      reuseWorkspaceBlank: true,
+    })))
+    expect(refreshDefaultForReuse).toHaveBeenCalledOnce()
+
+    const nonMemberId = SessionId('session-non-member-blank')
+    expectOk(await api.sessions.create(request({
+      cwd: workspace.path,
+      sessionId: nonMemberId,
+    })))
+    expectOk(await api.sessions.create(request({
+      workspaceId: workspace.workspaceId,
+      sessionId: nonMemberId,
+      reuseWorkspaceBlank: true,
+    })))
+    expect(refreshDefaultForReuse).toHaveBeenCalledOnce()
+  })
+
   it('attaches a preallocated idempotent session while cwd-only sessions stay ungrouped', async () => {
     const { api, ctx, root } = await harness()
     const workspace = expectOk(await api.workspace.create(request({ path: stageDir(root, 'project') }))).workspace
@@ -616,6 +679,31 @@ describe('session.delete and workspace.unarchiveSession', () => {
       ok: false,
       error: { code: 'session-deletion-unavailable', details: {} },
     })
+  })
+
+  it('maps session-not-found to its wire code and addressed session id', async () => {
+    const missing = new SessionDeletionError('session-not-found', 'missing')
+    const { api } = await harness(undefined, undefined, {
+      sessionDeletion: { delete: vi.fn(async () => { throw missing }) },
+    })
+    const response = await api.sessions.delete(request({ sessionId: SessionId('s-missing'), recursive: true }))
+    expect(response.result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'session-not-found',
+        message: 'missing',
+        details: { sessionId: 's-missing' },
+      },
+    })
+  })
+
+  it('rethrows non-deletion failures unchanged', async () => {
+    const failure = new Error('delete backend failed')
+    const { api } = await harness(undefined, undefined, {
+      sessionDeletion: { delete: vi.fn(async () => { throw failure }) },
+    })
+    await expect(api.sessions.delete(request({ sessionId: SessionId('s-root'), recursive: true })))
+      .rejects.toBe(failure)
   })
 
   it('maps session-running and session-has-descendants to their wire codes', async () => {

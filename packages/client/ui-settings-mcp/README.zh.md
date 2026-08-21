@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个本地化的 `settings.plugins.tab` 贡献，id 为 `mcp`（order 5，位于插件配置与插件列表之间）；「插件」分区拥有导航入口与标签栏。选中该标签页时，通过 [`api-remotes`](../../api/remotes/README.md) 懒调用 `ctx.remote.mcpServers.list()`，并通过 `ctx.settingsScope` 绑定 `mcp-servers` 设置命名空间（见 [`ui-settings`](../ui-settings/README.md)）。
+Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个本地化的 `settings.plugins.tab` 贡献，id 为 `mcp`（order 5，位于插件配置与插件列表之间）；「插件」分区拥有导航入口与标签栏。选中该标签页时，通过 [`api-remotes`](../../api/remotes/README.zh.md) 懒调用 `ctx.remote.mcpServers.list()`，并通过 `ctx.settingsScope` 绑定 `mcp-servers` 设置命名空间（见 [`ui-settings`](../ui-settings/README.zh.md)）。
 
-该标签页以可搜索的列表展示 Host 端 [`mcp-manager`](../../mcp/mcp-manager/README.md) 上报的全部 MCP 服务器。settings 管理的行带有启停开关，只通过深层路径 op 写 `enabled` 这一个叶子；随后重新读取列表，因为挂载生命周期是异步结算的。已启用的 settings 行以彩色圆点报告挂载生命周期（`connecting` / `ready` / `failed`），启动失败的行在标题下方展示失败摘要；挂载完成并不等于已验证的存活连接，文案不会如此声称。声明式行（在 cordis.yml 中声明的服务器）只读：展示「由配置文件管理」徽标与启停标签，其开关与齿轮保持禁用。
+该标签页以可搜索的列表展示 Host 端 [`mcp-manager`](../../mcp/mcp-manager/README.zh.md) 上报的全部 MCP 服务器。settings 管理的行带有启停开关，只通过深层路径 op 写 `enabled` 这一个叶子；随后重新读取列表，因为挂载生命周期是异步结算的。已启用的 settings 行以彩色圆点报告挂载生命周期（`connecting` / `ready` / `failed`），启动失败的行在标题下方展示失败摘要；挂载完成并不等于已验证的存活连接，文案不会如此声称。声明式行（在 cordis.yml 中声明的服务器）只读：展示「由配置文件管理」徽标与启停标签，其开关与齿轮保持禁用。
 
 圆角方形「+」按钮打开添加表单：名称、传输方式选择器、对应传输的字段（stdio 的命令/参数/环境变量/工作目录，或 http 的 URL/请求头）、单次调用超时，以及自动重连策略。校验随每次输入即时进行——serverName 模式、与现存名单的重名、缺失端点、超时、重连延迟与尝试次数、`KEY=VALUE` 行格式——草稿无效时保存按钮保持禁用。参数按行与逗号拆分；环境变量与请求头按 `KEY=VALUE`（或请求头习惯的 `KEY: VALUE`）行解析，并通过一次整条目写入保存，表单里刚输入的 secret 随之落盘。
 

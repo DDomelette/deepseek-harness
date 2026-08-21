@@ -7,6 +7,7 @@
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
 
+/** Archived session data displayed in one settings row. */
 export interface ArchivedRow {
   readonly id: SessionId
   readonly title: string
@@ -24,14 +25,22 @@ export interface ArchivedRow {
   readonly archivedAt?: string
 }
 
+/** Archived sessions collected under one workspace or the ungrouped section. */
 export interface ArchivedGroup {
   readonly key: string
   readonly title: string
   readonly rows: readonly ArchivedRow[]
 }
 
+/** Stable key for archived sessions that belong to no listed workspace. */
 export const UNGROUPED_KEY = 'ungrouped'
 
+/**
+ * Project archived sessions into workspace-ordered settings groups.
+ * @param sessions - Current session summaries keyed by session id.
+ * @param workspaces - Current workspace order, membership, and archive metadata.
+ * @returns Non-empty workspace groups followed by the optional ungrouped section.
+ */
 export function deriveArchivedGroups(
   sessions: SessionListState,
   workspaces: WorkspaceListState,
@@ -72,7 +81,12 @@ export function deriveArchivedGroups(
 }
 
 
-/** Count descendants below one session, stopping on lineage cycles. */
+/**
+ * Count descendants below one session, stopping on lineage cycles.
+ * @param sessions - Current session summaries and parent relationships.
+ * @param rootId - Session whose descendants are counted.
+ * @returns The number of distinct descendants reachable from the root.
+ */
 export function countDescendants(sessions: SessionListState, rootId: SessionId): number {
   const children = new Map<string, string[]>()
   for (const row of Object.values(sessions.byId)) {

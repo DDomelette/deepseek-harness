@@ -31,9 +31,21 @@ The service requires `storageDomain` and stores one `session_deletion` plan per 
 
 ## Model Experience
 
-The plugin registers no tools, injects no prompts, and writes no session events.
+### Request context and condition
 
-## Limitations
+#### What the model sees
+
+No model-facing surface from this package. The `ctx.sessionDeletion` service registers no tools, injects no prompts, and writes no session events.
+
+#### Token effect
+
+Zero direct tokens.
+
+#### KV Cache effect
+
+Independent of live requests.
+
+## Known Limitations and Deferred Work
 
 - The service never cancels running sessions; callers cancel first.
 - Workspace cleanup is skipped only when no `workspaceRegistry` is mounted.

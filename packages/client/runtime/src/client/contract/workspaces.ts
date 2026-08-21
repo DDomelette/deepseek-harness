@@ -6,10 +6,42 @@
  * the concrete class. Widening this interface is the explicit act of
  * widening what features may do to the workspaces domain.
  */
-import type { DirectoryListing, SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  DirectoryListing, RpcError, SessionId, WorkspaceId, WorkspaceView,
+} from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionFlags } from '@deepseek-ai/dsh-host-apiproxy/api'
-import type { WorkspaceListState } from '../workspaces/service.ts'
 import type { ObservableSnapshot } from './store.ts'
+
+/** Monotone workspace-list arrival lifecycle. */
+export type WorkspaceListPhase = 'pending' | 'ready'
+
+/** Workspace list plus the two-baseline readiness and default-target projection. */
+export interface WorkspaceListState {
+  items: readonly WorkspaceView[]
+  /**
+   * Registry-global archive set in Host order: grouping surfaces hide these
+   * sessions everywhere (workspace groups and the ungrouped bucket) while
+   * their session logs and workspace accounting slots remain. A plain array
+   * (store-engine vocabulary; immer drafts reject Sets) — membership lookups
+   * build their own transient Set.
+   */
+  archivedSessionIds: readonly SessionId[]
+  /**
+   * ISO-8601 archive instants keyed by session id, key-equal to
+   * `archivedSessionIds`; sessions archived before the Host recorded times
+   * carry no entry.
+   */
+  archivedSessionAts: Readonly<Record<SessionId, string>>
+  /** Generic session flags merged from host providers; absent for pre-baseline or legacy test fixtures. */
+  sessionFlags?: Readonly<Record<SessionId, SessionFlags>>
+  state: 'idle' | 'loading' | 'error'
+  phase: WorkspaceListPhase
+  error: RpcError | null
+  /** True only after both workspace.list and session.list have succeeded. */
+  baselinesReady: boolean
+  /** Most recently active Workspace, derived without changing `items` order. */
+  recentWorkspaceId: WorkspaceId | undefined
+}
 
 /** The workspaces-service face injected as `ctx.workspaces`. */
 export interface IWorkspaces {

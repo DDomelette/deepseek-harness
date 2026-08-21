@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-可选 Host 插件：tail [`@deepseek-ai/dsh-usage-telemetry`](../usage-telemetry/README.md) 写出的本地 usage JSONL，并把确定性 batch 推送到 DeepSeek Monitor 的接收端点。随附 Web 组合以**禁用**状态挂载它；本地文件捕获仍是事实来源，Monitor 的文件扫描器继续可用于回填。
+可选 Host 插件：tail [`@deepseek-ai/dsh-usage-telemetry`](../usage-telemetry/README.zh.md) 写出的本地 usage JSONL，并把确定性 batch 推送到 DeepSeek Monitor 的接收端点。随附 Web 组合以**禁用**状态挂载它；本地文件捕获仍是事实来源，Monitor 的文件扫描器继续可用于回填。
 
 ## 用法
 

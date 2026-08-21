@@ -15,8 +15,8 @@ export const inject = ['invariants']
 
 const install: InvariantInstaller = Object.assign(
   (_ctx: Context, _fail: (message: string) => never) => {
-    // No continuously observable invariant: the service tests pin the
-    // orchestration contract, and persistence owns the durable invariant.
+    // No runtime invariant: service tests pin the orchestration contract,
+    // while persistence owns the durable relationship.
   },
   { inject: ['sessionDeletion'] },
 )

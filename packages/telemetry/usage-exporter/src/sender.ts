@@ -2,12 +2,14 @@
 
 import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
 
+/** Classified ingestion result that controls retry and cursor advancement. */
 export type SendOutcome =
   | { kind: 'accepted'; accepted: number }
   | { kind: 'duplicate'; duplicates: number }
   | { kind: 'permanent'; status: number; message: string }
   | { kind: 'retryable'; status?: number; message: string }
 
+/** HTTPS or loopback HTTP client for one Monitor ingestion endpoint. */
 export class BatchSender {
   constructor(private readonly options: {
     endpoint: string
@@ -23,10 +25,20 @@ export class BatchSender {
     }
   }
 
+  /**
+   * Send one deterministic usage batch.
+   * @param rows - Validated usage rows in telemetry-file order.
+   * @param batchId - Idempotency id derived from the source file range.
+   * @returns The classified ingestion result.
+   */
   async send(rows: UsageRow[], batchId: string): Promise<SendOutcome> {
     return this.post({ sourceId: this.options.sourceId, rootId: this.options.rootId, batchId, sentAt: Date.now(), rows })
   }
 
+  /**
+   * Announce that this source and telemetry root remain active.
+   * @returns The classified ingestion result.
+   */
   async sendHeartbeat(): Promise<SendOutcome> {
     return this.post({ sourceId: this.options.sourceId, rootId: this.options.rootId, heartbeat: true, sentAt: Date.now() })
   }
