@@ -13,6 +13,12 @@
     - button "Agent presets":
       - img
       - text: Agent presets
+    - button "Skills":
+      - img
+      - text: Skills
+    - button "Archived":
+      - img
+      - text: Archived
   - button "Open configuration file"
   - button "Close":
     - img

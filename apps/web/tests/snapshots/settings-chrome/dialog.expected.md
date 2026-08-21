@@ -16,6 +16,9 @@
     - button "技能":
       - img
       - text: 技能
+    - button "已归档":
+      - img
+      - text: 已归档
   - button "打开配置文件"
   - button "关闭":
     - img
@@ -25,8 +28,8 @@
     - text: 标准模式
     - img
   - text: 权限 选择新会话的默认权限模式
-  - button "可写入工作区":
-    - text: 可写入工作区
+  - button "Workspace Write":
+    - text: Workspace Write
     - img
   - text: 语言
   - button "中文":

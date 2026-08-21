@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-pinned-sessions",
   "description": "Pinned-sessions sidebar section and row actions for the DeepSeek Harness",
-  "version": "0.1.1-rc.1",
+  "version": "0.1.1-rc.2",
   "publishConfig": {
     "access": "public"
   },
