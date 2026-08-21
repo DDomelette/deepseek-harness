@@ -211,6 +211,7 @@ export class TestWorkspaces implements IWorkspaces {
     }
     await this.update((draft) => {
       draft.archivedSessionIds = [...draft.archivedSessionIds, sessionId]
+      draft.archivedSessionAts = { ...draft.archivedSessionAts, [sessionId]: new Date().toISOString() }
     })
   }
 
@@ -228,6 +229,9 @@ export class TestWorkspaces implements IWorkspaces {
     }
     await this.update((draft) => {
       draft.archivedSessionIds = draft.archivedSessionIds.filter(id => id !== sessionId)
+      draft.archivedSessionAts = Object.fromEntries(
+        Object.entries(draft.archivedSessionAts).filter(([id]) => id !== sessionId),
+      )
     })
   }
 

@@ -185,11 +185,12 @@ export class FakeApiClient implements IApiClient {
     openPath: (payload: unknown) => this.record('host.openPath', payload, this.onOpenPath(payload)),
   }
 
-  // The archive-set field defaults at the binding below so list stubs keep
-  // the pre-archive `{ items }` shape; a stub carrying the field wins.
+  // The archive-set fields default at the binding below so list stubs keep
+  // the pre-archive `{ items }` shape; a stub carrying the fields wins.
   onWorkspaceList: (payload: unknown) => Promise<RpcResponse<{
     items: never[]
     archivedSessionIds?: never[]
+    archivedSessionAts?: Record<string, string>
     sessionFlags?: Record<string, { pinned?: boolean }>
   }>> = () => Promise.resolve(ok({ items: [] }))
   onWorkspaceCreate: (payload: unknown) => Promise<RpcResponse<{ workspace: WorkspaceView; created: boolean }>> =
@@ -207,10 +208,19 @@ export class FakeApiClient implements IApiClient {
   onWorkspaceInsertSessionBefore: (payload: unknown) => Promise<RpcResponse<{ workspace: WorkspaceView }>> =
     () => Promise.resolve(ok({ workspace: fakeWorkspace('fk-ws') }))
 
-  onWorkspaceArchiveSession: (payload: unknown) => Promise<RpcResponse<{ archivedSessionIds: SessionId[] }>> =
-    payload => Promise.resolve(ok({ archivedSessionIds: [(payload as { sessionId: SessionId }).sessionId] }))
-  onWorkspaceUnarchiveSession: (payload: unknown) => Promise<RpcResponse<{ archivedSessionIds: SessionId[] }>> =
-    () => Promise.resolve(ok({ archivedSessionIds: [] }))
+  onWorkspaceArchiveSession: (payload: unknown) => Promise<RpcResponse<{
+    archivedSessionIds: SessionId[]
+    archivedSessionAts: Record<SessionId, string>
+  }>> =
+    payload => Promise.resolve(ok({
+      archivedSessionIds: [(payload as { sessionId: SessionId }).sessionId],
+      archivedSessionAts: { [(payload as { sessionId: SessionId }).sessionId]: '2026-08-21T00:00:00.000Z' },
+    }))
+  onWorkspaceUnarchiveSession: (payload: unknown) => Promise<RpcResponse<{
+    archivedSessionIds: SessionId[]
+    archivedSessionAts: Record<SessionId, string>
+  }>> =
+    () => Promise.resolve(ok({ archivedSessionIds: [], archivedSessionAts: {} }))
 
   readonly workspace: IApiClient['workspace'] = {
     list: (payload: unknown) => this.record('workspace.list', payload, this.onWorkspaceList(payload).then(response => (
@@ -219,7 +229,7 @@ export class FakeApiClient implements IApiClient {
           ...response,
           result: {
             ok: true as const,
-            value: { archivedSessionIds: [] as never[], sessionFlags: {}, ...response.result.value },
+            value: { archivedSessionIds: [] as never[], archivedSessionAts: {}, sessionFlags: {}, ...response.result.value },
           },
         }
         : response

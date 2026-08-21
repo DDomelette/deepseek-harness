@@ -48,7 +48,7 @@ function renderPinned({
       view="grouped"
       useSessions={selector => selector(sessions)}
       useWorkspaces={selector => selector({
-        items: [workspace], archivedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'ready',
+        items: [workspace], archivedSessionIds: [], archivedSessionAts: {}, sessionFlags: {}, state: 'idle', phase: 'ready',
         error: null, baselinesReady: true, recentWorkspaceId: undefined,
       })}
       useStore={selector => selector(store.getSnapshot())}

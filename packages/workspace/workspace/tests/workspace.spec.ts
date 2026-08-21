@@ -140,11 +140,12 @@ function record(path: string, sessionIds: string[], createdAt = '2026-07-24T00:0
 }
 
 /**
- * Media written before archivedSessionIds existed omit the field; keeping the
- * fixtures in that shape continuously proves the schema default upgrades them.
+ * Media written before archivedSessionIds/archivedSessionAts existed omit the
+ * fields; keeping the fixtures in that shape continuously proves the schema
+ * defaults upgrade them.
  */
-type StoredDomainState = Omit<WorkspaceDomainState, 'archivedSessionIds'>
-  & Partial<Pick<WorkspaceDomainState, 'archivedSessionIds'>>
+type StoredDomainState = Omit<WorkspaceDomainState, 'archivedSessionIds' | 'archivedSessionAts'>
+  & Partial<Pick<WorkspaceDomainState, 'archivedSessionIds' | 'archivedSessionAts'>>
 
 function storedPool(
   entries: Array<[string, WorkspaceRecord]>,
@@ -196,7 +197,7 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     await fiber.await()
     expect(ctx.workspaceRegistry.list()).toEqual([])
     expect(list).toHaveBeenCalledTimes(1)
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [] })
+    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
   })
 
   it('bootstraps once from list headers only, in workspace/session createdAt order', async () => {
@@ -230,6 +231,7 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
       initialized: true,
       workspaceIds: result.registry.list().map(workspace => workspace.id),
       archivedSessionIds: [],
+      archivedSessionAts: {},
     })
   })
 
@@ -258,7 +260,7 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     const second = await harness({ pool, sessions: [header('late', late, 100)] })
     expect(second.list).not.toHaveBeenCalled()
     expect(second.registry.list()).toEqual([])
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [] })
+    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
   })
 
   it('reuses partial records after a bootstrap record write fails', async () => {
@@ -486,7 +488,7 @@ describe('WorkspaceRegistry create and lookup', () => {
     await expect(result.registry.delete(workspace.id)).resolves.toBe(false)
     expect(result.registry.get(workspace.id)).toBeUndefined()
     expect(result.registry.list()).toEqual([])
-    expect(storedState(result.pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [] })
+    expect(storedState(result.pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
     expect(result.pool.media.get('workspace')!.tables.get('workspaces')!.has(workspace.id)).toBe(false)
     await expect(realpath(dir)).resolves.toBe(dir)
     expect(result.list).toHaveBeenCalledTimes(1)
@@ -530,6 +532,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       initialized: true,
       workspaceIds: [],
       archivedSessionIds: [],
+      archivedSessionAts: {},
       pendingMutation: { operation: 'delete', workspaceId: workspace.id },
     })
     const reregistered = await first.registry.create(dir)
@@ -538,6 +541,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       initialized: true,
       workspaceIds: [reregistered.id],
       archivedSessionIds: [],
+      archivedSessionAts: {},
     })
     await first.fiber.dispose()
 
@@ -817,7 +821,7 @@ describe('header-validated membership projection', () => {
     const createRecovery = await harness({ pool: interruptedCreate })
     expect(createRecovery.registry.list()).toEqual([])
     expect(interruptedCreate.media.get('workspace')!.tables.get('workspaces')!.has(createId)).toBe(false)
-    expect(storedState(interruptedCreate)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [] })
+    expect(storedState(interruptedCreate)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
 
     const interruptedDelete = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -830,7 +834,7 @@ describe('header-validated membership projection', () => {
     const deleteRecovery = await harness({ pool: interruptedDelete })
     expect(deleteRecovery.registry.list()).toEqual([])
     expect(interruptedDelete.media.get('workspace')!.tables.get('workspaces')!.has(deleteId)).toBe(false)
-    expect(storedState(interruptedDelete)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [] })
+    expect(storedState(interruptedDelete)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
 
     const corruptPending = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -881,9 +885,12 @@ describe('registry-global session archive', () => {
 
     await result.registry.archiveSession(SessionId('gone'))
     expect(result.registry.archivedSessionIds).toEqual(['gone'])
+    const goneAt = result.registry.archivedSessionAts[SessionId('gone')]
+    expect(goneAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     // Archiving is a display-set write: the workspace account keeps the id.
     expect(workspace.sessionIds).toContain('gone')
     expect(storedState(result.pool).archivedSessionIds).toEqual(['gone'])
+    expect(storedState(result.pool).archivedSessionAts).toEqual({ gone: goneAt })
     const changesAfterFirst = result.changes.filter(change => change.table === '').length
 
     await result.registry.archiveSession(SessionId('gone'))
@@ -893,6 +900,7 @@ describe('registry-global session archive', () => {
 
     await result.registry.archiveSession(SessionId('kept'))
     expect(result.registry.archivedSessionIds).toEqual(['gone', 'kept'])
+    expect(Object.keys(result.registry.archivedSessionAts)).toEqual(['gone', 'kept'])
   })
 
   it('accepts unaccounted and live sessions but rejects unknown ids without writing', async () => {
@@ -926,13 +934,15 @@ describe('registry-global session archive', () => {
     const pool = new MemoryMediaPool()
     const first = await harness({ pool, sessions: [header('s1', dir, 100)] })
     await first.registry.archiveSession(SessionId('s1'))
+    const stampedAt = first.registry.archivedSessionAts[SessionId('s1')]
     await first.fiber.dispose()
 
     const second = await harness({ pool, sessions: [header('s1', dir, 100)] })
     expect(second.registry.archivedSessionIds).toEqual(['s1'])
+    expect(second.registry.archivedSessionAts).toEqual({ s1: stampedAt })
     await second.fiber.dispose()
 
-    // A medium written before the field existed parses through the schema default.
+    // A medium written before the fields existed parses through the schema defaults.
     const legacyId = WorkspaceId('00000000-0000-4000-8000-00000000000a')
     const legacy = storedPool(
       [[legacyId, record(dir, [])]],
@@ -940,6 +950,7 @@ describe('registry-global session archive', () => {
     )
     const upgraded = await harness({ pool: legacy })
     expect(upgraded.registry.archivedSessionIds).toEqual([])
+    expect(upgraded.registry.archivedSessionAts).toEqual({})
   })
 
   it('unarchiveSession removes the id from the archive set and is idempotent', async () => {
@@ -947,8 +958,10 @@ describe('registry-global session archive', () => {
     const result = await harness({ sessions: [header('s1', dir, 100)] })
     await result.registry.archiveSession(SessionId('s1'))
     expect(result.registry.archivedSessionIds).toEqual(['s1'])
+    expect(result.registry.archivedSessionAts).toHaveProperty('s1')
     await result.registry.unarchiveSession(SessionId('s1'))
     expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.archivedSessionAts).toEqual({})
     await result.registry.unarchiveSession(SessionId('s1'))
     expect(result.registry.archivedSessionIds).toEqual([])
     await result.registry.unarchiveSession(SessionId('never-archived'))
@@ -962,6 +975,7 @@ describe('registry-global session archive', () => {
     await result.registry.archiveSession(SessionId('s1'))
     await result.registry.forgetSession(SessionId('s1'))
     expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.archivedSessionAts).toEqual({})
     expect(workspace.sessionIds).toEqual([])
     await result.registry.forgetSession(SessionId('s1'))
     expect(result.registry.archivedSessionIds).toEqual([])

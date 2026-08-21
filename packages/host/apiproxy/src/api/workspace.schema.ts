@@ -33,6 +33,7 @@ const sessionFlagsSchema = z.object({
 export const workspaceListValueSchema = z.object({
   items: z.array(workspaceViewSchema),
   archivedSessionIds: z.array(sessionIdSchema),
+  archivedSessionAts: z.record(sessionIdSchema, z.string()),
   sessionFlags: z.record(sessionIdSchema, sessionFlagsSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'workspace.list'>>>
 
@@ -102,6 +103,7 @@ export const workspaceArchiveSessionRequestSchema = z.object({
 /** workspace.archiveSession response value: the full updated archive set. */
 export const workspaceArchiveSessionValueSchema = z.object({
   archivedSessionIds: z.array(sessionIdSchema),
+  archivedSessionAts: z.record(sessionIdSchema, z.string()),
 }) satisfies z.ZodType<Wire<ResponseValue<'workspace.archiveSession'>>>
 
 
@@ -113,4 +115,5 @@ export const workspaceUnarchiveSessionRequestSchema = z.object({
 /** workspace.unarchiveSession response value: the full updated archive set. */
 export const workspaceUnarchiveSessionValueSchema = z.object({
   archivedSessionIds: z.array(sessionIdSchema),
+  archivedSessionAts: z.record(sessionIdSchema, z.string()),
 }) satisfies z.ZodType<Wire<ResponseValue<'workspace.unarchiveSession'>>>

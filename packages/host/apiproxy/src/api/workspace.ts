@@ -51,6 +51,8 @@ export interface WorkspaceApi {
   list(request: RpcRequest<{}>): Promise<RpcResponse<{
     items: WorkspaceView[]
     archivedSessionIds: SessionId[]
+    /** ISO-8601 archive instants keyed by session id; key-equal to archivedSessionIds, absent for pre-field archives. */
+    archivedSessionAts: Record<SessionId, string>
     sessionFlags: Record<SessionId, SessionFlags>
   }>>
 
@@ -114,12 +116,12 @@ export interface WorkspaceApi {
    * updated set (same snapshot the changed frame carries).
    */
   archiveSession(request: RpcRequest<{ sessionId: SessionId }>):
-  Promise<RpcResponse<{ archivedSessionIds: SessionId[] }>>
+  Promise<RpcResponse<{ archivedSessionIds: SessionId[]; archivedSessionAts: Record<SessionId, string> }>>
 
   /**
    * Removes one session from the registry-global archive set. Unknown and
    * already-unarchived ids resolve with the current full archive set.
    */
   unarchiveSession(request: RpcRequest<{ sessionId: SessionId }>):
-  Promise<RpcResponse<{ archivedSessionIds: SessionId[] }>>
+  Promise<RpcResponse<{ archivedSessionIds: SessionId[]; archivedSessionAts: Record<SessionId, string> }>>
 }

@@ -141,7 +141,12 @@ export type HostFrame =
   | { type: 'host/workspace-changed'; workspace: WorkspaceView }
   | { type: 'host/workspace-removed'; workspaceId: WorkspaceView['workspaceId'] }
   | { type: 'host/workspace-order-changed'; workspaceIds: WorkspaceView['workspaceId'][] }
-  | { type: 'host/archived-sessions-changed'; archivedSessionIds: SessionId[] }
+  | {
+    type: 'host/archived-sessions-changed'
+    archivedSessionIds: SessionId[]
+    /** ISO-8601 archive instants keyed by session id, key-equal to archivedSessionIds (absent for pre-field archives). */
+    archivedSessionAts: Record<SessionId, string>
+  }
   /**
    * One allowlisted host cordis event forwarded verbatim. The allowlist is
    * owned by `@deepseek-ai/dsh-api-remotes` (`API_REMOTE_FORWARDED_EVENTS`),

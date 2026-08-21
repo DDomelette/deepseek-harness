@@ -460,10 +460,18 @@ describe('WorkspaceRuntime', () => {
     await expect(workspaces.archiveSession(sid('s-idle'))).resolves.toBeUndefined()
     expect(api.callsOf('workspace.archiveSession')).toEqual([{ sessionId: 's-idle' }])
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-idle'])
+    expect(workspaces.list.getSnapshot().archivedSessionAts)
+      .toEqual({ 's-idle': '2026-08-21T00:00:00.000Z' })
     expect(sessions.list.getSnapshot().current).toBe('s-open')
 
     // Archiving the current session clears it into the New Session view state.
-    api.onWorkspaceArchiveSession = () => Promise.resolve(ok({ archivedSessionIds: [sid('s-idle'), sid('s-open')] }))
+    api.onWorkspaceArchiveSession = () => Promise.resolve(ok({
+      archivedSessionIds: [sid('s-idle'), sid('s-open')],
+      archivedSessionAts: {
+        's-idle': '2026-08-21T00:00:00.000Z',
+        's-open': '2026-08-21T00:01:00.000Z',
+      },
+    }))
     await workspaces.archiveSession(sid('s-open'))
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-idle', 's-open'])
     expect(sessions.list.getSnapshot().current).toBeUndefined()
@@ -478,14 +486,26 @@ describe('WorkspaceRuntime', () => {
     // The changed frame and the list baseline both re-install the full set.
     workspaces.handleHostEnvelope({
       rpcId: 'frame' as never,
-      payload: { type: 'host/archived-sessions-changed', archivedSessionIds: [sid('s-idle')] },
+      payload: {
+        type: 'host/archived-sessions-changed',
+        archivedSessionIds: [sid('s-idle')],
+        archivedSessionAts: { 's-idle': '2026-08-21T00:00:00.000Z' },
+      },
     } as never)
     // Frame installs ride the notifier's microtask batch before projecting.
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-idle'])
-    api.onWorkspaceList = () => Promise.resolve(ok({ items: [], archivedSessionIds: [sid('s-open')] }) as never)
+    expect(workspaces.list.getSnapshot().archivedSessionAts)
+      .toEqual({ 's-idle': '2026-08-21T00:00:00.000Z' })
+    api.onWorkspaceList = () => Promise.resolve(ok({
+      items: [],
+      archivedSessionIds: [sid('s-open')],
+      archivedSessionAts: { 's-open': '2026-08-22T00:00:00.000Z' },
+    }) as never)
     await workspaces.refresh()
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-open'])
+    expect(workspaces.list.getSnapshot().archivedSessionAts)
+      .toEqual({ 's-open': '2026-08-22T00:00:00.000Z' })
   })
 
   it('unarchives a session and installs the returned full archive set', async () => {
@@ -495,15 +515,27 @@ describe('WorkspaceRuntime', () => {
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     workspaces.handleHostEnvelope({
       rpcId: 'frame' as never,
-      payload: { type: 'host/archived-sessions-changed', archivedSessionIds: [sid('s-idle'), sid('s-open')] },
+      payload: {
+        type: 'host/archived-sessions-changed',
+        archivedSessionIds: [sid('s-idle'), sid('s-open')],
+        archivedSessionAts: {
+          's-idle': '2026-08-21T00:00:00.000Z',
+          's-open': '2026-08-21T00:01:00.000Z',
+        },
+      },
     } as never)
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-idle', 's-open'])
 
-    api.onWorkspaceUnarchiveSession = () => Promise.resolve(ok({ archivedSessionIds: [sid('s-open')] }))
+    api.onWorkspaceUnarchiveSession = () => Promise.resolve(ok({
+      archivedSessionIds: [sid('s-open')],
+      archivedSessionAts: { 's-open': '2026-08-21T00:01:00.000Z' },
+    }))
     await workspaces.unarchiveSession(sid('s-idle'))
     expect(api.callsOf('workspace.unarchiveSession')).toEqual([{ sessionId: 's-idle' }])
     expect(workspaces.list.getSnapshot().archivedSessionIds).toEqual(['s-open'])
+    expect(workspaces.list.getSnapshot().archivedSessionAts)
+      .toEqual({ 's-open': '2026-08-21T00:01:00.000Z' })
 
     api.onWorkspaceUnarchiveSession = () => Promise.resolve(err({
       code: 'internal', message: 'down', details: {},

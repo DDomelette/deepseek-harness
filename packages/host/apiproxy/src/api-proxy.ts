@@ -2873,6 +2873,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return Promise.resolve(ok(request, {
           items: ctx.workspaceRegistry.list().map(workspaceView),
           archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds],
+          archivedSessionAts: { ...ctx.workspaceRegistry.archivedSessionAts },
           sessionFlags: sessionFlags?.snapshot().flags ?? {},
         }))
       },
@@ -2986,12 +2987,18 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: { sessionId },
           })
         }
-        return ok(request, { archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds] })
+        return ok(request, {
+          archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds],
+          archivedSessionAts: { ...ctx.workspaceRegistry.archivedSessionAts },
+        })
       },
 
       async unarchiveSession(request) {
         await ctx.workspaceRegistry.unarchiveSession(request.payload.sessionId)
-        return ok(request, { archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds] })
+        return ok(request, {
+          archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds],
+          archivedSessionAts: { ...ctx.workspaceRegistry.archivedSessionAts },
+        })
       },
     },
 
@@ -3719,6 +3726,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 queue.push(frame({
                   type: 'host/archived-sessions-changed',
                   archivedSessionIds: [...state.archivedSessionIds],
+                  // Key-equal to archivedSessionIds by the registry invariant,
+                  // so the array comparison above detects every map change too.
+                  archivedSessionAts: { ...state.archivedSessionAts },
                 }))
               }
               return

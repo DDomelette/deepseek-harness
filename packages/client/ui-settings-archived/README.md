@@ -11,6 +11,8 @@ The plugin registers `settings.section` entry `archived` at order 40. The page d
 ## Behavior
 
 - Groups follow workspace registry order, then Ungrouped last.
+- Each row shows its archive date under the title; sessions archived before the host recorded times show an unknown-time placeholder.
+- A details button opens a fixed-field dialog: group, directory, agent preset, archive time, last activity, status, subagent count, and session id.
 - Restore unarchives, opens the session, and closes settings.
 - Delete requests recursive deletion and always opens a confirmation dialog.
 - Running rows keep restore enabled and disable delete.

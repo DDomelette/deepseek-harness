@@ -1563,6 +1563,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   let archivedSessionIds: SessionId[] = []
+  let archivedSessionAts: Record<SessionId, string> = {}
 
   // In-memory browse tree behind the fixture's `browse` picker capability —
   // deterministic content mirroring the design mock so assembled Web tests
@@ -2568,6 +2569,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       list: request => ok(request, {
         items: workspaces.map(w => ({ ...w })),
         archivedSessionIds: [...archivedSessionIds],
+        archivedSessionAts: { ...archivedSessionAts },
         sessionFlags: {},
       }),
       create: (request) => {
@@ -2692,16 +2694,34 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         const { sessionId } = request.payload
         if (!archivedSessionIds.includes(sessionId)) {
           archivedSessionIds.push(sessionId)
-          emitHost({ type: 'host/archived-sessions-changed', archivedSessionIds: [...archivedSessionIds] })
+          archivedSessionAts[sessionId] = new Date().toISOString()
+          emitHost({
+            type: 'host/archived-sessions-changed',
+            archivedSessionIds: [...archivedSessionIds],
+            archivedSessionAts: { ...archivedSessionAts },
+          })
         }
-        return ok(request, { archivedSessionIds: [...archivedSessionIds] })
+        return ok(request, {
+          archivedSessionIds: [...archivedSessionIds],
+          archivedSessionAts: { ...archivedSessionAts },
+        })
       },
       unarchiveSession: (request) => {
         const missing = requireSession(request)
         if (missing !== undefined) return missing
         archivedSessionIds = archivedSessionIds.filter(id => id !== request.payload.sessionId)
-        emitHost({ type: 'host/archived-sessions-changed', archivedSessionIds: [...archivedSessionIds] })
-        return ok(request, { archivedSessionIds: [...archivedSessionIds] })
+        archivedSessionAts = Object.fromEntries(
+          Object.entries(archivedSessionAts).filter(([id]) => id !== request.payload.sessionId),
+        )
+        emitHost({
+          type: 'host/archived-sessions-changed',
+          archivedSessionIds: [...archivedSessionIds],
+          archivedSessionAts: { ...archivedSessionAts },
+        })
+        return ok(request, {
+          archivedSessionIds: [...archivedSessionIds],
+          archivedSessionAts: { ...archivedSessionAts },
+        })
       },
     },
     agentPresets: {

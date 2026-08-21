@@ -152,7 +152,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   readonly workspace: IApiClient['workspace'] = {
-    list: (payload: unknown) => this.record('workspace.list', payload, Promise.resolve(ok({ items: [], archivedSessionIds: [], sessionFlags: {} }))),
+    list: (payload: unknown) => this.record('workspace.list', payload, Promise.resolve(ok({ items: [], archivedSessionIds: [], archivedSessionAts: {}, sessionFlags: {} }))),
     create: (payload: unknown) => this.record('workspace.create', payload, Promise.resolve(ok({
       workspace: { workspaceId: 'fk-ws' as never, path: '/f/ws', title: 'ws', sessionIds: [], createdAt: '0', updatedAt: '0' },
       created: true,
@@ -169,9 +169,11 @@ export class FakeApiClient implements IApiClient {
     }))),
     archiveSession: (payload: unknown) => this.record('workspace.archiveSession', payload, Promise.resolve(ok({
       archivedSessionIds: [(payload as { sessionId: SessionId }).sessionId],
+      archivedSessionAts: { [(payload as { sessionId: SessionId }).sessionId]: '2026-08-21T00:00:00.000Z' },
     }))),
     unarchiveSession: (payload: unknown) => this.record('workspace.unarchiveSession', payload, Promise.resolve(ok({
       archivedSessionIds: [],
+      archivedSessionAts: {},
     }))),
   }
 

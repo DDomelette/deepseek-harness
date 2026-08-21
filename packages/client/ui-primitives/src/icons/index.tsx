@@ -485,6 +485,16 @@ export const IconWarningOutline16 = ({ size = 14, className }: IconProps) => (
   </svg>
 )
 
+/** ic_ds_info_outline_16 */
+export const IconInfoOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M7.2 6.4H8.8V12H7.2V6.4ZM7.2 4H8.8V5.6H7.2V4ZM8 2.4C4.90903 2.4 2.4 4.90903 2.4 8C2.4 11.091 4.90903 13.6 8 13.6C11.091 13.6 13.6 11.091 13.6 8C13.6 4.90903 11.091 2.4 8 2.4ZM8 1.2C11.7561 1.2 14.8 4.24389 14.8 8C14.8 11.7561 11.7561 14.8 8 14.8C4.24389 14.8 1.2 11.7561 1.2 8C1.2 4.24389 4.24389 1.2 8 1.2Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
 /** ic_ds_user_outline_16 */
 export const IconUserOutline16 = ({ size = 16, className }: IconProps) => (
   <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

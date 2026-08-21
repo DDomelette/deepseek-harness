@@ -235,6 +235,16 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Archive instants (ISO-8601) keyed by session id, key-equal to
+   * {@link archivedSessionIds}. Sessions archived before this field existed
+   * carry no entry; consumers must tolerate a missing timestamp.
+   * @returns the durable archive-time map.
+   */
+  get archivedSessionAts(): Readonly<Record<SessionId, string>> {
+    return this.requireState().archivedSessionAts
+  }
+
+  /**
    * Archive one session durably. The session must exist (live or in session
    * persistence); its workspace accounting — or lack of one — is irrelevant.
    * An already archived id resolves without writing.
@@ -250,7 +260,11 @@ export class WorkspaceRegistry extends Service {
         throw new WorkspaceUnknownSessionError(sessionId)
       }
       const state = this.requireState()
-      await this.setState({ ...state, archivedSessionIds: [...state.archivedSessionIds, sessionId] })
+      await this.setState({
+        ...state,
+        archivedSessionIds: [...state.archivedSessionIds, sessionId],
+        archivedSessionAts: { ...state.archivedSessionAts, [sessionId]: new Date().toISOString() },
+      })
     })
   }
 
@@ -263,9 +277,13 @@ export class WorkspaceRegistry extends Service {
     return this.enqueueOperation(async () => {
       const state = this.requireState()
       if (!state.archivedSessionIds.includes(sessionId)) return
+      const archivedSessionAts = Object.fromEntries(
+        Object.entries(state.archivedSessionAts).filter(([id]) => id !== sessionId),
+      )
       await this.setState({
         ...state,
         archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        archivedSessionAts,
       })
     })
   }
@@ -288,9 +306,13 @@ export class WorkspaceRegistry extends Service {
       this.invalidSessionPaths.delete(sessionId)
       const state = this.requireState()
       if (!state.archivedSessionIds.includes(sessionId)) return
+      const archivedSessionAts = Object.fromEntries(
+        Object.entries(state.archivedSessionAts).filter(([id]) => id !== sessionId),
+      )
       await this.setState({
         ...state,
         archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        archivedSessionAts,
       })
     })
   }
@@ -372,6 +394,7 @@ export class WorkspaceRegistry extends Service {
         initialized: true,
         workspaceIds: [id, ...state.workspaceIds],
         archivedSessionIds: state.archivedSessionIds,
+        archivedSessionAts: state.archivedSessionAts,
       })
     } catch (error) {
       this.entities.delete(id)
@@ -404,6 +427,7 @@ export class WorkspaceRegistry extends Service {
       initialized: true,
       workspaceIds: state.workspaceIds.filter(workspaceId => workspaceId !== id),
       archivedSessionIds: state.archivedSessionIds,
+      archivedSessionAts: state.archivedSessionAts,
     }
     await this.setState({
       ...nextState,
@@ -461,6 +485,7 @@ export class WorkspaceRegistry extends Service {
       initialized: state.initialized,
       workspaceIds: state.workspaceIds,
       archivedSessionIds: state.archivedSessionIds,
+      archivedSessionAts: state.archivedSessionAts,
     })
   }
 
@@ -543,9 +568,19 @@ export class WorkspaceRegistry extends Service {
       .map(([id]) => id)
 
     if (!sameIds(state.workspaceIds, workspaceIds)) {
-      await this.setState({ initialized: false, workspaceIds, archivedSessionIds: state.archivedSessionIds })
+      await this.setState({
+        initialized: false,
+        workspaceIds,
+        archivedSessionIds: state.archivedSessionIds,
+        archivedSessionAts: state.archivedSessionAts,
+      })
     }
-    await this.setState({ initialized: true, workspaceIds, archivedSessionIds: state.archivedSessionIds })
+    await this.setState({
+      initialized: true,
+      workspaceIds,
+      archivedSessionIds: state.archivedSessionIds,
+      archivedSessionAts: state.archivedSessionAts,
+    })
   }
 
   private validateStoredState(state: WorkspaceDomainState): void {

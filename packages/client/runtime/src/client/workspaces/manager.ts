@@ -21,6 +21,12 @@ export interface WorkspaceListSnapshot {
    * lookups build their own transient Set where they need one.
    */
   archivedSessionIds: readonly SessionId[]
+  /**
+   * ISO-8601 archive instants keyed by session id, key-equal to
+   * `archivedSessionIds`; sessions archived before the Host recorded times
+   * carry no entry, so consumers must tolerate a missing key.
+   */
+  archivedSessionAts: Readonly<Record<SessionId, string>>
   /** Generic session flags merged from host providers. */
   sessionFlags: Readonly<Record<SessionId, SessionFlags>>
   state: 'idle' | 'loading' | 'error'
@@ -41,6 +47,7 @@ export class WorkspaceManager {
   // Full-snapshot state (list response / unary response / changed frame all
   // carry the complete set), so deltas never merge — installs replace.
   private archivedSessionIds: readonly SessionId[] = []
+  private archivedSessionAts: Readonly<Record<SessionId, string>> = {}
   private sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {}
   private state: WorkspaceListSnapshot['state'] = 'idle'
   private phase: WorkspaceListPhase = 'pending'
@@ -102,7 +109,7 @@ export class WorkspaceManager {
           for (const delta of frames) items = applyWorkspaceDelta(items, delta)
           this.installViews(items)
           if (!this.archivedSupersedesRefresh) {
-            this.installArchived(result.value.archivedSessionIds)
+            this.installArchived(result.value.archivedSessionIds, result.value.archivedSessionAts)
             this.installSessionFlags(result.value.sessionFlags)
           }
           this.state = 'idle'
@@ -231,9 +238,12 @@ export class WorkspaceManager {
    * @param sessionId - session to archive.
    * @returns the wire result.
    */
-  async archiveSession(sessionId: SessionId): Promise<RpcResult<{ archivedSessionIds: SessionId[] }>> {
+  async archiveSession(sessionId: SessionId): Promise<RpcResult<{
+    archivedSessionIds: SessionId[]
+    archivedSessionAts: Record<SessionId, string>
+  }>> {
     const { result } = await this.api.workspace.archiveSession({ sessionId })
-    if (result.ok) this.installArchived(result.value.archivedSessionIds)
+    if (result.ok) this.installArchived(result.value.archivedSessionIds, result.value.archivedSessionAts)
     return result
   }
 
@@ -243,9 +253,12 @@ export class WorkspaceManager {
    * @param sessionId - archived session to restore.
    * @returns the wire result.
    */
-  async unarchiveSession(sessionId: SessionId): Promise<RpcResult<{ archivedSessionIds: SessionId[] }>> {
+  async unarchiveSession(sessionId: SessionId): Promise<RpcResult<{
+    archivedSessionIds: SessionId[]
+    archivedSessionAts: Record<SessionId, string>
+  }>> {
     const { result } = await this.api.workspace.unarchiveSession({ sessionId })
-    if (result.ok) this.installArchived(result.value.archivedSessionIds)
+    if (result.ok) this.installArchived(result.value.archivedSessionIds, result.value.archivedSessionAts)
     return result
   }
 
@@ -262,7 +275,7 @@ export class WorkspaceManager {
       this.installOrder(envelope.payload.workspaceIds, true)
     }
     else if (envelope.payload.type === 'host/archived-sessions-changed') {
-      this.installArchived(envelope.payload.archivedSessionIds)
+      this.installArchived(envelope.payload.archivedSessionIds, envelope.payload.archivedSessionAts)
     }
   }
 
@@ -293,6 +306,7 @@ export class WorkspaceManager {
     return {
       items: this.itemViews(),
       archivedSessionIds: this.archivedSessionIds,
+      archivedSessionAts: this.archivedSessionAts,
       sessionFlags: this.sessionFlags,
       state: this.state,
       phase: this.phase,
@@ -303,13 +317,19 @@ export class WorkspaceManager {
   /**
    * Replace the archive set when membership actually changed (array identity
    * backs Object.is short-circuits). Host snapshots are append-ordered, so
-   * positional comparison is exact, not merely heuristic.
+   * positional comparison is exact, not merely heuristic. The ats map is
+   * key-equal to the id array (registry invariant), so the array comparison
+   * detects every map change too.
    */
-  private installArchived(archivedSessionIds: readonly SessionId[]): void {
+  private installArchived(
+    archivedSessionIds: readonly SessionId[],
+    archivedSessionAts: Readonly<Record<SessionId, string>>,
+  ): void {
     if (this.refreshFrames !== null) this.archivedSupersedesRefresh = true
     if (archivedSessionIds.length === this.archivedSessionIds.length
       && archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])) return
     this.archivedSessionIds = [...archivedSessionIds]
+    this.archivedSessionAts = { ...archivedSessionAts }
     this.notifier.markDirty()
   }
 

@@ -547,15 +547,21 @@ describe('Host Workspace increments', () => {
     const stream: AsyncIterator<RpcRequest<HostFrame>> =
       api.events.host(request({}), abort.signal)[Symbol.asyncIterator]()
     const changed = nextHostFrame(stream)
-    expect(expectOk(await api.workspace.archiveSession(request({ sessionId }))).archivedSessionIds)
-      .toEqual([sessionId])
+    const archived = expectOk(await api.workspace.archiveSession(request({ sessionId })))
+    expect(archived.archivedSessionIds).toEqual([sessionId])
+    expect(archived.archivedSessionAts[sessionId]).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(await changed).toMatchObject({
-      payload: { type: 'host/archived-sessions-changed', archivedSessionIds: [sessionId] },
+      payload: {
+        type: 'host/archived-sessions-changed',
+        archivedSessionIds: [sessionId],
+        archivedSessionAts: { [sessionId]: archived.archivedSessionAts[sessionId] },
+      },
     })
 
     // Accounting and the session itself are untouched; list re-baselines the set.
     const listed = expectOk(await api.workspace.list(request({})))
     expect(listed.archivedSessionIds).toEqual([sessionId])
+    expect(listed.archivedSessionAts).toEqual({ [sessionId]: archived.archivedSessionAts[sessionId] })
     expect(listed.items[0]?.sessionIds).toEqual([sessionId])
     expect(expectOk(await api.sessions.list(request({}))).items.map(item => item.sessionId)).toContain(sessionId)
 
@@ -651,6 +657,8 @@ describe('session.delete and workspace.unarchiveSession', () => {
     expectOk(await api.workspace.archiveSession(request({ sessionId })))
     const value = expectOk(await api.workspace.unarchiveSession(request({ sessionId })))
     expect(value.archivedSessionIds).toEqual([])
+    expect(value.archivedSessionAts).toEqual({})
     expect(ctx.workspaceRegistry.archivedSessionIds).toEqual([])
+    expect(ctx.workspaceRegistry.archivedSessionAts).toEqual({})
   })
 })

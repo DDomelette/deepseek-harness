@@ -361,9 +361,11 @@ describe('workspace domain schemas', () => {
     const listValue = workspaceListValueSchema.parse({
       items: [view],
       archivedSessionIds: ['s1'],
+      archivedSessionAts: { s1: '2026-08-21T00:00:00.000Z' },
       sessionFlags: { s1: { pinned: true } },
     })
     expect(listValue.items).toHaveLength(1)
+    expect(listValue.archivedSessionAts).toEqual({ s1: '2026-08-21T00:00:00.000Z' })
     expect(listValue.sessionFlags).toEqual({ s1: { pinned: true } })
     expect(() => workspaceListValueSchema.parse({ items: [view], sessionFlags: {} })).toThrow()
     expect(() => workspaceListValueSchema.parse({ items: [view], archivedSessionIds: [] })).toThrow()
@@ -372,9 +374,12 @@ describe('workspace domain schemas', () => {
   it('archiveSession request/value carry the id and the full updated set', () => {
     expect(workspaceArchiveSessionRequestSchema.parse({ sessionId: 's1' }).sessionId).toBe('s1')
     expect(() => workspaceArchiveSessionRequestSchema.parse({})).toThrow()
-    expect(workspaceArchiveSessionValueSchema.parse({ archivedSessionIds: ['s1', 's2'] }).archivedSessionIds)
-      .toEqual(['s1', 's2'])
+    expect(workspaceArchiveSessionValueSchema.parse({
+      archivedSessionIds: ['s1', 's2'],
+      archivedSessionAts: { s1: '2026-08-21T00:00:00.000Z', s2: '2026-08-21T00:01:00.000Z' },
+    }).archivedSessionIds).toEqual(['s1', 's2'])
     expect(() => workspaceArchiveSessionValueSchema.parse({ archivedSessionIds: 's1' })).toThrow()
+    expect(() => workspaceArchiveSessionValueSchema.parse({ archivedSessionIds: ['s1'] })).toThrow()
   })
 
   it('session.delete request/value carry recursive and deletedSessionIds', () => {
@@ -386,7 +391,7 @@ describe('workspace domain schemas', () => {
 
   it('workspace.unarchiveSession request/value carry the id and full set', () => {
     expect(workspaceUnarchiveSessionRequestSchema.parse({ sessionId: 's1' }).sessionId).toBe('s1')
-    expect(workspaceUnarchiveSessionValueSchema.parse({ archivedSessionIds: [] }).archivedSessionIds).toEqual([])
+    expect(workspaceUnarchiveSessionValueSchema.parse({ archivedSessionIds: [], archivedSessionAts: {} }).archivedSessionIds).toEqual([])
   })
 
   it('insertSessionBefore accepts an anchored and an anchorless move', () => {

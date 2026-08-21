@@ -11,6 +11,17 @@ export interface ArchivedRow {
   readonly id: SessionId
   readonly title: string
   readonly running: boolean
+  /** Last-activity epoch milliseconds from the session list summary. */
+  readonly updatedAt: number
+  /** Session working directory, absent when the host summary lacks one. */
+  readonly cwd?: string
+  /** Agent preset the session's agent was composed from, when the deployment labels it. */
+  readonly agentPreset?: string
+  /**
+   * ISO-8601 archive instant; absent for sessions archived before the host
+   * recorded archive times.
+   */
+  readonly archivedAt?: string
 }
 
 export interface ArchivedGroup {
@@ -29,7 +40,16 @@ export function deriveArchivedGroups(
   const rowFor = (id: SessionId): ArchivedRow | undefined => {
     const summary = sessions.byId[id]
     if (summary === undefined) return undefined
-    return { id, title: summary.displayTitle, running: summary.running }
+    const archivedAt = workspaces.archivedSessionAts[id]
+    return {
+      id,
+      title: summary.displayTitle,
+      running: summary.running,
+      updatedAt: summary.updatedAt,
+      ...(summary.cwd === undefined ? {} : { cwd: summary.cwd }),
+      ...(summary.agentPreset === undefined ? {} : { agentPreset: summary.agentPreset }),
+      ...(archivedAt === undefined ? {} : { archivedAt }),
+    }
   }
   const groups: ArchivedGroup[] = []
   const accounted = new Set<SessionId>()

@@ -23,6 +23,12 @@ export interface WorkspaceListState {
    * build their own transient Set.
    */
   archivedSessionIds: readonly SessionId[]
+  /**
+   * ISO-8601 archive instants keyed by session id, key-equal to
+   * `archivedSessionIds`; sessions archived before the Host recorded times
+   * carry no entry.
+   */
+  archivedSessionAts: Readonly<Record<SessionId, string>>
   /** Generic session flags merged from host providers; absent for pre-baseline or legacy test fixtures. */
   sessionFlags?: Readonly<Record<SessionId, SessionFlags>>
   state: 'idle' | 'loading' | 'error'
@@ -69,7 +75,7 @@ export class WorkspaceRuntime implements IWorkspaces {
   constructor(ctx: Context, private readonly api: IApiClient, private readonly sessions: SessionsPort) {
     this.manager = new WorkspaceManager(api)
     this.list = createSnapshotStore<WorkspaceListState>({
-      items: [], archivedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'pending', error: null,
+      items: [], archivedSessionIds: [], archivedSessionAts: {}, sessionFlags: {}, state: 'idle', phase: 'pending', error: null,
       baselinesReady: false, recentWorkspaceId: undefined,
     })
     this.manager.subscribe(() => { this.project() })
@@ -361,6 +367,7 @@ export class WorkspaceRuntime implements IWorkspaces {
     this.list.set({
       items: workspace.items,
       archivedSessionIds: workspace.archivedSessionIds,
+      archivedSessionAts: workspace.archivedSessionAts,
       sessionFlags: workspace.sessionFlags,
       state: workspace.state,
       phase: workspace.phase,

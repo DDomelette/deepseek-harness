@@ -1,7 +1,8 @@
 // Web e2e scenario: the Archived settings page — a seeded archived session is
-// grouped under its workspace, restore unarchives and opens an ungrouped
-// session, and the confirmed recursive delete removes a parent and its
-// subagent child from persistence, the archive set, and the workspace account.
+// grouped under its workspace, rows carry their archive date and open a fixed
+// details dialog, restore unarchives and opens an ungrouped session, and the
+// confirmed recursive delete removes a parent and its subagent child from
+// persistence, the archive set, and the workspace account.
 import { readFile } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -98,6 +99,25 @@ describe('web e2e: archived sessions settings', () => {
     const ungrouped = dialog.locator('section').filter({ hasText: 'Ungrouped' })
     const restoreRow = ungrouped.locator('li').nth(0)
     await restoreRow.waitFor({ timeout: 10_000 })
+
+    // The row carries its archive date inline, and the details dialog shows
+    // the fixed field set before the restore flow begins.
+    await expect.poll(
+      () => restoreRow.getByText(/Archived \d{4}-\d{1,2}-\d{1,2}/).count(),
+      { timeout: 10_000 },
+    ).toBe(1)
+    await restoreRow.getByRole('button', { name: /Conversation details/ }).click()
+    const details = page.getByRole('dialog', { name: 'Conversation details' })
+    await details.waitFor({ timeout: 10_000 })
+    const detailsText = await details.textContent()
+    expect(detailsText).toContain('Ungrouped')
+    expect(detailsText).toContain('Archived at')
+    expect(detailsText).toContain(RESTORE_ID)
+    await details.getByRole('button', { name: 'Close' }).click()
+    await expect.poll(
+      () => page.getByRole('dialog', { name: 'Conversation details' }).count(),
+      { timeout: 5_000 },
+    ).toBe(0)
 
     // Restore the ungrouped session: settings closes and it leaves the archive set.
     await restoreRow.getByRole('button', { name: /Restore conversation/ }).click()
