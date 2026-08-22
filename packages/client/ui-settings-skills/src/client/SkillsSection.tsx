@@ -139,7 +139,7 @@ function GroupView({ group, state, t, onBack, onToggle }: GroupViewProps): React
                 role="switch"
                 aria-checked={!skill.disabled}
                 aria-label={t('toggle').replace('{name}', skill.name)}
-                className={`${styles.switch} ${skill.disabled ? styles.switchOff : styles.switchOn}`}
+                className={skill.disabled ? styles.switch : `${styles.switch} ${styles.switchOn}`}
                 disabled={togglesDisabled || writing}
                 onClick={() => { onToggle(skill.name, skill.disabled) }}
               />

@@ -79,7 +79,7 @@
   min-height: 96px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 6px;
   border: 1px solid var(--dsw-alias-border-secondary);
@@ -88,6 +88,7 @@
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
   padding: 12px;
+  text-align: left;
 }
 
 .groupIcon:hover {
@@ -101,7 +102,6 @@
 .groupLabel {
   font-size: 14px;
   line-height: 22px;
-  text-align: center;
   overflow-wrap: anywhere;
 }
 
@@ -184,14 +184,14 @@
   overflow-wrap: anywhere;
 }
 
-/* ARIA switch: a capsule with a green rim while on. */
+/* ARIA switch: a colored track with a sliding knob — right/green on, left/red off. */
 .switch {
   flex: none;
   width: 36px;
   height: 20px;
+  border: none;
   border-radius: 10px;
-  border: 1px solid var(--dsw-alias-border-secondary);
-  background: var(--dsw-alias-surface-secondary);
+  background: var(--dsw-alias-state-error-primary);
   position: relative;
   cursor: pointer;
   padding: 0;
@@ -202,23 +202,28 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 7px;
-  background: var(--dsw-alias-label-tertiary);
-  transition: left 120ms ease;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
 }
 
 .switchOn {
-  border-color: var(--dsw-alias-state-success-primary);
+  background: var(--dsw-alias-state-success-primary);
 }
 
 .switchOn::after {
   left: 18px;
-  background: var(--dsw-alias-state-success-primary);
 }
 
 .switch:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .switch,
+  .switch::after {
+    transition: background 140ms ease, left 140ms ease;
+  }
 }
