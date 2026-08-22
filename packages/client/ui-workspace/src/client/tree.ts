@@ -32,6 +32,8 @@ export interface SessionNode {
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
+  /** Owning project label (the Workspace title, or the cwd basename in the flat list); absent for the ungrouped bucket. */
+  workspace?: string
   updatedAt: number
 }
 
@@ -228,6 +230,7 @@ function groupByWorkspace(
 function sessionNode(
   s: SessionSummary,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
+  workspace?: string,
 ): SessionNode {
   return {
     id: s.id,
@@ -236,6 +239,7 @@ function sessionNode(
     running: s.running,
     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
     completed: s.completed === true,
+    ...(workspace === undefined ? {} : { workspace }),
     updatedAt: s.updatedAt,
     ...(s.pendingInteraction === undefined ? {} : { pendingInteraction: s.pendingInteraction }),
   }
@@ -288,7 +292,10 @@ export function deriveGroups(
       accountSize: g.accountSize,
       expanded,
       containsCurrent: g.key === currentGroup,
-      sessions: expanded ? g.sessions.map(session => sessionNode(session, descendants)) : [],
+      sessions: expanded
+        ? g.sessions.map(session =>
+          sessionNode(session, descendants, g.workspaceId === undefined ? undefined : g.label))
+        : [],
     })
   }
   return groups
@@ -323,7 +330,8 @@ export function deriveFlat(
     rows.push(s)
   }
   rows.sort(byRecency)
-  return rows.map(session => sessionNode(session, descendants))
+  return rows.map(session =>
+    sessionNode(session, descendants, session.cwd === undefined ? undefined : workspaceLabel(session.cwd)))
 }
 
 /** Relative-time bucket of a session row's trailing label. */

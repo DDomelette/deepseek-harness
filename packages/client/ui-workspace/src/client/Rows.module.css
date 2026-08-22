@@ -313,6 +313,12 @@
   color: #CFD3D6;
 }
 
+.hoverMeta {
+  font-size: 12px;
+  line-height: 16px;
+  color: #CFD3D6;
+}
+
 .hoverStatus {
   display: flex;
   align-items: center;

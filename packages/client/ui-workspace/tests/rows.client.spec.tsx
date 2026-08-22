@@ -506,6 +506,23 @@ describe('workspace browser rows', () => {
     }
   })
 
+  it('hover card shows the owning project label when the node carries one', () => {
+    vi.useFakeTimers()
+    try {
+      const node: SessionNode = {
+        id: sid('s1'), title: 'Quiet', blank: false, running: false,
+        runningSubagentCount: 0, completed: false, updatedAt: 0, workspace: 'Deepseek_Harness',
+      }
+      render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+      fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(screen.getByText('Deepseek_Harness')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('completed hover card shows the Completed status line', () => {
     vi.useFakeTimers()
     try {

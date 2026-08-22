@@ -233,9 +233,27 @@ describe('deriveGroups', () => {
     expect(groups[0]!.sessionCount).toBe(0)
     expect(groups[0]!.accountSize).toBe(1)
   })
+
+  it('labels grouped rows with the Workspace title and leaves the Ungrouped bucket unlabeled', () => {
+    const sessions = list(summary('owned', 1), summary('loose', 2, '/projects/somewhere'))
+    const groups = deriveGroups(
+      sessions,
+      [workspace('project', ['owned'], 'Project')],
+      noArchive,
+      view(['project', UNGROUPED_KEY]),
+    )
+    expect(groups[0]!.sessions[0]!.workspace).toBe('Project')
+    expect(groups[1]!.sessions[0]!.workspace).toBeUndefined()
+  })
 })
 
 describe('deriveFlat', () => {
+  it('labels flat rows with the cwd basename', () => {
+    const rows = deriveFlat(list(summary('a', 1, '/projects/alpha'), summary('b', 2)), noArchive)
+    expect(rows.find(row => row.id === sid('a'))!.workspace).toBe('alpha')
+    expect(rows.find(row => row.id === sid('b'))!.workspace).toBeUndefined()
+  })
+
   it('flattens every session — fork children included — newest-first with id tiebreak', () => {
     const parent = summary('parent', 10)
     const child = { ...summary('child', 30), parentId: parent.id }
