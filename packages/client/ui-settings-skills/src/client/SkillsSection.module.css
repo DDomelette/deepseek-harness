@@ -94,6 +94,10 @@
   background: var(--dsw-alias-surface-secondary);
 }
 
+.groupGlyph {
+  color: var(--dsw-alias-label-secondary);
+}
+
 .groupLabel {
   font-size: 14px;
   line-height: 22px;

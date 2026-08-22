@@ -50,7 +50,7 @@ export interface GroupNode {
   label: string
   /** Visible sessions after flag filtering (pinned rows excluded). */
   sessionCount: number
-  /** Visible sessions before flag filtering; used for the empty-group placeholder. */
+  /** Visible sessions before flag filtering (pinned rows included). */
   accountSize: number
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */

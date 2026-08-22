@@ -210,7 +210,7 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
         <>
           <label className={css.field} htmlFor={`mcp-command-${serverName}`}>
             <span className={css.fieldLabel}>{t('commandLabel')}</span>
-            <Input id={`mcp-command-${serverName}`} value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
+            <Input className={css.fieldInput} id={`mcp-command-${serverName}`} value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
           </label>
           <label className={css.field} htmlFor={`mcp-args-${serverName}`}>
             <span className={css.fieldLabel}>{t('argsLabel')}</span>
@@ -222,14 +222,14 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
           </label>
           <label className={css.field} htmlFor={`mcp-cwd-${serverName}`}>
             <span className={css.fieldLabel}>{t('cwdLabel')}</span>
-            <Input id={`mcp-cwd-${serverName}`} value={state.cwd} onChange={edit('cwd')} />
+            <Input className={css.fieldInput} id={`mcp-cwd-${serverName}`} value={state.cwd} onChange={edit('cwd')} />
           </label>
         </>
       ) : (
         <>
           <label className={css.field} htmlFor={`mcp-url-${serverName}`}>
             <span className={css.fieldLabel}>{t('urlLabel')}</span>
-            <Input id={`mcp-url-${serverName}`} value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
+            <Input className={css.fieldInput} id={`mcp-url-${serverName}`} value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
           </label>
           <label className={css.field} htmlFor={`mcp-headers-${serverName}`}>
             <span className={css.fieldLabel}>{t('headersLabel')}</span>
@@ -239,7 +239,7 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
       )}
       <label className={css.field} htmlFor={`mcp-timeout-${serverName}`}>
         <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
-        <Input id={`mcp-timeout-${serverName}`} type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
+        <Input className={css.fieldInput} id={`mcp-timeout-${serverName}`} type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
       <ReconnectFields
         idPrefix={`mcp-edit-${serverName}`}

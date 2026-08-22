@@ -207,13 +207,13 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
       </div>
       <label className={css.field} htmlFor="mcp-server-name">
         <span className={css.fieldLabel}>{t('serverNameLabel')}</span>
-        <Input id="mcp-server-name" value={state.name} onChange={edit('name')} placeholder={t('serverNamePlaceholder')} />
+        <Input className={css.fieldInput} id="mcp-server-name" value={state.name} onChange={edit('name')} placeholder={t('serverNamePlaceholder')} />
       </label>
       {state.transport === 'stdio' ? (
         <>
           <label className={css.field} htmlFor="mcp-command">
             <span className={css.fieldLabel}>{t('commandLabel')}</span>
-            <Input id="mcp-command" value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
+            <Input className={css.fieldInput} id="mcp-command" value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
           </label>
           <label className={css.field} htmlFor="mcp-args">
             <span className={css.fieldLabel}>{t('argsLabel')}</span>
@@ -225,14 +225,14 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
           </label>
           <label className={css.field} htmlFor="mcp-cwd">
             <span className={css.fieldLabel}>{t('cwdLabel')}</span>
-            <Input id="mcp-cwd" value={state.cwd} onChange={edit('cwd')} />
+            <Input className={css.fieldInput} id="mcp-cwd" value={state.cwd} onChange={edit('cwd')} />
           </label>
         </>
       ) : (
         <>
           <label className={css.field} htmlFor="mcp-url">
             <span className={css.fieldLabel}>{t('urlLabel')}</span>
-            <Input id="mcp-url" value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
+            <Input className={css.fieldInput} id="mcp-url" value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
           </label>
           <label className={css.field} htmlFor="mcp-headers">
             <span className={css.fieldLabel}>{t('headersLabel')}</span>
@@ -242,7 +242,7 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
       )}
       <label className={css.field} htmlFor="mcp-timeout">
         <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
-        <Input id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
+        <Input className={css.fieldInput} id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
       <ReconnectFields
         idPrefix="mcp-add"

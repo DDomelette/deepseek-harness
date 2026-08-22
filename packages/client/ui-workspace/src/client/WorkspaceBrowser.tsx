@@ -491,8 +491,8 @@ function SessionTree({
                     },
                   }}
               />
-              {group.accountSize > 0 && group.sessions.length === 0 && (
-                <div className={css.emptyProject}>{t('sessions.emptyPinned')}</div>
+              {group.expanded && group.sessionCount === 0 && (
+                <div className={css.emptyProject}>{t('empty.none')}</div>
               )}
               {(expandedSessionGroups.includes(group.key)
                 ? group.sessions

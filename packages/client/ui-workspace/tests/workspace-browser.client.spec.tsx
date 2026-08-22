@@ -767,6 +767,29 @@ describe('WorkspaceBrowser', () => {
     }
   })
 
+  it('shows the group empty hint only for an expanded group with no unpinned sessions', () => {
+    const b = mount({
+      useSessions: hook(sessionState([summary('pinned-one', 1), summary('plain', 2)])),
+      useWorkspaces: hook({
+        ...workspaceState([
+          workspace('alpha', ['pinned-one']),
+          workspace('beta', []),
+          workspace('gamma', ['plain']),
+        ]),
+        sessionFlags: { [sid('pinned-one')]: { pinned: true } },
+      }),
+    })
+    // Folded groups never show the hint — folded rows are hidden, not absent.
+    expect(screen.queryByText('暂无会话')).toBeNull()
+    act(() => {
+      b.store.actions.setGroupExpanded('alpha', true)
+      b.store.actions.setGroupExpanded('beta', true)
+      b.store.actions.setGroupExpanded('gamma', true)
+    })
+    // All-pinned and genuinely empty expanded groups show it; a group with rows does not.
+    expect(screen.getAllByText('暂无会话')).toHaveLength(2)
+  })
+
   it('rail state renders icon controls that request expansion', () => {
     vi.useFakeTimers()
     try {

@@ -112,15 +112,15 @@ export function ReconnectFields({ idPrefix, state, setState, t }: ReconnectField
       <div className={css.reconnectGrid}>
         <label className={css.field} htmlFor={`${idPrefix}-reconnect-initial`}>
           <span className={css.fieldLabel}>{t('reconnectInitialDelayLabel')}</span>
-          <Input id={`${idPrefix}-reconnect-initial`} type="text" inputMode="numeric" value={state.initialDelayMs} onChange={edit('initialDelayMs')} />
+          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-initial`} type="text" inputMode="numeric" value={state.initialDelayMs} onChange={edit('initialDelayMs')} />
         </label>
         <label className={css.field} htmlFor={`${idPrefix}-reconnect-max-delay`}>
           <span className={css.fieldLabel}>{t('reconnectMaxDelayLabel')}</span>
-          <Input id={`${idPrefix}-reconnect-max-delay`} type="text" inputMode="numeric" value={state.maxDelayMs} onChange={edit('maxDelayMs')} />
+          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-max-delay`} type="text" inputMode="numeric" value={state.maxDelayMs} onChange={edit('maxDelayMs')} />
         </label>
         <label className={css.field} htmlFor={`${idPrefix}-reconnect-attempts`}>
           <span className={css.fieldLabel}>{t('reconnectMaxAttemptsLabel')}</span>
-          <Input id={`${idPrefix}-reconnect-attempts`} type="text" inputMode="numeric" value={state.maxAttempts} onChange={edit('maxAttempts')} />
+          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-attempts`} type="text" inputMode="numeric" value={state.maxAttempts} onChange={edit('maxAttempts')} />
         </label>
       </div>
     </fieldset>

@@ -18,7 +18,7 @@
 }
 
 .pinOn {
-  color: #7fb0ff;
+  color: var(--dsw-alias-state-business-primary);
 }
 
 .pinIcon {

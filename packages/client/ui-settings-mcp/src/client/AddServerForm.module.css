@@ -52,7 +52,18 @@
   color: var(--dsw-alias-label-secondary);
 }
 
-.field input,
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 12px;
+}
+
+.fieldInput:focus-within {
+  border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);
+}
+
 .multiline {
   width: 100%;
   box-sizing: border-box;
@@ -62,26 +73,16 @@
   color: var(--dsw-alias-label-primary);
   font: inherit;
   font-size: 13px;
-}
-
-.field input {
-  height: 36px;
-  padding: 0 12px;
-}
-
-.multiline {
   min-height: 64px;
   resize: vertical;
   padding: 8px 12px;
   line-height: 20px;
 }
 
-.field input::placeholder,
 .multiline::placeholder {
   color: var(--dsw-alias-label-tertiary);
 }
 
-.field input:focus-visible,
 .multiline:focus-visible {
   outline: none;
   border-color: var(--dsw-alias-state-business-primary);

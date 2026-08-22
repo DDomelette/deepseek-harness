@@ -13,7 +13,7 @@ export function SearchPinBadge({
   return (
     <span className={css.searchPinBadge} aria-label={t('pinnedBadge')}>
       <svg className={css.pinIcon} viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M16 3l5 5-3.5 3.5L19 16l-3 1-5-5-4.5 4.5L5 15l6-6-5-5 1-3 4.5 1.5L16 3z" />
+        <path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
       </svg>
     </span>
   )
