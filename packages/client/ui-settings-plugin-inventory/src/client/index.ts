@@ -4,6 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
+import { createPluginGroupsStore } from './groups-store.ts'
 import { en, zh, type PluginInventoryLocaleKey } from './locales.ts'
 
 export type { PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps } from './PluginInventorySettingsTab.tsx'
@@ -42,6 +43,7 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     label: () => t('tab'),
     locale: NS,
+    store: createPluginGroupsStore(),
     inject: injected,
   }, PluginInventorySettingsTab))
 }

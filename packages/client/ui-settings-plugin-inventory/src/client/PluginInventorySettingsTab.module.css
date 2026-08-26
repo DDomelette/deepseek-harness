@@ -43,6 +43,235 @@
   gap: 12px;
 }
 
+.columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.groupsPane {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  width: 180px;
+}
+
+.paneHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.paneHeading h3 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.groupItem {
+  position: relative;
+}
+
+.groupRow {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.groupRow[data-selected='true'] {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.groupName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.groupDelete {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.groupItem:hover .groupDelete,
+.groupDelete:focus-visible {
+  display: inline-flex;
+}
+
+.groupItem:hover .groupCount {
+  visibility: hidden;
+}
+
+.groupDelete:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.columns .catalog {
+  min-width: 0;
+  flex: 1;
+}
+
+.addPlugins {
+  margin-left: auto;
+}
+
+.cardRow {
+  display: flex;
+  align-items: stretch;
+}
+
+.cardRow .cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.removeEntry {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  border: 0;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.removeEntry:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.pickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  /* The picker scrolls inside the elevated Modal surface, so rebind the
+     scrollbar indirection pair to the l2 rung (see ui-theme
+     styles/scrollbar.css for the rebinding contract). */
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.pickerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.pickerRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.pickerName {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickerCheck {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin: 0;
+  accent-color: var(--dsw-alias-state-success-primary);
+  cursor: pointer;
+}
+
+.pickerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.pickerCount {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pickerActions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.actionAnchor {
+  display: inline-flex;
+}
+
 .search {
   position: relative;
   display: flex;
@@ -275,5 +504,13 @@
 @media (max-width: 680px) {
   .cards {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .columns {
+    flex-direction: column;
+  }
+
+  .groupsPane {
+    width: 100%;
   }
 }

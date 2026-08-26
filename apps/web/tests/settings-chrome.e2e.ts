@@ -131,6 +131,68 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
+  it('groups plugins browser-locally and keeps the groups across reload', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-plugin-groups'))
+    await page.getByRole('button', { name: '设置', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '设置' })
+    await dialog.waitFor({ timeout: 10_000 })
+    await dialog.getByRole('button', { name: '插件', exact: true }).click()
+    await dialog.getByRole('tab', { name: '插件列表', exact: true }).click()
+    await dialog.locator(PLUGIN_ROW_SELECTOR).waitFor({ timeout: 10_000 })
+    const total = await dialog.locator('[data-plugin-entry]').count()
+    // Default selection: 全部 shows the whole inventory; the group-only
+    // affordances stay hidden.
+    expect(await dialog.getByRole('button', { name: /^全部/ }).getAttribute('aria-current')).toBe('true')
+    expect(await dialog.getByRole('button', { name: '添加插件' }).count()).toBe(0)
+
+    // New group via the pane's + button; 保存 stays disabled until a name lands.
+    await dialog.getByRole('button', { name: '新建分组' }).click()
+    const groupDialog = page.getByRole('dialog', { name: '新建分组' })
+    await groupDialog.waitFor({ timeout: 5_000 })
+    expect(await groupDialog.getByRole('button', { name: '保存' }).isDisabled()).toBe(true)
+    await groupDialog.getByRole('textbox', { name: '输入分组名称' }).fill('核心')
+    await groupDialog.getByRole('button', { name: '保存' }).click()
+    // The fresh group is selected and empty.
+    await dialog.getByRole('button', { name: /核心\s*0/ }).waitFor({ timeout: 5_000 })
+    expect(await dialog.locator('[data-plugin-entry]').count()).toBe(0)
+
+    // Add one plugin through the searchable picker.
+    await dialog.getByRole('button', { name: '添加插件' }).click()
+    const picker = page.getByRole('dialog', { name: '添加插件到分组' })
+    await picker.waitFor({ timeout: 5_000 })
+    await picker.getByRole('textbox', { name: '搜索插件' }).fill('ui-settings')
+    await picker.getByRole('checkbox', { name: 'ui-settings', exact: true }).click()
+    await picker.getByText('已选择 1 个').waitFor({ timeout: 5_000 })
+    await picker.getByRole('button', { name: '添加', exact: true }).click()
+    await expect.poll(() => dialog.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(1)
+    await dialog.getByRole('button', { name: /核心\s*1/ }).waitFor({ timeout: 5_000 })
+
+    // Persistence: the group and its selection survive a full reload.
+    const warningStart = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    acknowledgeReloadConnectionLoss(tripwire, warningStart)
+    await page.getByRole('button', { name: '设置', exact: true }).click()
+    const reloaded = page.getByRole('dialog', { name: '设置' })
+    await reloaded.waitFor({ timeout: 10_000 })
+    await reloaded.getByRole('button', { name: '插件', exact: true }).click()
+    await reloaded.getByRole('tab', { name: '插件列表', exact: true }).click()
+    await reloaded.getByRole('button', { name: /核心\s*1/ }).waitFor({ timeout: 10_000 })
+    await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(1)
+
+    // Cleanup: removing the member and then the group returns 全部 to the whole
+    // inventory, so the shared page carries no grouping state into later specs.
+    await reloaded.getByRole('button', { name: '移出分组 ui-settings' }).click()
+    await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(0)
+    // The delete affordance is hover-revealed on the group row.
+    await reloaded.getByRole('button', { name: /核心\s*0/ }).hover()
+    await reloaded.getByRole('button', { name: '删除分组 核心' }).click()
+    await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(total)
+    expect(await reloaded.getByRole('button', { name: /^全部/ }).getAttribute('aria-current')).toBe('true')
+    await page.keyboard.press('Escape')
+    expect(tripwire.pageErrors).toEqual([])
+  }, 90_000)
+
   it('stores Permission as the default for future sessions without changing an existing session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-permission'))
     const existing = scaffold.ctx.sessions.create(SessionId('settings-permission-before'))
