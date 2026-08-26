@@ -156,16 +156,27 @@ describe('web e2e: settings modal and General preferences', () => {
     await dialog.getByRole('button', { name: /核心\s*0/ }).waitFor({ timeout: 5_000 })
     expect(await dialog.locator('[data-plugin-entry]').count()).toBe(0)
 
-    // Add one plugin through the searchable picker.
+    // Add two plugins through the searchable picker; the long name exercises the
+    // marquee title in the group view.
     await dialog.getByRole('button', { name: '添加插件' }).click()
     const picker = page.getByRole('dialog', { name: '添加插件到分组' })
     await picker.waitFor({ timeout: 5_000 })
     await picker.getByRole('textbox', { name: '搜索插件' }).fill('ui-settings')
     await picker.getByRole('checkbox', { name: 'ui-settings', exact: true }).click()
-    await picker.getByText('已选择 1 个').waitFor({ timeout: 5_000 })
+    await picker.getByRole('checkbox', { name: 'ui-settings-plugin-inventory', exact: true }).click()
+    await picker.getByText('已选择 2 个').waitFor({ timeout: 5_000 })
     await picker.getByRole('button', { name: '添加', exact: true }).click()
-    await expect.poll(() => dialog.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(1)
-    await dialog.getByRole('button', { name: /核心\s*1/ }).waitFor({ timeout: 5_000 })
+    await expect.poll(() => dialog.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(2)
+    await dialog.getByRole('button', { name: /核心\s*2/ }).waitFor({ timeout: 5_000 })
+
+    // Group cards carry only the status dot — the enabled/disabled text badge
+    // stays exclusive to 全部.
+    expect(await dialog.locator('[data-plugin-entry]').getByText('已启用').count()).toBe(0)
+    expect(await dialog.locator('[data-plugin-entry]').getByText('已停用').count()).toBe(0)
+    expect(await dialog.locator('[data-plugin-entry] [role="img"]').count()).toBe(2)
+    // The clipped long title loops horizontally instead of staying truncated.
+    const longCard = dialog.locator('[data-plugin-entry]', { hasText: 'ui-settings-plugin-inventory' })
+    await expect.poll(() => longCard.locator('[data-marquee="true"]').count(), { timeout: 5_000 }).toBe(1)
 
     // Persistence: the group and its selection survive a full reload.
     const warningStart = tripwire.warnings.length
@@ -177,12 +188,13 @@ describe('web e2e: settings modal and General preferences', () => {
     await reloaded.waitFor({ timeout: 10_000 })
     await reloaded.getByRole('button', { name: '插件', exact: true }).click()
     await reloaded.getByRole('tab', { name: '插件列表', exact: true }).click()
-    await reloaded.getByRole('button', { name: /核心\s*1/ }).waitFor({ timeout: 10_000 })
-    await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(1)
+    await reloaded.getByRole('button', { name: /核心\s*2/ }).waitFor({ timeout: 10_000 })
+    await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(2)
 
-    // Cleanup: removing the member and then the group returns 全部 to the whole
+    // Cleanup: removing the members and then the group returns 全部 to the whole
     // inventory, so the shared page carries no grouping state into later specs.
-    await reloaded.getByRole('button', { name: '移出分组 ui-settings' }).click()
+    await reloaded.getByRole('button', { name: '移出分组 ui-settings-plugin-inventory' }).click()
+    await reloaded.getByRole('button', { name: '移出分组 ui-settings', exact: true }).click()
     await expect.poll(() => reloaded.locator('[data-plugin-entry]').count(), { timeout: 5_000 }).toBe(0)
     // The delete affordance is hover-revealed on the group row.
     await reloaded.getByRole('button', { name: /核心\s*0/ }).hover()
