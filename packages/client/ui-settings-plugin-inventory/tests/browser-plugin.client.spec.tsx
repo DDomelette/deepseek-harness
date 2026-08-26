@@ -56,6 +56,9 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     expect(entry.component).toBe(PluginInventorySettingsTab)
     expect(entry.options).toMatchObject({ id: 'all', order: 10 })
     expect(entry.locale).toBe(NS)
+    // The declared store carries the browser-local groups state (StoredEntry
+    // erases it from the entry type; the runtime keeps it next to options).
+    expect((entry as { store?: unknown }).store).toBeDefined()
     expect(resolveSlotLabel(entry.options.label)).toBe('插件列表')
     expect(b.list).not.toHaveBeenCalled()
 
