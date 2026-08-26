@@ -41,11 +41,11 @@
    padding must fit the widest one the list can produce. `searchMaxResults` is an
    unbounded positive integer, so the padding is sized in `em` — against this
    element's own font, the one a marker inherits — to hold a three-digit marker
-   (`999. ` measures 2.35em in the app font stack) plus the gap the one-digit
-   case already had. */
+   (`999. ` measures 2.35em in the CJK app fonts and 2.55em under DejaVu, the
+   Linux sans-serif fallback) plus the gap the one-digit case already had. */
 .sources {
   margin: 0;
-  padding-left: 2.5em;
+  padding-left: 2.75em;
   display: flex;
   flex-direction: column;
   gap: 10px;
