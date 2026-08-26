@@ -251,4 +251,57 @@ describe('PluginInventorySettingsTab', () => {
     expect(screen.getByRole('button', { name: /^All/ }).getAttribute('aria-current')).toBe('true')
     expect(cardEntries()).toHaveLength(7)
   })
+
+  it('shows only the status dot for group members, gray when disabled', async () => {
+    const { store } = mount(async () => SNAPSHOT)
+    await screen.findByRole('searchbox', { name: en.search })
+    store.actions.addGroup('g1', '核心')
+    store.actions.addEntries('g1', ['8a1b2c3d', 'disabled-entry'])
+    await waitFor(() => { expect(cardEntries()).toHaveLength(2) })
+    expect(screen.queryByText(en.enabledTag)).toBeNull()
+    expect(screen.queryByText(en.disabledTag)).toBeNull()
+    const enabledDot = screen.getByRole('img', { name: 'Mounted' })
+    expect(enabledDot.getAttribute('data-phase')).toBe('active')
+    const disabledDot = screen.getByRole('img', { name: 'Disabled' })
+    expect(disabledDot.getAttribute('data-phase')).toBeNull()
+    expect(screen.getByRole('button', { name: 'hmr, Mounted, Enabled' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'directory-picker-native, Disabled' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^All/ }))
+    expect(screen.getAllByText(en.enabledTag)).toHaveLength(6)
+    expect(screen.getByText(en.disabledTag)).toBeTruthy()
+  })
+
+  it('loops an overflowing title horizontally and re-measures on viewport resize', async () => {
+    const observers: { callback: ResizeObserverCallback; observed: Element[]; disconnected: boolean }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      readonly observed: Element[] = []
+      disconnected = false
+      constructor(readonly callback: ResizeObserverCallback) {
+        observers.push(this)
+      }
+      observe(element: Element): void { this.observed.push(element) }
+      unobserve(): void { /* no assertion targets unobserve */ }
+      disconnect(): void { this.disconnected = true }
+    })
+    const { view } = mount(async () => SNAPSHOT)
+    await screen.findByRole('searchbox', { name: en.search })
+    const title = document.querySelector('[data-plugin-entry="8a1b2c3d"] strong') as HTMLElement
+    const viewport = title.parentElement as HTMLElement
+    expect(title.getAttribute('data-marquee')).toBeNull()
+    expect(observers).toHaveLength(7)
+    expect(observers[0]?.observed).toHaveLength(1)
+    Object.defineProperty(viewport, 'clientWidth', { value: 50, configurable: true })
+    Object.defineProperty(title, 'offsetWidth', { value: 200, configurable: true })
+    const observer = observers.find(item => item.observed[0] === viewport)
+    act(() => { observer?.callback([], observer as unknown as ResizeObserver) })
+    expect(title.getAttribute('data-marquee')).toBe('true')
+    expect(title.style.getPropertyValue('--marquee-shift')).toBe('150px')
+    expect(title.style.animationDuration).toBe('9.75s')
+    Object.defineProperty(title, 'offsetWidth', { value: 40, configurable: true })
+    act(() => { observer?.callback([], observer as unknown as ResizeObserver) })
+    expect(title.getAttribute('data-marquee')).toBeNull()
+    expect(title.style.getPropertyValue('--marquee-shift')).toBe('')
+    view.unmount()
+    expect(observers.every(item => item.disconnected)).toBe(true)
+  })
 })

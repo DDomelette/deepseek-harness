@@ -378,14 +378,40 @@
   outline-offset: -2px;
 }
 
-.cardTitle {
+/* The viewport clips; an overflowing title scrolls on a loop instead of
+   truncating (see the marquee keyframes below). */
+.titleViewport {
+  display: block;
   min-width: 0;
   overflow: hidden;
+}
+
+.cardTitle {
+  display: inline-block;
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cardTitle[data-marquee='true'] {
+    animation-name: cardTitleMarquee;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+}
+
+/* Rest at both ends so the name is readable before each sweep. */
+@keyframes cardTitleMarquee {
+  0%, 20% {
+    transform: translateX(0);
+  }
+
+  80%, 100% {
+    transform: translateX(calc(-1 * var(--marquee-shift)));
+  }
 }
 
 .cardTrailing {

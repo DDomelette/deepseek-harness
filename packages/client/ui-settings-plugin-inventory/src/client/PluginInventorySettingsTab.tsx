@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   Button,
@@ -66,6 +66,60 @@ function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean 
   if (normalizedQuery.length === 0) return true
   return [entry.moduleName, entry.entryId]
     .some(value => value.toLocaleLowerCase().includes(normalizedQuery))
+}
+
+/** Seconds per 40px of marquee travel, so long titles scroll at the same pace as short ones. */
+const MARQUEE_SPEED_DIVISOR = 40
+/** Floor for the marquee round-trip, so a barely-overflowing title does not flicker. */
+const MARQUEE_MIN_DURATION_S = 6
+
+/**
+ * A card title that scrolls horizontally on a loop when it overflows its
+ * viewport instead of truncating with an ellipsis. The distance lives in a
+ * custom property so one keyframe pair serves every title; reduced-motion
+ * users get a static clipped title (the full name stays on the tooltip).
+ */
+function MarqueeTitle({ title, moduleName }: { readonly title: string; readonly moduleName: string }): ReactNode {
+  const viewportRef = useRef<HTMLSpanElement>(null)
+  const textRef = useRef<HTMLElement>(null)
+  const [shift, setShift] = useState(0)
+  useEffect(() => {
+    const viewport = viewportRef.current
+    const text = textRef.current
+    /* v8 ignore next -- refs attach before effects run; the guard only satisfies the nullable RefObject type. */
+    if (viewport === null || text === null) return
+    const measure = (): void => {
+      setShift(Math.max(0, text.offsetWidth - viewport.clientWidth))
+    }
+    measure()
+    // jsdom (the component unit lane) implements no ResizeObserver; every
+    // browser gets the observer so pane resizes re-measure (the ui-attachment
+    // rail precedent).
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(viewport)
+    return () => { observer.disconnect() }
+  }, [title])
+  const marquee = shift > 0
+  const style: CSSProperties | undefined = marquee
+    ? {
+      '--marquee-shift': `${String(shift)}px`,
+      animationDuration: `${String(MARQUEE_MIN_DURATION_S + shift / MARQUEE_SPEED_DIVISOR)}s`,
+    } as CSSProperties
+    : undefined
+  return (
+    <span ref={viewportRef} className={css.titleViewport}>
+      <strong
+        ref={textRef}
+        className={css.cardTitle}
+        title={moduleName}
+        data-marquee={marquee ? 'true' : undefined}
+        style={style}
+      >
+        {title}
+      </strong>
+    </span>
+  )
 }
 
 /** Render the read-only current Loader inventory with browser-local grouping. */
@@ -281,20 +335,36 @@ export function PluginInventorySettingsTab({ list, t, useStore, actions }: Plugi
                             setExpanded(current => current === entry.entryId ? null : entry.entryId)
                           }}
                         >
-                          <strong className={css.cardTitle} title={entry.moduleName}>{title}</strong>
+                          <MarqueeTitle title={title} moduleName={entry.moduleName} />
                           <span className={css.cardTrailing}>
-                            {entry.enabled ? (
+                            {selectedGroup === undefined ? (
+                              <>
+                                {entry.enabled ? (
+                                  <span
+                                    className={css.statusDot}
+                                    data-phase={entry.fiberPhase ?? 'unobserved'}
+                                    role="img"
+                                    aria-label={status}
+                                    title={status}
+                                  />
+                                ) : null}
+                                <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
+                                  {configuration}
+                                </span>
+                              </>
+                            ) : (
+                              // A custom group's cards carry only the status
+                              // dot: phase colors while enabled, plain gray
+                              // while disabled; the words stay in the
+                              // accessible name and the tooltip.
                               <span
                                 className={css.statusDot}
-                                data-phase={entry.fiberPhase ?? 'unobserved'}
+                                data-phase={entry.enabled ? (entry.fiberPhase ?? 'unobserved') : undefined}
                                 role="img"
-                                aria-label={status}
-                                title={status}
+                                aria-label={entry.enabled ? status : configuration}
+                                title={entry.enabled ? status : configuration}
                               />
-                            ) : null}
-                            <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
-                              {configuration}
-                            </span>
+                            )}
                             <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
                           </span>
                         </button>
