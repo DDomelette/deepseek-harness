@@ -16,6 +16,9 @@
     - button "技能":
       - img
       - text: 技能
+    - button "已归档":
+      - img
+      - text: 已归档
   - button "打开配置文件"
   - button "关闭":
     - img
@@ -42,7 +45,7 @@
       - /placeholder: 每行或逗号分隔，例如 -y, @modelcontextprotocol/server-memory
     - text: 环境变量
     - textbox "环境变量":
-      - /placeholder: KEY=VALUE 或 KEY: VALUE，每行一项
+      - /placeholder: "KEY=VALUE 或 KEY: VALUE，每行一项"
     - text: 工作目录
     - textbox "工作目录"
     - text: 调用超时（毫秒）

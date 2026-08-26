@@ -16,6 +16,9 @@
     - button "Skills":
       - img
       - text: Skills
+    - button "Archived":
+      - img
+      - text: Archived
   - button "Open configuration file"
   - button "Close":
     - img
@@ -24,6 +27,10 @@
   - paragraph: Skills extend what the agent can do. Grouped by their declared group or their discovery source — open a group to switch individual skills on or off.
   - list:
     - listitem:
-      - button "User skills 1 skill"
+      - button "User skills 1 skill":
+        - img
+        - text: User skills 1 skill
     - listitem:
-      - button "superpowers 2 skills"
+      - button "superpowers 2 skills":
+        - img
+        - text: superpowers 2 skills
