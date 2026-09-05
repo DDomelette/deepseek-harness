@@ -31,6 +31,8 @@ Compose this backend when a workspace directory must be chosen without an OS cho
 
 `list(path?)` returns one directory level: name-sorted child directories with their absolute paths, a `hidden` flag (dot-prefixed on POSIX), a `home` anchor, and `crumbs` — the root-to-target ancestor chain where every crumb is a jump target and the root is labeled by its full path. An absent path lists the host account's home directory. One call returns at most `maxEntries` rows (config, default 1,000 — the bound GitHub's web UI applies to directory listings), and a cut level reports `truncated: true` so the client can say the level is incomplete. Symlinks to directories are followed; broken and cyclic links are skipped.
 
+On a WSL Host, the path field also accepts fully qualified Windows drive paths such as `D:\projects` and backslash UNC paths. The backend uses `wslpath -u` to resolve the actual mount location before listing or creating a directory. Returned paths and breadcrumbs use Linux notation, so opening the selection registers the same directory that was listed. Other POSIX hosts do not translate Windows paths; failed translations retain the normal directory-error codes.
+
 ### Creating a directory
 
 `createDirectory(path, name)` creates one child directory under an existing parent. It is non-recursive — a missing parent is a real failure, not a level to invent — and rejects anything but a single non-blank path segment (`name` must not contain separators and must not be `.` or `..`).

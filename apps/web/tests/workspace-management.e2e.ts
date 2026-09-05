@@ -12,6 +12,8 @@
 // flat/hover/menu/archive scenarios need comes from a seeded fixture (the
 // seeded-history seed reused verbatim — no new recording).
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { release } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join, sep } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
@@ -618,6 +620,24 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     ).toBe(2)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
+
+  // WSL owns the Windows-to-Linux mapping; ordinary Linux cannot exercise it.
+  it.skipIf(process.platform !== 'linux' || !release().toLowerCase().includes('microsoft'))(
+    'opens a pasted Windows path as a workspace on WSL',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-ws-windows-path'))
+      const target = join(scaffold.workspaceCwd, 'windows-path-input')
+      await mkdir(target)
+      const windowsPath = execFileSync('wslpath', ['-w', target], { encoding: 'utf8' }).trimEnd()
+      const dialog = await browseTo(windowsPath)
+      const open = dialog.getByRole('button', { name: 'Open', exact: true })
+      await expect.poll(() => open.isEnabled(), { timeout: 10_000 }).toBe(true)
+      await open.click()
+      await expect.poll(() => scaffold.ctx.workspaceRegistry.resolveByPath(target), { timeout: 10_000 })
+        .toMatchObject({ path: target })
+      expect(tripwire.pageErrors).toEqual([])
+    },
+  )
 
   it.skipIf(MODE === 'record')('issued zero model calls and stayed clean', async () => {
     expect(tripwire.warnings).toEqual([])

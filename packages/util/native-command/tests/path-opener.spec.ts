@@ -16,10 +16,82 @@ const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn<ExecFileMock>()
 vi.mock('node:child_process', () => ({ execFile: execFileMock }))
 
 import { release as osRelease } from 'node:os'
-import { describe, expect, it, vi } from 'vitest'
-import { canOpenNativePath, openNativePath, openNativeTextFile, type PathOpenerRunner } from '../src/index.ts'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { canOpenNativePath, openNativePath, openNativeTextFile, windowsPathToHost, type PathOpenerRunner } from '../src/index.ts'
 
 const signal = () => new AbortController().signal
+beforeEach(() => { execFileMock.mockReset() })
+
+describe('Windows paths on a WSL Host', () => {
+  const wsl = { platform: 'linux' as const, osRelease: '6.8.0-microsoft-standard-WSL2', env: {} }
+
+  it('uses wslpath output instead of assuming a drive mount root, preserving argument bytes', async () => {
+    const path = "D:\\my files\\o'reilly;$(pwd)"
+    const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '/drives/d/my files/project\r\n', stderr: '' }))
+    const requestSignal = signal()
+    await expect(windowsPathToHost(path, requestSignal, { ...wsl, run }))
+      .resolves.toBe('/drives/d/my files/project')
+    expect(run).toHaveBeenCalledExactlyOnceWith('wslpath', ['-u', path], requestSignal)
+  })
+
+  it.each(['win32', 'darwin', 'linux'] as const)('leaves paths unchanged on ordinary %s hosts', async (platform) => {
+    const run = vi.fn<PathOpenerRunner>()
+    await expect(windowsPathToHost('D:\\project', signal(), {
+      platform, osRelease: '6.8.0-generic', env: {}, run,
+    })).resolves.toBe('D:\\project')
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it.each(['', 'relative/path'])('rejects non-absolute translator output %j', async (stdout) => {
+    const run = vi.fn<PathOpenerRunner>(async () => ({ stdout, stderr: '' }))
+    await expect(windowsPathToHost('D:\\project', signal(), { ...wsl, run }))
+      .rejects.toThrow('wslpath returned no absolute Linux path')
+  })
+
+  it('propagates translation failure instead of inventing a mount path', async () => {
+    const run = vi.fn<PathOpenerRunner>(async () => { throw new Error('drive is unavailable') })
+    await expect(windowsPathToHost('D:\\project', signal(), { ...wsl, run }))
+      .rejects.toThrow('drive is unavailable')
+  })
+
+  it('runs wslpath with the native runner when no runner is injected', async () => {
+    execFileMock.mockImplementation((_command, _args, _options, callback) => callback(null, '/mnt/d/project\n', ''))
+    const requestSignal = signal()
+    await expect(windowsPathToHost('D:\\project', requestSignal, { ...wsl }))
+      .resolves.toBe('/mnt/d/project')
+    expect(execFileMock).toHaveBeenCalledWith('wslpath', ['-u', 'D:\\project'], {
+      encoding: 'utf8', signal: requestSignal, windowsHide: true,
+    }, expect.any(Function))
+  })
+
+  it('uses the host kernel when no WSL environment marker is present', async () => {
+    const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '/mnt/d/project\n', stderr: '' }))
+    const isWslKernel = osRelease().toLowerCase().includes('microsoft')
+    await expect(windowsPathToHost('D:\\project', signal(), { platform: 'linux', env: {}, run }))
+      .resolves.toBe(isWslKernel ? '/mnt/d/project' : 'D:\\project')
+    expect(run).toHaveBeenCalledTimes(isWslKernel ? 1 : 0)
+  })
+
+  it('uses the ambient host platform without overrides', async () => {
+    execFileMock.mockImplementation((_command, _args, _options, callback) => callback(null, '/mnt/d/project\n', ''))
+    const wslHost = process.platform === 'linux' && (
+      Boolean(process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) || osRelease().toLowerCase().includes('microsoft')
+    )
+    await expect(windowsPathToHost('D:\\project', signal())).resolves.toBe(wslHost ? '/mnt/d/project' : 'D:\\project')
+    expect(execFileMock).toHaveBeenCalledTimes(wslHost ? 1 : 0)
+  })
+
+  it('refuses an already cancelled call and discards output after cancellation', async () => {
+    const abort = new AbortController()
+    const run = vi.fn<PathOpenerRunner>(async () => {
+      abort.abort(new Error('caller left'))
+      return { stdout: '/mnt/d/project\n', stderr: '' }
+    })
+    await expect(windowsPathToHost('D:\\project', abort.signal, { ...wsl, run })).rejects.toThrow('caller left')
+    await expect(windowsPathToHost('D:\\project', abort.signal, { ...wsl, run })).rejects.toThrow('caller left')
+    expect(run).toHaveBeenCalledOnce()
+  })
+})
 
 describe('native path opener', () => {
   it('opens with macOS open(1)', async () => {

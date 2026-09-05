@@ -43,6 +43,8 @@ const { stdout, stderr } = await runNativeCommand('osascript', ['-e', script], s
 
 `NativeCommandRunner` 类型是宿主集成的可注入命令边界：在集成需要一个可测试接缝的位置传入该函数（或其包装层），测试即可替换为假运行器。
 
+`windowsPathToHost(path, signal)` 在 Host 为 WSL 时，通过 `wslpath -u` 将调用方已验证的绝对 Windows 路径转换为 Linux 路径，不假定挂载根目录。其他宿主原样返回输入。转换失败、命令输出不是绝对路径或调用被取消时，操作会拒绝。调用方仍负责原生路径校验。
+
 ### 打开 Host 路径
 
 `openNativePath(path, signal)` 将路径交给默认应用；平台能够确定默认浏览器时，HTML 与 SVG 会优先交给该浏览器。`openNativeTextFile(path, signal)` 选择文本编辑器意图；macOS 使用 `open -t`。WSL 路径先通过 `wslpath -w` 转换，再交给 Windows 桌面。`canOpenNativePath()` 报告当前 Host 是否可能具备桌面目标。

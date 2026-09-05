@@ -9,6 +9,7 @@ export {
   canOpenNativePath,
   openNativePath,
   openNativeTextFile,
+  windowsPathToHost,
 } from './path-opener.ts'
 export type {
   PathOpenerInternals,

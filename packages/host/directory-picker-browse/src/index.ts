@@ -14,6 +14,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { windowsPathToHost } from '@deepseek-ai/dsh-native-command'
 import {
   DirectoryPicker, DirectoryPickerError,
 } from '@deepseek-ai/dsh-host-directory-picker'
@@ -214,15 +215,26 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
     return this.browseCapability
   }
 
+  private async hostPath(
+    path: string,
+    code: 'directory-unreadable' | 'directory-create-failed',
+    signal?: AbortSignal,
+  ): Promise<string> {
+    try {
+      const translated = !fullyQualified(path) && fullyQualified(path, 'win32')
+        ? await windowsPathToHost(path, signal ?? new AbortController().signal)
+        : path
+      if (!fullyQualified(translated)) throw new Error('not a fully qualified path')
+      return resolve(translated)
+    } catch (error: unknown) {
+      signal?.throwIfAborted()
+      throw new DirectoryPickerError(code, path, `cannot use "${path}": ${messageOf(error)}`)
+    }
+  }
+
   private async list(path?: string, signal?: AbortSignal): Promise<DirectoryListing> {
     const home = homedir()
-    // The seam contract takes fully qualified paths only; resolve() would
-    // silently rebase a relative or empty wire value under the host process
-    // cwd (or, for rooted drive-less Windows forms, its current drive).
-    if (path !== undefined && !fullyQualified(path)) {
-      throw new DirectoryPickerError('directory-unreadable', path, `cannot list "${path}": not a fully qualified path`)
-    }
-    const target = resolve(path ?? home)
+    const target = await this.hostPath(path ?? home, 'directory-unreadable', signal)
     // Stream the level (opendir, one dirent at a time) into a name-sorted
     // window of maxEntries + 1 candidates: memory stays bounded no matter how
     // many children the directory holds, the window keeps the name-sorted
@@ -297,12 +309,7 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
   }
 
   private async createDirectory(path: string, name: string): Promise<string> {
-    // Same fully-qualified fence as list: never rebase a parent under the
-    // cwd or the current drive.
-    if (!fullyQualified(path)) {
-      throw new DirectoryPickerError('directory-create-failed', path, `cannot create under "${path}": not a fully qualified parent path`)
-    }
-    const parent = resolve(path)
+    const parent = await this.hostPath(path, 'directory-create-failed')
     // The backend owns segment validation; the Remote controller also refuses
     // invalid wire input, but direct service consumers must hit the same fence.
     if (name.trim() === '' || name === '.' || name === '..' || /[/\\]/.test(name)) {

@@ -10,7 +10,7 @@
  */
 
 import { release as osRelease } from 'node:os'
-import { extname } from 'node:path'
+import { extname, posix } from 'node:path'
 import { runNativeCommand, type NativeCommandRunner } from './runner.ts'
 
 /** Testable command boundary; native implementations never invoke a shell. */
@@ -96,6 +96,28 @@ function isWsl(internals: PathOpenerInternals): boolean {
   const env = internals.env ?? process.env
   if (present(env.WSL_DISTRO_NAME) || present(env.WSL_INTEROP)) return true
   return (internals.osRelease ?? osRelease()).toLowerCase().includes('microsoft')
+}
+
+/**
+ * Translate a validated absolute Windows path for a WSL Host.
+ * Other hosts receive the input unchanged; callers enforce their native path rules.
+ * @param path - fully qualified Windows path, passed as one shell-free argument.
+ * @param signal - caller lifetime; cancellation terminates path translation.
+ * @param internals - platform facts and command runner for adapter tests.
+ * @returns an absolute WSL path, or the original path outside WSL.
+ */
+export async function windowsPathToHost(
+  path: string,
+  signal: AbortSignal,
+  internals: PathOpenerInternals = {},
+): Promise<string> {
+  signal.throwIfAborted()
+  if ((internals.platform ?? process.platform) !== 'linux' || !isWsl(internals)) return path
+  const { stdout } = await (internals.run ?? runNativeCommand)('wslpath', ['-u', path], signal)
+  signal.throwIfAborted()
+  const translated = stdout.replace(/\r?\n$/, '')
+  if (!posix.isAbsolute(translated)) throw new Error('wslpath returned no absolute Linux path')
+  return translated
 }
 
 /** Open one Windows-resolvable path through its registered desktop application. */

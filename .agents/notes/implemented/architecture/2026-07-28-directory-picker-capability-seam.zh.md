@@ -16,6 +16,8 @@ web GUI 的「打开本地文件夹」流程被焊死在一种交互上：`host.
 
 并入本决策的位置与策略裁决：
 
+- **WSL 上输入的 Windows 路径由 Host 解析。** browse 提供方接受带盘符或以反斜杠表示的完整 UNC 路径，然后通过 native-command 工具调用 `wslpath -u`。文件系统操作和返回的选择结果使用转换后的 Linux 路径。在浏览器中替换盘符会假定 `/mnt` 并重复维护 Host 的挂载信息；接受相对路径则会重新依赖进程 cwd。普通 POSIX 宿主继续使用原生路径规则。
+
 - **不用 `ctx.fs` seam。** `packages/fs/` 是面向模型／会话的存储栈（policy 事件、沙箱可换后端）。骑上去会把 GUI 浏览耦合进模型的限制后端——为模型换 `fs-sandbox` 绝不能改变 GUI 行为——而 OS 事实（home 锚定、隐藏约定）也不是存储原语。picker seam 保持无展示、无模型；`packages/host/` 是它消费方域的家。
 - **依赖调研（手写 vs 引入）。** Node 标准库本身就是维护中的跨平台 OS 层（`readdir(withFileTypes)`、`homedir`、路径语义）；调研过的替代品都过不了依赖门槛——文件管理器包（`node-file-manager`、`files-and-folders`、Syncfusion 的提供方）是整套 HTTP 应用（契合度不过），盘符工具（原生扩展 `drivelist`、约七年未更的 `windows-drive-letters`）健康度／比例失当。browse 后端是标准库上的薄适配器。
 - **隐藏条目：返回并打标。** 宿主标注 `hidden`（POSIX 点前缀约定）并返回全部条目；客户端过滤。展示策略留在客户端，「显示隐藏」开关正是作为这一纯客户端改动落地：标签固定的 footer 开关，其状态由按下态呈现承载（`aria-pressed` + 勾选符号）；以点开头的路径草稿前缀会显出它所指名的隐藏条目；当前选中项则不受隐藏与前缀两种过滤影响（它锚定着双栏视图）。Windows 的 `FILE_ATTRIBUTE_HIDDEN` 不被 dirent 暴露——记为限制，直到原生探测的收益抵得上其成本。
