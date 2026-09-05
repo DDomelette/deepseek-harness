@@ -9,7 +9,7 @@
  */
 
 import { Service, type Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
@@ -54,7 +54,7 @@ export class McpServersGateway extends TypertRemoteService {
    * down and the supervisor stays published until teardown finished.
    */
   protected [Service.init](): void {
-    const scope = this.ctx.settings.register(settingsNamespace(MCP_SERVERS_NS), McpServersSchema, {
+    const scope = this.ctx.settings.register(MCP_SERVERS_NS, McpServersSchema, {
       applies: 'live',
       validate: (section: McpServersSection) => {
         const declarative = new Set(declarativeMcpServers(this.ctx).map(server => server.serverName))

@@ -1,6 +1,13 @@
+---
+description: "本包的配置与行为。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-settings-mcp
 
 [English](README.md) | 中文
+
+## 概述
 
 Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个本地化的 `settings.plugins.tab` 贡献，id 为 `mcp`（order 5，位于插件配置与插件列表之间）；「插件」分区拥有导航入口与标签栏。选中该标签页时，通过 [`api-remotes`](../../api/remotes/README.zh.md) 懒调用 `ctx.remote.mcpServers.list()`，并通过 `ctx.settingsScope` 绑定 `mcp-servers` 设置命名空间（见 [`ui-settings`](../ui-settings/README.zh.md)）。
 
@@ -12,6 +19,14 @@ Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个�
 
 加载、空列表、无匹配与通用失败状态只属于已挂载组件；读取失败后可重试，且不会暴露传输细节。挂载期间，标签页在每次 Host `mcp-servers/change` 失效通知与客户端连接重置后重新读取；请求代际守卫会阻止旧响应覆盖较新的状态。注册使用 `ctx.slots.inject()`，因此无需 import 分区拥有方即可跟随标签页的延迟声明、重新声明、本地化变化与卸载。
 
+
+## 目录
+
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="model-experience"></a>
 ## 模型体验
 
 无，因为本包只在浏览器设置中可视化并编辑 Host 拥有的服务器名单，不注册任何面向模型的内容。
@@ -22,7 +37,16 @@ Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个�
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **不支持清空 secret** — env/headers 留空表示保持已存值；清空它们需要删除并重新添加该服务器。只要在该字段输入内容，就会整体替换已存的 env/headers 映射，因为 wire 永远不会返回现有 secret 键，无法据此合并。
 - **不支持改名** — serverName 即 settings 键；改名等于删除加新增。
 - **含逗号的参数无法无损往返** — 参数按行与逗号拆分，已存参数中本身含逗号的项在编辑器再次保存时会被重新拆分。
 - **未暴露 `failOnStartupError`** — schema 支持该字段，但面板固定使用默认值；需要修改请直接编辑 `settings.yaml`。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。
+
+不发布运行时不变量伴随插件。本包在注册或写入处验证输入，不暴露可与独立事件流比对的第二份权威状态。

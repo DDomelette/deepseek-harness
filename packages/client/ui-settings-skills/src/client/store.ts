@@ -1,7 +1,7 @@
 /** Skills settings page store: catalog × settings-namespace join with revision-guarded toggles. */
 
-import type { IApiClient, RpcResponse, SessionId, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientRemote, RemoteResult, SessionId, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
 /** Settings namespace carrying the user-disabled skill names (host: dsh-skill-settings). */
 export const SKILLS_NAMESPACE = 'skills'
@@ -28,8 +28,8 @@ export interface SkillsSettingsState {
 }
 
 /** A successful RPC result assembled locally (the no-session catalog). */
-function ok<T>(value: T): RpcResponse<T> {
-  return { rpcId: 'local' as never, result: { ok: true, value } }
+function ok<T>(value: T): RemoteResult<T> {
+  return { ok: true, value }
 }
 
 function messageOf(error: unknown): string {
@@ -49,7 +49,7 @@ function disabledNamesOf(value: unknown): ReadonlySet<string> {
 }
 
 /** Wire face the page reads and writes through. */
-export type SkillsSettingsApi = Pick<IApiClient, 'skills' | 'settings'>
+export type SkillsSettingsApi = Pick<ClientRemote, 'skills' | 'settings'>
 
 /**
  * Owns the skills page snapshot: the addressed session's catalog, the
@@ -103,17 +103,17 @@ export class SkillsSettingsStore {
           sessionId === undefined
             ? Promise.resolve(ok({ skills: [] as SkillCatalogEntry[] }))
             : this.api.skills.catalog({ sessionId }),
-          this.api.settings.describe({}),
+          this.api.settings.describe(),
         ])
         if (generation !== this.generation) return
-        if (!catalog.result.ok) {
-          throw new Error(catalog.result.error.message)
+        if (!catalog.ok) {
+          throw new Error(catalog.error.message)
         }
-        if (!described.result.ok) {
-          throw new Error(described.result.error.message)
+        if (!described.ok) {
+          throw new Error(described.error.message)
         }
-        const catalogValue = catalog.result.value
-        const describedValue = described.result.value
+        const catalogValue = catalog.value
+        const describedValue = described.value
         const namespace = describedValue.namespaces.find(entry => entry.ns === SKILLS_NAMESPACE)
         let disabled: ReadonlySet<string> = new Set()
         if (namespace !== undefined) {
@@ -168,18 +168,14 @@ export class SkillsSettingsStore {
       current.writing = [...current.writing, name]
     })
     try {
-      const response = await this.api.settings.update({
-        ns: SKILLS_NAMESPACE,
-        patch: { disabled: [...disabled] },
-        expectedRevision: state.revision,
-      })
-      if (!response.result.ok) {
-        throw new Error(response.result.error.message, { cause: response.result.error.code })
+      const response = await this.api.settings.update(SKILLS_NAMESPACE, { disabled: [...disabled] }, state.revision)
+      if (!response.ok) {
+        throw new Error(response.error.message, { cause: response.error.code })
       }
     } catch (error) {
       // A stale revision means someone else wrote the namespace: reload first
       // so the page's next attempt merges over the newest stored list.
-      if ((error as { cause?: unknown }).cause === 'settings-conflict') {
+      if ((error as { cause?: unknown }).cause === 'settings/conflict') {
         await this.load()
       }
       this.store.update((current) => {

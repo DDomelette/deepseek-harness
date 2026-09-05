@@ -4,9 +4,8 @@
  * committed changes without a restart.
  */
 
-import {
-  createSnapshotStore, type SettingsScope, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CardActions, CardShell } from './card-form.ts'
 
 /** Namespace of the local usage recorder. Spelled here: a client package must not depend on a Host package. */
@@ -39,6 +38,7 @@ export class UsageTelemetryCardController {
   /** uSES-safe state source shared by the registered card. */
   readonly store: SnapshotStore<UsageTelemetryCardState>
 
+  private readonly unsubscribe: () => void
   private draft: boolean | undefined
   private saving = false
   private failed = false
@@ -48,9 +48,12 @@ export class UsageTelemetryCardController {
    */
   constructor(private readonly scope: SettingsScope<UsageTelemetrySettings>) {
     this.store = createSnapshotStore(this.projection())
-    scope.subscribe(() => { this.store.set(this.projection()) })
+    this.unsubscribe = scope.subscribe(() => { this.store.set(this.projection()) })
     this.store.set(this.projection())
   }
+
+  /** Release the settings subscription when the card owner unloads. */
+  dispose(): void { this.unsubscribe() }
 
   /** Effective value when no draft is staged. */
   private effective(): boolean {
@@ -113,8 +116,7 @@ export class UsageTelemetryCardController {
     this.store.set(this.projection())
     let accepted = false
     try {
-      await this.scope.set('enabled', draft)
-      accepted = this.scope.getSnapshot().value?.enabled === draft
+      accepted = await this.scope.mutate([{ op: 'set', path: ['enabled'], value: draft }])
     } catch {
       accepted = false
     }

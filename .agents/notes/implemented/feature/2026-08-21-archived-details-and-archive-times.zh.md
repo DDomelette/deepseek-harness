@@ -12,9 +12,9 @@ Status: implemented
 
 **一个带默认值的 `archivedSessionAts` 映射伴随归档集合贯穿全部四层；已归档页在每行行内显示归档日期，并提供固定字段的详情对话框。**
 
-- 持久化：`workspaceDomainState.archivedSessionAts`——`z.record(sessionId, z.string()).default({})`，键集合与 `archivedSessionIds` 保持一致（归档时写入 `new Date().toISOString()`；unarchive 与 forgetSession 删除对应条目）。这沿用归档集合自身的增量默认值先例，因此域版本保持 2，字段出现之前的介质解析为空映射；此前归档的会话没有时间戳，UI 如实显示而不是伪造。
-- 线协议：`workspace.list`、两个归档一元响应以及 `host/archived-sessions-changed` 帧各自把 id 集合与完整映射配对。由于映射与集合键一致，发布方现有的数组比较仍能检测全部变更。
-- 客户端运行时：`WorkspaceListState.archivedSessionAts` 通过与 id 集合相同的三条路径安装（list 基线、一元回声、变更帧）。
+- 持久化：`workspaceDomainState.archivedSessionAts`——`z.record(sessionId, z.string()).default({})`，键集合是 `archivedSessionIds` 的子集（归档时写入 `new Date().toISOString()`；unarchive 与 forgetSession 删除对应条目）。这沿用归档集合自身的增量默认值先例，因此域版本保持 2，字段出现之前的介质解析为空映射；此前归档的会话没有时间戳，UI 如实显示而不是伪造。
+- 传输：`workspace.list`、follow 基线和 `archived` 帧，以及两个归档一元响应将 ID 集合与时间戳映射配对。仅新归档会话具有时间戳，旧条目可缺少时间戳。
+- 客户端：`WorkspaceSnapshot.archivedSessionAts` 随基线、一元响应及推送帧更新。较新的帧或归档请求阻止旧一元响应覆盖状态。
 - UI（`dsh-client-ui-settings-archived`）：每行在标题下方渲染归档日期（`row.archivedAt` 套用 `date.ymd` 字典模板——消息时钟模式，绝不用会跟随浏览器语言的 `toLocaleString`）；早期归档显示"归档时间未知"占位。详情按钮（`IconInfoOutline16`，位于恢复左侧）打开固定字段对话框：分组、目录、Agent 预设、归档时间、最后活动、状态、子代理对话数、会话 ID。`ArchivedRow` 携带对话框所需的全部摘要字段，因此对话框不查询任何 store，也不引入难以覆盖的可选链。
 
 ## Alternatives considered

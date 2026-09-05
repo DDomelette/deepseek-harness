@@ -21,6 +21,9 @@
       "path": "../../client/connection/tsconfig.client.json"
     },
     {
+      "path": "../../client/file-upload/tsconfig.client.json"
+    },
+    {
       "path": "../../credentials/credentials"
 
     },
@@ -43,9 +46,6 @@
       "path": "../../host/plugin-inventory"
     },
     {
-      "path": "../../mcp/mcp-manager"
-    },
-    {
       "path": "../../interaction/commands"
     },
     {
@@ -58,10 +58,28 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../../skill/skill"
+      "path": "../../subagent/subagent"
+    },
+    {
+      "path": "../../interaction/user-approval"
+    },
+    {
+      "path": "../../interaction/user-questions"
+    },
+    {
+      "path": "../session-controller/tsconfig.client.json"
+    },
+    {
+      "path": "../settings-controller"
+    },
+    {
+      "path": "../workspace-controller/tsconfig.client.json"
     },
     {
       "path": "../../typert/protocol"
-    }
+    },
+    { "path": "../../session/session-pins" },
+    { "path": "../../mcp/mcp-manager" },
+    { "path": "../../skill/skill" }
   ]
 }

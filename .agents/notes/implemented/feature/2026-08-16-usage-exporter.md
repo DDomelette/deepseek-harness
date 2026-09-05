@@ -22,10 +22,10 @@ A batch retries with the same `batchId` up to `maxAttempts`, then is abandoned a
 
 ## Consequences
 
-- The shipped Web composition keeps the entry `disabled: true`; deployments opt in per profile.
+- The shipped base composition keeps the entry `disabled: true`; deployments opt in per profile.
 - Push and file scan can coexist without double-counting via Monitor's `rootId` + collection-mode + lease rules.
 - Endpoint/token config is secret-role and never logged; non-loopback endpoints require HTTPS.
 
 ## Testing
 
-- `packages/telemetry/usage-exporter`: config schema/defaults, cursor store atomic persistence/prune, tail EOF snapshot/new-file/truncation/malformed-line behavior, sender classification (accepted, duplicate, 401 permanent, 5xx retryable, heartbeat), apply poll/push/cursor advance, and the disabled Web bundle row.
+- `packages/telemetry/usage-exporter`: config schema/defaults, cursor store atomic persistence/prune, tail EOF snapshot/new-file/truncation/malformed-line behavior, sender classification (accepted, duplicate, 401 permanent, 5xx retryable, heartbeat), apply poll/push/cursor advance, and the disabled base bundle row.

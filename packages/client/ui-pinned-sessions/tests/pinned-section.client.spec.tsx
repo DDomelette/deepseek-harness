@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import { type SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import { PinnedSection } from '../src/client/PinnedSection.tsx'
 import { createPinnedSessionsStore } from '../src/client/stores.ts'
 
@@ -46,10 +46,11 @@ function renderPinned({
     <PinnedSection
       wide
       view="grouped"
+      useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={selector => selector(sessions)}
       useWorkspaces={selector => selector({
-        items: [workspace], archivedSessionIds: [], archivedSessionAts: {}, sessionFlags: {}, state: 'idle', phase: 'ready',
-        error: null, baselinesReady: true, recentWorkspaceId: undefined,
+        items: [workspace], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready',
+        error: null,
       })}
       useStore={selector => selector(store.getSnapshot())}
       actions={store.actions}

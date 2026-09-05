@@ -17,7 +17,7 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/mcp-config', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/mcp-config', import.meta.url))
 const ROSTER_EXPECTED = join(SNAPSHOT_DIR, 'roster.expected.md')
 const ADD_FORM_EXPECTED = join(SNAPSHOT_DIR, 'add-form.expected.md')
 const MODE = webSnapshotMode()
@@ -36,7 +36,7 @@ describe('web e2e: MCP settings tab', () => {
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 
@@ -168,7 +168,7 @@ describe('web e2e: MCP settings tab', () => {
 })
 
 describe('web e2e: MCP settings tab declarative rows', () => {
-  const MEMORIX_PATCH = fileURLToPath(new URL('../../../examples/mcp-memory/memorix.cordis.yml', import.meta.url))
+  const MEMORIX_PATCH = fileURLToPath(new URL('../../cli/config/examples/mcp-memory/memorix.cordis.yml', import.meta.url))
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -179,7 +179,7 @@ describe('web e2e: MCP settings tab declarative rows', () => {
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

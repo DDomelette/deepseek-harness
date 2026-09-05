@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-`@deepseek-ai/dsh-session-flags` 提供通用的宿主侧展示标记注册表（`ctx.sessionFlags`）。Provider 注册同步标记映射；`workspace.list` 携带合并后的 `sessionFlags` 投影，使客户端工作区 store 保持纯展示。
+`@deepseek-ai/dsh-session-flags` 提供服务端展示标记注册表。置顶客户端读取 `remote.sessionPins`，通过 UI 工作区服务提供标记；API 工作区投影仅包含领域成员关系及归档状态。
 
 `@deepseek-ai/dsh-session-pins` 拥有会话置顶能力。它持久化一个 `session_pins` storage-domain global：`pinnedSessionIds`、按工作区的 `groupOrder` 覆盖，以及单列表的 `flatOrder` 覆盖，并暴露 `remote.sessionPins` 的 `list`、`setPinned`、`reorderGroup` 和 `reorderFlat`。每次变更先写 domain，再返回完整快照。重排命名了未知、未置顶或重复 id 时，在写入前以 `session-pins-invalid` 失败。同一插件注册唯一的 flag provider，投影 `pinned: true`。
 
@@ -37,4 +37,4 @@ Status: implemented
 
 ## Testing
 
-宿主 domain 与 Remote 行为由 `packages/session/session-pins/tests/session-pins.spec.ts` 固定；标记合并由 `packages/session/session-flags/tests/session-flags.spec.ts` 固定；工作区标记投递由 `packages/host/apiproxy/tests/api-proxy-workspace.spec.ts` 固定；树过滤、空组和搜索排序由 `packages/client/ui-workspace/tests/tree.client.spec.ts` 固定；客户端注册和 store 回滚由 `packages/client/ui-pinned-sessions/tests` 固定。
+服务端领域和 Remote 行为由 `packages/session/session-pins/tests` 覆盖；标记合并由 `packages/session/session-flags/tests` 覆盖；UI 注册、过滤及排序由置顶会话和工作区客户端包测试覆盖。

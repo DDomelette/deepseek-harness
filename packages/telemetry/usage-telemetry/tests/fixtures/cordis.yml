@@ -1,0 +1,13 @@
+- id: sessions
+  name: '@deepseek-ai/dsh-session'
+
+- id: llm
+  name: '@deepseek-ai/dsh-llm'
+
+- id: usage-telemetry-mock-llm
+  name: './mock-llm.ts'
+
+- id: usage-telemetry
+  name: '@deepseek-ai/dsh-usage-telemetry'
+  config:
+    enabled: true

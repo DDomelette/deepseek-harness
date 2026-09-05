@@ -76,7 +76,7 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
     () => deriveArchivedGroups(sessions, workspaces),
     [sessions, workspaces],
   )
-  const loading = sessions.phase !== 'ready' || !workspaces.baselinesReady
+  const loading = sessions.phase !== 'ready' || workspaces.phase !== 'ready'
 
   const descendantCounts = useMemo(
     () => (id: SessionId): number => countDescendants(sessions, id),

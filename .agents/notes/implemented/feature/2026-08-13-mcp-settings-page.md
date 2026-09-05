@@ -10,6 +10,8 @@ MCP servers were configured declaratively only: one `@deepseek-ai/dsh-mcp-client
 
 ## Decision
 
+[Runtime integration](../architecture/2026-09-06-local-features-on-gateway.md) defines the current controller and storage ownership.
+
 ### Two sources, one roster
 
 A new Host package `@deepseek-ai/dsh-mcp-manager` (`packages/mcp/mcp-manager`) and a new client package `@deepseek-ai/dsh-client-ui-settings-mcp` (`packages/client/ui-settings-mcp`). The Web Plugins section gains an MCP tab (order 5, between 插件配置 and 插件列表). The roster merges two sources:
@@ -29,7 +31,7 @@ A settings entry whose `serverName` collides with a declarative row is refused a
 
 ### Secret handling
 
-`env` and `headers` are `role('secret')` schema fields. The wire never returns them, so every client write names the leaves it means: the enablement switch writes path `[serverName, enabled]`; the editor submits every changed leaf together through `SettingsScope.mutate` and leaves blank env/headers fields out of the transaction entirely. The shared settings scope provides both single-path `setPath` and atomic multi-path `mutate`, because a whole-field write rebuilt from the redacted view silently deletes stored secrets while separate transactions can partially apply one edit.
+`env` and `headers` are secret fields and are redacted on read. Enablement, additions, edits and removals use `SettingsScope.mutate` path operations. Each transaction returns explicit Host acceptance; a redacted mirror cannot prove a save succeeded. Blank secret fields are omitted from edits, preserving stored secrets.
 
 ### Frozen settings snapshots
 

@@ -1,20 +1,39 @@
+---
+description: "本包的配置与行为。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-session-flags
 
 [English](README.md) | 中文
 
+## 概述
+
 DeepSeek Harness 的通用按会话展示标记。Provider 注册其拥有的会话的标记映射；消费者通过 `ctx.sessionFlags` 读取一个合并投影。注册表本身不携带业务含义。
 
+
+## 目录
+
+- [服务 API](#service-api)
+- [失败语义](#failure-semantics)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="service-api"></a>
 ## 服务 API
 
 - `registerProvider(provider)` — 注册一个 `SessionFlagProvider`（`id` 加同步的 `list()`）；返回移除它的 disposer。重复 id 会抛出。
 - `snapshot()` — 按注册顺序合并 provider。后面的 provider 在会话和标记键上获胜。返回 `{ flags, complete }`；任一 provider 失败后 `complete` 为 `false`。
 
+<a id="failure-semantics"></a>
 ## 失败语义
 
 - 失败的 provider 被记录并跳过；成功的 provider 仍会贡献。
 - 当所有 provider 都失败且存在先前的完整快照时，返回先前的完整快照。
 - 完整快照会成为 last-good 快照。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 ### 请求上下文与条件
@@ -33,5 +52,14 @@ DeepSeek Harness 的通用按会话展示标记。Provider 注册其拥有的会
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **没有 provider 变更通知** — 消费者在自身边界拉取 `snapshot()`；独立变化的 provider 必须自行发布事件。
 - **没有按标记的冲突策略** — 合并顺序即注册顺序；未来需要类型化冲突处理时要有明确策略。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。
+
+不发布运行时不变量伴随插件。本包在注册或写入处验证输入，不暴露可与独立事件流比对的第二份权威状态。

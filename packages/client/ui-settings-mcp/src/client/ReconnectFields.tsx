@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 /** Shared automatic-reconnect fields for the MCP add and edit forms. */
 
 import type { ChangeEvent, ReactNode } from 'react'
@@ -6,7 +7,7 @@ import type { McpLocaleKey } from './locales.ts'
 import css from './AddServerForm.module.css'
 
 /** Complete reconnect policy persisted for one settings-managed server. */
-export interface ReconnectDraft {
+export type ReconnectDraft = {
   /** Whether a lost connection starts a reconnect loop. */
   enabled: boolean
   /** Delay before the first reconnect attempt, in milliseconds. */
@@ -98,9 +99,9 @@ export function ReconnectFields({ idPrefix, state, setState, t }: ReconnectField
       setState({ ...state, [field]: event.currentTarget.value })
     }
   return (
-    <fieldset className={css.reconnect}>
-      <legend className={css.fieldLabel}>{t('reconnectTitle')}</legend>
-      <label className={css.checkboxField} htmlFor={`${idPrefix}-reconnect-enabled`}>
+    <fieldset className={clsx(css.reconnect)}>
+      <legend className={clsx(css.fieldLabel)}>{t('reconnectTitle')}</legend>
+      <label className={clsx(css.checkboxField)} htmlFor={`${idPrefix}-reconnect-enabled`}>
         <input
           id={`${idPrefix}-reconnect-enabled`}
           type="checkbox"
@@ -109,18 +110,18 @@ export function ReconnectFields({ idPrefix, state, setState, t }: ReconnectField
         />
         <span>{t('reconnectEnabledLabel')}</span>
       </label>
-      <div className={css.reconnectGrid}>
-        <label className={css.field} htmlFor={`${idPrefix}-reconnect-initial`}>
-          <span className={css.fieldLabel}>{t('reconnectInitialDelayLabel')}</span>
-          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-initial`} type="text" inputMode="numeric" value={state.initialDelayMs} onChange={edit('initialDelayMs')} />
+      <div className={clsx(css.reconnectGrid)}>
+        <label className={clsx(css.field)} htmlFor={`${idPrefix}-reconnect-initial`}>
+          <span className={clsx(css.fieldLabel)}>{t('reconnectInitialDelayLabel')}</span>
+          <Input className={clsx(css.fieldInput)} id={`${idPrefix}-reconnect-initial`} type="text" inputMode="numeric" value={state.initialDelayMs} onChange={edit('initialDelayMs')} />
         </label>
-        <label className={css.field} htmlFor={`${idPrefix}-reconnect-max-delay`}>
-          <span className={css.fieldLabel}>{t('reconnectMaxDelayLabel')}</span>
-          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-max-delay`} type="text" inputMode="numeric" value={state.maxDelayMs} onChange={edit('maxDelayMs')} />
+        <label className={clsx(css.field)} htmlFor={`${idPrefix}-reconnect-max-delay`}>
+          <span className={clsx(css.fieldLabel)}>{t('reconnectMaxDelayLabel')}</span>
+          <Input className={clsx(css.fieldInput)} id={`${idPrefix}-reconnect-max-delay`} type="text" inputMode="numeric" value={state.maxDelayMs} onChange={edit('maxDelayMs')} />
         </label>
-        <label className={css.field} htmlFor={`${idPrefix}-reconnect-attempts`}>
-          <span className={css.fieldLabel}>{t('reconnectMaxAttemptsLabel')}</span>
-          <Input className={css.fieldInput} id={`${idPrefix}-reconnect-attempts`} type="text" inputMode="numeric" value={state.maxAttempts} onChange={edit('maxAttempts')} />
+        <label className={clsx(css.field)} htmlFor={`${idPrefix}-reconnect-attempts`}>
+          <span className={clsx(css.fieldLabel)}>{t('reconnectMaxAttemptsLabel')}</span>
+          <Input className={clsx(css.fieldInput)} id={`${idPrefix}-reconnect-attempts`} type="text" inputMode="numeric" value={state.maxAttempts} onChange={edit('maxAttempts')} />
         </label>
       </div>
     </fieldset>

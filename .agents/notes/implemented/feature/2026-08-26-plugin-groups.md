@@ -10,10 +10,10 @@ The Plugin list tab rendered one flat catalog of every Loader entry — over 160
 
 ## Decision
 
-**A browser-local groups store turns the tab into a two-column view: user-defined groups on the left, the selected group's plugins on the right.**
+**A browser-local groups store filters the inventory while retaining its global and preset sections.**
 
-- Store: `createPluginGroupsStore()` in `packages/client/ui-settings-plugin-inventory/src/client/groups-store.ts` — a `defineStore` handle persisted to localStorage under `dsh.plugin.groups.v1`, passed as the slot entry's `store` option so the framework owns per-entry identity and rehydration. State is `{ groups: { id, name, entryIds }[], selection }`; `ALL_GROUP = 'all'` is the reserved selection showing the whole inventory. Membership stores stable Loader entry ids; the caller mints group ids (`crypto.randomUUID()` in the component) so actions stay deterministic.
-- UI: the left pane lists 全部 plus user groups with live membership counts; a `+` button opens the name dialog (empty or duplicate names disable Save), and a hover button deletes a custom group. Selecting a group filters the right pane to its members and reveals 添加插件, whose picker lists non-members with checkboxes, a search field, a running 已选择 N 个 count, and Cancel/Add. Member cards carry a 移出分组 button; both panes narrow to a stacked layout under 680px. Inside a custom group the enablement tag collapses to just the status dot — gray when the entry is disabled — and a card title wider than its card loops horizontally (ResizeObserver-measured, `prefers-reduced-motion` respected) instead of truncating.
+- Store: `createPluginGroupsStore()` in `packages/client/ui-settings-plugin-inventory/src/client/groups-store.ts` — a `defineStore` handle persisted to localStorage under `dsh.plugin.groups.v1`, passed as the slot entry's `store` option so the framework owns per-entry identity and rehydration. State is `{ groups: { id, name, entryIds }[], selection }`; `ALL_GROUP = 'all'` is the reserved selection showing the whole inventory. Membership stores global Loader entry ids or preset-scoped entry keys; the caller mints group ids (`randomUUID()` from `dsh-util-crypto` in the component) so actions stay deterministic.
+- UI: a group selector, new-group dialog, membership editor and delete-group action operate independently of Host configuration. Membership edits persist immediately; Done closes the editor. Global members accept legacy bare entry ids; new keys distinguish global rows from each preset's entry id and module. Enablement and conditional-status tags remain visible. Overflowing titles scroll horizontally while respecting reduced motion.
 - Deleting a group never deletes its members: they reappear under 全部, since grouping is a display overlay. Member ids whose entries are no longer deployed are filtered by presence at render, so a group shrinks silently rather than erroring.
 
 ## Alternatives considered
@@ -26,4 +26,4 @@ The Plugin list tab rendered one flat catalog of every Loader entry — over 160
 
 ## Consequences
 
-The inventory becomes organizable without touching the deployment, and nothing model- or wire-visible changes. Groups do not roam across browsers or Host homes (documented limitation). The component and store suites hold the package's per-file 100% coverage gate; the `settings-chrome` e2e drives create → add → reload persistence → cleanup through the assembled app, so the golden row markup stays pinned alongside the new columns.
+The inventory is organizable without changing the deployment or model inputs. Groups are local to the browser origin. Store tests cover persistence and mutations; component tests cover scope-qualified membership, legacy global ids and preset filtering.

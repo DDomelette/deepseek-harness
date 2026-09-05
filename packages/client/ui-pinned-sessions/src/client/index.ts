@@ -1,6 +1,9 @@
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { BoundActions, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { type Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-session-pins/remote'
@@ -21,7 +24,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Dictionary namespace owned by this plugin. */
-export const NS = 'sessionPins'
+const NS = 'sessionPins'
 
 /** Injectable business face required by the row pin button. */
 export interface SessionPinInjected {
@@ -49,7 +52,7 @@ const flagsOf = (snapshot: SessionPinsSnapshot): Readonly<Record<SessionId, { pi
 }
 
 /** Services required by the pinned-sessions client plugin. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'remote', 'remote.sessionPins']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'remote', 'remote.sessionPins']
 
 /** Register the pinned section, row action, and search badge entries. */
 export function apply(ctx: ClientContext): void {
@@ -61,9 +64,15 @@ export function apply(ctx: ClientContext): void {
   let latest: SessionPinsSnapshot = EMPTY
   let tail: Promise<void> = Promise.resolve()
 
+  const flagListeners = new Set<() => void>()
+  ctx.effect(() => ctx.uiWorkspace.registerSessionFlags({
+    getSnapshot: () => flagsOf(latest),
+    subscribe: (listener) => { flagListeners.add(listener); return () => { flagListeners.delete(listener) } },
+  }), 'ui-pinned-sessions: Workspace flags')
+
   const publish = (snapshot: SessionPinsSnapshot): void => {
     latest = snapshot
-    ctx.workspaces.installSessionFlags(flagsOf(snapshot))
+    for (const listener of flagListeners) listener()
   }
   const commit = (snapshot: SessionPinsSnapshot): void => {
     bound?.commit(snapshot)

@@ -5,7 +5,7 @@
  * across plugin reloads); register() receives the factory and the tab derives
  * its PropsStore share from the return type.
  */
-import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 
 /** One user-defined plugin group; members are stable Loader entry ids. */
 export interface PluginGroup {

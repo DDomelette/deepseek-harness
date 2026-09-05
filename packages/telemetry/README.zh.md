@@ -1,13 +1,28 @@
-# telemetry/：本地用量观测
+---
+description: "本地服务商用量记录与可选 HTTP 发送。"
+kind: "package-group"
+---
+
+# telemetry/ — 服务商用量
 
 [English](README.md) | 中文
 
-此组负责本地、由提供方报告的用量观测；它不进入持久化会话日志，也不参与模型请求组装。
+## 概述
 
+在本地记录服务商报告的令牌用量，并可选地将记录发送到 HTTP 端点。用量采集独立于[会话遥测子系统](../../docs/subsystems/session-telemetry.zh.md)的规范会话事件上报。
+
+## 目录
+
+- [包](#packages)
+- [开发备注](#dev-note)
+
+<a id="packages"></a>
 ## 包
 
-| 包 | 职责 | ctx 键 |
-|---|---|---|
-| [`usage-telemetry/`](usage-telemetry/README.zh.md) | 为每次带会话归属且报告提供方用量的 `llm/stream` 调用捕获一条 v1 JSONL 行。 | — |
+- [usage-telemetry](usage-telemetry/README.zh.md) 按服务商请求尝试记录用量；基础组合启用记录。
+- [usage-exporter](usage-exporter/README.zh.md) 负责发送及持久化游标；分发条目默认禁用。
 
-`usage-telemetry` 是独立的本地监控器，而非 `SessionTelemetryBackend`：会话遥测后端投递会话活动，此组则为外部消耗监控记录提供方用量。[replay token meter](../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.zh.md) 另行折叠持久化会话事件以估算请求压力，既不读取也不接收本地 JSONL 行。
+<a id="dev-note"></a>
+### 开发备注
+
+无。

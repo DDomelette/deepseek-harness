@@ -1,3 +1,4 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 /**
  * Skills settings plugin, browser half: the Skills page of the settings
  * shell. One icon per display group (declared group or discovery source),
@@ -8,8 +9,8 @@
  *
  * Export discipline: packages/client/AGENTS.md.
  */
-import type { ClientContext, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import { type Context as ClientContext } from '@deepseek-ai/cordis'
+import { type ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 // Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -49,7 +50,7 @@ function refreshIfLoaded(controller: SkillsSettingsStore): void {
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'sessions', 'remote']
+export const inject = ['slots', 'locale', 'sessions', 'remote', 'remote.skills', 'remote.settings']
 
 /**
  * Register the Skills section once the `settings.section` declaration is on
@@ -61,11 +62,10 @@ export const inject = ['slots', 'locale', 'connection', 'sessions', 'remote']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-skills: copy dictionaries')
 
-  const connection = ctx.get('connection') as ConnectionHandle
   const sessions = ctx.get('sessions') as ISessions
   let currentSessionId = sessions.list.getSnapshot().current
   const controller = new SkillsSettingsStore(
-    connection.api,
+    ctx.remote,
     () => sessions.list.getSnapshot().current,
   )
   // Registration-time text follows the locale revision; render-time copy

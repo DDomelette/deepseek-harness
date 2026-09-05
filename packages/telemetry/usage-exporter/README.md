@@ -1,9 +1,25 @@
+---
+description: "Configuration and behavior of usage-exporter."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-usage-exporter
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Optional Host plugin that tails the local usage telemetry JSONL written by [`@deepseek-ai/dsh-usage-telemetry`](../usage-telemetry/README.md) and pushes deterministic batches to DeepSeek Monitor's ingestion endpoint. The shipped Web composition mounts it **disabled**; local file capture stays the source of truth and Monitor's file scanner remains available for backfill.
 
+
+## Table of Contents
+
+- [Usage](#usage)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="usage"></a>
 ## Usage
 
 Enable the row in a profile patch and supply an endpoint:
@@ -19,6 +35,7 @@ Enable the row in a profile patch and supply an endpoint:
 
 The plugin tails `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl` with an offset cursor under `$DSH_HOME/storages/usage-exporter.json`. Batches have deterministic `batchId` values, retry with the same id, and advance the cursor only after an acknowledged, duplicate, permanently rejected, or abandoned outcome.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Usage push
@@ -37,7 +54,16 @@ No direct effect; the plugin neither assembles nor sends provider requests.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **First enable starts at the current EOF** — history remains the Monitor file scanner's backfill path; `startFrom: 'beginning'` is an explicit override.
 - **Single process per DSH home** — the cursor assumes one exporter owns each telemetry root, matching the capture writer's single-instance assumption.
 - **Permanent 4xx rejection advances the cursor** — the rejected rows stay in the local JSONL for manual backfill, but push does not retry them forever.
 - **No backpressure queue beyond retries** — rows emitted while the endpoint is down for longer than one retry window are abandoned from push and remain in the local file.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.
+
+No runtime invariant companion is published. The package validates inputs at registration or writes and exposes no second authoritative state to compare against an independent event stream.

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
-import { countDescendants, deriveArchivedGroups } from '@deepseek-ai/dsh-client-ui-settings-archived/client'
+import { type SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import { type WorkspaceSnapshot as WorkspaceListState } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { countDescendants, deriveArchivedGroups } from '../src/client/derive.ts'
 
 const sid = (value: string): SessionId => value as SessionId
 const wid = (value: string): WorkspaceId => value as WorkspaceId
@@ -42,8 +43,7 @@ function workspaces(
     state: 'idle',
     phase: 'ready',
     error: null,
-    baselinesReady: true,
-    recentWorkspaceId: undefined,
+
   } as unknown as WorkspaceListState
 }
 

@@ -1,6 +1,13 @@
+---
+description: "Configuration and behavior of ui-settings-mcp."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-settings-mcp
 
 English | [中文](README.zh.md)
+
+## Summary
 
 **MCP** tab for the Plugins section of Web Settings. The browser plugin registers one localized `settings.plugins.tab` contribution with id `mcp` (order 5, between plugin configuration and the plugin list); the Plugins section owns the navigation entry and tab chrome. Selecting the tab lazily calls `ctx.remote.mcpServers.list()` through [`api-remotes`](../../api/remotes/README.md) and binds the `mcp-servers` settings namespace through `ctx.settingsScope` (see [`ui-settings`](../ui-settings/README.md)).
 
@@ -12,6 +19,14 @@ The gear opens an inline editor prefilled from the redacted entry. Non-secret fi
 
 Loading, empty, no-match, and generic failure states stay local to the mounted component, and a failed read can be retried without exposing transport details. While mounted, the tab refetches after each Host `mcp-servers/change` invalidation and Client connection reset; a request generation guard prevents an older response from overwriting newer state. The registration uses `ctx.slots.inject()`, so it follows late tab declaration, redeclaration, locale changes, and teardown without importing the section owner.
 
+
+## Table of Contents
+
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="model-experience"></a>
 ## Model Experience
 
 None, as this package only visualizes and edits a Host-owned roster in browser Settings and registers nothing model-facing.
@@ -22,7 +37,16 @@ None; this package neither assembles nor sends a provider request.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Secret clearing is unsupported** — blank env/headers fields keep the stored values; clearing them requires deleting and re-adding the server. Entering values replaces the stored env/headers map for that field, because the wire never reveals the existing secret keys to merge against.
 - **Renaming is unsupported** — the serverName is the settings key; rename is delete + add.
 - **Args round-trip is lossy for comma-containing arguments** — args split on lines and commas, so an existing argument that itself contains a comma is re-split when the editor saves it.
 - **`failOnStartupError` is not exposed** — the schema supports it, but the panel leaves it at its default; change it in `settings.yaml` instead.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.
+
+No runtime invariant companion is published. The package validates inputs at registration or writes and exposes no second authoritative state to compare against an independent event stream.

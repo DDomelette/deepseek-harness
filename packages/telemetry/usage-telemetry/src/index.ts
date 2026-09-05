@@ -18,7 +18,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 // Merges the optional live session store onto the Cordis Context interface.
 import type {} from '@deepseek-ai/dsh-session'
 // Merges `settings` onto the cordis Context interface and brands the namespace id.
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { createUsageWriter, type UsageWriter } from './writer.ts'
 import { serializeRow, USAGE_ROW_VERSION, type UsageRow } from './schema.ts'
 
@@ -34,7 +34,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** User-settings namespace controlling local usage telemetry. */
-export const USAGE_TELEMETRY_SETTINGS_NAMESPACE = settingsNamespace('usage-telemetry')
+export const USAGE_TELEMETRY_SETTINGS_NAMESPACE = 'usage-telemetry'
 
 /** Captures provider usage from session-attributed streaming model calls. */
 export class UsageTelemetry extends Service {
@@ -61,19 +61,21 @@ export class UsageTelemetry extends Service {
       await Promise.allSettled([...this.writes])
     }
     this.syncSubscription()
-    installSettingsSection(
-      this.ctx,
-      USAGE_TELEMETRY_SETTINGS_NAMESPACE,
-      Config,
-      { enabled: this.config.enabled },
-      {
-        setSource: (source) => { this.configSource = source },
-        onChange: () => {
-          this.enabled = this.configSource().enabled
-          this.syncSubscription()
+    this.ctx.inject(['settings'], (settingsCtx) => {
+      settingsCtx.settings.installSection(
+        this.ctx,
+        USAGE_TELEMETRY_SETTINGS_NAMESPACE,
+        Config,
+        { enabled: this.config.enabled },
+        {
+          setSource: (source) => { this.configSource = source },
+          onChange: () => {
+            this.enabled = this.configSource().enabled
+            this.syncSubscription()
+          },
         },
-      },
-    )
+      )
+    })
   }
 
   /** Keep the waterfall subscription active only while capture is enabled. */

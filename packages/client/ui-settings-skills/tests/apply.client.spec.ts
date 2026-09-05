@@ -2,7 +2,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-skills/client'
@@ -11,6 +11,7 @@ import { SkillsSection } from '../src/client/SkillsSection.tsx'
 async function bench(): Promise<{
   ctx: Context
   slots: SlotRegistry
+  remote: TestRemote
   locale: LocaleRuntime
   sessionsListeners: Set<() => void>
   setCurrentSession: (id: string | undefined) => void
@@ -20,7 +21,7 @@ async function bench(): Promise<{
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  new TestRemote(ctx)
+  const remote = new TestRemote(ctx, { skills: {}, settings: {} })
   ctx.provide('connection', { api: {}, isLoopback: true } as never)
   const sessionsListeners = new Set<() => void>()
   let currentSession: string | undefined
@@ -35,6 +36,7 @@ async function bench(): Promise<{
   } as never)
   return {
     ctx,
+    remote,
     slots: ctx.get('slots') as SlotRegistry,
     locale,
     sessionsListeners,
@@ -51,7 +53,7 @@ function declare(slots: SlotRegistry): () => void {
 
 describe('ui-settings-skills apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'sessions', 'remote'])
+    expect(inject).toEqual(['slots', 'locale', 'sessions', 'remote', 'remote.skills', 'remote.settings'])
   })
 
   it('registers the skills nav entry for declarations before or after apply', async () => {
@@ -102,7 +104,7 @@ describe('ui-settings-skills apply', () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    b.ctx.remote.$dispatch('skills/change', [])
+    b.remote.emit('skills/change', [])
     b.ctx.emit('connection/reset')
   })
 
@@ -119,7 +121,7 @@ describe('ui-settings-skills apply', () => {
     hooks.skills.update((state) => { state.status = 'ready' })
     const subscribe = vi.spyOn(hooks.skills, 'getSnapshot')
 
-    b.ctx.remote.$dispatch('skills/change', [])
+    b.remote.emit('skills/change', [])
     expect(subscribe).toHaveBeenCalledTimes(1)
     b.ctx.emit('connection/reset')
     expect(subscribe).toHaveBeenCalledTimes(2)
@@ -128,9 +130,9 @@ describe('ui-settings-skills apply', () => {
     b.setCurrentSession('sk-apply-next')
     for (const listener of b.sessionsListeners) listener()
     expect(subscribe).toHaveBeenCalledTimes(3)
-    b.ctx.remote.$dispatch('agent-preset/selected', ['sk-other', 'cordis'])
+    b.remote.emit('agent-preset/selected', ['sk-other', 'standard'])
     expect(subscribe).toHaveBeenCalledTimes(3)
-    b.ctx.remote.$dispatch('agent-preset/selected', ['sk-apply-next', 'cordis'])
+    b.remote.emit('agent-preset/selected', ['sk-apply-next', 'standard'])
     expect(subscribe).toHaveBeenCalledTimes(4)
   })
 })

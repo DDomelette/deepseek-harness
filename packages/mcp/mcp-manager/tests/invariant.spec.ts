@@ -1,15 +1,16 @@
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import * as McpManagerInvariant from '../src/invariant.ts'
 import { MCP_CLIENT_MODULE } from '../src/declarative.ts'
 import { MCP_SERVERS_NS, McpServersSchema } from '../src/schema.ts'
 import { MemorySettings, fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
 
-const NS = settingsNamespace(MCP_SERVERS_NS)
+const NS = MCP_SERVERS_NS
 
 const DECLARATIVE_MEMORIX: FakeLoaderEntry = {
   name: MCP_CLIENT_MODULE,
@@ -59,17 +60,17 @@ describe('mcp-manager invariants', () => {
   it('ignores updates to other namespaces', async () => {
     const ctx = await setup([DECLARATIVE_MEMORIX])
     await ctx.plugin(McpManagerInvariant)
-    ctx.settings.register(settingsNamespace('other'), z.object({
+    ctx.settings.register('other', z.object({
       flag: z.boolean().default(false),
     }))
-    await ctx.settings.update(settingsNamespace('other'), { flag: true })
+    await ctx.settings.update('other', { flag: true })
   })
 
   it('ignores non-object payloads', async () => {
     const ctx = await setup()
     await ctx.plugin(McpManagerInvariant)
     ctx.settings.register(NS, McpServersSchema)
-    ctx.emit('settings/updated', NS, 'forged', {}, 'update')
-    ctx.emit('settings/updated', NS, null, {}, 'update')
+    ctx.emit('settings/updated', NS as SettingsNamespace, 'forged', {}, 'update')
+    ctx.emit('settings/updated', NS as SettingsNamespace, null, {}, 'update')
   })
 })

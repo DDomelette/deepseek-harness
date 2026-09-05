@@ -22,15 +22,16 @@
  * and a hole has exactly one declaring entry — they carry the same owner
  * contract and the same occupant.
  */
-import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
 import type { HostObservable, PropsHooks, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pull the owner SlotMap merges into programs that resolve the
 // runtime shares below.
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {
-  SessionId, SessionSearchResultItem, WorkspaceId, WorkspaceView,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
+import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { WorkspaceSessionFlags } from '../navigation.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
 
 /**
@@ -51,40 +52,18 @@ export interface DirectoryFlowOwnerProps {
   onError: (message: string) => void
 }
 
-/** Owner share of the pinned-sessions section rendered above the project tree. */
-export interface PinnedSectionOwnerProps {
-  /** Whether the sidebar renders wide content (the section is hidden on the rail). */
-  wide: boolean
-  /** Active browsing shape: workspace groups or one flat list. */
-  view: 'grouped' | 'flat'
-}
-
-/** Owner share of one action rendered inside a session row before the ellipsis menu. */
-export interface SessionRowActionOwnerProps {
-  sessionId: SessionId
-  /** The row lives in the hierarchy-free flat list. */
-  flat: boolean
-  /** The row is the provisional blank New Session placeholder. */
-  blank: boolean
-}
-
-/** Owner share of one extra marker rendered in a search-result row. */
-export interface SearchResultExtraOwnerProps {
-  sessionId: SessionId
-}
-
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /** Pinned list contributed by a Session presentation feature. */
+    'sidebar.workspaces.pinned': { kind: 'single'; scope: 'root'; owner: { wide: boolean; view: 'flat' | 'grouped' } }
+    /** Feature actions beside a Session row's menu. */
+    'sidebar.workspaces.sessionActions': { kind: 'list'; scope: 'root'; owner: { sessionId: SessionId; blank?: boolean; flat?: boolean } }
+    /** Extra metadata on a search result. */
+    'sidebar.workspaces.searchResultExtra': { kind: 'list'; scope: 'root'; owner: { sessionId: SessionId } }
     /** Directory-flow hole under the conversation empty-state picker (declared by the WorkspacePicker entry). */
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
-    /** Pinned-sessions section above the project tree (declared by the WorkspaceBrowser entry). */
-    'sidebar.workspaces.pinned': { kind: 'single'; scope: 'root'; owner: PinnedSectionOwnerProps }
-    /** Per-row actions before the ellipsis menu (declared by the WorkspaceBrowser entry). */
-    'sidebar.workspaces.sessionActions': { kind: 'list'; scope: 'root'; owner: SessionRowActionOwnerProps }
-    /** Extra marker in search-result rows (declared by the WorkspaceBrowser entry). */
-    'sidebar.workspaces.searchResultExtra': { kind: 'list'; scope: 'root'; owner: SearchResultExtraOwnerProps }
   }
 }
 
@@ -117,8 +96,15 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  */
 export type WorkspaceBrowserInjected = {
   hooks: DirectoryPickingInjected['hooks'] & {
-    /** Current generation's Host description, bound by the slot renderer. */
-    hostDescription: HostDescriptionSource
+    /**
+     * Fixed Host facts, reached through a hook rather than injected as values:
+     * the renderer memoizes an entry's inject result for the registration's
+     * lifetime, so facts read there would freeze at whatever the first render
+     * saw. Select the field the surface needs (`info => info.home`).
+     */
+    hostInfo: HostObservable<RemoteHostFacts>
+    /** Feature visibility flags for this browser only. */
+    workspaceSessionFlags: HostObservable<WorkspaceSessionFlags>
   }
   /**
    * Start a New Session in a Workspace: reuse-or-create its blank session and
@@ -170,12 +156,7 @@ export type WorkspaceBrowserInjected = {
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
 export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
-  & PropsRenderSlots<
-    | 'sidebar.workspaces.directoryFlow'
-    | 'sidebar.workspaces.pinned'
-    | 'sidebar.workspaces.sessionActions'
-    | 'sidebar.workspaces.searchResultExtra'
-  >
+  & PropsRenderSlots<'sidebar.workspaces.directoryFlow' | 'sidebar.workspaces.pinned' | 'sidebar.workspaces.sessionActions' | 'sidebar.workspaces.searchResultExtra'>
   & PropsStore<ReturnType<typeof createWorkspaceViewStore>>
   & Omit<WorkspaceBrowserInjected, 'hooks'>
   & PropsHooks<WorkspaceBrowserInjected['hooks']>

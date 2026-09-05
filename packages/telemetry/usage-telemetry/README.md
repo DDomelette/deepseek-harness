@@ -1,9 +1,28 @@
+---
+description: "Configuration and behavior of usage-telemetry."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-usage-telemetry
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Local, attempt-scoped provider-usage capture. The plugin observes live `llm/stream` calls and appends an outcome-free v1 JSONL row only when a call has both a `sessionId` and a provider usage chunk.
 
+
+## Table of Contents
+
+- [Configuration and composition](#configuration-and-composition)
+- [v1 JSONL rows](#v1-jsonl-rows)
+- [Data and lifecycle](#data-and-lifecycle)
+- [Replay token meter](#replay-token-meter)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="configuration-and-composition"></a>
 ## Configuration and composition
 
 `enabled` controls whether the service subscribes to `llm/stream`. The shipped Web composition enables the package; a deployment can replace that Cordis entry or set the standard `usage-telemetry` settings section. The generated [configuration catalog](../../../docs/config-catalog.md) lists the validated configuration.
@@ -17,6 +36,7 @@ Local, attempt-scoped provider-usage capture. The plugin observes live `llm/stre
 
 The settings provider overrides the composition value while it is attached. If it detaches, the service falls back to the composition value. An enabled-state change adds or removes only the `llm/stream` listener.
 
+<a id="v1-jsonl-rows"></a>
 ## v1 JSONL rows
 
 One row records one session-attributed `llm/stream` invocation that emitted provider usage, including an invocation that later errors, is retried, or whose consumer aborts or returns. Calls without `sessionId` or provider usage produce no row. v1 has no outcome, status, attempt, or purpose field.
@@ -34,6 +54,7 @@ One row records one session-attributed `llm/stream` invocation that emitted prov
 | `model` | Optional value from `GenerateOptions.model`. |
 | `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens` | Provider-reported token buckets. Missing cache buckets are written as zero. |
 
+<a id="data-and-lifecycle"></a>
 ## Data and lifecycle
 
 Rows append to `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl`. The file name uses the host's local calendar date, so it can differ from DeepSeek Monitor's Beijing aggregation day; consumers use each row's `time`, not the filename, for aggregation.
@@ -42,10 +63,12 @@ Stream finalization serializes the row and enqueues its write without awaiting f
 
 Calls whose wrappers finalize after service teardown starts are not recorded.
 
+<a id="replay-token-meter"></a>
 ## Replay token meter
 
 The [replay token meter](../../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.md) folds durable chunk and session events to estimate request pressure. It neither reads local usage JSONL nor receives telemetry rows, and usage telemetry neither reads nor changes the replay meter. The two mechanisms therefore introduce no double-counting relationship.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Local usage capture
@@ -64,6 +87,8 @@ No direct effect; observing the stream does not change any request prefix.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Capture is session-scoped** — calls without `sessionId` are intentionally absent, even when they report provider usage.
 - **v1 is outcome-free** — the last usage chunk observed for an invocation is written even if that invocation later fails, is retried, or is aborted; rows do not identify outcome, attempt, or purpose.
 - **`cwd` is best-effort** — it is omitted when the live session or its header value is unavailable.
@@ -71,3 +96,10 @@ No direct effect; observing the stream does not change any request prefix.
 - **A shared `DSH_HOME` is single-process only** — multiple processes can interleave JSONL appends and are unsupported.
 - **Graceful disposal differs from a crash** — disposal drains already-started writes, while a hard process crash can lose unfinished writes.
 - **Late-finalizing wrappers are omitted** — calls that finalize after teardown begins are not recorded.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.
+
+No runtime invariant companion is published. The package validates inputs at registration or writes and exposes no second authoritative state to compare against an independent event stream.

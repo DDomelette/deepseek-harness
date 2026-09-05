@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import McpManager from '../src/index.ts'
 import { declarativeMcpServers, MCP_CLIENT_MODULE } from '../src/declarative.ts'
 import { MCP_SERVERS_NS } from '../src/schema.ts'
@@ -31,16 +31,16 @@ describe('mcp-manager settings registration', () => {
   it('registers the mcp-servers namespace with live apply', async () => {
     const ctx = await boot()
     const described = ctx.settings.describe({})
-    const view = described.find(entry => entry.ns === settingsNamespace(MCP_SERVERS_NS))
+    const view = described.find(entry => entry.ns === MCP_SERVERS_NS)
     expect(view?.applies).toBe('live')
   })
 
   it('accepts a well-formed write and resolves schema defaults', async () => {
     const ctx = await boot()
-    await ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+    await ctx.settings.update(MCP_SERVERS_NS, {
       alpha: { transport: 'stdio', command: 'memorix' },
     })
-    expect(ctx.settings.get(settingsNamespace(MCP_SERVERS_NS))).toMatchObject({
+    expect(ctx.settings.get(MCP_SERVERS_NS)).toMatchObject({
       alpha: {
         enabled: true,
         command: 'memorix',
@@ -52,14 +52,14 @@ describe('mcp-manager settings registration', () => {
 
   it('preserves and resolves a partial reconnect policy for the mounted client', async () => {
     const ctx = await boot()
-    await ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+    await ctx.settings.update(MCP_SERVERS_NS, {
       alpha: {
         transport: 'stdio',
         command: 'memorix',
         reconnect: { enabled: false, initialDelayMs: 750 },
       },
     })
-    expect(ctx.settings.get(settingsNamespace(MCP_SERVERS_NS))).toMatchObject({
+    expect(ctx.settings.get(MCP_SERVERS_NS)).toMatchObject({
       alpha: {
         reconnect: { enabled: false, initialDelayMs: 750, maxDelayMs: 30_000, maxAttempts: 10 },
       },
@@ -71,14 +71,14 @@ describe('mcp-manager settings registration', () => {
       name: MCP_CLIENT_MODULE,
       config: { serverName: 'memorix', transport: 'stdio' },
     }])
-    await expect(ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+    await expect(ctx.settings.update(MCP_SERVERS_NS, {
       memorix: { transport: 'stdio', command: 'x' },
     })).rejects.toThrow(/memorix/)
   })
 
   it('refuses a write whose key violates the serverName pattern', async () => {
     const ctx = await boot()
-    await expect(ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+    await expect(ctx.settings.update(MCP_SERVERS_NS, {
       'has space': { transport: 'stdio', command: 'x' },
     })).rejects.toThrow(/has space/)
   })

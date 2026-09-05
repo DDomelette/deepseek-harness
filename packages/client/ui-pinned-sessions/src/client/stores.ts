@@ -1,4 +1,4 @@
-import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
 
 export type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'

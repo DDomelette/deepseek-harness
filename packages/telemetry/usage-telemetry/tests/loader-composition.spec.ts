@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
 const driver = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/telemetry/usage-telemetry/driver.ts',
+  './fixtures/driver.ts',
   import.meta.url,
 ))
 const configPath = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/telemetry/usage-telemetry/cordis.yml',
+  './fixtures/cordis.yml',
   import.meta.url,
 ))
 const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))

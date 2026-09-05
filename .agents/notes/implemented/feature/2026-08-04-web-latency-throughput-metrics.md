@@ -10,7 +10,7 @@ The Web chat records per-step LLM timing (`stepStartTime` / `firstTokenTime` / `
 
 ## Decision
 
-A package-local fold, `ui-conversation`'s `src/client/turn-metrics.ts`, is the single derivation from assistant nodes to latency/throughput readings. `assistantStepReading` turns one node into a step reading: TTFT needs both `stepStartTime` and `firstTokenTime`, decode span needs `firstTokenTime`, negative spans clamp to zero, and output tokens come from the untrusted `usage` value only when they are finite and non-negative. `deriveTurnMetrics` folds readings per turn: the lowest-numbered step owns the turn's TTFT slot, and throughput divides the summed output tokens by the summed decode spans over exactly the steps carrying both, so an unsampled step drops out instead of skewing the ratio; a turn with neither figure emits no entry.
+A package-local fold, `ui-conversation`'s `chat/turn-metrics.ts`, is the single derivation from assistant nodes to latency/throughput readings. `assistantStepReading` turns one node into a step reading: TTFT needs both `stepStartTime` and `firstTokenTime`, decode span needs `firstTokenTime`, negative spans clamp to zero, and output tokens come from the untrusted `usage` value only when they are finite and non-negative. `deriveTurnMetrics` folds readings per turn: the lowest-numbered step owns the turn's TTFT slot, and throughput divides the summed output tokens by the summed decode spans over exactly the steps carrying both, so an unsampled step drops out instead of skewing the ratio; a turn with neither figure emits no entry.
 
 The assistant footer appends the readings to the existing hover-revealed time chrome after `Ran for`, as `TTFT {s}s · {tps} tok/s`, each omitted independently when unrecorded. ChatView shows a turn's readings only when that turn's `turnTimings` entry has an `endTime`: the loaded window is a contiguous log suffix, so an in-window settled turn carries every one of its steps and the first-step TTFT is genuine rather than a window artifact. `formatLatencySeconds` is unit-less so each locale template owns its second suffix (`TTFT {seconds}s` / `首 token {seconds}秒`).
 
@@ -18,7 +18,7 @@ The stats line reuses the same step reading in its window fold: `deriveStats` ac
 
 ## Alternatives considered
 
-**A durable session projection (token-meter shape).** A `ProjectionDefinition` folding step timings host-side would survive compaction and window paging and cover the whole log. Deferred, not rejected: projection state must stay O(1) (averages, not percentiles), it needs a host change plus a schema, and the chat stats line is already documented as window-scoped for its duration facts — the new group joins that scope. A later PR can add the durable projection without moving these readings.
+**A durable session projection (token-meter shape).** A `ProjectionDefinition` folding step timings host-side would survive compaction and window paging and cover the whole log. Deferred, not rejected: projection state must stay O(1) (averages, not percentiles), it needs a host change plus a schema, and the chat stats line is documented as window-scoped for its duration facts. A durable projection can be added without moving these readings.
 
 **Per-step footer chrome.** Showing each assistant message its own TTFT would attach chrome to mid-turn narration nodes, which the footer design deliberately keeps chrome-free; the trajectory view already exposes per-step timing detail.
 

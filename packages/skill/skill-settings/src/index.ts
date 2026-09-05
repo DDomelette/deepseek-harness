@@ -14,14 +14,14 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { isSkillName, type SkillInvocationPolicy } from '@deepseek-ai/dsh-skill'
 
 export const name = 'skill-settings'
 export const inject = ['skills']
 
 /** Settings namespace carrying the user-disabled skill names. */
-export const SKILL_SETTINGS_NAMESPACE = settingsNamespace('skills')
+export const SKILL_SETTINGS_NAMESPACE = 'skills'
 
 /** Resolved settings section: skill names the user switched off. */
 export interface SkillSettingsSection {
@@ -51,26 +51,28 @@ export function apply(ctx: Context): void {
   )
 
   let current: (() => SkillSettingsSection) | undefined
-  installSettingsSection(ctx, SKILL_SETTINGS_NAMESPACE, skillSettingsSchema, { disabled: [] }, {
-    setSource: (source) => {
-      current = source
-    },
-    onChange: () => {
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, SKILL_SETTINGS_NAMESPACE, skillSettingsSchema, { disabled: [] }, {
+      setSource: (source) => {
+        current = source
+      },
+      onChange: () => {
       // The settings wiring installs setSource before the first onChange;
       // the empty fallback keeps a detached service from leaving stale names.
       // v8 ignore next -- installSettingsSection guarantees setSource first.
-      disabled = new Set(current?.().disabled ?? [])
-      // A committed override change is a catalog invalidation for every
-      // consumer holding a catalog (menus, panels): notify the registry's
-      // unfiltered change event so they refetch.
-      ctx.skills.notifyInvocationOverrideChange()
-    },
-    validate: (value) => {
-      for (const entry of value.disabled) {
-        if (!isSkillName(entry)) {
-          throw new Error(`skill-settings: disabled entry "${entry}" is not a valid skill name`)
+        disabled = new Set(current?.().disabled ?? [])
+        // A committed override change is a catalog invalidation for every
+        // consumer holding a catalog (menus, panels): notify the registry's
+        // unfiltered change event so they refetch.
+        ctx.skills.notifyInvocationOverrideChange()
+      },
+      validate: (value) => {
+        for (const entry of value.disabled) {
+          if (!isSkillName(entry)) {
+            throw new Error(`skill-settings: disabled entry "${entry}" is not a valid skill name`)
+          }
         }
-      }
-    },
+      },
+    })
   })
 }

@@ -4,36 +4,58 @@
  * remains visible.
  */
 import {
-  indexSubagentDescendants, type PendingInteractionStatus, type SessionId, type SessionListState,
-  type SessionSearchResultItem, type SessionSummary, type SubagentDescendantSummary,
-  type WorkspaceId, type WorkspaceListState, type WorkspaceView,
-} from '@deepseek-ai/dsh-client-runtime/client'
-
-/** One session's presentation flags from the runtime workspace mirror. */
-export type SessionFlags = NonNullable<WorkspaceListState['sessionFlags']>[SessionId]
+  type SessionListState, type SessionSearchResultItem, type SessionSummary,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type {
+  SessionPendingInteractionBase,
+} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-schedule/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
+import {
+  indexSubagentDescendants, type SubagentDescendantSummary,
+} from './subagent-lineage.ts'
 
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
 
-/** Display label for the ungrouped bucket row. */
-export const UNGROUPED_LABEL = 'Ungrouped'
+/**
+ * Resolve the Workspace browser group that owns one Session.
+ * @param workspaces - authoritative Workspace membership.
+ * @param sessionId - Session whose browser group is required.
+ * @returns owning Workspace id, or {@link UNGROUPED_KEY} when no Workspace accounts for it.
+ */
+export function owningGroupKey(
+  workspaces: readonly WorkspaceView[],
+  sessionId: SessionId,
+): string {
+  return (workspaces.find(workspace => workspace.sessionIds.includes(sessionId))
+    ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
+}
+
+/** Pending interaction kinds with dedicated Workspace-row presentation. */
+export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
+type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteractionBase>
 
 /** One top-level session row in a group or the flat list. */
 export interface SessionNode {
+  /** Owning project label for hover context. */
+  workspace?: string
   id: SessionId
   /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
   title: string
   /** The provisional blank session (renderer shows the localized New Session title). */
   blank: boolean
-  /** The runtime Session list reports an interaction awaiting this user. */
-  pendingInteraction?: PendingInteractionStatus
+  /** A Session-scoped UI consumer is awaiting this user. */
+  pendingInteraction?: SessionPendingInteractionStatus
   running: boolean
   /** Running descendants connected through uninterrupted subagent-origin lineage. */
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
-  /** Owning project label (the Workspace title, or the cwd basename in the flat list); absent for the ungrouped bucket. */
-  workspace?: string
+  /** The current list projection contains at least one active Schedule record. */
+  hasActiveSchedule: boolean
   updatedAt: number
 }
 
@@ -50,10 +72,8 @@ export interface GroupNode {
   /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
   createdAt: number | undefined
   label: string
-  /** Visible sessions after flag filtering (pinned rows excluded). */
+  /** Total visible sessions in the group. */
   sessionCount: number
-  /** Visible sessions before flag filtering (pinned rows included). */
-  accountSize: number
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
   containsCurrent: boolean
@@ -66,13 +86,15 @@ export interface SearchResultNode {
   id: SessionId
   title: string
   workspace: string
-  /** The runtime Session list reports an interaction awaiting this user. */
-  pendingInteraction?: PendingInteractionStatus
+  /** A Session-scoped UI consumer is awaiting this user. */
+  pendingInteraction?: SessionPendingInteractionStatus
   running: boolean
   /** Running descendants connected through uninterrupted subagent-origin lineage. */
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
+  /** The current list projection contains at least one active Schedule record. */
+  hasActiveSchedule: boolean
   snippet?: string
 }
 
@@ -95,7 +117,6 @@ interface Group {
   cwd: string | undefined
   createdAt: number | undefined
   label: string
-  accountSize: number
   sessions: SessionSummary[]
 }
 
@@ -103,12 +124,12 @@ interface Group {
  * Directory display label: basename of the path (both separators accepted).
  * Ungrouped-bucket fallback for surfaces without a workspace title.
  * @param cwd - directory path, or undefined for the ungrouped bucket.
- * @returns basename, the raw cwd when it has no basename, or the ungrouped label.
+ * @returns basename, the raw cwd when it has no basename, or an empty ungrouped marker.
  */
 export function workspaceLabel(cwd: string | undefined): string {
-  if (cwd === undefined || cwd === '') return UNGROUPED_LABEL
-  const base = cwd.replace(/[/\\]+$/, '').split(/[/\\]/).pop()
-  return base !== undefined && base !== '' ? base : cwd
+  if (cwd === undefined || cwd === '') return ''
+  const base = workspaceTitleOf(cwd)
+  return base !== '' ? base : cwd
 }
 
 /** Recency comparator: newest first, id as the deterministic tiebreak (ids are unique per group). */
@@ -135,7 +156,12 @@ function sessionVisible(session: SessionSummary, current: SessionId | undefined,
  * and the renderer localizes its display label.
  */
 function sessionTitle(session: SessionSummary): string {
-  return session.blank ? 'New Session' : session.displayTitle
+  return session.blank ? '' : session.displayTitle
+}
+
+/** The list projection alone owns the best-effort active-Schedule indicator. */
+function hasActiveSchedule(session: SessionSummary): boolean {
+  return (session.projectionValues?.schedule?.length ?? 0) > 0
 }
 
 /** Build one group without projecting session lineage into presentation. */
@@ -145,7 +171,6 @@ function buildGroup(
   cwd: string | undefined,
   createdAt: number | undefined,
   label: string,
-  accountSize: number,
   members: readonly SessionSummary[],
   order: 'account' | 'recency',
 ): Group {
@@ -153,7 +178,7 @@ function buildGroup(
   // Real Workspace order comes from sessionIds. Ungrouped falls back to
   // recency until the browser supplies its persisted local order.
   if (order === 'recency') sessions.sort(byRecency)
-  return { key, workspaceId, cwd, createdAt, label, accountSize, sessions }
+  return { key, workspaceId, cwd, createdAt, label, sessions }
 }
 
 /** Apply a stored Ungrouped order and append newly loose Sessions by recency. */
@@ -184,26 +209,22 @@ function groupByWorkspace(
   list: SessionListState,
   workspaces: readonly WorkspaceView[],
   archived: ReadonlySet<SessionId>,
-  pinned: ReadonlySet<SessionId>,
   ungroupedOrder: readonly string[] | undefined,
 ): Group[] {
   const groups: Group[] = []
   const accounted = new Set<SessionId>()
   for (const workspace of workspaces) {
     const members: SessionSummary[] = []
-    let accountSize = 0
     for (const id of workspace.sessionIds) {
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
       if (!sessionVisible(summary, list.current, archived)) continue
-      accountSize++
-      if (pinned.has(id)) continue
       members.push(summary)
     }
     groups.push(buildGroup(
       workspace.workspaceId, workspace.workspaceId, workspace.path,
-      Date.parse(workspace.createdAt), workspace.title, accountSize, members, 'account',
+      Date.parse(workspace.createdAt), workspace.title, members, 'account',
     ))
   }
   const stray = list.ids
@@ -216,22 +237,32 @@ function groupByWorkspace(
       undefined,
       undefined,
       undefined,
-      UNGROUPED_LABEL,
-      stray.length,
-      ungroupedOrder === undefined
-        ? stray.filter(s => !pinned.has(s.id))
-        : orderedUngrouped(stray.filter(s => !pinned.has(s.id)), ungroupedOrder),
+      '',
+      ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
       ungroupedOrder === undefined ? 'recency' : 'account',
     ))
   }
   return groups
 }
 
+/** Keep navigation presentation independent from domain-owned interaction objects. */
+function visiblePendingKind(kind: string | undefined): SessionPendingInteractionStatus | undefined {
+  switch (kind) {
+    case 'approval':
+    case 'plan-review':
+    case 'question':
+      return kind
+    default:
+      return undefined
+  }
+}
+
 function sessionNode(
   s: SessionSummary,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
-  workspace?: string,
+  pendingInteractions: SessionPendingInteractions,
 ): SessionNode {
+  const pendingInteraction = visiblePendingKind(pendingInteractions.get(s.id)?.kind)
   return {
     id: s.id,
     title: sessionTitle(s),
@@ -239,9 +270,10 @@ function sessionNode(
     running: s.running,
     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
     completed: s.completed === true,
-    ...(workspace === undefined ? {} : { workspace }),
+    hasActiveSchedule: hasActiveSchedule(s),
     updatedAt: s.updatedAt,
-    ...(s.pendingInteraction === undefined ? {} : { pendingInteraction: s.pendingInteraction }),
+    ...(s.cwd === undefined ? {} : { workspace: workspaceLabel(s.cwd) }),
+    ...(pendingInteraction === undefined ? {} : { pendingInteraction }),
   }
 }
 
@@ -256,31 +288,25 @@ function sessionNode(
  * @param list - sessions list snapshot (`current` feeds containsCurrent).
  * @param workspaces - real workspaces in stable Host order.
  * @param archivedSessionIds - registry-global archive set.
+ * @param pendingInteractions - pending UI interactions by Session.
  * @param view - local expansion arrays.
- * @param sessionFlags - presentation flags used to exclude pinned sessions from ordinary groups.
  * @returns group sections in render order.
  */
 export function deriveGroups(
   list: SessionListState,
   workspaces: readonly WorkspaceView[],
   archivedSessionIds: readonly SessionId[],
+  pendingInteractions: SessionPendingInteractions,
   view: TreeView,
-  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
 ): GroupNode[] {
   const archived = new Set(archivedSessionIds)
-  const pinned = new Set(
-    Object.entries(sessionFlags)
-      .filter(([, flags]) => flags.pinned === true)
-      .map(([id]) => id as SessionId),
-  )
   const expandedGroups = new Set(view.expandedGroups)
   const descendants = indexSubagentDescendants(list.byId)
   const currentGroup = list.current === undefined
     ? undefined
-    : (workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId as string | undefined)
-        ?? UNGROUPED_KEY
+    : owningGroupKey(workspaces, list.current)
   const groups: GroupNode[] = []
-  for (const g of groupByWorkspace(list, workspaces, archived, pinned, view.ungroupedOrder)) {
+  for (const g of groupByWorkspace(list, workspaces, archived, view.ungroupedOrder)) {
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -289,12 +315,13 @@ export function deriveGroups(
       createdAt: g.createdAt,
       label: g.label,
       sessionCount: g.sessions.length,
-      accountSize: g.accountSize,
       expanded,
       containsCurrent: g.key === currentGroup,
       sessions: expanded
-        ? g.sessions.map(session =>
-          sessionNode(session, descendants, g.workspaceId === undefined ? undefined : g.label))
+        ? g.sessions.map(session => ({
+          ...sessionNode(session, descendants, pendingInteractions),
+          ...(g.key === UNGROUPED_KEY ? {} : { workspace: g.label }),
+        }))
         : [],
     })
   }
@@ -308,39 +335,24 @@ export function deriveGroups(
  * (see {@link deriveSearchResults}).
  * @param list - sessions list snapshot.
  * @param archivedSessionIds - registry-global archive set.
- * @param sessionFlags - presentation flags used to exclude pinned sessions from the flat list.
+ * @param pendingInteractions - pending UI interactions by Session.
  * @returns flat rows in render order.
  */
 export function deriveFlat(
   list: SessionListState,
   archivedSessionIds: readonly SessionId[],
-  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
+  pendingInteractions: SessionPendingInteractions,
 ): SessionNode[] {
   const archived = new Set(archivedSessionIds)
-  const pinned = new Set(
-    Object.entries(sessionFlags)
-      .filter(([, flags]) => flags.pinned === true)
-      .map(([id]) => id as SessionId),
-  )
   const descendants = indexSubagentDescendants(list.byId)
   const rows: SessionSummary[] = []
   for (const id of list.ids) {
     const s = list.byId[id]
-    if (s === undefined || !sessionVisible(s, list.current, archived) || pinned.has(id)) continue
+    if (s === undefined || !sessionVisible(s, list.current, archived)) continue
     rows.push(s)
   }
   rows.sort(byRecency)
-  return rows.map(session =>
-    sessionNode(session, descendants, session.cwd === undefined ? undefined : workspaceLabel(session.cwd)))
-}
-
-/** Relative-time bucket of a session row's trailing label. */
-export type RelativeTimeUnit = 'now' | 'minutes' | 'hours' | 'days' | 'months' | 'years'
-
-/** Structured relative time: the bucket plus its magnitude (0 for 'now'). */
-export interface RelativeTime {
-  unit: RelativeTimeUnit
-  n: number
+  return rows.map(session => sessionNode(session, descendants, pendingInteractions))
 }
 
 /**
@@ -351,9 +363,9 @@ export interface RelativeTime {
  * @param workspaces - Workspace membership and display labels.
  * @param query - caller text; surrounding whitespace is ignored.
  * @param archivedSessionIds - registry-global archive set (members never match).
+ * @param pendingInteractions - pending UI interactions by Session.
  * @param content - ranked Host content-search page.
  * @param limit - protocol-owned maximum merged row count.
- * @param sessionFlags - presentation flags used to rank pinned search matches first.
  * @returns bounded deduplicated flat rows and a refine-query hint bit.
  */
 export function deriveSearchResults(
@@ -361,18 +373,13 @@ export function deriveSearchResults(
   workspaces: readonly WorkspaceView[],
   query: string,
   archivedSessionIds: readonly SessionId[],
+  pendingInteractions: SessionPendingInteractions,
   content: { items: readonly SessionSearchResultItem[]; hasMore: boolean },
   limit: number,
-  sessionFlags: Readonly<Record<SessionId, SessionFlags>> = {},
 ): SearchResultSet {
   const q = query.trim().toLowerCase()
   if (q === '') return { items: [], hasMore: false }
   const archived = new Set(archivedSessionIds)
-  const pinned = new Set(
-    Object.entries(sessionFlags)
-      .filter(([, flags]) => flags.pinned === true)
-      .map(([id]) => id as SessionId),
-  )
   const descendants = indexSubagentDescendants(list.byId)
 
   const workspaceBySession = new Map<SessionId, string>()
@@ -415,44 +422,25 @@ export function deriveSearchResults(
     const summary = list.byId[item.sessionId]
     if (summary !== undefined && !summary.blank && sessionVisible(summary, list.current, archived)) include(summary)
   }
-  ordered.sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)))
 
   return {
     items: ordered.slice(0, limit).map((summary) => {
       const match = contentBySession.get(summary.id)
+      const pendingInteraction = visiblePendingKind(pendingInteractions.get(summary.id)?.kind)
       return {
         id: summary.id,
         title: sessionTitle(summary),
         workspace: labelOf(summary),
         running: summary.running,
         runningSubagentCount: descendants.get(summary.id)?.runningCount ?? 0,
-        ...(summary.pendingInteraction === undefined
+        ...(pendingInteraction === undefined
           ? {}
-          : { pendingInteraction: summary.pendingInteraction }),
+          : { pendingInteraction }),
         completed: summary.completed === true,
+        hasActiveSchedule: hasActiveSchedule(summary),
         ...match === undefined ? {} : { snippet: match.snippet },
       }
     }),
     hasMore: content.hasMore || ordered.length > limit,
   }
-}
-
-/**
- * Compact relative time for session rows, as a structured bucket the
- * renderer localizes ("now"/"5min"/"3h"/"2d"/"4mo"/"1y" in en).
- * @param updatedAt - epoch ms of the session's last activity.
- * @param now - current epoch ms (injected for pure rendering).
- * @returns the row's trailing time bucket and magnitude.
- */
-export function relativeTime(updatedAt: number, now: number): RelativeTime {
-  const MIN = 60_000
-  const HOUR = 3_600_000
-  const DAY = 86_400_000
-  const diff = Math.max(0, now - updatedAt)
-  if (diff < MIN) return { unit: 'now', n: 0 }
-  if (diff < HOUR) return { unit: 'minutes', n: Math.floor(diff / MIN) }
-  if (diff < DAY) return { unit: 'hours', n: Math.floor(diff / HOUR) }
-  if (diff < 30 * DAY) return { unit: 'days', n: Math.floor(diff / DAY) }
-  if (diff < 365 * DAY) return { unit: 'months', n: Math.floor(diff / (30 * DAY)) }
-  return { unit: 'years', n: Math.floor(diff / (365 * DAY)) }
 }

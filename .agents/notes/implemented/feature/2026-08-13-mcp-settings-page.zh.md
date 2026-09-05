@@ -10,6 +10,8 @@ MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台�
 
 ## Decision
 
+当前运行时的 API、生命周期和持久化集成见 [Gateway 集成说明](../architecture/2026-09-06-local-features-on-gateway.zh.md)。
+
 ### 两个来源，一份名单
 
 新增 Host 包 `@deepseek-ai/dsh-mcp-manager`（`packages/mcp/mcp-manager`）与客户端包 `@deepseek-ai/dsh-client-ui-settings-mcp`（`packages/client/ui-settings-mcp`）。Web「插件」分区新增 MCP 标签页（order 5，位于「插件配置」与「插件列表」之间）。名单合并两个来源：
@@ -29,7 +31,7 @@ MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台�
 
 ### Secret 处理
 
-`env` 与 `headers` 是 `role('secret')` schema 字段。协议从不回传它们，因此客户端的每次写入都点名它要写的叶子：启用开关写路径 `[serverName, enabled]`；编辑器通过 `SettingsScope.mutate` 一次提交全部变更叶子，留空的 env/headers 字段完全不进入事务。共享 settings scope 同时提供单路径 `setPath` 和原子多路径 `mutate`，因为从脱敏视图重建的整字段写会静默删除已存 secret，而分离事务可能只应用一次编辑的一部分。
+`env` 和 `headers` 为密钥字段，读取时脱敏。启用、新增、编辑和移除使用 `SettingsScope.mutate` 路径操作。每个事务明确返回服务端接受状态，脱敏镜像不能证明保存成功。编辑时省略空密钥字段，以保留已存密钥。
 
 ### 冻结的 settings 快照
 

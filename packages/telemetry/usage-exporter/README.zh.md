@@ -1,9 +1,25 @@
+---
+description: "本包的配置与行为。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-usage-exporter
 
 [English](README.md) | 中文
 
+## 概述
+
 可选 Host 插件：tail [`@deepseek-ai/dsh-usage-telemetry`](../usage-telemetry/README.zh.md) 写出的本地 usage JSONL，并把确定性 batch 推送到 DeepSeek Monitor 的接收端点。随附 Web 组合以**禁用**状态挂载它；本地文件捕获仍是事实来源，Monitor 的文件扫描器继续可用于回填。
 
+
+## 目录
+
+- [用法](#usage)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="usage"></a>
 ## 用法
 
 在 profile patch 中启用并配置 endpoint：
@@ -19,6 +35,7 @@
 
 插件以 offset 游标 tail `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl`，游标位于 `$DSH_HOME/storages/usage-exporter.json`。batch 使用确定性 `batchId`，重试复用同一 id；只有确认、重复、永久拒绝或放弃后才会推进游标。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 ### Usage 推送
@@ -37,7 +54,16 @@
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **首次启用从当前 EOF 开始** — 历史数据仍由 Monitor 文件扫描器回填；`startFrom: 'beginning'` 是显式覆盖。
 - **每个 DSH home 单进程** — 游标假设一个遥测根只属于一个 exporter，与捕获写入器的单实例假设一致。
 - **永久 4xx 拒绝会推进游标** — 被拒绝的行留在本地 JSONL 中用于手动回填，push 不会无限重试。
 - **重试之外没有积压队列** — 端点停机时间超过单个重试窗口时，期间的行会从 push 放弃并继续留在本地文件。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。
+
+不发布运行时不变量伴随插件。本包在注册或写入处验证输入，不暴露可与独立事件流比对的第二份权威状态。

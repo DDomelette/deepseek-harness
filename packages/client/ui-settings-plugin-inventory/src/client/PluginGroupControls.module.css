@@ -1,0 +1,29 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.label { margin-right: 8px; }
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  width: min(600px, 80vw);
+}
+
+.members {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.member {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}

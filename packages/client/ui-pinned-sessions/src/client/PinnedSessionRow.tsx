@@ -6,7 +6,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { PendingInteractionStatus } from '@deepseek-ai/dsh-client-runtime/client'
+type PendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './PinnedSessionRow.module.css'
 

@@ -18,7 +18,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v2.jsonl', import.meta.url))
 const PARENT_ID = 'archived-settings-parent'
 const CHILD_ID = 'archived-settings-child'
 const RESTORE_ID = 'archived-settings-restore'
@@ -34,7 +34,7 @@ describe('web e2e: archived sessions settings', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, dirname(scaffold.workspaceCwd), basename(scaffold.workspaceCwd))
 
@@ -42,8 +42,9 @@ describe('web e2e: archived sessions settings', () => {
     const parentId = await seedSession(scaffold, seedText, PARENT_ID)
     const childId = SessionId(CHILD_ID)
     const childEvents = parseSessionLog(realizeSeedFixture(scaffold, seedText, CHILD_ID))
-    await scaffold.ctx.sessionPersistence.create({
+    const childWriter = await scaffold.ctx.sessionPersistence.create({
       version: SESSION_FORMAT_VERSION,
+      isSeeded: false,
       id: childId,
       createdAt: Date.now() - 30_000,
       cwd: scaffold.workspaceCwd,
@@ -51,19 +52,20 @@ describe('web e2e: archived sessions settings', () => {
       origin: 'subagent' as const,
       delegationDepth: 1,
     })
-    await scaffold.ctx.sessionPersistence.append(childId, childEvents)
+    try { await childWriter.append(childEvents) } finally { await childWriter.close() }
 
     // An ungrouped archived session for the restore path: its cwd is the
     // scaffold parent, which no workspace owns.
     const restoreId = SessionId(RESTORE_ID)
     const restoreEvents = parseSessionLog(realizeSeedFixture(scaffold, seedText, RESTORE_ID))
-    await scaffold.ctx.sessionPersistence.create({
+    const restoreWriter = await scaffold.ctx.sessionPersistence.create({
       version: SESSION_FORMAT_VERSION,
+      isSeeded: false,
       id: restoreId,
       createdAt: Date.now() - 20_000,
       cwd: dirname(scaffold.workspaceCwd),
     })
-    await scaffold.ctx.sessionPersistence.append(restoreId, restoreEvents)
+    try { await restoreWriter.append(restoreEvents) } finally { await restoreWriter.close() }
 
     const workspace = await scaffold.ctx.workspaceRegistry.resolveByPath(scaffold.workspaceCwd)
     if (workspace === undefined) throw new Error('workspace was not connected')
@@ -142,8 +144,8 @@ describe('web e2e: archived sessions settings', () => {
     await expect.poll(() => page.getByRole('dialog', { name: 'Delete conversation?' }).count(), { timeout: 10_000 }).toBe(0)
 
     const headers = await scaffold.ctx.sessionPersistence.list()
-    expect(headers.map(header => header.id)).not.toContain(SessionId(PARENT_ID))
-    expect(headers.map(header => header.id)).not.toContain(SessionId(CHILD_ID))
+    expect(headers.map(({ header }) => header.id)).not.toContain(SessionId(PARENT_ID))
+    expect(headers.map(({ header }) => header.id)).not.toContain(SessionId(CHILD_ID))
     expect(scaffold.ctx.workspaceRegistry.archivedSessionIds).not.toContain(SessionId(PARENT_ID))
     expect(scaffold.ctx.workspaceRegistry.archivedSessionIds).not.toContain(SessionId(CHILD_ID))
     const workspace = await scaffold.ctx.workspaceRegistry.resolveByPath(scaffold.workspaceCwd)
