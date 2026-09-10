@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { type SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import { PinnedSessionRow, type PinnedRowNode } from './PinnedSessionRow.tsx'
@@ -44,7 +45,7 @@ function orderedByIds(
 }
 
 export function PinnedSection({
-  wide, view, useSessions, useSessionPendingInteraction, useWorkspaces, useStore, actions,
+  wide, view, useSessions, useSessionPendingInteraction, useWorkspaces, usePanelInfo, useStore, actions,
   open, setPinned, reorderGroup, reorderFlat, renameSession, forkSession, archiveSession, workspaceT, t,
 }: PropsRuntime<'sidebar.workspaces.pinned'>
   & PropsStore<ReturnType<typeof createPinnedSessionsStore>>
@@ -52,6 +53,7 @@ export function PinnedSection({
   & PropsLocale<'sessionPins'>) {
   const pendingInteractions = useSessionPendingInteraction(s => s)
   const sessions = useSessions(s => s)
+  const panelActive = usePanelInfo(s => s.activePanelId !== null)
   const workspaces = useWorkspaces(s => s.items)
   const archivedSessionIds = useWorkspaces(s => s.archivedSessionIds)
   const ready = useStore(s => s.ready)
@@ -117,6 +119,7 @@ export function PinnedSection({
       useSessions={useSessions}
       useSessionPendingInteraction={useSessionPendingInteraction}
       useWorkspaces={useWorkspaces}
+      usePanelInfo={usePanelInfo}
       useStore={useStore}
       actions={actions}
       setPinned={setPinned}
@@ -171,7 +174,7 @@ export function PinnedSection({
             <PinnedSessionRow
               key={node.id}
               node={node}
-              currentId={sessions.current}
+              currentId={panelActive ? undefined : sessions.current}
               now={Date.now()}
               onOpen={open}
               onRename={(id, title) => { void renameSession(id, title) }}

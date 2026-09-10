@@ -85,6 +85,8 @@ function mount(
   },
 ): ArchivedSectionInjected {
   render(<ArchivedSection
+    usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+    useResource={() => { throw new Error('unused by ArchivedSection') }}
     useSessionPendingInteraction={selector => selector(new Map())}
     useSessions={useSessions}
     useWorkspaces={useWorkspaces}
@@ -149,6 +151,8 @@ describe('ArchivedSection', () => {
     original.byId[sid('loose')] = { ...original.byId[sid('loose')]!, running: true }
     const runningSessions = <S,>(selector: (state: SessionListState) => S): S => selector(original)
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
       useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={runningSessions}
       useWorkspaces={useWorkspaces}
@@ -169,6 +173,8 @@ describe('ArchivedSection', () => {
     const restore = vi.fn(async () => true)
     const close = vi.fn()
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
       useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={useSessions}
       useWorkspaces={useWorkspaces}
@@ -198,6 +204,8 @@ describe('ArchivedSection', () => {
     original.byId[sid('loose')] = { ...original.byId[sid('loose')]!, running: true }
     const runningSessions = <S,>(selector: (state: SessionListState) => S): S => selector(original)
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
       useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={runningSessions}
       useWorkspaces={useWorkspaces}

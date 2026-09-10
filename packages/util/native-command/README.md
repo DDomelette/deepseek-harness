@@ -41,13 +41,15 @@ On exit 0 the call resolves with captured stdout and stderr. On any failure it r
 
 ### Injecting the command boundary
 
-The `NativeCommandRunner` type is the injectable command boundary for host integrations: pass the function (or a wrapper) where the integration needs a testable seam, so tests can substitute a fake runner.
+The `NativeCommandRunner` type is the injectable command boundary for host integrations: pass the function (or a wrapper) where the integration needs a testable boundary, so tests can substitute a fake runner.
 
 `windowsPathToHost(path, signal)` converts a caller-validated absolute Windows path to a Linux path when the Host is WSL, using `wslpath -u` without assuming a mount root. It returns the input unchanged on other hosts. Translation failures, non-absolute command output, and cancellation reject the call. Callers retain responsibility for native path validation.
 
 ### Opening a Host path
 
 `openNativePath(path, signal)` hands a path to the default application and prefers the named default browser for HTML and SVG where the platform can identify one. `openNativeTextFile(path, signal)` selects text-editor intent; on macOS it uses `open -t`. WSL paths are translated with `wslpath -w` before the Windows desktop receives them. `canOpenNativePath()` reports whether the current Host plausibly has a desktop target.
+
+`revealNativePath(path, signal)` selects the file in Finder or Explorer, including WSL path translation, and opens its parent directory through `xdg-open` on desktop Linux. `nativeFileManager()` identifies that action for Host-derived UI labels; desktop availability remains a separate `canOpenNativePath()` check. Callers must authorize the absolute file path before invoking either operation. Platform dispatch is covered by injected-runner tests; native desktop verification belongs to the corresponding platform. Explorer receives an encoded file URI as a separate argument. Its exit code 1 is accepted as a delegated handoff; cancellation, missing executables, and other exit codes still reject. This acknowledgement does not prove that a desktop window selected the file.
 
 -----
 

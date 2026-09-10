@@ -25,7 +25,7 @@ Pinned-sessions browser plugin for the DeepSeek Harness sidebar. It registers th
 <a id="slot-registrations"></a>
 ## Slot registrations
 
-- `sidebar.workspaces.pinned` — the pinned list above the project tree. Grouped view groups by owning workspace; flat view renders one list. The section hides when no session is pinned.
+- `sidebar.workspaces.pinned` — the pinned list above the project tree. Grouped view groups by owning workspace; flat view renders one list. The section hides when no session is pinned. Session selection is highlighted only while no main panel is active.
 - `sidebar.workspaces.sessionActions` — the hover-revealed pin/unpin button rendered left of the row ellipsis.
 - `sidebar.workspaces.searchResultExtra` — the blue pin badge on pinned search results.
 

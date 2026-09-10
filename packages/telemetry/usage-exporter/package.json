@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-usage-exporter",
   "description": "Usage exporter: tails the local usage telemetry JSONL and pushes deterministic batches over HTTP",
-  "version": "0.1.3-alpha.1",
+  "version": "0.1.5-rc.1",
   "publishConfig": {
     "access": "public"
   },

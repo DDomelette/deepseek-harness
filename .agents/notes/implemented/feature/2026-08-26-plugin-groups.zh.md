@@ -13,7 +13,7 @@ Status: implemented
 **浏览器本地分组 store 在保留全局与预设区块的同时过滤插件清单。**
 
 - Store：`packages/client/ui-settings-plugin-inventory/src/client/groups-store.ts` 的 `createPluginGroupsStore()`——一个通过 `defineStore` 定义的句柄，以 `dsh.plugin.groups.v1` 持久化到 localStorage，并作为 slot 条目的 `store` 选项注册，由框架负责每条目的身份与 rehydrate。状态为 `{ groups: { id, name, entryIds }[], selection }`；`ALL_GROUP = 'all'` 是展示完整清单的保留选中值。成员保存全局 Loader 条目 id 或包含预设作用域的条目键；分组 id 由调用方铸造（组件中用 `dsh-util-crypto` 的 `randomUUID()`），因此 action 保持确定性。
-- UI：分组选择器、新建分组对话框、成员编辑器和删除分组操作独立于服务端配置。成员编辑立即持久化，完成按钮关闭编辑器。全局成员接受旧的裸条目 ID；新键区分全局行与各预设的条目 ID 及模块。启用与条件状态标签保持可见。溢出标题水平滚动，同时尊重减少动态效果设置。
+- UI：分组选择器、新建分组对话框、成员编辑器和删除分组操作独立于服务端配置。成员编辑立即持久化，完成按钮关闭编辑器。全局成员接受旧的裸条目 ID；新键区分全局行与各预设的条目 ID 及模块。每张卡片的首行展示标题及状态，次行展示条目标识。启用与条件状态标签保持可见。溢出标题水平滚动，同时尊重减少动态效果设置。
 - 删除分组不会删除其成员：成员重新出现在"全部"中，因为分组只是展示层叠加。已下线条目的成员 id 在渲染时按存在性过滤，分组静默缩小而不是报错。
 
 ## Alternatives considered

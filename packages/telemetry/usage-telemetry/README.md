@@ -66,7 +66,7 @@ Calls whose wrappers finalize after service teardown starts are not recorded.
 <a id="replay-token-meter"></a>
 ## Replay token meter
 
-The [replay token meter](../../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.md) folds durable chunk and session events to estimate request pressure. It neither reads local usage JSONL nor receives telemetry rows, and usage telemetry neither reads nor changes the replay meter. The two mechanisms therefore introduce no double-counting relationship.
+The [replay token meter](../../../.agents/notes/archived/architecture/2026-07-15-replay-token-meter-service.md) folds durable chunk and session events to estimate request pressure. It neither reads local usage JSONL nor receives telemetry rows, and usage telemetry neither reads nor changes the replay meter. The two mechanisms therefore introduce no double-counting relationship.
 
 <a id="model-experience"></a>
 ## Model Experience

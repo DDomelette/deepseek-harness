@@ -25,7 +25,7 @@ DeepSeek Harness 侧栏的会话置顶浏览器插件。它把置顶栏、行内
 <a id="slot-registrations"></a>
 ## 槽位注册
 
-- `sidebar.workspaces.pinned` — 项目树上方的置顶列表。分组视图按所属工作区分组；单列表视图渲染为一个列表。没有置顶会话时该区域隐藏。
+- `sidebar.workspaces.pinned` — 项目树上方的置顶列表。分组视图按所属工作区分组；单列表视图渲染为一个列表。没有置顶会话时该区域隐藏。仅在没有活动主面板时高亮选中的会话。
 - `sidebar.workspaces.sessionActions` — 悬停时显示在行 ⋯ 左侧的置顶/取消置顶按钮。
 - `sidebar.workspaces.searchResultExtra` — 置顶搜索结果上的蓝色图钉徽标。
 

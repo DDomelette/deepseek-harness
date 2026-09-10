@@ -22,7 +22,7 @@ The standard `usage-telemetry` settings section controls the listener. While the
 
 ## Division from replay token measurement
 
-The [replay token meter](../architecture/2026-07-15-replay-token-meter-service.md) folds durable session events to estimate the current model-visible request and reuses a successful-call usage anchor only when its request envelope still matches. Local usage telemetry records provider usage from each live, session-attributed model call for an external consumption monitor. It neither feeds nor replays the token meter, and the token meter does not read telemetry files. This separation preserves the meter's single-fold accounting and adds no double-counting relationship.
+The [replay token meter](../../archived/architecture/2026-07-15-replay-token-meter-service.md) folds durable session events to estimate the current model-visible request and reuses a successful-call usage anchor only when its request envelope still matches. Local usage telemetry records provider usage from each live, session-attributed model call for an external consumption monitor. It neither feeds nor replays the token meter, and the token meter does not read telemetry files. This separation preserves the meter's single-fold accounting and adds no double-counting relationship.
 
 ## Alternatives considered
 

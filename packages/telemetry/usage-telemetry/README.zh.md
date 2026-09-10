@@ -66,7 +66,7 @@ settings 提供方处于连接状态时覆盖组合值。它脱离后，服务�
 <a id="replay-token-meter"></a>
 ## Replay token meter
 
-[replay token meter](../../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.zh.md) 折叠持久化分片和会话事件以估算请求压力。它既不读取本地 usage JSONL，也不接收遥测行；usage telemetry 同样不读取或改变 replay token meter。因此，两种机制不会引入重复计数关系。
+[replay token meter](../../../.agents/notes/archived/architecture/2026-07-15-replay-token-meter-service.md) 折叠持久化分片和会话事件以估算请求压力。它既不读取本地 usage JSONL，也不接收遥测行；usage telemetry 同样不读取或改变 replay token meter。因此，两种机制不会引入重复计数关系。
 
 <a id="model-experience"></a>
 ## Model Experience

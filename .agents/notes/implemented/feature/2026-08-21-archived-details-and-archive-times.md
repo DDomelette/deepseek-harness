@@ -6,7 +6,7 @@ English | [中文](2026-08-21-archived-details-and-archive-times.zh.md)
 
 ## Problem
 
-The Archived settings page listed one bare title per archived conversation. Users could not tell when a conversation was archived, nor inspect its pre-archive context (workspace group, cwd, agent preset) without restoring it. Grouping by the pre-archive workspace already worked — [the archive-set note](2026-07-31-session-archive-global-set.md) keeps the archived session's `sessionIds` slot — but the archive instant itself was recorded nowhere.
+The Archived settings page listed one bare title per archived conversation. Users could not tell when a conversation was archived, nor inspect its pre-archive context (workspace group, cwd, agent preset) without restoring it. Grouping by the pre-archive workspace already worked — [the archive-set note](../../archived/feature/2026-07-31-session-archive-global-set.md) keeps the archived session's `sessionIds` slot — but the archive instant itself was recorded nowhere.
 
 ## Decision
 

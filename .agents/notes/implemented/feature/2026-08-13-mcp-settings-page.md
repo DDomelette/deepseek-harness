@@ -56,7 +56,7 @@ The gateway reports mount lifecycle only (connecting → ready/failed), not live
 - The add and edit forms expose the complete automatic-reconnect policy validated by `dsh-mcp-client`.
 - An open tab converges on Host lifecycle changes and connection resets without remounting the browser component.
 - Blank secret fields mean "keep the stored value"; clearing all env/headers from the UI is deliberately unsupported — delete and re-add to start without secrets.
-- The status dot reports lifecycle, not liveness; a crash-looping server keeps showing 运行中 while `dsh-mcp-client` retries, per the [reconnect Agent Note](2026-08-06-mcp-client-auto-reconnect.md).
+- The status dot reports lifecycle, not liveness; a crash-looping server keeps showing 运行中 while `dsh-mcp-client` retries, per the [reconnect Agent Note](../../archived/feature/2026-08-06-mcp-client-auto-reconnect.md).
 - Renaming a server is not offered: the dict key is the name, so rename is remove + add.
 
 ## Testing

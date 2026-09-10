@@ -18,7 +18,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v2.jsonl', import.meta.url))
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const PARENT_ID = 'archived-settings-parent'
 const CHILD_ID = 'archived-settings-child'
 const RESTORE_ID = 'archived-settings-restore'

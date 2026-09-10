@@ -29,7 +29,10 @@ const enT: TranslateNS<'settings.skills'> = (key): string => {
 
 // Global standard kit stubs: this component does not consume these hooks.
 const unusedHook = (() => { throw new Error('unused by SkillsSection') }) as never
-const kit = { useSessionPendingInteraction: unusedHook, useSessions: unusedHook, useWorkspaces: unusedHook }
+const kit = {
+  usePanelInfo: unusedHook, useResource: unusedHook,
+  useSessionPendingInteraction: unusedHook, useSessions: unusedHook, useWorkspaces: unusedHook,
+}
 
 function skillsNamespace() {
   return {

@@ -32,6 +32,38 @@ async function mount(root?: string) {
 }
 
 describe('explicit JSONL deletion', () => {
+  it('removes a historical session after read-only migration without publishing a successor', async () => {
+    const { root, persistence } = await mount()
+    const header = meta('historical-deletion', '/project')
+    const dir = sessionDir(root, header.cwd, header.id)
+    await mkdir(dir, { recursive: true })
+    const source = generationLogPath(root, header.cwd, header.id, 1, 'none')
+    const bytes = `${JSON.stringify({
+      type: 'session', version: 1, id: header.id, createdAt: header.createdAt,
+      cwd: header.cwd, delegationDepth: 0,
+    })}\n`
+    await writeFile(source, bytes)
+    const reader = await persistence.open(header.id, 'read')
+    try {
+      expect((await reader.read()).events).toEqual([])
+      expect(await readFile(source, 'utf8')).toBe(bytes)
+      await expect(readFile(generationLogPath(root, header.cwd, header.id, header.version, 'none')))
+        .rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await reader.close()
+    }
+    await persistence.delete(header.id)
+    expect((await readdir(dir)).filter(name => name !== LEASE_FILENAME)).toEqual([])
+    await expect(persistence.open(header.id, 'write')).rejects.toBeInstanceOf(SessionPersistenceNotFoundError)
+    const replacement = await persistence.create(header)
+    try {
+      await replacement.append(oneTurnLog())
+      expect((await replacement.read()).events).toEqual(oneTurnLog())
+    } finally {
+      await replacement.close()
+    }
+  })
+
   it('refuses both local and independent writers before changing any artifact', async () => {
     const { root, persistence } = await mount()
     const second = await mount(root)

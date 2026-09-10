@@ -10,7 +10,7 @@ import SessionDeletionService from '@deepseek-ai/dsh-session-deletion'
 
 function header(id: string, parent?: string): SessionHeader {
   return {
-    version: 2,
+    version: 3,
     isSeeded: false,
     id: SessionId(id),
     createdAt: 1000,
