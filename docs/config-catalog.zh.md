@@ -3261,7 +3261,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/telemetry/usage-telemetry/src/index.ts:26`](../packages/telemetry/usage-telemetry/src/index.ts)
+来源：[`packages/telemetry/usage-telemetry/src/index.ts:28`](../packages/telemetry/usage-telemetry/src/index.ts)
 
 <a id="deepseek-aidsh-user-approval"></a>
 

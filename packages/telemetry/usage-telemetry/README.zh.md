@@ -41,6 +41,8 @@ settings 提供方处于连接状态时覆盖组合值。它脱离后，服务�
 
 一条行记录一次带会话归属且产生提供方 usage 的 `llm/stream` 调用，包括之后出错、重试，或消费方中止或返回的调用。没有 `sessionId` 或提供方 usage 的调用不生成行。v1 没有结果、状态、尝试或用途字段。
 
+消费者从 `@deepseek-ai/dsh-usage-telemetry` 导入 `usageRowSchema` 和 `UsageRow` 类型，用于验证已存储的行并声明其类型。
+
 ```json
 {"v":1,"time":1786780800123,"sessionId":"sess_123","cwd":"D:\\Deepseek_Harness","model":"deepseek-chat","inputTokens":120,"outputTokens":48,"cacheReadTokens":32,"cacheWriteTokens":0}
 ```

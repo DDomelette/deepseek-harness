@@ -41,6 +41,8 @@ The settings provider overrides the composition value while it is attached. If i
 
 One row records one session-attributed `llm/stream` invocation that emitted provider usage, including an invocation that later errors, is retried, or whose consumer aborts or returns. Calls without `sessionId` or provider usage produce no row. v1 has no outcome, status, attempt, or purpose field.
 
+Consumers import `usageRowSchema` and the `UsageRow` type from `@deepseek-ai/dsh-usage-telemetry` to validate and type stored rows.
+
 ```json
 {"v":1,"time":1786780800123,"sessionId":"sess_123","cwd":"D:\\Deepseek_Harness","model":"deepseek-chat","inputTokens":120,"outputTokens":48,"cacheReadTokens":32,"cacheWriteTokens":0}
 ```

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BatchSender } from '../src/sender.ts'
-import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
+import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry'
 
 let server: Server | undefined
 afterEach(async () => { await new Promise<void>((resolve) => { server?.close(() => { resolve() }) }) })

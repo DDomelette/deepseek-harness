@@ -22,6 +22,8 @@ import type {} from '@deepseek-ai/dsh-settings'
 import { createUsageWriter, type UsageWriter } from './writer.ts'
 import { serializeRow, USAGE_ROW_VERSION, type UsageRow } from './schema.ts'
 
+export { usageRowSchema, type UsageRow } from './schema.ts'
+
 /** Configuration for local usage telemetry capture. */
 export interface Config {
   /** Whether live LLM usage is appended to local telemetry files. */

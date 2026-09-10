@@ -3259,7 +3259,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/telemetry/usage-telemetry/src/index.ts:26`](../packages/telemetry/usage-telemetry/src/index.ts)
+Source: [`packages/telemetry/usage-telemetry/src/index.ts:28`](../packages/telemetry/usage-telemetry/src/index.ts)
 
 <a id="deepseek-aidsh-user-approval"></a>
 

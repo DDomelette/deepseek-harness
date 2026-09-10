@@ -75,6 +75,7 @@ LEGACY_CUSTOM_DISABLED_ROWS = (
     "command-goal",
     "plan-mode",
     "skill",
+    "skill-settings",
     "skill-filesystem",
     "tool-fs",
     "tool-fs-search",
