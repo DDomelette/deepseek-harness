@@ -1,6 +1,7 @@
+import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 /** Skills page store: catalog × settings-namespace join with revision-guarded toggles. */
 import { describe, expect, it, vi } from 'vitest'
-import type { RpcResponse, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
+import type { RemoteResult, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { SKILLS_NAMESPACE, SkillsSettingsStore } from '../src/client/store.ts'
 
 /** Test-side brand helper: the wire face re-exports only the SessionId type. */
@@ -10,12 +11,11 @@ function sid(id: string): SessionId {
 
 const SESSION = sid('sk-store-1')
 
-let nextRpc = 0
-function ok<T>(value: T): RpcResponse<T> {
-  return { rpcId: `r-${nextRpc++}` as never, result: { ok: true, value } }
+function ok<T>(value: T): RemoteResult<T> {
+  return { ok: true, value }
 }
-function fail<T>(code: string, message: string): RpcResponse<T> {
-  return { rpcId: `r-${nextRpc++}` as never, result: { ok: false, error: { code: code as never, message, details: {} } } }
+function fail<T>(code: string, message: string): RemoteResult<T> {
+  return { ok: false, error: new RemoteError(code as never, message, {} as never) }
 }
 
 const SKILLS = [
@@ -24,7 +24,7 @@ const SKILLS = [
 ]
 
 /** The settings.describe value shape this suite's doubles resolve. */
-type DescribeResponse = RpcResponse<{
+type DescribeResponse = RemoteResult<{
   writable: boolean
   hasDocument: boolean
   namespaces: Array<{ ns: string; value: unknown; revision: number }>
@@ -35,9 +35,9 @@ function namespace(revision = 3, disabled: string[] = ['solo-b']): { ns: string;
 }
 
 function api(overrides: {
-  catalog?: (payload: { sessionId: SessionId }) => Promise<RpcResponse<{ skills: typeof SKILLS }>>
+  catalog?: (payload: { sessionId: SessionId }) => Promise<RemoteResult<{ skills: typeof SKILLS }>>
   describeSettings?: () => Promise<DescribeResponse>
-  updateSettings?: (payload: { ns: string; patch: object; expectedRevision?: number }) => Promise<RpcResponse<unknown>>
+  updateSettings?: (payload: { ns: string; patch: object; expectedRevision?: number }) => Promise<RemoteResult<unknown>>
 } = {}) {
   const catalogs: SessionId[] = []
   const updates: Array<{ ns: string; patch: { disabled: string[] }; expectedRevision?: number }> = []
@@ -54,7 +54,8 @@ function api(overrides: {
         hasDocument: true,
         namespaces: [namespace()],
       }))),
-      update: (payload: { ns: string; patch: { disabled: string[] }; expectedRevision?: number }) => {
+      update: (ns: string, patch: { disabled: string[] }, expectedRevision?: number) => {
+        const payload = { ns, patch, ...(expectedRevision === undefined ? {} : { expectedRevision }) }
         updates.push(payload)
         return (overrides.updateSettings ?? (() => Promise.resolve(ok({}))))(payload)
       },
@@ -315,9 +316,9 @@ describe('SkillsSettingsStore', () => {
     expect(subject.store.getSnapshot().error).toContain('plain rejection')
   })
 
-  it('reloads after a settings-conflict and surfaces the conflict message', async () => {
+  it('reloads after a settings/conflict and surfaces the conflict message', async () => {
     const load = vi.fn(() => Promise.resolve())
-    const { face } = api({ updateSettings: () => Promise.resolve(fail('settings-conflict', 'moved to revision 9')) })
+    const { face } = api({ updateSettings: () => Promise.resolve(fail('settings/conflict', 'moved to revision 9')) })
     const subject = store(face)
     await subject.load()
     vi.spyOn(subject, 'load').mockImplementation(load)

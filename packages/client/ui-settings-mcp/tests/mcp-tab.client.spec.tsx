@@ -11,7 +11,7 @@ import { McpTabController, type McpServersSettings } from '../src/client/mcp-tab
 import type { McpServerSettingsEntry } from '../src/client/mcp-tab-controller.ts'
 import type { NewServerDraft } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 afterEach(cleanup)
 
@@ -383,18 +383,16 @@ describe('McpTabController', () => {
       mode: 'host',
     }
     const set = vi.fn<SettingsScope<McpServersSettings>['set']>().mockResolvedValue()
-    const setPath = vi.fn<SettingsScope<McpServersSettings>['setPath']>().mockResolvedValue()
     const unset = vi.fn<SettingsScope<McpServersSettings>['unset']>().mockResolvedValue()
     const mutate = vi.fn<SettingsScope<McpServersSettings>['mutate']>().mockResolvedValue(true)
     const scope: SettingsScope<McpServersSettings> = {
       getSnapshot: () => snapshot,
       subscribe: () => () => {},
       set,
-      setPath,
       unset,
       mutate,
     }
-    return { scope, set, setPath, unset, mutate }
+    return { scope, set, unset, mutate }
   }
 
   it('unwraps the Remote envelope and rejects with the wire code', async () => {
@@ -411,63 +409,34 @@ describe('McpTabController', () => {
   })
 
   it('writes only the enablement leaf through a deep path op', async () => {
-    const { scope, set, setPath } = scopeStub({ filesystem: { enabled: true, transport: 'stdio' } })
+    const { scope, set, mutate } = scopeStub({ filesystem: { enabled: true, transport: 'stdio' } })
     const controller = new McpTabController(scope, { list: vi.fn() })
     await controller.face().setEnabled('filesystem', false)
     expect(set).not.toHaveBeenCalled()
-    expect(setPath).toHaveBeenCalledWith(['filesystem', 'enabled'], false)
+    expect(mutate).toHaveBeenCalledWith([{ op: 'set', path: ['filesystem', 'enabled'], value: false }])
   })
 
   it('no-ops the write while the scope has no accepted entry for the row', async () => {
     const missing = scopeStub(undefined)
     const controller = new McpTabController(missing.scope, { list: vi.fn() })
     await controller.face().setEnabled('filesystem', true)
-    expect(missing.setPath).not.toHaveBeenCalled()
+    expect(missing.mutate).not.toHaveBeenCalled()
 
     const absent = scopeStub({ other: { enabled: true, transport: 'stdio' } })
     const second = new McpTabController(absent.scope, { list: vi.fn() })
     await second.face().setEnabled('filesystem', true)
-    expect(absent.setPath).not.toHaveBeenCalled()
+    expect(absent.mutate).not.toHaveBeenCalled()
   })
 
-  it('persists a whole new entry and reports acceptance from the scope snapshot', async () => {
-    let value: McpServersSettings | undefined
-    const set = vi.fn<SettingsScope<McpServersSettings>['set']>(async () => {
-      value = { memory: { enabled: true, transport: 'stdio' } }
-    })
-    const setPath = vi.fn<SettingsScope<McpServersSettings>['setPath']>().mockResolvedValue()
-    const scope: SettingsScope<McpServersSettings> = {
-      getSnapshot: () => ({
-        status: value === undefined ? 'loading' : 'ready',
-        value, base: undefined, user: undefined, revision: 1, writable: true, mode: 'host',
-      }),
-      subscribe: () => () => {},
-      set,
-      setPath,
-      unset: async () => {},
-      mutate: async () => true,
-    }
-    const draft: NewServerDraft = {
-      serverName: 'memory', transport: 'stdio', command: 'memorix',
-      args: ['serve'], env: { TOKEN: 'abc' }, cwd: '/tmp/mem', toolCallTimeoutMs: 30_000,
-    }
+  it('reports Host acceptance of a whole-entry mutation independently of the mirror', async () => {
+    const { scope, mutate } = scopeStub({})
     const controller = new McpTabController(scope, { list: vi.fn() })
-
+    const draft: NewServerDraft = { serverName: 'memory', transport: 'stdio', command: 'memorix', args: ['serve'], env: { TOKEN: 'abc' }, cwd: '', toolCallTimeoutMs: 30_000 }
     await expect(controller.face().addServer(draft)).resolves.toBeNull()
-    expect(set).toHaveBeenCalledWith('memory', {
-      transport: 'stdio', command: 'memorix', args: ['serve'], env: { TOKEN: 'abc' }, cwd: '/tmp/mem', toolCallTimeoutMs: 30_000,
-    })
-  })
-
-  it('reports a refused save while the scope never accepts the entry', async () => {
-    const { scope, set } = scopeStub({})
-    const controller = new McpTabController(scope, { list: vi.fn() })
-    const draft: NewServerDraft = {
-      serverName: 'memory', transport: 'streamable-http', url: 'http://localhost/mcp', headers: {},
-    }
-
+    const { serverName, ...entry } = draft
+    expect(mutate).toHaveBeenCalledWith([{ op: 'set', path: [serverName], value: entry }])
+    mutate.mockResolvedValueOnce(false)
     await expect(controller.face().addServer(draft)).resolves.toBe('saveFailed')
-    expect(set).toHaveBeenCalledOnce()
   })
 
   it('reads a redacted entry through the injected face', () => {
@@ -479,12 +448,11 @@ describe('McpTabController', () => {
   })
 
   it('applies an incremental patch as one atomic path mutation', async () => {
-    const { scope, set, setPath, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const { scope, set, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
     const controller = new McpTabController(scope, { list: vi.fn() })
 
     await expect(controller.face().updateServer('memory', { command: 'memorix', env: { TOKEN: 'abc' } })).resolves.toBeNull()
     expect(set).not.toHaveBeenCalled()
-    expect(setPath).not.toHaveBeenCalled()
     expect(mutate).toHaveBeenCalledWith([
       { op: 'set', path: ['memory', 'command'], value: 'memorix' },
       { op: 'set', path: ['memory', 'env'], value: { TOKEN: 'abc' } },
@@ -492,12 +460,11 @@ describe('McpTabController', () => {
   })
 
   it('emits an unset path op for a cleared timeout', async () => {
-    const { scope, set, setPath, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
+    const { scope, set, mutate } = scopeStub({ memory: { enabled: true, transport: 'stdio', command: 'npx' } })
     const controller = new McpTabController(scope, { list: vi.fn() })
 
     await expect(controller.face().updateServer('memory', { unsetTimeout: true, command: 'memorix' })).resolves.toBeNull()
     expect(set).not.toHaveBeenCalled()
-    expect(setPath).not.toHaveBeenCalled()
     expect(mutate).toHaveBeenCalledWith([
       { op: 'unset', path: ['memory', 'toolCallTimeoutMs'] },
       { op: 'set', path: ['memory', 'command'], value: 'memorix' },
@@ -521,11 +488,11 @@ describe('McpTabController', () => {
   })
 
   it('refuses an update while the scope holds no accepted entry for the row', async () => {
-    const { scope, setPath } = scopeStub({})
+    const { scope, mutate } = scopeStub({})
     const controller = new McpTabController(scope, { list: vi.fn() })
 
     await expect(controller.face().updateServer('memory', { command: 'memorix' })).resolves.toBe('loadFailed')
-    expect(setPath).not.toHaveBeenCalled()
+    expect(mutate).not.toHaveBeenCalled()
   })
 
   it('removes a whole entry through an atomic unset and reports refusal', async () => {

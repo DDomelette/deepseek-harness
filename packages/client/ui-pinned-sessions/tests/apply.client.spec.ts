@@ -1,7 +1,7 @@
 /** Pinned sessions client registration: three workspace slots and disposal. */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-pinned-sessions/client'
 import { createPinnedSessionsStore } from '../src/client/stores.ts'
@@ -25,8 +25,13 @@ async function bench(listSnapshot = snapshot, remoteOverrides: Record<string, un
     binding: () => undefined,
     fork: async () => undefined,
   } as never)
+  ctx.provide('uiWorkspace', {
+    registerSessionFlags: (source: { getSnapshot(): unknown; subscribe(listener: () => void): () => void }) => {
+      installedFlags.push(source.getSnapshot())
+      return source.subscribe(() => { installedFlags.push(source.getSnapshot()) })
+    },
+  } as never)
   ctx.provide('workspaces', {
-    installSessionFlags: (flags: unknown) => { installedFlags.push(flags) },
     archiveSession: async () => {},
   } as never)
   const sessionPins = {
@@ -54,7 +59,7 @@ function declare(slots: SlotRegistry): void {
 
 describe('ui-pinned-sessions apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'remote', 'remote.sessionPins'])
+    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'remote', 'remote.sessionPins'])
   })
 
   it('registers the three workspace slots and disposes them with the fiber', async () => {
@@ -80,7 +85,7 @@ describe('ui-pinned-sessions apply', () => {
     const entry = b.slots.entries('sidebar.workspaces.pinned')[0]!
     ;(entry.inject as () => {})()
     await new Promise(resolve => setTimeout(resolve, 10))
-    expect(b.installedFlags).toEqual([{ s1: { pinned: true } }])
+    expect(b.installedFlags).toEqual([{}, { s1: { pinned: true } }])
   })
 
   it('serializes rapid client mutations so a late response cannot overwrite a newer one', async () => {

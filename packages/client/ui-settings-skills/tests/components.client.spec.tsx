@@ -2,16 +2,15 @@
 /** Skills settings section: group grid, drill-in list, and revision-guarded toggles. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RpcResponse, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type { RemoteResult, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { SkillsSection, type SkillsSectionInjected } from '../src/client/SkillsSection.tsx'
 import { SkillsSettingsStore } from '../src/client/store.ts'
 import { en, zh, type SkillsKey } from '../src/client/locales.ts'
 
-let nextRpc = 0
-function ok<T>(value: T): RpcResponse<T> {
-  return { rpcId: `r-${nextRpc++}` as never, result: { ok: true, value } }
+function ok<T>(value: T): RemoteResult<T> {
+  return { ok: true, value }
 }
 
 const CATALOG: SkillCatalogEntry[] = [
@@ -30,7 +29,10 @@ const enT: TranslateNS<'settings.skills'> = (key): string => {
 
 // Global standard kit stubs: this component does not consume these hooks.
 const unusedHook = (() => { throw new Error('unused by SkillsSection') }) as never
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook }
+const kit = {
+  usePanelInfo: unusedHook, useResource: unusedHook,
+  useSessionPendingInteraction: unusedHook, useSessions: unusedHook, useWorkspaces: unusedHook,
+}
 
 function skillsNamespace() {
   return {
@@ -135,11 +137,7 @@ describe('SkillsSection', () => {
     const switchControl = within(row).getByRole('switch')
 
     fireEvent.click(switchControl)
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({
-      ns: 'skills',
-      patch: { disabled: ['grouped-b', 'grouped-a'] },
-      expectedRevision: 1,
-    }))
+    expect(update).toHaveBeenCalledWith('skills', { disabled: ['grouped-b', 'grouped-a'] }, 1)
   })
 
   it('disables toggles while the settings seam is read-only', async () => {
@@ -161,7 +159,7 @@ describe('SkillsSection', () => {
 
   it('shows the error state with a retry action', async () => {
     const controller = new SkillsSettingsStore({
-      skills: { catalog: (_payload: { sessionId: never }) => Promise.resolve({ rpcId: 'r-1' as never, result: { ok: false, error: { code: 'internal', message: 'catalog down', details: {} } } }) },
+      skills: { catalog: (_payload: { sessionId: never }) => Promise.resolve({ ok: false, error: { code: 'internal', message: 'catalog down', details: {} } }) },
       settings: {
         describe: () => Promise.resolve(ok({ writable: true, hasDocument: true, namespaces: [skillsNamespace()] })),
         update: vi.fn(),

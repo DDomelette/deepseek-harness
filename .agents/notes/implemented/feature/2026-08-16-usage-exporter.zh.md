@@ -22,10 +22,10 @@ batch 使用同一个 `batchId` 最多重试 `maxAttempts` 次，随后判定为
 
 ## 影响
 
-- 随附 Web 组合保持 `disabled: true`，部署方按 profile 选择启用。
+- 随附基础组合保持 `disabled: true`，部署方按 profile 选择启用。
 - push 与文件扫描可借助 Monitor 的 `rootId` + 采集模式 + 租约规则共存且不重复计数。
 - endpoint/token 配置为 secret role，永不写日志；非回环端点必须使用 HTTPS。
 
 ## 测试
 
-- `packages/telemetry/usage-exporter`：config schema/默认值、游标存储原子持久化/清理、tail 的 EOF 快照/新文件/截断/畸形行行为、sender 分类（accepted、duplicate、401 永久、5xx 重试、heartbeat）、apply 轮询/推送/游标推进，以及 Web bundle 的禁用行。
+- `packages/telemetry/usage-exporter`：config schema/默认值、游标存储原子持久化/清理、tail 的 EOF 快照/新文件/截断/畸形行行为、sender 分类（accepted、duplicate、401 永久、5xx 重试、heartbeat）、apply 轮询/推送/游标推进，以及 base bundle 的禁用行。

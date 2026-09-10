@@ -138,13 +138,14 @@ describe('UsageTelemetry service', () => {
   it('uses the live session cwd, exact model, usage-arrival time, and every v1 counter', async () => {
     const ctx = await setup(true, true)
     const sessionId = SessionId('stream-cwd')
-    ctx.sessions.create(sessionId, { meta: { cwd: 'D:\\project' } })
+    const cwd = join(home, 'project')
+    ctx.sessions.create(sessionId, { meta: { cwd } })
     vi.spyOn(Date, 'now').mockReturnValue(1710000000001)
 
     await consume(ctx, options(sessionId, 'deepseek-v4-reasoner'), [{ type: 'usage', usage: { inputTokens: 8, outputTokens: 5, cacheReadTokens: 3, cacheWriteTokens: 2 } }, finish])
 
     await expect(expectRows(1)).resolves.toEqual([{
-      v: 1, time: 1710000000001, sessionId: 'stream-cwd', cwd: 'D:\\project', model: 'deepseek-v4-reasoner',
+      v: 1, time: 1710000000001, sessionId: 'stream-cwd', cwd, model: 'deepseek-v4-reasoner',
       inputTokens: 8, outputTokens: 5, cacheReadTokens: 3, cacheWriteTokens: 2,
     }])
   })
@@ -233,6 +234,7 @@ describe('UsageTelemetry service', () => {
       reason: 'initial',
     })
     session.append('assistant/message', {
+      stream: [],
       turn: 1,
       step: 1,
       message: createMessage({

@@ -1,3 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 /**
  * Archived settings plugin, browser half: the Archived page of the settings
  * shell, with restore and recursive delete actions.
@@ -5,13 +8,14 @@
  * Export discipline: packages/client/AGENTS.md.
  */
 
-import type { ClientContext, ISessions, IWorkspaces } from '@deepseek-ai/dsh-client-runtime/client'
+import { type Context as ClientContext } from '@deepseek-ai/cordis'
+import { type ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import { type IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { ArchivedSection, type ArchivedSectionInjected } from './ArchivedSection.tsx'
 import { en, zh, type ArchivedSettingsKey } from './locales.ts'
 
-export { countDescendants, deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
 export type { ArchivedSectionInjected, ArchivedSectionProps } from './ArchivedSection.tsx'
 export type { ArchivedSettingsKey } from './locales.ts'
 
@@ -39,7 +43,7 @@ export function apply(ctx: ClientContext): void {
       }
       return false
     },
-    deleteSession: sessionId => sessions.deleteSession(sessionId),
+    deleteSession: async (sessionId) => { await sessions.deleteSession(sessionId) },
     refresh: async () => {
       await Promise.all([sessions.refresh(), workspaces.refresh()])
     },

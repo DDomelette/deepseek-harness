@@ -1,6 +1,13 @@
+---
+description: "本包的配置与行为。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-skill-settings
 
 [English](README.md) | 中文
+
+## 概述
 
 基于 [`@deepseek-ai/dsh-skill`](../skill) 注册表的用户级 skill 启用覆盖。
 
@@ -8,6 +15,15 @@
 
 需要 `ctx.skills`（`inject: ['skills']`）；设置接线是可选的，仅当设置服务存在时挂载。
 
+
+## 目录
+
+- [设置命名空间：`skills`](#settings-namespace-skills)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="settings-namespace-skills"></a>
 ## 设置命名空间：`skills`
 
 | 字段 | 默认值 | 含义 |
@@ -16,6 +32,7 @@
 
 `applies: live` —— 提交的变更在下一次目录读取时对所有消费方可见，模型会在下一个 pre-step 收到替换目录。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 通过 `dsh-tool-skill` 与用户显式调用消费方读取的注册表覆盖间接生效。
@@ -26,5 +43,14 @@
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **覆盖按名称全局生效**：其他项目或 scope 中的同名 skill 也会被禁用；覆盖不支持按工作区或按 preset。
 - **仅在存在设置服务时注册命名空间**：没有设置服务时不存在覆盖，目录行为与组合配置完全一致。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。
+
+不发布运行时不变量伴随插件。本包在注册或写入处验证输入，不暴露可与独立事件流比对的第二份权威状态。

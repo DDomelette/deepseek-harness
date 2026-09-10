@@ -1,13 +1,32 @@
+---
+description: "本包的配置与行为。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-settings-archived
 
 [English](README.md) | 中文
 
+## 概述
+
 DeepSeek Harness Web GUI 的已归档对话设置板块。
 
+
+## 目录
+
+- [界面](#surface)
+- [行为](#behavior)
+- [错误](#errors)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="surface"></a>
 ## 界面
 
 该插件注册 `settings.section` 条目 `archived`，order 为 40。页面从现有 sessions 与 workspaces 基线派生分组；不新增列表 RPC。
 
+<a id="behavior"></a>
 ## 行为
 
 - 分组遵循 workspace registry 顺序，随后是底部的“未分组”。
@@ -17,12 +36,14 @@ DeepSeek Harness Web GUI 的已归档对话设置板块。
 - 删除请求递归删除，并且总是先打开确认对话框。
 - 运行中的行保留恢复按钮，禁用删除按钮。
 
+<a id="errors"></a>
 ## 错误
 
 - 基线失败显示 `loadFailed` 与“重试”。
 - 恢复失败留在行内显示。
 - 删除失败保持确认对话框打开。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 ### 请求上下文与条件
@@ -41,5 +62,14 @@ DeepSeek Harness Web GUI 的已归档对话设置板块。
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **不会为较旧记录重建归档日期** — 在归档时间元数据出现前归档的会话显示未知时间占位符。
 - **清单复用现有会话基线** — 该页面没有独立的已归档会话搜索或分页 RPC。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。
+
+不发布运行时不变量伴随插件。本包在注册或写入处验证输入，不暴露可与独立事件流比对的第二份权威状态。

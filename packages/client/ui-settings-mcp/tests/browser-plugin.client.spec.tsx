@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, NS } from '../src/client/index.ts'
@@ -31,7 +31,7 @@ async function bench() {
   Object.assign(remote, { mcpServers })
   ctx.provide('remote.mcpServers', mcpServers)
   const set = vi.fn<(field: string, value: unknown) => Promise<void>>().mockResolvedValue()
-  const setPath = vi.fn<(path: readonly string[], value: unknown) => Promise<void>>().mockResolvedValue()
+  const mutate = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
   const scope = {
     getSnapshot: () => ({
       status: 'ready' as const,
@@ -44,12 +44,12 @@ async function bench() {
     }),
     subscribe: () => () => {},
     set,
-    setPath,
+    mutate,
     unset: vi.fn<() => Promise<void>>().mockResolvedValue(),
   }
   const bind = vi.fn(() => scope)
   ctx.provide('settingsScope', { bind } as never)
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list, bind, set, setPath }
+  return { ctx, remote, slots: ctx.get('slots') as SlotRegistry, locale, list, bind, set, mutate }
 }
 
 function declare(slots: SlotRegistry): () => void {
@@ -85,17 +85,17 @@ describe('ui-settings-mcp browser plugin', () => {
 
     const listener = vi.fn()
     const disposeSubscription = injected.subscribeRoster(listener)
-    b.ctx.remote.$dispatch('mcp-servers/change', [])
+    b.remote.emit('mcp-servers/change', [])
     b.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledTimes(2)
     disposeSubscription()
-    b.ctx.remote.$dispatch('mcp-servers/change', [])
+    b.remote.emit('mcp-servers/change', [])
     b.ctx.emit('connection/reset')
     expect(listener).toHaveBeenCalledTimes(2)
 
     await injected.setEnabled('filesystem', false)
     expect(b.set).not.toHaveBeenCalled()
-    expect(b.setPath).toHaveBeenCalledWith(['filesystem', 'enabled'], false)
+    expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['filesystem', 'enabled'], value: false }])
     await b.ctx.fiber.dispose()
   })
 

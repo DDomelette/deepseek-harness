@@ -22,7 +22,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skills-settings', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/skills-settings', import.meta.url))
 const GRID_EXPECTED = join(SNAPSHOT_DIR, 'grid.expected.md')
 const GROUP_EXPECTED = join(SNAPSHOT_DIR, 'group.expected.md')
 const MODE = webSnapshotMode()
@@ -73,7 +73,7 @@ describe('web e2e: skills settings panel', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -132,7 +132,7 @@ describe('web e2e: skills settings panel', () => {
     // enabled sibling and the source-grouped skill stay listed.
     await dialog.getByRole('button', { name: 'Close' }).click()
     await expect.poll(() => page.getByRole('dialog', { name: 'Settings' }).count(), { timeout: 5_000 }).toBe(0)
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill('/panel-grouped')
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await expect.poll(

@@ -1,13 +1,32 @@
+---
+description: "Configuration and behavior of ui-settings-archived."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-settings-archived
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Archived conversations settings section for the DeepSeek Harness Web GUI.
 
+
+## Table of Contents
+
+- [Surface](#surface)
+- [Behavior](#behavior)
+- [Errors](#errors)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="surface"></a>
 ## Surface
 
 The plugin registers `settings.section` entry `archived` at order 40. The page derives its groups from the existing sessions and workspaces baselines; it adds no list RPC.
 
+<a id="behavior"></a>
 ## Behavior
 
 - Groups follow workspace registry order, then Ungrouped last.
@@ -17,12 +36,14 @@ The plugin registers `settings.section` entry `archived` at order 40. The page d
 - Delete requests recursive deletion and always opens a confirmation dialog.
 - Running rows keep restore enabled and disable delete.
 
+<a id="errors"></a>
 ## Errors
 
 - `loadFailed` with Retry covers baseline failures.
 - Restore failures stay inline on the row.
 - Delete failures keep the confirmation dialog open.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Request context and condition
@@ -41,5 +62,14 @@ Independent of live requests.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Archive dates are not reconstructed for older records** — sessions archived before archive-time metadata show the unknown-time placeholder.
 - **The inventory shares the existing session baseline** — the page has no independent archived-session search or pagination RPC.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.
+
+No runtime invariant companion is published. The package validates inputs at registration or writes and exposes no second authoritative state to compare against an independent event stream.

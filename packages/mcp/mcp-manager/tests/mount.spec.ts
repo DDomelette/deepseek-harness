@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import McpManager from '../src/index.ts'
 import { McpServerSupervisor } from '../src/supervisor.ts'
 import type { ManagedServerState } from '../src/supervisor.ts'
@@ -61,7 +61,7 @@ async function boot(): Promise<{ ctx: Context; manager: Fiber }> {
 
 /** Spawn the fixture server through a settings commit. */
 async function writeEntry(ctx: Context, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
-  await ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+  await ctx.settings.update(MCP_SERVERS_NS, {
     [serverName]: { transport: 'stdio', command: process.execPath, args: [fixtureServerPath], ...entry },
   })
 }

@@ -1,35 +1,43 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  Button,
   IconChevronDownOutline14,
-  IconCloseOutline16,
-  IconPlusOutline16,
   IconSearchOutline16,
-  Input,
-  Modal,
-  Tooltip,
+  Menu,
+  StateDot,
+  Tag,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { StateDotState, TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import { ALL_GROUP, createPluginGroupsStore } from './groups-store.ts'
 import type { PluginInventoryLocaleKey } from './locales.ts'
+import { ALL_GROUP, createPluginGroupsStore } from './groups-store.ts'
+import { PluginGroupControls } from './PluginGroupControls.tsx'
 import css from './PluginInventorySettingsTab.module.css'
+
+type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
+type AgentPresetGroup = NonNullable<PluginInventorySnapshot['agentPresets']>[number]
+type AgentPresetRow = AgentPresetGroup['rows'][number]
 
 /** Registration-side Remote face used by the section. */
 export interface PluginInventorySettingsTabInjected {
   /** Read a current Host inventory snapshot. */
   list: () => Promise<PluginInventorySnapshot>
+  /**
+   * Display name for one preset: shipped presets resolve through the
+   * agent-preset dictionaries, user-authored ones keep their own metadata.
+   */
+  presetName: (preset: AgentPresetGroup) => string
 }
-
-type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
 type PluginFiberPhase = PluginInventoryEntry['fiberPhase']
 
 /** Full component props assembled by the Settings slot renderer. */
 export type PluginInventorySettingsTabProps =
   PropsRuntime<'settings.plugins.tab'>
   & PropsLocale<'settings.pluginInventory'>
-  & PropsStore<ReturnType<typeof createPluginGroupsStore>>
   & InjectFace<PluginInventorySettingsTabInjected>
+  & PropsStore<ReturnType<typeof createPluginGroupsStore>>
+
+type Translate = PluginInventorySettingsTabProps['t']
 
 type ViewState =
   | { readonly status: 'loading' }
@@ -45,10 +53,7 @@ const PHASE_KEYS = {
 } satisfies Record<Exclude<PluginFiberPhase, null>, PluginInventoryLocaleKey>
 
 /** Localized accessible label for one root Fiber phase. */
-function phaseLabel(
-  phase: PluginFiberPhase,
-  t: PluginInventorySettingsTabProps['t'],
-): string {
+function phaseLabel(phase: PluginFiberPhase, t: Translate): string {
   return phase === null ? t('unobserved') : t(PHASE_KEYS[phase])
 }
 
@@ -61,11 +66,137 @@ function moduleShortName(moduleName: string): string {
     .replace(/^dsh-(?:host-|client-)?/, '')
 }
 
-/** Whether an inventory row matches the local catalog query. */
-function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean {
+/** Display an entry identity without the composition-only `include:` marker. */
+function entrySubtitle(entryId: string): string {
+  return entryId.replace(/^include:/, '')
+}
+
+/** Whether one row's module name or entry id matches the catalog query. */
+function matches(moduleName: string, entryId: string | null, normalizedQuery: string): boolean {
   if (normalizedQuery.length === 0) return true
-  return [entry.moduleName, entry.entryId]
+  return [moduleName, ...entryId === null ? [] : [entryId]]
     .some(value => value.toLocaleLowerCase().includes(normalizedQuery))
+}
+
+/** The roster row shown when the preset switcher has no explicit choice. */
+function fallbackPreset(presets: readonly AgentPresetGroup[]): AgentPresetGroup | undefined {
+  return presets.find(preset => preset.isDefault) ?? presets[0]
+}
+
+/** The switcher's display label for one preset. */
+function presetLabel(preset: AgentPresetGroup, t: Translate, presetName: (preset: AgentPresetGroup) => string): string {
+  const name = presetName(preset)
+  if (preset.broken !== undefined) return t('presetOptionBroken', { name })
+  if (preset.isDefault) return t('presetOptionDefault', { name })
+  return name
+}
+
+/** One expandable plugin card; the caller owns the trailing status content. */
+function PluginCard({ rowKey, moduleName, entryId, trailing, ariaLabel, failed, expanded, onToggle, children }: {
+  readonly rowKey: string
+  readonly moduleName: string
+  readonly entryId: string | null
+  readonly trailing: ReactNode
+  readonly ariaLabel: string
+  readonly failed: boolean
+  readonly expanded: string | null
+  readonly onToggle: (key: string) => void
+  readonly children: ReactNode
+}): ReactNode {
+  const open = expanded === rowKey
+  const detailId = `plugin-details-${encodeURIComponent(rowKey)}`
+  return (
+    <li
+      className={css.card}
+      data-plugin-entry={entryId ?? undefined}
+      data-plugin-module={moduleName}
+      data-failed={failed ? 'true' : undefined}
+      data-open={open ? 'true' : undefined}
+    >
+      <button
+        className={css.cardContent}
+        type="button"
+        aria-expanded={open}
+        aria-controls={detailId}
+        aria-label={ariaLabel}
+        onClick={() => { onToggle(rowKey) }}
+      >
+        <span className={css.cardMainRow}>
+          <MarqueeTitle title={moduleShortName(moduleName)} moduleName={moduleName} />
+          <span className={css.cardTrailing}>
+            {trailing}
+            <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+          </span>
+        </span>
+        {entryId === null ? null : <code className={css.cardIdentity} title={entryId}>{entrySubtitle(entryId)}</code>}
+      </button>
+      {open ? <div className={css.cardDetails} id={detailId}>{children}</div> : null}
+    </li>
+  )
+}
+
+/** Detail rows shared by every card: the Loader identity, then labeled facts. */
+function CardFacts({ moduleName, moduleLabel, entryId, facts }: {
+  readonly moduleName: string
+  readonly moduleLabel: string
+  readonly entryId: string | null
+  readonly facts: readonly (readonly [label: string, value: ReactNode])[]
+}): ReactNode {
+  return (
+    <>
+      {entryId === null ? null : <code className={css.entryValue} data-loader-entry>{entryId}</code>}
+      <dl className={css.details}>
+        <div>
+          <dt>{moduleLabel}</dt>
+          <dd>{moduleName}</dd>
+        </div>
+        {facts.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  )
+}
+
+/* `pending` is the only phase with no work under way. `loading` and
+ * `unloading` are both live transitions the Host is running — an async
+ * disposer can hold `unloading` for a while — so both animate. */
+const PHASE_DOT_STATES = {
+  pending: 'idle',
+  loading: 'ongoing',
+  active: 'done',
+  failed: 'error',
+  unloading: 'ongoing',
+} as const satisfies Record<NonNullable<PluginFiberPhase>, StateDotState>
+
+/** Status dot naming a live root-fiber phase; rows with no live fiber show none. */
+function PhaseDot({ phase, t }: { readonly phase: NonNullable<PluginFiberPhase>; readonly t: Translate }): ReactNode {
+  const status = phaseLabel(phase, t)
+  /* StateDot is aria-hidden, so the phase name lives on this wrapper. */
+  return (
+    <span className={css.phaseDot} role="img" aria-label={status} title={status}>
+      <StateDot state={PHASE_DOT_STATES[phase]} />
+    </span>
+  )
+}
+
+/** Enablement states one inventory row can report. */
+type EnablementKind = 'enabled' | 'disabled' | 'conditional' | 'preset' | 'failed'
+
+const TAG_TONES = {
+  enabled: 'success',
+  disabled: 'neutral',
+  conditional: 'warning',
+  preset: 'info',
+  failed: 'danger',
+} as const satisfies Record<EnablementKind, TagTone>
+
+/** Enablement tag; `kind` selects the palette. */
+function StateTag({ kind, label }: { readonly kind: EnablementKind; readonly label: string }): ReactNode {
+  return <Tag tone={TAG_TONES[kind]}>{label}</Tag>
 }
 
 /** Seconds per 40px of marquee travel, so long titles scroll at the same pace as short ones. */
@@ -122,21 +253,24 @@ function MarqueeTitle({ title, moduleName }: { readonly title: string; readonly 
   )
 }
 
-/** Render the read-only current Loader inventory with browser-local grouping. */
-export function PluginInventorySettingsTab({ list, t, useStore, actions }: PluginInventorySettingsTabProps): ReactNode {
-  const catalogId = useId()
+/** Render the read-only plugin inventory: agent presets first, then the global plane. */
+export function PluginInventorySettingsTab({ list, presetName, t, useStore, actions }: PluginInventorySettingsTabProps): ReactNode {
+  const groupsState = useStore(state => state)
+  const selectedGroup = groupsState.groups.find(group => group.id === groupsState.selection)
+  const includesRow = (key: string, legacy?: string): boolean => selectedGroup === undefined
+    || selectedGroup.entryIds.includes(key)
+    || (legacy !== undefined && selectedGroup.entryIds.includes(legacy))
+  const presetMemberKey = (preset: AgentPresetGroup, row: AgentPresetRow): string =>
+    `preset:${encodeURIComponent(preset.id)}:${JSON.stringify([row.entryId, row.moduleName])}`
+  const sectionId = useId()
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
-  const [expanded, setExpanded] = useState<PluginInventoryEntry['entryId'] | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [chosenPreset, setChosenPreset] = useState<string | null>(null)
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [presetOpen, setPresetOpen] = useState<boolean | null>(null)
+  const [globalOpen, setGlobalOpen] = useState<boolean | null>(null)
   const [state, setState] = useState<ViewState>({ status: 'loading' })
-  const [groupDialogOpen, setGroupDialogOpen] = useState(false)
-  const [groupName, setGroupName] = useState('')
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerQuery, setPickerQuery] = useState('')
-  const [pickerChecked, setPickerChecked] = useState<ReadonlySet<string>>(new Set())
-
-  const groupsState = useStore(store => store)
-  const selectedGroup = groupsState.groups.find(group => group.id === groupsState.selection)
 
   useEffect(() => {
     let current = true
@@ -147,61 +281,162 @@ export function PluginInventorySettingsTab({ list, t, useStore, actions }: Plugi
     return () => { current = false }
   }, [list, request])
 
-  const entries = state.status === 'ready' ? state.snapshot.entries : []
-  const presentIds = useMemo(() => new Set<string>(entries.map(entry => entry.entryId)), [entries])
-
   const normalizedQuery = query.trim().toLocaleLowerCase()
-  const filteredEntries = useMemo(
-    () => entries
-      .filter(entry => selectedGroup === undefined || selectedGroup.entryIds.includes(entry.entryId))
-      .filter(entry => matches(entry, normalizedQuery)),
-    [entries, selectedGroup, normalizedQuery],
-  )
+  const searching = normalizedQuery.length > 0
+  const snapshot = state.status === 'ready' ? state.snapshot : undefined
+  const presets = snapshot?.agentPresets ?? []
+  const selected = presets.find(preset => preset.id === chosenPreset) ?? fallbackPreset(presets)
 
-  useEffect(() => {
-    if (expanded !== null && !filteredEntries.some(entry => entry.entryId === expanded)) {
-      setExpanded(null)
+  /** Presets that actually enable a module, keyed by module name. */
+  const enabledIn = useMemo(() => {
+    const found = new Map<string, [AgentPresetGroup, ...AgentPresetGroup[]]>()
+    for (const preset of presets) {
+      for (const row of preset.rows) {
+        if (row.enabled !== true) continue
+        const groups = found.get(row.moduleName)
+        if (groups === undefined) found.set(row.moduleName, [preset])
+        else if (!groups.includes(preset)) groups.push(preset)
+      }
     }
-  }, [expanded, filteredEntries])
+    return found
+  }, [presets])
+
+  const entries = snapshot?.entries ?? []
+  const failedEntries: PluginInventoryEntry[] = []
+  const regularEntries: PluginInventoryEntry[] = []
+  for (const entry of entries) {
+    if (entry.fiberPhase === 'failed') failedEntries.push(entry)
+    else regularEntries.push(entry)
+  }
+
+  const entryMatch = (entry: PluginInventoryEntry): boolean =>
+    includesRow(`global:${entry.entryId}`, entry.entryId) && matches(entry.moduleName, entry.entryId, normalizedQuery)
+  const rowMatch = (preset: AgentPresetGroup, row: AgentPresetRow): boolean =>
+    includesRow(presetMemberKey(preset, row)) && matches(row.moduleName, row.entryId, normalizedQuery)
+  const filteredFailed = failedEntries.filter(entryMatch)
+  const filteredRegular = regularEntries.filter(entryMatch)
+  const globalCount = filteredFailed.length + filteredRegular.length
+  const selectedRows = selected === undefined ? [] : selected.rows.filter(row => rowMatch(selected, row))
+  const otherPresetMatches = searching || selectedGroup !== undefined
+    ? presets.filter(preset => preset !== selected && preset.rows.some(row => rowMatch(preset, row)))
+    : []
+  const otherMatchCount = otherPresetMatches
+    .reduce((total, preset) => total + preset.rows.filter(row => rowMatch(preset, row)).length, 0)
+
+  const presetEffectiveOpen = searching || selectedGroup !== undefined || (presetOpen ?? true)
+  const globalEffectiveOpen = searching || selectedGroup !== undefined || (globalOpen ?? presets.length === 0)
+  const nothingMatches = searching && globalCount === 0 && selectedRows.length === 0
+    && otherPresetMatches.length === 0
 
   const retry = (): void => {
     setState({ status: 'loading' })
     setRequest(value => value + 1)
   }
-
-  const trimmedGroupName = groupName.trim()
-  const groupNameDuplicate = groupsState.groups.some(group => group.name === trimmedGroupName)
-  const saveGroup = (): void => {
-    /* v8 ignore next -- unreachable guard: the save button is disabled while the name is empty or duplicate. */
-    if (trimmedGroupName.length === 0 || groupNameDuplicate) return
-    actions.addGroup(crypto.randomUUID(), trimmedGroupName)
-    setGroupDialogOpen(false)
-    setGroupName('')
+  const toggleRow = (key: string): void => {
+    setExpanded(current => current === key ? null : key)
   }
 
-  const pickerNormalized = pickerQuery.trim().toLocaleLowerCase()
-  const pickerCandidates = selectedGroup === undefined
-    ? []
-    : entries
-      .filter(entry => !selectedGroup.entryIds.includes(entry.entryId))
-      .filter(entry => matches(entry, pickerNormalized))
-  const togglePickerCheck = (entryId: string): void => {
-    setPickerChecked((current) => {
-      const next = new Set(current)
-      if (next.has(entryId)) next.delete(entryId); else next.add(entryId)
-      return next
-    })
+  /** Trailing status and detail facts for one row of the selected preset. */
+  const presetRowCard = (preset: AgentPresetGroup, row: AgentPresetRow, index: number): ReactNode => {
+    const key = `preset:${preset.id}:${String(index)}`
+    const title = moduleShortName(row.moduleName)
+    const failed = row.fiberPhase === 'failed'
+    const stateText = failed
+      ? t('failedTag')
+      : row.enabled === true ? t('enabledTag') : row.enabled === false ? t('disabledTag') : t('conditionalTag')
+    const kind = failed ? 'failed' : row.enabled === true ? 'enabled' : row.enabled === false ? 'disabled' : 'conditional'
+    return (
+      <PluginCard
+        key={key}
+        rowKey={key}
+        moduleName={row.moduleName}
+        entryId={row.entryId}
+        failed={failed}
+        expanded={expanded}
+        onToggle={toggleRow}
+        ariaLabel={`${title}${row.entryId === null ? '' : `, ${row.entryId}`}, ${stateText}`}
+        trailing={(
+          <>
+            {row.enabled === true && !failed && row.fiberPhase !== null
+              ? <PhaseDot phase={row.fiberPhase} t={t} />
+              : null}
+            <StateTag kind={kind} label={stateText} />
+          </>
+        )}
+      >
+        <CardFacts
+          moduleName={row.moduleName}
+          moduleLabel={t('moduleLabel')}
+          entryId={row.entryId}
+          facts={[
+            [t('fromPreset'), presetName(preset)],
+            [t('configuration'), stateText],
+            ...row.fiberPhase === null ? [] : [[t('runtime'), phaseLabel(row.fiberPhase, t)] as const],
+            ...row.condition === undefined ? [] : [[t('condition'), <code key="condition">{row.condition}</code>] as const],
+          ]}
+        />
+      </PluginCard>
+    )
   }
-  const closePicker = (): void => {
-    setPickerOpen(false)
-    setPickerQuery('')
-    setPickerChecked(new Set())
-  }
-  const addPickedEntries = (): void => {
-    /* v8 ignore next -- unreachable guard: the picker opens only for a selected group and its add button is disabled at zero checks. */
-    if (selectedGroup === undefined || pickerChecked.size === 0) return
-    actions.addEntries(selectedGroup.id, [...pickerChecked])
-    closePicker()
+
+  /** One global-plane row; a preset-provided row carries the presets that enable it. */
+  const globalRowCard = (
+    entry: PluginInventoryEntry,
+    providers?: readonly [AgentPresetGroup, ...AgentPresetGroup[]],
+  ): ReactNode => {
+    const key = `global:${entry.entryId}`
+    const title = moduleShortName(entry.moduleName)
+    const failed = entry.fiberPhase === 'failed'
+    const stateText = failed
+      ? t('failedTag')
+      : providers !== undefined ? t('presetEnabledTag') : t(entry.enabled ? 'enabledTag' : 'disabledTag')
+    const kind = failed ? 'failed' : providers !== undefined ? 'preset' : entry.enabled ? 'enabled' : 'disabled'
+    return (
+      <PluginCard
+        key={key}
+        rowKey={key}
+        moduleName={entry.moduleName}
+        entryId={entry.entryId}
+        failed={failed}
+        expanded={expanded}
+        onToggle={toggleRow}
+        ariaLabel={`${title}, ${entry.entryId}, ${stateText}`}
+        trailing={(
+          <>
+            {entry.enabled && !failed && entry.fiberPhase !== null
+              ? <PhaseDot phase={entry.fiberPhase} t={t} />
+              : null}
+            <StateTag kind={kind} label={stateText} />
+          </>
+        )}
+      >
+        <CardFacts
+          moduleName={entry.moduleName}
+          moduleLabel={t('moduleLabel')}
+          entryId={entry.entryId}
+          facts={providers !== undefined
+            ? [
+              [t('configuration'), t('presetProvidedDetail')],
+              [t('enabledIn'), (
+                <span className={css.enabledIn}>
+                  <span>{providers.map(preset => presetName(preset)).join(' · ')}</span>
+                  <button
+                    type="button"
+                    className={css.jumpLink}
+                    onClick={() => { setChosenPreset(providers[0].id) }}
+                  >
+                    {t('viewInPreset')}
+                  </button>
+                </span>
+              )],
+            ]
+            : [
+              [t('configuration'), t(entry.enabled ? 'enabledTag' : 'disabledTag')],
+              ...entry.enabled ? [[t('runtime'), phaseLabel(entry.fiberPhase, t)] as const] : [],
+            ]}
+        />
+      </PluginCard>
+    )
   }
 
   return (
@@ -213,281 +448,143 @@ export function PluginInventorySettingsTab({ list, t, useStore, actions }: Plugi
           <button type="button" onClick={retry}>{t('retry')}</button>
         </div>
       ) : null}
-      {state.status === 'ready' ? (
-        <div className={css.columns}>
-          <aside className={css.groupsPane}>
-            <div className={css.paneHeading}>
-              <h3>{t('groups')}</h3>
-              <Tooltip label={t('groupAdd')}>
-                <span className={css.actionAnchor}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={t('groupAdd')}
-                    onClick={() => { setGroupDialogOpen(true) }}
-                  >
-                    <IconPlusOutline16 />
-                  </Button>
-                </span>
-              </Tooltip>
-            </div>
-            <ul className={css.groupList}>
-              <li>
+      {snapshot !== undefined ? (
+        <div className={css.catalog}>
+          <PluginGroupControls
+            groups={groupsState.groups}
+            selected={selectedGroup?.id ?? ALL_GROUP}
+            actions={actions}
+            t={t}
+            entries={[
+              ...entries.map(entry => ({ key: `global:${entry.entryId}`, legacy: entry.entryId, label: `${t('globalTitle')} · ${entry.moduleName} · ${entry.entryId}` })),
+              ...presets.flatMap(preset => preset.rows.map(row => ({ key: presetMemberKey(preset, row), label: `${presetName(preset)} · ${row.moduleName} · ${row.entryId ?? ''}` }))),
+            ]}
+          />
+          <label className={css.search}>
+            <IconSearchOutline16 aria-hidden="true" />
+            <span className={css.visuallyHidden}>{t('search')}</span>
+            <input
+              type="search"
+              value={query}
+              placeholder={t('search')}
+              aria-label={t('search')}
+              onChange={(event) => { setQuery(event.currentTarget.value) }}
+            />
+          </label>
+          {entries.length === 0 && presets.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
+          {nothingMatches ? <p className={css.status}>{t('emptySearch')}</p> : null}
+
+          {selected !== undefined ? (
+            <section className={css.group} data-plugin-scope="preset" data-preset-id={selected.id}>
+              <div className={css.groupTitleRow}>
                 <button
                   type="button"
-                  className={css.groupRow}
-                  data-selected={selectedGroup === undefined ? 'true' : undefined}
-                  aria-current={selectedGroup === undefined ? 'true' : undefined}
-                  onClick={() => { actions.select(ALL_GROUP) }}
+                  className={css.groupToggle}
+                  aria-expanded={presetEffectiveOpen}
+                  aria-controls={`${sectionId}-preset`}
+                  onClick={() => { setPresetOpen(!presetEffectiveOpen) }}
                 >
-                  <span className={css.groupName}>{t('groupsAll')}</span>
-                  <span className={css.groupCount}>{entries.length}</span>
+                  <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+                  <span className={css.groupTitle}>{t('presetTitle')}</span>
                 </button>
-              </li>
-              {groupsState.groups.map(group => (
-                <li key={group.id} className={css.groupItem}>
-                  <button
-                    type="button"
-                    className={css.groupRow}
-                    data-selected={selectedGroup?.id === group.id ? 'true' : undefined}
-                    aria-current={selectedGroup?.id === group.id ? 'true' : undefined}
-                    onClick={() => { actions.select(group.id) }}
-                  >
-                    <span className={css.groupName}>{group.name}</span>
-                    <span className={css.groupCount}>
-                      {group.entryIds.filter(id => presentIds.has(id)).length}
-                    </span>
-                  </button>
-                  <Tooltip label={t('groupDelete')}>
-                    <button
-                      type="button"
-                      className={css.groupDelete}
-                      aria-label={`${t('groupDelete')} ${group.name}`}
-                      onClick={() => { actions.removeGroup(group.id) }}
-                    >
-                      <IconCloseOutline16 size={12} />
-                    </button>
-                  </Tooltip>
-                </li>
-              ))}
-            </ul>
-          </aside>
-          <div className={css.catalog}>
-            <div className={css.catalogHeading}>
-              <h3>{t('plugins')}</h3>
-              <span data-plugin-count={filteredEntries.length}>{filteredEntries.length}</span>
-              {selectedGroup === undefined ? null : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={css.addPlugins}
-                  onClick={() => { setPickerOpen(true) }}
-                >
-                  <IconPlusOutline16 size={12} />
-                  {t('addPlugins')}
-                </Button>
-              )}
-            </div>
-            <label className={css.search}>
-              <IconSearchOutline16 aria-hidden="true" />
-              <span className={css.visuallyHidden}>{t('search')}</span>
-              <input
-                type="search"
-                value={query}
-                placeholder={t('search')}
-                aria-label={t('search')}
-                onChange={(event) => { setQuery(event.currentTarget.value) }}
-              />
-            </label>
-            {entries.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
-            {entries.length > 0 && selectedGroup !== undefined && selectedGroup.entryIds.length === 0
-              ? <p className={css.status}>{t('emptyGroup')}</p>
-              : null}
-            {filteredEntries.length === 0
-              && !(selectedGroup !== undefined && selectedGroup.entryIds.length === 0)
-              && (normalizedQuery.length > 0 || selectedGroup !== undefined)
-              && entries.length > 0
-              ? <p className={css.status}>{t('emptySearch')}</p>
-              : null}
-            {filteredEntries.length > 0 ? (
-              <ul className={css.cards}>
-                {filteredEntries.map((entry) => {
-                  const status = phaseLabel(entry.fiberPhase, t)
-                  const title = moduleShortName(entry.moduleName)
-                  const configuration = t(entry.enabled ? 'enabledTag' : 'disabledTag')
-                  const open = expanded === entry.entryId
-                  const detailId = `${catalogId}-details-${encodeURIComponent(entry.entryId)}`
-                  return (
-                    <li
-                      className={css.card}
-                      key={entry.entryId}
-                      data-plugin-entry={entry.entryId}
-                      data-open={open ? 'true' : undefined}
-                    >
-                      <div className={css.cardRow}>
+                <div className={css.headerEnd}>
+                  <Menu
+                    open={switcherOpen}
+                    onClose={() => { setSwitcherOpen(false) }}
+                    items={presets.map(preset => ({ id: preset.id, label: presetLabel(preset, t, presetName) }))}
+                    selectedId={selected.id}
+                    onSelect={(id) => {
+                      setSwitcherOpen(false)
+                      setChosenPreset(id)
+                    }}
+                    align="end"
+                    portal
+                    anchor={(
+                      <button
+                        type="button"
+                        className={css.switcher}
+                        aria-haspopup="menu"
+                        aria-expanded={switcherOpen}
+                        aria-label={t('switcherLabel')}
+                        onClick={() => { setSwitcherOpen(value => !value) }}
+                      >
+                        <span className={css.switcherLabel}>{presetLabel(selected, t, presetName)}</span>
+                        <IconChevronDownOutline14 className={css.chevron} aria-hidden="true" />
+                      </button>
+                    )}
+                  />
+                </div>
+              </div>
+              <p className={css.groupSub}>
+                {t('presetSubtitle')}
+                <span data-preset-plugin-count={selectedRows.length}>
+                  {` · ${String(selectedRows.length)} ${t('countUnit')}`}
+                </span>
+              </p>
+              {presetEffectiveOpen ? (
+                <div id={`${sectionId}-preset`} className={css.groupBody}>
+                  {selected.broken !== undefined ? (
+                    <p className={css.brokenNote} role="alert">{selected.broken}</p>
+                  ) : null}
+                  {selectedRows.length > 0 ? (
+                    <ul className={css.cards}>
+                      {selectedRows.map((row, index) => presetRowCard(selected, row, index))}
+                    </ul>
+                  ) : null}
+                  {otherMatchCount > 0 ? (
+                    <p className={css.hint}>
+                      {t('matchesInOtherPresets', { count: String(otherMatchCount) })}
+                      {otherPresetMatches.map(preset => (
                         <button
-                          className={css.cardContent}
+                          key={preset.id}
                           type="button"
-                          aria-expanded={open}
-                          aria-controls={detailId}
-                          aria-label={entry.enabled ? `${title}, ${status}, ${configuration}` : `${title}, ${configuration}`}
-                          onClick={() => {
-                            setExpanded(current => current === entry.entryId ? null : entry.entryId)
-                          }}
+                          className={css.jumpLink}
+                          onClick={() => { setChosenPreset(preset.id) }}
                         >
-                          <MarqueeTitle title={title} moduleName={entry.moduleName} />
-                          <span className={css.cardTrailing}>
-                            {selectedGroup === undefined ? (
-                              <>
-                                {entry.enabled ? (
-                                  <span
-                                    className={css.statusDot}
-                                    data-phase={entry.fiberPhase ?? 'unobserved'}
-                                    role="img"
-                                    aria-label={status}
-                                    title={status}
-                                  />
-                                ) : null}
-                                <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
-                                  {configuration}
-                                </span>
-                              </>
-                            ) : (
-                              // A custom group's cards carry only the status
-                              // dot: phase colors while enabled, plain gray
-                              // while disabled; the words stay in the
-                              // accessible name and the tooltip.
-                              <span
-                                className={css.statusDot}
-                                data-phase={entry.enabled ? (entry.fiberPhase ?? 'unobserved') : undefined}
-                                role="img"
-                                aria-label={entry.enabled ? status : configuration}
-                                title={entry.enabled ? status : configuration}
-                              />
-                            )}
-                            <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
-                          </span>
+                          {presetName(preset)}
                         </button>
-                        {selectedGroup === undefined ? null : (
-                          <Tooltip label={t('removeFromGroup')}>
-                            <button
-                              type="button"
-                              className={css.removeEntry}
-                              aria-label={`${t('removeFromGroup')} ${title}`}
-                              onClick={() => { actions.removeEntry(selectedGroup.id, entry.entryId) }}
-                            >
-                              <IconCloseOutline16 size={12} />
-                            </button>
-                          </Tooltip>
-                        )}
-                      </div>
-                      {open ? (
-                        <div className={css.cardDetails} id={detailId}>
-                          <code className={css.entryValue} data-loader-entry>{entry.entryId}</code>
-                          <dl className={css.details}>
-                            <div>
-                              <dt>{t('configuration')}</dt>
-                              <dd>{configuration}</dd>
-                            </div>
-                            {entry.enabled ? (
-                              <div>
-                                <dt>{t('cordis')}</dt>
-                                <dd>{status}</dd>
-                              </div>
-                            ) : null}
-                          </dl>
-                        </div>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      <Modal
-        open={groupDialogOpen}
-        title={t('groupDialogTitle')}
-        closeLabel={t('cancel')}
-        onClose={() => { setGroupDialogOpen(false); setGroupName('') }}
-        footer={(
-          <>
-            <Button variant="outline" onClick={() => { setGroupDialogOpen(false); setGroupName('') }}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={trimmedGroupName.length === 0 || groupNameDuplicate}
-              onClick={saveGroup}
-            >
-              {t('save')}
-            </Button>
-          </>
-        )}
-      >
-        <Input
-          value={groupName}
-          placeholder={t('groupNamePlaceholder')}
-          aria-label={t('groupNamePlaceholder')}
-          onChange={(event) => { setGroupName(event.currentTarget.value) }}
-        />
-      </Modal>
-      <Modal
-        open={pickerOpen && selectedGroup !== undefined}
-        title={t('pickerTitle')}
-        closeLabel={t('cancel')}
-        onClose={closePicker}
-        footer={(
-          <div className={css.pickerFooter}>
-            <span className={css.pickerCount}>
-              {t('pickerSelected').replace('{count}', String(pickerChecked.size))}
-            </span>
-            <span className={css.pickerActions}>
-              <Button variant="outline" onClick={closePicker}>{t('cancel')}</Button>
-              <Button variant="primary" disabled={pickerChecked.size === 0} onClick={addPickedEntries}>
-                {t('add')}
-              </Button>
-            </span>
-          </div>
-        )}
-      >
-        <div className={css.pickerBody}>
-          <Input
-            icon={<IconSearchOutline16 />}
-            value={pickerQuery}
-            placeholder={t('search')}
-            aria-label={t('search')}
-            onChange={(event) => { setPickerQuery(event.currentTarget.value) }}
-          />
-          {selectedGroup !== undefined && entries.length > selectedGroup.entryIds.length
-            ? null
-            : <p className={css.status}>{t('pickerEmpty')}</p>}
-          {pickerCandidates.length === 0 && pickerNormalized.length > 0
-            ? <p className={css.status}>{t('pickerNoMatch')}</p>
-            : null}
-          {pickerCandidates.length > 0 ? (
-            <ul className={css.pickerList}>
-              {pickerCandidates.map(entry => (
-                <li key={entry.entryId}>
-                  <label className={css.pickerRow}>
-                    <span className={css.pickerName} title={entry.moduleName}>
-                      {moduleShortName(entry.moduleName)}
-                    </span>
-                    <input
-                      type="checkbox"
-                      className={css.pickerCheck}
-                      checked={pickerChecked.has(entry.entryId)}
-                      aria-label={moduleShortName(entry.moduleName)}
-                      onChange={() => { togglePickerCheck(entry.entryId) }}
-                    />
-                  </label>
-                </li>
-              ))}
-            </ul>
+                      ))}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {entries.length > 0 ? (
+            <section className={css.group} data-plugin-scope="global">
+              <div className={css.groupTitleRow}>
+                <button
+                  type="button"
+                  className={css.groupToggle}
+                  aria-expanded={globalEffectiveOpen}
+                  aria-controls={`${sectionId}-global`}
+                  onClick={() => { setGlobalOpen(!globalEffectiveOpen) }}
+                >
+                  <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+                  <span className={css.groupTitle}>{t('globalTitle')}</span>
+                </button>
+              </div>
+              <p className={css.groupSub}>
+                {t('globalSubtitle')}
+                <span data-plugin-count={globalCount}>{` · ${String(globalCount)} ${t('countUnit')}`}</span>
+                {filteredFailed.length > 0 ? (
+                  <span className={css.failedCount}>{filteredFailed.length} {t('failedCountLabel')}</span>
+                ) : null}
+              </p>
+              {globalEffectiveOpen && globalCount > 0 ? (
+                <ul className={css.cards} id={`${sectionId}-global`}>
+                  {filteredFailed.map(entry => globalRowCard(entry))}
+                  {filteredRegular.map(entry => globalRowCard(
+                    entry,
+                    entry.enabled ? undefined : enabledIn.get(entry.moduleName),
+                  ))}
+                </ul>
+              ) : null}
+            </section>
           ) : null}
         </div>
-      </Modal>
+      ) : null}
     </div>
   )
 }

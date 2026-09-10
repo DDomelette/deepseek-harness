@@ -1,6 +1,6 @@
 /** HTTP sender for one ingestion endpoint, with outcome classification. */
 
-import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
+import type { UsageRow } from '@deepseek-ai/dsh-usage-telemetry'
 
 /** Classified ingestion result that controls retry and cursor advancement. */
 export type SendOutcome =

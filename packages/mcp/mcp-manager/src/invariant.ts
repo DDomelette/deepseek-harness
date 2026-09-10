@@ -4,7 +4,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import { declarativeMcpServers, MCP_SERVERS_NS } from './index.ts'
 
@@ -32,10 +32,10 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       }
     }
   }
-  const current = ctx.settings.get(settingsNamespace(MCP_SERVERS_NS))
+  const current = ctx.settings.get(MCP_SERVERS_NS)
   if (current !== undefined) check(current)
   ctx.on('settings/updated', (ns, next) => {
-    if (ns !== settingsNamespace(MCP_SERVERS_NS)) return
+    if (ns !== MCP_SERVERS_NS) return
     check(next)
   })
 }, { inject: ['settings', 'loader'] })

@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import { type SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import { type WorkspaceSnapshot as WorkspaceListState } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { ArchivedSection, type ArchivedSectionInjected } from '../src/client/ArchivedSection.tsx'
 import { zh, type ArchivedSettingsKey } from '../src/client/locales.ts'
@@ -24,7 +25,7 @@ const sessionsState = (): SessionListState => ({
   byId: {
     [sid('a1')]: {
       id: sid('a1'), displayTitle: 'alpha-1', updatedAt: Date.parse('2026-08-19T01:00:00.000Z'),
-      running: false, blank: false, cwd: '/w/alpha', agentPreset: 'default',
+      running: false, blank: false, cwd: '/w/alpha', projectionValues: { agentPreset: 'default' },
     },
     [sid('a2')]: {
       id: sid('a2'), displayTitle: 'alpha-2', updatedAt: Date.parse('2026-08-18T01:00:00.000Z'),
@@ -59,8 +60,7 @@ const workspacesState = (): WorkspaceListState => ({
   state: 'idle',
   phase: 'ready',
   error: null,
-  baselinesReady: true,
-  recentWorkspaceId: undefined,
+
 })
 
 const archivedLabel = (iso: string): string => {
@@ -85,6 +85,9 @@ function mount(
   },
 ): ArchivedSectionInjected {
   render(<ArchivedSection
+    usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+    useResource={() => { throw new Error('unused by ArchivedSection') }}
+    useSessionPendingInteraction={selector => selector(new Map())}
     useSessions={useSessions}
     useWorkspaces={useWorkspaces}
     close={vi.fn()}
@@ -148,6 +151,9 @@ describe('ArchivedSection', () => {
     original.byId[sid('loose')] = { ...original.byId[sid('loose')]!, running: true }
     const runningSessions = <S,>(selector: (state: SessionListState) => S): S => selector(original)
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
+      useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={runningSessions}
       useWorkspaces={useWorkspaces}
       close={vi.fn()}
@@ -167,6 +173,9 @@ describe('ArchivedSection', () => {
     const restore = vi.fn(async () => true)
     const close = vi.fn()
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
+      useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={useSessions}
       useWorkspaces={useWorkspaces}
       close={close}
@@ -195,6 +204,9 @@ describe('ArchivedSection', () => {
     original.byId[sid('loose')] = { ...original.byId[sid('loose')]!, running: true }
     const runningSessions = <S,>(selector: (state: SessionListState) => S): S => selector(original)
     render(<ArchivedSection
+      usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
+      useResource={() => { throw new Error('unused by ArchivedSection') }}
+      useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={runningSessions}
       useWorkspaces={useWorkspaces}
       close={vi.fn()}

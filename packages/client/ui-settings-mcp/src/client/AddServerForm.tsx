@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 /**
  * Add-server view: one form over the dsh-mcp-client entry fields, split by
  * transport. Validation runs on every change; a valid draft commits through
@@ -189,60 +190,60 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
   }
 
   return (
-    <div className={css.form}>
-      <h3 className={css.title}>{t('addServer')}</h3>
-      <div role="radiogroup" aria-label={t('transportLabel')} className={css.transport}>
+    <div className={clsx(css.form)}>
+      <h3 className={clsx(css.title)}>{t('addServer')}</h3>
+      <div role="radiogroup" aria-label={t('transportLabel')} className={clsx(css.transport)}>
         {(['stdio', 'streamable-http'] as const).map(value => (
           <button
             key={value}
             type="button"
             role="radio"
             aria-checked={state.transport === value}
-            className={css.transportChoice}
+            className={clsx(css.transportChoice)}
             onClick={() => { setState(prev => ({ ...prev, transport: value })) }}
           >
             {value === 'stdio' ? t('transportStdio') : t('transportHttp')}
           </button>
         ))}
       </div>
-      <label className={css.field} htmlFor="mcp-server-name">
-        <span className={css.fieldLabel}>{t('serverNameLabel')}</span>
-        <Input className={css.fieldInput} id="mcp-server-name" value={state.name} onChange={edit('name')} placeholder={t('serverNamePlaceholder')} />
+      <label className={clsx(css.field)} htmlFor="mcp-server-name">
+        <span className={clsx(css.fieldLabel)}>{t('serverNameLabel')}</span>
+        <Input className={clsx(css.fieldInput)} id="mcp-server-name" value={state.name} onChange={edit('name')} placeholder={t('serverNamePlaceholder')} />
       </label>
       {state.transport === 'stdio' ? (
         <>
-          <label className={css.field} htmlFor="mcp-command">
-            <span className={css.fieldLabel}>{t('commandLabel')}</span>
-            <Input className={css.fieldInput} id="mcp-command" value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
+          <label className={clsx(css.field)} htmlFor="mcp-command">
+            <span className={clsx(css.fieldLabel)}>{t('commandLabel')}</span>
+            <Input className={clsx(css.fieldInput)} id="mcp-command" value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor="mcp-args">
-            <span className={css.fieldLabel}>{t('argsLabel')}</span>
-            <textarea id="mcp-args" className={css.multiline} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
+          <label className={clsx(css.field)} htmlFor="mcp-args">
+            <span className={clsx(css.fieldLabel)}>{t('argsLabel')}</span>
+            <textarea id="mcp-args" className={clsx(css.multiline)} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor="mcp-env">
-            <span className={css.fieldLabel}>{t('envLabel')}</span>
-            <textarea id="mcp-env" className={css.multiline} value={state.env} onChange={edit('env')} placeholder={t('envPlaceholder')} />
+          <label className={clsx(css.field)} htmlFor="mcp-env">
+            <span className={clsx(css.fieldLabel)}>{t('envLabel')}</span>
+            <textarea id="mcp-env" className={clsx(css.multiline)} value={state.env} onChange={edit('env')} placeholder={t('envPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor="mcp-cwd">
-            <span className={css.fieldLabel}>{t('cwdLabel')}</span>
-            <Input className={css.fieldInput} id="mcp-cwd" value={state.cwd} onChange={edit('cwd')} />
+          <label className={clsx(css.field)} htmlFor="mcp-cwd">
+            <span className={clsx(css.fieldLabel)}>{t('cwdLabel')}</span>
+            <Input className={clsx(css.fieldInput)} id="mcp-cwd" value={state.cwd} onChange={edit('cwd')} />
           </label>
         </>
       ) : (
         <>
-          <label className={css.field} htmlFor="mcp-url">
-            <span className={css.fieldLabel}>{t('urlLabel')}</span>
-            <Input className={css.fieldInput} id="mcp-url" value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
+          <label className={clsx(css.field)} htmlFor="mcp-url">
+            <span className={clsx(css.fieldLabel)}>{t('urlLabel')}</span>
+            <Input className={clsx(css.fieldInput)} id="mcp-url" value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor="mcp-headers">
-            <span className={css.fieldLabel}>{t('headersLabel')}</span>
-            <textarea id="mcp-headers" className={css.multiline} value={state.headers} onChange={edit('headers')} placeholder={t('headersPlaceholder')} />
+          <label className={clsx(css.field)} htmlFor="mcp-headers">
+            <span className={clsx(css.fieldLabel)}>{t('headersLabel')}</span>
+            <textarea id="mcp-headers" className={clsx(css.multiline)} value={state.headers} onChange={edit('headers')} placeholder={t('headersPlaceholder')} />
           </label>
         </>
       )}
-      <label className={css.field} htmlFor="mcp-timeout">
-        <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
-        <Input className={css.fieldInput} id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
+      <label className={clsx(css.field)} htmlFor="mcp-timeout">
+        <span className={clsx(css.fieldLabel)}>{t('timeoutLabel')}</span>
+        <Input className={clsx(css.fieldInput)} id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
       <ReconnectFields
         idPrefix="mcp-add"
@@ -250,9 +251,9 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
         setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
         t={t}
       />
-      {blocked !== null ? <p role="alert" className={css.error}>{t(blocked)}</p> : null}
-      {saveError !== null && blocked === null ? <p role="alert" className={css.error}>{t(saveError)}</p> : null}
-      <div className={css.actions}>
+      {blocked !== null ? <p role="alert" className={clsx(css.error)}>{t(blocked)}</p> : null}
+      {saveError !== null && blocked === null ? <p role="alert" className={clsx(css.error)}>{t(saveError)}</p> : null}
+      <div className={clsx(css.actions)}>
         <Button variant="outline" size="sm" onClick={onCancel}>{t('cancel')}</Button>
         <Button variant="primary" size="sm" onClick={submit} disabled={busy || blocked !== null}>
           {busy ? t('saving') : t('save')}

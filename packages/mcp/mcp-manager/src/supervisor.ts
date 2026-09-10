@@ -7,7 +7,7 @@
 
 import type { Context, Fiber } from '@deepseek-ai/cordis'
 import * as McpClient from '@deepseek-ai/dsh-mcp-client'
-import { deepEqualJson } from '@deepseek-ai/dsh-settings'
+import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import type { McpServerEntryConfig, McpServersSection } from './schema.ts'
 
 /** One reconciler action between two sections. */

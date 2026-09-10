@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import McpServersGateway from '../src/index.ts'
 import { McpServerSupervisor, trackSupervisor } from '../src/supervisor.ts'
@@ -71,7 +71,7 @@ function fixtureEntry(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
 
 /** Spawn the fixture server through a settings commit. */
 async function writeEntry(ctx: Context, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
-  await ctx.settings.update(settingsNamespace(MCP_SERVERS_NS), {
+  await ctx.settings.update(MCP_SERVERS_NS, {
     [serverName]: { transport: 'stdio', command: process.execPath, args: [fixtureServerPath], ...entry },
   })
 }

@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto'
 import { open, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { usageRowSchema, type UsageRow } from '@deepseek-ai/dsh-usage-telemetry/src/schema.ts'
+import { usageRowSchema, type UsageRow } from '@deepseek-ai/dsh-usage-telemetry'
 import type { CursorStore } from './cursor-store.ts'
 
 const FILE_PATTERN = /^usage-\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\.jsonl$/

@@ -10,7 +10,7 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 ## Decision
 
-`@deepseek-ai/dsh-session-flags` provides a generic host-side presentation-flag registry (`ctx.sessionFlags`). Providers register synchronous flag maps; `workspace.list` carries the merged `sessionFlags` projection so the client workspace store remains presentation-only.
+`@deepseek-ai/dsh-session-flags` provides a Host presentation-flag registry. The pin client reads `remote.sessionPins` and contributes its flags through the UI Workspace service; the API Workspace projection contains domain membership and archive state only.
 
 `@deepseek-ai/dsh-session-pins` owns the pinned-sessions capability. It persists a `session_pins` storage-domain global with `pinnedSessionIds`, per-workspace `groupOrder` overrides, and a flat `flatOrder` override, and exposes `remote.sessionPins` with `list`, `setPinned`, `reorderGroup`, and `reorderFlat`. Every mutation writes the domain first and returns the complete snapshot. A reorder that names an unknown, unpinned, or duplicate id fails with `session-pins-invalid` before writing. The same plugin registers the only flag provider, projecting `pinned: true`.
 
@@ -37,4 +37,4 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 ## Testing
 
-Host domain and Remote behavior are pinned by `packages/session/session-pins/tests/session-pins.spec.ts`; flag merging by `packages/session/session-flags/tests/session-flags.spec.ts`; workspace flag delivery by `packages/host/apiproxy/tests/api-proxy-workspace.spec.ts`; tree filtering, empty groups, and search ranking by `packages/client/ui-workspace/tests/tree.client.spec.ts`; client registration and store rollback by `packages/client/ui-pinned-sessions/tests`.
+Host domain and Remote behavior are covered by `packages/session/session-pins/tests`; flag merging by `packages/session/session-flags/tests`; UI registration, filtering and ordering by the pinned-session and Workspace client package tests.

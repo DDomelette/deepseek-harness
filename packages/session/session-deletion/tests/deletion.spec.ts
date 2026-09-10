@@ -10,7 +10,8 @@ import SessionDeletionService from '@deepseek-ai/dsh-session-deletion'
 
 function header(id: string, parent?: string): SessionHeader {
   return {
-    version: 1,
+    version: 3,
+    isSeeded: false,
     id: SessionId(id),
     createdAt: 1000,
     cwd: '/work',
@@ -43,7 +44,7 @@ async function harness(options: HarnessOptions = {}) {
     get: (id: SessionId) => (options.live ?? []).includes(id) ? ({ id }) : undefined,
   } as never)
   ctx.provide('sessionPersistence', {
-    list: async () => [...stored.values()],
+    list: async () => [...stored.values()].map(header => ({ header, asOfSeq: 0 })),
     delete: options.persistenceDelete ?? (async (id: SessionId) => {
       if (!stored.delete(id)) throw new SessionPersistenceNotFoundError(id)
       deleted.push(id)
@@ -150,7 +151,7 @@ describe('SessionDeletionService', () => {
     let deleteStarted: (() => void) | undefined
     const started = new Promise<void>((resolve) => { deleteStarted = resolve })
     ctx.provide('sessionPersistence', {
-      list: async () => [header('root')],
+      list: async () => [{ header: header('root'), asOfSeq: 0 }],
       delete: async (_id: SessionId) => {
         deleteStarted?.()
         await deleteGate

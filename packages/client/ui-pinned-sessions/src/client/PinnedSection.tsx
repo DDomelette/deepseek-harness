@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import { type SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import { PinnedSessionRow, type PinnedRowNode } from './PinnedSessionRow.tsx'
 import { SessionPinAction } from './SessionPinAction.tsx'
 import type { PinnedSessionsInjected } from './index.ts'
@@ -14,11 +15,11 @@ interface PinnedGroup {
   nodes: PinnedRowNode[]
 }
 
-const nodeOf = (session: SessionSummary): PinnedRowNode => ({
+const nodeOf = (session: SessionSummary, pending: string | undefined): PinnedRowNode => ({
   id: session.id,
   title: session.displayTitle,
   blank: session.blank,
-  ...(session.pendingInteraction === undefined ? {} : { pendingInteraction: session.pendingInteraction }),
+  ...(pending === 'approval' || pending === 'plan-review' || pending === 'question' ? { pendingInteraction: pending } : {}),
   running: session.running,
   completed: session.completed === true,
   updatedAt: session.updatedAt,
@@ -44,13 +45,15 @@ function orderedByIds(
 }
 
 export function PinnedSection({
-  wide, view, useSessions, useWorkspaces, useStore, actions,
+  wide, view, useSessions, useSessionPendingInteraction, useWorkspaces, usePanelInfo, useStore, actions,
   open, setPinned, reorderGroup, reorderFlat, renameSession, forkSession, archiveSession, workspaceT, t,
 }: PropsRuntime<'sidebar.workspaces.pinned'>
   & PropsStore<ReturnType<typeof createPinnedSessionsStore>>
   & PinnedSessionsInjected
   & PropsLocale<'sessionPins'>) {
+  const pendingInteractions = useSessionPendingInteraction(s => s)
   const sessions = useSessions(s => s)
+  const panelActive = usePanelInfo(s => s.activePanelId !== null)
   const workspaces = useWorkspaces(s => s.items)
   const archivedSessionIds = useWorkspaces(s => s.archivedSessionIds)
   const ready = useStore(s => s.ready)
@@ -67,7 +70,7 @@ export function PinnedSection({
       const nodes = orderedByIds(pinned, snapshot.flatOrder, byId)
         .flatMap((id) => {
           const session = byId[id]
-          return session === undefined ? [] : [nodeOf(session)]
+          return session === undefined ? [] : [nodeOf(session, pendingInteractions.get(session.id)?.kind)]
         })
       return [{ key: '', label: t('pinned'), nodes }]
     }
@@ -102,11 +105,11 @@ export function PinnedSection({
         label: key === '' ? t('ungrouped') : labels.get(key) ?? key,
         nodes: ordered.flatMap((id) => {
           const session = byId[id]
-          return session === undefined ? [] : [nodeOf(session)]
+          return session === undefined ? [] : [nodeOf(session, pendingInteractions.get(session.id)?.kind)]
         }),
       }
     })
-  }, [ready, snapshot, sessions.byId, archivedSessionIds, view, workspaces, t])
+  }, [pendingInteractions, ready, snapshot, sessions.byId, archivedSessionIds, view, workspaces, t])
 
   if (!wide || !ready || groups.length === 0) return null
 
@@ -114,7 +117,9 @@ export function PinnedSection({
     <SessionPinAction
       {...owner}
       useSessions={useSessions}
+      useSessionPendingInteraction={useSessionPendingInteraction}
       useWorkspaces={useWorkspaces}
+      usePanelInfo={usePanelInfo}
       useStore={useStore}
       actions={actions}
       setPinned={setPinned}
@@ -169,7 +174,7 @@ export function PinnedSection({
             <PinnedSessionRow
               key={node.id}
               node={node}
-              currentId={sessions.current}
+              currentId={panelActive ? undefined : sessions.current}
               now={Date.now()}
               onOpen={open}
               onRename={(id, title) => { void renameSession(id, title) }}

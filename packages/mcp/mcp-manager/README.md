@@ -1,9 +1,29 @@
+---
+description: "Configuration and behavior of mcp-manager."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-mcp-manager
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Settings-driven MCP server manager: owns the `mcp-servers` user-settings namespace that the Web settings panel edits, and projects the `cordis.yml`-declared (declarative) MCP servers read-only alongside the panel-managed roster.
 
+
+## Table of Contents
+
+- [Usage](#usage)
+- [Config](#config)
+- [Declarative projection](#declarative-projection)
+- [Roster Remote](#roster-remote)
+- [Relationship to dsh-mcp-client](#relationship-to-dsh-mcp-client)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="usage"></a>
 ## Usage
 
 Mount the plugin alongside a settings provider and the Loader; it injects `settings` and `loader`:
@@ -14,6 +34,7 @@ Mount the plugin alongside a settings provider and the Loader; it injects `setti
 
 The registered `mcp-servers` section is a dict keyed by serverName; every entry mirrors the `dsh-mcp-client` Config fields plus `enabled`. Writes apply live. A write is refused when a key violates the serverName pattern (`[A-Za-z0-9_-]{1,32}`) or names a server already declared in `cordis.yml` — the declarative and panel-managed rosters never overlap.
 
+<a id="config"></a>
 ## Config
 
 The `mcp-servers` section lives in the settings document (a namespace, not plugin Config):
@@ -36,18 +57,22 @@ The `mcp-servers` section lives in the settings document (a namespace, not plugi
 | `reconnect.maxDelayMs` | both | no | Maximum exponential-backoff delay (default 30000) |
 | `reconnect.maxAttempts` | both | no | Maximum reconnect attempts before stopping (default 10) |
 
+<a id="declarative-projection"></a>
 ## Declarative projection
 
 `declarativeMcpServers(ctx)` projects the Loader entries that mount `dsh-mcp-client`: serverName and transport read from the entry config, enablement from the Loader, and the root Fiber phase. The panel renders these read-only next to the settings-managed roster; their lifecycle stays owned by `cordis.yml`.
 
+<a id="roster-remote"></a>
 ## Roster Remote
 
 The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the namespace registration and supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`. The manager emits payload-free `mcp-servers/change` invalidations after the settings roster or a mount lifecycle state changes; Remote consumers refetch `list()` instead of treating the event as a snapshot.
 
+<a id="relationship-to-dsh-mcp-client"></a>
 ## Relationship to dsh-mcp-client
 
 `dsh-mcp-client` connects to one MCP server per plugin instance and registers its tools on `ctx.tools`. This package owns the settings namespace the panel writes and never connects to a server itself — every entry in effect is a `dsh-mcp-client` instance.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Managed MCP server tools
@@ -66,7 +91,14 @@ No KV-cache effect of its own; adding, removing, or toggling an entry changes th
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Lifecycle status only** — `status` reports the mount fiber's settlement, not liveness; a server that never answers its initial connection still reports `ready` under the default `failOnStartupError: false`.
 - **Preset-mounted servers are invisible** — an MCP server an agent preset mounts inline is absent from `ctx.loader.entries()` and therefore from the declarative roster.
 - **Keyed by serverName** — renaming a server means removing the entry and adding a new one; the settings key is the name.
 - **Panel is the only editor** — the section is plain settings data, so a headless deployment can edit `settings.yaml` directly, but the write-time duplicate guard against declarative names only runs through the settings seam.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.

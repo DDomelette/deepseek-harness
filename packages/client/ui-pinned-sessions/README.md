@@ -1,27 +1,50 @@
+---
+description: "Configuration and behavior of ui-pinned-sessions."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-pinned-sessions
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Pinned-sessions browser plugin for the DeepSeek Harness sidebar. It registers the pinned section, per-row pin action, and search-result pin badge into the three slots declared by `@deepseek-ai/dsh-client-ui-workspace`.
 
+
+## Table of Contents
+
+- [Slot registrations](#slot-registrations)
+- [Store contract](#store-contract)
+- [Remote methods used](#remote-methods-used)
+- [Locale namespace](#locale-namespace)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="slot-registrations"></a>
 ## Slot registrations
 
-- `sidebar.workspaces.pinned` — the pinned list above the project tree. Grouped view groups by owning workspace; flat view renders one list. The section hides when no session is pinned.
+- `sidebar.workspaces.pinned` — the pinned list above the project tree. Grouped view groups by owning workspace; flat view renders one list. The section hides when no session is pinned. Session selection is highlighted only while no main panel is active.
 - `sidebar.workspaces.sessionActions` — the hover-revealed pin/unpin button rendered left of the row ellipsis.
 - `sidebar.workspaces.searchResultExtra` — the blue pin badge on pinned search results.
 
+<a id="store-contract"></a>
 ## Store contract
 
 The plugin owns a root-scoped `defineStore` handle: `snapshot`, `ready`, and `error`. Actions are `commit`, `optimistic`, `rollback`, and `fail`. Remote results replace the snapshot after durability; failed mutations roll back the previous snapshot.
 
+<a id="remote-methods-used"></a>
 ## Remote methods used
 
 `remote.sessionPins.list`, `setPinned`, `reorderGroup`, and `reorderFlat`. The plugin re-pulls `list` on `connection/reset`.
 
+<a id="locale-namespace"></a>
 ## Locale namespace
 
 `sessionPins` (zh/en): pinned, pin, unpin, pinnedBadge, projects, ungrouped.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Request context and condition
@@ -40,5 +63,14 @@ Independent of live requests.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Pinned rows render only the unpin action** — rename/fork/archive remain available through the session's project row in v1.
 - **No keyboard drag ordering** — pinned reordering is pointer-drag only.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.
+
+No runtime invariant companion is published. The package validates inputs at registration or writes and exposes no second authoritative state to compare against an independent event stream.

@@ -1,7 +1,8 @@
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 /** MCP server roster tab in Web Plugins settings. */
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { type Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: the settings surface's ctx.settingsScope Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the ctx.remote Context merge and the mcpServers wire types.

@@ -5,7 +5,8 @@
  */
 
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import { type SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import { type WorkspaceSnapshot as WorkspaceListState } from '@deepseek-ai/dsh-api-workspace-controller/client'
 
 /** Archived session data displayed in one settings row. */
 export interface ArchivedRow {
@@ -56,7 +57,7 @@ export function deriveArchivedGroups(
       running: summary.running,
       updatedAt: summary.updatedAt,
       ...(summary.cwd === undefined ? {} : { cwd: summary.cwd }),
-      ...(summary.agentPreset === undefined ? {} : { agentPreset: summary.agentPreset }),
+      ...(summary.projectionValues?.agentPreset == null ? {} : { agentPreset: summary.projectionValues.agentPreset }),
       ...(archivedAt === undefined ? {} : { archivedAt }),
     }
   }

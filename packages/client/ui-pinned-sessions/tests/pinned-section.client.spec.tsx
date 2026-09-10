@@ -2,7 +2,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
+import { type SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import { PinnedSection } from '../src/client/PinnedSection.tsx'
 import { createPinnedSessionsStore } from '../src/client/stores.ts'
 
@@ -19,15 +20,17 @@ function renderPinned({
   pinned = [sid('s1'), sid('s2')],
   groupOrder = {},
   flatOrder = [],
+  panelActive = false,
 }: {
   pinned?: readonly SessionId[]
   groupOrder?: Readonly<Record<string, readonly SessionId[]>>
   flatOrder?: readonly SessionId[]
+  panelActive?: boolean
 } = {}) {
   const sessions = {
     ids: [sid('s1'), sid('s2')],
     byId: { [sid('s1')]: summary('s1', 1), [sid('s2')]: summary('s2', 2) },
-    current: undefined,
+    current: sid('s1'),
     phase: 'ready' as const,
     subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined,
   }
@@ -46,10 +49,13 @@ function renderPinned({
     <PinnedSection
       wide
       view="grouped"
+      usePanelInfo={selector => selector({ activePanelId: panelActive ? 'test-panel' as MainPanelId : null })}
+      useResource={() => { throw new Error('unused by PinnedSection') }}
+      useSessionPendingInteraction={selector => selector(new Map())}
       useSessions={selector => selector(sessions)}
       useWorkspaces={selector => selector({
-        items: [workspace], archivedSessionIds: [], archivedSessionAts: {}, sessionFlags: {}, state: 'idle', phase: 'ready',
-        error: null, baselinesReady: true, recentWorkspaceId: undefined,
+        items: [workspace], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready',
+        error: null,
       })}
       useStore={selector => selector(store.getSnapshot())}
       actions={store.actions}
@@ -68,6 +74,11 @@ function renderPinned({
 }
 
 describe('PinnedSection', () => {
+  it.each([false, true])('shows the current session only when the main panel is inactive (panel active: %s)', (panelActive) => {
+    renderPinned({ panelActive })
+    expect(screen.getByText('s1').closest('[aria-selected]')?.getAttribute('aria-selected')).toBe(String(!panelActive))
+  })
+
   it('keeps the manual group order override instead of re-sorting by account order', () => {
     renderPinned({ groupOrder: { ws: [sid('s2'), sid('s1')] } })
     const titles = screen.getAllByText(/^s[12]$/).map(node => node.textContent)

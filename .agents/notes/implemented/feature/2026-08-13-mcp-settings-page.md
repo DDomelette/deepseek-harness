@@ -10,6 +10,8 @@ MCP servers were configured declaratively only: one `@deepseek-ai/dsh-mcp-client
 
 ## Decision
 
+[Runtime integration](../architecture/2026-09-06-local-features-on-gateway.md) defines the current controller and storage ownership.
+
 ### Two sources, one roster
 
 A new Host package `@deepseek-ai/dsh-mcp-manager` (`packages/mcp/mcp-manager`) and a new client package `@deepseek-ai/dsh-client-ui-settings-mcp` (`packages/client/ui-settings-mcp`). The Web Plugins section gains an MCP tab (order 5, between 插件配置 and 插件列表). The roster merges two sources:
@@ -29,7 +31,7 @@ A settings entry whose `serverName` collides with a declarative row is refused a
 
 ### Secret handling
 
-`env` and `headers` are `role('secret')` schema fields. The wire never returns them, so every client write names the leaves it means: the enablement switch writes path `[serverName, enabled]`; the editor submits every changed leaf together through `SettingsScope.mutate` and leaves blank env/headers fields out of the transaction entirely. The shared settings scope provides both single-path `setPath` and atomic multi-path `mutate`, because a whole-field write rebuilt from the redacted view silently deletes stored secrets while separate transactions can partially apply one edit.
+`env` and `headers` are secret fields and are redacted on read. Enablement, additions, edits and removals use `SettingsScope.mutate` path operations. Each transaction returns explicit Host acceptance; a redacted mirror cannot prove a save succeeded. Blank secret fields are omitted from edits, preserving stored secrets.
 
 ### Frozen settings snapshots
 
@@ -54,7 +56,7 @@ The gateway reports mount lifecycle only (connecting → ready/failed), not live
 - The add and edit forms expose the complete automatic-reconnect policy validated by `dsh-mcp-client`.
 - An open tab converges on Host lifecycle changes and connection resets without remounting the browser component.
 - Blank secret fields mean "keep the stored value"; clearing all env/headers from the UI is deliberately unsupported — delete and re-add to start without secrets.
-- The status dot reports lifecycle, not liveness; a crash-looping server keeps showing 运行中 while `dsh-mcp-client` retries, per the [reconnect Agent Note](2026-08-06-mcp-client-auto-reconnect.md).
+- The status dot reports lifecycle, not liveness; a crash-looping server keeps showing 运行中 while `dsh-mcp-client` retries, per the [reconnect Agent Note](../../archived/feature/2026-08-06-mcp-client-auto-reconnect.md).
 - Renaming a server is not offered: the dict key is the name, so rename is remove + add.
 
 ## Testing

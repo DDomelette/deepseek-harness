@@ -1,13 +1,28 @@
-# telemetry/ — local usage observation
+---
+description: "Local provider usage recording and optional HTTP delivery."
+kind: "package-group"
+---
+
+# telemetry/ — provider usage
 
 English | [中文](README.zh.md)
 
-Local, provider-reported usage observation that remains outside the durable session log and model-request assembly.
+## Summary
 
+Record provider-reported token usage locally and optionally deliver those records to an HTTP endpoint. Usage capture is independent of canonical Session event reporting in the [session telemetry subsystem](../../docs/subsystems/session-telemetry.md).
+
+## Table of Contents
+
+- [Packages](#packages)
+- [Dev Note](#dev-note)
+
+<a id="packages"></a>
 ## Packages
 
-| Package | Role | ctx key |
-|---|---|---|
-| [`usage-telemetry/`](usage-telemetry/README.md) | Captures one v1 JSONL row for each session-attributed `llm/stream` invocation that reports provider usage. | — |
+- [usage-telemetry](usage-telemetry/README.md) records usage per provider attempt; the base composition enables recording.
+- [usage-exporter](usage-exporter/README.md) owns delivery and durable cursors; its shipped entry is disabled.
 
-`usage-telemetry` is an independent local monitor, not a `SessionTelemetryBackend`: the session telemetry backend delivers session activity, while this group records provider usage for external consumption monitoring. The [replay token meter](../../.agents/notes/implemented/architecture/2026-07-15-replay-token-meter-service.md) separately folds durable session events for request-pressure estimation and neither reads nor receives the local JSONL rows.
+<a id="dev-note"></a>
+### Dev Note
+
+None.

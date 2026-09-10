@@ -93,7 +93,8 @@ export default class SessionDeletionService extends Service {
     // attaches while its id is in an active deletion plan rolls back instead
     // of racing the destructive writes.
     this.ctx.on('session/created', (session) => {
-      if (!this.activeMembers.has(session.header.id)) return
+      if (!this.activeMembers.has(session.header.id)
+        && (session.header.parentSession === undefined || !this.activeMembers.has(session.header.parentSession))) return
       throw new SessionDeletionError(
         'session-running',
         `cannot create session "${session.header.id}" while it is being deleted`,
@@ -129,16 +130,19 @@ export default class SessionDeletionService extends Service {
    * Permanently delete one session and, when `recursive` is true, its
    * descendant subagent sessions leaves-first.
    * @param input - target and recursion switch.
+   * @param detach - optional lifecycle owner that closes idle Agents before destructive writes.
    * @returns every plan member, in plan order.
    */
   delete(
     input: { readonly sessionId: SessionId; readonly recursive: boolean },
+    detach?: (ids: readonly SessionId[]) => Promise<void>,
   ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
-    return this.serialize(input.sessionId, () => this.deleteCore(input))
+    return this.serialize(input.sessionId, () => this.deleteCore(input, detach))
   }
 
   private async deleteCore(
     input: { readonly sessionId: SessionId; readonly recursive: boolean },
+    detach?: (ids: readonly SessionId[]) => Promise<void>,
   ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
     const { sessionId, recursive } = input
     const table = this.requireTable()
@@ -151,7 +155,7 @@ export default class SessionDeletionService extends Service {
       })
     }
     const persisted = await this.ctx.sessionPersistence.list()
-    for (const meta of persisted) {
+    for (const { header: meta } of persisted) {
       identities.set(meta.id, { parentSession: meta.parentSession })
     }
 
@@ -201,21 +205,19 @@ export default class SessionDeletionService extends Service {
       updatedAt: new Date().toISOString(),
     }
 
-    const running = plan.members
-      .map(member => member.sessionId)
-      .filter(id => this.ctx.sessions.get(id) !== undefined)
-    if (running.length > 0) {
-      throw new SessionDeletionError(
-        'session-running',
-        `cannot delete attached session(s): ${running.join(', ')}`,
-        running,
-      )
+    for (const member of plan.members) {
+      if (this.activeMembers.has(member.sessionId)) {
+        throw new SessionDeletionError('session-running', 'another deletion owns a plan member', [member.sessionId])
+      }
     }
-
-    // The plan is durable before the first destructive write. From here on,
-    // the active-member listener is the attach boundary.
     for (const member of plan.members) this.activeMembers.add(member.sessionId)
     try {
+      await detach?.(plan.members.map(member => member.sessionId))
+      const attached = plan.members.map(member => member.sessionId)
+        .filter(id => this.ctx.sessions.get(id) !== undefined)
+      if (attached.length > 0) {
+        throw new SessionDeletionError('session-running', `cannot delete attached session(s): ${attached.join(', ')}`, attached)
+      }
       await table.put(sessionId, plan)
       let latest = plan
       for (const member of latest.members) {
