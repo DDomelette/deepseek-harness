@@ -60,6 +60,7 @@ session-controller / agent-loop(与 PC 共享同一会话状态)
 
 - `apps/web/public/manifest.webmanifest`:补 192/512 图标、`start_url`、名称/主题色。
 - 新增手写最小 `sw.js`(静态资源 stale-while-revalidate;`/api` 与 `/api/remote.mux` 永远走网络,不拦截 WebSocket),在 `apps/web/src/main.ts` 注册。不引入 vite-plugin-pwa/workbox。
+- **平台约束**:Service Worker 与安装提示要求 secure context——`http://<LAN-IP>` 不是 secure context,内网明文 HTTP 下 SW 不会注册、Android 不出现安装提示。本版交付:localhost/HTTPS 下完整 PWA;内网 HTTP 下经 `apple-mobile-web-app-capable` + touch icon 获得 iOS"添加到主屏"全屏体验;Android 完整安装体验留给后续 TLS 工作。
 - README 注明 iOS 限制:iOS PWA 无后台 WebSocket,切回前台时由现有 Connection 代际重连 + RemoteJournalStream 断点续传自动恢复(机制内建,零改动)。
 
 ### Phase 3 — 移动端 UI 适配(主体工作量)
