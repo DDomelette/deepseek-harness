@@ -287,8 +287,8 @@ spawn 参数数组(:69-74)改为:
 
 - [ ] **Step 3: 跑 e2e 确认绿**
 
-Run: `pnpm exec vitest run apps/cli/tests/web-auth.e2e.ts`
-Expected: PASS(两个用例;无 LAN IPv4 的环境自动 skip)。
+Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts`
+Expected: PASS(两个用例;无 LAN IPv4 的环境自动 skip;Windows 本机上既有用例的 `credentialMode === 0o600` 断言因平台固有原因失败——Task 3 之前就存在,见 ledger,本计划不修复)。
 注意:该 e2e 启动真实 CLI,Windows 上首次运行可能接近 90s 超时上限;超时不是失败信号时重跑一次确认稳定性。
 
 - [ ] **Step 4: Commit**
