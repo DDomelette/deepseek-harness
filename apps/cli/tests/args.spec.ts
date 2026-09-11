@@ -30,6 +30,9 @@ describe('parseDshArgs', () => {
     expect(parse(['web'])).toEqual({ mode: 'profile', profile: 'web', patches: [], args: [] })
     expect(parse(['web', '--patch', 'web.yml']))
       .toEqual({ mode: 'profile', profile: 'web', patches: ['web.yml'], args: [] })
+    expect(parse(['mob'])).toEqual({ mode: 'profile', profile: 'mob', patches: [], args: [] })
+    expect(parse(['mob', '--patch', 'web.yml']))
+      .toEqual({ mode: 'profile', profile: 'mob', patches: ['web.yml'], args: [] })
   })
 
   it('ends the launcher flags at the first token it does not own', () => {
@@ -40,6 +43,8 @@ describe('parseDshArgs', () => {
       .toEqual({ mode: 'profile', profile: 'web', patches: [], args: ['-h'] })
     expect(parse(['web', '--host', '127.0.0.1', '--port', '8080', '--no-open', '--future-web-flag']))
       .toEqual({ mode: 'profile', profile: 'web', patches: [], args: ['--host', '127.0.0.1', '--port', '8080', '--no-open', '--future-web-flag'] })
+    expect(parse(['mob', '--host', '127.0.0.1', '--port', '8080', '--no-open', '--future-web-flag']))
+      .toEqual({ mode: 'profile', profile: 'mob', patches: [], args: ['--host', '127.0.0.1', '--port', '8080', '--no-open', '--future-web-flag'] })
     expect(parse(['--profile', 'headless', 'run', 'the', 'tests']))
       .toEqual({ mode: 'profile', profile: 'headless', patches: [], args: ['run', 'the', 'tests'] })
     // Launcher flags placed after that boundary belong to the app too.
@@ -54,6 +59,8 @@ describe('parseDshArgs', () => {
       })
     expect(parse(['web', '--from-default-profile', 'web']))
       .toEqual({ mode: 'profile', profile: 'web', patches: [], args: ['--from-default-profile', 'web'] })
+    expect(parse(['mob', '--from-default-profile', 'web']))
+      .toEqual({ mode: 'profile', profile: 'mob', patches: [], args: ['--from-default-profile', 'web'] })
   })
 
   it('routes the plugin pnpm forwarder', () => {
@@ -87,6 +94,10 @@ describe('parseDshArgs', () => {
       .toEqual({ mode: 'dump-config', profile: 'web', defaultOnly: false, patches: [] })
     expect(parse(['web', '--dump-default-config']))
       .toEqual({ mode: 'dump-config', profile: 'web', defaultOnly: true, patches: [] })
+    expect(parse(['mob', '--dump-config']))
+      .toEqual({ mode: 'dump-config', profile: 'mob', defaultOnly: false, patches: [] })
+    expect(parse(['mob', '--dump-default-config']))
+      .toEqual({ mode: 'dump-config', profile: 'mob', defaultOnly: true, patches: [] })
   })
 
   it('rejects missing profile, removed flags, and contradictory inputs', () => {
@@ -108,11 +119,17 @@ describe('parseDshArgs', () => {
     expect(exitCode(['web', '--dump-config', '--dump-default-config'])).toBe(1)
     expect(exitCode(['web', '--dump-default-config', '--patch', 'w.yml'])).toBe(1)
     expect(exitCode(['web', '--patch='])).toBe(1)
+    expect(exitCode(['--profile', 'x', 'mob'])).toBe(1)
+    expect(exitCode(['mob', '--dump-config', '--dump-default-config'])).toBe(1)
+    expect(exitCode(['mob', '--dump-default-config', '--patch', 'w.yml'])).toBe(1)
+    expect(exitCode(['mob', '--patch='])).toBe(1)
     // A dump never runs app command-line providers, so it cannot show what
     // those flags would decide; printing a tree that differs from the same
     // invocation's boot would mislead.
     expect(exitCode(['web', '--dump-config', '--port', '8080'])).toBe(1)
     expect(exitCode(['--profile', 'web', '--dump-config', '-h'])).toBe(1)
+    expect(exitCode(['mob', '--dump-config', '--port', '8080'])).toBe(1)
+    expect(exitCode(['--profile', 'mob', '--dump-config', '-h'])).toBe(1)
     expect(exitCode(['plugin', 'add', 'x'])).toBe(1) // --profile required
     expect(exitCode(['plugin', '--profile', 'tui'])).toBe(1) // nothing to forward
     expect(exitCode(['plugin', '--profile', ''])).toBe(1)

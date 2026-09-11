@@ -220,6 +220,9 @@ importers:
       '@deepseek-ai/dsh-mcp-client':
         specifier: workspace:^
         version: link:../../packages/mcp/mcp-client
+      '@deepseek-ai/dsh-mob':
+        specifier: workspace:^
+        version: link:../../packages/bundle/mob
       '@deepseek-ai/dsh-persona':
         specifier: workspace:^
         version: link:../../packages/preset/persona

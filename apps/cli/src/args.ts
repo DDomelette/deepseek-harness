@@ -10,8 +10,8 @@
  * `dsh --profile tui --resume abc` boots the tui profile with `--resume abc`,
  * and `dsh --profile web -h` prints the web app's help, not this one's.
  *
- * `web` is a hardcoded alias for `--profile web`; `plugin` manages a profile's
- * plugin dependencies by forwarding to pnpm.
+ * `web` and `mob` are hardcoded aliases for `--profile web` / `--profile mob`;
+ * `plugin` manages a profile's plugin dependencies by forwarding to pnpm.
  * @module @deepseek-ai/dsh/args
  */
 
@@ -75,6 +75,7 @@ function rejectElectronProfile(program: Command, profile: string): void {
 const HELP_EXAMPLES = `
 Examples:
   dsh --profile web                          boot the web profile (same as: dsh web)
+  dsh mob                                    boot the mob profile: LAN serving + phone-join QR
   dsh --profile rescue --from-default-profile web
                                              create rescue from the shipped web template, then boot it
   dsh --profile headless "run the tests"     answer one task, print the result, and exit
@@ -185,6 +186,21 @@ export function parseDshArgs(argv: readonly string[], version: string): DshInvoc
     .action((args: string[], options: BootOptions) => {
       rejectParentOptions('web')
       resolved = resolveBoot(web, 'web', options, args)
+    })
+
+  const mob = program.command('mob').description('boot the mob profile (alias of --profile mob); the web app\'s own flags follow')
+  mob
+    .helpOption(false)
+    .allowUnknownOption()
+    .passThroughOptions()
+    .enablePositionalOptions()
+    .argument('[args...]', 'arguments for the web app (see: dsh mob --help)')
+    .option('--patch <path>', 'extra patch-list overlay applied after the profile layer (repeatable)', collect)
+    .option('--dump-config', 'print the composed mob-profile tree (with the user layer and any --patch) and exit')
+    .option('--dump-default-config', 'print the mob profile\'s bundle layers (no user layer) and exit')
+    .action((args: string[], options: BootOptions) => {
+      rejectParentOptions('mob')
+      resolved = resolveBoot(mob, 'mob', options, args)
     })
 
   const plugin = program.command('plugin').description('manage a profile\'s plugins by forwarding the remaining arguments to pnpm in the profile directory')
