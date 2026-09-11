@@ -10,6 +10,13 @@ import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the mob failure vocabulary, so the scripted refusal names its real code.
 import type {} from '../src/types.ts'
+
+// The browser entry's canvas renderer has no jsdom implementation; the QR
+// bytes are third-party behavior, so the spec fixes the renderer output.
+vi.mock('qrcode/lib/browser.js', () => ({
+  default: { toDataURL: vi.fn(async () => 'data:image/png;base64,TESTQR') },
+}))
+
 import { ConnectPhoneRow } from '../src/client/ConnectPhoneRow.tsx'
 import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
 import { zh, type MobileSettingsKey } from '../src/client/locales.ts'

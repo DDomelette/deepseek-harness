@@ -4,7 +4,11 @@
  * LAN join URL through the injected face and renders it as a QR code.
  */
 import { useEffect, useState } from 'react'
-import QRCode from 'qrcode'
+// The package root resolves to qrcode's Node entry, whose PNG renderer pulls
+// fs/zlib/stream into the browser bundle; the browser subpath is the canvas
+// renderer. The repo's client bundle pipeline does not apply package.json
+// `browser` field remaps, so name the browser entry directly.
+import QRCode from 'qrcode/lib/browser.js'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
