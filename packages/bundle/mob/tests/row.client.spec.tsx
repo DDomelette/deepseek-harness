@@ -82,6 +82,25 @@ describe('ConnectPhoneRow', () => {
     expect(screen.queryByRole('img')).toBeNull()
   })
 
+  it('shows the load-failure copy on a non-loopback Remote failure', async () => {
+    mount(vi.fn(async () => ({
+      ok: false as const,
+      error: new RemoteError('gateway/internal', 'gateway folded an unexpected exception', {}),
+    })))
+    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+
+    await waitFor(() => { expect(screen.getByText('加入链接加载失败')).toBeTruthy() })
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
+  it('shows the load-failure copy instead of hanging when the join read rejects', async () => {
+    mount(vi.fn(async (): Promise<never> => { throw new Error('connection dropped') }))
+    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+
+    await waitFor(() => { expect(screen.getByText('加入链接加载失败')).toBeTruthy() })
+    expect(screen.queryByText('正在准备加入链接…')).toBeNull()
+  })
+
   it('closes on Escape and reloads the URL on reopen', async () => {
     const joinUrl = okJoin()
     mount(joinUrl)
@@ -106,6 +125,19 @@ describe('ConnectPhoneRow', () => {
 
     release!({ ok: true, value: JOIN_URL })
     // The cancelled effect never republishes: nothing reopens and no link field appears.
+    await waitFor(() => { expect(joinUrl).toHaveBeenCalledOnce() })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('drops a late rejection after the dialog closes mid-load', async () => {
+    let reject: (error: Error) => void
+    const joinUrl = vi.fn(() => new Promise<never>((_resolve, rejectPromise) => { reject = rejectPromise }))
+    mount(joinUrl)
+    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    reject!(new Error('connection dropped'))
+    // The catch arm still feeds the cancelled effect: no failure copy, no unhandled rejection.
     await waitFor(() => { expect(joinUrl).toHaveBeenCalledOnce() })
     expect(screen.queryByRole('dialog')).toBeNull()
   })

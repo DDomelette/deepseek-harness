@@ -24,6 +24,7 @@ type JoinState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly url: string; readonly qr: string }
   | { readonly status: 'unavailable' }
+  | { readonly status: 'failed' }
 
 /**
  * Render the Connect-phone row and its QR dialog.
@@ -40,9 +41,14 @@ export function ConnectPhoneRow({ t, joinUrl }: ConnectPhoneRowComponentProps) {
     setState({ status: 'loading' })
     void joinUrl()
       .then(async (result): Promise<JoinState> => {
-        if (!result.ok) return { status: 'unavailable' }
+        if (!result.ok) {
+          return { status: result.error.code === 'mob/loopback-only' ? 'unavailable' : 'failed' }
+        }
         return { status: 'ready', url: result.value, qr: await QRCode.toDataURL(result.value, { margin: 1 }) }
       })
+      // A carrier-level rejection or a QR render failure must not strand the
+      // dialog on the loading copy.
+      .catch((): JoinState => ({ status: 'failed' }))
       .then((next) => { if (!cancelled) setState(next) })
     return () => { cancelled = true }
   }, [open, joinUrl])
@@ -64,6 +70,7 @@ export function ConnectPhoneRow({ t, joinUrl }: ConnectPhoneRowComponentProps) {
       >
         {state.status === 'loading' && <p className={css.status}>{t('dialog.loading')}</p>}
         {state.status === 'unavailable' && <p className={css.status}>{t('dialog.unavailable')}</p>}
+        {state.status === 'failed' && <p className={css.status}>{t('dialog.loadFailed')}</p>}
         {state.status === 'ready' && (
           <div className={css.qrBox}>
             <img className={css.qr} src={state.qr} alt={t('dialog.title')} />

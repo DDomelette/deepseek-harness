@@ -8,6 +8,7 @@ export const en = {
   'dialog.description': 'Scan with your phone to open dsh on the same network.',
   'dialog.loading': 'Preparing the join link…',
   'dialog.unavailable': 'LAN access is not enabled. Start with dsh mob to use this.',
+  'dialog.loadFailed': 'Loading the join link failed',
   'dialog.urlLabel': 'Join link',
   close: 'Close',
 } as const
@@ -23,6 +24,7 @@ export const zh: Record<MobileSettingsKey, string> = {
   'dialog.description': '用手机扫码，在同一网络中打开 dsh。',
   'dialog.loading': '正在准备加入链接…',
   'dialog.unavailable': '当前未开启内网访问，请用 dsh mob 启动',
+  'dialog.loadFailed': '加入链接加载失败',
   'dialog.urlLabel': '加入链接',
   close: '关闭',
 }
