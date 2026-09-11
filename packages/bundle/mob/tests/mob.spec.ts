@@ -6,14 +6,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 
-vi.mock('node:os', async importOriginal => ({
-  ...await importOriginal<typeof import('node:os')>(),
-  networkInterfaces: () => ({
-    lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
-    en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
-  }),
-}))
-
 vi.mock('qrcode-terminal', () => ({
   default: { generate: vi.fn() },
 }))
@@ -39,6 +31,11 @@ function provideConnection(ctx: Context): void {
   } as never)
 }
 
+/** web-app's fence snapshot: every non-internal IPv4 literal, or none on loopback. */
+function provideWebRuntime(ctx: Context, lanAddresses: string[]): void {
+  ctx.provide('webRuntime', { lanAddresses, trustedHosts: lanAddresses } as never)
+}
+
 function fakeWebServer(host: '127.0.0.1' | '0.0.0.0'): never {
   return { host, port: 4567 } as never
 }
@@ -57,6 +54,7 @@ describe('mob QR announcer', () => {
   it('prints the LAN join line and QR once the tree is ready', async () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeWebServer('0.0.0.0'))
+    provideWebRuntime(ctx, ['192.168.1.5'])
     provideConnection(ctx)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     apply(ctx)
@@ -69,6 +67,7 @@ describe('mob QR announcer', () => {
   it('prints nothing on a loopback-only deployment', async () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeWebServer('127.0.0.1'))
+    provideWebRuntime(ctx, [])
     provideConnection(ctx)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     apply(ctx)
@@ -82,6 +81,7 @@ describe('mob QR announcer', () => {
     setTTY(false)
     const ctx = new Context()
     ctx.provide('webServer', fakeWebServer('0.0.0.0'))
+    provideWebRuntime(ctx, ['192.168.1.5'])
     provideConnection(ctx)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     apply(ctx)
@@ -94,6 +94,7 @@ describe('mob QR announcer', () => {
   it('does not print again when Connection reloads', async () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeWebServer('0.0.0.0'))
+    provideWebRuntime(ctx, ['192.168.1.5'])
     const first = ctx.plugin((connectionCtx: Context) => { provideConnection(connectionCtx) })
     await first
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -112,6 +113,7 @@ describe('mob QR announcer', () => {
     // Settlement path.
     const settled = new Context()
     settled.provide('webServer', fakeWebServer('0.0.0.0'))
+    provideWebRuntime(settled, ['192.168.1.5'])
     provideConnection(settled)
     let release: () => void
     const settlement = new Promise<void>((resolve) => { release = resolve })
@@ -130,6 +132,7 @@ describe('mob QR announcer', () => {
     generate.mockClear()
     const failed = new Context()
     failed.provide('webServer', fakeWebServer('0.0.0.0'))
+    provideWebRuntime(failed, ['192.168.1.5'])
     provideConnection(failed)
     failed.provide('loader', { await: async () => { throw new Error('boot failed') } } as never)
     apply(failed)
@@ -142,6 +145,7 @@ describe('mob QR announcer', () => {
     const torn = new Context()
     const child = torn.plugin((childCtx: Context) => {
       childCtx.provide('webServer', fakeWebServer('0.0.0.0'))
+      provideWebRuntime(childCtx, ['192.168.1.5'])
       provideConnection(childCtx)
     })
     await child

@@ -46,24 +46,25 @@ dsh mob --port 8080
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份 patch 加一个插件组成。patch 用全接口默认主机重述 `webserver` 行的整个配置——patch 会替换目标行的整个 `config`，因此该行重述它拥有的每个键——并插入 `mob-quick-join` 行，以 `webServer` 注入挂载本包的插件。
+本组合包由一份 patch 加一个插件组成。patch 用全接口默认主机重述 `webserver` 行的整个配置——patch 会替换目标行的整个 `config`，因此该行重述它拥有的每个键——并插入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件。
 
 ### 就绪与重印规则
 
 二维码播报器与 `dsh-web-app` 的就绪行一致：等待 Loader 就位（没有 Loader 的手工组建树会立即播报）；启动失败或树在启动中途被拆除时不打印；仅回环绑定或非 TTY stdout 时也不打印。Connection 热重载不得重印，因此已播报的根会在进程范围内被记住。
 
-### 局域网地址采样
+### 栅栏局域网快照
 
-播报的 URL 复用 `dsh-web-app` 的 `resolveLanTrust`：全接口绑定会产生每个非内部 IPv4 字面量，第一个字面量与绑定端口及 Connection 认证令牌一起成为二维码目标。
+播报的地址来自 `webRuntime` 服务——即 `dsh-web-app` 喂给 `/api` 信任栅栏的同一份 `resolveLanTrust` 快照——因此扫码 URL 总能通过栅栏。第一个非内部 IPv4 字面量与绑定端口及 Connection 认证令牌一起成为二维码目标；空快照（仅回环）不打印任何内容。
 
 ### 源码地图
 
 | 文件 | 作用 |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | `webserver` 行的局域网重绑及 `mob-quick-join` 插入 |
-| [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、回环与 TTY 守卫、重印去重、二维码渲染 |
+| [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、栅栏快照局域网 URL、回环与 TTY 守卫、重印去重、二维码渲染 |
 | — | 不发布运行时不变量伴随件；插件不向任何注册表贡献注册——它只在 Loader 就位后向控制台打印，其已播报根集合是没有独立观察者的私有状态。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | 就位、回环、TTY、重载去重，以及启动失败/拆除路径 |
+| [`tests/composition.spec.ts`](tests/composition.spec.ts) | 真实 Loader 组合：就位门控的加入行与回环静默 |
 
 ### 不变量归属
 

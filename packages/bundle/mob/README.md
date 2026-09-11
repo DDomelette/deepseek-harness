@@ -46,24 +46,25 @@ Everything `dsh web` provides, plus an all-interfaces bind with a mount-time pla
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The bundle is one patch plus one plugin. The patch restates the `webserver` row's whole config with an all-interfaces default host — a patch replaces the targeted row's whole `config`, so the row restates every key it owns — and inserts the `mob-quick-join` row, which mounts this package's plugin with the `webServer` injection.
+The bundle is one patch plus one plugin. The patch restates the `webserver` row's whole config with an all-interfaces default host — a patch replaces the targeted row's whole `config`, so the row restates every key it owns — and inserts the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webRuntime` injections.
 
 ### Readiness and reprint rules
 
 The QR announcer mirrors `dsh-web-app`'s readiness row: it waits for Loader settlement (a hand-built tree without a Loader announces at once), prints nothing when the boot fails or the tree is torn down mid-boot, and prints nothing on a loopback-only bind or non-TTY stdout. Connection hot reloads must not reprint, so announced roots are remembered process-wide.
 
-### LAN address sampling
+### The fence LAN snapshot
 
-The announced URL reuses `dsh-web-app`'s `resolveLanTrust`: an all-interfaces bind yields every non-internal IPv4 literal, and the first becomes the QR target together with the bound port and the Connection-authenticated token.
+The announced address comes from the `webRuntime` service — the same `resolveLanTrust` snapshot `dsh-web-app` feeds the `/api` trust fence — so the scanned URL always passes the fence. The first non-internal IPv4 literal becomes the QR target together with the bound port and the Connection-authenticated token; an empty (loopback-only) snapshot prints nothing.
 
 ### Source map
 
 | File | Role |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | The LAN rebind of the `webserver` row plus the `mob-quick-join` insert |
-| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, loopback and TTY guards, reprint dedup, QR render |
+| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, fence-snapshot LAN URL, loopback and TTY guards, reprint dedup, QR render |
 | — | No runtime invariant companion is published; the plugin contributes no registry registration — it prints to the console after Loader settlement, and its announced-roots set is private state no second observer can diverge from. |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Settlement, loopback, TTY, reload-dedup, and boot-failure/teardown paths |
+| [`tests/composition.spec.ts`](tests/composition.spec.ts) | Real-Loader composition: settlement-gated join line and loopback silence |
 
 ### Invariant ownership
 
