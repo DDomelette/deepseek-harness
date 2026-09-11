@@ -131,6 +131,7 @@ describe('web-app runtime glue', () => {
     provideLoader(ctx)
     const lifecycle: string[] = []
     const log = vi.spyOn(console, 'log').mockImplementation((message) => { lifecycle.push(String(message)) })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const openBrowser = vi.fn(async (url: string) => { lifecycle.push(`open:${url}`) })
     internals.openBrowser = openBrowser
     apply(ctx, new Config({ openBrowser: true, printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'] }))
@@ -161,6 +162,28 @@ describe('web-app runtime glue', () => {
     const webRuntime = contributions.find(contribution => contribution.name === 'web-runtime')
     expect(webRuntime?.resolve()).toEqual({ DSH_WEB_URL: 'http://127.0.0.1:4567' })
     await ctx.fiber.dispose()
+  })
+
+  it('warns on stderr when serving all interfaces, and stays silent on loopback', async () => {
+    stageDist()
+    const lan = new Context()
+    lan.provide('webServer', fakeHttpServer('0.0.0.0').server)
+    provideConnection(lan)
+    const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(lan, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network')
+    await lan.fiber.dispose()
+
+    diagnostic.mockClear()
+    const local = new Context()
+    local.provide('webServer', fakeHttpServer().server)
+    provideConnection(local)
+    apply(local, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(diagnostic).not.toHaveBeenCalled()
+    await local.fiber.dispose()
   })
 
   it('publishes no readiness side effect when printing and browser opening are disabled', async () => {
