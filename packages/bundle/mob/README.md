@@ -102,6 +102,7 @@ The bundle adds no request prefix of its own; the cache effect is unchanged from
 These limits tell you what to expect on untrusted networks or unusual terminals. They are current package constraints, not a task backlog.
 
 - **LAN serving is plain HTTP** — anyone on the network who obtains the session cookie gains full control, so bind all interfaces only on a trusted network; the mount-time warning and the revocation path live in the [LAN Web serving note](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md).
+- **LAN plain HTTP is not a secure context** — a phone browser gets no `navigator.serviceWorker` over plaintext LAN HTTP, so the service worker never registers and Android shows no install prompt; iOS reliably honors `apple-mobile-web-app-capable` for add-to-home-screen. The complete install experience is deferred to later TLS work.
 - **LAN addresses are sampled once at startup** — a network change after boot is not re-announced; restart the surface to re-advertise.
 - **Loopback-only binds and non-TTY stdout print no QR** — supervisors and loopback deployments get no announcement; the `dsh-web-app` URL line remains the readiness signal.
 

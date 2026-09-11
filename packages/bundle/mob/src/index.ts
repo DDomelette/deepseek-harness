@@ -21,7 +21,7 @@ export const name = 'mob-quick-join'
 export const inject = ['webServer', 'webRuntime']
 
 /** Roots that already printed; Connection hot reloads must not reprint. */
-const ANNOUNCED_ROOTS = new Set<object>()
+const ANNOUNCED_ROOTS = new WeakSet<Context>()
 
 /**
  * Mount the QR announcer: waits for Loader settlement like web-app's

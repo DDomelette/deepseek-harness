@@ -1,5 +1,5 @@
-/* dsh static-asset cache: stale-while-revalidate for app files; /api and the
- * realtime WebSocket always go to the network. */
+/* dsh static-asset cache: stale-while-revalidate for app files; navigations,
+ * /api, and the realtime WebSocket always go to the network. */
 const CACHE = 'dsh-static-v1'
 
 self.addEventListener('install', () => {
@@ -12,7 +12,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api')) return
+  if (event.request.method !== 'GET' || event.request.mode === 'navigate' || url.pathname.startsWith('/api')) return
   event.respondWith(
     self.caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(event.request)
