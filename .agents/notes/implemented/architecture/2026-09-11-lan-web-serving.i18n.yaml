@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md
-2026-09-11-lan-web-serving.md: 69e9a208f62773c6856d945ea42ab430ba713b2f
-2026-09-11-lan-web-serving.zh.md: 6c6fe7a7cb821f716704f447c8211fb9f1e8183f
+2026-09-11-lan-web-serving.md: 89cbcd85368380cd633e02441f593cabc7ea4dcc
+2026-09-11-lan-web-serving.zh.md: 49ecabcc465141978be60588ed58a51e2d03e340

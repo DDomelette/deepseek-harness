@@ -1,10 +1,11 @@
 /**
  * Prints the authenticated LAN URL as a terminal QR code once the plugin tree
- * settles, so a phone on the same network joins by scanning. The LAN address
- * is web-app's webRuntime snapshot — the same resolveLanTrust result that
- * feeds the /api trust fence — so the scanned URL always passes the fence.
- * Loopback-only and non-TTY deployments print nothing; the URL line itself
- * is web-app's readiness output.
+ * settles, so a phone on the same network joins by scanning, and mounts the
+ * `mob` Remote namespace so the settings dialog can render the same URL.
+ * The LAN address is web-app's webRuntime snapshot — the same resolveLanTrust
+ * result that feeds the /api trust fence — so the scanned URL always passes
+ * the fence. Loopback-only and non-TTY deployments print nothing; the URL
+ * line itself is web-app's readiness output.
  * @module @deepseek-ai/dsh-mob
  */
 
@@ -13,6 +14,10 @@ import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { WebRuntimeValues } from '@deepseek-ai/dsh-web-app'
 import qrcode from 'qrcode-terminal'
+import { MobJoinController } from './controller.ts'
+import { resolveJoinUrl } from './join-url.ts'
+
+export { MobJoinController } from './controller.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'mob-quick-join'
@@ -24,11 +29,13 @@ export const inject = ['webServer', 'webRuntime']
 const ANNOUNCED_ROOTS = new WeakSet<Context>()
 
 /**
- * Mount the QR announcer: waits for Loader settlement like web-app's
- * readiness row, then renders the token-bearing LAN URL.
+ * Mount the QR announcer and the mob Remote namespace: the announcer waits
+ * for Loader settlement like web-app's readiness row, then renders the
+ * token-bearing LAN URL.
  * @param ctx - plugin context carrying the webServer and webRuntime services.
  */
 export function apply(ctx: Context): void {
+  ctx.plugin(MobJoinController)
   ctx.inject(['connection', 'webRuntime'], (connectionCtx) => {
     const announce = (): void => {
       if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
@@ -36,10 +43,13 @@ export function apply(ctx: Context): void {
       // webRuntime carries no Context merge; the inject declaration above
       // guarantees web-app provided it before this callback runs.
       const webRuntime = connectionCtx.get('webRuntime') as WebRuntimeValues
-      const lanCandidate = webRuntime.lanAddresses[0]
-      if (lanCandidate === undefined || !process.stdout.isTTY) return
+      const url = resolveJoinUrl(
+        webRuntime.lanAddresses,
+        connectionCtx.webServer.port,
+        baseUrl => connectionCtx.connection.authenticatedUrl(baseUrl),
+      )
+      if (url === undefined || !process.stdout.isTTY) return
       ANNOUNCED_ROOTS.add(connectionCtx.root)
-      const url = connectionCtx.connection.authenticatedUrl(`http://${lanCandidate}:${String(connectionCtx.webServer.port)}`)
       console.log(`dsh mob: scan to join from this network: ${url}`)
       qrcode.generate(url, { small: true })
     }

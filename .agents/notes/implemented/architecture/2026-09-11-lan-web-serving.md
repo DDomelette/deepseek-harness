@@ -14,6 +14,8 @@ Operating the Web UI from a phone requires reaching the Host over the LAN, but t
 
 The `mob` shipped profile (`@deepseek-ai/dsh-mob` layered on `dsh-web-app`) sets `host: 0.0.0.0` through its bundle patch config — a path that never parses CLI flags, so the `--allow-lan` guard does not apply and the mount-time stderr warning carries the safety notice for both paths.
 
+The `mob` bundle also carries a browser half: a Connect phone row under Settings → General opens a QR dialog that calls the `mob.joinUrl` Remote method, which hands the already-authenticated client the same token-bearing LAN URL the terminal announcer prints, composed from the same fence snapshot through the shared `resolveJoinUrl` helper.
+
 ## Alternatives considered
 
 - **Keep the blanket refusal; document a reverse proxy.** Rejected: a proxy asks every mobile user to run extra infrastructure for a deployment the fence and authentication already secure to the level the loopback deployment has.
@@ -23,5 +25,6 @@ The `mob` shipped profile (`@deepseek-ai/dsh-mob` layered on `dsh-web-app`) sets
 ## Consequences
 
 - A phone on the network joins by opening the printed LAN URL (or scanning the QR code the `mob` profile prints); the one-time token exchange issues the same signed cookie the loopback flow uses.
+- `mob.joinUrl` hands a fresh token URL to a client that already holds the session cookie, so it widens no attack surface: a cookie holder already has full Host API authority.
 - Residual risk: token exchange and every authenticated request travel in plaintext; a network attacker who steals the cookie holds it until expiry or until the `client-connection/browser-session` grant record is deleted and the process restarts (the existing global revocation).
 - The two predecessor notes remain active authority for the fence and for authentication; this note supersedes only their "the CLI rejects `--host 0.0.0.0`" consequence statements.

@@ -34,6 +34,10 @@ dsh mob --port 8080
 
 The shipped `mob` profile layers this bundle over `dsh-web-app`, so startup is the `dsh web` flow with two additions: the server binds all network interfaces, and once the plugin tree settles the terminal prints a `dsh mob:` line carrying the token-bearing LAN URL plus a scannable QR code. A phone on the same network opens that URL, completes the one-time token exchange, and receives the same signed cookie the loopback flow issues. The loopback URL and browser handoff remain `dsh-web-app`'s readiness output and still work from this machine.
 
+### Handing off from a desktop session
+
+The bundle's browser half adds a Connect phone row under Settings → General. The row opens a dialog that asks the Host for the same token-bearing LAN URL through the `mob.joinUrl` Remote method and renders it as a QR code with the link below it, so a phone joins without anyone reading the terminal. On a loopback-only deployment the call fails with `mob/loopback-only` and the dialog says LAN access is off.
+
 ### What you get
 
 Everything `dsh web` provides, plus an all-interfaces bind with a mount-time plain-HTTP warning on stderr, and the `mob-quick-join` QR announcer. The Web server, the browser-trust fence, and authentication stay owned by `dsh-host-webserver` and `dsh-web-app`; invocation flags such as `--port` keep working through the same `webStartup` expressions. Command-line `--host 0.0.0.0` on other surfaces still requires `--allow-lan`.
@@ -46,7 +50,7 @@ Everything `dsh web` provides, plus an all-interfaces bind with a mount-time pla
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The bundle is one patch plus one plugin. The patch restates the `webserver` row's whole config with an all-interfaces default host — a patch replaces the targeted row's whole `config`, so the row restates every key it owns — and inserts the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webRuntime` injections.
+The bundle is one patch plus one dual-face plugin. The patch restates the `webserver` row's whole config with an all-interfaces default host — a patch replaces the targeted row's whole `config`, so the row restates every key it owns — and inserts the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webRuntime` injections. The plugin's apply mounts two things: the terminal QR announcer, and `MobJoinController`, the Host service behind the `mob` Remote namespace whose `joinUrl` method serves the settings dialog.
 
 ### Readiness and reprint rules
 
@@ -54,21 +58,28 @@ The QR announcer mirrors `dsh-web-app`'s readiness row: it waits for Loader sett
 
 ### The fence LAN snapshot
 
-The announced address comes from the `webRuntime` service — the same `resolveLanTrust` snapshot `dsh-web-app` feeds the `/api` trust fence — so the scanned URL always passes the fence. The first non-internal IPv4 literal becomes the QR target together with the bound port and the Connection-authenticated token; an empty (loopback-only) snapshot prints nothing.
+The announced address comes from the `webRuntime` service — the same `resolveLanTrust` snapshot `dsh-web-app` feeds the `/api` trust fence — so the scanned URL always passes the fence. The first non-internal IPv4 literal becomes the QR target together with the bound port and the Connection-authenticated token; an empty (loopback-only) snapshot prints nothing. The announcer and the `mob.joinUrl` Remote method compose the URL through the same `resolveJoinUrl` helper, so the terminal and the settings dialog never drift apart.
 
 ### Source map
 
 | File | Role |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | The LAN rebind of the `webserver` row plus the `mob-quick-join` insert |
-| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, fence-snapshot LAN URL, loopback and TTY guards, reprint dedup, QR render |
-| — | No runtime invariant companion is published; the plugin contributes no registry registration — it prints to the console after Loader settlement, and its announced-roots set is private state no second observer can diverge from. |
+| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, fence-snapshot LAN URL, loopback and TTY guards, reprint dedup, QR render, controller mount |
+| [`src/join-url.ts`](src/join-url.ts) | The shared URL composer both the announcer and the Remote method call |
+| [`src/controller.ts`](src/controller.ts) | `MobJoinController`: the `mob` Remote namespace's `joinUrl`, failing loopback-only deployments with `mob/loopback-only` |
+| [`src/types.ts`](src/types.ts) | The `mob/loopback-only` failure-code declaration, shared by both faces |
+| [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, QR dialog, and the `settings.mobile` dictionaries |
+| — | No runtime invariant companion is published; every observable effect is derived per call from the fence snapshot, and the announced-roots set is private state no second observer can diverge from (see Invariant ownership below). |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Settlement, loopback, TTY, reload-dedup, and boot-failure/teardown paths |
 | [`tests/composition.spec.ts`](tests/composition.spec.ts) | Real-Loader composition: settlement-gated join line and loopback silence |
+| [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | The URL composer and the `joinUrl` Remote method, LAN and loopback paths |
+| [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | Row registration, deferred slot declaration, injected `joinUrl`, disposal |
+| [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | The row and dialog: load, QR render, loopback copy, close and reopen |
 
 ### Invariant ownership
 
-No invariant companion is published because the plugin registers nothing with any registry — its only effect is console output after Loader settlement, and the announced-roots set is private state with no independent observer.
+No invariant companion is published because the plugin's observable effects — console output after Loader settlement and the `mob.joinUrl` answer, both derived from the same fence snapshot on each call — leave no cached state a second observer could diverge from; the announced-roots set is private and the Remote artifact wiring is validated at build time by the Typert generator.
 
 </details>
 

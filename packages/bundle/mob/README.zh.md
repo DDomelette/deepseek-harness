@@ -34,6 +34,10 @@ dsh mob --port 8080
 
 随发行版交付的 `mob` profile 把本组合包叠加在 `dsh-web-app` 之上，因此启动流程与 `dsh web` 相同，只有两处新增：服务器绑定所有网络接口；插件树就位后，终端打印一行携带令牌局域网 URL 的 `dsh mob:` 信息以及可扫描的二维码。同一网络中的手机打开该 URL，完成一次性令牌交换，并获得与回环流程相同的签名 cookie。回环 URL 与浏览器交接仍是 `dsh-web-app` 的就绪输出，在本机上照常可用。
 
+### 从桌面会话交接
+
+组合包的浏览器半层在 设置 → 通用设置 中加入「连接手机」行。该行打开的弹窗通过 `mob.joinUrl` Remote 方法向 Host 请求同一个带令牌的局域网 URL，并将其渲染为二维码、下方附上链接，因此手机加入时无需任何人查看终端。仅回环部署中该调用以 `mob/loopback-only` 失败，弹窗会提示未开启内网访问。
+
 ### 你会得到什么
 
 `dsh web` 提供的一切，外加带挂载时 stderr 明文 HTTP 警告的全接口绑定，以及 `mob-quick-join` 二维码播报器。Web 服务器、浏览器信任栅栏与认证仍归 `dsh-host-webserver` 与 `dsh-web-app` 所有；`--port` 等调用旗标通过相同的 `webStartup` 表达式继续生效。其他表层上的命令行 `--host 0.0.0.0` 仍需 `--allow-lan`。
@@ -46,7 +50,7 @@ dsh mob --port 8080
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份 patch 加一个插件组成。patch 用全接口默认主机重述 `webserver` 行的整个配置——patch 会替换目标行的整个 `config`，因此该行重述它拥有的每个键——并插入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件。
+本组合包由一份 patch 加一个双脸插件组成。patch 用全接口默认主机重述 `webserver` 行的整个配置——patch 会替换目标行的整个 `config`，因此该行重述它拥有的每个键——并插入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件。插件的 apply 挂载两件东西：终端二维码播报器，以及 `MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务。
 
 ### 就绪与重印规则
 
@@ -54,21 +58,28 @@ dsh mob --port 8080
 
 ### 栅栏局域网快照
 
-播报的地址来自 `webRuntime` 服务——即 `dsh-web-app` 喂给 `/api` 信任栅栏的同一份 `resolveLanTrust` 快照——因此扫码 URL 总能通过栅栏。第一个非内部 IPv4 字面量与绑定端口及 Connection 认证令牌一起成为二维码目标；空快照（仅回环）不打印任何内容。
+播报的地址来自 `webRuntime` 服务——即 `dsh-web-app` 喂给 `/api` 信任栅栏的同一份 `resolveLanTrust` 快照——因此扫码 URL 总能通过栅栏。第一个非内部 IPv4 字面量与绑定端口及 Connection 认证令牌一起成为二维码目标；空快照（仅回环）不打印任何内容。播报器与 `mob.joinUrl` Remote 方法经同一个 `resolveJoinUrl` helper 拼装 URL，终端与设置弹窗因此永不分叉。
 
 ### 源码地图
 
 | 文件 | 作用 |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | `webserver` 行的局域网重绑及 `mob-quick-join` 插入 |
-| [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、栅栏快照局域网 URL、回环与 TTY 守卫、重印去重、二维码渲染 |
-| — | 不发布运行时不变量伴随件；插件不向任何注册表贡献注册——它只在 Loader 就位后向控制台打印，其已播报根集合是没有独立观察者的私有状态。 |
+| [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、栅栏快照局域网 URL、回环与 TTY 守卫、重印去重、二维码渲染、控制器挂载 |
+| [`src/join-url.ts`](src/join-url.ts) | 播报器与 Remote 方法共用的 URL 拼装器 |
+| [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，仅回环部署以 `mob/loopback-only` 失败 |
+| [`src/types.ts`](src/types.ts) | `mob/loopback-only` 失败码声明，两个 face 共享 |
+| [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
+| — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导，已播报根集合是没有独立观察者的私有状态（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | 就位、回环、TTY、重载去重，以及启动失败/拆除路径 |
 | [`tests/composition.spec.ts`](tests/composition.spec.ts) | 真实 Loader 组合：就位门控的加入行与回环静默 |
+| [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | URL 拼装器与 `joinUrl` Remote 方法的局域网/回环两路 |
+| [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
+| [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |
 
 ### 不变量归属
 
-不发布不变量伴随件，因为插件不向任何注册表注册内容——其唯一效果是 Loader 就位后的控制台输出，而已播报根集合是没有独立观察者的私有状态。
+不发布不变量伴随件，因为插件的可观察效果——Loader 就位后的控制台输出与 `mob.joinUrl` 的应答——都在每次调用时从同一份栅栏快照推导，不存在第二个观察者可能与之分叉的缓存状态；已播报根集合是私有的，Remote 产物接线由 Typert 生成器在构建时校验。
 
 </details>
 

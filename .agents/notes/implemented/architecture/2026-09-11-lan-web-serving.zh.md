@@ -14,6 +14,8 @@ Status: implemented
 
 随附 profile `mob`（叠加在 `dsh-web-app` 之上的 `@deepseek-ai/dsh-mob`）通过其 bundle patch config 设置 `host: 0.0.0.0`——这条路径从不解析 CLI 旗标，因此 `--allow-lan` 守卫不适用，挂载时的 stderr 警告为两条路径共同承载安全提示。
 
+`mob` bundle 同时携带浏览器半层：设置 → 通用设置中的「连接手机」行打开二维码弹窗，调用 `mob.joinUrl` Remote 方法，向已认证客户端发放与终端播报器打印相同的带 token LAN URL——经共享的 `resolveJoinUrl` helper 从同一份栅栏快照拼出。
+
 ## 曾考虑的替代方案
 
 - **保持一刀切拒绝；文档化反向代理。** 否决：代理要求每个移动端用户为一项部署额外运行基础设施，而栅栏与认证已把该部署保护到与 loopback 部署相同的水平。
@@ -23,5 +25,6 @@ Status: implemented
 ## 后果
 
 - 网络上的手机通过打开打印出的 LAN URL（或扫描 `mob` profile 打印的二维码）加入；一次性令牌交换签发与 loopback 流程相同的签名 cookie。
+- `mob.joinUrl` 向持有 cookie 的客户端发放新的 token URL，不扩大攻击面：持 cookie 者本就拥有完整 Host API 权限。
 - 残余风险：令牌交换与每个已认证请求都以明文传输；窃取 cookie 的网络攻击者将持有它直到过期，或直到 `client-connection/browser-session` grant 记录被删除且进程重启（既有的全局撤销）。
 - 两份前身笔记仍是栅栏与认证的有效权威；本笔记只取代它们「CLI 拒绝 `--host 0.0.0.0`」的后果陈述。

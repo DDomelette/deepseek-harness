@@ -88,6 +88,7 @@
     "@deepseek-ai/dsh-command-feedback": "workspace:^",
     "@deepseek-ai/dsh-session-pins": "workspace:^",
     "@deepseek-ai/dsh-mcp-manager": "workspace:^",
+    "@deepseek-ai/dsh-mob": "workspace:^",
     "@deepseek-ai/dsh-skill": "workspace:^"
   }
 }
