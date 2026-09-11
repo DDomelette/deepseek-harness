@@ -26,6 +26,6 @@ Reachability is the webserver binding's policy (`host: 127.0.0.1 | 0.0.0.0`), an
 ## Consequences
 
 - Any future `/api` method is covered by construction; there is no per-route trust decision left to forget.
-- A custom non-loopback composition must trust its serving authorities or requests are refused, then satisfy browser authentication like every loopback request. The shipped CLI rejects `--host 0.0.0.0`; `--trusted-host` only extends the Host/Origin fence and grants no identity.
+- A custom non-loopback composition must trust its serving authorities or requests are refused, then satisfy browser authentication like every loopback request. The shipped CLI gates `--host 0.0.0.0` behind an explicit `--allow-lan` flag; see [LAN Web serving](2026-09-11-lan-web-serving.md). `--trusted-host` only extends the Host/Origin fence and grants no identity.
 - Clients must label POST bodies `application/json` (ours always did; raw-fetch tests gained the header).
 - Host and Origin remain request-routing evidence only. The process token and signed cookie establish the browser identity used by every Host method.
