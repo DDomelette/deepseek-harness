@@ -68,6 +68,7 @@
 - [ ] **Step 2: 跑测试确认红**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/startup.spec.ts`
+
 Expected: FAIL(新文案不匹配、--allow-lan 是未知选项报错)。
 
 - [ ] **Step 3: 实现**
@@ -114,6 +115,7 @@ interface WebOptions {
 - [ ] **Step 4: 跑测试确认绿**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/startup.spec.ts`
+
 Expected: PASS(6 个用例)。
 
 - [ ] **Step 5: Commit**
@@ -168,6 +170,7 @@ git commit -m "feat(web-app): gate --host 0.0.0.0 behind explicit --allow-lan"
 - [ ] **Step 2: 跑测试确认红**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/web-app.spec.ts`
+
 Expected: FAIL(新用例的 diagnostic 未被调用)。
 
 - [ ] **Step 3: 实现**
@@ -183,6 +186,7 @@ Expected: FAIL(新用例的 diagnostic 未被调用)。
 - [ ] **Step 4: 跑测试确认绿**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/web-app.spec.ts`
+
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
@@ -288,7 +292,9 @@ spawn 参数数组(:69-74)改为:
 - [ ] **Step 3: 跑 e2e 确认绿**
 
 Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts`
+
 Expected: PASS(两个用例;无 LAN IPv4 的环境自动 skip;Windows 本机上既有用例的 `credentialMode === 0o600` 断言因平台固有原因失败——Task 3 之前就存在,见 ledger,本计划不修复)。
+
 注意:该 e2e 启动真实 CLI,Windows 上首次运行可能接近 90s 超时上限;超时不是失败信号时重跑一次确认稳定性。
 
 - [ ] **Step 4: Commit**
@@ -354,13 +360,17 @@ The `mob` shipped profile (`@deepseek-ai/dsh-mob` layered on `dsh-web-app`) sets
 - [ ] **Step 3: 写中文副本并更新旧笔记**
 
 (a) 写 `2026-09-11-lan-web-serving.zh.md`:逐节镜像英文版(`# Agent Note: ` 与 `Status:` 行保持英文原文)。
-(b) `2026-07-28-api-browser-trust-boundary.md` :29 "The shipped CLI rejects `--host 0.0.0.0`" 改为:"The shipped CLI gates `--host 0.0.0.0` behind an explicit `--allow-lan` flag; see [LAN Web serving](2026-09-11-lan-web-serving.md). `--trusted-host` only extends the Host/Origin fence and grants no identity." 中文副本同步。
-(c) `2026-08-24-browser-token-authentication.md` :23 "The shipped CLI continues to reject `--host 0.0.0.0`. Authentication does not imply supported network deployment..." 改为:"The shipped CLI gates `--host 0.0.0.0` behind `--allow-lan` (see [LAN Web serving](2026-09-11-lan-web-serving.md)). Authentication still does not imply TLS, forwarding-header interpretation, or proxy configuration." 中文副本同步。
+
+(b) `2026-07-28-api-browser-trust-boundary.md` :29 "The shipped CLI rejects `--host 0.0.0.0`" 改为:``"The shipped CLI gates `--host 0.0.0.0` behind an explicit `--allow-lan` flag; see [LAN Web serving](2026-09-11-lan-web-serving.md). `--trusted-host` only extends the Host/Origin fence and grants no identity."`` 中文副本同步。
+
+(c) `2026-08-24-browser-token-authentication.md` :23 "The shipped CLI continues to reject `--host 0.0.0.0`. Authentication does not imply supported network deployment..." 改为:``"The shipped CLI gates `--host 0.0.0.0` behind `--allow-lan` (see [LAN Web serving](2026-09-11-lan-web-serving.md)). Authentication still does not imply TLS, forwarding-header interpretation, or proxy configuration."`` 中文副本同步。
+
 (d) sidecar/配对记录按 `docs/i18n/README.md` 的重录流程处理。
 
 - [ ] **Step 4: 跑门禁**
 
 Run: `pnpm run verify-agent-note-format && pnpm run verify-translation-pairing`
+
 Expected: PASS。若 pairing 门禁要求先录 sidecar,按其报错提示的重录命令执行后重跑。
 
 - [ ] **Step 5: Commit**
@@ -587,6 +597,7 @@ describe('mob QR announcer', () => {
 - [ ] **Step 3: 跑测试确认红**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
+
 Expected: FAIL(找不到 `../src/index.ts`)。
 
 - [ ] **Step 4: 实现**
@@ -647,17 +658,21 @@ export function apply(ctx: Context): void {
 - [ ] **Step 5: 跑测试确认绿 + 覆盖率**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
+
 Expected: PASS(5 个用例)。
+
 再跑 `pnpm run test:coverage` 中该包部分(或直接 `pnpm exec vitest run --coverage packages/bundle/mob`),确认 `src/index.ts` 逐行覆盖——ANNOUNCED_ROOTS 去重、TTY 分支、loader 三分支均有对应用例。
 
 - [ ] **Step 6: 注册 tsconfig paths + 双语 README**
 
 (a) Run: `pnpm run gen-tsconfig-paths`(生成器自动把新包加进 `tsconfig.base.json` 的 paths)。
+
 (b) `packages/bundle/mob/README.md`:包契约——能力(LAN 重绑 + QR)、组成(bundle patch + `mob-quick-join` 插件)、使用方式(`dsh mob`)、限制(明文 HTTP 仅可信网络;警告与吊销见 Agent Note 链接 `.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md`)、Model Experience 段(按 `docs/cookbook/adding-a-package.md` 第 4 节)。`README.zh.md` 逐节镜像;`README.i18n.yaml` 照抄 web-app 的该文件结构改路径。
 
 - [ ] **Step 7: 跑门禁**
 
 Run: `pnpm run verify-cordis-config && pnpm run verify-tsconfig-paths`
+
 Expected: PASS。若 `verify-cordis-config` 拒绝 patch 里 `@deepseek-ai/dsh-mob` 的自引用,参照 web-app 自引用其子路径(`@deepseek-ai/dsh-web-app/startup`)的先例调整行名或 gate 的白名单逻辑,并在 PR 说明中记录。
 
 - [ ] **Step 8: Commit**
@@ -742,15 +757,21 @@ git commit -m "feat(mob): add dsh-mob bundle with LAN rebind and join QR code"
 - [ ] **Step 3: 依赖与生成物**
 
 (a) `apps/cli/package.json` dependencies 按字母序加 `"@deepseek-ai/dsh-mob": "workspace:^"`。
+
 (b) Run: `pnpm install`(刷新 lockfile)。
+
 (c) Run: `pnpm run gen-doc-graphs`(重生成 `apps/cli/composition.md` 等)。
+
 (d) `packages/bundle/README.md` 的包表格加一行 `mob`(用途:LAN serving + join QR;叠于 web-app 之上);`README.zh.md` 同步;按配对门禁要求处理记录。
 
 - [ ] **Step 4: 端到端验证(真实 CLI)**
 
 Run: `pnpm dsh mob --dump-config`
+
 Expected: 输出的插件树含 `mob-quick-join` 行,webserver config 的 host 表达式默认为 `0.0.0.0`。
+
 再 Run: `pnpm exec vitest run apps/cli/tests/profile-initialization.spec.ts packages/boot/app-boot`
+
 Expected: PASS(`it.each(Object.entries(PROFILE_TEMPLATES))` 自动覆盖 mob)。
 
 - [ ] **Step 5: Commit**
@@ -782,6 +803,7 @@ git commit -m "feat(cli): ship the mob profile and dsh mob alias"
 - [ ] **Step 1: 图标生成脚本 + 产物**
 
 (a) `apps/web/package.json` devDependencies 加 `"sharp": "^0.33.5"`,scripts 加 `"gen-icons": "node scripts/gen-icons.mjs"`;Run: `pnpm install`。
+
 (b) `apps/web/scripts/gen-icons.mjs`:
 
 ```js
@@ -895,6 +917,7 @@ if ('serviceWorker' in navigator) {
 - [ ] **Step 4: 验证**
 
 (a) Run: `pnpm run build`(确认 apps/web 构建通过,`dist/` 含 sw.js 与 PNG)。
+
 (b) 手动验证清单(写入 PR 描述):
   - `pnpm dsh web --no-open`,localhost 打开 → DevTools Application 面板:manifest 无错、SW 已注册;
   - `pnpm dsh mob`,手机扫码打开 → 页面正常;iOS Safari"添加到主屏"后全屏打开、图标正确;
