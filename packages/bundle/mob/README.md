@@ -115,6 +115,7 @@ These limits tell you what to expect on untrusted networks or unusual terminals.
 - **LAN serving is plain HTTP** — anyone on the network who obtains the session cookie gains full control, so bind all interfaces only on a trusted network; the mount-time warning and the revocation path live in the [LAN Web serving note](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md).
 - **LAN plain HTTP is not a secure context** — a phone browser gets no `navigator.serviceWorker` over plaintext LAN HTTP, so the service worker never registers and Android shows no install prompt; iOS reliably honors `apple-mobile-web-app-capable` for add-to-home-screen. The complete install experience is deferred to later TLS work.
 - **LAN addresses are sampled once at startup** — a network change after boot is not re-announced; restart the surface to re-advertise.
+- **Virtual adapters sort after physical ones** — VPN/proxy virtual NICs (Clash TUN, VMware host-only nets, WSL, Docker bridges) are recognized by interface name and deprioritized, and the 198.18.0.0/15 fake-ip range is excluded outright; if the QR address is still wrong, look up the real LAN IP with `ipconfig`/`ip addr` and replace the host part of the URL.
 - **Loopback-only binds and non-TTY stdout print no QR** — supervisors and loopback deployments get no announcement; the `dsh-web-app` URL line remains the readiness signal.
 
 <a id="dev-note"></a>

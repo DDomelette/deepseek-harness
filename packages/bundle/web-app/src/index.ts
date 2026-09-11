@@ -113,21 +113,57 @@ try {
 `
 
 /**
+ * Interface-name heuristic for virtual or tunnel adapters (VMware/VirtualBox
+ * host-only nets, WSL/Hyper-V, Docker bridges, TUN/TAP VPNs, Clash-style TUN
+ * stacks, WireGuard, Tailscale, ZeroTier). Their addresses are reachable from
+ * this machine but usually NOT from a phone on the LAN, so they sort after
+ * physical adapters. Case-insensitive; `^br-` and `^wg` anchor the Docker
+ * bridge and WireGuard naming conventions.
+ */
+const VIRTUAL_INTERFACE = /vmware|vmnet|vethernet|hyper-v|wsl|docker|veth|^br-|tun|tap|clash|vpn|wireguard|^wg|tailscale|zerotier/i
+
+/**
+ * Whether the address falls in 198.18.0.0/15, the RFC 2544 benchmarking range
+ * Clash-style fake-ip TUN stacks assign: it is never a real LAN authority, so
+ * it is excluded from BOTH the display addresses and the fence authorities.
+ */
+function isFakeIpAddress(address: string): boolean {
+  const [first, second] = address.split('.').map(Number)
+  return first === 198 && (second === 18 || second === 19)
+}
+
+/**
  * Resolve one LAN-trust snapshot from the active server bind.
  *
  * Derived entries are port-less IP literals: DNS rebinding needs an
  * attacker-controlled name, while an IP-literal Host is safe on any port and
  * an OS-assigned port is unknowable before bind.
+ *
+ * Derivation rules for an all-interfaces bind: every non-internal IPv4
+ * literal EXCEPT the 198.18.0.0/15 fake-ip range; then a stable sort that
+ * places physical adapters before virtual/tunnel ones (matched by interface
+ * name, see VIRTUAL_INTERFACE), so `lanAddresses[0]` — the address the
+ * readiness line and the phone-join QR use — is the LAN address a phone can
+ * actually reach. Virtual addresses stay in the result: a host whose only
+ * non-loopback path is virtual (a Tailscale-only deployment) still derives a
+ * usable URL.
  * @param bindHost - the active webserver bind host.
  * @param extra - explicit `--trusted-host` values, in argument order.
  * @returns the LAN display addresses and invocation-derived fence authorities.
  */
 export function resolveLanTrust(bindHost: string, extra: readonly string[]): WebRuntimeValues {
-  const lanAddresses = bindHost === ALL_INTERFACES_HOST
-    ? Object.values(networkInterfaces()).flat()
-      .filter((iface): iface is NonNullable<typeof iface> => iface !== undefined && iface.family === 'IPv4' && !iface.internal)
-      .map(iface => iface.address)
-    : []
+  if (bindHost !== ALL_INTERFACES_HOST) return { lanAddresses: [], trustedHosts: [...extra] }
+  const derived: { address: string; virtual: boolean }[] = []
+  for (const [name, addresses] of Object.entries(networkInterfaces())) {
+    for (const iface of addresses ?? []) {
+      if (iface.family !== 'IPv4' || iface.internal) continue
+      if (isFakeIpAddress(iface.address)) continue
+      derived.push({ address: iface.address, virtual: VIRTUAL_INTERFACE.test(name) })
+    }
+  }
+  // Array.prototype.sort is stable: enumeration order is kept within each group.
+  derived.sort((left, right) => Number(left.virtual) - Number(right.virtual))
+  const lanAddresses = derived.map(entry => entry.address)
   return { lanAddresses, trustedHosts: [...lanAddresses, ...extra] }
 }
 

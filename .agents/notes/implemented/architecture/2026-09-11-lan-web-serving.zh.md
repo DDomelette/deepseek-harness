@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-`dsh web` 只在同时给出显式 `--allow-lan` 旗标时接受 `--host 0.0.0.0`（`dsh-web-app/startup`）；没有该旗标，调用仍是点名该旗标的用法错误。绑定所有网卡会在挂载时打印 stderr 警告：明文 HTTP 意味着网络上任何拿到会话 cookie 的人都会获得完全控制权，因此该模式仅限受信网络。信任栅栏与令牌认证不变：`resolveLanTrust` 把机器的 LAN IP 字面量推导进 `trustedHosts`，因此 LAN authority 能通过 Host 栅栏，而每个 API 调用仍要求以启动令牌交换来的 cookie，且该 cookie 的 authority 绑定到 LAN host 与 port。
+`dsh web` 只在同时给出显式 `--allow-lan` 旗标时接受 `--host 0.0.0.0`（`dsh-web-app/startup`）；没有该旗标，调用仍是点名该旗标的用法错误。绑定所有网卡会在挂载时打印 stderr 警告：明文 HTTP 意味着网络上任何拿到会话 cookie 的人都会获得完全控制权，因此该模式仅限受信网络。信任栅栏与令牌认证不变：`resolveLanTrust` 把机器的 LAN IP 字面量推导进 `trustedHosts`，因此 LAN authority 能通过 Host 栅栏，而每个 API 调用仍要求以启动令牌交换来的 cookie，且该 cookie 的 authority 绑定到 LAN host 与 port。推导规则：从展示与栅栏中同时排除 198.18.0.0/15 fake-ip 段（RFC 2544 基准段，被 Clash 式 TUN 协议栈占用——永远不是真实 LAN authority），并按接口名把虚拟/隧道网卡（VMware、WSL、Docker、TUN/TAP VPN、WireGuard、Tailscale、ZeroTier）稳定排序到物理网卡之后，使打印与扫码的地址是手机真实可达的地址；虚拟地址仍保留在结果中，供纯虚拟部署（如仅 Tailscale）使用。
 
 随附 profile `mob`（叠加在 `dsh-web-app` 之上的 `@deepseek-ai/dsh-mob`）通过其 bundle patch config 设置 `host: 0.0.0.0`——这条路径从不解析 CLI 旗标，因此 `--allow-lan` 守卫不适用，挂载时的 stderr 警告为两条路径共同承载安全提示。
 

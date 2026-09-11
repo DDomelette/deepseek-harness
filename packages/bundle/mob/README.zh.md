@@ -115,6 +115,7 @@ dsh mob --port 8080
 - **局域网服务是明文 HTTP**——网络上任何获得会话 cookie 的人都将获得完全控制权，因此只在可信网络上绑定所有接口；挂载时警告与吊销路径见 [LAN Web 服务笔记](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.zh.md)。
 - **局域网明文 HTTP 不是 secure context（安全上下文）**——手机浏览器在明文局域网 HTTP 下没有 `navigator.serviceWorker`，因此 service worker 不会注册、Android 不会出现安装提示；iOS 仍可靠支持通过 `apple-mobile-web-app-capable` 添加到主屏。完整的安装体验留待后续 TLS 工作。
 - **局域网地址只在启动时采样一次**——启动后的网络变化不会重新播报；重启表层即可重新通告。
+- **虚拟网卡排在物理网卡之后**——VPN/代理的虚拟网卡（Clash TUN、VMware host-only 网卡、WSL、Docker 网桥）按接口名识别并自动排后，198.18.0.0/15 fake-ip 段直接排除；若二维码地址仍不对，用 `ipconfig`/`ip addr` 查真实局域网 IP，替换 URL 中的主机部分即可。
 - **仅回环绑定与非 TTY stdout 不打印二维码**——监管进程与回环部署不会得到播报；`dsh-web-app` 的 URL 行仍是就绪信号。
 
 <a id="dev-note"></a>
