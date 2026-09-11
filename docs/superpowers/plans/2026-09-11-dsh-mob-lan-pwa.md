@@ -39,7 +39,7 @@
 
 (a) 把 :142-148 的拒绝用例文案断言改为新文案:
 
-```ts
+```text
   it('rejects the all-interfaces host without --allow-lan before the consumer activates', async () => {
     const { values, observed } = await bootProvider(['--host', '0.0.0.0'])
     expect(observed.out).toContain('--host 0.0.0.0 exposes remote code execution to the network; pass --allow-lan to serve on a trusted LAN, or use 127.0.0.1 instead')
@@ -51,7 +51,7 @@
 
 (b) 紧随其后新增接受用例:
 
-```ts
+```text
   it('serves all interfaces when --allow-lan marks the network trusted', async () => {
     const { values, observed } = await bootProvider(['--host', '0.0.0.0', '--allow-lan', '--no-open'])
     expect(values).toEqual({ host: '0.0.0.0', openBrowser: false, trustedHosts: [] })
@@ -77,7 +77,7 @@ Expected: FAIL(新文案不匹配、--allow-lan 是未知选项报错)。
 
 (a) `WebOptions` interface(:35-40)加字段:
 
-```ts
+```text
 interface WebOptions {
   allowLan?: boolean
   host?: string
@@ -89,7 +89,7 @@ interface WebOptions {
 
 (b) `webCommand()` 的 option 链(:47-61)在 `.option('--host <host>', 'bind host')` 后加:
 
-```ts
+```text
     .option('--allow-lan', 'permit --host 0.0.0.0 on a trusted LAN (plain HTTP; a stolen session cookie grants full control)')
 ```
 
@@ -104,7 +104,7 @@ interface WebOptions {
 
 (c) guard(:74-76)改为:
 
-```ts
+```text
     if (options.host === '0.0.0.0' && options.allowLan !== true) {
       program.error('error: --host 0.0.0.0 exposes remote code execution to the network; pass --allow-lan to serve on a trusted LAN, or use 127.0.0.1 instead')
     }
@@ -141,7 +141,7 @@ git commit -m "feat(web-app): gate --host 0.0.0.0 behind explicit --allow-lan"
 
 在 `packages/bundle/web-app/tests/web-app.spec.ts` 的 describe 块内新增:
 
-```ts
+```text
   it('warns on stderr when serving all interfaces, and stays silent on loopback', async () => {
     stageDist()
     const lan = new Context()
@@ -177,7 +177,7 @@ Expected: FAIL(新用例的 diagnostic 未被调用)。
 
 `packages/bundle/web-app/src/index.ts` 的 `apply()`(:225)开头,`const runtime = ...` 之后插入:
 
-```ts
+```text
   if (ctx.webServer.host === ALL_INTERFACES_HOST) {
     console.error('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network')
   }
@@ -211,13 +211,13 @@ git commit -m "feat(web-app): warn on stderr when serving all interfaces"
 
 `apps/cli/tests/web-auth.e2e.ts` 的 `startWeb`(:68)签名改为:
 
-```ts
+```text
 async function startWeb(root: string, dshHome: string, port: number, extraArgs: string[] = []): Promise<RunningWeb> {
 ```
 
 spawn 参数数组(:69-74)改为:
 
-```ts
+```text
   const child = spawn(process.execPath, [
     '--import', TSX_LOADER,
     DSH_SOURCE_BIN,
@@ -232,7 +232,7 @@ spawn 参数数组(:69-74)改为:
 
 文件顶部 import 加 `import { networkInterfaces } from 'node:os'`。describe 块内新增:
 
-```ts
+```text
   it('serves a trusted LAN authority after --allow-lan', { timeout: 180_000 }, async (context) => {
     const lanAddress = Object.values(networkInterfaces()).flat()
       .find(address => address?.family === 'IPv4' && !address.internal)?.address
@@ -432,7 +432,7 @@ git commit -m "docs(notes): record LAN Web serving decision behind --allow-lan"
 
 `packages/bundle/mob/tests/mob.spec.ts`:
 
-```ts
+```text
 /**
  * The QR announcer: prints the authenticated LAN URL as a terminal QR code
  * once the tree settles; loopback-only and non-TTY deployments print nothing.
@@ -602,9 +602,9 @@ Expected: FAIL(找不到 `../src/index.ts`)。
 
 - [ ] **Step 4: 实现**
 
-`packages/bundle/mob/src/index.ts`:
+`packages/bundle/mob/src/index.ts`(注:fix round 1 后实现改为消费 webRuntime 快照,以最终代码为准;此处为计划时的初版):
 
-```ts
+```text
 /**
  * Prints the authenticated LAN URL as a terminal QR code once the plugin tree
  * settles, so a phone on the same network joins by scanning. Loopback-only
@@ -705,7 +705,7 @@ git commit -m "feat(mob): add dsh-mob bundle with LAN rebind and join QR code"
 
 (a) `packages/boot/app-boot/src/profile.ts` 的 `PROFILE_TEMPLATES`,在 `web` 条目后加:
 
-```ts
+```text
   mob: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-mob'],
     patchReload: 'live',
@@ -733,7 +733,7 @@ git commit -m "feat(mob): add dsh-mob bundle with LAN rebind and join QR code"
 
 (c) :188(web 块)之后加 mob 块:
 
-```ts
+```text
   const mob = program.command('mob').description('boot the mob profile (alias of --profile mob); the web app\'s own flags follow')
   mob
     .helpOption(false)
@@ -906,7 +906,7 @@ self.addEventListener('fetch', (event) => {
 
 `apps/web/src/main.ts` 末尾加:
 
-```ts
+```text
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js')
