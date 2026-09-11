@@ -8,7 +8,7 @@ import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -65,13 +65,14 @@ function cleanEnvironment(root: string, dshHome: string): NodeJS.ProcessEnv {
 }
 
 /** Start the public source CLI and wait for its authenticated readiness URL. */
-async function startWeb(root: string, dshHome: string, port: number): Promise<RunningWeb> {
+async function startWeb(root: string, dshHome: string, port: number, extraArgs: string[] = []): Promise<RunningWeb> {
   const child = spawn(process.execPath, [
     '--import', TSX_LOADER,
     DSH_SOURCE_BIN,
     'web',
     '--no-open',
     '--port', String(port),
+    ...extraArgs,
   ], {
     cwd: root,
     env: cleanEnvironment(root, dshHome),
@@ -204,6 +205,59 @@ describe('dsh web authentication through the real CLI', () => {
     } finally {
       if (second !== undefined) await stopWeb(second)
       if (first !== undefined) await stopWeb(first)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('serves a trusted LAN authority after --allow-lan', { timeout: 180_000 }, async (context) => {
+    const lanAddress = Object.values(networkInterfaces()).flat()
+      .find(address => address?.family === 'IPv4' && !address.internal)?.address
+    if (lanAddress === undefined) {
+      context.skip()
+      return
+    }
+    const root = await mkdtemp(join(tmpdir(), 'dsh-web-lan-real-cli-'))
+    const dshHome = join(root, '.dsh')
+    const port = await freePort()
+    let running: RunningWeb | undefined
+    try {
+      running = await startWeb(root, dshHome, port, ['--host', '0.0.0.0', '--allow-lan'])
+      const lanAuthority = `${lanAddress}:${String(port)}`
+      expect(running.output()).toContain(`(LAN: http://${lanAuthority}/?token=`)
+
+      // 信任围栏先於认证:LAN authority 已派生为 trusted,无 cookie → 401。
+      expect(await describeSettings(port, lanAuthority)).toEqual({ status: 401, body: 'unauthorized' })
+      // 未声明的 authority 仍被围栏拒绝(403)。
+      expect((await describeSettings(port, `evil.example:${String(port)}`)).status).toBe(403)
+
+      const token = /\(LAN: http:\/\/[^?]+\?token=([^\s)]+)/u.exec(running.output())?.[1]
+      if (token === undefined) throw new Error('LAN line omitted the token')
+      const exchange = await new Promise<HttpResult>((resolve, reject) => {
+        const req = httpRequest({
+          hostname: '127.0.0.1',
+          port,
+          path: `/?token=${token}`,
+          method: 'GET',
+          headers: { host: lanAuthority },
+        }, (res) => {
+          res.resume()
+          res.on('end', () => {
+            resolve({ status: res.statusCode ?? 0, body: res.headers['set-cookie']?.[0] ?? '' })
+          })
+        })
+        req.once('error', reject)
+        req.end()
+      })
+      expect(exchange.status).toBe(303)
+      expect(exchange.body).toContain('HttpOnly')
+      const cookie = exchange.body.split(';', 1)[0]!
+
+      const authenticated = await describeSettings(port, lanAuthority, cookie)
+      expect(authenticated.status).toBe(200)
+    } catch (error) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}\n${redact(running?.output() ?? '')}`, { cause: error })
+    } finally {
+      if (running !== undefined) await stopWeb(running)
       await rm(root, { recursive: true, force: true })
     }
   })
