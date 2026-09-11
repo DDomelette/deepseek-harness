@@ -1,0 +1,115 @@
+---
+description: "The dsh LAN phone-join layer: serves the Web UI on all network interfaces and prints a scan-to-join QR code, for users opening a session to a phone on the same network."
+kind: "package-bundle"
+---
+
+# @deepseek-ai/dsh-mob
+
+English | [中文](README.zh.md)
+
+## Summary
+
+Run `dsh mob` to serve the dsh Web UI on your LAN and print a terminal QR code a phone scans to join. The layer rebinds the Web server to all network interfaces and adds a QR announcer row on top of the `web` surface; the token exchange and signed-cookie authentication are unchanged from `dsh web`. Serving stays plain HTTP, so use it only on a network you trust. Choose this layer for phone access; use `dsh web` for loopback-only browsing.
+
+## Table of Contents
+
+- [Use this package](#use-this-package)
+- [Understand the implementation](#understand-the-implementation)
+- [Further Exploration](#further-exploration)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="use-this-package"></a>
+## Use this package
+
+### Starting the LAN surface
+
+```sh
+dsh mob
+dsh mob --port 8080
+```
+
+The shipped `mob` profile layers this bundle over `dsh-web-app`, so startup is the `dsh web` flow with two additions: the server binds all network interfaces, and once the plugin tree settles the terminal prints a `dsh mob:` line carrying the token-bearing LAN URL plus a scannable QR code. A phone on the same network opens that URL, completes the one-time token exchange, and receives the same signed cookie the loopback flow issues. The loopback URL and browser handoff remain `dsh-web-app`'s readiness output and still work from this machine.
+
+### What you get
+
+Everything `dsh web` provides, plus an all-interfaces bind with a mount-time plain-HTTP warning on stderr, and the `mob-quick-join` QR announcer. The Web server, the browser-trust fence, and authentication stay owned by `dsh-host-webserver` and `dsh-web-app`; invocation flags such as `--port` keep working through the same `webStartup` expressions. Command-line `--host 0.0.0.0` on other surfaces still requires `--allow-lan`.
+
+-----
+
+<a id="understand-the-implementation"></a>
+## Understand the implementation
+
+<details>
+<summary>Implementation internals — click to expand</summary>
+
+The bundle is one patch plus one plugin. The patch restates the `webserver` row's whole config with an all-interfaces default host — a patch replaces the targeted row's whole `config`, so the row restates every key it owns — and inserts the `mob-quick-join` row, which mounts this package's plugin with the `webServer` injection.
+
+### Readiness and reprint rules
+
+The QR announcer mirrors `dsh-web-app`'s readiness row: it waits for Loader settlement (a hand-built tree without a Loader announces at once), prints nothing when the boot fails or the tree is torn down mid-boot, and prints nothing on a loopback-only bind or non-TTY stdout. Connection hot reloads must not reprint, so announced roots are remembered process-wide.
+
+### LAN address sampling
+
+The announced URL reuses `dsh-web-app`'s `resolveLanTrust`: an all-interfaces bind yields every non-internal IPv4 literal, and the first becomes the QR target together with the bound port and the Connection-authenticated token.
+
+### Source map
+
+| File | Role |
+|---|---|
+| [`cordis.patch.yml`](cordis.patch.yml) | The LAN rebind of the `webserver` row plus the `mob-quick-join` insert |
+| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, loopback and TTY guards, reprint dedup, QR render |
+| — | No runtime invariant companion is published; the plugin contributes no registry registration — it prints to the console after Loader settlement, and its announced-roots set is private state no second observer can diverge from. |
+| [`tests/mob.spec.ts`](tests/mob.spec.ts) | Settlement, loopback, TTY, reload-dedup, and boot-failure/teardown paths |
+
+### Invariant ownership
+
+No invariant companion is published because the plugin registers nothing with any registry — its only effect is console output after Loader settlement, and the announced-roots set is private state with no independent observer.
+
+</details>
+
+-----
+
+<a id="further-exploration"></a>
+## Further Exploration
+
+Read these pages when you want to go deeper into the surface this layer extends or the security decision behind it.
+
+- [dsh-web-app](../web-app/README.md) — the browser surface this layer rebinds and extends.
+- [Bundle package map](../README.md) — the surfaces built on the same core.
+- [LAN Web serving note](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md) — the LAN-serving security decision, the startup warning, and cookie revocation.
+
+-----
+
+<a id="model-experience"></a>
+## Model Experience
+
+Indirectly, through the composed `dsh-web-app` rows and session presets, which own every model-facing registration; the QR announcer prints only to the terminal.
+
+#### KV Cache effect
+
+The bundle adds no request prefix of its own; the cache effect is unchanged from the `web` surface.
+
+## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
+
+
+These limits tell you what to expect on untrusted networks or unusual terminals. They are current package constraints, not a task backlog.
+
+- **LAN serving is plain HTTP** — anyone on the network who obtains the session cookie gains full control, so bind all interfaces only on a trusted network; the mount-time warning and the revocation path live in the [LAN Web serving note](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.md).
+- **LAN addresses are sampled once at startup** — a network change after boot is not re-announced; restart the surface to re-advertise.
+- **Loopback-only binds and non-TTY stdout print no QR** — supervisors and loopback deployments get no announcement; the `dsh-web-app` URL line remains the readiness signal.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>

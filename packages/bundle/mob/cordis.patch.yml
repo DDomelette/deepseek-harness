@@ -1,0 +1,15 @@
+# dsh-mob: serve the Web UI on the LAN and print a phone-join QR code.
+# Layers after dsh-web-app: it rebinds the webserver to all interfaces and
+# inserts the QR announcer row. A patch replaces the targeted row's whole
+# config, so the webserver row restates every key it owns.
+- id: webserver
+  config:
+    host: !!js ctx.webStartup.host ?? '0.0.0.0'
+    port: !!js ctx.webStartup.port ?? 3080
+    compression: gzip
+    compressionLevel: 1
+    compressionThresholdBytes: 1024
+- insert:
+  - id: mob-quick-join
+    name: '@deepseek-ai/dsh-mob'
+    inject: [webServer]
