@@ -38,6 +38,10 @@ The `web` profile composes this bundle, so phone access is an ordinary `dsh web`
 
 The browser half adds a Connect phone row under Settings → General, which is the only join surface — nothing is printed to the terminal. The row opens a dialog that asks the Host for the token-bearing LAN URL through the `mob.joinUrl` Remote method and renders it as a QR code with the link below it. On a loopback-only deployment the call fails with `mob/loopback-only` and the dialog says LAN access is off; when an all-interfaces bind derived no reachable address it fails with `mob/no-lan-address` and the dialog asks for the machine's network instead, because the flag would not help there.
 
+### Pairing a phone
+
+`POST /pair/session` opens a request and answers with an eight-character code that lives two minutes. The phone opens `/pair?c=<code>` and polls `/pair/state`; the moment the computer approves the request, that poll answers with the device cookie, and the phone holds a session of its own instead of the computer's launch token. `POST /pair/approve` carries the decision and the device label, `GET /pair/requests` lists what still waits, `GET /pair/devices` lists what was approved, and `POST /pair/revoke` ends one device's access on its next request. `/pair` and `/pair/state` accept a phone that holds no cookie yet — they still pass the Host fence and the per-source throttling — while every other route requires the browser session *and* a loopback authority, so a phone on the LAN cannot approve itself.
+
 ### What you get
 
 Everything `dsh web` provides, plus the Connect phone entry and the `mob` Remote namespace behind it. The Web server, the LAN bind, its plain-HTTP warning, the browser-trust fence, and authentication stay owned by `dsh-host-webserver` and `dsh-web-app`; this layer patches nothing and writes no terminal output.
@@ -50,7 +54,7 @@ Everything `dsh web` provides, plus the Connect phone entry and the `mob` Remote
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The bundle is one insert-only patch plus one dual-face plugin. The patch adds the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webRuntime` injections, and changes nothing else. The plugin's apply mounts one thing: `MobJoinController`, the Host service behind the `mob` Remote namespace whose `joinUrl` method serves the settings dialog.
+The bundle is one insert-only patch plus one dual-face plugin. The patch adds the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webRuntime` injections, and changes nothing else. The plugin's apply mounts two things: `MobJoinController`, the Host service behind the `mob` Remote namespace whose `joinUrl` method serves the settings dialog, and the seven `/pair*` named routes that carry the pairing handshake.
 
 ### The fence LAN snapshot
 
@@ -66,12 +70,14 @@ The join URL comes from the `webRuntime` service — the same `resolveLanTrust` 
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`: the `mob` Remote namespace's `joinUrl`, classifying an empty snapshot as `mob/loopback-only` or `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | The `mob` failure-code declarations (`mob/loopback-only`, `mob/no-lan-address`), shared by both faces |
 | [`src/pairing.ts`](src/pairing.ts) | The pairing sessions: eight-character codes with a two-minute life, one decision each, and per-source throttling |
+| [`src/routes.ts`](src/routes.ts) | The `/pair*` named routes: the phone's two cookie-less steps and the computer's loopback-only decisions |
 | [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, QR dialog, and the `settings.mobile` dictionaries |
 | — | No runtime invariant companion is published; every observable effect is derived per call from the fence snapshot (see Invariant ownership below). |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host half: namespace registration, join answer, disposal |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | The real Loader-composed `web` profile: the LAN URL, `mob/loopback-only`, and `mob/no-lan-address` |
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | The URL composer and the `joinUrl` Remote method, LAN and loopback paths |
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | Pairing sessions: codes, approval, expiry, single use, and throttling |
+| [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | The pairing routes: access rules, code flow, device cookie, and body edges |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | Row registration, deferred slot declaration, injected `joinUrl`, disposal |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | The row and dialog: load, QR render, loopback copy, close and reopen |
 

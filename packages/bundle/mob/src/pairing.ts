@@ -71,7 +71,7 @@ interface SourceAttempts {
 function randomCode(): string {
   let code = ''
   for (let index = 0; index < CODE_LENGTH; index++) {
-    code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
+    code += CODE_ALPHABET.charAt(randomInt(CODE_ALPHABET.length))
   }
   return code
 }

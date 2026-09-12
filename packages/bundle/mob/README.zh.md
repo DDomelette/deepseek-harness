@@ -38,6 +38,10 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 
 浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开的弹窗通过 `mob.joinUrl` Remote 方法向 Host 请求带令牌的局域网 URL，并将其渲染为二维码、下方附上链接。仅回环部署中该调用以 `mob/loopback-only` 失败，弹窗提示未开启内网访问；而当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败，弹窗改为提示检查本机网络——那种情况下加旗标并无帮助。
 
+### 配对一台手机
+
+`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>` 并轮询 `/pair/state`；电脑批准该请求的那一刻，这次轮询就会带回设备 cookie，手机由此拥有自己的会话，而不再依赖电脑的启动令牌。`POST /pair/approve` 携带决定与设备名称，`GET /pair/requests` 列出仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/revoke` 让某台设备的下一次请求失效。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求浏览器会话**且**来自回环 authority，因此局域网上的手机无法自行批准。
+
 ### 你会得到什么
 
 `dsh web` 提供的一切，外加「连接手机」入口与其背后的 `mob` Remote 命名空间。Web 服务器、局域网绑定及其明文 HTTP 警告、浏览器信任栅栏与认证仍归 `dsh-host-webserver` 与 `dsh-web-app` 所有；本层不打任何补丁，也不产生终端输出。
@@ -50,7 +54,7 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 只挂载一件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务。
+本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务——以及承载配对握手的七条 `/pair*` 具名路由。
 
 ### 栅栏局域网快照
 
@@ -66,12 +70,14 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把空快照分类为 `mob/loopback-only` 或 `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | `mob` 失败码声明（`mob/loopback-only`、`mob/no-lan-address`），两个 face 共享 |
 | [`src/pairing.ts`](src/pairing.ts) | 配对会话：8 位短码、两分钟寿命、每码一次决定与按来源限流 |
+| [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧两条无 cookie 步骤与电脑侧仅回环可用的决定 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | 真实 Loader 组合的 `web` profile：局域网 URL、`mob/loopback-only` 与 `mob/no-lan-address` |
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | URL 拼装器与 `joinUrl` Remote 方法的局域网/回环两路 |
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | 配对会话：短码、批准、过期、单次使用与限流 |
+| [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | 配对路由：访问规则、短码流程、设备 cookie 与请求体边界 |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |
 

@@ -27,6 +27,7 @@ afterEach(async () => {
   for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
   Reflect.deleteProperty(globalThis, '__dshMobApply')
   Reflect.deleteProperty(globalThis, '__dshMobWebRuntime')
+  Reflect.deleteProperty(globalThis, '__dshMobRoutes')
 })
 
 interface BenchFacts {
@@ -45,7 +46,14 @@ async function bootTree(facts: BenchFacts): Promise<Context> {
   const root = mkdtempSync(join(tmpdir(), 'dsh-mob-composition-'))
   tempRoots.push(root)
   writeFileSync(join(root, 'webserver.mjs'), `
-export const apply = ctx => ctx.provide('webServer', { host: ${JSON.stringify(facts.host)}, port: 4567 })
+export const apply = ctx => ctx.provide('webServer', {
+  host: ${JSON.stringify(facts.host)},
+  port: 4567,
+  register(route) {
+    globalThis.__dshMobRoutes.push(route.path)
+    return () => { globalThis.__dshMobRoutes.splice(globalThis.__dshMobRoutes.indexOf(route.path), 1) }
+  },
+})
 `)
   writeFileSync(join(root, 'runtime.mjs'), `
 export const inject = ['webServer']
@@ -59,12 +67,22 @@ export const apply = ctx => ctx.provide('connection', {
     url.searchParams.set('token', 'test-token')
     return url.href
   },
+  requestRejection: () => undefined,
+  isLoopbackRequest: () => true,
+  devices: {
+    list: async () => [],
+    register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
+    revoke: async () => true,
+    touch: async () => true,
+    issueCookie: () => 'dsh-auth-test=v2.body.signature',
+  },
 })
 `)
   // Node imports the fixture row outside Vite's source resolver, so delegate
   // to the source-plane plugin already imported by this test.
   writeFileSync(join(root, 'mob.mjs'), `
 export const name = 'mob-join'
+export const inject = ['webServer', 'connection']
 export const apply = ctx => globalThis.__dshMobApply(ctx)
 `)
   writeFileSync(join(root, 'cordis.yml'), [
@@ -82,9 +100,11 @@ export const apply = ctx => globalThis.__dshMobApply(ctx)
   const globals = globalThis as unknown as {
     __dshMobApply: typeof apply
     __dshMobWebRuntime: { lanAddresses: string[]; trustedHosts: string[] }
+    __dshMobRoutes: string[]
   }
   globals.__dshMobApply = apply
   globals.__dshMobWebRuntime = { lanAddresses: facts.lanAddresses, trustedHosts: facts.lanAddresses }
+  globals.__dshMobRoutes = []
 
   const ctx = new Context()
   contexts.push(ctx)
@@ -126,5 +146,13 @@ describe('mob join namespace over a Loader tree', () => {
   it('classifies an all-interfaces bind with no derived address as mob/no-lan-address', async () => {
     const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: [] })
     expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-lan-address', details: {} })
+  })
+
+  it('registers every pairing route through the real Loader tree', async () => {
+    await bootTree({ host: '127.0.0.1', lanAddresses: [] })
+    const globals = globalThis as unknown as { __dshMobRoutes: string[] }
+    expect([...globals.__dshMobRoutes].sort()).toEqual([
+      '/pair', '/pair/approve', '/pair/devices', '/pair/requests', '/pair/revoke', '/pair/session', '/pair/state',
+    ])
   })
 })

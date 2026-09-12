@@ -12,13 +12,22 @@ const contexts: Context[] = []
 
 /** The services `MobJoinController` injects; only their presence matters here. */
 function provideInjected(ctx: Context): void {
-  ctx.provide('webServer', { host: '0.0.0.0', port: 4567 } as never)
+  ctx.provide('webServer', { host: '0.0.0.0', port: 4567, register: () => () => {} } as never)
   ctx.provide('webRuntime', { lanAddresses: ['192.168.1.5'], trustedHosts: ['192.168.1.5'] } as never)
   ctx.provide('connection', {
     authenticatedUrl(baseUrl: string) {
       const url = new URL(baseUrl)
       url.searchParams.set('token', 'test-token')
       return url.href
+    },
+    requestRejection: () => undefined,
+    isLoopbackRequest: () => true,
+    devices: {
+      list: async () => [],
+      register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
+      revoke: async () => true,
+      touch: async () => true,
+      issueCookie: () => 'dsh-auth-test=v2.body.signature',
     },
   } as never)
 }
