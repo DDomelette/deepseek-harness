@@ -434,6 +434,16 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 - [ ] 合并顺序:打 checkpoint 标签(`checkpoint/web-pairing-verified`,已打)→ 主检出 `git merge --ff-only feat/web-pairing` → `pnpm install` → `pnpm run build` → 重启 `dsh web`(待操作者执行:主检出托管着当前会话,代理不得重启它)。
 - [ ] 合并后手机端按下面的真机清单走一遍。
 
+### 第二轮修复:启动令牌仅回环可用
+
+真机走查的第 5、6 项暴露一个缺口:手机若先打开过带令牌的 LAN URL,就持有了一份 v1 启动令牌 cookie,而 `isAuthenticated` 当时在任何 authority 上都承认它——于是电脑端吊销设备后,手机仍靠这份 cookie 继续访问。
+
+- [x] `BrowserAuth.authorizeIndex` 只在回环 authority 上交换启动令牌,`isAuthenticated` 也只在回环上承认 v1 cookie(`6cf55029fb`)。
+- [x] `dsh web` 的 LAN 就绪行与 `mob.joinUrl` 改为不带令牌的 origin(`8be795644b`)。
+- [x] Agent Note 与各 README 同步该规则(`36687ed7dd`)。
+- [x] Run: `pnpm run test:docs`(16/16 通过)、`pnpm exec vitest run packages/client/connection packages/bundle/mob packages/bundle/web-app`、`pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`(3/3 通过)。
+- [ ] 合并与重启同上(操作者执行),然后重走真机清单第 5-7 项:吊销后手机刷新应回到「登录已失效」,重新配对后只有设备 cookie 生效。
+
 ### 真机验证清单(操作者执行)
 
 1. 主检出:停掉正在跑的 `dsh web`,执行 `git merge --ff-only feat/web-pairing`、`pnpm install`、`pnpm run build`,再以 `pnpm dsh web --host 0.0.0.0 --allow-lan` 启动。
