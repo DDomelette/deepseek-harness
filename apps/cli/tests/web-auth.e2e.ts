@@ -11,6 +11,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolveLanTrust } from '@deepseek-ai/dsh-web-app'
 import { describe, expect, it } from 'vitest'
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
@@ -65,13 +66,14 @@ function cleanEnvironment(root: string, dshHome: string): NodeJS.ProcessEnv {
 }
 
 /** Start the public source CLI and wait for its authenticated readiness URL. */
-async function startWeb(root: string, dshHome: string, port: number): Promise<RunningWeb> {
+async function startWeb(root: string, dshHome: string, port: number, extraArgs: string[] = []): Promise<RunningWeb> {
   const child = spawn(process.execPath, [
     '--import', TSX_LOADER,
     DSH_SOURCE_BIN,
     'web',
     '--no-open',
     '--port', String(port),
+    ...extraArgs,
   ], {
     cwd: root,
     env: cleanEnvironment(root, dshHome),
@@ -151,6 +153,31 @@ function describeSettings(port: number, host: string, cookie?: string): Promise<
   })
 }
 
+/** GET one path from the real server while controlling the wire Host header. */
+function hostedGet(port: number, host: string, path: string): Promise<HttpResult & { readonly setCookie: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      path,
+      method: 'GET',
+      headers: { host },
+    }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          setCookie: res.headers['set-cookie']?.[0] ?? '',
+          body: Buffer.concat(chunks).toString('utf8'),
+        })
+      })
+    })
+    req.once('error', reject)
+    req.end()
+  })
+}
+
 describe('dsh web authentication through the real CLI', () => {
   it('rejects a forged loopback Host and preserves the browser cookie across restart', { timeout: 180_000 }, async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-web-auth-real-cli-'))
@@ -196,14 +223,78 @@ describe('dsh web authentication through the real CLI', () => {
       expect(secondUrl.searchParams.get('token')).not.toBe(firstUrl.searchParams.get('token'))
       expect((await describeSettings(port, secondUrl.host, cookie)).status).toBe(200)
 
-      const credentialMode = (await stat(join(dshHome, '.credentials.yaml'))).mode & 0o777
-      expect(credentialMode).toBe(0o600)
+      // Windows does not carry POSIX mode bits, so the private credential file
+      // is asserted where the guarantee exists.
+      if (process.platform !== 'win32') {
+        const credentialMode = (await stat(join(dshHome, '.credentials.yaml'))).mode & 0o777
+        expect(credentialMode).toBe(0o600)
+      }
     } catch (error) {
       const evidence = [first?.output(), second?.output()].filter(value => value !== undefined).join('\n')
       throw new Error(`${error instanceof Error ? error.message : String(error)}\n${redact(evidence)}`, { cause: error })
     } finally {
       if (second !== undefined) await stopWeb(second)
       if (first !== undefined) await stopWeb(first)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('serves a trusted LAN authority without handing out the process token', { timeout: 180_000 }, async (context) => {
+    // The expected authority comes from the product's own derivation: the address
+    // a phone can reach, which excludes fake-IP TUN ranges and sorts virtual
+    // adapters after physical ones rather than following enumeration order.
+    const lanAddress = resolveLanTrust('0.0.0.0', []).lanAddresses[0]
+    if (lanAddress === undefined) {
+      context.skip()
+      return
+    }
+    const root = await mkdtemp(join(tmpdir(), 'dsh-web-lan-real-cli-'))
+    const dshHome = join(root, '.dsh')
+    const port = await freePort()
+    let running: RunningWeb | undefined
+    try {
+      running = await startWeb(root, dshHome, port, ['--host', '0.0.0.0', '--allow-lan'])
+      const lanAuthority = `${lanAddress}:${String(port)}`
+      // The LAN line is token-free: the process launch token is the computer's
+      // own credential, and a phone reaches this deployment by pairing.
+      expect(running.output()).toContain(`(LAN: http://${lanAuthority}/)`)
+      expect(running.output()).not.toContain(`http://${lanAuthority}/?token=`)
+
+      // Trust fence first, then authentication: the LAN authority is derived as
+      // trusted, so an unauthenticated call is 401 rather than 403.
+      expect(await describeSettings(port, lanAuthority)).toEqual({ status: 401, body: 'unauthorized' })
+      // An undeclared authority is still refused by the fence (403).
+      expect((await describeSettings(port, `evil.example:${String(port)}`)).status).toBe(403)
+
+      // Even holding the fresh process token, a LAN authority cannot exchange it:
+      // that is what keeps one printed URL from becoming a session no device
+      // revocation could end. The answer is the application shell marked as
+      // needing authentication, so the phone can name the way back in.
+      const token = /dsh web: http:\/\/127\.0\.0\.1:\d+\/\?token=([^\s)]+)/u.exec(running.output())?.[1]
+      if (token === undefined) throw new Error('readiness line omitted the loopback token')
+      const refused = await hostedGet(port, lanAuthority, `/?token=${token}`)
+      expect(refused.status).toBe(401)
+      expect(refused.setCookie).toBe('')
+      expect(refused.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
+      expect(refused.body).toContain('__DSH_BOOT__')
+
+      // The plain LAN origin is refused the same way, and without a token it
+      // never reaches the exchange above.
+      const anonymous = await hostedGet(port, lanAuthority, '/')
+      expect(anonymous.status).toBe(401)
+      expect(anonymous.setCookie).toBe('')
+      expect(anonymous.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
+
+      // The computer's own loopback exchange is unchanged.
+      const loopbackExchange = await fetch(running.launchUrl, { redirect: 'manual' })
+      expect(loopbackExchange.status).toBe(303)
+      const cookie = loopbackExchange.headers.get('set-cookie')?.split(';', 1)[0]
+      if (cookie === null || cookie === undefined) throw new Error('loopback exchange omitted Set-Cookie')
+      expect((await describeSettings(port, `127.0.0.1:${String(port)}`, cookie)).status).toBe(200)
+    } catch (error) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}\n${redact(running?.output() ?? '')}`, { cause: error })
+    } finally {
+      if (running !== undefined) await stopWeb(running)
       await rm(root, { recursive: true, force: true })
     }
   })

@@ -7,6 +7,7 @@
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -51,6 +52,9 @@ async function loadComposition(): Promise<Context> {
     "    host: '127.0.0.1'",
     '    port: 0',
     "- name: '@deepseek-ai/dsh-client-connection'",
+    '  config:',
+    '    trustedHosts:',
+    "      - '192.168.1.5'",
     '- id: frontend',
     "  name: '@deepseek-ai/dsh-host-frontend-static'",
     '  config:',
@@ -93,6 +97,37 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
   }
 }
 
+/**
+ * GET one path with the Host header a browser on another machine sends.
+ * @param port - loopback port the fixture server listens on.
+ * @param host - the authority the request declares.
+ * @param cookie - optional Cookie header.
+ * @returns status, content-type, and the body.
+ */
+function lanRequest(port: number, host: string, cookie?: string): Promise<{ status: number; type: string | undefined; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      path: '/',
+      method: 'GET',
+      headers: { host, ...cookie === undefined ? {} : { cookie } },
+    }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          type: res.headers['content-type'],
+          body: Buffer.concat(chunks).toString('utf8'),
+        })
+      })
+    })
+    req.once('error', reject)
+    req.end()
+  })
+}
+
 describe('real Loader composition', () => {
   it('serves explicit index entries and files while preserving HTTP error semantics', { timeout: 60_000 }, async () => {
     const loaded = await loadComposition()
@@ -120,6 +155,33 @@ describe('real Loader composition', () => {
       type: 'text/plain; charset=utf-8',
       body: 'dsh web authentication required; reopen the URL printed by dsh web.\n',
     })
+
+    // A browser on the LAN holds no launch token, so it receives the shell
+    // marked as needing authentication instead of a dead end; the pairing
+    // screen renders from that fact.
+    const lanAuthority = '192.168.1.5:3080'
+    const anonymous = await lanRequest(port, lanAuthority)
+    expect(anonymous.status).toBe(401)
+    expect(anonymous.type).toBe('text/html; charset=utf-8')
+    expect(anonymous.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
+    expect(anonymous.body).toContain('shell')
+
+    // The fence keeps the shell away from an authority this Host does not
+    // trust: an undeclared name receives the plain refusal, never the app.
+    const untrusted = await lanRequest(port, 'evil.example:3080')
+    expect(untrusted.status).toBe(401)
+    expect(untrusted.type).toBe('text/plain; charset=utf-8')
+    expect(untrusted.body).not.toContain('__DSH_AUTH_REQUIRED__')
+
+    // A paired device's own cookie is the LAN credential: the same request then
+    // serves the ordinary shell.
+    const device = await loaded.connection.devices.register({ label: 'phone' })
+    const issued = loaded.connection.devices.issueCookie({ headers: { host: lanAuthority } }, device.id)
+    if (issued === undefined) throw new Error('pairing did not issue a device cookie')
+    const paired = await lanRequest(port, lanAuthority, issued.split(';', 1)[0])
+    expect(paired.status).toBe(200)
+    expect(paired.type).toBe('text/html; charset=utf-8')
+    expect(paired.body).not.toContain('__DSH_AUTH_REQUIRED__')
 
     // Real assets with their MIME types; a live rebuild is served on the next read.
     expect(await request(port, '/app.js')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8', body: 'export {}' })
@@ -155,6 +217,14 @@ describe('real Loader composition', () => {
     })
     untap()
     expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
+
+    // A headless shell receives the fact ahead of every script, the placement
+    // the webserver's own injection renderer uses for a page without a head.
+    await writeFile(join(root!, 'dist', 'index.html'), '<body>shell</body>')
+    const headless = await lanRequest(port, lanAuthority)
+    expect(headless.status).toBe(401)
+    expect(headless.body.startsWith('<script>globalThis.__DSH_AUTH_REQUIRED__ = true</script>')).toBe(true)
+    expect(headless.body).toContain('shell')
 
     // A missing configured index follows the same empty-404 contract for both
     // of its public entry paths and for both supported methods.

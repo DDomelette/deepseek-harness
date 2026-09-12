@@ -26,6 +26,6 @@ Web GUI 宿主以纯 loopback HTTP 提供 `/api`（默认 `127.0.0.1:3080`；CLI
 ## 后果
 
 - 未来任何 `/api` 方法天然在覆盖范围内；不存在会被遗忘的按路由信任决定。
-- 自定义非 loopback 组合必须信任其服务 authority，否则请求会被拒绝；随后仍像每个 loopback 请求一样满足浏览器认证。随附 CLI 拒绝 `--host 0.0.0.0`；`--trusted-host` 只扩展 Host/Origin 栅栏，绝不授予身份。
+- 自定义非 loopback 组合必须信任其服务 authority，否则请求会被拒绝；随后仍像每个 loopback 请求一样满足浏览器认证。随附 CLI 把 `--host 0.0.0.0` 关在显式的 `--allow-lan` 旗标之后；参见 [LAN Web 服务](2026-09-11-lan-web-serving.zh.md)。`--trusted-host` 只扩展 Host/Origin 栅栏，绝不授予身份。
 - 客户端必须给 POST 体标注 `application/json`（我们自己的客户端一向如此；裸 fetch 测试补上了该头）。
 - Host 与 Origin 仍只是请求路由证据。进程令牌与签名 cookie 建立每个 Host 方法使用的浏览器身份。

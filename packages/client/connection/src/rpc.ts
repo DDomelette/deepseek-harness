@@ -1,6 +1,8 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
@@ -96,6 +98,20 @@ export interface ConnectionIndexResponse {
   end(body?: string): unknown
 }
 
+/**
+ * What an index request is allowed to receive. A non-loopback client that holds
+ * no accepted session gets the application shell marked as needing
+ * authentication, because the computer's launch token never reaches it: on a
+ * LAN the only credential is a paired device cookie.
+ */
+export type ConnectionIndexAccess =
+  /** The caller serves the application shell. */
+  | 'serve'
+  /** Connection wrote the complete response: a token redirect, or the loopback 401. */
+  | 'answered'
+  /** The caller serves the shell, marked with the auth-required boot fact, as a 401. */
+  | 'auth-required'
+
 /** Handler invoked after Connection has decoded the transport envelope. */
 export type ConnectionRpcHandler = (
   endpoint: string,
@@ -184,12 +200,14 @@ export interface HostConnectionHandle {
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
 
   /**
-   * Authenticate one frontend index request, owning a token redirect or 401.
+   * Authenticate one frontend index request. A valid loopback launch-token
+   * exchange or an existing accepted cookie is decided here; a client that
+   * holds none is told what it may serve instead.
    * @param request - root or configured-index HTTP request.
-   * @param response - response owned when the result is false.
-   * @returns true only when the frontend may serve index.html.
+   * @param response - response owned when the result is `answered`.
+   * @returns whether the caller serves the shell, and under which marking.
    */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess
 
   /**
    * Add the fresh process token to an ordinary Web application URL.
@@ -197,6 +215,59 @@ export interface HostConnectionHandle {
    * @returns root URL accepted by {@link authorizeIndex} for initial login.
    */
   authenticatedUrl(baseUrl: string): string
+
+  /**
+   * Whether a request arrived on a loopback authority, the only origin allowed
+   * to approve a pairing request.
+   * @param request - request headers from the HTTP or upgrade request.
+   * @returns true when the request's canonical Host names loopback.
+   */
+  isLoopbackRequest(request: ConnectionTrustRequest): boolean
+
+  /** Paired-device registry and the device cookies the pairing handshake issues. */
+  readonly devices: HostConnectionDevices
+}
+
+/**
+ * Paired-device registry of one Host. Every mutation refreshes the cookie check
+ * of the running Connection, so an approval or revocation takes effect on the
+ * next request without a restart.
+ */
+export interface HostConnectionDevices {
+  /**
+   * List the approved devices.
+   * @returns the stored devices in stored order.
+   */
+  list(): Promise<readonly PairedDevice[]>
+
+  /**
+   * Register a newly approved device.
+   * @param request - label the operator approved, after any edit.
+   * @returns the stored device entry whose id the device cookie carries.
+   */
+  register(request: RegisterDeviceRequest): Promise<PairedDevice>
+
+  /**
+   * Revoke one device; its cookie stops authenticating on the next request.
+   * @param deviceId - id of the device to remove.
+   * @returns true when a stored device was removed.
+   */
+  revoke(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Record that a device authenticated, throttled to once an hour.
+   * @param deviceId - id of the device that made the request.
+   * @returns true when the stored last-seen time was advanced.
+   */
+  touch(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Mint the cookie a phone receives when its pairing request is approved.
+   * @param request - request whose Host binds the cookie's authority.
+   * @param deviceId - id of the approved device.
+   * @returns the complete `Set-Cookie` value, or undefined when the request carries no usable Host.
+   */
+  issueCookie(request: ConnectionTrustRequest, deviceId: PairedDeviceId): string | undefined
 }
 
 /** Transport-independent Fetch handler used by HTTP and worker carriers. */

@@ -108,11 +108,17 @@ describe('parseDshArgs', () => {
     expect(exitCode(['web', '--dump-config', '--dump-default-config'])).toBe(1)
     expect(exitCode(['web', '--dump-default-config', '--patch', 'w.yml'])).toBe(1)
     expect(exitCode(['web', '--patch='])).toBe(1)
+    // The phone-access layer rides the web profile: no mob command exists, so
+    // the token is an app argument that reaches no app.
+    expect(exitCode(['mob'])).toBe(1)
+    expect(exitCode(['mob', '--dump-config'])).toBe(1)
+    expect(exitCode(['mob', '--patch='])).toBe(1)
     // A dump never runs app command-line providers, so it cannot show what
     // those flags would decide; printing a tree that differs from the same
     // invocation's boot would mislead.
     expect(exitCode(['web', '--dump-config', '--port', '8080'])).toBe(1)
     expect(exitCode(['--profile', 'web', '--dump-config', '-h'])).toBe(1)
+    expect(exitCode(['--profile', 'mob', '--dump-config', '-h'])).toBe(1)
     expect(exitCode(['plugin', 'add', 'x'])).toBe(1) // --profile required
     expect(exitCode(['plugin', '--profile', 'tui'])).toBe(1) // nothing to forward
     expect(exitCode(['plugin', '--profile', ''])).toBe(1)

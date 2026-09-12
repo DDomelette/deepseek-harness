@@ -11,12 +11,17 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
+import { listDevices, registerDevice, revokeDevice, touchDevice } from './devices.ts'
+import { isLoopbackHostname } from './loopback-hostname.ts'
+import { requestAuthority, requestHostname } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionFetchRoute,
   ConnectionFetchHandler,
+  HostConnectionDevices,
   HostConnectionFetch,
   ConnectionRpcEndpointMatcher,
   ConnectionRpcFailure,
@@ -63,7 +68,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /**
    * Provide the Host half over the active HTTP server.
-   * @param ctx - owning Connection plugin context.
+   * @param ctx - owning Connection plugin context, which also carries the credential provider.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
    */
@@ -73,6 +78,38 @@ export class HostConnectionService extends Service implements HostConnectionHand
     private readonly browserAuth: BrowserAuth,
   ) {
     super(ctx, 'connection')
+  }
+
+  /** Paired-device registry; each mutation refreshes the cookie check in place. */
+  get devices(): HostConnectionDevices {
+    const credentials = this.ctx.credentials
+    return {
+      list: () => listDevices(credentials),
+      register: async (request) => {
+        const device = await registerDevice(credentials, request)
+        await this.browserAuth.refreshPairedDevices()
+        return device
+      },
+      revoke: async (deviceId) => {
+        const removed = await revokeDevice(credentials, deviceId)
+        if (removed) await this.browserAuth.refreshPairedDevices()
+        return removed
+      },
+      touch: deviceId => touchDevice(credentials, deviceId),
+      issueCookie: (request, deviceId) => {
+        const authority = requestAuthority(request.headers)
+        return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)
+      },
+    }
+  }
+
+  /**
+   * Re-read the paired-device registry, for a credential record that changed
+   * outside this service's own mutations.
+   * @returns nothing; the refreshed set is installed before it resolves.
+   */
+  async refreshDevices(): Promise<void> {
+    await this.browserAuth.refreshPairedDevices()
   }
 
   /** Generic channel registry scoped to the Context reading this service. */
@@ -99,14 +136,28 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return this.browserAuth.isAuthenticated(request) ? undefined : 401
   }
 
-  /** Authenticate an index request through the process-token exchange or cookie. */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
-    return this.browserAuth.authorizeIndex(request, response)
+  /**
+   * Authenticate an index request through the process-token exchange or cookie.
+   * The Host/Origin fence keeps the application shell away from an authority
+   * this Host does not trust, so only a trusted client without a session is
+   * told how to pair.
+   */
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
+    const access = this.browserAuth.authorizeIndex(request, response)
+    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts)) return access
+    this.browserAuth.refuseIndexInText(request, response)
+    return 'answered'
   }
 
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
+  }
+
+  /** Whether the request's canonical Host names loopback. */
+  isLoopbackRequest(request: ConnectionTrustRequest): boolean {
+    const hostname = requestHostname(request.headers)
+    return hostname !== undefined && isLoopbackHostname(hostname)
   }
 
   /**

@@ -1,0 +1,7 @@
+# dsh-mob: the phone-access layer of the web profile. It adds the settings
+# "Connect phone" entry and the `mob` Remote namespace that hands an
+# authenticated client the join URL. The LAN bind and its --allow-lan
+# acknowledgement belong to dsh-web-app, so this layer patches nothing.
+- insert:
+  - id: mob-join
+    name: '@deepseek-ai/dsh-mob'

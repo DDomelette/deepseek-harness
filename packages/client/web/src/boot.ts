@@ -11,6 +11,7 @@ import type {
 } from '@deepseek-ai/dsh-client-modules/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { BootPage } from './boot-page.ts'
+import { installBrowserCompat } from './compat.ts'
 import { getStaticModules } from './seed.ts'
 import { STATE_LABELS } from './loader-status.ts'
 import './base.css'
@@ -45,6 +46,9 @@ export class AppWebEntry {
    */
   async run(): Promise<void> {
     try {
+      // Every bundle this boot imports, and the third-party code it carries, may
+      // call APIs this engine predates; the floor goes in before the first import.
+      installBrowserCompat()
       // Boot-readiness gate: whichever bootstrap applies the injection table
       // settles this deferred once every row has taken effect — the served
       // index resolves it in the rendered tail, so the await returns on the

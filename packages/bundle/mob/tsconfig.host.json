@@ -1,0 +1,39 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": [
+    "src/controller.ts",
+    "src/index.ts",
+    "src/join-url.ts",
+    "src/pairing.ts",
+    "src/routes.ts",
+    "src/types.ts"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/loader"
+    },
+    {
+      "path": "../web-app"
+    },
+    {
+      "path": "../../client/connection/tsconfig.host.json"
+    },
+    {
+      "path": "../../host/frontend-static"
+    },
+    {
+      "path": "../../host/webserver"
+    },
+    {
+      "path": "../../typert/protocol"
+    }
+  ]
+}

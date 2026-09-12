@@ -41,7 +41,9 @@ Compose this plugin in a browser-facing host that serves the built Web shell: it
 
 Requests are served from the dist root (the directory containing `distIndex`). The dist root and the configured index path render `index.html` with HTTP 200; any other existing file is served directly with its MIME type, and unknown extensions ship as `application/octet-stream`. A path that resolves outside the root is rejected with 403, so a crafted path cannot read files above the dist. An absent or non-file target inside the dist root — a missing file, a directory, or a missing configured index — returns an empty 404. Non-GET/HEAD requests without a matching named route are answered 405. Every successful index response is rendered through the webserver's `renderIndex`, so the boot manifest reaches the page on `/` and on the configured index path.
 
-Root and configured-index responses call `ctx.connection.authorizeIndex` before reading HTML. A valid process token receives a 303 redirect plus the persistent browser cookie; an existing valid cookie serves the index; every other index request receives the Connection-owned 401 response. Non-index files remain public static assets. Connection owns the token, cookie, expiry, and signing-record semantics.
+Root and configured-index responses call `ctx.connection.authorizeIndex` before reading HTML. A valid process token receives a 303 redirect plus the persistent browser cookie; an existing valid cookie serves the index; a refusal on a loopback authority writes the Connection-owned 401. A refusal on any other authority returns the shell itself as a 401 carrying `__DSH_AUTH_REQUIRED__`, because the launch token is the computer's own credential: `@deepseek-ai/dsh-mob` reads that fact and tells the device to pair again. An authority the Host/Origin fence rejects receives the plain 401 text instead, so an untrusted name never receives the application. Non-index files remain public static assets. Connection owns the token, cookie, expiry, and signing-record semantics; the verdict vocabulary is its [`ConnectionIndexAccess`](../../client/connection/README.md#browser-authentication-and-request-trust).
+
+`apply` also provides the `frontend` service: `renderIndex()` returns the same shell bytes an index response would carry, for a Host route outside the fallback seat that must serve the application itself — a page a visitor reaches before holding any browser cookie. That caller owns the route's own access rule, its boot facts, and its response headers; this package keeps serving everything the fallback already answers.
 
 ### Observable failures
 
@@ -57,7 +59,7 @@ Traversal returns 403 rather than an error page. An absent or non-file target in
 
 ### Design concept
 
-The package is one function plugin around `serveStatic`: `apply` resolves the dist root from `distIndex`, builds a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html`, and registers the fallback handler under an effect scope. The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
+The package is one function plugin around `serveStatic`: `apply` resolves the dist root from `distIndex`, builds a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html`, provides it as the `frontend` service, and registers the fallback handler under an effect scope. The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
 
 ### The traversal fence
 

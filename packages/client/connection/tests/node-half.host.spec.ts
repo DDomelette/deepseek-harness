@@ -3,14 +3,16 @@ import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { PairedDeviceId } from '../src/device-brand.ts'
+import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
-import { provideBrowserCredentials } from './browser-credentials.ts'
+import { provideBrowserCredentials, type RecordCredentials } from './browser-credentials.ts'
 
 /** Structural webServer fake recording both route registries. */
 function fakeHttpServer(
@@ -86,12 +88,13 @@ async function mounted(config?: ConnectionConfig): Promise<{
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
   connection: HostConnectionHandle
+  store: RecordCredentials
   dispose: () => Promise<void>
 }> {
   const ctx = new Context()
   const routes: WebRoute[] = []
   const upgrades: WebUpgradeRoute[] = []
-  provideBrowserCredentials(ctx)
+  const store = provideBrowserCredentials(ctx)
   ctx.provide('webServer', fakeHttpServer(routes, upgrades) as WebServer)
   const fiber = ctx.plugin({ inject: [...inject], apply }, config)
   await fiber.await()
@@ -100,6 +103,7 @@ async function mounted(config?: ConnectionConfig): Promise<{
     routes,
     upgrades,
     connection: ctx.get('connection') as HostConnectionHandle,
+    store,
     dispose: () => fiber.dispose(),
   }
 }
@@ -115,6 +119,22 @@ function browserCookie(connection: HostConnectionHandle, authority: string): str
   const setCookie = exchanged.state.headers?.['set-cookie']
   if (setCookie === undefined) throw new Error('browser token exchange did not set a cookie')
   return setCookie.split(';', 1)[0]!
+}
+
+/**
+ * One accepted Cookie header for an authority: the launch-token exchange on
+ * loopback, and a paired device's own cookie everywhere else — the process token
+ * is a loopback credential.
+ */
+async function authorityCookie(connection: HostConnectionHandle, authority: string): Promise<string> {
+  const hostname = new URL(`http://${authority}`).hostname
+  if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]') {
+    return browserCookie(connection, authority)
+  }
+  const device = await connection.devices.register({ label: 'test device' })
+  const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+  if (issued === undefined) throw new Error('device cookie issuance produced no cookie')
+  return issued.split(';', 1)[0]!
 }
 
 describe('connection node half', () => {
@@ -218,7 +238,7 @@ describe('connection node half', () => {
       expect([method, denied.state.status, denied.state.body]).toEqual([method, 401, 'unauthorized'])
     }
 
-    const cookie = browserCookie(connection, 'harness.example')
+    const cookie = await authorityCookie(connection, 'harness.example')
     for (const method of methods) {
       const allowed = fakeResponse()
       await routes[0]!.handler(
@@ -245,11 +265,11 @@ describe('connection node half', () => {
     }), loopback.response)
     expect(loopback.state.status).toBe(404)
     // An all-interfaces composition derives port-less LAN IP literals, which
-    // pass markerless curl on any port.
+    // pass markerless curl on any port; that authority authenticates devices.
     const lan = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: '192.168.1.5:3080',
-      cookie: browserCookie(connection, '192.168.1.5:3080'),
+      cookie: await authorityCookie(connection, '192.168.1.5:3080'),
     }), lan.response)
     expect(lan.state.status).toBe(404)
     // Declared public authority, same-origin browser shape.
@@ -258,7 +278,7 @@ describe('connection node half', () => {
       host: 'harness.example:3080',
       origin: 'http://harness.example:3080',
       'sec-fetch-site': 'same-origin',
-      cookie: browserCookie(connection, 'harness.example:3080'),
+      cookie: await authorityCookie(connection, 'harness.example:3080'),
     }), declared.response)
     expect(declared.state.status).toBe(404)
     await dispose()
@@ -273,7 +293,7 @@ describe('connection node half', () => {
     expect(connection.requestRejection(declared)).toBe(401)
     expect(connection.requestRejection(fakeRequest({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }))).toBeUndefined()
     await dispose()
   })
@@ -404,7 +424,7 @@ describe('connection node half', () => {
     const declared = fakeResponse()
     await route.handler(fakePost({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }, '/api/goals/create', request), declared.response)
     expect(declared.state.status).toBe(200)
     await removeAuthenticated()
@@ -426,7 +446,7 @@ describe('connection node half', () => {
     const route = routes.find(candidate => candidate.path === '/rpc')!
     const harnessHeaders = {
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }
 
     const denied = fakeResponse()
@@ -546,7 +566,7 @@ describe('connection node half over a real HTTP server', () => {
       }
       expect(await call(port, 'settings/openSettingsDocument', 'other.example')).toBe(403)
 
-      const declaredCookie = browserCookie(connection, 'harness.example')
+      const declaredCookie = await authorityCookie(connection, 'harness.example')
       for (const method of methods) {
         expect([method, await call(port, method, 'harness.example', declaredCookie)]).toEqual([method, 404])
       }
@@ -559,6 +579,76 @@ describe('connection node half over a real HTTP server', () => {
       )).toBe(404)
     } finally {
       await close()
+      await dispose()
+    }
+  })
+})
+
+describe('connection device registry handle', () => {
+  it('registers a device and accepts its cookie without a restart, then refuses it after revocation', async () => {
+    const { connection, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(await connection.devices.list()).toEqual([device])
+
+      const setCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      expect(setCookie).toBeDefined()
+      const cookie = setCookie!.split(';', 1)[0]!
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBeUndefined()
+      // A device registered moments ago is inside the one-hour touch window.
+      expect(await connection.devices.touch(device.id)).toBe(false)
+
+      expect(await connection.devices.revoke(device.id)).toBe(true)
+      expect(await connection.devices.list()).toEqual([])
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
+      expect(await connection.devices.revoke(device.id)).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('mints no cookie for a request without a usable Host', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      expect(connection.devices.issueCookie(fakeRequest({}), PairedDeviceId('device-1'))).toBeUndefined()
+      expect(connection.devices.issueCookie({ headers: { host: 'bad host' } }, PairedDeviceId('device-1'))).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('drops a device cookie when the credential record changes outside this service', async () => {
+    const { ctx, connection, store, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      const setCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = setCookie!.split(';', 1)[0]!
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBeUndefined()
+
+      // Another writer — an operator editing the file, or a second process —
+      // clears the registry; the running Host honors that on the next request.
+      store.setPairedDevices({ version: 1, devices: [] })
+      ctx.emit('credentials/record-updated', PAIRED_DEVICES_RECORD_KEY)
+
+      await vi.waitFor(() => {
+        expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
+      })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('classifies the authority a request arrived on', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      expect(connection.isLoopbackRequest(fakeRequest({ host: '127.0.0.1:3080' }))).toBe(true)
+      expect(connection.isLoopbackRequest(fakeRequest({ host: 'localhost:3080' }))).toBe(true)
+      expect(connection.isLoopbackRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
+      expect(connection.isLoopbackRequest(fakeRequest({}))).toBe(false)
+      expect(connection.isLoopbackRequest({ headers: { host: 'bad host' } })).toBe(false)
+    } finally {
       await dispose()
     }
   })

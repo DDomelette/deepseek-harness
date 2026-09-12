@@ -1,0 +1,47 @@
+{
+  "extends": "../../../tsconfig.base.client.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
+  },
+  "files": [
+    "src/client/AuthRequiredScreen.tsx",
+    "src/client/ConnectPhoneRow.tsx",
+    "src/client/PairScreen.tsx",
+    "src/client/PairingPanel.tsx",
+    "src/client/index.ts",
+    "src/client/locales.ts",
+    "src/client/pair-locales.ts",
+    "src/client/pairing-api.ts",
+    "src/client/qrcode-browser.d.ts",
+    "src/css-modules.d.ts",
+    "src/types.ts"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../api/remotes/tsconfig.client.json"
+    },
+    {
+      "path": "../../client/locale"
+    },
+    {
+      "path": "../../client/ui-layout"
+    },
+    {
+      "path": "../../client/ui-primitives"
+    },
+    {
+      "path": "../../client/ui-renderer"
+    },
+    {
+      "path": "../../client/ui-settings"
+    },
+    {
+      "path": "../../client/ui-slots"
+    }
+  ]
+}

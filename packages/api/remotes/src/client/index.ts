@@ -6,6 +6,8 @@ export type * from '@deepseek-ai/dsh-session-pins/types'
 import mcpServersRemote from '@deepseek-ai/dsh-mcp-manager/remote'
 export type {} from '@deepseek-ai/dsh-mcp-manager/remote'
 export type * from '@deepseek-ai/dsh-mcp-manager/types'
+import mobRemote from '@deepseek-ai/dsh-mob/remote'
+export type {} from '@deepseek-ai/dsh-mob/remote'
 import type { Context } from '@deepseek-ai/cordis'
 import agentPresetsRemote from '@deepseek-ai/dsh-agent-presets/remote'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
@@ -161,6 +163,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
       agentPresetsRemote, commandsRemote, settingsControllerRemote, goalsRemote, llmRemote, dynamicRemote,
       pluginInventoryRemote, messageFeedbackRemote, sessionFeedbackRemote, fileUploadsRemote, sessionReferencesRemote,
       subagentsRemote, sessionRemote, workspaceRemote, workspaceFilesRemote, sessionPinsRemote, mcpServersRemote,
+      mobRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

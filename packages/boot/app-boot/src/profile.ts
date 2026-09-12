@@ -113,7 +113,7 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
     patchReload: 'startup',
   },
   web: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-mob'],
     patchReload: 'live',
   },
   headless: {
@@ -133,6 +133,9 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
 /** Installation-owned bundle tuples normalized to the shipped template. */
 const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
+  // The phone-access layer joined the web template after this tuple shipped, so
+  // an untouched web profile is upgraded rather than read as user-owned.
+  web: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
 }
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */

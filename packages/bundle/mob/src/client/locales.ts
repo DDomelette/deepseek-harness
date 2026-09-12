@@ -1,0 +1,66 @@
+/** Copy dictionaries for the Connect-phone settings row and its QR dialog. */
+
+/** English strings (the key-set source of truth for this pair). */
+export const en = {
+  connectPhone: 'Connect phone',
+  showQr: 'Show QR code',
+  'dialog.title': 'Connect phone',
+  'dialog.description': 'Scan with your phone to open dsh on the same network.',
+  'dialog.loading': 'Preparing the join link…',
+  'dialog.unavailable': 'LAN access is not enabled. Start it with dsh web --host 0.0.0.0 --allow-lan.',
+  'dialog.noLanAddress': 'No LAN address found; check this computer\'s network connection',
+  'dialog.loadFailed': 'Loading the join link failed',
+  'dialog.urlLabel': 'Join link',
+  close: 'Close',
+  'panel.generate': 'Create pairing code',
+  'panel.expiresIn': '{seconds}s left',
+  'panel.expired': 'The code expired. Create a new one.',
+  'panel.codeHint': 'Scan the code with the phone, or open the link on it.',
+  'panel.requests': 'Waiting for a decision',
+  'panel.noRequests': 'No request is waiting.',
+  'panel.allow': 'Allow',
+  'panel.deny': 'Deny',
+  'panel.deviceLabel': 'Device name',
+  'panel.deviceFallback': 'Phone',
+  'panel.devices': 'Paired devices',
+  'panel.noDevices': 'No device is paired yet.',
+  'panel.registered': 'Added {time}',
+  'panel.lastSeen': 'Last used {time}',
+  'panel.revoke': 'Revoke',
+  'panel.lanOnly': 'These controls belong to the computer itself.',
+  'panel.failed': 'That failed; try again.',
+} as const
+
+/** Translation keys owned by the Connect-phone settings row. */
+export type MobileSettingsKey = keyof typeof en
+
+/** Chinese strings (mirrors the English key set). */
+export const zh: Record<MobileSettingsKey, string> = {
+  connectPhone: '连接手机',
+  showQr: '显示二维码',
+  'dialog.title': '连接手机',
+  'dialog.description': '用手机扫码，在同一网络中打开 dsh。',
+  'dialog.loading': '正在准备加入链接…',
+  'dialog.unavailable': '当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动',
+  'dialog.noLanAddress': '未找到局域网地址，请检查本机网络连接',
+  'dialog.loadFailed': '加入链接加载失败',
+  'dialog.urlLabel': '加入链接',
+  close: '关闭',
+  'panel.generate': '生成配对码',
+  'panel.expiresIn': '剩余 {seconds} 秒',
+  'panel.expired': '配对码已过期，请重新生成。',
+  'panel.codeHint': '用手机扫描二维码，或在手机上打开该链接。',
+  'panel.requests': '待确认的请求',
+  'panel.noRequests': '暂无待确认的请求。',
+  'panel.allow': '允许',
+  'panel.deny': '拒绝',
+  'panel.deviceLabel': '设备名称',
+  'panel.deviceFallback': '手机',
+  'panel.devices': '已配对的设备',
+  'panel.noDevices': '还没有已配对的设备。',
+  'panel.registered': '添加于 {time}',
+  'panel.lastSeen': '最近使用 {time}',
+  'panel.revoke': '吊销',
+  'panel.lanOnly': '这些操作只能在电脑本机上进行。',
+  'panel.failed': '操作失败，请重试。',
+}

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This reference defines the profile, web-alias, plugin-management, and config-dump command modes. Argv is parsed once through [`src/args.ts`](../src/args.ts), and [`src/bin.ts`](../src/bin.ts) dynamically imports only the selected runner.
+This reference defines the profile, profile-alias, plugin-management, and config-dump command modes. Argv is parsed once through [`src/args.ts`](../src/args.ts), and [`src/bin.ts`](../src/bin.ts) dynamically imports only the selected runner.
 
 ## Profile boot
 
@@ -10,7 +10,7 @@ This reference defines the profile, web-alias, plugin-management, and config-dum
 
 Bundle names resolve from the dsh installation first, then from the profile directory. In-box bundles (`@deepseek-ai/dsh-base`, `@deepseek-ai/dsh-web-app`, `@deepseek-ai/dsh-headless`, `@deepseek-ai/dsh-sdk-app`, `@deepseek-ai/dsh-sdk-minimal`, `@deepseek-ai/dsh-acp-app`) therefore always come from the same installation as the running `dsh`; out-of-tree bundles come from the profile's pnpm-managed `node_modules`. A bare plugin `name` in any patch row resolves through the profile directory's Node parent walk, which reaches the maintained installation fallback `$DSH_HOME/profiles/node_modules`. Plain Node installations place one healed symlink there per dependency-closure package. A pkg executable instead places a real ESM proxy that mirrors explicit exports and re-exports the virtual package URL, because operating-system symlinks cannot enter pkg's `/snapshot` filesystem. Every launch also links packages carried only by selected external bundles through a dsh-owned directory into the current profile's `node_modules`; existing pnpm entries win, and each profile owns its links independently.
 
-The `web`, `headless`, `sdk`, `sdk-minimal`, and `acp` profiles auto-initialize from shipped templates on first use (`web`: base + web-app with live patches; `headless`: base + headless with startup-only patches; `sdk`: base + sdk-app with startup-only patches; `sdk-minimal`: its standalone bundle with startup-only patches; `acp`: base + acp-app with startup-only patches). Any other missing profile fails loudly with a hint to run `dsh plugin --profile <name> add <package>`.
+The `web`, `headless`, `sdk`, `sdk-minimal`, and `acp` profiles auto-initialize from shipped templates on first use (`web`: base + web-app + mob with live patches; `headless`: base + headless with startup-only patches; `sdk`: base + sdk-app with startup-only patches; `sdk-minimal`: its standalone bundle with startup-only patches; `acp`: base + acp-app with startup-only patches). Any other missing profile fails loudly with a hint to run `dsh plugin --profile <name> add <package>`.
 
 `dsh --profile <name> --from-default-profile <template>` initializes a new custom target from one of those five shipped templates before boot. The target name cannot be a shipped profile name, and its complete profile directory must not exist. The launcher claims that directory exclusively, so residual files and another concurrent creator are rejected without modification. It copies the template's current bundle list and `patchReload` value into a new manifest with empty dependencies and an empty user patch. It does not read the local profile named by `<template>`, copy its dependencies or patch, or persist an inheritance field; later template-list changes do not rewrite the new profile. The in-box bundles named by that copied list still resolve from the current dsh installation. A successful initialization adds no launcher output.
 
@@ -74,7 +74,7 @@ dsh --profile tui
 
 Git-hosted plugins that ship sources build during install through their `prepare` script, which pnpm ≥10 blocks until the consumer allows it: the first `add` fails with pnpm's `allowBuilds` hint (and a dsh pointer at the profile's `pnpm-workspace.yaml`); copy the printed key there and re-run. Installing a built tarball or a local checkout needs no allowance.
 
-## Web alias
+## Profile aliases
 
 `dsh web` is a hardcoded alias for `--profile web`; the flags after it belong to the web app, whose ordinary bundle provider parses them. `--host` and `--port` override the composed values of the rows that carry them, repeatable `--trusted-host` contributes invocation authorities through `ctx.webRuntime.trustedHosts` (a deployment expression concatenates its own authorities), and `--no-open` disables the default-browser handoff for this invocation. The client-plugin HMR receiver is always mounted and stays idle until a separate `pnpm run dev:web` watcher rebuilds client bundles.
 
@@ -84,9 +84,10 @@ dsh web --no-open
 dsh web --patch ./extra.cordis.yml
 dsh web --dump-config
 dsh web --help
+dsh web --host 0.0.0.0 --allow-lan
 ```
 
-The production Web runner needs built package and frontend artifacts (`pnpm run build`). It serves `http://127.0.0.1:3080` by default and, for a local launch, opens that canonical host URL only after the complete Loader tree settles. A non-empty inherited `SSH_CONNECTION` or `SSH_TTY` suppresses the browser handoff because the SSH client or editor owns the local forwarded address; the host URL is still printed. The CLI intentionally does not support `--host 0.0.0.0` and exits with a usage error. Immediately before a local handoff it prints `dsh web: opening the default browser; pass --no-open to disable`; if the operating-system handoff fails, a diagnostic on stderr states the reason, leaves the server running, and names the URL for manual use. `--trusted-host` adds named authorities accepted by the `/api` browser-trust fence.
+The production Web runner needs built package and frontend artifacts (`pnpm run build`). It serves `http://127.0.0.1:3080` by default and, for a local launch, opens that canonical host URL only after the complete Loader tree settles. A non-empty inherited `SSH_CONNECTION` or `SSH_TTY` suppresses the browser handoff because the SSH client or editor owns the local forwarded address; the host URL is still printed. `--host 0.0.0.0` is gated behind `--allow-lan` and otherwise exits with a usage error; an all-interfaces bind prints a plain-HTTP warning on stderr and the readiness line lists the token-free LAN URLs a phone can open. The web profile layers [`@deepseek-ai/dsh-mob`](../../../packages/bundle/mob/README.md) as well: Settings → General → Connect phone renders a one-time pairing link as a QR code for a phone on the same network. Immediately before a local handoff it prints `dsh web: opening the default browser; pass --no-open to disable`; if the operating-system handoff fails, a diagnostic on stderr states the reason, leaves the server running, and names the URL for manual use. `--trusted-host` adds named authorities accepted by the `/api` browser-trust fence.
 
 Process shutdown gives the plugin tree up to five seconds to dispose. The first `SIGINT`/`SIGTERM` starts that graceful drain — `SIGTERM` is a supervisor's ordinary stop request and exits 0 on every surface, `SIGINT` reports 130; a second signal forces immediate exit. If one-shot normal completion is already stuck in disposal, the first `Ctrl+C` is the escalation and exits immediately instead of being swallowed.
 

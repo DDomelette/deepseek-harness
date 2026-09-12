@@ -6,7 +6,7 @@
  * reference graph closes a cycle through ui-sidebar → ui-layout → ui-theme.
  * The settings SLOT types (what registrants contribute) stay in ui-settings.
  */
-import type { ConnectionState } from '@deepseek-ai/dsh-client-connection/client'
+import type { ConnectionFailure, ConnectionState } from '@deepseek-ai/dsh-client-connection/client'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -40,6 +40,8 @@ export type SettingsRootInjected = {
   hooks: {
     /** Connection-owned state for the current Host connection. */
     connectionState: HostObservable<ConnectionState | undefined>
+    /** Connection-owned reason for the last failed generation, when one is known. */
+    connectionFailure: HostObservable<ConnectionFailure | undefined>
     /** settings.section ledger projected into ordered nav rows. */
     sections: HostObservable<readonly SettingsSectionRow[]>
     /** settings.onboarding ledger projected into coordinator order. */

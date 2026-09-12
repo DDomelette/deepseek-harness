@@ -75,6 +75,8 @@ function rejectElectronProfile(program: Command, profile: string): void {
 const HELP_EXAMPLES = `
 Examples:
   dsh --profile web                          boot the web profile (same as: dsh web)
+  dsh --profile web --host 0.0.0.0 --allow-lan
+                                             serve the web GUI to phones on a trusted LAN
   dsh --profile rescue --from-default-profile web
                                              create rescue from the shipped web template, then boot it
   dsh --profile headless "run the tests"     answer one task, print the result, and exit

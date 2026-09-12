@@ -23,12 +23,17 @@ vi.mock('node:child_process', async importOriginal => ({
   spawn: vi.fn(),
 }))
 
-vi.mock('node:os', async importOriginal => ({
-  ...await importOriginal<typeof import('node:os')>(),
-  networkInterfaces: () => ({
+/** Interface table the mocked `node:os` reports; tests replace it to shape LAN derivation. */
+const osInterfaces = vi.hoisted(() => ({
+  current: {
     lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
     en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
-  }),
+  } as Record<string, unknown[] | undefined>,
+}))
+
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  networkInterfaces: () => osInterfaces.current,
 }))
 
 let dist: string | undefined
@@ -36,6 +41,10 @@ let dist: string | undefined
 beforeEach(() => {
   vi.stubEnv('SSH_CONNECTION', '')
   vi.stubEnv('SSH_TTY', '')
+  osInterfaces.current = {
+    lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+  }
 })
 
 afterEach(() => {
@@ -131,6 +140,7 @@ describe('web-app runtime glue', () => {
     provideLoader(ctx)
     const lifecycle: string[] = []
     const log = vi.spyOn(console, 'log').mockImplementation((message) => { lifecycle.push(String(message)) })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const openBrowser = vi.fn(async (url: string) => { lifecycle.push(`open:${url}`) })
     internals.openBrowser = openBrowser
     apply(ctx, new Config({ openBrowser: true, printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'] }))
@@ -143,11 +153,11 @@ describe('web-app runtime glue', () => {
       lanAddresses: ['192.168.1.5'],
       trustedHosts: ['192.168.1.5', 'lab.internal'],
     })
-    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)')
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)')
     expect(log).toHaveBeenCalledWith('dsh web: opening the default browser; pass --no-open to disable')
     expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:4567/?token=test-token')
     expect(lifecycle).toEqual([
-      'dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)',
+      'dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)',
       'dsh web: opening the default browser; pass --no-open to disable',
       'open:http://127.0.0.1:4567/?token=test-token',
     ])
@@ -161,6 +171,49 @@ describe('web-app runtime glue', () => {
     const webRuntime = contributions.find(contribution => contribution.name === 'web-runtime')
     expect(webRuntime?.resolve()).toEqual({ DSH_WEB_URL: 'http://127.0.0.1:4567' })
     await ctx.fiber.dispose()
+  })
+
+  it('prints the remaining LAN candidates so an unreachable first pick stays recoverable', async () => {
+    stageDist()
+    osInterfaces.current = {
+      lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      'vEthernet (WSL)': [{ family: 'IPv4', internal: false, address: '172.20.128.1' }],
+      en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+    }
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer('0.0.0.0').server)
+    provideConnection(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(ctx, new Config({ openBrowser: false, printUrl: true, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    // The physical adapter leads, so the QR target is the reachable one; the
+    // virtual candidate still prints because the ordering is a name heuristic.
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)')
+    expect(log).toHaveBeenCalledWith('dsh web: other LAN addresses: http://172.20.128.1:4567/')
+    await ctx.fiber.dispose()
+  })
+
+  it('warns on stderr when serving all interfaces, and stays silent on loopback', async () => {
+    stageDist()
+    const lan = new Context()
+    lan.provide('webServer', fakeHttpServer('0.0.0.0').server)
+    provideConnection(lan)
+    const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(lan, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network')
+    await lan.fiber.dispose()
+
+    diagnostic.mockClear()
+    const local = new Context()
+    local.provide('webServer', fakeHttpServer().server)
+    provideConnection(local)
+    apply(local, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(diagnostic).not.toHaveBeenCalled()
+    await local.fiber.dispose()
   })
 
   it('publishes no readiness side effect when printing and browser opening are disabled', async () => {

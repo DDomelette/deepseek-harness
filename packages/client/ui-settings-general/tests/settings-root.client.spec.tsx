@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import type { ConnectionFailure } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -59,8 +60,10 @@ function mount({
   // plays a ledger change through the same observable contract.
   let current = rows
   let currentConnectionState = connectionState
+  let currentConnectionFailure: ConnectionFailure | undefined
   const listeners = new Set<() => void>()
   const connectionListeners = new Set<() => void>()
+  const failureListeners = new Set<() => void>()
   const reconnect = vi.fn()
   const renderSlot = vi.fn(
     ((key: string, _owner: unknown, opts?: { only?: string }) => {
@@ -94,6 +97,15 @@ function mount({
       return select(currentConnectionState)
     },
     useOnboardingSteps: select => select(steps),
+    useConnectionFailure: (select) => {
+      const [, force] = useState(0)
+      useEffect(() => {
+        const listener = () => { force(n => n + 1) }
+        failureListeners.add(listener)
+        return () => { failureListeners.delete(listener) }
+      }, [])
+      return select(currentConnectionFailure)
+    },
     useSections: (select) => {
       const [, force] = useState(0)
       useEffect(() => {
@@ -118,7 +130,13 @@ function mount({
       for (const fn of [...connectionListeners]) fn()
     })
   }
-  return { view, renderSlot, bump, listeners, reconnect, setConnectionState }
+  const setConnectionFailure = (next: ConnectionFailure | undefined) => {
+    act(() => {
+      currentConnectionFailure = next
+      for (const fn of [...failureListeners]) fn()
+    })
+  }
+  return { view, renderSlot, bump, listeners, reconnect, setConnectionState, setConnectionFailure }
 }
 
 function openPanel() {
@@ -176,6 +194,30 @@ describe('SettingsRoot trigger', () => {
   it('keeps the reconnect indicator out of the collapsed rail', () => {
     mount({ wide: false, connectionState: 'disconnected' })
     expect(screen.queryByRole('button', { name: 'Disconnected, reconnect now' })).toBeNull()
+  })
+
+  it('names the reason and keeps the carrier detail on the outage indicator', () => {
+    const mounted = mount({ connectionState: 'connecting' })
+    const indicator = screen.getByRole('button', { name: 'Reconnecting automatically, reconnect now' })
+    expect(indicator.textContent).not.toContain('Sign-in expired')
+
+    mounted.setConnectionFailure({
+      reason: 'auth',
+      detail: 'transport failure for /api/settings/describe: HTTP 401',
+    })
+    expect(indicator.textContent).toContain(en['connection.failure.auth'])
+    expect(indicator.textContent).toContain('HTTP 401')
+    expect(indicator.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
+
+    mounted.setConnectionFailure(undefined)
+    expect(indicator.textContent).not.toContain(en['connection.failure.auth'])
+  })
+
+  it('localizes the failure reason', () => {
+    const mounted = mount({ connectionState: 'connecting', dictionary: zh })
+    mounted.setConnectionFailure({ reason: 'unreachable', detail: 'upgrade refused' })
+    expect(screen.getByRole('button', { name: '连接中断，正在自动重试，点击立即重连' }).textContent)
+      .toContain(zh['connection.failure.unreachable'])
   })
 })
 

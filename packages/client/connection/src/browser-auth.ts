@@ -3,7 +3,12 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
+import { listDevices } from './devices.ts'
+import type { PairedDeviceId } from './device-brand.ts'
+import { isLoopbackHostname } from './loopback-hostname.ts'
+import { header, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionTrustRequest,
@@ -15,6 +20,7 @@ const SECRET_BYTES = 32
 const TOKEN_QUERY = 'token'
 const COOKIE_PREFIX = 'dsh-auth-'
 const COOKIE_PAYLOAD_VERSION = 1
+const DEVICE_COOKIE_PAYLOAD_VERSION = 2
 const STORED_SECRET_VERSION = 1
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
 const PROCESS_LAUNCH_TOKENS = new WeakMap<object, string>()
@@ -25,10 +31,12 @@ interface StoredSecretPayload {
 }
 
 interface BrowserCookiePayload {
-  readonly version: typeof COOKIE_PAYLOAD_VERSION
+  readonly version: typeof COOKIE_PAYLOAD_VERSION | typeof DEVICE_COOKIE_PAYLOAD_VERSION
   readonly authority: string
   readonly issuedAt: number
   readonly expiresAt: number
+  /** Present on device cookies only; the registry decides whether it still counts. */
+  readonly deviceId?: PairedDeviceId
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -55,26 +63,6 @@ function processLaunchToken(owner: object): string {
   const created = encodeBase64Url(randomBytes(SECRET_BYTES))
   PROCESS_LAUNCH_TOKENS.set(owner, created)
   return created
-}
-
-function header(
-  headers: ConnectionTrustRequest['headers'],
-  name: string,
-): string | undefined {
-  if (headers instanceof Headers) return headers.get(name) ?? undefined
-  const value = headers[name]
-  return typeof value === 'string' ? value : undefined
-}
-
-/** Canonical request authority used as the cookie name and signed audience. */
-function requestAuthority(headers: ConnectionTrustRequest['headers']): string | undefined {
-  const host = header(headers, 'host')
-  if (host === undefined) return undefined
-  try {
-    return new URL(`http://${host}`).host
-  } catch {
-    return undefined
-  }
 }
 
 function canonicalSecret(value: unknown): Buffer | undefined {
@@ -128,13 +116,15 @@ function signature(secret: Buffer, body: string): Buffer {
 
 function encodeCookie(payload: BrowserCookiePayload, secret: Buffer): string {
   const body = encodeBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'))
-  return `v1.${body}.${encodeBase64Url(signature(secret, body))}`
+  const envelope = payload.version === DEVICE_COOKIE_PAYLOAD_VERSION ? 'v2' : 'v1'
+  return `${envelope}.${body}.${encodeBase64Url(signature(secret, body))}`
 }
 
 function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | undefined {
   const parts = value.split('.')
-  const [version, body, encodedSignature] = parts
-  if (parts.length !== 3 || version !== 'v1' || body === undefined || encodedSignature === undefined) {
+  const [envelope, body, encodedSignature] = parts
+  const version = envelope === 'v1' ? COOKIE_PAYLOAD_VERSION : envelope === 'v2' ? DEVICE_COOKIE_PAYLOAD_VERSION : undefined
+  if (parts.length !== 3 || version === undefined || body === undefined || encodedSignature === undefined) {
     return undefined
   }
   const actualSignature = decodeBase64Url(encodedSignature)
@@ -151,10 +141,12 @@ function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | und
     return undefined
   }
   if (!isRecord(decoded)
-    || decoded.version !== COOKIE_PAYLOAD_VERSION
+    || decoded.version !== version
     || typeof decoded.authority !== 'string'
     || !Number.isSafeInteger(decoded.issuedAt)
     || !Number.isSafeInteger(decoded.expiresAt)) return undefined
+  if (version === DEVICE_COOKIE_PAYLOAD_VERSION
+    && (typeof decoded.deviceId !== 'string' || decoded.deviceId === '')) return undefined
   return decoded as unknown as BrowserCookiePayload
 }
 
@@ -178,41 +170,61 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
 }
 
 /**
- * Process launch-token exchange and persistent signed-cookie verification.
- * Connection loads the credential provider's signing secret during activation
- * and retains it for synchronous request authentication.
+ * Process launch-token exchange, persistent signed-cookie verification, and the
+ * paired-device cookies the LAN pairing handshake issues. Connection loads the
+ * credential provider's signing secret and the paired-device registry during
+ * activation and retains both for synchronous request authentication.
  */
 export class BrowserAuth {
   private readonly launchToken: string
   private readonly maxAgeMilliseconds: number
+  private readonly deviceMaxAgeMilliseconds: number
+  private pairedDeviceIds: ReadonlySet<PairedDeviceId>
 
   private constructor(
     processOwner: object,
+    private readonly credentials: CredentialProvider,
     private readonly secret: Buffer,
     maxAgeDays: number,
+    deviceMaxAgeDays: number,
+    pairedDeviceIds: ReadonlySet<PairedDeviceId>,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
-    if (!Number.isSafeInteger(this.maxAgeMilliseconds)
-      || !Number.isSafeInteger(Date.now() + this.maxAgeMilliseconds)) {
-      throw new Error('client-connection: cookieMaxAgeDays exceeds the safe timestamp range')
+    this.deviceMaxAgeMilliseconds = deviceMaxAgeDays * DAY_MILLISECONDS
+    this.pairedDeviceIds = pairedDeviceIds
+    for (const milliseconds of [this.maxAgeMilliseconds, this.deviceMaxAgeMilliseconds]) {
+      if (!Number.isSafeInteger(milliseconds) || !Number.isSafeInteger(Date.now() + milliseconds)) {
+        throw new Error('client-connection: cookieMaxAgeDays exceeds the safe timestamp range')
+      }
     }
   }
 
   /**
-   * Initialize browser authentication and create its durable signing secret
-   * when this Harness home has none.
+   * Initialize browser authentication, create its durable signing secret when
+   * this Harness home has none, and load the paired-device registry.
    * @param processOwner - root application context retaining one token across Connection reloads.
    * @param credentials - persistent credential provider for the Web profile.
-   * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
+   * @param maxAgeDays - positive absolute launch-token cookie lifetime in days.
+   * @param deviceMaxAgeDays - positive absolute paired-device cookie lifetime in days.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
     processOwner: object,
     credentials: CredentialProvider,
     maxAgeDays: number,
+    deviceMaxAgeDays: number,
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays)
+    const secret = await initializeSecret(credentials)
+    const devices = await listDevices(credentials)
+    return new BrowserAuth(
+      processOwner,
+      credentials,
+      secret,
+      maxAgeDays,
+      deviceMaxAgeDays,
+      new Set(devices.map(device => device.id)),
+    )
   }
 
   /**
@@ -230,21 +242,60 @@ export class BrowserAuth {
   }
 
   /**
-   * Authenticate an index request. A valid root query token mints the cookie
-   * and redirects to clean `/`; a valid cookie lets the caller serve the
-   * index; every other request receives the same minimal 401 response.
-   * @param req - incoming root or configured-index request.
-   * @param res - response owned when this method returns false.
-   * @returns true only when the caller may serve index.html.
+   * Mint the cookie a phone receives once its pairing request is approved.
+   * @param authority - canonical `host:port` the cookie is bound to.
+   * @param deviceId - registry id of the approved device.
+   * @returns the complete `Set-Cookie` value, valid while that device stays registered.
    */
-  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+  issueDeviceCookie(authority: string, deviceId: PairedDeviceId): string {
+    const issuedAt = Date.now()
+    const expiresAt = issuedAt + this.deviceMaxAgeMilliseconds
+    const value = encodeCookie({
+      version: DEVICE_COOKIE_PAYLOAD_VERSION,
+      authority,
+      deviceId,
+      issuedAt,
+      expiresAt,
+    }, this.secret)
+    return sessionCookie(
+      cookieName(authority), value, expiresAt, Math.floor(this.deviceMaxAgeMilliseconds / 1000),
+    )
+  }
+
+  /**
+   * Re-read the paired-device registry, so a registration or revocation reaches
+   * the request path without restarting the Host.
+   * @returns nothing; the refreshed registry is installed before it resolves.
+   */
+  async refreshPairedDevices(): Promise<void> {
+    const devices = await listDevices(this.credentials)
+    this.pairedDeviceIds = new Set(devices.map(device => device.id))
+  }
+
+  /**
+   * Authenticate an index request. A valid root query token mints the cookie
+   * and redirects to clean `/`; a valid cookie lets the caller serve the index;
+   * a refusal on a loopback authority receives the minimal 401 response, while
+   * a non-loopback client is answered by the caller with the shell marked as
+   * needing authentication — the launch token is not a credential a phone can
+   * use, so pairing is the only way in.
+   * @param req - incoming root or configured-index request.
+   * @param res - response owned when this method returns `answered`.
+   * @returns what the caller may serve for this request.
+   */
+  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
       const authority = requestAuthority(req.headers)
+      const hostname = requestHostname(req.headers)
+      // The process launch token is the computer's own credential: it is
+      // exchanged only where the operator's own machine reached this Host, so a
+      // token-bearing LAN URL a phone opens grants that phone nothing.
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
-        && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
+        && authority !== undefined && hostname !== undefined && isLoopbackHostname(hostname)
+        && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
         const expiresAt = issuedAt + this.maxAgeMilliseconds
         const value = encodeCookie({
@@ -262,7 +313,7 @@ export class BrowserAuth {
           ),
         })
         res.end()
-        return false
+        return 'answered'
       }
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
         res.writeHead(303, {
@@ -271,20 +322,46 @@ export class BrowserAuth {
           'referrer-policy': 'no-referrer',
         })
         res.end()
-        return false
+        return 'answered'
       }
-      this.writeUnauthorized(req, res)
-      return false
+      return this.refuseIndex(req, res)
     }
-    if (this.isAuthenticated(req)) return true
-    this.writeUnauthorized(req, res)
-    return false
+    if (this.isAuthenticated(req)) return 'serve'
+    return this.refuseIndex(req, res)
   }
 
   /**
-   * Verify the authority-bound browser cookie on a Host request.
+   * Decide how a refused index request is answered. Only a loopback authority —
+   * the operator's own browser — can act on the printed launch URL, so every
+   * other client is served the shell marked as needing authentication.
+   * @param req - refused index request.
+   * @param res - response owned by the loopback 401.
+   * @returns the verdict for this refusal.
+   */
+  private refuseIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
+    const hostname = requestHostname(req.headers)
+    if (hostname !== undefined && !isLoopbackHostname(hostname)) return 'auth-required'
+    this.refuseIndexInText(req, res)
+    return 'answered'
+  }
+
+  /**
+   * Complete a refusal with the minimal 401 response, for the caller that
+   * decides this authority may not receive the application shell at all.
+   * @param req - refused index request.
+   * @param res - response to write.
+   */
+  refuseIndexInText(req: ConnectionIndexRequest, res: ConnectionIndexResponse): void {
+    this.writeUnauthorized(req, res)
+  }
+
+  /**
+   * Verify the authority-bound browser cookie on a Host request. A device cookie
+   * must name a device the registry still holds, on the authority it was issued
+   * for; a launch-token cookie is the computer's own and counts only on a
+   * loopback authority, so revoking a device is the whole story for every phone.
    * @param request - request headers carrying Host and Cookie.
-   * @returns true only for an unexpired cookie signed by this activation's loaded secret.
+   * @returns true only for a cookie this activation still accepts.
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
     const authority = requestAuthority(request.headers)
@@ -295,9 +372,16 @@ export class BrowserAuth {
     const payload = decodeCookie(value, this.secret)
     if (payload === undefined || payload.authority !== authority) return false
     const now = Date.now()
-    return payload.issuedAt <= now
+    if (!(payload.issuedAt <= now
       && payload.expiresAt > now
-      && payload.expiresAt > payload.issuedAt
+      && payload.expiresAt > payload.issuedAt)) return false
+    if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) {
+      return payload.deviceId !== undefined
+        && this.pairedDeviceIds.has(payload.deviceId)
+        && payload.expiresAt - payload.issuedAt <= this.deviceMaxAgeMilliseconds
+    }
+    const hostname = requestHostname(request.headers)
+    return hostname !== undefined && isLoopbackHostname(hostname)
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }
 
