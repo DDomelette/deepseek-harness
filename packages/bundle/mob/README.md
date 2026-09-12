@@ -40,7 +40,7 @@ The browser half adds a Connect phone row under Settings → General, which is t
 
 ### Pairing a phone
 
-`POST /pair/session` opens a request and answers with an eight-character code that lives two minutes. The phone opens `/pair?c=<code>` and polls `/pair/state`; the moment the computer approves the request, that poll answers with the device cookie, and the phone holds a session of its own instead of the computer's launch token. `POST /pair/approve` carries the decision and the device label, `GET /pair/requests` lists what still waits, `GET /pair/devices` lists what was approved, and `POST /pair/revoke` ends one device's access on its next request. `/pair` and `/pair/state` accept a phone that holds no cookie yet — they still pass the Host fence and the per-source throttling — while every other route requires the browser session *and* a loopback authority, so a phone on the LAN cannot approve itself.
+`POST /pair/session` opens a request and answers with an eight-character code that lives two minutes. The phone opens `/pair?c=<code>`, which serves the application shell carrying the `__DSH_PAIR__` boot fact; the browser half registers a pairing screen over `shell.overlay` for that page, shows the code, and polls `/pair/state` every 1.5 seconds. The moment the computer approves the request, that poll answers with the device cookie and the screen leaves for `/`, so the phone holds a session of its own instead of the computer's launch token; a denied, expired, or throttled code stops the polling and shows the copy that says what to do next. `POST /pair/approve` carries the decision and the device label, `GET /pair/requests` lists what still waits, `GET /pair/devices` lists what was approved, and `POST /pair/revoke` ends one device's access on its next request. `/pair` and `/pair/state` accept a phone that holds no cookie yet — they still pass the Host fence and the per-source throttling — while every other route requires the browser session *and* a loopback authority, so a phone on the LAN cannot approve itself.
 
 ### What you get
 
@@ -70,7 +70,8 @@ The join URL comes from the `webRuntime` service — the same `resolveLanTrust` 
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`: the `mob` Remote namespace's `joinUrl`, classifying an empty snapshot as `mob/loopback-only` or `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | The `mob` failure-code declarations (`mob/loopback-only`, `mob/no-lan-address`), shared by both faces |
 | [`src/pairing.ts`](src/pairing.ts) | The pairing sessions: eight-character codes with a two-minute life, one decision each, and per-source throttling |
-| [`src/routes.ts`](src/routes.ts) | The `/pair*` named routes: the phone's two cookie-less steps and the computer's loopback-only decisions |
+| [`src/routes.ts`](src/routes.ts) | The `/pair*` named routes: the phone's shell and cookie-less state read, and the computer's loopback-only decisions |
+| [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | The phone's pairing screen: the boot fact, the state poll, and the copy per decision |
 | [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, QR dialog, and the `settings.mobile` dictionaries |
 | — | No runtime invariant companion is published; every observable effect is derived per call from the fence snapshot (see Invariant ownership below). |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host half: namespace registration, join answer, disposal |
@@ -78,6 +79,7 @@ The join URL comes from the `webRuntime` service — the same `resolveLanTrust` 
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | The URL composer and the `joinUrl` Remote method, LAN and loopback paths |
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | Pairing sessions: codes, approval, expiry, single use, and throttling |
 | [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | The pairing routes: access rules, code flow, device cookie, and body edges |
+| [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | The pairing screen: polling, navigation on approval, and the copy per decision |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | Row registration, deferred slot declaration, injected `joinUrl`, disposal |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | The row and dialog: load, QR render, loopback copy, close and reopen |
 

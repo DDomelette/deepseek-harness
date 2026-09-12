@@ -7,8 +7,10 @@
   },
   "files": [
     "src/client/ConnectPhoneRow.tsx",
+    "src/client/PairScreen.tsx",
     "src/client/index.ts",
     "src/client/locales.ts",
+    "src/client/pair-locales.ts",
     "src/client/qrcode-browser.d.ts",
     "src/css-modules.d.ts",
     "src/types.ts"
@@ -22,6 +24,9 @@
     },
     {
       "path": "../../client/locale"
+    },
+    {
+      "path": "../../client/ui-layout"
     },
     {
       "path": "../../client/ui-primitives"

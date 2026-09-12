@@ -11,6 +11,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-connection'
+import { FRONTEND_SERVICE, type FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import type { PairingSessions } from './pairing.ts'
 
 /** Query parameter carrying the pairing code. */
@@ -116,22 +117,23 @@ function refused(
   return false
 }
 
-/** The phone screen shell: the boot fact the pairing client reads, nothing else. */
-function screenHtml(code: string): string {
-  const boot = JSON.stringify({ code })
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DSH pairing</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>globalThis.__DSH_PAIR__ = ${boot}</script>
-  </body>
-</html>
-`
+/** The phone screen shell: the boot fact the pairing component reads, nothing else. */
+function bootFact(code: string): string {
+  return `<script>globalThis.__DSH_PAIR__ = ${JSON.stringify({ code })}</script>`
+}
+
+/**
+ * The phone screen: the application shell carrying the pairing boot fact, so the
+ * pairing component renders over the shell it already knows.
+ * @param ctx - plugin context carrying the frontend service.
+ * @param code - the code the phone claimed.
+ * @returns the shell HTML, or undefined when this Host serves no application shell.
+ */
+async function pairingShell(ctx: Context, code: string): Promise<string | undefined> {
+  const frontend = ctx.get(FRONTEND_SERVICE) as FrontendService | undefined
+  if (frontend === undefined) return undefined
+  const html = await frontend.renderIndex()
+  return html.replace(/<head(?:\s[^>]*)?>/i, open => `${open}${bootFact(code)}`)
 }
 
 /**
@@ -145,7 +147,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
     ctx.webServer.register({
       kind: 'exact',
       path: PAIR_PATHS.screen,
-      handler: (req, res) => {
+      handler: async (req, res) => {
         if (req.method !== 'GET' && req.method !== 'HEAD') {
           sendMethodNotAllowed(res, 'GET, HEAD')
           return
@@ -158,9 +160,12 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         }
         const agent = req.headers['user-agent']
         if (typeof agent === 'string') pairing.recordAgent(code, agent)
-        send(res, 200, req.method === 'HEAD' ? '' : screenHtml(code), {
-          'content-type': 'text/html; charset=utf-8',
-        })
+        const shell = await pairingShell(ctx, code)
+        if (shell === undefined) {
+          sendJson(res, 503, { error: 'this Host serves no application shell' })
+          return
+        }
+        send(res, 200, req.method === 'HEAD' ? '' : shell, { 'content-type': 'text/html; charset=utf-8' })
       },
     }),
     ctx.webServer.register({

@@ -16,6 +16,8 @@ import { PAIR_PATHS, registerPairingRoutes } from '../src/routes.ts'
 
 const COOKIE = 'dsh-auth-test=v2.payload.signature; Max-Age=15552000; Path=/; HttpOnly; SameSite=Strict'
 const SOURCE = '192.168.0.122'
+/** The application shell the frontend fixture renders. */
+const SHELL = '<!doctype html>\n<html><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>'
 
 const contexts: Context[] = []
 
@@ -31,6 +33,8 @@ interface ConnectionOptions {
   readonly loopback?: boolean
   /** Whether device-cookie issuance reports an unusable request authority. */
   readonly noCookie?: boolean
+  /** Whether this Host serves an application shell at all. */
+  readonly noShell?: boolean
 }
 
 interface Bench {
@@ -95,6 +99,7 @@ function bench(options: ConnectionOptions = {}): Bench {
   } as never)
 
   const pairing = new PairingSessions()
+  if (options.noShell !== true) ctx.provide('frontend', { renderIndex: async () => SHELL } as never)
   registerPairingRoutes(ctx, pairing)
 
   return {
@@ -210,10 +215,15 @@ describe('pairing routes', () => {
     })
     expect(screen.status).toBe(200)
     expect(screen.headers['content-type']).toContain('text/html')
-    expect(screen.body).toContain(`globalThis.__DSH_PAIR__ = {"code":"${code}"}`)
+    expect(screen.body).toBe(SHELL.replace(
+      '<head>',
+      `<head><script>globalThis.__DSH_PAIR__ = {"code":"${code}"}</script>`,
+    ))
     expect(subject.pairing.pending()[0]?.userAgent).toBe('Mozilla/5.0 (Linux; Android 10; JAD-AL50)')
 
     expect((await subject.call(PAIR_PATHS.screen, { method: 'HEAD', code })).body).toBe('')
+    expect((await subject.call(PAIR_PATHS.screen, {})).status).toBe(400)
+    expect((await bench({ noShell: true }).call(PAIR_PATHS.screen, { code })).status).toBe(503)
     expect((await subject.call(PAIR_PATHS.screen, {})).status).toBe(400)
     const wrongMethod = await subject.call(PAIR_PATHS.screen, { method: 'POST', code })
     expect(wrongMethod.status).toBe(405)

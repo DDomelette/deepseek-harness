@@ -40,7 +40,7 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 
 ### 配对一台手机
 
-`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>` 并轮询 `/pair/state`；电脑批准该请求的那一刻，这次轮询就会带回设备 cookie，手机由此拥有自己的会话，而不再依赖电脑的启动令牌。`POST /pair/approve` 携带决定与设备名称，`GET /pair/requests` 列出仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/revoke` 让某台设备的下一次请求失效。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求浏览器会话**且**来自回环 authority，因此局域网上的手机无法自行批准。
+`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案。`POST /pair/approve` 携带决定与设备名称，`GET /pair/requests` 列出仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/revoke` 让某台设备的下一次请求失效。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求浏览器会话**且**来自回环 authority，因此局域网上的手机无法自行批准。
 
 ### 你会得到什么
 
@@ -70,7 +70,8 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把空快照分类为 `mob/loopback-only` 或 `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | `mob` 失败码声明（`mob/loopback-only`、`mob/no-lan-address`），两个 face 共享 |
 | [`src/pairing.ts`](src/pairing.ts) | 配对会话：8 位短码、两分钟寿命、每码一次决定与按来源限流 |
-| [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧两条无 cookie 步骤与电脑侧仅回环可用的决定 |
+| [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及电脑侧仅回环可用的决定 |
+| [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | 手机端配对界面：启动事实、状态轮询与按决定显示的文案 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
@@ -78,6 +79,7 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | URL 拼装器与 `joinUrl` Remote 方法的局域网/回环两路 |
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | 配对会话：短码、批准、过期、单次使用与限流 |
 | [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | 配对路由：访问规则、短码流程、设备 cookie 与请求体边界 |
+| [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | 配对界面：轮询、批准后跳转与各决定对应的文案 |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |
 
