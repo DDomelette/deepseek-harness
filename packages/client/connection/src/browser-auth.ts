@@ -4,7 +4,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { listDevices } from './devices.ts'
-import { header, requestAuthority } from './request-authority.ts'
+import { isLoopbackHostname } from './loopback-hostname.ts'
+import { header, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
   ConnectionIndexRequest,
   ConnectionIndexResponse,
@@ -283,8 +284,13 @@ export class BrowserAuth {
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
       const authority = requestAuthority(req.headers)
+      const hostname = requestHostname(req.headers)
+      // The process launch token is the computer's own credential: it is
+      // exchanged only where the operator's own machine reached this Host, so a
+      // token-bearing LAN URL a phone opens grants that phone nothing.
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
-        && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
+        && authority !== undefined && hostname !== undefined && isLoopbackHostname(hostname)
+        && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
         const expiresAt = issuedAt + this.maxAgeMilliseconds
         const value = encodeCookie({
@@ -322,9 +328,10 @@ export class BrowserAuth {
   }
 
   /**
-   * Verify the authority-bound browser cookie on a Host request. A launch-token
-   * cookie must be unexpired and signed by this activation's loaded secret; a
-   * device cookie must additionally name a device the registry still holds.
+   * Verify the authority-bound browser cookie on a Host request. A device cookie
+   * must name a device the registry still holds, on the authority it was issued
+   * for; a launch-token cookie is the computer's own and counts only on a
+   * loopback authority, so revoking a device is the whole story for every phone.
    * @param request - request headers carrying Host and Cookie.
    * @returns true only for a cookie this activation still accepts.
    */
@@ -345,7 +352,9 @@ export class BrowserAuth {
         && this.pairedDeviceIds.has(payload.deviceId)
         && payload.expiresAt - payload.issuedAt <= this.deviceMaxAgeMilliseconds
     }
-    return payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
+    const hostname = requestHostname(request.headers)
+    return hostname !== undefined && isLoopbackHostname(hostname)
+      && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse): void {

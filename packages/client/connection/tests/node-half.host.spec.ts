@@ -117,6 +117,22 @@ function browserCookie(connection: HostConnectionHandle, authority: string): str
   return setCookie.split(';', 1)[0]!
 }
 
+/**
+ * One accepted Cookie header for an authority: the launch-token exchange on
+ * loopback, and a paired device's own cookie everywhere else — the process token
+ * is a loopback credential.
+ */
+async function authorityCookie(connection: HostConnectionHandle, authority: string): Promise<string> {
+  const hostname = new URL(`http://${authority}`).hostname
+  if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]') {
+    return browserCookie(connection, authority)
+  }
+  const device = await connection.devices.register({ label: 'test device' })
+  const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+  if (issued === undefined) throw new Error('device cookie issuance produced no cookie')
+  return issued.split(';', 1)[0]!
+}
+
 describe('connection node half', () => {
   it('provides the carrier-neutral service without a Web server', async () => {
     const ctx = new Context()
@@ -218,7 +234,7 @@ describe('connection node half', () => {
       expect([method, denied.state.status, denied.state.body]).toEqual([method, 401, 'unauthorized'])
     }
 
-    const cookie = browserCookie(connection, 'harness.example')
+    const cookie = await authorityCookie(connection, 'harness.example')
     for (const method of methods) {
       const allowed = fakeResponse()
       await routes[0]!.handler(
@@ -245,11 +261,11 @@ describe('connection node half', () => {
     }), loopback.response)
     expect(loopback.state.status).toBe(404)
     // An all-interfaces composition derives port-less LAN IP literals, which
-    // pass markerless curl on any port.
+    // pass markerless curl on any port; that authority authenticates devices.
     const lan = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: '192.168.1.5:3080',
-      cookie: browserCookie(connection, '192.168.1.5:3080'),
+      cookie: await authorityCookie(connection, '192.168.1.5:3080'),
     }), lan.response)
     expect(lan.state.status).toBe(404)
     // Declared public authority, same-origin browser shape.
@@ -258,7 +274,7 @@ describe('connection node half', () => {
       host: 'harness.example:3080',
       origin: 'http://harness.example:3080',
       'sec-fetch-site': 'same-origin',
-      cookie: browserCookie(connection, 'harness.example:3080'),
+      cookie: await authorityCookie(connection, 'harness.example:3080'),
     }), declared.response)
     expect(declared.state.status).toBe(404)
     await dispose()
@@ -273,7 +289,7 @@ describe('connection node half', () => {
     expect(connection.requestRejection(declared)).toBe(401)
     expect(connection.requestRejection(fakeRequest({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }))).toBeUndefined()
     await dispose()
   })
@@ -404,7 +420,7 @@ describe('connection node half', () => {
     const declared = fakeResponse()
     await route.handler(fakePost({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }, '/api/goals/create', request), declared.response)
     expect(declared.state.status).toBe(200)
     await removeAuthenticated()
@@ -426,7 +442,7 @@ describe('connection node half', () => {
     const route = routes.find(candidate => candidate.path === '/rpc')!
     const harnessHeaders = {
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }
 
     const denied = fakeResponse()
@@ -546,7 +562,7 @@ describe('connection node half over a real HTTP server', () => {
       }
       expect(await call(port, 'settings/openSettingsDocument', 'other.example')).toBe(403)
 
-      const declaredCookie = browserCookie(connection, 'harness.example')
+      const declaredCookie = await authorityCookie(connection, 'harness.example')
       for (const method of methods) {
         expect([method, await call(port, method, 'harness.example', declaredCookie)]).toEqual([method, 404])
       }

@@ -1,11 +1,16 @@
 /** Browser launch-token and persistent-cookie behavior. */
 
-import { createHmac } from 'node:crypto'
+import { createHash, createHmac } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { BrowserAuth } from '../src/browser-auth.ts'
 import type { ConnectionIndexRequest, ConnectionIndexResponse } from '../src/rpc.ts'
 import { RecordCredentials } from './browser-credentials.ts'
+
+/** Cookie name a browser holding a cookie for this authority would send. */
+function cookieNameFor(authority: string): string {
+  return `dsh-auth-${createHash('sha256').update(authority).digest('base64url')}`
+}
 
 function signedCookie(store: RecordCredentials, name: string, payload: unknown, envelope = 'v1'): string {
   const body = typeof payload === 'string'
@@ -271,6 +276,38 @@ describe('BrowserAuth', () => {
   })
 
   describe('device cookies', () => {
+    it('exchanges the launch token and accepts its cookie on loopback only', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const store = new RecordCredentials()
+      const auth = await createAuth(store)
+      const lanAuthority = '192.168.0.126:3080'
+
+      const launch = new URL(auth.authenticatedUrl(`http://${lanAuthority}`))
+      const refused = response()
+      expect(auth.authorizeIndex(
+        request(`${launch.pathname}${launch.search}`, lanAuthority),
+        refused.value,
+      )).toBe(false)
+      expect(refused.state).toMatchObject({ status: 401 })
+      expect(refused.state.headers?.['set-cookie']).toBeUndefined()
+
+      // A launch-token cookie that exists for a LAN authority — a phone that
+      // opened the printed LAN URL before this rule — buys nothing.
+      const payload = {
+        version: 1,
+        authority: lanAuthority,
+        issuedAt: Date.now(),
+        expiresAt: Date.now() + 1_000,
+      }
+      const forged = signedCookie(store, cookieNameFor(lanAuthority), payload)
+      expect(auth.isAuthenticated(request('/', lanAuthority, { cookie: forged }))).toBe(false)
+
+      // The same cookie shape is exactly what the computer's own browser holds.
+      const loopbackExchange = exchange(auth)
+      expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: loopbackExchange.cookie }))).toBe(true)
+    })
+
     it('mints a v2 cookie bound to the authority and the configured device lifetime', async () => {
       const store = new RecordCredentials()
       store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1', 'HUAWEI JAD-AL50')] })
