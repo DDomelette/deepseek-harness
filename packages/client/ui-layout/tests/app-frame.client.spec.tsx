@@ -221,6 +221,53 @@ describe('AppFrame', () => {
     expect(getByTestId('rightbar-content')).toBeTruthy()
   })
 
+  it('renders the expanded sidebar as a drawer with a scrim below the overlay breakpoint', () => {
+    frameWidth = 390
+    const { frame, instance, sidebarOwner } = mountFrame()
+    expect(frame.dataset.drawer).toBeUndefined()
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(tracks(frame)).toEqual([56, 0])
+    expect(frame.dataset.drawer).toBe('true')
+    const drawerCol = frame.querySelector('[data-drawer]')
+    expect(drawerCol?.querySelector('[data-testid="sidebar-content"]')).toBeTruthy()
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
+    expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.dataset.drawer).toBeUndefined()
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    act(() => { instance.actions.toggleSidebar() })
+    const scrim = frame.querySelector('[data-drawer-scrim]')!
+    act(() => { scrim.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+  })
+
+  it('keeps the drawer floating above an open right panel', () => {
+    frameWidth = 390
+    const { frame, instance, rightOwner, sidebarOwner } = mountFrame()
+    act(() => { instance.actions.openRightbar(true, false) })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.drawer).toBe('true')
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(rightOwner().canShow).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
+  })
+
+  it('keeps the squeeze rendering between the overlay and auto-collapse breakpoints', () => {
+    frameWidth = 800
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(tracks(frame)).toEqual([280, 0])
+    expect(frame.dataset.drawer).toBeUndefined()
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    expect(handleFor(frame, 'sidebar').style.left).toBe('280px')
+  })
+
   it('keeps the closed sidebar mounted at its 56px rail without a handle', () => {
     const { frame, instance, sidebarOwner, getByTestId } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
