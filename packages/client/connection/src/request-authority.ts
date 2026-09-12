@@ -21,7 +21,11 @@ export function header(
   return typeof value === 'string' ? value : undefined
 }
 
-/** Canonical authority (`host:port`) a request was addressed to. */
+/**
+ * Canonical authority (`host:port`) a request was addressed to.
+ * @param headers - request headers in either supported form.
+ * @returns the normalized authority, or undefined when the request carries no usable Host.
+ */
 export function requestAuthority(headers: ConnectionTrustRequest['headers']): string | undefined {
   const host = header(headers, 'host')
   if (host === undefined) return undefined
@@ -32,7 +36,11 @@ export function requestAuthority(headers: ConnectionTrustRequest['headers']): st
   }
 }
 
-/** WHATWG-normalized hostname a request was addressed to. */
+/**
+ * WHATWG-normalized hostname a request was addressed to.
+ * @param headers - request headers in either supported form.
+ * @returns the normalized hostname, or undefined when the request carries no usable Host.
+ */
 export function requestHostname(headers: ConnectionTrustRequest['headers']): string | undefined {
   const host = header(headers, 'host')
   if (host === undefined) return undefined
