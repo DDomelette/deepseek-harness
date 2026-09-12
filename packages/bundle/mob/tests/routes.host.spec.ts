@@ -196,6 +196,13 @@ describe('pairing routes', () => {
     const subject = bench()
     const { code } = subject.pairing.openSession()
 
+    const phoneOnly = bench({ rejection: 401 })
+    const unauthenticated = phoneOnly.pairing.openSession()
+    expect((await phoneOnly.call(PAIR_PATHS.screen, { code: unauthenticated.code })).status).toBe(200)
+    expect(JSON.parse((await phoneOnly.call(PAIR_PATHS.state, { code: unauthenticated.code })).body))
+      .toEqual({ status: 'pending' })
+    expect((await phoneOnly.call(PAIR_PATHS.session, { method: 'POST' })).status).toBe(401)
+
     const screen = await subject.call(PAIR_PATHS.screen, {
       code,
       source: SOURCE,
