@@ -151,13 +151,15 @@
     # ── layer 2: transport/service ──────────────────────────────────────────────
 
     # Plain route-registration carrier; host and port come from the app's
-    # webStartup provider, with these deployment fallbacks. The dist is served by
-    # the web-runtime row below through the fallback seat.
+    # webStartup provider, with these deployment fallbacks. Every interface is the
+    # default because a phone reaches this deployment over the LAN; pass
+    # `--host 127.0.0.1` for a loopback-only invocation. The dist is served by the
+    # web-runtime row below through the fallback seat.
     - id: webserver
       name: '@deepseek-ai/dsh-host-webserver'
       inject: [webStartup]
       config:
-        host: !!js ctx.webStartup.host ?? '127.0.0.1'
+        host: !!js ctx.webStartup.host ?? '0.0.0.0'
         port: !!js ctx.webStartup.port ?? 3080
         compression: gzip
         compressionLevel: 1

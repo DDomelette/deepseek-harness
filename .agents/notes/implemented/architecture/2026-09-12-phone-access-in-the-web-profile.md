@@ -20,7 +20,7 @@ The bundle keeps its `@deepseek-ai/dsh-mob` package name; the plugin name is `mo
 
 - **Keep `dsh mob` as a thin alias for `dsh web --allow-lan`.** Rejected: the capability never shipped in a release, so no installed base needs the alias, and an alias is a second entry point that must stay semantically identical, documented, and tested forever. The two-line shell function that a developer wants during debugging belongs in that developer's shell profile, not in the CLI.
 - **Keep the terminal QR behind an opt-in flag.** Rejected: the phone joins by scanning a code rendered in the Settings entry, and the terminal path would keep a QR dependency, its own TTY gating, and tests alive for a surface nobody uses.
-- **Make the all-interfaces bind the default for `dsh web`.** Rejected: the LAN session is a bearer cookie over plaintext HTTP on a host that can execute commands, so defaulting it would turn that exposure into every user's starting state. `--allow-lan` stays the explicit acknowledgement, and a settings-level standing consent is deferred.
+- **Make the all-interfaces bind the default for `dsh web`.** Rejected: the LAN session is a bearer cookie over plaintext HTTP on a host that can execute commands, so defaulting it would turn that exposure into every user's starting state. `--allow-lan` stays the explicit acknowledgement, and a settings-level standing consent is deferred. This deployment later adopted the default bind anyway: [every interface is the default bind](2026-09-13-lan-bind-by-default.md).
 
 ## Consequences
 
