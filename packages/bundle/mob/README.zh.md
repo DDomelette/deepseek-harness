@@ -65,14 +65,13 @@ dsh mob --port 8080
 | 文件 | 作用 |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | `webserver` 行的局域网重绑及 `mob-quick-join` 插入 |
-| [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、栅栏快照局域网 URL、回环与 TTY 守卫、重印去重、二维码渲染、控制器挂载 |
-| [`src/join-url.ts`](src/join-url.ts) | 播报器与 Remote 方法共用的 URL 拼装器 |
+| [`src/index.ts`](src/index.ts) | Host 半层：只挂载 `mob` Remote 命名空间 |
+| [`src/join-url.ts`](src/join-url.ts) | Remote 方法调用的共享 URL 拼装器 |
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把空快照分类为 `mob/loopback-only` 或 `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | `mob` 失败码声明（`mob/loopback-only`、`mob/no-lan-address`），两个 face 共享 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导，已播报根集合是没有独立观察者的私有状态（见下文不变量归属）。 |
-| [`tests/mob.spec.ts`](tests/mob.spec.ts) | 就位、回环、TTY、重载去重，以及启动失败/拆除路径 |
-| [`tests/composition.spec.ts`](tests/composition.spec.ts) | 真实 Loader 组合：就位门控的加入行与回环静默 |
+| [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、静默、销毁 |
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | URL 拼装器与 `joinUrl` Remote 方法的局域网/回环两路 |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |

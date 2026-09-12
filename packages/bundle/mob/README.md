@@ -65,14 +65,13 @@ The announced address comes from the `webRuntime` service — the same `resolveL
 | File | Role |
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | The LAN rebind of the `webserver` row plus the `mob-quick-join` insert |
-| [`src/index.ts`](src/index.ts) | The QR announcer plugin: settlement wait, fence-snapshot LAN URL, loopback and TTY guards, reprint dedup, QR render, controller mount |
-| [`src/join-url.ts`](src/join-url.ts) | The shared URL composer both the announcer and the Remote method call |
+| [`src/index.ts`](src/index.ts) | The host half: mounts the `mob` Remote namespace and nothing else |
+| [`src/join-url.ts`](src/join-url.ts) | The shared URL composer the Remote method calls |
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`: the `mob` Remote namespace's `joinUrl`, classifying an empty snapshot as `mob/loopback-only` or `mob/no-lan-address` |
 | [`src/types.ts`](src/types.ts) | The `mob` failure-code declarations (`mob/loopback-only`, `mob/no-lan-address`), shared by both faces |
 | [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, QR dialog, and the `settings.mobile` dictionaries |
 | — | No runtime invariant companion is published; every observable effect is derived per call from the fence snapshot, and the announced-roots set is private state no second observer can diverge from (see Invariant ownership below). |
-| [`tests/mob.spec.ts`](tests/mob.spec.ts) | Settlement, loopback, TTY, reload-dedup, and boot-failure/teardown paths |
-| [`tests/composition.spec.ts`](tests/composition.spec.ts) | Real-Loader composition: settlement-gated join line and loopback silence |
+| [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host half: namespace registration, silence, disposal |
 | [`tests/join-url.spec.ts`](tests/join-url.spec.ts) | The URL composer and the `joinUrl` Remote method, LAN and loopback paths |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | Row registration, deferred slot declaration, injected `joinUrl`, disposal |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | The row and dialog: load, QR render, loopback copy, close and reopen |
