@@ -14,7 +14,9 @@ Status: implemented
 
 电脑用 `POST /pair/session` 开启一次请求，得到 8 位短码（字母表不含 `0/O` 与 `1/I`），存活 120 秒、只可使用一次。手机打开 `/pair?c=<code>` 认领它，轮询界面读取 `/pair/state`；这两条手机路由都接受尚无 cookie 的请求——手机此刻本就没有 cookie。其余配对路由（`/pair/session`、`/pair/requests`、`/pair/approve`、`/pair/devices`、`/pair/revoke`）都要求浏览器会话**且**来自回环 authority，因此唯一能接纳设备的，是坐在电脑前的人。
 
-批准会以从手机 user agent 推导、并在面板里可改的名称登记该设备；手机下一次 `/pair/state` 轮询即带回决定与设备 cookie。该 cookie 是第二种 cookie 形式：载荷为 `{version: 2, authority, deviceId, issuedAt, expiresAt}`，寿命由 `deviceCookieMaxAgeDays`（默认 180）在签发时固定，绝不因使用而续期。`BrowserAuth.isAuthenticated` 只在 `client-connection/paired-devices` 凭据记录仍列出该设备时才接受它，因此吊销会在该手机的下一次请求生效，既不需要重启 Host，也不影响电脑自己的 cookie。v1 启动令牌 cookie 完全不变，回环交接因此保持原样。
+批准会以从手机 user agent 推导、并在面板里可改的名称登记该设备；手机下一次 `/pair/state` 轮询即带回决定与设备 cookie。该 cookie 是第二种 cookie 形式：载荷为 `{version: 2, authority, deviceId, issuedAt, expiresAt}`，寿命由 `deviceCookieMaxAgeDays`（默认 180）在签发时固定，绝不因使用而续期。`BrowserAuth.isAuthenticated` 只在 `client-connection/paired-devices` 凭据记录仍列出该设备时才接受它，因此吊销会在该手机的下一次请求生效，既不需要重启 Host，也不影响电脑自己的 cookie。
+
+要让吊销真正"完整"，还需要另一半规则：进程启动令牌是电脑自己的凭据，因此 `authorizeIndex` 只在回环 authority 上交换它，`isAuthenticated` 也只在回环上承认启动令牌 cookie。于是 `dsh web` 打印的局域网 URL 不带令牌，`mob.joinUrl` 返回的是面板拼配对链接所用的、无令牌的局域网 origin，而每个非回环客户端——手机、平板或第二台电脑——都用自己的设备 cookie 认证。此前由局域网 authority 签发过的启动令牌 cookie 从此被拒绝，因此对手机而言"吊销"重新成为完整的答案。
 
 `ctx.connection.devices` 拥有登记表——`list`、`register`、`revoke`、`touch`；每次变更都会刷新运行中的 cookie 校验。`touch` 最多每小时推进一次设备的最后可见时间，使普通请求不会反复改写凭据文件。配对会话本身受三重约束：32^8 的短码空间、120 秒寿命，以及按来源限流（每 10 秒 10 次读取，连续 5 次失败后锁定 60 秒）。
 
@@ -29,7 +31,7 @@ Status: implemented
 ## 后果
 
 - `/pair` 提供应用外壳本身——经由 `frontend-static` 提供的 `frontend` 服务——并携带 `__DSH_PAIR__` 启动事实；手机的配对界面渲染在 `shell.overlay` 之上，cookie 到手后即离开到 `/`，因此手机运行与电脑相同的应用产物。
-- 手机接入部署现在有两种凭据形式需要推理：进程启动令牌（回环、行为不变、通过删除 `client-connection/browser-session` 吊销）与设备 cookie（局域网、通过 `POST /pair/revoke` 按设备吊销）。
+- 手机接入部署现在有两种凭据形式需要推理：进程启动令牌（只在回环交换，通过删除 `client-connection/browser-session` 吊销）与设备 cookie（任何 authority 上都可签发，通过 `POST /pair/revoke` 按设备吊销）。
 - 吊销对运行中的 Host 立即生效，因为每次登记表变更都会刷新内存中的设备集合；损坏到无法解释的设备记录会让操作显式失败，而不是被覆盖。
 - 手机到电脑这一段仍是明文 HTTP：网络上的观察者可以读到配对轮询与传输中的设备 cookie，而该 cookie 不带 `Secure` 属性，因为该传输无法兑现它。自签名或 mkcert 证书的 TLS 是单独一期，它才会关上这扇窗并让该属性可以设置。
 - `apps/cli/tests/pairing.e2e.ts` 通过真实 CLI 走完整条握手：取码、手机侧未认证界面、仅回环可决定、设备 cookie 让 `/api` 认证通过、已配对手机被拒绝做出决定、吊销让同一 cookie 变成 401，以及按来源锁定。
