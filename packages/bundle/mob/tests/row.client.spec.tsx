@@ -89,6 +89,17 @@ describe('ConnectPhoneRow', () => {
     expect(screen.queryByRole('img')).toBeNull()
   })
 
+  it('names an all-interfaces bind that derived no address, not a disabled LAN', async () => {
+    mount(vi.fn(async () => ({
+      ok: false as const,
+      error: new RemoteError('mob/no-lan-address', 'no interface yielded a LAN address for the join URL', {}),
+    })))
+    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+
+    await waitFor(() => { expect(screen.getByText('未找到局域网地址，请检查本机网络连接')).toBeTruthy() })
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
   it('shows the load-failure copy on a non-loopback Remote failure', async () => {
     mount(vi.fn(async () => ({
       ok: false as const,

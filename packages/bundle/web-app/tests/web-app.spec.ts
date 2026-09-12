@@ -23,12 +23,17 @@ vi.mock('node:child_process', async importOriginal => ({
   spawn: vi.fn(),
 }))
 
-vi.mock('node:os', async importOriginal => ({
-  ...await importOriginal<typeof import('node:os')>(),
-  networkInterfaces: () => ({
+/** Interface table the mocked `node:os` reports; tests replace it to shape LAN derivation. */
+const osInterfaces = vi.hoisted(() => ({
+  current: {
     lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
     en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
-  }),
+  } as Record<string, unknown[] | undefined>,
+}))
+
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  networkInterfaces: () => osInterfaces.current,
 }))
 
 let dist: string | undefined
@@ -36,6 +41,10 @@ let dist: string | undefined
 beforeEach(() => {
   vi.stubEnv('SSH_CONNECTION', '')
   vi.stubEnv('SSH_TTY', '')
+  osInterfaces.current = {
+    lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+  }
 })
 
 afterEach(() => {
@@ -161,6 +170,27 @@ describe('web-app runtime glue', () => {
     expect(section?.text).toContain('pnpm run dev:web')
     const webRuntime = contributions.find(contribution => contribution.name === 'web-runtime')
     expect(webRuntime?.resolve()).toEqual({ DSH_WEB_URL: 'http://127.0.0.1:4567' })
+    await ctx.fiber.dispose()
+  })
+
+  it('prints the remaining LAN candidates so an unreachable first pick stays recoverable', async () => {
+    stageDist()
+    osInterfaces.current = {
+      lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      'vEthernet (WSL)': [{ family: 'IPv4', internal: false, address: '172.20.128.1' }],
+      en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+    }
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer('0.0.0.0').server)
+    provideConnection(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(ctx, new Config({ openBrowser: false, printUrl: true, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    // The physical adapter leads, so the QR target is the reachable one; the
+    // virtual candidate still prints because the ordering is a name heuristic.
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)')
+    expect(log).toHaveBeenCalledWith('dsh web: other LAN addresses: http://172.20.128.1:4567/?token=test-token')
     await ctx.fiber.dispose()
   })
 

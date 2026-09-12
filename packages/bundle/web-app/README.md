@@ -81,7 +81,7 @@ The URL line and browser handoff are readiness signals: supervisors RPC as soon 
 
 ### LAN trust sampling
 
-`resolveLanTrust` samples the network once at boot: a loopback bind (`127.0.0.1`) derives no LAN addresses, while an all-interfaces bind adds every non-internal IPv4 literal. The derived literals plus the explicit `--trusted-host` authorities form the `/api` browser-trust fence, and the printed LAN URL always matches that fence.
+`resolveLanTrust` samples the network once at boot: a loopback bind (`127.0.0.1`) derives no LAN addresses, while an all-interfaces bind derives every non-internal IPv4 literal except the unusable ranges (the 198.18.0.0/15 fake-IP block and 169.254.0.0/16 link-local), ordering physical adapters ahead of virtual and tunnel ones. The derived literals plus the explicit `--trusted-host` authorities form the `/api` browser-trust fence, and the printed LAN URL is the first derived literal, so it always matches that fence; the readiness line also lists the remaining candidates, because that ordering is a name heuristic.
 
 ### Source map
 

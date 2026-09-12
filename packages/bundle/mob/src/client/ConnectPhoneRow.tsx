@@ -28,7 +28,15 @@ type JoinState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly url: string; readonly qr: string }
   | { readonly status: 'unavailable' }
+  | { readonly status: 'noLanAddress' }
   | { readonly status: 'failed' }
+
+/** Map a classified Host failure to the dialog state whose copy corrects it. */
+function joinStateOf(code: string): JoinState {
+  if (code === 'mob/loopback-only') return { status: 'unavailable' }
+  if (code === 'mob/no-lan-address') return { status: 'noLanAddress' }
+  return { status: 'failed' }
+}
 
 /**
  * Render the Connect-phone row and its QR dialog.
@@ -46,7 +54,7 @@ export function ConnectPhoneRow({ t, joinUrl }: ConnectPhoneRowComponentProps) {
     void joinUrl()
       .then(async (result): Promise<JoinState> => {
         if (!result.ok) {
-          return { status: result.error.code === 'mob/loopback-only' ? 'unavailable' : 'failed' }
+          return joinStateOf(result.error.code)
         }
         return { status: 'ready', url: result.value, qr: await QRCode.toDataURL(result.value, { margin: 1 }) }
       })
@@ -74,6 +82,7 @@ export function ConnectPhoneRow({ t, joinUrl }: ConnectPhoneRowComponentProps) {
       >
         {state.status === 'loading' && <p className={css.status}>{t('dialog.loading')}</p>}
         {state.status === 'unavailable' && <p className={css.status}>{t('dialog.unavailable')}</p>}
+        {state.status === 'noLanAddress' && <p className={css.status}>{t('dialog.noLanAddress')}</p>}
         {state.status === 'failed' && <p className={css.status}>{t('dialog.loadFailed')}</p>}
         {state.status === 'ready' && (
           <div className={css.qrBox}>

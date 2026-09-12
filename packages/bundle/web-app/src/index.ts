@@ -123,13 +123,15 @@ try {
 const VIRTUAL_INTERFACE = /vmware|vmnet|vethernet|hyper-v|wsl|docker|veth|^br-|tun|tap|clash|vpn|wireguard|^wg|tailscale|zerotier/i
 
 /**
- * Whether the address falls in 198.18.0.0/15, the RFC 2544 benchmarking range
- * Clash-style fake-ip TUN stacks assign: it is never a real LAN authority, so
- * it is excluded from BOTH the display addresses and the fence authorities.
+ * Whether the address can never be a LAN authority a phone reaches: the RFC 2544
+ * benchmarking range (198.18.0.0/15) that Clash-style fake-ip TUN stacks assign,
+ * and the link-local range (169.254.0.0/16) an interface keeps when DHCP failed.
+ * Both are excluded from BOTH the display addresses and the fence authorities.
  */
-function isFakeIpAddress(address: string): boolean {
+function isUnusableLanAddress(address: string): boolean {
   const [first, second] = address.split('.').map(Number)
-  return first === 198 && (second === 18 || second === 19)
+  if (first === 198) return second === 18 || second === 19
+  return first === 169 && second === 254
 }
 
 /**
@@ -139,12 +141,13 @@ function isFakeIpAddress(address: string): boolean {
  * attacker-controlled name, while an IP-literal Host is safe on any port and
  * an OS-assigned port is unknowable before bind.
  *
- * Derivation rules for an all-interfaces bind: every non-internal IPv4
- * literal EXCEPT the 198.18.0.0/15 fake-ip range; then a stable sort that
- * places physical adapters before virtual/tunnel ones (matched by interface
- * name, see VIRTUAL_INTERFACE), so `lanAddresses[0]` — the address the
- * readiness line and the phone-join QR use — is the LAN address a phone can
- * actually reach. Virtual addresses stay in the result: a host whose only
+ * Derivation rules for an all-interfaces bind: every non-internal IPv4 literal
+ * EXCEPT the unusable ranges above; then a stable sort that places physical
+ * adapters before virtual/tunnel ones (matched by interface name, see
+ * VIRTUAL_INTERFACE), so `lanAddresses[0]` — the address the readiness line and
+ * the phone-join QR use — is the LAN address a phone can actually reach; the
+ * readiness line prints the remaining candidates, because a wrong first pick is
+ * otherwise invisible. Virtual addresses stay in the result: a host whose only
  * non-loopback path is virtual (a Tailscale-only deployment) still derives a
  * usable URL.
  * @param bindHost - the active webserver bind host.
@@ -157,7 +160,7 @@ export function resolveLanTrust(bindHost: string, extra: readonly string[]): Web
   for (const [name, addresses] of Object.entries(networkInterfaces())) {
     for (const iface of addresses ?? []) {
       if (iface.family !== 'IPv4' || iface.internal) continue
-      if (isFakeIpAddress(iface.address)) continue
+      if (isUnusableLanAddress(iface.address)) continue
       derived.push({ address: iface.address, virtual: VIRTUAL_INTERFACE.test(name) })
     }
   }
@@ -300,14 +303,19 @@ export function apply(ctx: Context, config: Config): void {
         const webUrl = localWebUrl(connectionCtx)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
         // Reuse the exact LAN snapshot provided to the /api trust fence.
-        const lanCandidate = runtime.lanAddresses[0]
         const port = connectionCtx.webServer.port
-        const lanUrl = lanCandidate === undefined
-          ? undefined
-          : connectionCtx.connection.authenticatedUrl(`http://${lanCandidate}:${String(port)}`)
+        const lanUrls = runtime.lanAddresses
+          .map(address => connectionCtx.connection.authenticatedUrl(`http://${address}:${String(port)}`))
+        const [lanUrl] = lanUrls
         ANNOUNCED_ROOTS.add(connectionCtx.root)
         if (config.printUrl) {
           console.log(`dsh web: ${authenticatedUrl}${lanUrl === undefined ? '' : ` (LAN: ${lanUrl})`}`)
+          // The phone-join QR encodes the first candidate only, and the
+          // derivation is a name heuristic; the rest stay visible so an
+          // unreachable pick is one copy-and-swap away instead of silent.
+          if (lanUrls.length > 1) {
+            console.log(`dsh web: other LAN addresses: ${lanUrls.slice(1).join(' ')}`)
+          }
         }
         if (handoffBrowser) {
           console.log('dsh web: opening the default browser; pass --no-open to disable')

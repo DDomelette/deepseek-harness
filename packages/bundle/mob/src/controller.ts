@@ -10,6 +10,9 @@ import type {} from 'zod'
 import { resolveJoinUrl } from './join-url.ts'
 import type {} from './types.ts'
 
+/** The webserver schema's all-interfaces bind literal — the only non-loopback host it admits. */
+const ALL_INTERFACES_HOST = '0.0.0.0'
+
 /** Remote-only service composing the token-bearing LAN join URL for the settings dialog. */
 export class MobJoinController extends TypertRemoteService {
   static inject = ['connection', 'webRuntime', 'webServer']
@@ -20,10 +23,11 @@ export class MobJoinController extends TypertRemoteService {
 
   /**
    * Compose the same join URL the terminal announcer prints, so the settings
-   * dialog can render it as a QR code. The URL carries a fresh token; the
+   * dialog can render it as a QR code. The URL carries the process token; the
    * caller already holds the session cookie, which grants the same authority.
    * @returns the token-bearing LAN URL.
-   * @throws RemoteError `mob/loopback-only` when the deployment binds loopback only.
+   * @throws RemoteError `mob/loopback-only` on a loopback bind, or `mob/no-lan-address`
+   * when an all-interfaces bind derived no reachable address.
    */
   @Remote
   joinUrl(): string {
@@ -36,7 +40,11 @@ export class MobJoinController extends TypertRemoteService {
       baseUrl => this.ctx.connection.authenticatedUrl(baseUrl),
     )
     if (url === undefined) {
-      throw new RemoteError('mob/loopback-only', 'loopback-only deployment has no LAN join URL', {})
+      // The two empty-snapshot causes need different corrections: starting the
+      // mobile profile, or fixing this machine's networking.
+      throw this.ctx.webServer.host === ALL_INTERFACES_HOST
+        ? new RemoteError('mob/no-lan-address', 'no interface yielded a LAN address for the join URL', {})
+        : new RemoteError('mob/loopback-only', 'loopback-only deployment has no LAN join URL', {})
     }
     return url
   }

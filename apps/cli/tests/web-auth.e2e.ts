@@ -8,9 +8,10 @@ import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { networkInterfaces, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolveLanTrust } from '@deepseek-ai/dsh-web-app'
 import { describe, expect, it } from 'vitest'
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
@@ -197,8 +198,12 @@ describe('dsh web authentication through the real CLI', () => {
       expect(secondUrl.searchParams.get('token')).not.toBe(firstUrl.searchParams.get('token'))
       expect((await describeSettings(port, secondUrl.host, cookie)).status).toBe(200)
 
-      const credentialMode = (await stat(join(dshHome, '.credentials.yaml'))).mode & 0o777
-      expect(credentialMode).toBe(0o600)
+      // Windows does not carry POSIX mode bits, so the private credential file
+      // is asserted where the guarantee exists.
+      if (process.platform !== 'win32') {
+        const credentialMode = (await stat(join(dshHome, '.credentials.yaml'))).mode & 0o777
+        expect(credentialMode).toBe(0o600)
+      }
     } catch (error) {
       const evidence = [first?.output(), second?.output()].filter(value => value !== undefined).join('\n')
       throw new Error(`${error instanceof Error ? error.message : String(error)}\n${redact(evidence)}`, { cause: error })
@@ -210,8 +215,10 @@ describe('dsh web authentication through the real CLI', () => {
   })
 
   it('serves a trusted LAN authority after --allow-lan', { timeout: 180_000 }, async (context) => {
-    const lanAddress = Object.values(networkInterfaces()).flat()
-      .find(address => address?.family === 'IPv4' && !address.internal)?.address
+    // The expected authority comes from the product's own derivation: the address
+    // a phone can reach, which excludes fake-IP TUN ranges and sorts virtual
+    // adapters after physical ones rather than following enumeration order.
+    const lanAddress = resolveLanTrust('0.0.0.0', []).lanAddresses[0]
     if (lanAddress === undefined) {
       context.skip()
       return

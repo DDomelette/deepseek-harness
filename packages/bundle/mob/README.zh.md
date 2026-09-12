@@ -36,7 +36,7 @@ dsh mob --port 8080
 
 ### 从桌面会话交接
 
-组合包的浏览器半层在 设置 → 通用设置 中加入「连接手机」行。该行打开的弹窗通过 `mob.joinUrl` Remote 方法向 Host 请求同一个带令牌的局域网 URL，并将其渲染为二维码、下方附上链接，因此手机加入时无需任何人查看终端。仅回环部署中该调用以 `mob/loopback-only` 失败，弹窗会提示未开启内网访问。
+组合包的浏览器半层在 设置 → 通用设置 中加入「连接手机」行。该行打开的弹窗通过 `mob.joinUrl` Remote 方法向 Host 请求同一个带令牌的局域网 URL，并将其渲染为二维码、下方附上链接，因此手机加入时无需任何人查看终端。仅回环部署中该调用以 `mob/loopback-only` 失败，弹窗会提示未开启内网访问；而当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败，弹窗改为提示检查本机网络——那种情况下启动移动 profile 并无帮助。
 
 ### 你会得到什么
 
@@ -67,8 +67,8 @@ dsh mob --port 8080
 | [`cordis.patch.yml`](cordis.patch.yml) | `webserver` 行的局域网重绑及 `mob-quick-join` 插入 |
 | [`src/index.ts`](src/index.ts) | 二维码播报插件：就位等待、栅栏快照局域网 URL、回环与 TTY 守卫、重印去重、二维码渲染、控制器挂载 |
 | [`src/join-url.ts`](src/join-url.ts) | 播报器与 Remote 方法共用的 URL 拼装器 |
-| [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，仅回环部署以 `mob/loopback-only` 失败 |
-| [`src/types.ts`](src/types.ts) | `mob/loopback-only` 失败码声明，两个 face 共享 |
+| [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把空快照分类为 `mob/loopback-only` 或 `mob/no-lan-address` |
+| [`src/types.ts`](src/types.ts) | `mob` 失败码声明（`mob/loopback-only`、`mob/no-lan-address`），两个 face 共享 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导，已播报根集合是没有独立观察者的私有状态（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | 就位、回环、TTY、重载去重，以及启动失败/拆除路径 |
@@ -114,8 +114,9 @@ dsh mob --port 8080
 
 - **局域网服务是明文 HTTP**——网络上任何获得会话 cookie 的人都将获得完全控制权，因此只在可信网络上绑定所有接口；挂载时警告与吊销路径见 [LAN Web 服务笔记](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.zh.md)。
 - **局域网明文 HTTP 不是 secure context（安全上下文）**——手机浏览器在明文局域网 HTTP 下没有 `navigator.serviceWorker`，因此 service worker 不会注册、Android 不会出现安装提示；iOS 仍可靠支持通过 `apple-mobile-web-app-capable` 添加到主屏。完整的安装体验留待后续 TLS 工作。
+- **iOS 主屏应用没有后台 WebSocket**——iOS 会在应用进入后台时将其挂起，回到前台时由现有 Connection generation 重连与 Remote journal stream 的恢复 cursor 恢复数据流。
 - **局域网地址只在启动时采样一次**——启动后的网络变化不会重新播报；重启表层即可重新通告。
-- **虚拟网卡排在物理网卡之后**——VPN/代理的虚拟网卡（Clash TUN、VMware host-only 网卡、WSL、Docker 网桥）按接口名识别并自动排后，198.18.0.0/15 fake-ip 段直接排除；若二维码地址仍不对，用 `ipconfig`/`ip addr` 查真实局域网 IP，替换 URL 中的主机部分即可。
+- **虚拟网卡排在物理网卡之后**——VPN/代理的虚拟网卡（Clash TUN、VMware host-only 网卡、WSL、Docker 网桥）按接口名识别并自动排后，198.18.0.0/15 fake-ip 段与 169.254.0.0/16 链路本地段直接排除；就绪行会打印其余候选地址，若二维码地址仍不对，用 `ipconfig`/`ip addr` 查真实局域网 IP，替换 URL 中的主机部分即可。
 - **仅回环绑定与非 TTY stdout 不打印二维码**——监管进程与回环部署不会得到播报；`dsh-web-app` 的 URL 行仍是就绪信号。
 
 <a id="dev-note"></a>

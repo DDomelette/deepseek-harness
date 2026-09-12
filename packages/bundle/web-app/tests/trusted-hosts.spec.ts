@@ -28,7 +28,7 @@ const DEFAULT_INTERFACES: IfaceMap = {
 }
 
 beforeEach(() => {
-  interfaces.mockReturnValue(DEFAULT_INTERFACES as never)
+  interfaces.mockReturnValue(DEFAULT_INTERFACES)
 })
 
 describe('resolveLanTrust', () => {
@@ -55,7 +55,25 @@ describe('resolveLanTrust', () => {
       WLAN: [
         { family: 'IPv4', internal: false, address: '192.168.0.126' } as NetworkInterfaceInfo,
       ],
-    } as never)
+    })
+
+    const { lanAddresses, trustedHosts } = resolveLanTrust('0.0.0.0', [])
+    expect(lanAddresses).toEqual(['192.168.0.126'])
+    expect(trustedHosts).toEqual(['192.168.0.126'])
+  })
+
+  it('excludes the link-local range an interface keeps when DHCP failed', () => {
+    interfaces.mockReturnValue({
+      'Ethernet 2': [
+        { family: 'IPv4', internal: false, address: '169.254.11.4' } as NetworkInterfaceInfo,
+      ],
+      'link-local-edge': [
+        { family: 'IPv4', internal: false, address: '169.254.255.255' } as NetworkInterfaceInfo,
+      ],
+      WLAN: [
+        { family: 'IPv4', internal: false, address: '192.168.0.126' } as NetworkInterfaceInfo,
+      ],
+    })
 
     const { lanAddresses, trustedHosts } = resolveLanTrust('0.0.0.0', [])
     expect(lanAddresses).toEqual(['192.168.0.126'])
@@ -79,7 +97,7 @@ describe('resolveLanTrust', () => {
       en0: [
         { family: 'IPv4', internal: false, address: '192.168.1.5' } as NetworkInterfaceInfo,
       ],
-    } as never)
+    })
 
     expect(resolveLanTrust('0.0.0.0', []).lanAddresses).toEqual([
       '192.168.0.126',
@@ -98,7 +116,7 @@ describe('resolveLanTrust', () => {
       'Tailscale Tunnel': [
         { family: 'IPv4', internal: false, address: '100.64.0.5' } as NetworkInterfaceInfo,
       ],
-    } as never)
+    })
 
     const { lanAddresses, trustedHosts } = resolveLanTrust('0.0.0.0', [])
     expect(lanAddresses).toEqual(['100.64.0.5'])

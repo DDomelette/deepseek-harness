@@ -18,12 +18,22 @@ function authenticatedUrl(baseUrl: string): string {
   return url.href
 }
 
-function bench(lanAddresses: string[]): Context {
+function bench(lanAddresses: string[], host = '0.0.0.0'): Context {
   const ctx = new Context()
   ctx.provide('connection', { authenticatedUrl } as never)
   ctx.provide('webRuntime', { lanAddresses, trustedHosts: lanAddresses } as never)
-  ctx.provide('webServer', { host: '0.0.0.0', port: 4567 } as never)
+  ctx.provide('webServer', { host, port: 4567 } as never)
   return ctx
+}
+
+/** The classified failure of one joinUrl call. */
+function failureOf(ctx: Context): unknown {
+  try {
+    new MobJoinController(ctx).joinUrl()
+  } catch (error: unknown) {
+    return error
+  }
+  throw new Error('joinUrl resolved where a failure was expected')
 }
 
 describe('resolveJoinUrl', () => {
@@ -44,16 +54,13 @@ describe('MobJoinController.joinUrl', () => {
     expect(controller.joinUrl()).toBe(LAN_URL)
   })
 
-  it('fails with mob/loopback-only when the fence snapshot has no LAN address', () => {
-    const ctx = bench([])
-    const controller = new MobJoinController(ctx)
-    const failure = (() => {
-      try {
-        controller.joinUrl()
-      } catch (error: unknown) {
-        return error
-      }
-    })()
-    expect(remoteErrorOf(failure)).toMatchObject({ code: 'mob/loopback-only', details: {} })
+  it('fails with mob/loopback-only when the deployment binds loopback', () => {
+    expect(remoteErrorOf(failureOf(bench([], '127.0.0.1'))))
+      .toMatchObject({ code: 'mob/loopback-only', details: {} })
+  })
+
+  it('separates an all-interfaces bind that derived no address from a loopback-only bind', () => {
+    expect(remoteErrorOf(failureOf(bench([]))))
+      .toMatchObject({ code: 'mob/no-lan-address', details: {} })
   })
 })
