@@ -26,12 +26,14 @@ export type {
   ConnectionRequestBodyMode,
   ConnectionTrustRequest,
   ClientRequest,
+  HostConnectionDevices,
   HostConnectionHandle,
   HostConnectionFetch,
   HostConnectionRpc,
   RpcMessage,
   ServerResponse,
 } from './rpc.ts'
+export type { PairedDevice, RegisterDeviceRequest } from './devices.ts'
 export { RpcId, transportError } from './rpc.ts'
 export {
   clientRequestSchema,
@@ -123,6 +125,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     ctx,
     trustedHosts,
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceCookieMaxAgeDays),
+    ctx.credentials,
   )
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)

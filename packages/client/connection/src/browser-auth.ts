@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { listDevices } from './devices.ts'
+import { header, requestAuthority } from './request-authority.ts'
 import type {
   ConnectionIndexRequest,
   ConnectionIndexResponse,
@@ -59,26 +60,6 @@ function processLaunchToken(owner: object): string {
   const created = encodeBase64Url(randomBytes(SECRET_BYTES))
   PROCESS_LAUNCH_TOKENS.set(owner, created)
   return created
-}
-
-function header(
-  headers: ConnectionTrustRequest['headers'],
-  name: string,
-): string | undefined {
-  if (headers instanceof Headers) return headers.get(name) ?? undefined
-  const value = headers[name]
-  return typeof value === 'string' ? value : undefined
-}
-
-/** Canonical request authority used as the cookie name and signed audience. */
-function requestAuthority(headers: ConnectionTrustRequest['headers']): string | undefined {
-  const host = header(headers, 'host')
-  if (host === undefined) return undefined
-  try {
-    return new URL(`http://${host}`).host
-  } catch {
-    return undefined
-  }
 }
 
 function canonicalSecret(value: unknown): Buffer | undefined {

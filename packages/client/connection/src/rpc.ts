@@ -1,6 +1,7 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { PairedDevice, RegisterDeviceRequest } from './devices.ts'
 
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
@@ -197,6 +198,59 @@ export interface HostConnectionHandle {
    * @returns root URL accepted by {@link authorizeIndex} for initial login.
    */
   authenticatedUrl(baseUrl: string): string
+
+  /**
+   * Whether a request arrived on a loopback authority, the only origin allowed
+   * to approve a pairing request.
+   * @param request - request headers from the HTTP or upgrade request.
+   * @returns true when the request's canonical Host names loopback.
+   */
+  isLoopbackRequest(request: ConnectionTrustRequest): boolean
+
+  /** Paired-device registry and the device cookies the pairing handshake issues. */
+  readonly devices: HostConnectionDevices
+}
+
+/**
+ * Paired-device registry of one Host. Every mutation refreshes the cookie check
+ * of the running Connection, so an approval or revocation takes effect on the
+ * next request without a restart.
+ */
+export interface HostConnectionDevices {
+  /**
+   * List the approved devices.
+   * @returns the stored devices in stored order.
+   */
+  list(): Promise<readonly PairedDevice[]>
+
+  /**
+   * Register a newly approved device.
+   * @param request - label the operator approved, after any edit.
+   * @returns the stored device entry whose id the device cookie carries.
+   */
+  register(request: RegisterDeviceRequest): Promise<PairedDevice>
+
+  /**
+   * Revoke one device; its cookie stops authenticating on the next request.
+   * @param deviceId - id of the device to remove.
+   * @returns true when a stored device was removed.
+   */
+  revoke(deviceId: string): Promise<boolean>
+
+  /**
+   * Record that a device authenticated, throttled to once an hour.
+   * @param deviceId - id of the device that made the request.
+   * @returns true when the stored last-seen time was advanced.
+   */
+  touch(deviceId: string): Promise<boolean>
+
+  /**
+   * Mint the cookie a phone receives when its pairing request is approved.
+   * @param request - request whose Host binds the cookie's authority.
+   * @param deviceId - id of the approved device.
+   * @returns the complete `Set-Cookie` value, or undefined when the request carries no usable Host.
+   */
+  issueCookie(request: ConnectionTrustRequest, deviceId: string): string | undefined
 }
 
 /** Transport-independent Fetch handler used by HTTP and worker carriers. */

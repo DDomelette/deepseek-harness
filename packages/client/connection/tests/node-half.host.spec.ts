@@ -563,3 +563,51 @@ describe('connection node half over a real HTTP server', () => {
     }
   })
 })
+
+describe('connection device registry handle', () => {
+  it('registers a device and accepts its cookie without a restart, then refuses it after revocation', async () => {
+    const { connection, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(await connection.devices.list()).toEqual([device])
+
+      const setCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      expect(setCookie).toBeDefined()
+      const cookie = setCookie!.split(';', 1)[0]!
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBeUndefined()
+      // A device registered moments ago is inside the one-hour touch window.
+      expect(await connection.devices.touch(device.id)).toBe(false)
+
+      expect(await connection.devices.revoke(device.id)).toBe(true)
+      expect(await connection.devices.list()).toEqual([])
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
+      expect(await connection.devices.revoke(device.id)).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('mints no cookie for a request without a usable Host', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      expect(connection.devices.issueCookie(fakeRequest({}), 'device-1')).toBeUndefined()
+      expect(connection.devices.issueCookie({ headers: { host: 'bad host' } }, 'device-1')).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('classifies the authority a request arrived on', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      expect(connection.isLoopbackRequest(fakeRequest({ host: '127.0.0.1:3080' }))).toBe(true)
+      expect(connection.isLoopbackRequest(fakeRequest({ host: 'localhost:3080' }))).toBe(true)
+      expect(connection.isLoopbackRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
+      expect(connection.isLoopbackRequest(fakeRequest({}))).toBe(false)
+      expect(connection.isLoopbackRequest({ headers: { host: 'bad host' } })).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+})
