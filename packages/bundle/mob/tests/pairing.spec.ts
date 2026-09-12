@@ -1,9 +1,14 @@
 /** Pairing-session lifecycle: short codes, approval, revocation-free single use, and throttling. */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import { PairingSessions } from '../src/pairing.ts'
 
 const START = Date.parse('2026-09-12T12:00:00.000Z')
+
+/** Device ids as the registry mints them; these tests only need the brand. */
+const DEVICE_1 = 'device-1' as PairedDeviceId
+const DEVICE_2 = 'device-2' as PairedDeviceId
 
 function sessions(): PairingSessions {
   return new PairingSessions()
@@ -73,17 +78,31 @@ describe('PairingSessions', () => {
     const store = sessions()
     const { code } = store.openSession()
 
-    expect(store.bindDevice(code, 'device-1')).toBe(false)
+    expect(store.bindDevice(code, DEVICE_1)).toBe(false)
     expect(store.approve(code, 'HUAWEI JAD-AL50', true)).toEqual({ ok: true })
-    expect(store.stateOf(code, 'source')).toEqual({ status: 'approved', deviceId: undefined })
+    // An allowed decision stays pending until its device row exists, so a phone
+    // polling in between never collects an approval it cannot use.
+    expect(store.stateOf(code, 'source')).toEqual({ status: 'pending' })
     expect(store.pending()).toEqual([])
 
-    expect(store.bindDevice(code, 'device-1')).toBe(true)
-    expect(store.bindDevice(code, 'device-2')).toBe(false)
-    expect(store.stateOf(code, 'source')).toEqual({ status: 'approved', deviceId: 'device-1' })
+    expect(store.bindDevice(code, DEVICE_1)).toBe(true)
+    expect(store.bindDevice(code, DEVICE_2)).toBe(false)
+    expect(store.stateOf(code, 'source')).toEqual({ status: 'approved', deviceId: DEVICE_1 })
 
     store.consume(code)
     expect(store.stateOf(code, 'source')).toEqual({ status: 'unknown' })
+  })
+
+  it('refuses to bind a device to a code that expired first', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const { code } = store.openSession()
+
+    expect(store.approve(code, 'phone', true)).toEqual({ ok: true })
+    vi.setSystemTime(new Date(START + 120_000))
+    expect(store.bindDevice(code, DEVICE_1)).toBe(false)
+    expect(store.stateOf(code, 'source')).toEqual({ status: 'expired' })
   })
 
   it('rejects a second decision and a decision on an unknown or expired code', () => {
@@ -95,7 +114,7 @@ describe('PairingSessions', () => {
     expect(store.approve(code, 'phone', false)).toEqual({ ok: true })
     expect(store.stateOf(code, 'source')).toEqual({ status: 'denied' })
     expect(store.approve(code, 'phone', true)).toEqual({ ok: false, reason: 'settled' })
-    expect(store.bindDevice(code, 'device-1')).toBe(false)
+    expect(store.bindDevice(code, DEVICE_1)).toBe(false)
 
     expect(store.approve('ZZZZZZZZ', 'phone', true)).toEqual({ ok: false, reason: 'unknown' })
 
@@ -118,6 +137,24 @@ describe('PairingSessions', () => {
     vi.setSystemTime(new Date(START + 60_001))
     expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'unknown' })
     expect(store.stateOf('ZZZZZZZZ', 'other-source')).toEqual({ status: 'unknown' })
+  })
+
+  it('keeps a lockout across the attempt window that follows it', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+
+    for (let attempt = 1; attempt <= 5; attempt++) store.stateOf('ZZZZZZZZ', 'source')
+    expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'locked' })
+
+    // The ten-second attempt window rolls over well before the lockout ends;
+    // the lock is measured from the flooding read, not from that window.
+    vi.setSystemTime(new Date(START + 10_001))
+    expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'locked' })
+    vi.setSystemTime(new Date(START + 59_999))
+    expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'locked' })
+    vi.setSystemTime(new Date(START + 60_001))
+    expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'unknown' })
   })
 
   it('clears the failure count once a code resolves and rate-limits attempts per source', () => {

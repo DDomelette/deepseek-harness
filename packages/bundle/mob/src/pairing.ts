@@ -7,6 +7,7 @@
  */
 
 import { randomInt } from 'node:crypto'
+import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 
 /** Code alphabet: base32 without the glyphs a phone camera or a human confuses (`0/O`, `1/I`). */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -42,7 +43,8 @@ export type PairingState =
   | { readonly status: 'unknown' }
   | { readonly status: 'locked' }
   | { readonly status: 'pending' }
-  | { readonly status: 'approved'; readonly deviceId: string | undefined }
+  /** Published with the device row it names, so the decision and the cookie arrive together. */
+  | { readonly status: 'approved'; readonly deviceId: PairedDeviceId }
   | { readonly status: 'denied' }
   | { readonly status: 'expired' }
 
@@ -55,10 +57,12 @@ interface Session {
   readonly code: string
   readonly openedAt: number
   readonly expiresAt: number
-  status: 'pending' | 'approved' | 'denied'
   userAgent: string | undefined
   label: string | undefined
-  deviceId: string | undefined
+  /** Decision the computer recorded; undefined while the request still waits. */
+  decision: 'allow' | 'deny' | undefined
+  /** Set exactly when an allowed decision finished registering its device. */
+  deviceId: PairedDeviceId | undefined
 }
 
 interface SourceAttempts {
@@ -95,9 +99,9 @@ export class PairingSessions {
       code,
       openedAt: now,
       expiresAt: now + SESSION_TTL_MILLISECONDS,
-      status: 'pending',
       userAgent: undefined,
       label: undefined,
+      decision: undefined,
       deviceId: undefined,
     }
     this.sessions.set(code, session)
@@ -111,7 +115,7 @@ export class PairingSessions {
    */
   recordAgent(code: string, userAgent: string): void {
     const session = this.sessions.get(code)
-    if (session === undefined || session.status !== 'pending') return
+    if (session === undefined || session.decision !== undefined) return
     session.userAgent ??= userAgent
   }
 
@@ -122,7 +126,7 @@ export class PairingSessions {
   pending(): readonly PendingPairing[] {
     this.sweep(Date.now())
     return [...this.sessions.values()]
-      .filter(session => session.status === 'pending')
+      .filter(session => session.decision === undefined)
       .map(session => ({
         code: session.code,
         openedAt: session.openedAt,
@@ -147,13 +151,15 @@ export class PairingSessions {
       return this.failure(source, now, 'expired')
     }
     this.attempts(source, now).failures = 0
-    if (session.status === 'approved') return { status: 'approved', deviceId: session.deviceId }
-    if (session.status === 'denied') return { status: 'denied' }
+    if (session.deviceId !== undefined) return { status: 'approved', deviceId: session.deviceId }
+    if (session.decision === 'deny') return { status: 'denied' }
     return { status: 'pending' }
   }
 
   /**
-   * Record the decision the computer made for a code.
+   * Record the decision the computer made for a code. An allowed decision stays
+   * pending until {@link bindDevice} attaches the registered device, so a phone
+   * polling in between never collects an approval it cannot use.
    * @param code - the code under decision.
    * @param label - device label the operator approved, after any edit.
    * @param allowed - whether the phone is allowed to pair.
@@ -164,21 +170,23 @@ export class PairingSessions {
     const session = this.sessions.get(code)
     if (session === undefined) return { ok: false, reason: 'unknown' }
     if (session.expiresAt <= now) return { ok: false, reason: 'expired' }
-    if (session.status !== 'pending') return { ok: false, reason: 'settled' }
-    session.status = allowed ? 'approved' : 'denied'
+    if (session.decision !== undefined) return { ok: false, reason: 'settled' }
     session.label = label
+    session.decision = allowed ? 'allow' : 'deny'
     return { ok: true }
   }
 
   /**
-   * Attach the device registered for an approved session.
-   * @param code - the approved code.
+   * Publish an approved session with the device registered for it.
+   * @param code - the code whose decision was allowed.
    * @param deviceId - id of the device row registered for it.
-   * @returns true when the session took the id; false for a settled or unknown session.
+   * @returns true when the session took the id; false for an unknown, denied,
+   * expired, or already-bound session.
    */
-  bindDevice(code: string, deviceId: string): boolean {
+  bindDevice(code: string, deviceId: PairedDeviceId): boolean {
     const session = this.sessions.get(code)
-    if (session === undefined || session.status !== 'approved' || session.deviceId !== undefined) return false
+    if (session === undefined || session.decision !== 'allow' || session.deviceId !== undefined) return false
+    if (session.expiresAt <= Date.now()) return false
     session.deviceId = deviceId
     return true
   }
@@ -198,11 +206,21 @@ export class PairingSessions {
     }
   }
 
-  /** Attempt bookkeeping for one source, restarting the window when it rolled over. */
+  /**
+   * Attempt bookkeeping for one source, restarting the window when it rolled
+   * over while keeping a lockout that is still running.
+   */
   private attempts(source: string, now: number): SourceAttempts {
     const current = this.sources.get(source)
     if (current !== undefined && now - current.windowStart < ATTEMPT_WINDOW_MILLISECONDS) return current
-    const fresh: SourceAttempts = { windowStart: now, attempts: 0, failures: 0, lockedUntil: 0 }
+    const fresh: SourceAttempts = {
+      windowStart: now,
+      attempts: 0,
+      failures: 0,
+      // A new window must not outlive the lock it was opened under: the lockout
+      // is measured from the flooding read, not from the window it landed in.
+      lockedUntil: current !== undefined && now < current.lockedUntil ? current.lockedUntil : 0,
+    }
     this.sources.set(source, fresh)
     return fresh
   }

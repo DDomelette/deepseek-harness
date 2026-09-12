@@ -35,6 +35,10 @@ interface ConnectionOptions {
   readonly noCookie?: boolean
   /** Whether this Host serves an application shell at all. */
   readonly noShell?: boolean
+  /** Whether the last-seen bookkeeping write rejects. */
+  readonly touchFails?: boolean
+  /** Runs inside device registration, for a code that expires while the row is written. */
+  readonly duringRegister?: () => void
 }
 
 interface Bench {
@@ -83,15 +87,21 @@ function bench(options: ConnectionOptions = {}): Bench {
         lastSeenAt: 1,
       })),
       register: async (request: RegisterDeviceRequest) => {
+        options.duringRegister?.()
         registered.push(request)
         return { id: `device-${String(registered.length)}`, label: request.label, registeredAt: 1, lastSeenAt: 1 }
       },
       revoke: async (deviceId: string) => {
         revoked.push(deviceId)
+        // The real registry drops the row; the list route must observe that.
+        const index = registered.findIndex((_request, position) => `device-${String(position + 1)}` === deviceId)
+        if (index < 0) return false
+        registered.splice(index, 1)
         return true
       },
       touch: async (deviceId: string) => {
         touched.push(deviceId)
+        if (options.touchFails === true) throw new Error('credential write failed')
         return true
       },
       issueCookie: () => (options.noCookie === true ? undefined : COOKIE),
@@ -256,6 +266,44 @@ describe('pairing routes', () => {
     expect(JSON.parse(collected.body)).toEqual({ status: 'approved' })
     expect(subject.touched).toEqual(['device-1'])
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'unknown' })
+  })
+
+  it('revokes a device row whose code expired while the row was being written', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+    const subject = bench({
+      duringRegister: () => { vi.setSystemTime(new Date('2026-09-12T12:02:00.000Z')) },
+    })
+    const { code } = subject.pairing.openSession()
+
+    // The approval is not published: the phone keeps polling and finds the code
+    // expired, and the operator's device list keeps no row no phone holds.
+    expect((await approve(subject, code)).status).toBe(410)
+    expect(subject.revoked).toEqual(['device-1'])
+    expect(subject.registered).toEqual([])
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({ devices: [] })
+    expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'expired' })
+  })
+
+  it('keeps a failed last-seen write from becoming an unhandled rejection', async () => {
+    const subject = bench({ touchFails: true })
+    const warn = vi.spyOn(subject.ctx.logger, 'warn')
+    const { code } = subject.pairing.openSession()
+
+    await approve(subject, code)
+    const collected = await subject.call(PAIR_PATHS.state, { code })
+
+    // The phone already holds its cookie, so the bookkeeping failure is
+    // reported instead of failing the response or crashing the process.
+    expect(collected.status).toBe(200)
+    expect(collected.headers['set-cookie']).toBe(COOKIE)
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('could not record the last-seen time'),
+        'device-1',
+        expect.stringContaining('credential write failed'),
+      )
+    })
   })
 
   it('keeps session, request, device, and revoke routes on loopback with a session cookie', async () => {

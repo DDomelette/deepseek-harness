@@ -10,6 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
+import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import type { PairingSessions } from './pairing.ts'
@@ -186,7 +187,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         const state = pairing.stateOf(code, req.socket.remoteAddress ?? UNKNOWN_SOURCE)
-        if (state.status !== 'approved' || state.deviceId === undefined) {
+        if (state.status !== 'approved') {
           sendJson(res, 200, state)
           return
         }
@@ -196,8 +197,13 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         pairing.consume(code)
-        void ctx.connection.devices.touch(state.deviceId)
         sendJson(res, 200, { status: 'approved' }, { 'set-cookie': setCookie })
+        // Last-seen bookkeeping is owed after the cookie is handed out, so the
+        // phone never waits on a credential write; a failed write is reported
+        // instead of becoming an unhandled rejection that ends the Host.
+        void ctx.connection.devices.touch(state.deviceId).catch((error: unknown) => {
+          ctx.logger.warn('mob: could not record the last-seen time of device "%s": %s', state.deviceId, String(error))
+        })
       },
     }),
     ctx.webServer.register({
@@ -249,8 +255,16 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           sendJson(res, 200, { ok: true })
           return
         }
+        // Register first, publish second: the phone collects an approval only
+        // once the device its cookie names exists.
         const device = await ctx.connection.devices.register({ label })
-        pairing.bindDevice(code, device.id)
+        if (!pairing.bindDevice(code, device.id)) {
+          // The code expired, or another read settled it, while the row was
+          // being written: drop the row rather than list a device no phone holds.
+          await ctx.connection.devices.revoke(device.id)
+          sendJson(res, 410, { error: 'expired' })
+          return
+        }
         sendJson(res, 200, { ok: true, device })
       },
     }),
@@ -281,7 +295,10 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           sendJson(res, 400, { error: 'expected a device id' })
           return
         }
-        sendJson(res, 200, { ok: await ctx.connection.devices.revoke(deviceId) })
+        // Wire boundary: the body carries the id as JSON text, and this is where
+        // the validated string earns the registry's brand.
+        const target = deviceId as PairedDeviceId
+        sendJson(res, 200, { ok: await ctx.connection.devices.revoke(target) })
       },
     }),
   ]
