@@ -491,4 +491,37 @@ describe('ConnectionIndicator', () => {
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
   })
+
+  it('carries the failure reason and the verbatim detail of a failed attempt', () => {
+    const labels = {
+      disconnectedLabel: 'Disconnected',
+      reconnectLabel: 'Reconnect',
+      connectingLabel: 'Connecting',
+      recoveredLabel: 'Connected',
+      reconnectActionLabel: 'Disconnected, reconnect now',
+      restartActionLabel: 'Connecting, restart now',
+      onReconnect: () => {},
+    }
+    const { rerender } = render(
+      <ConnectionIndicator state="connecting" {...labels} failureLabel="Sign-in expired; scan again" />,
+    )
+    const indicator = screen.getByRole('button', { name: 'Connecting, restart now' })
+    expect(indicator.textContent).toContain('Sign-in expired; scan again')
+    expect(indicator.hasAttribute('title')).toBe(false)
+
+    rerender(
+      <ConnectionIndicator
+        state="connecting"
+        {...labels}
+        failureLabel="Sign-in expired; scan again"
+        failureDetail="transport failure for /api/settings/describe: HTTP 401"
+      />,
+    )
+    expect(indicator.textContent).toContain('HTTP 401')
+    expect(indicator.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
+
+    // A recovered generation shows no failure text even while the reason is still supplied.
+    rerender(<ConnectionIndicator state="recovered" {...labels} failureLabel="Sign-in expired; scan again" />)
+    expect(screen.getByRole('status', { name: 'Connected' }).textContent).not.toContain('Sign-in expired')
+  })
 })

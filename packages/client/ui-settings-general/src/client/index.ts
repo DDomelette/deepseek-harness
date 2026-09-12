@@ -97,6 +97,7 @@ export function apply(ctx: ClientContext): void {
     reconnect: () => { connection.reconnect() },
     hooks: {
       connectionState: connection.state,
+      connectionFailure: connection.failure,
       sections: {
         getSnapshot: () => {
           const version = ctx.slots.getVersion('settings.section')

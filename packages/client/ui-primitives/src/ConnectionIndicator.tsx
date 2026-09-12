@@ -16,6 +16,8 @@ export type ConnectionIndicatorState =
  * @param props.recoveredLabel - localized recovery confirmation.
  * @param props.reconnectActionLabel - accessible label for the outage action.
  * @param props.restartActionLabel - accessible label for replacing an active attempt.
+ * @param props.failureLabel - localized reason for the last failure, when one is known.
+ * @param props.failureDetail - verbatim carrier detail for the last failure.
  * @param props.onReconnect - request an immediate reconnect attempt.
  * @returns the indicator, or null when no connection feedback is active.
  */
@@ -27,6 +29,8 @@ export function ConnectionIndicator({
   recoveredLabel,
   reconnectActionLabel,
   restartActionLabel,
+  failureLabel,
+  failureDetail,
   onReconnect,
 }: {
   state: ConnectionIndicatorState | undefined
@@ -36,9 +40,21 @@ export function ConnectionIndicator({
   recoveredLabel: string
   reconnectActionLabel: string
   restartActionLabel: string
+  failureLabel?: string | undefined
+  failureDetail?: string | undefined
   onReconnect: () => void
 }) {
   if (state === undefined) return null
+  const failure = failureLabel === undefined
+    ? undefined
+    : (
+      <>
+        <span className={css.failureLabel}>{failureLabel}</span>
+        {failureDetail === undefined || failureDetail === ''
+          ? null
+          : <span className={css.failureDetail}>{failureDetail}</span>}
+      </>
+    )
   const sizeLabels = (
     <>
       <span className={css.sizeLabel} aria-hidden="true">{disconnectedLabel}</span>
@@ -68,6 +84,7 @@ export function ConnectionIndicator({
       className={`${css.indicator} ${css.warning}`}
       data-phase={state}
       aria-label={connecting ? restartActionLabel : reconnectActionLabel}
+      title={failureDetail}
       onClick={onReconnect}
     >
       <span className={css.icon} aria-hidden="true"><IconWarningOutline16 size={14} /></span>
@@ -88,6 +105,7 @@ export function ConnectionIndicator({
             : disconnectedLabel}
         </span>
         <span className={css.hoverLabel}>{reconnectLabel}</span>
+        {failure}
       </span>
     </button>
   )

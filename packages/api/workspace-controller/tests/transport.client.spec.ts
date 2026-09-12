@@ -204,6 +204,7 @@ function provideClientServices(ctx: Context, remote: WorkspaceRemote): void {
     isLoopback: true,
     generation: AVAILABLE_CONNECTION.generation,
     state: { getSnapshot: () => 'connected' as const, subscribe: () => () => {} },
+    failure: { getSnapshot: () => undefined, subscribe: () => () => {} },
     rpc: {
       call: () => Promise.reject(new Error('unexpected generic RPC call')),
     },

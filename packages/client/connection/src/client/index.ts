@@ -9,7 +9,7 @@ import {
   type ConnectionState,
 } from './connection.ts'
 import { createFixtureConnectionRpc } from './fixture.ts'
-import { createWebConnectionRpc, type RpcFetch, type RpcStreamOpen } from './rpc.ts'
+import { ConnectionHttpError, createWebConnectionRpc, type RpcFetch, type RpcStreamOpen } from './rpc.ts'
 import { isLoopbackHostname } from '../loopback-hostname.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { resolveConnectionConfig } from '../recovery-config.ts'
@@ -68,6 +68,56 @@ export interface ConnectionStateSource {
   subscribe(listener: () => void): () => void
 }
 
+/**
+ * Why the last generation attempt failed, reduced to what an operator can act
+ * on. `auth` and `forbidden` come from a refused unary call, because a failed
+ * WebSocket upgrade carries no HTTP status; `internal` is a client-side fault
+ * (a thrown TypeError and its kin) rather than a carrier condition.
+ */
+export type ConnectionFailureReason =
+  | 'auth'
+  | 'forbidden'
+  | 'timeout'
+  | 'unreachable'
+  | 'internal'
+
+/** The last generation failure, with the carrier's detail kept verbatim. */
+export interface ConnectionFailure {
+  /** Category the operator can act on. */
+  readonly reason: ConnectionFailureReason
+  /** Diagnostic text carried from the failure, never localized. */
+  readonly detail: string
+}
+
+/** Observable last generation failure for connection-status surfaces. */
+export interface ConnectionFailureSource {
+  /** Last failure, or undefined while connected and before the first one. */
+  getSnapshot(): ConnectionFailure | undefined
+  /** Subscribe to failure replacement and clearing. */
+  subscribe(listener: () => void): () => void
+}
+
+/**
+ * Reduce one generation failure to its actionable category. A refused unary call
+ * is the only source of HTTP evidence, because a browser reports a rejected
+ * WebSocket upgrade as an opaque connection error.
+ * @param error - failure the generation loop observed.
+ * @param refusedStatus - status of the last refused unary call, when one happened.
+ * @returns the category and the verbatim detail.
+ */
+function classifyConnectionFailure(error: Error, refusedStatus: number | undefined): ConnectionFailure {
+  return { reason: failureReasonOf(error, refusedStatus), detail: error.message }
+}
+
+/** Category for one failure: refusal first, then an unmistakable client-side fault, then carrier timing. */
+function failureReasonOf(error: Error, refusedStatus: number | undefined): ConnectionFailureReason {
+  if (refusedStatus === 401) return 'auth'
+  if (refusedStatus === 403) return 'forbidden'
+  if (error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError) return 'internal'
+  if (/not ready within/u.test(error.message)) return 'timeout'
+  return 'unreachable'
+}
+
 /** Required services (none — this is the wire root). */
 export const inject: string[] = []
 
@@ -120,6 +170,8 @@ export interface ConnectionHandle {
   readonly generation: ConnectionGenerationState
   /** Current recovery lifecycle for connection-specific consumers. */
   readonly state: ConnectionStateSource
+  /** Why the last generation attempt failed, for connection-status surfaces. */
+  readonly failure: ConnectionFailureSource
   /** Generic logical RPC channels over the same Connection transport. */
   readonly rpc: ClientConnectionRpc
   /** Reset retry progression and replace the current attempt immediately. */
@@ -185,14 +237,34 @@ export function apply(ctx: Context): void {
   const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
   const transport = (globalThis as ClientTransportGlobal).__DSH_TRANSPORT__
   const recovery = resolveConnectionConfig((globalThis as ClientTransportGlobal).__DSH_CONNECTION_RECOVERY__)
-  const rpc = fixtureRpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
+  const created = fixtureRpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
   let generationSource: ConnectionGenerationSource | undefined
   let owner: ConnectionOwner | undefined
   let generationId = 0
   let generation: ConnectionGeneration | undefined
   let state: ConnectionState | undefined
+  let failure: ConnectionFailure | undefined
+  /** Status of the last refused unary call, the only HTTP evidence a failed upgrade lacks. */
+  let refusedStatus: number | undefined
+  // RPC semantics are unchanged; the record is what lets a failed generation tell
+  // an expired session (401) from an unreachable Host, since a rejected WebSocket
+  // upgrade reaches the client as an opaque connection error.
+  const rpc: ClientConnectionRpc = {
+    ...created,
+    async call(channel, endpoint, payload, signal) {
+      try {
+        const result = await created.call(channel, endpoint, payload, signal)
+        refusedStatus = undefined
+        return result
+      } catch (error) {
+        refusedStatus = error instanceof ConnectionHttpError ? error.status : refusedStatus
+        throw error
+      }
+    },
+  }
   const generationListeners = new Set<() => void>()
   const stateListeners = new Set<() => void>()
+  const failureListeners = new Set<() => void>()
   const publishGeneration = (next: ConnectionGeneration | undefined): void => {
     if (Object.is(generation, next)) return
     generation = next
@@ -212,6 +284,17 @@ export function apply(ctx: Context): void {
         listener()
       } catch (error) {
         console.error('[connection] state listener threw:', error)
+      }
+    }
+  }
+  const publishFailure = (next: ConnectionFailure | undefined): void => {
+    if (failure === next) return
+    failure = next
+    for (const listener of [...failureListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        console.error('[connection] failure listener threw:', error)
       }
     }
   }
@@ -237,6 +320,13 @@ export function apply(ctx: Context): void {
       subscribe: (listener) => {
         stateListeners.add(listener)
         return () => { stateListeners.delete(listener) }
+      },
+    },
+    failure: {
+      getSnapshot: () => failure,
+      subscribe: (listener) => {
+        failureListeners.add(listener)
+        return () => { failureListeners.delete(listener) }
       },
     },
     rpc,
@@ -272,10 +362,19 @@ export function apply(ctx: Context): void {
         onStateChange: (state) => {
           if (state !== 'connected') {
             publishGeneration(undefined)
+          } else {
+            // A live generation is the one outcome that retires the last failure.
+            refusedStatus = undefined
+            publishFailure(undefined)
           }
           if (!ownsGeneration()) return
           publishState(state)
           sinks.onStateChange?.(state)
+        },
+        onFailure: (error) => {
+          if (!ownsGeneration()) return
+          publishFailure(classifyConnectionFailure(error, refusedStatus))
+          sinks.onFailure?.(error)
         },
       }, { ...recovery, ...config })
       const current = { token, source, controller, stopNetworkWatch: watchBrowserNetwork(controller) }

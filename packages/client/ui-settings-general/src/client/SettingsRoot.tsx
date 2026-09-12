@@ -18,10 +18,21 @@ import {
   IconPersonalizationOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ConnectionFailureReason } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
+import type { SettingsKey } from './locales.ts'
 import css from './SettingsRoot.module.css'
 
 const RECOVERY_CONFIRMATION_MS = 2_000
+
+/** Localized reason line for each published connection failure. */
+const FAILURE_LABEL = {
+  auth: 'connection.failure.auth',
+  forbidden: 'connection.failure.forbidden',
+  timeout: 'connection.failure.timeout',
+  unreachable: 'connection.failure.unreachable',
+  internal: 'connection.failure.internal',
+} as const satisfies Record<ConnectionFailureReason, SettingsKey>
 
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
@@ -107,7 +118,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
  */
 export function SettingsRoot(props: SettingsRootComponentProps) {
   const {
-    wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
+    wide, reconnect, useConnectionState, useConnectionFailure, useSections, useOnboardingSteps, useSessions, renderSlot, t,
   } = props
   const [open, setOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | undefined>(undefined)
@@ -134,6 +145,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   // seats re-render through their own outlets' subscriptions.
   const rows = useSections(s => s)
   const connectionState = useConnectionState(state => state)
+  const connectionFailure = useConnectionFailure(failure => failure)
   const previousConnectionState = useRef(connectionState)
   const onboardingSteps = useOnboardingSteps(s => s)
   const onboardingActive = useSessions(state =>
@@ -199,6 +211,8 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           recoveredLabel={t('connection.connected')}
           reconnectActionLabel={t('connection.reconnect')}
           restartActionLabel={t('connection.restart')}
+          failureLabel={connectionFailure === undefined ? undefined : t(FAILURE_LABEL[connectionFailure.reason])}
+          failureDetail={connectionFailure?.detail}
           onReconnect={reconnect}
         />
       </div>

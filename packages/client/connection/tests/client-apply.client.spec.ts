@@ -642,3 +642,129 @@ describe('connection client apply', () => {
       .rejects.toThrow(/endpoint.*unavailable/)
   })
 })
+
+describe('connection failure reporting', () => {
+  const TIMING = { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 40, generationReadyTimeoutMs: 400 }
+
+  /**
+   * Answer unary calls from a scripted status queue; a 200 answers with a valid
+   * server-response envelope so the call succeeds. The queue runs dry into 200.
+   */
+  function scriptedFetch(statuses: number[]): void {
+    const queue = [...statuses]
+    ;(globalThis as Win).__DSH_TRANSPORT__ = {
+      fetch: (_input, init) => {
+        const status = queue.shift() ?? 200
+        if (status !== 200) return Promise.resolve(new Response('refused', { status }))
+        const body: unknown = init?.body
+        const request = JSON.parse(typeof body === 'string' ? body : '{}') as { rpcId: string }
+        return Promise.resolve(Response.json({
+          type: 'server-response',
+          rpcId: request.rpcId,
+          result: { ok: true, value: null },
+        }))
+      },
+    }
+  }
+
+  /** A source that never becomes ready, so every attempt reports a failure. */
+  const failingSource: ConnectionGenerationSource = () => Promise.reject(new Error('upgrade refused'))
+
+  it('publishes the carrier detail, then clears it once a generation connects', async () => {
+    const handle = await mount()
+    let refuse = true
+    handle.registerGenerationSource((signal, ready) => {
+      if (refuse) return Promise.reject(new Error('api gateway: Remote stream WebSocket failed to open'))
+      ready({ home: '/h' })
+      return new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => { resolve() }, { once: true })
+      })
+    })
+    const loop = handle.start({}, TIMING)
+    try {
+      await vi.waitFor(() => { expect(handle.failure.getSnapshot()?.reason).toBe('unreachable') })
+      expect(handle.failure.getSnapshot()?.detail).toBe('api gateway: Remote stream WebSocket failed to open')
+      refuse = false
+      await vi.waitFor(() => { expect(handle.state.getSnapshot()).toBe('connected') })
+      expect(handle.failure.getSnapshot()).toBeUndefined()
+    } finally {
+      loop.stop()
+    }
+  })
+
+  it.each([
+    [401, 'auth'],
+    [403, 'forbidden'],
+  ] as const)('reads a refused unary call (HTTP %i) as %s', async (status, reason) => {
+    scriptedFetch([status])
+    const handle = await mount()
+    await expect(handle.rpc.call('/api', 'settings/describe', { args: {} })).rejects.toThrow(`HTTP ${String(status)}`)
+    handle.registerGenerationSource(failingSource)
+    const loop = handle.start({}, TIMING)
+    try {
+      await vi.waitFor(() => { expect(handle.failure.getSnapshot()?.reason).toBe(reason) })
+      expect(handle.failure.getSnapshot()?.detail).toBe('upgrade refused')
+    } finally {
+      loop.stop()
+    }
+  })
+
+  it('drops a stale refusal once a later unary call succeeds', async () => {
+    scriptedFetch([401])
+    const handle = await mount()
+    await expect(handle.rpc.call('/api', 'settings/describe', { args: {} })).rejects.toThrow('HTTP 401')
+    await expect(handle.rpc.call('/api', 'settings/describe', { args: {} })).resolves.toEqual({ ok: true, value: null })
+    handle.registerGenerationSource(failingSource)
+    const loop = handle.start({}, TIMING)
+    try {
+      await vi.waitFor(() => { expect(handle.failure.getSnapshot()?.reason).toBe('unreachable') })
+    } finally {
+      loop.stop()
+    }
+  })
+
+  it('separates a client-side fault from a carrier condition', async () => {
+    const handle = await mount()
+    handle.registerGenerationSource(() => Promise.reject(new TypeError('AbortSignal.any is not a function')))
+    const loop = handle.start({}, TIMING)
+    try {
+      await vi.waitFor(() => { expect(handle.failure.getSnapshot()?.reason).toBe('internal') })
+      expect(handle.failure.getSnapshot()?.detail).toBe('AbortSignal.any is not a function')
+    } finally {
+      loop.stop()
+    }
+  })
+
+  it('classifies a readiness deadline as a timeout', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const handle = await mount()
+    handle.registerGenerationSource(signal => new Promise<void>((resolve) => {
+      signal.addEventListener('abort', () => { resolve() }, { once: true })
+    }))
+    const loop = handle.start({}, { ...TIMING, generationReadyTimeoutMs: 40, generationReadyWarnMs: 10_000 })
+    try {
+      await vi.waitFor(() => { expect(handle.failure.getSnapshot()?.reason).toBe('timeout') })
+      expect(handle.failure.getSnapshot()?.detail).toBe('connection generation was not ready within 40ms')
+    } finally {
+      loop.stop()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('isolates failure subscribers', async () => {
+    const handle = await mount()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    handle.failure.subscribe(() => { throw new Error('failure subscriber failed') })
+    let seen = 0
+    handle.failure.subscribe(() => { seen++ })
+    handle.registerGenerationSource(failingSource)
+    const loop = handle.start({}, TIMING)
+    try {
+      await vi.waitFor(() => { expect(seen).toBeGreaterThan(0) })
+      expect(errorSpy).toHaveBeenCalled()
+    } finally {
+      loop.stop()
+      errorSpy.mockRestore()
+    }
+  })
+})

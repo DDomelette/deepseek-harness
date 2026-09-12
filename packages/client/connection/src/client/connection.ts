@@ -20,6 +20,16 @@ export interface ConnectionGeneration {
 const MANUAL_RECONNECT = new Error('connection: manual reconnect requested')
 const NETWORK_STATE_CHANGED = new Error('connection: browser network state changed')
 
+/** Whether an abort reason comes from this controller's own intent rather than a carrier failure. */
+function isIntentionalAbort(reason: unknown): boolean {
+  return reason === MANUAL_RECONNECT || reason === NETWORK_STATE_CHANGED
+}
+
+/** Convert one thrown value into the Error the sinks carry. */
+function asFailure(error: unknown): Error {
+  return error instanceof Error ? error : new Error('connection generation failed', { cause: error })
+}
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const t = setTimeout(done, ms)
@@ -53,6 +63,12 @@ export interface ConnectionSinks {
   onStateChange?: (state: ConnectionState) => void
   /** Start one fresh physical-carrier attempt before each logical retry. */
   onReconnectRequested?: () => void
+  /**
+   * One generation failed before it became ready, so the next attempt is a
+   * retry. Intentional aborts (manual reconnect, browser offline) report
+   * nothing: they are not carrier failures.
+   */
+  onFailure?: (error: Error) => void
 }
 
 /**
@@ -234,9 +250,7 @@ export class ConnectionController {
               settle()
             },
             (error: unknown) => {
-              const failure = error instanceof Error
-                ? error
-                : new Error('connection generation failed', { cause: error })
+              const failure = asFailure(error)
               if (!sourceReady) rejectReady(failure)
               rejectSourceLost(failure)
               settle()
@@ -258,6 +272,13 @@ export class ConnectionController {
         }
       } catch (error) {
         if (!ac.signal.aborted) ac.abort(error)
+        // The generation never became ready: a rejected source, the readiness
+        // deadline, or a handshake abort. A stopped loop and this controller's
+        // own aborts are not carrier failures.
+        if (this.isRunning() && !isIntentionalAbort(ac.signal.reason)) {
+          const failure = asFailure(error)
+          this.callSink(() => { this.sinks.onFailure?.(failure) })
+        }
       }
 
       await failed

@@ -15,6 +15,22 @@ const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 /** Transport this caller posts through; same signature as the global `fetch`. */
 export type RpcFetch = (input: URL, init: RequestInit) => Promise<Response>
 
+/**
+ * A unary call the carrier refused with an HTTP status. The status is the one
+ * fact a caller cannot recover from the message, and it is what separates an
+ * expired browser session (401) from a rejected authority (403).
+ */
+export class ConnectionHttpError extends Error {
+  /**
+   * @param status - response status that failed the call.
+   * @param message - diagnostic naming the target and the status.
+   */
+  constructor(readonly status: number, message: string) {
+    super(message)
+    this.name = 'ConnectionHttpError'
+  }
+}
+
 /** Worker-local opener for decoded Gateway Remote streams. */
 export type RpcStreamOpen = (
   endpoint: string,
@@ -50,7 +66,10 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
         },
       )
       if (!response.ok) {
-        throw new Error(`transport failure for ${channel}/${endpoint}: HTTP ${response.status}`)
+        throw new ConnectionHttpError(
+          response.status,
+          `transport failure for ${channel}/${endpoint}: HTTP ${String(response.status)}`,
+        )
       }
       const full = parseConnectionResponse(await response.json())
       if (full.rpcId !== rpcId) {
