@@ -5,6 +5,8 @@ html,
 body,
 #root {
   height: 100%;
+  /* Mobile browsers: the dynamic viewport tracks the URL bar collapsing. */
+  height: 100dvh;
   margin: 0;
 }
 
