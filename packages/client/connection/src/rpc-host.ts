@@ -1,7 +1,6 @@
 /** Host registry and HTTP adapter for generic Connection RPC channels. */
 
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
   RpcId,
@@ -68,35 +67,34 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /**
    * Provide the Host half over the active HTTP server.
-   * @param ctx - owning Connection plugin context.
+   * @param ctx - owning Connection plugin context, which also carries the credential provider.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
-   * @param credentials - persistent credential provider owning the paired-device record.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
-    private readonly credentials: CredentialProvider,
   ) {
     super(ctx, 'connection')
   }
 
   /** Paired-device registry; each mutation refreshes the cookie check in place. */
   get devices(): HostConnectionDevices {
+    const credentials = this.ctx.credentials
     return {
-      list: () => listDevices(this.credentials),
+      list: () => listDevices(credentials),
       register: async (request) => {
-        const device = await registerDevice(this.credentials, request)
+        const device = await registerDevice(credentials, request)
         await this.browserAuth.refreshPairedDevices()
         return device
       },
       revoke: async (deviceId) => {
-        const removed = await revokeDevice(this.credentials, deviceId)
+        const removed = await revokeDevice(credentials, deviceId)
         if (removed) await this.browserAuth.refreshPairedDevices()
         return removed
       },
-      touch: deviceId => touchDevice(this.credentials, deviceId),
+      touch: deviceId => touchDevice(credentials, deviceId),
       issueCookie: (request, deviceId) => {
         const authority = requestAuthority(request.headers)
         return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)

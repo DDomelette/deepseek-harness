@@ -10,6 +10,9 @@
 import { randomBytes } from 'node:crypto'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
+import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+
+export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 
 /** Credentials record holding the approved devices. */
 export const PAIRED_DEVICES_RECORD_KEY = credentialKey('client-connection', 'paired-devices')
@@ -17,24 +20,6 @@ export const PAIRED_DEVICES_RECORD_KEY = credentialKey('client-connection', 'pai
 const PAIRED_DEVICES_VERSION = 1
 const DEVICE_ID_BYTES = 16
 const TOUCH_THROTTLE_MILLISECONDS = 60 * 60 * 1000
-
-/** One device approved through the pairing handshake. */
-export interface PairedDevice {
-  /** Opaque id minted at approval and carried by that device's cookie. */
-  readonly id: string
-  /** Operator-visible label; the approve dialog prefills it and may edit it. */
-  readonly label: string
-  /** Epoch milliseconds of approval. */
-  readonly registeredAt: number
-  /** Epoch milliseconds of the last accepted request, written back with throttling. */
-  readonly lastSeenAt: number
-}
-
-/** Fields the approve dialog supplies for a newly paired device. */
-export interface RegisterDeviceRequest {
-  /** Operator-visible label, defaulted from the phone's user agent and editable before approval. */
-  readonly label: string
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

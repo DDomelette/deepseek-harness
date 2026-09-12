@@ -1,7 +1,7 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { PairedDevice, RegisterDeviceRequest } from './devices.ts'
+import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
