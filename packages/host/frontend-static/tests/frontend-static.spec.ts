@@ -166,6 +166,13 @@ describe('real Loader composition', () => {
     expect(anonymous.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
     expect(anonymous.body).toContain('shell')
 
+    // The fence keeps the shell away from an authority this Host does not
+    // trust: an undeclared name receives the plain refusal, never the app.
+    const untrusted = await lanRequest(port, 'evil.example:3080')
+    expect(untrusted.status).toBe(401)
+    expect(untrusted.type).toBe('text/plain; charset=utf-8')
+    expect(untrusted.body).not.toContain('__DSH_AUTH_REQUIRED__')
+
     // A paired device's own cookie is the LAN credential: the same request then
     // serves the ordinary shell.
     const device = await loaded.connection.devices.register({ label: 'phone' })

@@ -127,9 +127,17 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return this.browserAuth.isAuthenticated(request) ? undefined : 401
   }
 
-  /** Authenticate an index request through the process-token exchange or cookie. */
+  /**
+   * Authenticate an index request through the process-token exchange or cookie.
+   * The Host/Origin fence keeps the application shell away from an authority
+   * this Host does not trust, so only a trusted client without a session is
+   * told how to pair.
+   */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
-    return this.browserAuth.authorizeIndex(request, response)
+    const access = this.browserAuth.authorizeIndex(request, response)
+    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts)) return access
+    this.browserAuth.refuseIndexInText(request, response)
+    return 'answered'
   }
 
   /** Add this process's launch token to the clean application URL. */

@@ -340,8 +340,18 @@ export class BrowserAuth {
   private refuseIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
     const hostname = requestHostname(req.headers)
     if (hostname !== undefined && !isLoopbackHostname(hostname)) return 'auth-required'
-    this.writeUnauthorized(req, res)
+    this.refuseIndexInText(req, res)
     return 'answered'
+  }
+
+  /**
+   * Complete a refusal with the minimal 401 response, for the caller that
+   * decides this authority may not receive the application shell at all.
+   * @param req - refused index request.
+   * @param res - response to write.
+   */
+  refuseIndexInText(req: ConnectionIndexRequest, res: ConnectionIndexResponse): void {
+    this.writeUnauthorized(req, res)
   }
 
   /**
