@@ -34,6 +34,7 @@ async function bench() {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
+  ctx.provide('connection', { isLoopback: true } as never)
   const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/?token=t' }))
   new TestRemote(ctx, { mob: { joinUrl } })
   return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl }
@@ -41,7 +42,7 @@ async function bench() {
 
 describe('dsh-mob client apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.mob'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob'])
   })
 
   it('registers the Connect-phone row into the General item slot', async () => {

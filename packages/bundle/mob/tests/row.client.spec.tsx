@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 /**
- * ConnectPhoneRow: the General row opens the QR dialog; the dialog loads the
- * join URL, renders the QR image and copyable link, or shows the
- * loopback-unavailable copy.
+ * ConnectPhoneRow: the General row opens the pairing panel, which owns every
+ * pairing operation and the copy that explains an unavailable one.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -19,6 +18,7 @@ vi.mock('qrcode/lib/browser.js', () => ({
 
 import { ConnectPhoneRow } from '../src/client/ConnectPhoneRow.tsx'
 import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import type { PairingApi } from '../src/client/pairing-api.ts'
 import { zh, type MobileSettingsKey } from '../src/client/locales.ts'
 
 const JOIN_URL = 'http://192.168.1.5:3080/?token=t'
@@ -33,7 +33,15 @@ const t: TranslateNS<'settings.mobile'> = (key, params): string => {
 
 const unused = (): never => { throw new Error('unused by ConnectPhoneRow') }
 
-function mount(joinUrl: ConnectPhoneRowInjected['joinUrl']): void {
+const api: PairingApi = {
+  open: async () => ({ ok: true, value: { code: 'ABCD2345', expiresAt: Date.now() + 120_000 } }),
+  requests: async () => ({ ok: true, value: [] }),
+  decide: async () => ({ ok: true, value: undefined }),
+  devices: async () => ({ ok: true, value: [] }),
+  revoke: async () => ({ ok: true, value: undefined }),
+}
+
+function mount(face: Partial<ConnectPhoneRowInjected> = {}): void {
   render(<ConnectPhoneRow
     usePanelInfo={unused as never}
     useResource={unused as never}
@@ -41,122 +49,54 @@ function mount(joinUrl: ConnectPhoneRowInjected['joinUrl']): void {
     useSessions={unused as never}
     useWorkspaces={unused as never}
     t={t}
-    joinUrl={joinUrl}
+    joinUrl={async () => ({ ok: true, value: JOIN_URL })}
+    canDecide
+    api={api}
+    {...face}
   />)
 }
-
-const okJoin = (): ConnectPhoneRowInjected['joinUrl'] =>
-  vi.fn(async () => ({ ok: true as const, value: JOIN_URL }))
 
 afterEach(cleanup)
 
 describe('ConnectPhoneRow', () => {
-  it('renders the row title and keeps the dialog closed until the button is pressed', () => {
-    mount(okJoin())
+  it('renders the row title and keeps the panel closed until the button is pressed', () => {
+    mount()
     expect(screen.getByText('连接手机')).toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('button', { name: '生成配对码' })).toBeNull()
   })
 
-  it('opens the dialog, loads the join URL, and renders the QR image and copyable link', async () => {
-    const joinUrl = okJoin()
-    mount(joinUrl)
+  it('opens the pairing panel, which creates a code for the phone', async () => {
+    mount()
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
 
-    expect(screen.getByRole('dialog', { name: '连接手机' })).toBeTruthy()
-    expect(screen.getByText('正在准备加入链接…')).toBeTruthy()
-
-    await waitFor(() => { expect(screen.getByLabelText('加入链接')).toBeTruthy() })
-    expect(joinUrl).toHaveBeenCalledOnce()
-    const link = screen.getByLabelText('加入链接') as HTMLInputElement
-    expect(link.value).toBe(JOIN_URL)
-    const image = screen.getByRole('img', { name: '连接手机' }) as HTMLImageElement
-    expect(image.src.startsWith('data:image/')).toBe(true)
-
-    // Focusing the link field selects it for copying.
-    const select = vi.spyOn(HTMLInputElement.prototype, 'select')
-    fireEvent.focus(link)
-    expect(select).toHaveBeenCalledOnce()
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '生成配对码' }))
+    await waitFor(() => { expect(within(dialog).getByText('ABCD2345')).toBeTruthy() })
+    expect(within(dialog).getByRole('img')).toBeTruthy()
   })
 
-  it('shows the loopback-unavailable copy when the Host refuses', async () => {
-    mount(vi.fn(async () => ({
-      ok: false as const,
-      error: new RemoteError('mob/loopback-only', 'loopback-only deployment has no LAN join URL', {}),
-    })))
+  it('shows the loopback-unavailable copy when the Host refuses the join URL', async () => {
+    mount({
+      joinUrl: async () => ({
+        ok: false as const,
+        error: new RemoteError('mob/loopback-only', 'loopback-only deployment has no LAN join URL', {}),
+      }),
+    })
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '生成配对码' }))
 
-    await waitFor(() => { expect(screen.getByText('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')).toBeTruthy() })
-    expect(screen.queryByRole('img')).toBeNull()
+    await waitFor(() => {
+      expect(screen.getByText('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')).toBeTruthy()
+    })
   })
 
-  it('names an all-interfaces bind that derived no address, not a disabled LAN', async () => {
-    mount(vi.fn(async () => ({
-      ok: false as const,
-      error: new RemoteError('mob/no-lan-address', 'no interface yielded a LAN address for the join URL', {}),
-    })))
+  it('closes the panel again', async () => {
+    mount()
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
 
-    await waitFor(() => { expect(screen.getByText('未找到局域网地址，请检查本机网络连接')).toBeTruthy() })
-    expect(screen.queryByRole('img')).toBeNull()
-  })
-
-  it('shows the load-failure copy on a non-loopback Remote failure', async () => {
-    mount(vi.fn(async () => ({
-      ok: false as const,
-      error: new RemoteError('gateway/internal', 'gateway folded an unexpected exception', {}),
-    })))
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-
-    await waitFor(() => { expect(screen.getByText('加入链接加载失败')).toBeTruthy() })
-    expect(screen.queryByRole('img')).toBeNull()
-  })
-
-  it('shows the load-failure copy instead of hanging when the join read rejects', async () => {
-    mount(vi.fn(async (): Promise<never> => { throw new Error('connection dropped') }))
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-
-    await waitFor(() => { expect(screen.getByText('加入链接加载失败')).toBeTruthy() })
-    expect(screen.queryByText('正在准备加入链接…')).toBeNull()
-  })
-
-  it('closes on Escape and reloads the URL on reopen', async () => {
-    const joinUrl = okJoin()
-    mount(joinUrl)
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-    await waitFor(() => { expect(screen.getByLabelText('加入链接')).toBeTruthy() })
-
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-    expect(screen.getByText('正在准备加入链接…')).toBeTruthy()
-    await waitFor(() => { expect(screen.getByLabelText('加入链接')).toBeTruthy() })
-    expect(joinUrl).toHaveBeenCalledTimes(2)
-  })
-
-  it('drops a late answer after the dialog closes mid-load', async () => {
-    let release: (value: { ok: true; value: string }) => void
-    const joinUrl = vi.fn(() => new Promise<{ ok: true; value: string }>((resolve) => { release = resolve }))
-    mount(joinUrl)
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-    fireEvent.keyDown(document, { key: 'Escape' })
-
-    release!({ ok: true, value: JOIN_URL })
-    // The cancelled effect never republishes: nothing reopens and no link field appears.
-    await waitFor(() => { expect(joinUrl).toHaveBeenCalledOnce() })
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('drops a late rejection after the dialog closes mid-load', async () => {
-    let reject: (error: Error) => void
-    const joinUrl = vi.fn(() => new Promise<never>((_resolve, rejectPromise) => { reject = rejectPromise }))
-    mount(joinUrl)
-    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-    fireEvent.keyDown(document, { key: 'Escape' })
-
-    reject!(new Error('connection dropped'))
-    // The catch arm still feeds the cancelled effect: no failure copy, no unhandled rejection.
-    await waitFor(() => { expect(joinUrl).toHaveBeenCalledOnce() })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
   })
 })

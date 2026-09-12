@@ -36,7 +36,7 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 
 ### 从桌面会话交接
 
-浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开的弹窗通过 `mob.joinUrl` Remote 方法向 Host 请求带令牌的局域网 URL，并将其渲染为二维码、下方附上链接。仅回环部署中该调用以 `mob/loopback-only` 失败，弹窗提示未开启内网访问；而当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败，弹窗改为提示检查本机网络——那种情况下加旗标并无帮助。
+浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以本机局域网 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，显示添加时间、最近一次通过认证的时间，以及一个「吊销」按钮，让该设备的下一次请求失效。不是电脑本机的页面看不到这些操作；未开启内网访问的部署会明确说明：加入 URL 以 `mob/loopback-only` 失败（需要 `--allow-lan`），或当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败（需要修复本机网络）。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的「回环 + 会话」规则只有一个执行点。
 
 ### 配对一台手机
 
@@ -72,7 +72,9 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 | [`src/pairing.ts`](src/pairing.ts) | 配对会话：8 位短码、两分钟寿命、每码一次决定与按来源限流 |
 | [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及电脑侧仅回环可用的决定 |
 | [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | 手机端配对界面：启动事实、状态轮询与按决定显示的文案 |
-| [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、二维码弹窗与 `settings.mobile` 字典 |
+| [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、配对面板与 `settings.mobile` 字典 |
+| [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与吊销 |
+| [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | 面板调用 `/pair*` 路由的客户端半边，含设备名与配对 URL 两个 helper |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | 真实 Loader 组合的 `web` profile：局域网 URL、`mob/loopback-only` 与 `mob/no-lan-address` |
@@ -80,6 +82,8 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | 配对会话：短码、批准、过期、单次使用与限流 |
 | [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | 配对路由：访问规则、短码流程、设备 cookie 与请求体边界 |
 | [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | 配对界面：轮询、批准后跳转与各决定对应的文案 |
+| [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | 配对面板：短码与倒计时、允许/拒绝、设备列表与吊销 |
+| [`tests/pairing-api.client.spec.ts`](tests/pairing-api.client.spec.ts) | 配对路由的客户端半边：请求形状、应答解析与 helper |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |
 

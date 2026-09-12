@@ -9,6 +9,8 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the ctx.remote merge with the generated `mob` namespace.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls the client Connection merge and its ConnectionHandle.
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the frame's slot declarations (shell.overlay).
@@ -21,12 +23,16 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '../types.ts'
 import { ConnectPhoneRow, type ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
 import { PairScreen, pairingBootFact, readPairingState, type PairScreenInjected } from './PairScreen.tsx'
+import { createPairingApi } from './pairing-api.ts'
 import { en, zh, type MobileSettingsKey } from './locales.ts'
 import { en as pairEn, zh as pairZh, type PairScreenKey } from './pair-locales.ts'
 
 export type { ConnectPhoneRowComponentProps, ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
 export type { MobileSettingsKey } from './locales.ts'
 export type { PairScreenInjected, PairScreenProps, PairingStateView } from './PairScreen.tsx'
+export type {
+  PairedDeviceView, PairingApi, PairingFailureKind, PairingResult, PairingSessionView, PendingPairingView,
+} from './pairing-api.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -44,7 +50,7 @@ const NS = 'settings.mobile'
 const PAIR_NS = 'pair.mobile'
 
 /** Required services (cordis fiber inject). */
-export const inject = ['slots', 'locale', 'remote', 'remote.mob']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob']
 
 /**
  * Register the dictionaries, the Connect-phone row once the General section's
@@ -55,8 +61,12 @@ export const inject = ['slots', 'locale', 'remote', 'remote.mob']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-mob: connect-phone dictionaries')
   ctx.effect(() => ctx.locale.register(PAIR_NS, { zh: pairZh, en: pairEn }), 'dsh-mob: pairing dictionaries')
+  const connection = ctx.get('connection') as ConnectionHandle
+  const api = createPairingApi()
   const injected = (): ConnectPhoneRowInjected => ({
     joinUrl: () => ctx.remote.mob.joinUrl(),
+    canDecide: connection.isLoopback,
+    api,
   })
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',

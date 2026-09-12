@@ -36,7 +36,7 @@ The `web` profile composes this bundle, so phone access is an ordinary `dsh web`
 
 ### Handing off from a desktop session
 
-The browser half adds a Connect phone row under Settings → General, which is the only join surface — nothing is printed to the terminal. The row opens a dialog that asks the Host for the token-bearing LAN URL through the `mob.joinUrl` Remote method and renders it as a QR code with the link below it. On a loopback-only deployment the call fails with `mob/loopback-only` and the dialog says LAN access is off; when an all-interfaces bind derived no reachable address it fails with `mob/no-lan-address` and the dialog asks for the machine's network instead, because the flag would not help there.
+The browser half adds a Connect phone row under Settings → General, which is the only join surface — nothing is printed to the terminal. The row opens the pairing panel: *Create pairing code* asks the Host for a code through `POST /pair/session`, composes the token-free `/pair?c=<code>` link on this Host's LAN origin, and renders that link as a QR code beside the code and the seconds it has left. The panel then lists the requests waiting for a decision — each with the device name derived from the phone's agent, editable before *Allow* or *Deny* — and the devices already paired, with when each was added, when it last authenticated, and a *Revoke* button that ends that device's access on its next request. A page that is not the computer itself shows none of these controls, and a deployment without LAN access says so: the join URL fails with `mob/loopback-only` (add `--allow-lan`) or, when an all-interfaces bind derived no reachable address, with `mob/no-lan-address` (fix this machine's networking). Every control speaks the same `/pair*` routes the phone uses, so the loopback-and-session rule that guards a decision has one enforcement point.
 
 ### Pairing a phone
 
@@ -72,7 +72,9 @@ The join URL comes from the `webRuntime` service — the same `resolveLanTrust` 
 | [`src/pairing.ts`](src/pairing.ts) | The pairing sessions: eight-character codes with a two-minute life, one decision each, and per-source throttling |
 | [`src/routes.ts`](src/routes.ts) | The `/pair*` named routes: the phone's shell and cookie-less state read, and the computer's loopback-only decisions |
 | [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | The phone's pairing screen: the boot fact, the state poll, and the copy per decision |
-| [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, QR dialog, and the `settings.mobile` dictionaries |
+| [`src/client/`](src/client/index.ts) | The browser half: Connect-phone row, pairing panel, and the `settings.mobile` dictionaries |
+| [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | The computer's pairing panel: code and countdown, decisions, device list, revocation |
+| [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | The `/pair*` routes as the panel calls them, with the device-name and pairing-URL helpers |
 | — | No runtime invariant companion is published; every observable effect is derived per call from the fence snapshot (see Invariant ownership below). |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host half: namespace registration, join answer, disposal |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | The real Loader-composed `web` profile: the LAN URL, `mob/loopback-only`, and `mob/no-lan-address` |
@@ -80,6 +82,8 @@ The join URL comes from the `webRuntime` service — the same `resolveLanTrust` 
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | Pairing sessions: codes, approval, expiry, single use, and throttling |
 | [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | The pairing routes: access rules, code flow, device cookie, and body edges |
 | [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | The pairing screen: polling, navigation on approval, and the copy per decision |
+| [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | The pairing panel: code and countdown, decisions, device list, revocation |
+| [`tests/pairing-api.client.spec.ts`](tests/pairing-api.client.spec.ts) | The pairing routes' client half: request shapes, answer parsing, and helpers |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | Row registration, deferred slot declaration, injected `joinUrl`, disposal |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | The row and dialog: load, QR render, loopback copy, close and reopen |
 
