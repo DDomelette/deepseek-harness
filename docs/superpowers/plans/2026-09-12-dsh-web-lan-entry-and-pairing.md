@@ -442,7 +442,18 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 - [x] `dsh web` 的 LAN 就绪行与 `mob.joinUrl` 改为不带令牌的 origin(`8be795644b`)。
 - [x] Agent Note 与各 README 同步该规则(`36687ed7dd`)。
 - [x] Run: `pnpm run test:docs`(16/16 通过)、`pnpm exec vitest run packages/client/connection packages/bundle/mob packages/bundle/web-app`、`pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`(3/3 通过)。
-- [ ] 合并与重启同上(操作者执行),然后重走真机清单第 5-7 项:吊销后手机刷新应回到「登录已失效」,重新配对后只有设备 cookie 生效。
+- [x] 合并与重启同上(操作者执行);真机复验第 5、6 项通过:吊销后手机刷新被挡下,重新配对后恢复访问。第 7 项的界面表现暴露第三处缺口,见下。
+- [x] 路线图遗留:第一轮的合并步骤(第 434、435 行)已由操作者完成,`master` 现为 `20a9c9752a`。
+
+### 第三轮修复:被拒绝的局域网页面给出去向
+
+真机复验第 7 项暴露的缺口:吊销后手机**刷新**时,index 文档请求直接得到 401 纯文本 `dsh web authentication required; reopen the URL printed by dsh web.`。手机上既没有可打开的打印 URL,应用外壳也没送到,所以本地化提示没有机会渲染。
+
+- [x] `authorizeIndex` 改为三态判定 `serve` / `answered` / `auth-required`;非回环 authority 上的拒绝不再由 Connection 写响应,而是交给 index 所有者(`ConnectionIndexAccess`)。
+- [x] `frontend-static` 在 `auth-required` 时以 401 提供外壳本身,并在 `<head>` 后注入 `__DSH_AUTH_REQUIRED__` 启动事实。
+- [x] mob 浏览器半层新增「登录已失效」全屏界面(`shell.overlay`,order 90)、中英文案与「重新加载」按钮;`/pair` 页面仍优先渲染配对界面。
+- [x] 覆盖:connection 单测(三态 + 已配对/已吊销设备 cookie)、`frontend-static` 真实组合测试(LAN 匿名 401 HTML + 事实,设备 cookie 后 200 无事实)、mob 组件与注册测试、真实 CLI e2e(LAN 带/不带令牌都是 401 + 事实 + 无 cookie,回环仍是纯文本 401)。
+- [ ] 合并与重启同上(操作者执行),然后真机清单第 7 项应显示「登录已失效」全屏界面(含 设置 → 通用设置 → 连接手机 的指引与重新加载按钮),而不是英文纯文本页。
 
 ### 真机验证清单(操作者执行)
 
