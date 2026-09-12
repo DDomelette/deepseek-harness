@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { listDevices } from './devices.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import { header, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
@@ -35,7 +36,7 @@ interface BrowserCookiePayload {
   readonly issuedAt: number
   readonly expiresAt: number
   /** Present on device cookies only; the registry decides whether it still counts. */
-  readonly deviceId?: string
+  readonly deviceId?: PairedDeviceId
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -178,7 +179,7 @@ export class BrowserAuth {
   private readonly launchToken: string
   private readonly maxAgeMilliseconds: number
   private readonly deviceMaxAgeMilliseconds: number
-  private pairedDeviceIds: ReadonlySet<string>
+  private pairedDeviceIds: ReadonlySet<PairedDeviceId>
 
   private constructor(
     processOwner: object,
@@ -186,7 +187,7 @@ export class BrowserAuth {
     private readonly secret: Buffer,
     maxAgeDays: number,
     deviceMaxAgeDays: number,
-    pairedDeviceIds: ReadonlySet<string>,
+    pairedDeviceIds: ReadonlySet<PairedDeviceId>,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -246,7 +247,7 @@ export class BrowserAuth {
    * @param deviceId - registry id of the approved device.
    * @returns the complete `Set-Cookie` value, valid while that device stays registered.
    */
-  issueDeviceCookie(authority: string, deviceId: string): string {
+  issueDeviceCookie(authority: string, deviceId: PairedDeviceId): string {
     const issuedAt = Date.now()
     const expiresAt = issuedAt + this.deviceMaxAgeMilliseconds
     const value = encodeCookie({

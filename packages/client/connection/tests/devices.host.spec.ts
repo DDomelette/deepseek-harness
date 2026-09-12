@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import { PairedDeviceId } from '../src/device-brand.ts'
 import {
   PAIRED_DEVICES_RECORD_KEY, listDevices, registerDevice, revokeDevice, touchDevice,
 } from '../src/devices.ts'
@@ -12,7 +13,7 @@ function credentials(store: RecordCredentials): CredentialProvider {
 }
 
 const device = {
-  id: 'dev-1',
+  id: PairedDeviceId('dev-1'),
   label: 'HUAWEI JAD-AL50',
   registeredAt: 1_700_000_000_000,
   lastSeenAt: 1_700_000_000_000,
@@ -88,7 +89,7 @@ describe('paired-device registry writes', () => {
     const store = new RecordCredentials()
     store.setPairedDevices({ version: 1, devices: [device] })
 
-    await expect(revokeDevice(credentials(store), 'dev-1')).resolves.toBe(true)
+    await expect(revokeDevice(credentials(store), PairedDeviceId('dev-1'))).resolves.toBe(true)
     await expect(listDevices(credentials(store))).resolves.toEqual([])
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',
@@ -96,7 +97,7 @@ describe('paired-device registry writes', () => {
     })
     expect(store).toMatchObject({ writes: 1 })
 
-    await expect(revokeDevice(credentials(store), 'dev-1')).resolves.toBe(false)
+    await expect(revokeDevice(credentials(store), PairedDeviceId('dev-1'))).resolves.toBe(false)
     expect(store).toMatchObject({ writes: 1 })
   })
 
@@ -107,20 +108,20 @@ describe('paired-device registry writes', () => {
     store.setPairedDevices({ version: 1, devices: [device, { ...device, id: 'dev-2', label: 'iPad' }] })
     const provider = credentials(store)
 
-    await expect(touchDevice(provider, 'dev-1')).resolves.toBe(true)
+    await expect(touchDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
     expect(store).toMatchObject({ writes: 1 })
     const touched = await listDevices(provider)
     expect(touched[0]?.lastSeenAt).toBe(Date.parse('2026-09-12T12:00:00.000Z'))
     expect(touched[1]?.lastSeenAt).toBe(device.lastSeenAt)
 
     vi.setSystemTime(new Date('2026-09-12T12:59:59.000Z'))
-    await expect(touchDevice(provider, 'dev-1')).resolves.toBe(false)
+    await expect(touchDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(false)
     expect(store).toMatchObject({ writes: 1 })
 
     vi.setSystemTime(new Date('2026-09-12T13:00:01.000Z'))
-    await expect(touchDevice(provider, 'dev-1')).resolves.toBe(true)
+    await expect(touchDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
     expect(store).toMatchObject({ writes: 2 })
-    await expect(touchDevice(provider, 'ghost')).resolves.toBe(false)
+    await expect(touchDevice(provider, PairedDeviceId('ghost'))).resolves.toBe(false)
     expect(store).toMatchObject({ writes: 2 })
   })
 
@@ -130,8 +131,8 @@ describe('paired-device registry writes', () => {
     const provider = credentials(store)
 
     await expect(registerDevice(provider, { label: 'phone' })).rejects.toThrow(/paired-devices/u)
-    await expect(revokeDevice(provider, 'dev-1')).rejects.toThrow(/paired-devices/u)
-    await expect(touchDevice(provider, 'dev-1')).rejects.toThrow(/paired-devices/u)
+    await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
+    await expect(touchDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',
       payload: { version: 9, devices: [] },

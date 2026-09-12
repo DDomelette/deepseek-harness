@@ -4,6 +4,7 @@ import { createHash, createHmac } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { BrowserAuth } from '../src/browser-auth.ts'
+import { PairedDeviceId } from '../src/device-brand.ts'
 import type { ConnectionIndexRequest, ConnectionIndexResponse } from '../src/rpc.ts'
 import { RecordCredentials } from './browser-credentials.ts'
 
@@ -69,6 +70,9 @@ function createAuth(
 function deviceEntry(id: string, label = id): Record<string, unknown> {
   return { id, label, registeredAt: 1_700_000_000_000, lastSeenAt: 1_700_000_000_000 }
 }
+
+/** The paired-device id those seeds carry, branded as the registry mints it. */
+const PHONE = PairedDeviceId('phone-1')
 
 /** The `name=value` half of a `Set-Cookie` value, as a request `Cookie` header carries it. */
 function cookiePair(setCookie: string): string {
@@ -326,7 +330,7 @@ describe('BrowserAuth', () => {
         expect(unanswered.state).toEqual({})
       }
 
-      const live = cookiePair(auth.issueDeviceCookie(lanAuthority, 'phone-1'))
+      const live = cookiePair(auth.issueDeviceCookie(lanAuthority, PHONE))
       const served = response()
       expect(auth.authorizeIndex(request('/', lanAuthority, { cookie: live }), served.value)).toBe('serve')
       expect(served.state).toEqual({})
@@ -345,7 +349,7 @@ describe('BrowserAuth', () => {
       const store = new RecordCredentials()
       store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1', 'HUAWEI JAD-AL50')] })
       const auth = await createAuth(store, 30, {}, 180)
-      const setCookie = auth.issueDeviceCookie('192.168.0.126:3080', 'phone-1')
+      const setCookie = auth.issueDeviceCookie('192.168.0.126:3080', PHONE)
 
       expect(setCookie).toMatch(/; Max-Age=15552000; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
       const pair = cookiePair(setCookie)
@@ -360,7 +364,7 @@ describe('BrowserAuth', () => {
     it('rejects a device cookie for an unregistered device and for one revoked after activation', async () => {
       const store = new RecordCredentials()
       const auth = await createAuth(store)
-      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', 'phone-1'))
+      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', PHONE))
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(false)
 
       store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
@@ -379,7 +383,7 @@ describe('BrowserAuth', () => {
 
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', {
-        cookie: cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', 'phone-1')),
+        cookie: cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', PHONE)),
       }))).toBe(false)
     })
 
@@ -389,7 +393,7 @@ describe('BrowserAuth', () => {
       const store = new RecordCredentials()
       store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
       const auth = await createAuth(store, 30, {}, 180)
-      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', 'phone-1'))
+      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', PHONE))
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(true)
 
       const shorter = await createAuth(store, 30, {}, 1)

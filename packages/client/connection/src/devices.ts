@@ -10,6 +10,7 @@
 import { randomBytes } from 'node:crypto'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
+import { PairedDeviceId } from './device-brand.ts'
 import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 
 export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
@@ -36,7 +37,12 @@ function deviceOf(value: unknown): PairedDevice {
   if (typeof label !== 'string') throw malformed(`entry ${id} has a non-string label`)
   if (!Number.isSafeInteger(registeredAt)) throw malformed(`entry ${id} has an invalid registration time`)
   if (!Number.isSafeInteger(lastSeenAt)) throw malformed(`entry ${id} has an invalid last-seen time`)
-  return { id, label, registeredAt: registeredAt as number, lastSeenAt: lastSeenAt as number }
+  return {
+    id: PairedDeviceId(id),
+    label,
+    registeredAt: registeredAt as number,
+    lastSeenAt: lastSeenAt as number,
+  }
 }
 
 /** Parse one stored record, failing loud on anything this build cannot interpret. */
@@ -93,7 +99,7 @@ export async function registerDevice(
 ): Promise<PairedDevice> {
   const now = Date.now()
   const device: PairedDevice = {
-    id: randomBytes(DEVICE_ID_BYTES).toString('base64url'),
+    id: PairedDeviceId(randomBytes(DEVICE_ID_BYTES).toString('base64url')),
     label: request.label,
     registeredAt: now,
     lastSeenAt: now,
@@ -110,7 +116,7 @@ export async function registerDevice(
  */
 export async function revokeDevice(
   credentials: CredentialProvider,
-  deviceId: string,
+  deviceId: PairedDeviceId,
 ): Promise<boolean> {
   const devices = await listDevices(credentials)
   if (!devices.some(device => device.id === deviceId)) return false
@@ -127,7 +133,7 @@ export async function revokeDevice(
  */
 export async function touchDevice(
   credentials: CredentialProvider,
-  deviceId: string,
+  deviceId: PairedDeviceId,
 ): Promise<boolean> {
   const now = Date.now()
   let touched = false

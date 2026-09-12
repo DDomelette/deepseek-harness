@@ -103,6 +103,15 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
+  /**
+   * Re-read the paired-device registry, for a credential record that changed
+   * outside this service's own mutations.
+   * @returns nothing; the refreshed set is installed before it resolves.
+   */
+  async refreshDevices(): Promise<void> {
+    await this.browserAuth.refreshPairedDevices()
+  }
+
   /** Generic channel registry scoped to the Context reading this service. */
   get rpc(): HostConnectionRpc {
     const owner = this.ctx

@@ -5,10 +5,12 @@
  * @module @deepseek-ai/dsh-client-connection/src/device-types
  */
 
+import type { PairedDeviceId } from './device-brand.ts'
+
 /** One device approved through the pairing handshake. */
 export interface PairedDevice {
   /** Opaque id minted at approval and carried by that device's cookie. */
-  readonly id: string
+  readonly id: PairedDeviceId
   /** Operator-visible label; the approve dialog prefills it and may edit it. */
   readonly label: string
   /** Epoch milliseconds of approval. */

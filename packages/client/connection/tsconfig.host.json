@@ -9,6 +9,7 @@
     "src/api-path.ts",
     "src/api-request-trust.ts",
     "src/browser-auth.ts",
+    "src/device-brand.ts",
     "src/device-types.ts",
     "src/devices.ts",
     "src/http-bridge.ts",

@@ -9,6 +9,7 @@ import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
+import { PAIRED_DEVICES_RECORD_KEY } from './devices.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -35,6 +36,7 @@ export type {
   ServerResponse,
 } from './rpc.ts'
 export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+export { PairedDeviceId } from './device-brand.ts'
 export { RpcId, transportError } from './rpc.ts'
 export {
   clientRequestSchema,
@@ -127,6 +129,18 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     trustedHosts,
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceCookieMaxAgeDays),
   )
+  // The credential record is the authority for device access, and it changes
+  // under this process too: the credentials owner reports every write, including
+  // an operator editing the file or another process revoking a device. Without
+  // this the running Host would keep honoring a cookie the record no longer lists.
+  ctx.effect(() => ctx.on('credentials/record-updated', (key) => {
+    if (key !== PAIRED_DEVICES_RECORD_KEY) return
+    void connection.refreshDevices().catch((error: unknown) => {
+      // A failed re-read keeps the previous device set; report it instead of
+      // turning one bad read into an unhandled rejection.
+      ctx.logger.warn('client-connection: could not re-read the paired-device record: %s', String(error))
+    })
+  }), 'client-connection: paired-device record changes')
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
