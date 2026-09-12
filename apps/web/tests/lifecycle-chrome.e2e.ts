@@ -396,9 +396,15 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
         await recoveryPage.evaluate(() => {})
       }
       const indicator = connecting
-      expect(await connectionIndicatorGeometry(indicator)).toEqual(connectingGeometry)
+      // The recorded carrier failure adds its clamped reason rows inside the
+      // pill, so the control grows once to carry the reason; hovering then only
+      // swaps the state text and must not resize it.
+      const failureGeometry = await connectionIndicatorGeometry(indicator)
+      expect(failureGeometry.outer[3]!).toBeGreaterThan(connectingGeometry.outer[3]!)
+      expect(await indicator.innerText()).not.toMatch(/^Reconnecting\.{1,3}$/)
       expect(await connectionIndicatorTextAlignment(indicator)).toBe('left')
       await indicator.hover()
+      expect(await connectionIndicatorGeometry(indicator)).toEqual(failureGeometry)
       const snapshot = await captureStableAria(recoveryPage, '[class*="footArea"]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(CONNECTION_ERROR_EXPECTED, snapshot, MODE)
       const style = await indicator.evaluate((element) => {
@@ -420,7 +426,8 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       expect(style.background).toBe(style.referenceBackground)
       expect(style.color).toBe(style.referenceColor)
       expect(await indicator.locator('svg').count()).toBe(1)
-      expect(await indicator.getAttribute('title')).toBeNull()
+      // The pill carries the carrier detail as its tooltip once a failure is known.
+      expect(await indicator.getAttribute('title')).toContain('Remote stream WebSocket closed')
       rejectConnections = false
       await recoveryPage.clock.fastForward(10_000)
       await expect.poll(() => sockets.length).toBe(10)
