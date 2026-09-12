@@ -153,6 +153,31 @@ function describeSettings(port: number, host: string, cookie?: string): Promise<
   })
 }
 
+/** GET one path from the real server while controlling the wire Host header. */
+function hostedGet(port: number, host: string, path: string): Promise<HttpResult & { readonly setCookie: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      path,
+      method: 'GET',
+      headers: { host },
+    }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          setCookie: res.headers['set-cookie']?.[0] ?? '',
+          body: Buffer.concat(chunks).toString('utf8'),
+        })
+      })
+    })
+    req.once('error', reject)
+    req.end()
+  })
+}
+
 describe('dsh web authentication through the real CLI', () => {
   it('rejects a forged loopback Host and preserves the browser cookie across restart', { timeout: 180_000 }, async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-web-auth-real-cli-'))
@@ -243,26 +268,22 @@ describe('dsh web authentication through the real CLI', () => {
 
       // Even holding the fresh process token, a LAN authority cannot exchange it:
       // that is what keeps one printed URL from becoming a session no device
-      // revocation could end.
+      // revocation could end. The answer is the application shell marked as
+      // needing authentication, so the phone can name the way back in.
       const token = /dsh web: http:\/\/127\.0\.0\.1:\d+\/\?token=([^\s)]+)/u.exec(running.output())?.[1]
       if (token === undefined) throw new Error('readiness line omitted the loopback token')
-      const refused = await new Promise<HttpResult>((resolve, reject) => {
-        const req = httpRequest({
-          hostname: '127.0.0.1',
-          port,
-          path: `/?token=${token}`,
-          method: 'GET',
-          headers: { host: lanAuthority },
-        }, (res) => {
-          res.resume()
-          res.on('end', () => {
-            resolve({ status: res.statusCode ?? 0, body: res.headers['set-cookie']?.[0] ?? '' })
-          })
-        })
-        req.once('error', reject)
-        req.end()
-      })
-      expect(refused).toEqual({ status: 401, body: '' })
+      const refused = await hostedGet(port, lanAuthority, `/?token=${token}`)
+      expect(refused.status).toBe(401)
+      expect(refused.setCookie).toBe('')
+      expect(refused.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
+      expect(refused.body).toContain('__DSH_BOOT__')
+
+      // The plain LAN origin is refused the same way, and without a token it
+      // never reaches the exchange above.
+      const anonymous = await hostedGet(port, lanAuthority, '/')
+      expect(anonymous.status).toBe(401)
+      expect(anonymous.setCookie).toBe('')
+      expect(anonymous.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
 
       // The computer's own loopback exchange is unchanged.
       const loopbackExchange = await fetch(running.launchUrl, { redirect: 'manual' })
