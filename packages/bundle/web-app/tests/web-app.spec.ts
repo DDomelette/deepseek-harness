@@ -153,11 +153,11 @@ describe('web-app runtime glue', () => {
       lanAddresses: ['192.168.1.5'],
       trustedHosts: ['192.168.1.5', 'lab.internal'],
     })
-    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)')
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)')
     expect(log).toHaveBeenCalledWith('dsh web: opening the default browser; pass --no-open to disable')
     expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:4567/?token=test-token')
     expect(lifecycle).toEqual([
-      'dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)',
+      'dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)',
       'dsh web: opening the default browser; pass --no-open to disable',
       'open:http://127.0.0.1:4567/?token=test-token',
     ])
@@ -189,8 +189,8 @@ describe('web-app runtime glue', () => {
 
     // The physical adapter leads, so the QR target is the reachable one; the
     // virtual candidate still prints because the ordering is a name heuristic.
-    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/?token=test-token)')
-    expect(log).toHaveBeenCalledWith('dsh web: other LAN addresses: http://172.20.128.1:4567/?token=test-token')
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://192.168.1.5:4567/)')
+    expect(log).toHaveBeenCalledWith('dsh web: other LAN addresses: http://172.20.128.1:4567/')
     await ctx.fiber.dispose()
   })
 

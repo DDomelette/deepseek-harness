@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup prints an authenticated URL and normally opens it in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port and allow extra hosts, and—on a trusted LAN with explicit `--allow-lan`—bind all network interfaces. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
+Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup prints an authenticated loopback URL and normally opens it in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port and allow extra hosts, and—on a trusted LAN with explicit `--allow-lan`—bind all network interfaces. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### LAN access and trusted hosts
 
-By default the GUI accepts connections from this machine only. A deployment that binds all network interfaces also allows browsers from the LAN, and the printed URL then includes a LAN address; `--trusted-host` adds extra hosts in either case. Host and Origin checks control reachability, while the token exchange authenticates every Host API method and WebSocket stream. The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise.
+By default the GUI accepts connections from this machine only. A deployment that binds all network interfaces also allows browsers from the LAN, and the readiness line then lists a LAN URL without a token; `--trusted-host` adds extra hosts in either case. Host and Origin checks control reachability, while the launch token is exchanged on a loopback authority only, so a LAN browser authenticates with the device cookie it earns by pairing ([Connect phone](../mob/README.md)). The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise.
 
 ### Running over SSH
 
@@ -81,7 +81,7 @@ The URL line and browser handoff are readiness signals: supervisors RPC as soon 
 
 ### LAN trust sampling
 
-`resolveLanTrust` samples the network once at boot: a loopback bind (`127.0.0.1`) derives no LAN addresses, while an all-interfaces bind derives every non-internal IPv4 literal except the unusable ranges (the 198.18.0.0/15 fake-IP block and 169.254.0.0/16 link-local), ordering physical adapters ahead of virtual and tunnel ones. The derived literals plus the explicit `--trusted-host` authorities form the `/api` browser-trust fence, and the printed LAN URL is the first derived literal, so it always matches that fence; the readiness line also lists the remaining candidates, because that ordering is a name heuristic. The profile composes [`@deepseek-ai/dsh-mob`](../mob/README.md), whose Settings → General → Connect phone entry renders that URL as a QR code for a phone on the same network.
+`resolveLanTrust` samples the network once at boot: a loopback bind (`127.0.0.1`) derives no LAN addresses, while an all-interfaces bind derives every non-internal IPv4 literal except the unusable ranges (the 198.18.0.0/15 fake-IP block and 169.254.0.0/16 link-local), ordering physical adapters ahead of virtual and tunnel ones. The derived literals plus the explicit `--trusted-host` authorities form the `/api` browser-trust fence, and the LAN URL the readiness line lists first is the first derived literal, so it always matches that fence; the readiness line also lists the remaining candidates, because that ordering is a name heuristic. The profile composes [`@deepseek-ai/dsh-mob`](../mob/README.md), whose Settings → General → Connect phone entry renders a pairing link on that origin as a QR code for a phone on the same network.
 
 ### Source map
 
@@ -146,7 +146,7 @@ These limits tell you what to expect in unusual setups — a source checkout, SS
 - **Only the handoff start is observable** — the GUI reports that the browser was asked to open, not that it actually opened; a later browser exit is never reported, and the printed URL is your manual fallback.
 - **SSH sessions keep the URL but skip the browser handoff** — the printed URL names the remote host's loopback endpoint; the SSH client or editor must expose and open the local forwarded address.
 - **`BROWSER` overrides only come from the environment** — a discovered `.env` cannot set `BROWSER`; only an inherited value can choose the executable for the automatic handoff.
-- **LAN serving is plain HTTP** — `--host 0.0.0.0` requires `--allow-lan`, and traffic stays unencrypted; a stolen session cookie grants full control, so bind all interfaces only on a trusted network.
+- **LAN serving is plain HTTP** — `--host 0.0.0.0` requires `--allow-lan`, and traffic stays unencrypted; a stolen device cookie grants full control, so bind all interfaces only on a trusted network.
 
 <a id="dev-note"></a>
 ### Dev Note

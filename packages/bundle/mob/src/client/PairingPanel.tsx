@@ -22,7 +22,7 @@ const COUNTDOWN_TICK_MILLISECONDS = 1_000
 
 /** Injected face: the LAN join URL, whether this page may decide, and the routes' client half. */
 export interface PairingPanelInjected {
-  /** This Host's token-bearing LAN join URL, from the `mob.joinUrl` Remote method. */
+  /** This Host's LAN origin, from the `mob.joinUrl` Remote method; the pairing link is built on it. */
   joinUrl: () => Promise<RemoteResult<string>>
   /** Whether this page is the loopback surface the routes accept a decision from. */
   canDecide: boolean

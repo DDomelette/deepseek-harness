@@ -21,7 +21,7 @@ import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
 import type { PairingApi } from '../src/client/pairing-api.ts'
 import { zh, type MobileSettingsKey } from '../src/client/locales.ts'
 
-const JOIN_URL = 'http://192.168.1.5:3080/?token=t'
+const JOIN_URL = 'http://192.168.1.5:3080/'
 
 const t: TranslateNS<'settings.mobile'> = (key, params): string => {
   const template = key in zh ? zh[key as MobileSettingsKey] : key

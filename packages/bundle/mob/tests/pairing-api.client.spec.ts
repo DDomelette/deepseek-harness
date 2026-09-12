@@ -147,10 +147,10 @@ describe('pairing helpers', () => {
     expect(deviceLabelFrom(undefined)).toBeUndefined()
   })
 
-  it('composes a token-free pairing URL from the LAN join URL', () => {
-    expect(pairingUrlOf('http://192.168.1.5:3080/?token=secret', 'ABCD2345'))
+  it('composes the pairing link from the LAN origin, dropping any stale query', () => {
+    expect(pairingUrlOf('http://192.168.1.5:3080/', 'ABCD2345'))
       .toBe('http://192.168.1.5:3080/pair?c=ABCD2345')
-    expect(pairingUrlOf('http://192.168.1.5:3080/deep/path?token=secret#frag', 'EFGH6789'))
+    expect(pairingUrlOf('http://192.168.1.5:3080/deep/path?stale=1#frag', 'EFGH6789'))
       .toBe('http://192.168.1.5:3080/pair?c=EFGH6789')
   })
 })

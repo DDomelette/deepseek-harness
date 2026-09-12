@@ -35,7 +35,7 @@ async function bench() {
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   ctx.provide('connection', { isLoopback: true } as never)
-  const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/?token=t' }))
+  const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/' }))
   new TestRemote(ctx, { mob: { joinUrl } })
   return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl }
 }
@@ -73,7 +73,7 @@ describe('dsh-mob client apply', () => {
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const entry = b.slots.entries('settings.general.item')[0]!
     const injected = entry.inject as unknown as () => ConnectPhoneRowInjected
-    await expect(injected().joinUrl()).resolves.toEqual({ ok: true, value: 'http://192.168.1.5:3080/?token=t' })
+    await expect(injected().joinUrl()).resolves.toEqual({ ok: true, value: 'http://192.168.1.5:3080/' })
     expect(b.joinUrl).toHaveBeenCalledOnce()
   })
 

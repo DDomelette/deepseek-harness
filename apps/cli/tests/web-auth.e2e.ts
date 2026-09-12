@@ -214,7 +214,7 @@ describe('dsh web authentication through the real CLI', () => {
     }
   })
 
-  it('serves a trusted LAN authority after --allow-lan', { timeout: 180_000 }, async (context) => {
+  it('serves a trusted LAN authority without handing out the process token', { timeout: 180_000 }, async (context) => {
     // The expected authority comes from the product's own derivation: the address
     // a phone can reach, which excludes fake-IP TUN ranges and sorts virtual
     // adapters after physical ones rather than following enumeration order.
@@ -230,16 +230,23 @@ describe('dsh web authentication through the real CLI', () => {
     try {
       running = await startWeb(root, dshHome, port, ['--host', '0.0.0.0', '--allow-lan'])
       const lanAuthority = `${lanAddress}:${String(port)}`
-      expect(running.output()).toContain(`(LAN: http://${lanAuthority}/?token=`)
+      // The LAN line is token-free: the process launch token is the computer's
+      // own credential, and a phone reaches this deployment by pairing.
+      expect(running.output()).toContain(`(LAN: http://${lanAuthority}/)`)
+      expect(running.output()).not.toContain(`http://${lanAuthority}/?token=`)
 
-      // 信任围栏先於认证:LAN authority 已派生为 trusted,无 cookie → 401。
+      // Trust fence first, then authentication: the LAN authority is derived as
+      // trusted, so an unauthenticated call is 401 rather than 403.
       expect(await describeSettings(port, lanAuthority)).toEqual({ status: 401, body: 'unauthorized' })
-      // 未声明的 authority 仍被围栏拒绝(403)。
+      // An undeclared authority is still refused by the fence (403).
       expect((await describeSettings(port, `evil.example:${String(port)}`)).status).toBe(403)
 
-      const token = /\(LAN: http:\/\/[^?]+\?token=([^\s)]+)/u.exec(running.output())?.[1]
-      if (token === undefined) throw new Error('LAN line omitted the token')
-      const exchange = await new Promise<HttpResult>((resolve, reject) => {
+      // Even holding the fresh process token, a LAN authority cannot exchange it:
+      // that is what keeps one printed URL from becoming a session no device
+      // revocation could end.
+      const token = /dsh web: http:\/\/127\.0\.0\.1:\d+\/\?token=([^\s)]+)/u.exec(running.output())?.[1]
+      if (token === undefined) throw new Error('readiness line omitted the loopback token')
+      const refused = await new Promise<HttpResult>((resolve, reject) => {
         const req = httpRequest({
           hostname: '127.0.0.1',
           port,
@@ -255,12 +262,14 @@ describe('dsh web authentication through the real CLI', () => {
         req.once('error', reject)
         req.end()
       })
-      expect(exchange.status).toBe(303)
-      expect(exchange.body).toContain('HttpOnly')
-      const cookie = exchange.body.split(';', 1)[0]!
+      expect(refused).toEqual({ status: 401, body: '' })
 
-      const authenticated = await describeSettings(port, lanAuthority, cookie)
-      expect(authenticated.status).toBe(200)
+      // The computer's own loopback exchange is unchanged.
+      const loopbackExchange = await fetch(running.launchUrl, { redirect: 'manual' })
+      expect(loopbackExchange.status).toBe(303)
+      const cookie = loopbackExchange.headers.get('set-cookie')?.split(';', 1)[0]
+      if (cookie === null || cookie === undefined) throw new Error('loopback exchange omitted Set-Cookie')
+      expect((await describeSettings(port, `127.0.0.1:${String(port)}`, cookie)).status).toBe(200)
     } catch (error) {
       throw new Error(`${error instanceof Error ? error.message : String(error)}\n${redact(running?.output() ?? '')}`, { cause: error })
     } finally {

@@ -13,19 +13,19 @@ import type {} from './types.ts'
 /** The webserver schema's all-interfaces bind literal — the only non-loopback host it admits. */
 const ALL_INTERFACES_HOST = '0.0.0.0'
 
-/** Remote-only service composing the token-bearing LAN join URL for the settings dialog. */
+/** Remote-only service composing the LAN origin the settings panel builds a pairing link on. */
 export class MobJoinController extends TypertRemoteService {
-  static inject = ['connection', 'webRuntime', 'webServer']
+  static inject = ['webRuntime', 'webServer']
 
   constructor(ctx: Context) {
     super(ctx, 'mobJoin', { namespace: 'mob' })
   }
 
   /**
-   * Compose the same join URL the terminal announcer prints, so the settings
-   * dialog can render it as a QR code. The URL carries the process token; the
-   * caller already holds the session cookie, which grants the same authority.
-   * @returns the token-bearing LAN URL.
+   * Compose the LAN origin the settings panel builds a pairing link on, from the
+   * same fence snapshot `dsh web` prints. The value carries no process token: a
+   * phone joins that deployment by claiming a pairing code.
+   * @returns the LAN origin.
    * @throws RemoteError `mob/loopback-only` on a loopback bind, or `mob/no-lan-address`
    * when an all-interfaces bind derived no reachable address.
    */
@@ -34,11 +34,7 @@ export class MobJoinController extends TypertRemoteService {
     // webRuntime carries no Context merge; the inject declaration above
     // guarantees web-app provided it before this service activates.
     const webRuntime = this.ctx.get('webRuntime') as WebRuntimeValues
-    const url = resolveJoinUrl(
-      webRuntime.lanAddresses,
-      this.ctx.webServer.port,
-      baseUrl => this.ctx.connection.authenticatedUrl(baseUrl),
-    )
+    const url = resolveJoinUrl(webRuntime.lanAddresses, this.ctx.webServer.port)
     if (url === undefined) {
       // The two empty-snapshot causes need different corrections: starting the
       // mobile profile, or fixing this machine's networking.

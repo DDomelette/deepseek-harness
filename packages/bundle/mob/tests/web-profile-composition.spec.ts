@@ -17,7 +17,7 @@ import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import { apply } from '../src/index.ts'
 import type { MobJoinController } from '../src/controller.ts'
 
-const LAN_URL = 'http://192.168.1.5:4567/?token=test-token'
+const LAN_URL = 'http://192.168.1.5:4567/'
 
 const contexts: Context[] = []
 const tempRoots: string[] = []
@@ -62,11 +62,6 @@ export const apply = ctx => ctx.provide('webRuntime', globalThis.__dshMobWebRunt
   writeFileSync(join(root, 'connection.mjs'), `
 export const inject = ['webServer']
 export const apply = ctx => ctx.provide('connection', {
-  authenticatedUrl(baseUrl) {
-    const url = new URL(baseUrl)
-    url.searchParams.set('token', 'test-token')
-    return url.href
-  },
   requestRejection: () => undefined,
   isLoopbackRequest: () => true,
   devices: {
@@ -133,7 +128,7 @@ function failureOf(ctx: Context): unknown {
 }
 
 describe('mob join namespace over a Loader tree', () => {
-  it('returns the token-bearing LAN URL from the fence snapshot', async () => {
+  it('returns the token-free LAN origin from the fence snapshot', async () => {
     const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: ['192.168.1.5'] })
     expect(joinController(ctx).joinUrl()).toBe(LAN_URL)
   })

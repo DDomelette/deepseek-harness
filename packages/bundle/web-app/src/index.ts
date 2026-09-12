@@ -302,10 +302,13 @@ export function apply(ctx: Context, config: Config): void {
         if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
         const webUrl = localWebUrl(connectionCtx)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
-        // Reuse the exact LAN snapshot provided to the /api trust fence.
+        // Reuse the exact LAN snapshot provided to the /api trust fence. The LAN
+        // line stays token-free: the process launch token is the computer's own
+        // credential and is exchanged on loopback only, so a phone reaches this
+        // deployment by pairing, never by opening a printed URL.
         const port = connectionCtx.webServer.port
         const lanUrls = runtime.lanAddresses
-          .map(address => connectionCtx.connection.authenticatedUrl(`http://${address}:${String(port)}`))
+          .map(address => `http://${address}:${String(port)}/`)
         const [lanUrl] = lanUrls
         ANNOUNCED_ROOTS.add(connectionCtx.root)
         if (config.printUrl) {

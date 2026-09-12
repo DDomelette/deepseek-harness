@@ -21,7 +21,7 @@ import type {
 } from '../src/client/pairing-api.ts'
 import { zh, type MobileSettingsKey } from '../src/client/locales.ts'
 
-const JOIN_URL = 'http://192.168.1.5:3080/?token=process-token'
+const JOIN_URL = 'http://192.168.1.5:3080/'
 const CODE = 'ABCD2345'
 const START = Date.parse('2026-09-12T12:00:00.000Z')
 

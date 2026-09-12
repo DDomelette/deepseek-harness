@@ -1,7 +1,7 @@
 /**
  * The host half of the phone-access layer: mounting it registers the `mob`
- * Remote namespace whose `joinUrl` method hands an authenticated client the
- * token-bearing LAN URL the settings entry renders, and the `/pair*` routes
+ * Remote namespace whose `joinUrl` method hands an authenticated client the LAN
+ * origin the settings panel builds a pairing link on, and the `/pair*` routes
  * that pair a phone through a one-time code. Serving on the LAN — and the
  * `--allow-lan` acknowledgement that permits it — belongs to `dsh-web-app`; this
  * plugin rebinds nothing and writes no terminal output.

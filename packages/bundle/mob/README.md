@@ -1,5 +1,5 @@
 ---
-description: "The dsh LAN phone-join layer for the web profile: the Settings entry that renders the token-bearing LAN URL as a QR code for a phone on the same network."
+description: "The dsh LAN phone-join layer for the web profile: the Settings entry that pairs a phone through a one-time code and manages the devices it approved."
 kind: "package-bundle"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Start `dsh web --host 0.0.0.0 --allow-lan` and open Settings → General → Connect phone to show a QR code a phone on the same network scans to join. The layer adds the join entry and the `mob` Remote namespace that answers it, on top of the `web` surface; the LAN bind, its warning, the token exchange, and signed-cookie authentication all remain `dsh web` behavior. Serving stays plain HTTP, so use it only on a network you trust.
+Start `dsh web --host 0.0.0.0 --allow-lan` and open Settings → General → Connect phone to pair a phone on the same network: the panel opens a one-time code, renders the `/pair?c=<code>` link as a QR code beside it, and decides what each requesting phone may become. The layer adds the join entry and the `mob` Remote namespace that answers it, on top of the `web` surface; the LAN bind, its warning, the process-token exchange (loopback only), and signed-cookie authentication all remain `dsh web` behavior. Serving stays plain HTTP, so use it only on a network you trust.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ dsh web --host 0.0.0.0 --allow-lan
 dsh web --host 0.0.0.0 --allow-lan --port 8080
 ```
 
-The `web` profile composes this bundle, so phone access is an ordinary `dsh web` capability: the readiness line prints the authenticated LAN URL next to the loopback one, and a phone on the same network opens it, completes the one-time token exchange, and receives the same signed cookie the loopback flow issues. `--allow-lan` is the explicit acknowledgement for serving on a trusted network; without it the all-interfaces bind stays a usage error.
+The `web` profile composes this bundle, so phone access is an ordinary `dsh web` capability: the readiness line prints the LAN URL next to the loopback one, and that LAN line carries no process token — the token is the computer's own credential and is exchanged on loopback only. A phone therefore joins by pairing, and holds a device cookie of its own rather than a copy of the computer's session. `--allow-lan` is the explicit acknowledgement for serving on a trusted network; without it the all-interfaces bind stays a usage error.
 
 ### Handing off from a desktop session
 
@@ -58,7 +58,7 @@ The bundle is one insert-only patch plus one dual-face plugin. The patch adds th
 
 ### The fence LAN snapshot
 
-The join URL comes from the `webRuntime` service — the same `resolveLanTrust` snapshot `dsh-web-app` feeds the `/api` trust fence — so the scanned URL always passes the fence. The first non-internal IPv4 literal becomes the QR target together with the bound port and the Connection-authenticated token; an empty (loopback-only) snapshot fails the call instead of printing a URL.
+The LAN origin comes from the `webRuntime` service — the same `resolveLanTrust` snapshot `dsh-web-app` feeds the `/api` trust fence — so a pairing link built on it always passes the fence. The first non-internal IPv4 literal together with the bound port is that origin; it carries no process token, and an empty (loopback-only) snapshot fails the call instead of returning one.
 
 ### Source map
 

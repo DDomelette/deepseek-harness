@@ -13,7 +13,7 @@ import css from './ConnectPhoneRow.module.css'
 
 /** Injected business face: the join-URL read, the loopback gate, and the pairing routes. */
 export interface ConnectPhoneRowInjected {
-  /** Ask the Host for the token-bearing LAN join URL. */
+  /** Ask the Host for the LAN origin a pairing link is built on. */
   joinUrl: () => Promise<RemoteResult<string>>
   /** Whether this page is the loopback surface that may decide a pairing request. */
   canDecide: boolean
