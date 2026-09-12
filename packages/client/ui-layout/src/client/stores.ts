@@ -6,7 +6,7 @@ import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-sto
 import type { MainPanelId } from './service.ts'
 import {
   clampWidth, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN,
-  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
+  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN, SIDEBAR_OVERLAY,
 } from './columns.ts'
 
 /**
@@ -110,12 +110,14 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
       },
-      // Crossing the breakpoint in either direction drops the override: the
-      // narrow default is auto-collapsed, the wide state is the preference.
+      // Crossing either breakpoint (768 overlay, 1024 auto-collapse) in either
+      // direction drops the override: each band's default is auto-collapsed,
+      // the wide state is the preference.
       setViewportWidth: (d, width: number) => {
         if (d.layoutInfo.viewportWidth === width) return
         d.layoutInfo.rightbarInstant = false
-        if ((d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) !== (width < SIDEBAR_AUTO_COLLAPSE)) {
+        if ((d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) !== (width < SIDEBAR_AUTO_COLLAPSE)
+          || (d.layoutInfo.viewportWidth < SIDEBAR_OVERLAY) !== (width < SIDEBAR_OVERLAY)) {
           d.layoutInfo.narrowExpanded = false
         }
         d.layoutInfo.viewportWidth = width
