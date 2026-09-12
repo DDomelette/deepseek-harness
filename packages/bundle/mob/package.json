@@ -63,7 +63,6 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-host-frontend-static": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
     "zod": "^4.4.3"
   },
