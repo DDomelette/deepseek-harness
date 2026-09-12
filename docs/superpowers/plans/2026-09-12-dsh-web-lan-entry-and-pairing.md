@@ -23,6 +23,7 @@
 - 提交信息沿用单行 conventional commit(`feat(...)` / `fix(...)` / `docs: ...`)。
 - 文件末尾恰好一个换行;pre-commit 钩子会跑 lint / notices / whitespace / vendor guard。
 - 分支策略:Phase A 完成后才合并进 `master`(fast-forward);Phase B 另起提交序列。
+- 开发期简化原则(用户 2026-09-12 确认):设备会话固定 180 天不做滑动续期;设备名只在确认弹窗可改;终端加入链接与 `qrcode-terminal` 直接删除;不做 settings 级 LAN 长期同意;TLS 另起一期。
 
 ---
 
@@ -142,19 +143,19 @@ git add packages/bundle/mob pnpm-lock.yaml THIRD_PARTY_NOTICES.md
 git commit -m "feat(mob): drop the terminal join QR in favor of the settings entry"
 ```
 
-### Task A4: `dsh mob` 变为等价别名
+### Task A4: 删除 `dsh mob` 别名
 
 **Files:**
 - Modify: `apps/cli/src/args.ts`、`apps/cli/reference/README.md`
-- Test: `apps/cli/tests/args.spec.ts`
+- Test: `apps/cli/tests/args.spec.ts`、`apps/cli/tests/built-bin.e2e.ts`(若引用 `mob`)
 
 **Interfaces:**
 - Consumes: 现有硬编码别名机制(`args.ts:13`:`web` / `mob` → `--profile …`)。
-- Produces: `dsh mob` ≡ `dsh web --allow-lan`;help 文本同步。
+- Produces: CLI 只剩 `dsh web`;`dsh mob` 成为普通未知命令(报错并列出可用命令);`--allow-lan` 是唯一的 LAN 入口。
 
 - [ ] **Step 1: 先改测试(红)**
 
-`args.spec.ts`:断言 `dsh mob` 解析为 `{ mode: 'profile', profile: 'web' }` 且 inner argv 含 `--allow-lan`;断言 help 不再提"mob profile"。
+`args.spec.ts`:删掉 `mob` 别名断言,新增一条:解析 `mob` 报未知命令/未知 profile;help 文本不再出现 `dsh mob`。
 
 - [ ] **Step 2: 跑测试确认红**
 
@@ -162,23 +163,23 @@ Run: `pnpm exec vitest run apps/cli/tests/args.spec.ts`
 
 - [ ] **Step 3: 实现**
 
-`args.ts`:把 `mob` 别名改成"注入 `--allow-lan` 的 web 别名";更新 examples 块与文件头 JSDoc。
+`args.ts`:删除 `mob` 别名分支、examples 里的 `dsh mob` 行、文件头 JSDoc 中的别名说明;`apps/cli/reference/README.md` 同步删除。
 
 - [ ] **Step 4: 跑测试确认绿**
 
 Run: `pnpm exec vitest run apps/cli/tests/args.spec.ts`
 
-- [ ] **Step 5: 冒烟(非 TTY 亦可)**
+- [ ] **Step 5: 冒烟**
 
-Run: `pnpm dsh mob --no-open --port 0`
+Run: `pnpm dsh web --allow-lan --no-open --port 0`
 
-Expected: 输出含 `dsh web: … (LAN: http://…)`,且没有 QR 或 `dsh mob: scan to join` 行。
+Expected: 输出含 `dsh web: … (LAN: http://…)`,且没有 QR 或 `dsh mob: scan to join` 行;随后 `pnpm dsh mob` 报未知命令。
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add apps/cli
-git commit -m "feat(cli): make dsh mob an alias for dsh web --allow-lan"
+git commit -m "feat(cli): drop the dsh mob alias in favor of dsh web --allow-lan"
 ```
 
 ### Task A5: 文档口径 + 真实组合测试
@@ -241,6 +242,7 @@ git commit -m "docs(web): document phone access as a dsh web capability"
 **Interfaces:**
 - Produces:
   - `BrowserAuth.issueDeviceCookie(authority, deviceId): string`(v2 载荷 `{version: 2, authority, deviceId, issuedAt, expiresAt}`)。
+  - 新配置项 `deviceCookieMaxAgeDays`(`packages/client/connection/src/index.ts` 的 schema,`z.natural().min(1).default(180)`),设备登记与 cookie 寿命同源,不做滑动续期。
   - `isAuthenticated` 对 v2 额外要求设备仍在登记表中;v1 路径(无 deviceId)行为不变,电脑本机启动流程不受影响。
 
 - [ ] **Step 1: 先写测试(红)**
@@ -375,7 +377,7 @@ git commit -m "feat(mob): render the phone pairing screen"
 
 - [ ] **Step 1: 先写测试(红)**
 
-覆盖:生成码后渲染二维码与倒计时;待确认出现允许/拒绝;设备列表显示标签与时间;吊销后该行消失;非 loopback 环境隐藏这些操作。
+覆盖:生成码后渲染二维码与倒计时;待确认出现允许/拒绝,且名称输入框预填 UA 解析出的设备名并可改;设备列表显示标签与时间;吊销后该行消失;非 loopback 环境隐藏这些操作。
 
 - [ ] **Step 2: 实现**
 
@@ -428,6 +430,6 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 - [ ] Run: `pnpm exec vitest run packages/client/connection packages/client/web packages/client/ui-primitives packages/client/ui-settings-general packages/bundle/mob packages/bundle/web-app packages/boot/app-boot apps/cli/tests/args.spec.ts`
 - [ ] Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`
 - [ ] Run: `DSH_SNAPSHOT=replay pnpm run test:web:built`(至少覆盖 settings 与 boot 场景)。
-- [ ] 冒烟:`dsh web`(默认 loopback)、`dsh web --allow-lan`(LAN URL、无二维码)、`dsh mob`(等价)。
+- [ ] 冒烟:`dsh web`(默认 loopback)、`dsh web --allow-lan`(LAN URL、无二维码)、确认 `dsh mob` 已是未知命令。
 - [ ] 合并顺序:打 checkpoint 标签 → 工作树里 `git checkout master` → `git merge feat/dsh-mob`(fast-forward)→ `git merge feat/web-lan-entry` → 主检出切到 `master` 并重启 `dsh web`。
 - [ ] 合并后手机端重新扫码一次(Phase B 落地后则只需一次)。

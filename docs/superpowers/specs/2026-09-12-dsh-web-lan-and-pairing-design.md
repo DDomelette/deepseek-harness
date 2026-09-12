@@ -20,12 +20,14 @@ Phase 0-2 已让手机通过 `dsh mob` 接入 Web GUI,真机可用。但当前�
 
 | 决策点 | 结论 |
 |---|---|
-| 命令面 | `dsh web` 为唯一入口;LAN 仍需显式 `--allow-lan`;`dsh mob` 退化为等价别名 |
+| 命令面 | `dsh web` 为唯一入口;LAN 仍需显式 `--allow-lan`;**`dsh mob` 别名与 `mob` profile 一并删除**(功能未进 master,无兼容负担;开发期如需短命令用本机 shell 别名,不进仓库) |
 | 功能归属 | 保留 `@deepseek-ai/dsh-mob` 包名,作为 web profile 的一层;其 patch 不再重绑 webserver |
-| 二维码入口 | **不在终端打印**;唯一入口是 设置 → 通用 → 连接手机 |
-| LAN 默认 | 不默认开启;理由是明文 HTTP + 无 `Secure` 的 cookie + 本 harness 可执行命令,默认开启等于把 RCE 面变成所有用户的默认 |
+| 二维码入口 | **不在终端打印**;唯一入口是 设置 → 通用 → 连接手机;终端加入链接能力与其二维码依赖一并删除 |
+| LAN 默认 | 不默认开启,本期也不做 settings 级"长期同意";理由是明文 HTTP + 无 `Secure` 的 cookie + 本 harness 可执行命令,默认开启等于把 RCE 面变成所有用户的默认 |
+| 设备会话寿命 | 固定 180 天,新配置项 `deviceCookieMaxAgeDays`(默认 180),不做滑动续期 |
+| 设备名称 | 由 User-Agent 自动取名,并在电脑端确认弹窗里允许修改 |
 | 认证模型 | 不自建账号、不做手机号登录;v1 用设备配对(详见下文"为什么不借官方登录") |
-| 传输安全 | TLS 作为独立一期(不在本期),它是唯一能消除嗅探风险的改动 |
+| 传输安全 | 自签证书 / mkcert,作为独立一期(不在本期);它是唯一能消除嗅探风险的改动,也是 cookie 能加 `Secure` 的前提 |
 
 ## 为什么不借官方登录(评审记录)
 
@@ -43,11 +45,10 @@ Phase 0-2 已让手机通过 `dsh mob` 接入 Web GUI,真机可用。但当前�
 ```
 dsh web                          → web profile,默认 loopback
 dsh web --allow-lan              → 绑定 0.0.0.0,手机可接入(唯一显式确认入口)
-dsh mob                          → 等价别名:--profile web --allow-lan
 设置 → 通用 → 连接手机            → 二维码 + 链接 + 已配对设备(唯一界面入口)
 ```
 
-- `mob` shipped profile 退役:`packages/boot/app-boot/src/profile.ts` 中删除 `mob` 条目,`web` 的 bundle 列表加入 `@deepseek-ai/dsh-mob`;`dsh --profile mob` 变为无效 profile(该 profile 从未进入 master,无兼容负担)。
+- `mob` shipped profile 与 `dsh mob` CLI 别名一并删除:`packages/boot/app-boot/src/profile.ts` 中删掉 `mob` 条目,`web` 的 bundle 列表加入 `@deepseek-ai/dsh-mob`;`apps/cli/src/args.ts` 删掉别名分支与 help 示例,`apps/cli/reference/README.md` 同步。
 - `packages/bundle/mob/cordis.patch.yml` 删除 webserver 重绑(host/port/compression 那一段),只保留自己的行;`host` 回到 `webStartup` 的默认与 `--allow-lan` 门禁。
 - 终端播报下线:`packages/bundle/mob/src/index.ts` 不再打印加入行与二维码,`qrcode-terminal` 依赖与其三方声明一并移除;`packages/bundle/mob/tests/composition.spec.ts` 相应改写为"web profile 组合下不打印任何东西"。
 - 文档口径:`packages/bundle/web-app/README.{md,zh.md}` 的 LAN 一节升为"内置手机接入",`packages/bundle/mob/README.{md,zh.md}` 改为"web profile 的手机接入层",LAN Agent Note 与 PWA Agent Note 中关于 `dsh mob` 与终端二维码的表述同步改写。
@@ -70,6 +71,7 @@ dsh mob                          → 等价别名:--profile web --allow-lan
 
 - 已有:`client-connection/browser-session` → 签名密钥(32 字节)。
 - 新增:`client-connection/paired-devices` → `{ version: 1, devices: [{ id, label, createdAt, expiresAt, lastSeenAt? }] }`。
+  - 设备寿命取新配置项 `deviceCookieMaxAgeDays`(默认 180 天),登记与 cookie 同源,**不做滑动续期**。
   - `lastSeenAt` 写回节流(≥1 小时一次),避免每请求写盘。
   - 设备记录被删除即吊销;签名密钥轮换仍是"全员失效"的兜底手段。
 
@@ -85,7 +87,7 @@ dsh mob                          → 等价别名:--profile web --allow-lan
 2. 设置页把 `url`(`http://<lan>:<port>/pair?c=<code>`)渲染成二维码与可复制链接。
 3. 手机扫码 `GET /pair?c=<code>` → 未认证可访问(仅此路径),交付 SPA 外壳 + 启动事实 `__DSH_PAIR__ = { code }`。
 4. 手机端渲染配对界面(本地化文案),每 2 秒轮询 `GET /pair/state?c=<code>`。
-5. 电脑端设置页轮询 `GET /pair/requests` → 显示待确认请求(标签取自 User-Agent,可在确认时修改)。
+5. 电脑端设置页轮询 `GET /pair/requests` → 显示待确认请求(标签由 User-Agent 解析,可在确认时修改)。
 6. 电脑端点「允许」→ `POST /pair/approve { code, label, allowed }` → 登记设备并把配对码置为 approved。
 7. 手机下一次轮询拿到 approved,该响应 `Set-Cookie` 设备 cookie(v2)→ 手机跳转 `/` 正常进入。
 8. 拒绝或超时:配对码失效,手机端显示可操作文案(回电脑端重新生成)。
@@ -121,11 +123,10 @@ Phase A 是合并进主分支的前置;Phase B 依赖 A(功能已挂在 web prof
 
 账号体系、手机号/短信登录、passkey、多用户、设备分组与权限、推送通知、TLS 与证书分发(单独一期)、把手机接入扩展到 `dsh mob` 之外的 profile。
 
-## 开放问题(待产品决策)
+## 后续增强(已决议本期不做)
 
-1. 设备 cookie 寿命默认值(沿用 30 天,还是更长/更短)。
-2. 设备标签来源与是否允许在确认时编辑。
-3. 是否保留"终端打印加入链接"的旗标开关。
-4. `dsh mob` 过渡别名保留多久。
-5. LAN 的"长期同意"(settings 级,免每次旗标)是否要做。
-6. TLS 形态:自签证书、mkcert,还是走 VPN/隧道。
+- **滑动续期**:设备会话固定 180 天;若嫌重配频繁,再加"使用时续期 + 绝对上限"。
+- **设备改名**:确认时取名即可改;独立改名入口留到设备数量变多时再加。
+- **settings 级 LAN 长期同意**:本期继续用 `--allow-lan` 作为唯一显式确认。
+- **第二因子 / passkey**:等 dsh 有账号体系或 TLS 落地后再评估。
+- **TLS(自签 / mkcert)**:独立一期,先记录残余嗅探风险。
