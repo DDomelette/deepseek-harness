@@ -189,7 +189,7 @@ describe('PairingPanel', () => {
     mount({ api: fakeApi({ open: { ok: false, reason: 'forbidden' } }) })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')
+      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
     cleanup()
 
@@ -203,7 +203,7 @@ describe('PairingPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')
+      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
   })
 

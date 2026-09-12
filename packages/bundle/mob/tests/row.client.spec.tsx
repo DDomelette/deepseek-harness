@@ -87,7 +87,7 @@ describe('ConnectPhoneRow', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '生成配对码' }))
 
     await waitFor(() => {
-      expect(screen.getByText('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')).toBeTruthy()
+      expect(screen.getByText('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')).toBeTruthy()
     })
   })
 

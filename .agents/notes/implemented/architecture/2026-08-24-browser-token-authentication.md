@@ -20,7 +20,7 @@ The HMAC secret is a versioned `grant` record at `client-connection/browser-sess
 
 The in-page Web Worker preview exposes no network socket. Its page-owned `postMessage` tunnel enters the real route first, then retries a 401 or 403 through the worker-local fetch handler. This keeps Connection interceptors while limiting the authentication bypass to the page that created the Host worker.
 
-The shipped CLI gates `--host 0.0.0.0` behind `--allow-lan` (see [LAN Web serving](2026-09-11-lan-web-serving.md)). Authentication still does not imply TLS, forwarding-header interpretation, or proxy configuration.
+The shipped CLI binds every interface by default and accepts `--host 127.0.0.1` for this machine only (see [the default bind](2026-09-13-lan-bind-by-default.md) and [LAN Web serving](2026-09-11-lan-web-serving.md)). Authentication still does not imply TLS, forwarding-header interpretation, or proxy configuration.
 
 ## Verification
 

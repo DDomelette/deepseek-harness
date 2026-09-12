@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Start `dsh web --host 0.0.0.0 --allow-lan` and open Settings → General → Connect phone to pair a phone on the same network: the panel opens a one-time code, renders the `/pair?c=<code>` link as a QR code beside it, and decides what each requesting phone may become. The layer adds the join entry and the `mob` Remote namespace that answers it, on top of the `web` surface; the LAN bind, its warning, the process-token exchange (loopback only), and signed-cookie authentication all remain `dsh web` behavior. Serving stays plain HTTP, so use it only on a network you trust.
+Start `dsh web` and open Settings → General → Connect phone to pair a phone on the same network: the panel opens a one-time code, renders the `/pair?c=<code>` link as a QR code beside it, and decides what each requesting phone may become. The layer adds the join entry and the `mob` Remote namespace that answers it, on top of the `web` surface; the LAN bind, its warning, the process-token exchange (loopback only), and signed-cookie authentication all remain `dsh web` behavior. Serving stays plain HTTP, so use it only on a network you trust.
 
 ## Table of Contents
 
@@ -28,15 +28,16 @@ Start `dsh web --host 0.0.0.0 --allow-lan` and open Settings → General → Con
 ### Starting the LAN surface
 
 ```sh
-dsh web --host 0.0.0.0 --allow-lan
-dsh web --host 0.0.0.0 --allow-lan --port 8080
+dsh web
+dsh web --port 8080
+dsh web --host 127.0.0.1
 ```
 
-The `web` profile composes this bundle, so phone access is an ordinary `dsh web` capability: the readiness line prints the LAN URL next to the loopback one, and that LAN line carries no process token — the token is the computer's own credential and is exchanged on loopback only. A phone therefore joins by pairing, and holds a device cookie of its own rather than a copy of the computer's session. `--allow-lan` is the explicit acknowledgement for serving on a trusted network; without it the all-interfaces bind stays a usage error.
+The `web` profile composes this bundle, so phone access is an ordinary `dsh web` capability: the readiness line prints the LAN URL next to the loopback one, and that LAN line carries no process token — the token is the computer's own credential and is exchanged on loopback only. A phone therefore joins by pairing, and holds a device cookie of its own rather than a copy of the computer's session. `dsh web` binds every interface, so the LAN side is reachable out of the box; `--host 127.0.0.1` restricts the invocation to this machine and leaves the pairing entry reporting that LAN access is off.
 
 ### Handing off from a desktop session
 
-The browser half adds a Connect phone row under Settings → General, which is the only join surface — nothing is printed to the terminal. The row opens the pairing panel: *Create pairing code* asks the Host for a code through `POST /pair/session`, composes the token-free `/pair?c=<code>` link on this Host's LAN origin, and renders that link as a QR code beside the code and the seconds it has left. The panel then lists the requests waiting for a decision — each with the device name derived from the phone's agent, editable before *Allow* or *Deny* — and the devices already paired, with when each was added, when it last authenticated, and a *Revoke* button that ends that device's access on its next request. A page that is not the computer itself shows none of these controls, and a deployment without LAN access says so: the join URL fails with `mob/loopback-only` (add `--allow-lan`) or, when an all-interfaces bind derived no reachable address, with `mob/no-lan-address` (fix this machine's networking). Every control speaks the same `/pair*` routes the phone uses, so the loopback-and-session rule that guards a decision has one enforcement point.
+The browser half adds a Connect phone row under Settings → General, which is the only join surface — nothing is printed to the terminal. The row opens the pairing panel: *Create pairing code* asks the Host for a code through `POST /pair/session`, composes the token-free `/pair?c=<code>` link on this Host's LAN origin, and renders that link as a QR code beside the code and the seconds it has left. The panel then lists the requests waiting for a decision — each with the device name derived from the phone's agent, editable before *Allow* or *Deny* — and the devices already paired, with when each was added, when it last authenticated, and a *Revoke* button that ends that device's access on its next request. A page that is not the computer itself shows none of these controls, and a deployment bound to loopback says so: the join URL fails with `mob/loopback-only` (drop `--host 127.0.0.1`) or, when an all-interfaces bind derived no reachable address, with `mob/no-lan-address` (fix this machine's networking). Every control speaks the same `/pair*` routes the phone uses, so the loopback-and-session rule that guards a decision has one enforcement point.
 
 ### Pairing a phone
 

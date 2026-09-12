@@ -191,6 +191,10 @@ describe('dsh web authentication through the real CLI', () => {
       expect(firstUrl.origin).toBe(`http://127.0.0.1:${String(port)}`)
       expect(firstUrl.pathname).toBe('/')
       expect(firstUrl.searchParams.get('token')).toMatch(/^[A-Za-z0-9_-]{43}$/u)
+      // The shipped profile binds every interface with no host flag, and the LAN
+      // line stays token-free: the process credential is the computer's own.
+      expect(first.output()).toMatch(/\(LAN: http:\/\/[^\s)]+\)/u)
+      expect(first.output()).not.toMatch(/\(LAN: http:\/\/[^\s)]*\?token=/u)
 
       expect(await describeSettings(port, `localhost:${String(port)}`)).toEqual({
         status: 401,
@@ -218,9 +222,11 @@ describe('dsh web authentication through the real CLI', () => {
 
       await stopWeb(first)
       first = undefined
-      second = await startWeb(root, dshHome, port)
+      // `--host 127.0.0.1` is the opt-out: the readiness line drops the LAN URL.
+      second = await startWeb(root, dshHome, port, ['--host', '127.0.0.1'])
       const secondUrl = new URL(second.launchUrl)
       expect(secondUrl.searchParams.get('token')).not.toBe(firstUrl.searchParams.get('token'))
+      expect(second.output()).not.toContain('(LAN: ')
       expect((await describeSettings(port, secondUrl.host, cookie)).status).toBe(200)
 
       // Windows does not carry POSIX mode bits, so the private credential file
