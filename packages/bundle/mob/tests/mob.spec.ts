@@ -1,27 +1,19 @@
 /**
- * The QR announcer: prints the authenticated LAN URL as a terminal QR code
- * once the tree settles; loopback-only and non-TTY deployments print nothing.
+ * The bundle's host half: mounting the plugin registers the `mob` Remote
+ * namespace (once its injected services exist) and writes nothing to the
+ * terminal; disposing its fiber withdraws the namespace again.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { apply, name } from '../src/index.ts'
 
-vi.mock('qrcode-terminal', () => ({
-  default: { generate: vi.fn() },
-}))
+const contexts: Context[] = []
 
-import qrcode from 'qrcode-terminal'
-import { apply } from '../src/index.ts'
-
-const generate = vi.mocked(qrcode.generate)
-const LAN_URL = 'http://192.168.1.5:4567/?token=test-token'
-const originalIsTTY = process.stdout.isTTY
-
-function setTTY(value: boolean): void {
-  Object.defineProperty(process.stdout, 'isTTY', { value, configurable: true })
-}
-
-function provideConnection(ctx: Context): void {
+/** The services `MobJoinController` injects; only their presence matters here. */
+function provideInjected(ctx: Context): void {
+  ctx.provide('webServer', { host: '0.0.0.0', port: 4567 } as never)
+  ctx.provide('webRuntime', { lanAddresses: ['192.168.1.5'], trustedHosts: ['192.168.1.5'] } as never)
   ctx.provide('connection', {
     authenticatedUrl(baseUrl: string) {
       const url = new URL(baseUrl)
@@ -31,133 +23,37 @@ function provideConnection(ctx: Context): void {
   } as never)
 }
 
-/** web-app's fence snapshot: every non-internal IPv4 literal, or none on loopback. */
-function provideWebRuntime(ctx: Context, lanAddresses: string[]): void {
-  ctx.provide('webRuntime', { lanAddresses, trustedHosts: lanAddresses } as never)
-}
-
-function fakeWebServer(host: '127.0.0.1' | '0.0.0.0'): never {
-  return { host, port: 4567 } as never
-}
-
-beforeEach(() => {
-  setTTY(true)
-})
-
-afterEach(() => {
-  setTTY(originalIsTTY)
+afterEach(async () => {
+  for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
   vi.restoreAllMocks()
-  generate.mockReset()
 })
 
-describe('mob QR announcer', () => {
-  it('prints the LAN join line and QR once the tree is ready', async () => {
-    const ctx = new Context()
-    ctx.provide('webServer', fakeWebServer('0.0.0.0'))
-    provideWebRuntime(ctx, ['192.168.1.5'])
-    provideConnection(ctx)
+describe('mob bundle host half', () => {
+  it('registers the mob Remote namespace and prints nothing', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const ctx = new Context()
+    contexts.push(ctx)
+    provideInjected(ctx)
+
     apply(ctx)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).toHaveBeenCalledWith(`dsh mob: scan to join from this network: ${LAN_URL}`)
-    expect(generate).toHaveBeenCalledWith(LAN_URL, { small: true })
-    await ctx.fiber.dispose()
+    await vi.waitFor(() => { expect(ctx.get('mobJoin')).toBeDefined() })
+
+    expect(name).toBe('mob-join')
+    expect(log).not.toHaveBeenCalled()
+    expect(diagnostic).not.toHaveBeenCalled()
   })
 
-  it('prints nothing on a loopback-only deployment', async () => {
+  it('withdraws the namespace when its own fiber is disposed', async () => {
     const ctx = new Context()
-    ctx.provide('webServer', fakeWebServer('127.0.0.1'))
-    provideWebRuntime(ctx, [])
-    provideConnection(ctx)
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).not.toHaveBeenCalled()
-    expect(generate).not.toHaveBeenCalled()
-    await ctx.fiber.dispose()
-  })
+    contexts.push(ctx)
+    provideInjected(ctx)
 
-  it('prints nothing when stdout is not a TTY', async () => {
-    setTTY(false)
-    const ctx = new Context()
-    ctx.provide('webServer', fakeWebServer('0.0.0.0'))
-    provideWebRuntime(ctx, ['192.168.1.5'])
-    provideConnection(ctx)
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).not.toHaveBeenCalled()
-    expect(generate).not.toHaveBeenCalled()
-    await ctx.fiber.dispose()
-  })
+    const fiber = ctx.plugin({ name, apply })
+    await fiber
+    expect(ctx.get('mobJoin')).toBeDefined()
 
-  it('does not print again when Connection reloads', async () => {
-    const ctx = new Context()
-    ctx.provide('webServer', fakeWebServer('0.0.0.0'))
-    provideWebRuntime(ctx, ['192.168.1.5'])
-    const first = ctx.plugin((connectionCtx: Context) => { provideConnection(connectionCtx) })
-    await first
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).toHaveBeenCalledTimes(1)
-
-    await first.dispose()
-    await ctx.plugin((connectionCtx: Context) => { provideConnection(connectionCtx) })
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).toHaveBeenCalledTimes(1)
-    await ctx.fiber.dispose()
-  })
-
-  it('defers to Loader settlement and drops the announcement on failure or teardown', async () => {
-    // Settlement path.
-    const settled = new Context()
-    settled.provide('webServer', fakeWebServer('0.0.0.0'))
-    provideWebRuntime(settled, ['192.168.1.5'])
-    provideConnection(settled)
-    let release: () => void
-    const settlement = new Promise<void>((resolve) => { release = resolve })
-    settled.provide('loader', { await: () => settlement } as never)
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(settled)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).not.toHaveBeenCalled()
-    release!()
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).toHaveBeenCalledWith(`dsh mob: scan to join from this network: ${LAN_URL}`)
-    await settled.fiber.dispose()
-
-    // Failed path.
-    log.mockClear()
-    generate.mockClear()
-    const failed = new Context()
-    failed.provide('webServer', fakeWebServer('0.0.0.0'))
-    provideWebRuntime(failed, ['192.168.1.5'])
-    provideConnection(failed)
-    failed.provide('loader', { await: async () => { throw new Error('boot failed') } } as never)
-    apply(failed)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).not.toHaveBeenCalled()
-    await failed.fiber.dispose()
-
-    // Torn-down path.
-    log.mockClear()
-    const torn = new Context()
-    const child = torn.plugin((childCtx: Context) => {
-      childCtx.provide('webServer', fakeWebServer('0.0.0.0'))
-      provideWebRuntime(childCtx, ['192.168.1.5'])
-      provideConnection(childCtx)
-    })
-    await child
-    let releaseTorn: () => void
-    const tornSettlement = new Promise<void>((resolve) => { releaseTorn = resolve })
-    torn.provide('loader', { await: () => tornSettlement } as never)
-    apply(torn)
-    await new Promise(resolve => setTimeout(resolve, 0))
-    await child.dispose()
-    releaseTorn!()
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(log).not.toHaveBeenCalled()
-    await torn.fiber.dispose()
+    await fiber.dispose()
+    expect(ctx.get('mobJoin')).toBeUndefined()
   })
 })

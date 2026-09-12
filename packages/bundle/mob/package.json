@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-mob",
-  "description": "Serve the DeepSeek Harness Web UI on the LAN and print a phone-join QR code.",
+  "description": "Phone access for the DeepSeek Harness Web UI: the settings join entry and the LAN join-URL Remote namespace.",
   "version": "0.1.5-rc.1",
   "publishConfig": {
     "access": "public"
@@ -64,7 +64,6 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
-    "qrcode-terminal": "^0.12.0",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
@@ -85,7 +84,6 @@
     "@deepseek-ai/dsh-web-app": "workspace:^",
     "@testing-library/react": "^16.0.0",
     "@types/qrcode": "^1.5",
-    "@types/qrcode-terminal": "^0.12.2",
     "@types/react": "~18.3.1",
     "qrcode": "^1.5",
     "react": "^18.2.0"

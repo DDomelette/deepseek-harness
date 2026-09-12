@@ -1676,9 +1676,6 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
-      qrcode-terminal:
-        specifier: ^0.12.0
-        version: 0.12.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1725,9 +1722,6 @@ importers:
       '@types/qrcode':
         specifier: ^1.5
         version: 1.5.6
-      '@types/qrcode-terminal':
-        specifier: ^0.12.2
-        version: 0.12.2
       '@types/react':
         specifier: ~18.3.1
         version: 18.3.31
@@ -14785,9 +14779,6 @@ packages:
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
 
-  '@types/qrcode-terminal@0.12.2':
-    resolution: {integrity: sha512-v+RcIEJ+Uhd6ygSQ0u5YYY7ZM+la7GgPbs0V/7l/kFs2uO4S8BcIUEMoP7za4DNIqNnUD5npf0A/7kBhrCKG5Q==}
-
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
 
@@ -17718,10 +17709,6 @@ packages:
   pvutils@1.2.0:
     resolution: {integrity: sha512-BbubeCEyTuQjVMakvJQ/Sxbc93F2pwmbsxONT/ZRrwU7Ua38d8unYTwXpTVLAKJ4BDuH9IGztCjQcd/N/39Dvg==}
     engines: {node: '>=16.0.0'}
-
-  qrcode-terminal@0.12.0:
-    resolution: {integrity: sha512-EXtzRZmC+YGmGlDFbXKxQiMZNwCLEO6BANKXG4iCtSIM0yqc/pappSx3RIKr4r0uh5JsBckOXeKrB3Iz7mdQpQ==}
-    hasBin: true
 
   qrcode@1.5.4:
     resolution: {integrity: sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==}
@@ -21530,8 +21517,6 @@ snapshots:
 
   '@types/prop-types@15.7.15': {}
 
-  '@types/qrcode-terminal@0.12.2': {}
-
   '@types/qrcode@1.5.6':
     dependencies:
       '@types/node': 22.20.0
@@ -24940,8 +24925,6 @@ snapshots:
       tslib: 2.8.1
 
   pvutils@1.2.0: {}
-
-  qrcode-terminal@0.12.0: {}
 
   qrcode@1.5.4:
     dependencies:
