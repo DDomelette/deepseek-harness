@@ -42,6 +42,10 @@ dsh web --host 0.0.0.0 --allow-lan --port 8080
 
 `POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案。`POST /pair/approve` 携带决定与设备名称，`GET /pair/requests` 列出仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/revoke` 让某台设备的下一次请求失效。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求浏览器会话**且**来自回环 authority，因此局域网上的手机无法自行批准。
 
+### 被吊销之后重新接入
+
+设备已被吊销——或 cookie 已过期——的手机到达 Host 时不带任何会话。此时 `frontend-static` 以 401 提供携带 `__DSH_AUTH_REQUIRED__` 启动事实的外壳，浏览器半层据此把「需要重新登录」界面注册到 `shell.overlay`：它指出电脑端用哪个设置项生成新配对码，并提供重新加载按钮，用来接上手机在另一个标签页里刚换到的设备 cookie。该界面只在 Host 拒绝文档的地方渲染；持有可用会话的手机不会看到它，而电脑自己的回环页面仍得到 Connection 的 401，提示重新打开打印出的 URL。
+
 ### 你会得到什么
 
 `dsh web` 提供的一切，外加「连接手机」入口与其背后的 `mob` Remote 命名空间。Web 服务器、局域网绑定及其明文 HTTP 警告、浏览器信任栅栏与认证仍归 `dsh-host-webserver` 与 `dsh-web-app` 所有；本层不打任何补丁，也不产生终端输出。

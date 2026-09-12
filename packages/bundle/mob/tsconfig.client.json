@@ -6,6 +6,7 @@
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
   "files": [
+    "src/client/AuthRequiredScreen.tsx",
     "src/client/ConnectPhoneRow.tsx",
     "src/client/PairScreen.tsx",
     "src/client/PairingPanel.tsx",

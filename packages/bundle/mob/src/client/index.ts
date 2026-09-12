@@ -1,7 +1,8 @@
 /**
  * dsh-mob browser half: the Connect-phone row in General settings, opening a
- * QR dialog over the `mob` Remote namespace, and the pairing screen the `/pair`
- * shell shows on a phone that has no session yet.
+ * QR dialog over the `mob` Remote namespace, the pairing screen the `/pair`
+ * shell shows on a phone that has no session yet, and the session-required
+ * screen for a phone the Host served without accepting a session.
  *
  * Export discipline: packages/client/AGENTS.md.
  */
@@ -23,11 +24,15 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '../types.ts'
 import { ConnectPhoneRow, type ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
 import { PairScreen, pairingBootFact, readPairingState, type PairScreenInjected } from './PairScreen.tsx'
+import {
+  AuthRequiredScreen, authRequiredBootFact, type AuthRequiredScreenInjected,
+} from './AuthRequiredScreen.tsx'
 import { createPairingApi } from './pairing-api.ts'
 import { en, zh, type MobileSettingsKey } from './locales.ts'
 import { en as pairEn, zh as pairZh, type PairScreenKey } from './pair-locales.ts'
 
 export type { ConnectPhoneRowComponentProps, ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
+export type { AuthRequiredScreenInjected, AuthRequiredScreenProps } from './AuthRequiredScreen.tsx'
 export type { MobileSettingsKey } from './locales.ts'
 export type { PairScreenInjected, PairScreenProps, PairingStateView } from './PairScreen.tsx'
 export type {
@@ -38,7 +43,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Connect-phone row and QR dialog copy. */
     'settings.mobile': MobileSettingsKey
-    /** Phone pairing screen copy. */
+    /** Phone pairing screen and session-required screen copy. */
     'pair.mobile': PairScreenKey
   }
 }
@@ -54,8 +59,9 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob']
 
 /**
  * Register the dictionaries, the Connect-phone row once the General section's
- * item slot is declared, and the pairing screen when this page is the `/pair`
- * shell.
+ * item slot is declared, and whichever phone screen this page's boot facts call
+ * for: the pairing screen on `/pair`, the session-required screen on a shell
+ * the Host served without accepting a session.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
@@ -77,19 +83,33 @@ export function apply(ctx: ClientContext): void {
   }, ConnectPhoneRow))
 
   const paired = pairingBootFact()
-  if (paired === undefined) return
-  // One stable injected object: the screen's poll effect keys on these
-  // callbacks, so a fresh object per render would restart the loop.
-  const pairInjected: PairScreenInjected = {
-    code: paired.code,
-    pollState: () => readPairingState(paired.code),
-    navigate: (path) => { location.replace(path) },
+  if (paired !== undefined) {
+    // One stable injected object: the screen's poll effect keys on these
+    // callbacks, so a fresh object per render would restart the loop.
+    const pairInjected: PairScreenInjected = {
+      code: paired.code,
+      pollState: () => readPairingState(paired.code),
+      navigate: (path) => { location.replace(path) },
+    }
+    ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+      name: 'shell.overlay',
+      id: 'pair-screen',
+      order: 100,
+      locale: PAIR_NS,
+      inject: () => pairInjected,
+    }, PairScreen))
+    return
+  }
+
+  if (!authRequiredBootFact()) return
+  const authInjected: AuthRequiredScreenInjected = {
+    reload: () => { location.reload() },
   }
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay',
-    id: 'pair-screen',
-    order: 100,
+    id: 'auth-required-screen',
+    order: 90,
     locale: PAIR_NS,
-    inject: () => pairInjected,
-  }, PairScreen))
+    inject: () => authInjected,
+  }, AuthRequiredScreen))
 }

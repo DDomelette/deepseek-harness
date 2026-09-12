@@ -8,6 +8,7 @@ import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '../src/client/index.ts'
 import { ConnectPhoneRow } from '../src/client/ConnectPhoneRow.tsx'
 import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import { AuthRequiredScreen, type AuthRequiredScreenInjected } from '../src/client/AuthRequiredScreen.tsx'
 import { PairScreen, type PairScreenInjected } from '../src/client/PairScreen.tsx'
 
 /** The children the shell declares for this suite's registrations. */
@@ -25,6 +26,7 @@ function declare(slots: SlotRegistry): void {
 
 afterEach(() => {
   Reflect.deleteProperty(globalThis, '__DSH_PAIR__')
+  Reflect.deleteProperty(globalThis, '__DSH_AUTH_REQUIRED__')
   vi.unstubAllGlobals()
 })
 
@@ -111,5 +113,37 @@ describe('dsh-mob client apply', () => {
 
     await fiber.dispose()
     expect(pairing.slots.entries('shell.overlay')).toHaveLength(0)
+  })
+
+  it('registers the session-required screen only when the page carries its boot fact', async () => {
+    Reflect.set(globalThis, '__DSH_AUTH_REQUIRED__', true)
+    const refused = await bench()
+    declare(refused.slots)
+    const fiber = refused.ctx.plugin({ inject: [...inject], apply })
+    await fiber.await()
+
+    const entry = refused.slots.entries('shell.overlay')[0]!
+    expect(entry.component).toBe(AuthRequiredScreen)
+    expect(entry.options).toMatchObject({ id: 'auth-required-screen', order: 90 })
+    const injected = entry.inject as unknown as () => AuthRequiredScreenInjected
+    const reload = vi.fn()
+    vi.stubGlobal('location', { reload })
+    injected().reload()
+    expect(reload).toHaveBeenCalledOnce()
+
+    await fiber.dispose()
+    expect(refused.slots.entries('shell.overlay')).toHaveLength(0)
+  })
+
+  it('prefers the pairing screen when a page somehow carries both facts', async () => {
+    Reflect.set(globalThis, '__DSH_PAIR__', { code: 'ABCD2345' })
+    Reflect.set(globalThis, '__DSH_AUTH_REQUIRED__', true)
+    const both = await bench()
+    declare(both.slots)
+    await both.ctx.plugin({ inject: [...inject], apply }).await()
+
+    const entries = both.slots.entries('shell.overlay')
+    expect(entries).toHaveLength(1)
+    expect(entries[0]!.component).toBe(PairScreen)
   })
 })
