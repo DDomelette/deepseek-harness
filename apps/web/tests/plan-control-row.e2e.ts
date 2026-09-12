@@ -47,6 +47,34 @@ const VIEWPORT = { width: 800, height: 720 } as const
 /** Chip aria-label on the English page; the seat renders only while plan is the effective target. */
 const CHIP_ARIA = 'Plan mode on, press to turn off'
 
+/**
+ * Resize to the measured viewport and wait out the sidebar track transition
+ * (composer-tab-geometry's setMeasuredViewport pattern). The 1680→800 crossing
+ * animates the track from 280px to the 56px rail on
+ * --ds-transition-duration-slow, and the composer card tracks the transient
+ * column through the min(680px, column) content floor — measuring the chip and
+ * trigger before the track settles can catch a mid-animation overlap that the
+ * resting geometry never has.
+ * @param page - the page under test.
+ */
+async function settleMeasuredViewport(page: Page): Promise<void> {
+  await page.setViewportSize(VIEWPORT)
+  await page.locator('[data-sidebar-collapsed="true"]').waitFor({ state: 'attached', timeout: 10_000 })
+  await page.locator('[data-conversation-scroll]').evaluate(async (host) => {
+    const deadline = performance.now() + 5_000
+    let previous = host.getBoundingClientRect().width
+    let stableFrames = 0
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      const current = host.getBoundingClientRect().width
+      stableFrames = Math.abs(current - previous) < 0.01 ? stableFrames + 1 : 0
+      if (stableFrames >= 3) return
+      previous = current
+    }
+    throw new Error('conversation width did not settle after the viewport changed')
+  })
+}
+
 describe('web e2e: plan chip click area at the narrow viewport', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -67,7 +95,7 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.setViewportSize(VIEWPORT)
+    await settleMeasuredViewport(page)
   }, 120_000)
 
   afterAll(async () => {
