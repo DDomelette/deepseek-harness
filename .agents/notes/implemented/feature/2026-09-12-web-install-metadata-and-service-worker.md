@@ -6,7 +6,7 @@ English | [中文](2026-09-12-web-install-metadata-and-service-worker.zh.md)
 
 ## Problem
 
-An installed Web build needs metadata the document itself does not carry, and which browsers act on it depends on a condition the application cannot set: a service worker and an install prompt require a secure context. `localhost` and HTTPS satisfy that; the `mob` profile serves the same build over plain HTTP at `http://<LAN-IP>:3080`, so a phone browser there has no `navigator.serviceWorker` and is offered no install prompt, and only iOS's own metadata can still give that phone a fullscreen home-screen launch. The manifest names one SVG icon and no colour, so an installed launch carries no icon of its own and installed chrome declares no colour, and no worker holds static assets, so every visit re-downloads the bundles, styles, fonts, and icons.
+An installed Web build needs metadata the document itself does not carry, and which browsers act on it depends on a condition the application cannot set: a service worker and an install prompt require a secure context. `localhost` and HTTPS satisfy that; the LAN deployment serves the same build over plain HTTP at `http://<LAN-IP>:3080`, so a phone browser there has no `navigator.serviceWorker` and is offered no install prompt, and only iOS's own metadata can still give that phone a fullscreen home-screen launch. The manifest names one SVG icon and no colour, so an installed launch carries no icon of its own and installed chrome declares no colour, and no worker holds static assets, so every visit re-downloads the bundles, styles, fonts, and icons.
 
 ## Decision
 
@@ -24,13 +24,13 @@ An installed Web build needs metadata the document itself does not carry, and wh
 
 - **`vite-plugin-pwa` or workbox.** Rejected: the policy is one cache name and one fetch predicate over files the repository's own static fallback serves, so either tool would replace a 26-line reviewed file with a generated worker, a precache manifest, and build configuration the policy does not use.
 - **Cache `/api` responses too.** Rejected: the `/api` surface is authenticated and carries live session state whose authority is the Host's session log, so a cached answer would serve a superseded session and would move invalidation for authenticated data into a worker that cannot observe that log.
-- **Keep the manifest metadata-only, with no worker.** Rejected: the `mob` profile exists to make a phone a first-class client, and the touch icon and repeat-visit caching are exactly what that phone uses on every launch.
+- **Keep the manifest metadata-only, with no worker.** Rejected: the LAN deployment exists to make a phone a first-class client, and the touch icon and repeat-visit caching are exactly what that phone uses on every launch.
 - **Precache the shell so the application opens offline.** Rejected: sessions, workspaces, and the realtime stream all come from the Host, so an offline shell would present a client that cannot show a session; navigations therefore stay on the network, and the worker promises no offline application.
 
 ## Consequences
 
 - On `localhost` and HTTPS the worker registers, and a repeat visit answers static assets from the cache while revalidating them in the background; navigations never come from the cache, so there is no offline launch.
-- Over plain-HTTP LAN access (`dsh mob`) no worker registers and no install prompt appears; iOS still adds the page to the home screen through the capability tags and the touch icon.
+- Over plain-HTTP LAN access (`dsh web --host 0.0.0.0 --allow-lan`) no worker registers and no install prompt appears; iOS still adds the page to the home screen through the capability tags and the touch icon.
 - An iOS home-screen launch keeps no background WebSocket: leaving the application suspends the multiplexed socket, and returning to the foreground recovers through the existing Connection generation reconnect and the Remote journal stream's resume cursor.
 - A file under a stable URL — the icons, `favicon.svg`, and `manifest.webmanifest` — is answered from the cache on the first request after it changes and refreshed only in the background, so that one request can render the previous bytes. Vite names bundle assets by content hash, so a changed bundle has a new URL and never serves a superseded entry.
 - Nothing evicts: every hashed asset URL and every stable URL adds an entry, `caches.delete` is never called, and a later policy that renames the cache leaves `dsh-static-v1` behind until the browser evicts it.

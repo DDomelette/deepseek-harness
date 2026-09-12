@@ -6,7 +6,7 @@ Status: implemented
 
 ## 问题
 
-文档预览侧栏内联了 pdfjs-dist，后者在导入期通过对 `Iterator` 全局的裸引用来 polyfill `Iterator.prototype.join`（pdf.mjs）。没有 ES2025 Iterator 全局的浏览器（Safari < 18.4、Chrome < 117）在该引用处抛 ReferenceError；由于失败发生在 Client 加载插件树期间，整个 Web UI 在这些浏览器上白屏——而手机浏览器正是 `mob` profile 的目标用户。携带该全局的新版 PC 浏览器不受影响。
+文档预览侧栏内联了 pdfjs-dist，后者在导入期通过对 `Iterator` 全局的裸引用来 polyfill `Iterator.prototype.join`（pdf.mjs）。没有 ES2025 Iterator 全局的浏览器（Safari < 18.4、Chrome < 117）在该引用处抛 ReferenceError；由于失败发生在 Client 加载插件树期间，整个 Web UI 在这些浏览器上白屏——而手机浏览器正是 LAN 部署的目标用户。携带该全局的新版 PC 浏览器不受影响。
 
 ## 决策
 

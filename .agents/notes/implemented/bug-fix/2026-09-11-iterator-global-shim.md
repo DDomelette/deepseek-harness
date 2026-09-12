@@ -6,7 +6,7 @@ English | [中文](2026-09-11-iterator-global-shim.zh.md)
 
 ## Problem
 
-The document-preview sidebar bundles pdfjs-dist, which polyfills `Iterator.prototype.join` at import time through a bare reference to the `Iterator` global (pdf.mjs). Browsers predating the ES2025 Iterator global (Safari < 18.4, Chrome < 117) throw a ReferenceError at that reference; because the failure happens while the Client loads the plugin tree, the entire Web UI goes blank on those browsers — including phone browsers that are the `mob` profile's whole audience. PC browsers current enough to carry the global are unaffected.
+The document-preview sidebar bundles pdfjs-dist, which polyfills `Iterator.prototype.join` at import time through a bare reference to the `Iterator` global (pdf.mjs). Browsers predating the ES2025 Iterator global (Safari < 18.4, Chrome < 117) throw a ReferenceError at that reference; because the failure happens while the Client loads the plugin tree, the entire Web UI goes blank on those browsers — including phone browsers that a LAN deployment exists to serve. PC browsers current enough to carry the global are unaffected.
 
 ## Decision
 

@@ -6,7 +6,7 @@ Status: implemented
 
 ## 问题
 
-已安装的 Web 版本需要文档本身不携带的元数据，而浏览器是否据此行动取决于应用无法设定的条件：service worker 与安装提示都要求 secure context（安全上下文）。`localhost` 与 HTTPS 满足该条件；`mob` profile 以明文 HTTP 在 `http://<LAN-IP>:3080` 提供同一份构建产物，因此那里的手机浏览器没有 `navigator.serviceWorker`、也不会得到安装提示，只有 iOS 自身的元数据还能给这台手机一个全屏的主屏启动。manifest（元数据清单）只列出一个 SVG 图标且没有配色，因此安装后的启动没有自己的图标、安装后的浏览器界面也不声明配色；同时没有 worker 持有静态资源，所以每次访问都要重新下载 bundle、样式、字体与图标。
+已安装的 Web 版本需要文档本身不携带的元数据，而浏览器是否据此行动取决于应用无法设定的条件：service worker 与安装提示都要求 secure context（安全上下文）。`localhost` 与 HTTPS 满足该条件；LAN 部署以明文 HTTP 在 `http://<LAN-IP>:3080` 提供同一份构建产物，因此那里的手机浏览器没有 `navigator.serviceWorker`、也不会得到安装提示，只有 iOS 自身的元数据还能给这台手机一个全屏的主屏启动。manifest（元数据清单）只列出一个 SVG 图标且没有配色，因此安装后的启动没有自己的图标、安装后的浏览器界面也不声明配色；同时没有 worker 持有静态资源，所以每次访问都要重新下载 bundle、样式、字体与图标。
 
 ## 决策
 
@@ -24,13 +24,13 @@ Status: implemented
 
 - **`vite-plugin-pwa` 或 workbox。** 否决：该策略只有一个缓存名与一条 fetch 谓词，作用于本仓库自带静态回退所服务的文件，因此这两个工具都会用一个生成器产出的 worker、precache manifest 与构建配置，替换一个 26 行、经人审阅的文件，而策略本身并不需要它们。
 - **连 `/api` 响应一起缓存。** 否决：`/api` 面是已认证的，承载以 Host 会话日志为权威的实时会话状态；缓存响应会提供已被取代的会话，并把已认证数据的失效处理移进一个观察不到该日志的 worker。
-- **只保留 manifest 元数据、不引入 worker。** 否决：`mob` profile 存在的意义就是让手机成为一等客户端，而 touch icon 与重复访问缓存正是该手机每次启动都要用到的东西。
+- **只保留 manifest 元数据、不引入 worker。** 否决：LAN 部署存在的意义就是让手机成为一等客户端，而 touch icon 与重复访问缓存正是该手机每次启动都要用到的东西。
 - **预缓存 shell，让应用可离线打开。** 否决：会话、工作区与实时流都来自 Host，离线 shell 只会呈现一个无法显示会话的客户端；因此导航始终走网络，worker 不承诺离线应用。
 
 ## 后果
 
 - 在 `localhost` 与 HTTPS 下 worker 会注册，重复访问时静态资源由缓存作答并在后台重新校验；导航永不来自缓存，因此没有离线启动。
-- 在明文 HTTP 局域网访问（`dsh mob`）下不会注册 worker、也不会出现安装提示；iOS 仍可通过能力标签与 touch icon 把页面添加到主屏。
+- 在明文 HTTP 局域网访问（`dsh web --host 0.0.0.0 --allow-lan`）下不会注册 worker、也不会出现安装提示；iOS 仍可通过能力标签与 touch icon 把页面添加到主屏。
 - iOS 主屏启动没有后台 WebSocket：应用离开前台会挂起多路复用 socket，回到前台时由现有 Connection generation 重连与 Remote journal stream 的恢复 cursor 恢复。
 - 固定 URL 下的文件——图标、`favicon.svg` 与 `manifest.webmanifest`——在变更后的第一次请求由缓存作答，且只在后台刷新，因此那一次请求可能渲染变更前的字节。Vite 按内容哈希命名 bundle 资源，变更后的 bundle 拥有新 URL，绝不会提供被取代的条目。
 - 没有任何淘汰：每个哈希资源 URL 与每个固定 URL 都会新增一个条目，`caches.delete` 从未被调用；后续策略若重命名缓存，`dsh-static-v1` 会一直留存到浏览器自行淘汰为止。

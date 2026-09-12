@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-12-browser-floor-for-the-web-shell.md
-2026-09-12-browser-floor-for-the-web-shell.md: 07282ba97d620010e1ff73e7f7f71f343980932e
-2026-09-12-browser-floor-for-the-web-shell.zh.md: 84b74bc33b59e668e1179c8dd3d15f1d96367938
+2026-09-12-browser-floor-for-the-web-shell.md: 6de8f508d3834ddb2f8655dc81a8466e31c5a851
+2026-09-12-browser-floor-for-the-web-shell.zh.md: d0b8bee53ba2bc3093dcc5580efd0976299179a9

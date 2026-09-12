@@ -6,7 +6,7 @@ English | [中文](2026-09-12-connection-failure-surfacing.zh.md)
 
 ## Problem
 
-Every connection problem looked identical in the Web GUI: the sidebar pill kept saying "reconnecting" while the application showed no data. A browser session that had expired, a Host that had stopped, a rejected authority, and a client-side exception raised exactly the same text, so the operator could neither act nor report what happened. Diagnosing the `dsh mob` phone outage of 2026-09-12 required a temporary instrumented server and a request log, because the client discarded the reason before any surface could show it.
+Every connection problem looked identical in the Web GUI: the sidebar pill kept saying "reconnecting" while the application showed no data. A browser session that had expired, a Host that had stopped, a rejected authority, and a client-side exception raised exactly the same text, so the operator could neither act nor report what happened. Diagnosing the 2026-09-12 phone outage on a LAN deployment required a temporary instrumented server and a request log, because the client discarded the reason before any surface could show it.
 
 ## Decision
 

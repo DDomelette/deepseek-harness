@@ -3568,7 +3568,7 @@ export interface Config {
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
 - `@deepseek-ai/dsh-mcp-manager` — 需要 `settings` · `loader` ([`packages/mcp/mcp-manager/src/index.ts`](../packages/mcp/mcp-manager/src/index.ts))
-- `@deepseek-ai/dsh-mob` — 需要 `webServer` · `webRuntime`（[`packages/bundle/mob/src/index.ts`](../packages/bundle/mob/src/index.ts)）
+- `@deepseek-ai/dsh-mob`（[`packages/bundle/mob/src/index.ts`](../packages/bundle/mob/src/index.ts)）
 - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）
 - `@deepseek-ai/dsh-session`（[`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts)）
 - `@deepseek-ai/dsh-session-checkpoint-policy` — 需要 `llm` · `sessionPersistence` · `sessions` · `tools`（[`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts)）

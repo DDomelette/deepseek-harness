@@ -6,7 +6,7 @@ English | [中文](2026-09-12-browser-floor-for-the-web-shell.zh.md)
 
 ## Problem
 
-`dsh mob` serves the Web shell over plain HTTP to whichever engine an operator's phone already has, and phone WebViews rarely receive an update. Several shipped client bundles call standard APIs newer than those engines: `AbortSignal.any` (Chrome 116, Safari 17.4) in the API gateway's generation path and in the workspace and deliverables UI, `Promise.withResolvers` (Chrome 119, Safari 17.4) in the approval, user-question, workspace-files, and dynamic-runner bundles, and the ES2025 `Iterator` global (Chrome 117, Safari 18.4) that pdfjs-dist references at import time.
+The LAN deployment (`dsh web --host 0.0.0.0 --allow-lan`) serves the Web shell over plain HTTP to whichever engine an operator's phone already has, and phone WebViews rarely receive an update. Several shipped client bundles call standard APIs newer than those engines: `AbortSignal.any` (Chrome 116, Safari 17.4) in the API gateway's generation path and in the workspace and deliverables UI, `Promise.withResolvers` (Chrome 119, Safari 17.4) in the approval, user-question, workspace-files, and dynamic-runner bundles, and the ES2025 `Iterator` global (Chrome 117, Safari 18.4) that pdfjs-dist references at import time.
 
 On a Chrome 114 Android browser the failure is silent and total: the mux WebSocket completes its upgrade and then dies within a second, because the gateway's stream read throws `TypeError: AbortSignal.any is not a function`. The client retries with backoff forever, so the shell renders while sessions, workspaces, and messages never arrive. Authentication, cookie binding, the Host fence, and the LAN path are unaffected — every `/api` response in the captured trace was 200.
 

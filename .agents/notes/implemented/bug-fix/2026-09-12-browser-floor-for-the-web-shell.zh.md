@@ -6,7 +6,7 @@ Status: implemented
 
 ## 问题
 
-`dsh mob` 通过明文 HTTP 把 Web shell 提供给操作者手机上现成的引擎，而手机 WebView 极少获得更新。若干已发布的 client bundle 调用了比这些引擎更新的标准 API：API gateway 的 generation 路径、workspace 与 deliverables UI 用了 `AbortSignal.any`（Chrome 116、Safari 17.4）；approval、user-question、workspace-files、dynamic-runner 等 bundle 用了 `Promise.withResolvers`（Chrome 119、Safari 17.4）；pdfjs-dist 在导入期引用 ES2025 的 `Iterator` 全局（Chrome 117、Safari 18.4）。
+`dsh web --host 0.0.0.0 --allow-lan` 通过明文 HTTP 把 Web shell 提供给操作者手机上现成的引擎，而手机 WebView 极少获得更新。若干已发布的 client bundle 调用了比这些引擎更新的标准 API：API gateway 的 generation 路径、workspace 与 deliverables UI 用了 `AbortSignal.any`（Chrome 116、Safari 17.4）；approval、user-question、workspace-files、dynamic-runner 等 bundle 用了 `Promise.withResolvers`（Chrome 119、Safari 17.4）；pdfjs-dist 在导入期引用 ES2025 的 `Iterator` 全局（Chrome 117、Safari 18.4）。
 
 在 Chrome 114 的 Android 浏览器上，失败是静默而彻底的：mux WebSocket 完成 upgrade 后一秒内断开，因为 gateway 的流读取抛 `TypeError: AbortSignal.any is not a function`。客户端此后按退避无限重连，于是外壳照常渲染，而会话、工作区与消息永远不出现。认证、cookie 绑定、Host 栅栏与 LAN 通路都不受影响——抓到的每一条 `/api` 响应都是 200。
 

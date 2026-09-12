@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-12-web-install-metadata-and-service-worker.md
-2026-09-12-web-install-metadata-and-service-worker.md: 59a3935b7f94af1aa3d4a9d4505c6515e5eebdd7
-2026-09-12-web-install-metadata-and-service-worker.zh.md: f6d8ae8d3bcc233c36045b4216e0e81699f06678
+2026-09-12-web-install-metadata-and-service-worker.md: eb6a880a955eb08db04882d4347c05c6952dc608
+2026-09-12-web-install-metadata-and-service-worker.zh.md: 75bdf1f2765f9fe8615766c0f423b4675ea8e9b5
