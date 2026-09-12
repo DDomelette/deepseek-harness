@@ -16,7 +16,7 @@ Status: implemented
 
 `apps/web/index.html` 携带 manifest 链接、`mobile-web-app-capable` 与 `apple-mobile-web-app-capable` 能力标签、取值为 `black-translucent` 的 `apple-mobile-web-app-status-bar-style`，以及指向 `/apple-touch-icon.png` 的 `apple-touch-icon` 链接。iOS 从该链接而非 manifest 的图标列表取主屏图标，并在没有 secure context 的情况下同样遵循这些能力标签。
 
-`apps/web/public/sw.js` 是手写 worker，只承载一条策略，缓存名为 `dsh-static-v1`。它的 `fetch` 处理器在请求不是 GET、带有 `mode === 'navigate'`、或路径以 `/api` 开头时直接返回而不调用 `respondWith`；其余请求——按内容哈希命名的 bundle 资源、样式、字体与图标——一律以 stale-while-revalidate 应答：缓存命中时以缓存响应作答，同时照常发起网络请求，并在 `response.ok` 成立时把响应存回同一个键。实时传输是通往 `/api/remote.mux` 的 WebSocket：WebSocket upgrade 不是 fetch 请求，处理器根本看不到它，而 `/api` 这条守卫无论如何都覆盖该 URL。`install` 调用 `self.skipWaiting()`，`activate` 调用 `event.waitUntil(self.clients.claim())`，因此已安装的 worker 会替换前一个，并在无需等待重新加载的情况下接管已打开的页面。`apps/web/tests/sw-cache-policy.spec.ts` 在伪造的 worker 全局环境中执行该源文件，并固定该策略的每个分支。
+`apps/web/public/sw.js` 是手写 worker，只承载一条策略，缓存名为 `dsh-static-v1`。除非请求是 GET、路径不以 `/api` 开头、且其 `destination` 属于 `script`、`style`、`image`、`font`、`manifest` 之一（即文档加载的子资源），它的 `fetch` 处理器才继续处理并调用 `respondWith`；这些请求一律以 stale-while-revalidate 应答：缓存命中时以缓存响应作答，同时照常发起网络请求，并在 `response.ok` 成立时把响应存回同一个键。这道 destination 门禁把 worker 挡在它永远无法用缓存作答的流量之外：导航（`document`）、任何 `fetch`、XHR 或 EventSource 调用（`''`），以及 worker 自身的脚本（`serviceworker`）——后者必须始终来自网络，否则已安装的 worker 永远无法更新。实时传输是通往 `/api/remote.mux` 的 WebSocket：WebSocket upgrade 不是 fetch 请求，处理器根本看不到它，而 `/api` 这条守卫无论如何都覆盖该 URL。`install` 调用 `self.skipWaiting()`，`activate` 调用 `event.waitUntil(self.clients.claim())`，因此已安装的 worker 会替换前一个，并在无需等待重新加载的情况下接管已打开的页面。`apps/web/tests/sw-cache-policy.spec.ts` 在伪造的 worker 全局环境中执行该源文件，并固定该策略的每个分支。
 
 `apps/web/src/main.ts` 在 `'serviceWorker' in navigator` 成立时，于页面的 `load` 事件中注册 `/sw.js`，并忽略注册失败。
 
@@ -26,6 +26,7 @@ Status: implemented
 - **连 `/api` 响应一起缓存。** 否决：`/api` 面是已认证的，承载以 Host 会话日志为权威的实时会话状态；缓存响应会提供已被取代的会话，并把已认证数据的失效处理移进一个观察不到该日志的 worker。
 - **只保留 manifest 元数据、不引入 worker。** 否决：LAN 部署存在的意义就是让手机成为一等客户端，而 touch icon 与重复访问缓存正是该手机每次启动都要用到的东西。
 - **预缓存 shell，让应用可离线打开。** 否决：会话、工作区与实时流都来自 Host，离线 shell 只会呈现一个无法显示会话的客户端；因此导航始终走网络，worker 不承诺离线应用。
+- **接管所有同源 GET（导航与 `/api` 流量除外）。** 否决：该集合包含 `/plugins/events` 上的开发期 SSE 通道，其响应永不结束，因此 worker 会在每个页面的整个生命周期里挂着一个后台 fetch，既存不下永远无法完整的响应体，又会在该 origin 上拖住后续请求。
 
 ## 后果
 

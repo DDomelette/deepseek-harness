@@ -1,8 +1,9 @@
 /**
  * The cache policy of the shipped service worker, loaded from the real
- * `apps/web/public/sw.js` source: static-asset GETs answer
- * stale-while-revalidate, while `/api` requests, navigations, and non-GET
- * requests reach the network with no interception.
+ * `apps/web/public/sw.js` source: static-asset GETs the document loads answer
+ * stale-while-revalidate, while `/api` requests, navigations, non-GET
+ * requests, fetch/EventSource traffic, and the worker's own script reach the
+ * network with no interception.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -18,7 +19,7 @@ const ORIGIN = 'http://127.0.0.1:3080'
 interface WorkerRequest {
   readonly url: string
   readonly method: string
-  readonly mode: string
+  readonly destination: string
 }
 
 /** One stored value standing in for a `Response`. */
@@ -72,6 +73,7 @@ async function loadServiceWorker() {
     },
     fetch: network,
     URL,
+    Set,
   })
 
   return { entries, handlers, match, put, open, skipWaiting, claim, network }
@@ -117,7 +119,7 @@ describe('service-worker cache policy', () => {
     const fromNetwork = cached('network')
     worker.network.mockResolvedValue(fromNetwork)
 
-    const answered = dispatchFetch(worker, { url: asset, method: 'GET', mode: 'cors' })
+    const answered = dispatchFetch(worker, { url: asset, method: 'GET', destination: 'script' })
 
     expect(worker.open).toHaveBeenCalledWith(CACHE_NAME)
     await expect(answered[0]).resolves.toBe(fromNetwork)
@@ -132,7 +134,7 @@ describe('service-worker cache policy', () => {
     worker.entries.set(asset, stored)
     worker.network.mockResolvedValue(refreshed)
 
-    const answered = dispatchFetch(worker, { url: asset, method: 'GET', mode: 'cors' })
+    const answered = dispatchFetch(worker, { url: asset, method: 'GET', destination: 'script' })
 
     await expect(answered[0]).resolves.toBe(stored)
     await worker.network.mock.results[0]!.value
@@ -144,7 +146,7 @@ describe('service-worker cache policy', () => {
     const missing = cached('not found', false)
     worker.network.mockResolvedValue(missing)
 
-    const answered = dispatchFetch(worker, { url: `${ORIGIN}/assets/gone.js`, method: 'GET', mode: 'cors' })
+    const answered = dispatchFetch(worker, { url: `${ORIGIN}/assets/gone.css`, method: 'GET', destination: 'style' })
 
     await expect(answered[0]).resolves.toBe(missing)
     expect(worker.put).not.toHaveBeenCalled()
@@ -153,7 +155,11 @@ describe('service-worker cache policy', () => {
   it('passes /api requests through untouched', async () => {
     const worker = await loadServiceWorker()
 
-    expect(dispatchFetch(worker, { url: `${ORIGIN}/api/remote.mux`, method: 'GET', mode: 'cors' })).toEqual([])
+    expect(dispatchFetch(worker, {
+      url: `${ORIGIN}/api/attachment.png`,
+      method: 'GET',
+      destination: 'image',
+    })).toEqual([])
     expect(worker.open).not.toHaveBeenCalled()
     expect(worker.network).not.toHaveBeenCalled()
   })
@@ -161,7 +167,7 @@ describe('service-worker cache policy', () => {
   it('passes navigations through untouched', async () => {
     const worker = await loadServiceWorker()
 
-    expect(dispatchFetch(worker, { url: `${ORIGIN}/`, method: 'GET', mode: 'navigate' })).toEqual([])
+    expect(dispatchFetch(worker, { url: `${ORIGIN}/`, method: 'GET', destination: 'document' })).toEqual([])
     expect(worker.open).not.toHaveBeenCalled()
     expect(worker.network).not.toHaveBeenCalled()
   })
@@ -169,7 +175,33 @@ describe('service-worker cache policy', () => {
   it('passes non-GET requests through untouched', async () => {
     const worker = await loadServiceWorker()
 
-    expect(dispatchFetch(worker, { url: `${ORIGIN}/assets/index-abc123.js`, method: 'POST', mode: 'cors' })).toEqual([])
+    expect(dispatchFetch(worker, {
+      url: `${ORIGIN}/assets/index-abc123.js`,
+      method: 'POST',
+      destination: 'script',
+    })).toEqual([])
+    expect(worker.open).not.toHaveBeenCalled()
+    expect(worker.network).not.toHaveBeenCalled()
+  })
+
+  it('passes fetch, XHR, and event-stream requests through untouched', async () => {
+    const worker = await loadServiceWorker()
+
+    // The dev SSE channel never completes, so a mediated fetch would hold a
+    // connection open and stall later requests on the same origin.
+    expect(dispatchFetch(worker, {
+      url: `${ORIGIN}/plugins/events`,
+      method: 'GET',
+      destination: '',
+    })).toEqual([])
+    expect(worker.open).not.toHaveBeenCalled()
+    expect(worker.network).not.toHaveBeenCalled()
+  })
+
+  it('passes the worker script itself through untouched', async () => {
+    const worker = await loadServiceWorker()
+
+    expect(dispatchFetch(worker, { url: `${ORIGIN}/sw.js`, method: 'GET', destination: 'serviceworker' })).toEqual([])
     expect(worker.open).not.toHaveBeenCalled()
     expect(worker.network).not.toHaveBeenCalled()
   })
