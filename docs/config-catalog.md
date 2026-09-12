@@ -361,6 +361,12 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
+  /**
+   * Absolute paired-device cookie lifetime in days. A phone's device cookie
+   * lives this long from approval and is never renewed on use; revocation ends
+   * it earlier. Default: 180.
+   */
+  deviceCookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
 }
