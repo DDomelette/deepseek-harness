@@ -3,7 +3,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
-import { readPairedDevices } from './devices.ts'
+import { listDevices } from './devices.ts'
 import type {
   ConnectionIndexRequest,
   ConnectionIndexResponse,
@@ -232,7 +232,7 @@ export class BrowserAuth {
     deviceMaxAgeDays: number,
   ): Promise<BrowserAuth> {
     const secret = await initializeSecret(credentials)
-    const devices = await readPairedDevices(credentials)
+    const devices = await listDevices(credentials)
     return new BrowserAuth(
       processOwner,
       credentials,
@@ -284,7 +284,7 @@ export class BrowserAuth {
    * @returns nothing; the refreshed registry is installed before it resolves.
    */
   async refreshPairedDevices(): Promise<void> {
-    const devices = await readPairedDevices(this.credentials)
+    const devices = await listDevices(this.credentials)
     this.pairedDeviceIds = new Set(devices.map(device => device.id))
   }
 

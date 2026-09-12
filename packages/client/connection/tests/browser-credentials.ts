@@ -16,6 +16,8 @@ export class RecordCredentials {
   discardWrites = false
   reads = 0
   modifies = 0
+  /** Mutations that actually stored a record. */
+  writes = 0
 
   readRecord(key: CredentialKey): Promise<CredentialRecord | undefined> {
     this.reads += 1
@@ -50,6 +52,7 @@ export class RecordCredentials {
 
   private write(key: CredentialKey, next: CredentialRecord | undefined): void {
     if (next === undefined) return
+    this.writes += 1
     if (String(key) === String(BROWSER_SESSION_KEY)) this.record = next
     else this.keyed.set(String(key), next)
   }
