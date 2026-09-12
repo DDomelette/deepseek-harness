@@ -85,7 +85,7 @@ describe('ConnectPhoneRow', () => {
     })))
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
 
-    await waitFor(() => { expect(screen.getByText('当前未开启内网访问，请用 dsh mob 启动')).toBeTruthy() })
+    await waitFor(() => { expect(screen.getByText('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')).toBeTruthy() })
     expect(screen.queryByRole('img')).toBeNull()
   })
 

@@ -2,9 +2,10 @@
  * Browser-floor compatibility for the Web shell: the standard APIs the shipped
  * bundles — and the third-party code they carry — call unconditionally, defined
  * here for engines that predate them. The same shell is served over plain HTTP to
- * whatever engine an operator's device ships (`dsh mob` exists so a phone on the
- * LAN can open it), and Android WebView builds rarely receive an update, so the
- * floor lives at the boot kernel instead of being re-derived per call site.
+ * whatever engine an operator's device ships (a LAN deployment exists so a phone
+ * on the network can open it), and Android WebView builds rarely receive an
+ * update, so the floor lives at the boot kernel instead of being re-derived per
+ * call site.
  * @module @deepseek-ai/dsh-client-web/src/compat
  */
 
