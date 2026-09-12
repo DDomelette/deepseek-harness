@@ -18,14 +18,20 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
   if (event.request.method !== 'GET' || url.pathname.startsWith('/api')) return
   if (!CACHED_DESTINATIONS.has(event.request.destination)) return
+  const revalidation = fetch(event.request).then((response) => {
+    if (!response.ok) return response
+    const stored = response.clone()
+    return self.caches.open(CACHE)
+      .then((cache) => cache.put(event.request, stored))
+      .then(() => response)
+  })
+  // A cached answer returns before the network does, so the revalidation gets
+  // its own lifetime: otherwise the worker may be terminated mid-`put` and the
+  // asset stays stale. The catch keeps an offline rejection, which no caller
+  // observes once the cached response won, out of the worker's error channel.
+  event.waitUntil(revalidation.then(() => undefined, () => undefined))
   event.respondWith(
-    self.caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(event.request)
-      const fetched = fetch(event.request).then((response) => {
-        if (response.ok) void cache.put(event.request, response.clone())
-        return response
-      })
-      return cached ?? fetched
-    }),
+    self.caches.open(CACHE)
+      .then(async (cache) => (await cache.match(event.request)) ?? revalidation),
   )
 })
