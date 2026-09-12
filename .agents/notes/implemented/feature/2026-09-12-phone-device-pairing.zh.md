@@ -18,6 +18,8 @@ Status: implemented
 
 要让吊销真正"完整"，还需要另一半规则：进程启动令牌是电脑自己的凭据，因此 `authorizeIndex` 只在回环 authority 上交换它，`isAuthenticated` 也只在回环上承认启动令牌 cookie。于是 `dsh web` 打印的局域网 URL 不带令牌，`mob.joinUrl` 返回的是面板拼配对链接所用的、无令牌的局域网 origin，而每个非回环客户端——手机、平板或第二台电脑——都用自己的设备 cookie 认证。此前由局域网 authority 签发过的启动令牌 cookie 从此被拒绝，因此对手机而言"吊销"重新成为完整的答案。
 
+不带会话到达的手机也会被告知如何取得会话，而不是撞上死路。对非回环 authority 上的拒绝，`authorizeIndex` 回答 `auth-required`，于是 `frontend-static` 以 401 提供外壳本身并携带 `__DSH_AUTH_REQUIRED__` 启动事实，浏览器半层据此在 `shell.overlay` 上渲染「需要重新登录」界面，指出电脑端创建新配对码的设置项。回环上的拒绝仍保留纯文本 401：那里的操作者能照它给出的指示行事。
+
 `ctx.connection.devices` 拥有登记表——`list`、`register`、`revoke`、`touch`；每次变更都会刷新运行中的 cookie 校验。`touch` 最多每小时推进一次设备的最后可见时间，使普通请求不会反复改写凭据文件。配对会话本身受三重约束：32^8 的短码空间、120 秒寿命，以及按来源限流（每 10 秒 10 次读取，连续 5 次失败后锁定 60 秒）。
 
 ## 曾考虑的替代方案
@@ -35,4 +37,5 @@ Status: implemented
 - 吊销对运行中的 Host 立即生效，因为每次登记表变更都会刷新内存中的设备集合；损坏到无法解释的设备记录会让操作显式失败，而不是被覆盖。
 - 手机到电脑这一段仍是明文 HTTP：网络上的观察者可以读到配对轮询与传输中的设备 cookie，而该 cookie 不带 `Secure` 属性，因为该传输无法兑现它。自签名或 mkcert 证书的 TLS 是单独一期，它才会关上这扇窗并让该属性可以设置。
 - `apps/cli/tests/pairing.e2e.ts` 通过真实 CLI 走完整条握手：取码、手机侧未认证界面、仅回环可决定、设备 cookie 让 `/api` 认证通过、已配对手机被拒绝做出决定、吊销让同一 cookie 变成 401，以及按来源锁定。
+- 重新加载应用的已吊销手机会看到「需要重新登录」界面，而不是光秃秃的 401：`apps/cli/tests/web-auth.e2e.ts` 通过真实 CLI 断言未认证的局域网 index 请求——无论是否带进程令牌——都以 401 返回携带 `__DSH_AUTH_REQUIRED__` 的外壳且不下发 cookie，而回环上的拒绝保持纯文本响应。
 - [LAN Web 服务](../architecture/2026-09-11-lan-web-serving.zh.md)仍是绑定、栅栏与明文 HTTP 警告的权威；本笔记负责"手机是什么、如何被接纳"。[手机接入归入 web profile](../architecture/2026-09-12-phone-access-in-the-web-profile.zh.md)仍是入口归属的权威。
