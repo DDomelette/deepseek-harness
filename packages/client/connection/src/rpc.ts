@@ -97,6 +97,20 @@ export interface ConnectionIndexResponse {
   end(body?: string): unknown
 }
 
+/**
+ * What an index request is allowed to receive. A non-loopback client that holds
+ * no accepted session gets the application shell marked as needing
+ * authentication, because the computer's launch token never reaches it: on a
+ * LAN the only credential is a paired device cookie.
+ */
+export type ConnectionIndexAccess =
+  /** The caller serves the application shell. */
+  | 'serve'
+  /** Connection wrote the complete response: a token redirect, or the loopback 401. */
+  | 'answered'
+  /** The caller serves the shell, marked with the auth-required boot fact, as a 401. */
+  | 'auth-required'
+
 /** Handler invoked after Connection has decoded the transport envelope. */
 export type ConnectionRpcHandler = (
   endpoint: string,
@@ -185,12 +199,14 @@ export interface HostConnectionHandle {
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
 
   /**
-   * Authenticate one frontend index request, owning a token redirect or 401.
+   * Authenticate one frontend index request. A valid loopback launch-token
+   * exchange or an existing accepted cookie is decided here; a client that
+   * holds none is told what it may serve instead.
    * @param request - root or configured-index HTTP request.
-   * @param response - response owned when the result is false.
-   * @returns true only when the frontend may serve index.html.
+   * @param response - response owned when the result is `answered`.
+   * @returns whether the caller serves the shell, and under which marking.
    */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess
 
   /**
    * Add the fresh process token to an ordinary Web application URL.

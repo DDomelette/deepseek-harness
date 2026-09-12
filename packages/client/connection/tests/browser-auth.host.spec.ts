@@ -96,7 +96,7 @@ function exchange(
   const launchUrl = auth.authenticatedUrl(`http://${authority}`)
   const target = new URL(launchUrl)
   const res = response()
-  expect(auth.authorizeIndex(request(`${target.pathname}${target.search}`, authority), res.value)).toBe(false)
+  expect(auth.authorizeIndex(request(`${target.pathname}${target.search}`, authority), res.value)).toBe('answered')
   const setCookie = res.state.headers?.['set-cookie']
   if (setCookie === undefined) throw new Error('token exchange did not set a cookie')
   return { cookie: setCookie.split(';', 1)[0]!, launchUrl, state: res.state }
@@ -145,7 +145,7 @@ describe('BrowserAuth', () => {
       `${staleUrl.pathname}${staleUrl.search}`,
       '127.0.0.1:3080',
       { cookie: login.cookie },
-    ), redirected.value)).toBe(false)
+    ), redirected.value)).toBe('answered')
     expect(redirected.state).toEqual({
       status: 303,
       headers: {
@@ -156,11 +156,11 @@ describe('BrowserAuth', () => {
     })
   })
 
-  it('accepts the cookie for index serving and gives every unauthenticated request one response', async () => {
+  it('accepts the cookie for index serving and gives every unauthenticated loopback request one response', async () => {
     const auth = await createAuth(new RecordCredentials())
     const { cookie } = exchange(auth)
     const allowed = response()
-    expect(auth.authorizeIndex(request('/index.html', '127.0.0.1:3080', { cookie }), allowed.value)).toBe(true)
+    expect(auth.authorizeIndex(request('/index.html', '127.0.0.1:3080', { cookie }), allowed.value)).toBe('serve')
     expect(allowed.state).toEqual({})
 
     for (const candidate of [
@@ -171,7 +171,7 @@ describe('BrowserAuth', () => {
       request(auth.authenticatedUrl('http://127.0.0.1:3080'), '127.0.0.1:3080', { method: 'HEAD' }),
     ]) {
       const denied = response()
-      expect(auth.authorizeIndex(candidate, denied.value)).toBe(false)
+      expect(auth.authorizeIndex(candidate, denied.value)).toBe('answered')
       expect(denied.state.status).toBe(401)
       expect(denied.state.headers).toEqual({
         'cache-control': 'no-store',
@@ -288,9 +288,10 @@ describe('BrowserAuth', () => {
       expect(auth.authorizeIndex(
         request(`${launch.pathname}${launch.search}`, lanAuthority),
         refused.value,
-      )).toBe(false)
-      expect(refused.state).toMatchObject({ status: 401 })
-      expect(refused.state.headers?.['set-cookie']).toBeUndefined()
+      )).toBe('auth-required')
+      // The caller serves the shell itself for this verdict, so Connection
+      // writes no response and hands out no cookie.
+      expect(refused.state).toEqual({})
 
       // A launch-token cookie that exists for a LAN authority — a phone that
       // opened the printed LAN URL before this rule — buys nothing.
@@ -306,6 +307,38 @@ describe('BrowserAuth', () => {
       // The same cookie shape is exactly what the computer's own browser holds.
       const loopbackExchange = exchange(auth)
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: loopbackExchange.cookie }))).toBe(true)
+    })
+
+    it('marks a shell served to an unauthenticated non-loopback client as needing authentication', async () => {
+      const store = new RecordCredentials()
+      store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+      const auth = await createAuth(store)
+      const lanAuthority = '192.168.0.126:3080'
+
+      for (const candidate of [
+        request('/', lanAuthority),
+        request('/index.html', lanAuthority),
+        request('/?token=stale', lanAuthority),
+        request('/', lanAuthority, { cookie: 'dsh-auth-elsewhere=value' }),
+      ]) {
+        const unanswered = response()
+        expect(auth.authorizeIndex(candidate, unanswered.value)).toBe('auth-required')
+        expect(unanswered.state).toEqual({})
+      }
+
+      const live = cookiePair(auth.issueDeviceCookie(lanAuthority, 'phone-1'))
+      const served = response()
+      expect(auth.authorizeIndex(request('/', lanAuthority, { cookie: live }), served.value)).toBe('serve')
+      expect(served.state).toEqual({})
+
+      store.setPairedDevices({ version: 1, devices: [] })
+      await auth.refreshPairedDevices()
+      const revoked = response()
+      expect(auth.authorizeIndex(
+        request('/', lanAuthority, { cookie: live }),
+        revoked.value,
+      )).toBe('auth-required')
+      expect(revoked.state).toEqual({})
     })
 
     it('mints a v2 cookie bound to the authority and the configured device lifetime', async () => {

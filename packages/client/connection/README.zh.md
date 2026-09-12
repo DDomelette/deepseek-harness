@@ -32,7 +32,7 @@ kind: "package-reference"
 <a id="browser-authentication-and-request-trust"></a>
 ## 浏览器认证与请求信任
 
-每个 Host RPC 方法和 WebSocket 流都要求一个浏览器会话，不存在按方法区分的 loopback 层。每个进程生成一个随机启动令牌。`dsh-web-app` 打印并打开带 `?token=...` 的普通根 URL；`frontend-static` 把根路径和 index 请求交给 `ctx.connection.authorizeIndex`，后者只在回环 authority 上的 `GET /` 接受该令牌，写入绑定 authority 的签名 cookie，再重定向到干净的 `/`。缺失、过期、畸形或 authority 不匹配的 cookie 会在 RPC 分发前得到 401。静态资源保持公开。HTTP 载体不在根路径交换之外接受 query token，也不接受 Authorization header token。
+每个 Host RPC 方法和 WebSocket 流都要求一个浏览器会话，不存在按方法区分的 loopback 层。每个进程生成一个随机启动令牌。`dsh-web-app` 打印并打开带 `?token=...` 的普通根 URL；`frontend-static` 把根路径和 index 请求交给 `ctx.connection.authorizeIndex`，后者只在回环 authority 上的 `GET /` 接受该令牌，写入绑定 authority 的签名 cookie，再重定向到干净的 `/`。它的判定告诉 index 所有者该提供什么：会话被接受时为 `serve`，Connection 自己写完响应时为 `answered`，而在其他 authority 上被拒时为 `auth-required`——此时以 401 提供携带 `__DSH_AUTH_REQUIRED__` 启动事实的外壳，因为手机不持有启动令牌，配对是它唯一的入口。缺失、过期、畸形或 authority 不匹配的 cookie 会在 RPC 分发前得到 401。静态资源保持公开。HTTP 载体不在根路径交换之外接受 query token，也不接受 Authorization header token。
 
 cookie 签名密钥是 `ctx.credentials` 中由 `client-connection/browser-session` 拥有的 grant 记录。本地提供方把它持久化到 `$DSH_HOME/.credentials.yaml`；`BrowserAuth` 在 Connection 激活期间加载或创建该记录，并把密钥留在内存中，因此请求认证同步执行。删除或替换该记录会在下一次 Connection 激活时生效。cookie 携带绝对签发与过期区间，`cookieMaxAgeDays` 默认设为 30 天，并在确定性名称与签名 payload 中同时绑定规范化 hostname 和 port。它是 host-only、`Path=/`、`HttpOnly`、`SameSite=Strict`；随附服务器使用 loopback HTTP，因此刻意不设置 `Secure`。启动令牌 cookie 只在回环 authority 上有效——该令牌是电脑自己的凭据，从不在局域网 authority 上交换，`dsh web` 打印的局域网 URL 也不带令牌——因此其他客户端一律出示第二种 cookie 形式：为已配对设备签发的 `deviceId`，只有 `BrowserAuth` 在激活期间同样加载的 `client-connection/paired-devices` grant 记录仍列出该设备时才被接受，其寿命由 `deviceCookieMaxAgeDays`（默认 180）在签发时固定，不因使用而续期。
 

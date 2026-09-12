@@ -16,6 +16,7 @@ import { isLoopbackHostname } from './loopback-hostname.ts'
 import { requestAuthority, requestHostname } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionFetchRoute,
@@ -127,7 +128,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
   }
 
   /** Authenticate an index request through the process-token exchange or cookie. */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
     return this.browserAuth.authorizeIndex(request, response)
   }
 

@@ -7,6 +7,7 @@ import { listDevices } from './devices.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import { header, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionTrustRequest,
@@ -272,13 +273,16 @@ export class BrowserAuth {
 
   /**
    * Authenticate an index request. A valid root query token mints the cookie
-   * and redirects to clean `/`; a valid cookie lets the caller serve the
-   * index; every other request receives the same minimal 401 response.
+   * and redirects to clean `/`; a valid cookie lets the caller serve the index;
+   * a refusal on a loopback authority receives the minimal 401 response, while
+   * a non-loopback client is answered by the caller with the shell marked as
+   * needing authentication — the launch token is not a credential a phone can
+   * use, so pairing is the only way in.
    * @param req - incoming root or configured-index request.
-   * @param res - response owned when this method returns false.
-   * @returns true only when the caller may serve index.html.
+   * @param res - response owned when this method returns `answered`.
+   * @returns what the caller may serve for this request.
    */
-  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
@@ -308,7 +312,7 @@ export class BrowserAuth {
           ),
         })
         res.end()
-        return false
+        return 'answered'
       }
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
         res.writeHead(303, {
@@ -317,14 +321,27 @@ export class BrowserAuth {
           'referrer-policy': 'no-referrer',
         })
         res.end()
-        return false
+        return 'answered'
       }
-      this.writeUnauthorized(req, res)
-      return false
+      return this.refuseIndex(req, res)
     }
-    if (this.isAuthenticated(req)) return true
+    if (this.isAuthenticated(req)) return 'serve'
+    return this.refuseIndex(req, res)
+  }
+
+  /**
+   * Decide how a refused index request is answered. Only a loopback authority —
+   * the operator's own browser — can act on the printed launch URL, so every
+   * other client is served the shell marked as needing authentication.
+   * @param req - refused index request.
+   * @param res - response owned by the loopback 401.
+   * @returns the verdict for this refusal.
+   */
+  private refuseIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
+    const hostname = requestHostname(req.headers)
+    if (hostname !== undefined && !isLoopbackHostname(hostname)) return 'auth-required'
     this.writeUnauthorized(req, res)
-    return false
+    return 'answered'
   }
 
   /**
