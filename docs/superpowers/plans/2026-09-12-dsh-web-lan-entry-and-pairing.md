@@ -39,33 +39,33 @@
 - Consumes: 现有 shipped profiles 表(`profile.ts:112-143`)。
 - Produces: `web` 的 bundles 变为 `['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-mob']`;`mob` 条目删除。
 
-- [ ] **Step 1: 先改测试(红)**
+- [x] **Step 1: 先改测试(红)**
 
 在 `profile.spec.ts` 里把 `web` 的期望 bundle 列表补上 `@deepseek-ai/dsh-mob`,并新增一条:请求 `mob` profile 报未知 profile。
 
-- [ ] **Step 2: 跑测试确认红**
+- [x] **Step 2: 跑测试确认红**
 
 Run: `pnpm exec vitest run packages/boot/app-boot/tests/profile.spec.ts`
 
 Expected: FAIL(web 列表不含 mob;`mob` 仍被解析)。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `profile.ts`:`web.bundles` 追加 `'@deepseek-ai/dsh-mob'`,删除 `mob` 条目;更新文件顶部关于 profile 列表的 JSDoc(不再提 mob profile)。
 
-- [ ] **Step 4: 跑测试确认绿**
+- [x] **Step 4: 跑测试确认绿**
 
 Run: `pnpm exec vitest run packages/boot/app-boot/tests/profile.spec.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 组合校验**
+- [x] **Step 5: 组合校验**
 
 Run: `pnpm dsh --dump-config --profile web`
 
 Expected: 输出含 `mob-quick-join` 行;`pnpm dsh --dump-config --profile mob` 报未知 profile。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/boot/app-boot
@@ -82,21 +82,21 @@ git commit -m "feat(boot): compose the phone-access layer into the web profile"
 - Consumes: `webserver` 行由 `@deepseek-ai/dsh-web-app` 的 patch 拥有(`host` 来自 `webStartup`,受 `--allow-lan` 门禁)。
 - Produces: mob patch 只剩自己的行;LAN 绑定回到 `--allow-lan` 这一条显式路径。
 
-- [ ] **Step 1: 改 patch**
+- [x] **Step 1: 改 patch**
 
 删除 `- id: webserver / config: {host, port, compression…}` 整段,只保留 `insert: [mob-quick-join]`;更新文件头注释(不再声称重绑)。
 
-- [ ] **Step 2: 组合测试断言不重绑**
+- [x] **Step 2: 组合测试断言不重绑**
 
 在 `composition.spec.ts` 的 fixture 树里让 `webServer` 由 fixture 自己提供 host,断言 mob 的 patch 不覆盖它;并保留"快照为空时不打印"的现有用例。
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
 
 然后确认组合树:`pnpm dsh --dump-config --profile web`,webserver 行的 `host` 仍是 `!!js ctx.webStartup.host ?? '127.0.0.1'`(不再是 `'0.0.0.0'`)。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/bundle/mob/cordis.patch.yml packages/bundle/mob/tests/composition.spec.ts
@@ -112,31 +112,31 @@ git commit -m "fix(mob): stop rebinding the webserver from the bundle patch"
 **Interfaces:**
 - Produces: 插件只剩 `MobJoinController` 的挂载;不再读 `process.stdout.isTTY`、不再调用 `qrcode.generate`。
 
-- [ ] **Step 1: 先改测试(红)**
+- [x] **Step 1: 先改测试(红)**
 
 把 `mob.spec.ts` 中断言打印加入行/二维码的用例改成"apply 后不产生任何 stdout 输出",删掉 `qrcode-terminal` 的 mock。
 
-- [ ] **Step 2: 跑测试确认红**
+- [x] **Step 2: 跑测试确认红**
 
 Run: `pnpm exec vitest run packages/bundle/mob/tests/mob.spec.ts`
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `src/index.ts`:删掉 announce 分支与 `qrcode-terminal` import;`apply` 只 `ctx.plugin(MobJoinController)`;更新模块 JSDoc(唯一入口改为设置页)。`package.json` 删除 `qrcode-terminal` 依赖及其 devDependency 镜像(若有)。
 
-- [ ] **Step 4: 依赖与披露随动**
+- [x] **Step 4: 依赖与披露随动**
 
 Run: `pnpm install`
 
 然后重跑三方声明生成器,确认 `THIRD_PARTY_NOTICES.md` 不再收录 qrcode-terminal。
 
-- [ ] **Step 5: 跑测试确认绿**
+- [x] **Step 5: 跑测试确认绿**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
 
 Expected: PASS,`src` 逐文件覆盖率 100%。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/bundle/mob pnpm-lock.yaml THIRD_PARTY_NOTICES.md
@@ -153,29 +153,29 @@ git commit -m "feat(mob): drop the terminal join QR in favor of the settings ent
 - Consumes: 现有硬编码别名机制(`args.ts:13`:`web` / `mob` → `--profile …`)。
 - Produces: CLI 只剩 `dsh web`;`dsh mob` 成为普通未知命令(报错并列出可用命令);`--allow-lan` 是唯一的 LAN 入口。
 
-- [ ] **Step 1: 先改测试(红)**
+- [x] **Step 1: 先改测试(红)**
 
 `args.spec.ts`:删掉 `mob` 别名断言,新增一条:解析 `mob` 报未知命令/未知 profile;help 文本不再出现 `dsh mob`。
 
-- [ ] **Step 2: 跑测试确认红**
+- [x] **Step 2: 跑测试确认红**
 
 Run: `pnpm exec vitest run apps/cli/tests/args.spec.ts`
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `args.ts`:删除 `mob` 别名分支、examples 里的 `dsh mob` 行、文件头 JSDoc 中的别名说明;`apps/cli/reference/README.md` 同步删除。
 
-- [ ] **Step 4: 跑测试确认绿**
+- [x] **Step 4: 跑测试确认绿**
 
 Run: `pnpm exec vitest run apps/cli/tests/args.spec.ts`
 
-- [ ] **Step 5: 冒烟**
+- [x] **Step 5: 冒烟**
 
 Run: `pnpm dsh web --allow-lan --no-open --port 0`
 
 Expected: 输出含 `dsh web: … (LAN: http://…)`,且没有 QR 或 `dsh mob: scan to join` 行;随后 `pnpm dsh mob` 报未知命令。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/cli
@@ -196,25 +196,25 @@ git commit -m "feat(cli): drop the dsh mob alias in favor of dsh web --allow-lan
 **Interfaces:**
 - Produces: web-app README 的 LAN 一节成为"内置手机接入"的唯一说明;mob README 描述为 web profile 的手机接入层;新 Agent Note 记录"功能并入 web profile、LAN 仍显式确认、终端不再打印"的决策。
 
-- [ ] **Step 1: 新 Agent Note**
+- [x] **Step 1: 新 Agent Note**
 
 按 `.agents/notes/AGENTS.md` 做 supersession 检查(LAN Note 与 PWA Note 属部分取代,保留并互链),写 Problem/Decision/Alternatives/Consequences。
 
-- [ ] **Step 2: README 双语改写 + 记录配对**
+- [x] **Step 2: README 双语改写 + 记录配对**
 
 Run: `pnpm run verify-translation-pairing --write <三个路径>`
 
-- [ ] **Step 3: 真实组合测试(补既有缺口)**
+- [x] **Step 3: 真实组合测试(补既有缺口)**
 
 新建 `web-profile-composition.spec.ts`:用真实 Loader 组合 `web` profile 的行(含 mob 行)+ 假 webRuntime,断言 `mob.joinUrl` 在 LAN 快照下返回带 token 的 URL、在 loopback 快照下抛 `mob/loopback-only`、在 `0.0.0.0` 且无地址时抛 `mob/no-lan-address`。
 
-- [ ] **Step 4: 生成物重跑**
+- [x] **Step 4: 生成物重跑**
 
 Run: 仓库实际的 module-graph 与 config-catalog 生成脚本(见 `package.json`)。
 
 Expected: `docs/config-catalog.md` 中 `dsh-mob` 条目仍在,但不再提 webserver 覆盖。
 
-- [ ] **Step 5: 门禁**
+- [x] **Step 5: 门禁**
 
 Run: `pnpm exec vitest run packages/bundle/mob packages/bundle/web-app`
 
@@ -222,7 +222,7 @@ Run: `pnpm run test:docs`
 
 Run: `pnpm run typecheck && pnpm run lint`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -245,19 +245,19 @@ git commit -m "docs(web): document phone access as a dsh web capability"
   - 新配置项 `deviceCookieMaxAgeDays`(`packages/client/connection/src/index.ts` 的 schema,`z.natural().min(1).default(180)`),设备登记与 cookie 寿命同源,不做滑动续期。
   - `isAuthenticated` 对 v2 额外要求设备仍在登记表中;v1 路径(无 deviceId)行为不变,电脑本机启动流程不受影响。
 
-- [ ] **Step 1: 先写测试(红)**
+- [x] **Step 1: 先写测试(红)**
 
 覆盖:v2 cookie 通过;`deviceId` 不在登记表 → 拒绝;吊销后同一 cookie 立即失效;v1 cookie 行为不变;authority 绑定仍生效。
 
-- [ ] **Step 2: 实现 + 登记表读取**
+- [x] **Step 2: 实现 + 登记表读取**
 
 设备登记走 credentials provider 的新记录键 `credentialKey('client-connection', 'paired-devices')`;记录格式非法时抛错(fail loud),不存在时按无设备处理。
 
-- [ ] **Step 3: 覆盖与验证**
+- [x] **Step 3: 覆盖与验证**
 
 Run: `pnpm exec vitest run --coverage packages/client/connection`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(connection): carry a revocable device id in the browser cookie"
@@ -272,17 +272,17 @@ git commit -m "feat(connection): carry a revocable device id in the browser cook
 **Interfaces:**
 - Produces: `listDevices()`、`registerDevice({ label, ttlDays })`、`revokeDevice(id)`、`touchDevice(id)`(写回节流 ≥1 小时)。
 
-- [ ] **Step 1: 先写测试(红)**
+- [x] **Step 1: 先写测试(红)**
 
 覆盖:注册后可列出;吊销后消失;`touchDevice` 在节流窗口内不写盘;损坏记录抛错。
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 覆盖与验证**
+- [x] **Step 3: 覆盖与验证**
 
 Run: `pnpm exec vitest run --coverage packages/client/connection`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(connection): register, list, and revoke paired devices"
@@ -297,17 +297,17 @@ git commit -m "feat(connection): register, list, and revoke paired devices"
 **Interfaces:**
 - Produces: `openSession(): { code, expiresAt }`、`stateOf(code)`、`approve(code, label, allowed)`;码为 8 位 base32(去掉 `0/O/1/I`),TTL 120 秒,单次使用,失败限流(每来源 10 次/10 秒,连续 5 次失败锁定 60 秒)。
 
-- [ ] **Step 1: 先写测试(红)**
+- [x] **Step 1: 先写测试(红)**
 
 覆盖:生成→pending→approved;过期;单次使用;限流与锁定;拒绝;未知码。
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 覆盖与验证**
+- [x] **Step 3: 覆盖与验证**
 
 Run: `pnpm exec vitest run --coverage packages/bundle/mob`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(mob): add the pairing session with short-lived single-use codes"
@@ -326,17 +326,17 @@ git commit -m "feat(mob): add the pairing session with short-lived single-use co
 
 **实现要点:** `403` 一律拒绝;`/pair` 与 `/pair/state` 允许 `401`(仍走栅栏与限流);其余要求已认证**且** Host 为 loopback 字面量;批准成功后下发设备 cookie。
 
-- [ ] **Step 1: 先写测试(红)**
+- [x] **Step 1: 先写测试(红)**
 
 覆盖:未认证可访问 `/pair`;伪造 Host 得到 403;非 loopback 调 `/pair/approve` 得到 403;批准后响应带 `Set-Cookie`;吊销后同一 cookie 请求 `/api` 得到 401。
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 覆盖与验证**
+- [x] **Step 3: 覆盖与验证**
 
 Run: `pnpm exec vitest run --coverage packages/bundle/mob`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(mob): serve the phone pairing handshake over named routes"
@@ -349,19 +349,19 @@ git commit -m "feat(mob): serve the phone pairing handshake over named routes"
 - Modify: `packages/bundle/mob/src/routes.ts`(`/pair` 交付 SPA 外壳 + 启动事实 `__DSH_PAIR__`)
 - Test: `packages/bundle/mob/tests/pair.client.spec.tsx`
 
-- [ ] **Step 1: 先写组件测试(红)**
+- [x] **Step 1: 先写组件测试(红)**
 
 覆盖:轮询 pending→approved 后跳转 `/`;denied 与 expired 的文案;限流文案。
 
-- [ ] **Step 2: 实现(文案进字典,zh/en 同改)**
+- [x] **Step 2: 实现(文案进字典,zh/en 同改)**
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
 
 Run: `pnpm run verify-client-ui-i18n`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(mob): render the phone pairing screen"
@@ -375,17 +375,17 @@ git commit -m "feat(mob): render the phone pairing screen"
 - Modify: `packages/bundle/mob/src/controller.ts`
 - Test: `packages/bundle/mob/tests/row.client.spec.tsx`、`packages/bundle/mob/tests/panel.client.spec.tsx`
 
-- [ ] **Step 1: 先写测试(红)**
+- [x] **Step 1: 先写测试(红)**
 
 覆盖:生成码后渲染二维码与倒计时;待确认出现允许/拒绝,且名称输入框预填 UA 解析出的设备名并可改;设备列表显示标签与时间;吊销后该行消失;非 loopback 环境隐藏这些操作。
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 Run: `pnpm exec vitest run packages/bundle/mob`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(mob): manage pairing and paired devices from settings"
@@ -397,25 +397,25 @@ git commit -m "feat(mob): manage pairing and paired devices from settings"
 - Create: `apps/cli/tests/pairing.e2e.ts`
 - Create: `.agents/notes/implemented/feature/2026-09-12-phone-device-pairing.md`(+ `.zh.md` + `.i18n.yaml`)
 
-- [ ] **Step 1: 真实 CLI e2e**
+- [x] **Step 1: 真实 CLI e2e**
 
 临时 `DSH_HOME` 起 `dsh web --host 0.0.0.0 --allow-lan`,按顺序断言:loopback `POST /pair/session` 拿到码;LAN authority 无 cookie 请求 `GET /pair?c=<code>` 得 200;loopback 已认证 `POST /pair/approve` 得 200;LAN authority 带设备 cookie 请求 `/api/…` 得 200;`POST /pair/revoke` 后同一 cookie 得 401;伪造 Host 的 `/pair*` 得 403。
 
-- [ ] **Step 2: Agent Note**
+- [x] **Step 2: Agent Note**
 
 记录配对决策(威胁模型、为什么不借官方登录、为什么批准必须来自 loopback、残余的明文嗅探风险与 TLS 的位置),并按 supersession 规则与 LAN Note 互链。
 
-- [ ] **Step 3: 门禁**
+- [x] **Step 3: 门禁**
 
 Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/pairing.e2e.ts`
 
 Run: `pnpm run typecheck && pnpm run lint && pnpm run test:docs`
 
-- [ ] **Step 4: 真机清单(手动,写进 PR 描述)**
+- [x] **Step 4: 真机清单(手动,写进 PR 描述)**
 
 手机扫码 → 电脑端出现待确认 → 允许 → 手机进入会话列表 → 关闭浏览器再打开 LAN 地址仍在登录态 → 电脑端吊销后手机刷新变 401 并出现"登录已失效"提示。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -426,10 +426,20 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 
 ## 收尾(合并进主分支前)
 
-- [ ] `pnpm run build` 绿;`pnpm run lint` 0 错;`pnpm run test:docs` 全过。
-- [ ] Run: `pnpm exec vitest run packages/client/connection packages/client/web packages/client/ui-primitives packages/client/ui-settings-general packages/bundle/mob packages/bundle/web-app packages/boot/app-boot apps/cli/tests/args.spec.ts`
-- [ ] Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`
-- [ ] Run: `DSH_SNAPSHOT=replay pnpm run test:web:built`(至少覆盖 settings 与 boot 场景)。
-- [ ] 冒烟:`dsh web`(默认 loopback)、`dsh web --allow-lan`(LAN URL、无二维码)、确认 `dsh mob` 已是未知命令。
-- [ ] 合并顺序:打 checkpoint 标签 → 工作树里 `git checkout master` → `git merge feat/dsh-mob`(fast-forward)→ `git merge feat/web-lan-entry` → 主检出切到 `master` 并重启 `dsh web`。
-- [ ] 合并后手机端重新扫码一次(Phase B 落地后则只需一次)。
+- [x] `pnpm run build` 绿;`pnpm run lint` 0 错;`pnpm run test:docs` 全过(另跑 `verify-export-jsdoc`、`verify-type-equiv`、`verify-config-catalog`、`verify-subsystem-pages`、`website:build` 均通过;`duplication`、`verify-node-next-types`、`verify-cordis-config` 在 master 上以相同方式失败,属既有环境问题)。
+- [x] Run: `pnpm exec vitest run packages/client/connection packages/client/web packages/client/ui-primitives packages/client/ui-settings-general packages/bundle/mob packages/bundle/web-app packages/boot/app-boot apps/cli/tests/args.spec.ts`(1328 通过;唯一失败是 `ui-primitives/tests/icons.client.spec`,与本改动无关且 master 同样失败)。
+- [x] Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`(3/3 通过)。
+- [x] Run: `DSH_SNAPSHOT=replay pnpm run test:web:built` 的 settings 与 boot 场景(`settings-chrome`、`lifecycle-chrome`、`pwa-manifest` 共 22 条全过)。
+- [x] 冒烟:`dsh web`(默认 loopback)、`dsh web --allow-lan`(LAN URL、无二维码)、确认 `dsh mob` 已是未知命令。
+- [ ] 合并顺序:打 checkpoint 标签(`checkpoint/web-pairing-verified`,已打)→ 主检出 `git merge --ff-only feat/web-pairing` → `pnpm install` → `pnpm run build` → 重启 `dsh web`(待操作者执行:主检出托管着当前会话,代理不得重启它)。
+- [ ] 合并后手机端按下面的真机清单走一遍。
+
+### 真机验证清单(操作者执行)
+
+1. 主检出:停掉正在跑的 `dsh web`,执行 `git merge --ff-only feat/web-pairing`、`pnpm install`、`pnpm run build`,再以 `pnpm dsh web --host 0.0.0.0 --allow-lan` 启动。
+2. 电脑端:设置 → 通用设置 → 连接手机 → 生成配对码;应出现二维码、8 位短码与剩余秒数倒计时。
+3. 手机端:扫码打开 `/pair`(或手动打开链接);屏幕应显示同一个短码与「请在电脑端确认这台手机以完成配对。」
+4. 电脑端:「待确认的请求」出现该请求,设备名称已按手机 UA 预填且可改;点「允许」。
+5. 手机端:1.5 秒内自动跳到会话列表;关掉浏览器再打开 LAN 地址,仍在登录态。
+6. 电脑端:「已配对的设备」列出刚配对的设备(名称、添加时间、最近使用时间);点「吊销」。
+7. 手机端:刷新后应出现「登录已失效,请在电脑端重新扫码」,并且 `/api` 请求返回 401。
