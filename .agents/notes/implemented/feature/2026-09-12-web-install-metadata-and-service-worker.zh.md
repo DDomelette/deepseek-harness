@@ -10,11 +10,11 @@ Status: implemented
 
 ## 决策
 
-`apps/web/public/manifest.webmanifest` 把 `id`、`start_url` 与 `scope` 固定为 `/`，以短名称 `DSH` 命名产品 `DeepSeek Harness`，请求 `display: "fullscreen"`，声明取值为 `#151517` 的 `theme_color` 与 `background_color`，并把 `/icon-192.png`、`/icon-512.png` 与 `/favicon.svg` 列为图标。`#151517` 是启动页深色主题下的 `--dsh-boot-bg`，用于启动闪屏背景与安装后的浏览器界面；manifest 是静态文件，不跟随运行中 shell 解析出的浅色或深色调色板，所以浅色主题的安装仍显示该颜色。
+`apps/web/public/manifest.webmanifest` 把 `id`、`start_url` 与 `scope` 固定为 `/`，以短名称 `DSH` 命名产品 `DeepSeek Harness`，请求 `display: "fullscreen"`，声明取值为 `#151517` 的 `theme_color` 与 `background_color`，并把 `/icon-192.png`、`/icon-512.png` 与 `/favicon.svg` 列为图标。`#151517` 是启动页深色主题下的 `--dsh-boot-bg`，用于启动闪屏背景与安装后的浏览器界面；manifest 是静态文件，不跟随运行中 shell 解析出的浅色或深色调色板，所以浅色主题的安装仍显示该颜色。这一对取值只属于启动与安装元数据：文档自身不携带 `theme-color`，因此 shell 运行期间 ui-layout 的 `ThemePresenter` 仍是该节点的唯一所有者，并让它始终跟随解析后的 body 背景色（[决策](../../archived/feature/2026-08-06-resolved-theme-color-metadata.md)）。
 
 `apps/web/scripts/gen-icons.mjs` 以 density 384 把 `apps/web/public/favicon.svg` 光栅化为两张 PNG 与 180px 的 `apple-touch-icon.png`；`sharp` 是 `apps/web` 的 devDependency，三张 PNG 提交进仓库，`pnpm -C apps/web run gen-icons` 可重新生成全部三张。
 
-`apps/web/index.html` 携带 manifest 链接、与该颜色一致的 `theme-color`、`mobile-web-app-capable` 与 `apple-mobile-web-app-capable` 能力标签、取值为 `black-translucent` 的 `apple-mobile-web-app-status-bar-style`，以及指向 `/apple-touch-icon.png` 的 `apple-touch-icon` 链接。iOS 从该链接而非 manifest 的图标列表取主屏图标，并在没有 secure context 的情况下同样遵循这些能力标签。
+`apps/web/index.html` 携带 manifest 链接、`mobile-web-app-capable` 与 `apple-mobile-web-app-capable` 能力标签、取值为 `black-translucent` 的 `apple-mobile-web-app-status-bar-style`，以及指向 `/apple-touch-icon.png` 的 `apple-touch-icon` 链接。iOS 从该链接而非 manifest 的图标列表取主屏图标，并在没有 secure context 的情况下同样遵循这些能力标签。
 
 `apps/web/public/sw.js` 是手写 worker，只承载一条策略，缓存名为 `dsh-static-v1`。它的 `fetch` 处理器在请求不是 GET、带有 `mode === 'navigate'`、或路径以 `/api` 开头时直接返回而不调用 `respondWith`；其余请求——按内容哈希命名的 bundle 资源、样式、字体与图标——一律以 stale-while-revalidate 应答：缓存命中时以缓存响应作答，同时照常发起网络请求，并在 `response.ok` 成立时把响应存回同一个键。实时传输是通往 `/api/remote.mux` 的 WebSocket：WebSocket upgrade 不是 fetch 请求，处理器根本看不到它，而 `/api` 这条守卫无论如何都覆盖该 URL。`install` 调用 `self.skipWaiting()`，`activate` 调用 `event.waitUntil(self.clients.claim())`，因此已安装的 worker 会替换前一个，并在无需等待重新加载的情况下接管已打开的页面。`apps/web/tests/sw-cache-policy.spec.ts` 在伪造的 worker 全局环境中执行该源文件，并固定该策略的每个分支。
 
@@ -35,4 +35,4 @@ Status: implemented
 - 固定 URL 下的文件——图标、`favicon.svg` 与 `manifest.webmanifest`——在变更后的第一次请求由缓存作答，且只在后台刷新，因此那一次请求可能渲染变更前的字节。Vite 按内容哈希命名 bundle 资源，变更后的 bundle 拥有新 URL，绝不会提供被取代的条目。
 - 没有任何淘汰：每个哈希资源 URL 与每个固定 URL 都会新增一个条目，`caches.delete` 从未被调用；后续策略若重命名缓存，`dsh-static-v1` 会一直留存到浏览器自行淘汰为止。
 - 静态回退的 MIME 表显式列出 `.js` 与 `.webmanifest`，但没有 `.png` 条目，因此图标响应携带 `application/octet-stream`。
-- 本笔记在它重新开启的三个问题上取代了[已归档的安装元数据笔记](../../archived/feature/2026-08-06-web-install-manifest.md)——service worker、静态主题色与背景色，以及位图图标——并重述仍然随产品交付的身份、根作用域、显示模式与 `lang` 省略。该归档三件套保持冻结，永不编辑。
+- 本笔记在它重新开启的三个问题上取代了[已归档的安装元数据笔记](../../archived/feature/2026-08-06-web-install-manifest.md)——service worker、静态主题色与背景色，以及位图图标——并重述仍然随产品交付的身份、根作用域、显示模式与 `lang` 省略。该归档三件套保持冻结，永不编辑。[已归档的解析后主题色笔记](../../archived/feature/2026-08-06-resolved-theme-color-metadata.md)仍是运行期文档元数据的权威，`theme-color` 节点仍只由呈现器持有；本笔记与之唯一分歧之处是该笔记关于 manifest 的那一条，因为安装后的启动在任何脚本运行之前就需要一个颜色。
