@@ -50,8 +50,8 @@ dsh web --allow-lan              → 绑定 0.0.0.0,手机可接入(唯一显式
 
 - `mob` shipped profile 与 `dsh mob` CLI 别名一并删除:`packages/boot/app-boot/src/profile.ts` 中删掉 `mob` 条目,`web` 的 bundle 列表加入 `@deepseek-ai/dsh-mob`;`apps/cli/src/args.ts` 删掉别名分支与 help 示例,`apps/cli/reference/README.md` 同步。
 - `packages/bundle/mob/cordis.patch.yml` 删除 webserver 重绑(host/port/compression 那一段),只保留自己的行;`host` 回到 `webStartup` 的默认与 `--allow-lan` 门禁。
-- 终端播报下线:`packages/bundle/mob/src/index.ts` 不再打印加入行与二维码,`qrcode-terminal` 依赖与其三方声明一并移除;`packages/bundle/mob/tests/composition.spec.ts` 相应改写为"web profile 组合下不打印任何东西"。
-- 文档口径:`packages/bundle/web-app/README.{md,zh.md}` 的 LAN 一节升为"内置手机接入",`packages/bundle/mob/README.{md,zh.md}` 改为"web profile 的手机接入层",LAN Agent Note 与 PWA Agent Note 中关于 `dsh mob` 与终端二维码的表述同步改写。
+- 终端播报下线:`packages/bundle/mob/src/index.ts` 不再打印加入行与二维码,`qrcode-terminal` 依赖与其三方声明一并移除;`packages/bundle/mob/tests/web-profile-composition.spec.ts` 相应改写为"web profile 组合下不打印任何东西"。
+- 文档口径:`packages/bundle/web-app/README.md` 与 `README.zh.md` 的 LAN 一节升为"内置手机接入",`packages/bundle/mob/README.md` 与 `README.zh.md` 改为"web profile 的手机接入层",LAN Agent Note 与 PWA Agent Note 中关于 `dsh mob` 与终端二维码的表述同步改写。
 
 验收:`dsh web` 默认仍只绑 loopback;`dsh web --allow-lan` 打印 LAN URL 且**不再**打印二维码;设置页出现「连接手机」;`dsh mob` 与 `--allow-lan` 等价;既有 Web 快照与 e2e 不回归。
 

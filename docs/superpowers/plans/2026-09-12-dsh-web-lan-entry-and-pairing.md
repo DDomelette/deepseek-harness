@@ -76,7 +76,7 @@ git commit -m "feat(boot): compose the phone-access layer into the web profile"
 
 **Files:**
 - Modify: `packages/bundle/mob/cordis.patch.yml`
-- Test: `packages/bundle/mob/tests/composition.spec.ts`
+- Test: `packages/bundle/mob/tests/web-profile-composition.spec.ts`
 
 **Interfaces:**
 - Consumes: `webserver` 行由 `@deepseek-ai/dsh-web-app` 的 patch 拥有(`host` 来自 `webStartup`,受 `--allow-lan` 门禁)。
@@ -99,7 +99,7 @@ Run: `pnpm exec vitest run packages/bundle/mob`
 - [x] **Step 4: Commit**
 
 ```bash
-git add packages/bundle/mob/cordis.patch.yml packages/bundle/mob/tests/composition.spec.ts
+git add packages/bundle/mob/cordis.patch.yml packages/bundle/mob/tests/web-profile-composition.spec.ts
 git commit -m "fix(mob): stop rebinding the webserver from the bundle patch"
 ```
 
