@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-Web 入口（`apps/web/src/main.ts`）在插件树加载前安装最小 shim：当 `globalThis.Iterator` 不存在时定义它，并把 `prototype` 指向内禀的 %IteratorPrototype%——即生成器迭代器本就继承的对象——在运行时经 `Object.getPrototypeOf` 沿生成器原型链取得。pdfjs 写入的 polyfill 于是落在其调用点（生成器可迭代对象上的 `.join(sep)`）能触及的位置。
+Web shell 拥有一层浏览器底座（`packages/client/web/src/compat.ts`），由 `AppWebEntry.run()` 在导入任何 bundle 之前安装。当 `globalThis.Iterator` 不存在时它定义该全局，并把 `prototype` 指向内禀的 %IteratorPrototype%——即生成器迭代器本就继承的对象——在运行时经 `Object.getPrototypeOf` 沿生成器原型链取得。pdfjs 写入的 polyfill 于是落在其调用点（生成器可迭代对象上的 `.join(sep)`）能触及的位置。底座的其他条目、以及必须先于底座运行的脚本，见[Web shell 的浏览器底座](2026-09-12-browser-floor-for-the-web-shell.zh.md)。
 
 ## 曾考虑的替代方案
 
@@ -20,6 +20,6 @@ Web 入口（`apps/web/src/main.ts`）在插件树加载前安装最小 shim：�
 
 ## 后果
 
-- ES2025 之前的浏览器重新能启动 Web UI；shim 在任何插件导入之前运行，在当代浏览器上零成本（守卫跳过）。
+- ES2025 之前的浏览器重新能启动 Web UI；底座在任何插件导入之前运行，在当代浏览器上零成本（守卫跳过）。
 - shim 只覆盖 pdfjs 的 `Iterator.prototype.join` 用法；那些浏览器上未来出现其他 Iterator Helpers 用法（`map`、`filter` 等）时需要真正的 polyfill。
-- shim 归入口所有；后续新增裸引用 `Iterator` 的依赖只在 `join` 式原型写入这一范围内继承该覆盖。
+- shim 归 shell 所有，shell 启动的每个 bundle 都继承该覆盖；覆盖范围仍限于 `join` 式原型写入。

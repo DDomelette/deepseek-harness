@@ -27,6 +27,8 @@ kind: "package-library"
 
 组装浏览器应用时使用它：`apps/web` 的 Vite 入口对挂载点运行 `new AppWebEntry(container).run()`，启动页会在激活过程中向用户展示进度。普通浏览器调用方不传任何选项。默认使用预注入的页面传输，除非提供 `seams` 覆盖：当 `globalThis.__DSH_TRANSPORT__` 携带 `loadBundle` 时，模块阶段将其采纳为 bundle 传输并跳过 `immediately` 层级的 HTTP 预取，而显式 `seams` 仍然优先（例如外部 `<script>` 执行无法到达页面上下文的 jsdom 测试）。
 
+`run()` 在导入任何 bundle 之前安装浏览器底座（`src/compat.ts`）：`AbortSignal.any`、ES2025 的 `Iterator` 全局与 `Promise.withResolvers`；引擎已提供某个 API 时跳过对应定义。bundle 及其携带的第三方代码会无条件调用这些 API，而外壳同时也由 `dsh mob` 通过明文 HTTP 提供给更早的手机引擎。
+
 外壳基础样式会在支持的浏览器中为普通内容自动添加中西文间距。语义化代码以及终端、diff、读取和搜索输出容器会保留源码中的原始间距和列对齐；不支持 `text-autospace` 的浏览器会忽略这两项声明。
 
 ### 启动过程是怎样的
@@ -74,6 +76,7 @@ kind: "package-library"
 | [`src/index.ts`](src/index.ts) | 库入口：`AppWebEntry`、`getStaticModules`、平台表 |
 | [`src/boot.ts`](src/boot.ts) | `AppWebEntry`：两阶段启动、激活审计、渲染器交接 |
 | [`src/boot-page.ts`](src/boot-page.ts) | 无框架启动页：spinner、逐 entry 状态、失败渲染 |
+| [`src/compat.ts`](src/compat.ts) | 浏览器底座：外壳的 bundle 期望由更新引擎提供的 API |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`：隐式 external 基座 |
 | [`src/seed.ts`](src/seed.ts) | 启动时交给 loader 的静态模块表 |
 
@@ -111,6 +114,7 @@ kind: "package-library"
 这些限制说明启动内核不支持什么。它们是当前包约束，不是任务积压。
 
 - **应用会等待全部 entry 就绪**——只要一个 entry 失败，无框架启动页就会保留并逐项报告；不支持部分 UI 可用。
+- **浏览器底座逐条列举 API**——若某个 bundle 调用了比外壳所服务引擎更新的其他 API（例如 `Object.groupBy`），在这些引擎上会失败，直到其定义加入 `src/compat.ts`；目前没有任何机制发现这种遗漏。
 
 <a id="dev-note"></a>
 ### 开发备注

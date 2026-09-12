@@ -10,7 +10,7 @@ The document-preview sidebar bundles pdfjs-dist, which polyfills `Iterator.proto
 
 ## Decision
 
-The Web entry (`apps/web/src/main.ts`) installs a minimal shim before the plugin tree loads: when `globalThis.Iterator` is absent, define it with `prototype` set to the intrinsic %IteratorPrototype% — the object generator iterators already inherit from — recovered at runtime via `Object.getPrototypeOf` on a generator's prototype chain. The polyfill pdfjs writes then lands where its call sites (`.join(sep)` on generator iterables) can reach it.
+The Web shell owns a browser floor (`packages/client/web/src/compat.ts`), installed by `AppWebEntry.run()` before it imports a single bundle. It defines the `Iterator` global when absent, with `prototype` set to the intrinsic %IteratorPrototype% — the object generator iterators already inherit from — recovered at runtime via `Object.getPrototypeOf` on a generator's prototype chain. The polyfill pdfjs writes then lands where its call sites (`.join(sep)` on generator iterables) can reach it. The floor's other entries and the scripts that must run ahead of it are covered by [Browser floor for the Web shell](2026-09-12-browser-floor-for-the-web-shell.md).
 
 ## Alternatives considered
 
@@ -20,6 +20,6 @@ The Web entry (`apps/web/src/main.ts`) installs a minimal shim before the plugin
 
 ## Consequences
 
-- Pre-ES2025 browsers boot the Web UI again; the shim runs before any plugin import and costs nothing on current browsers (the guard skips it).
+- Pre-ES2025 browsers boot the Web UI again; the floor runs before any plugin import and costs nothing on current browsers (the guard skips it).
 - The shim covers exactly pdfjs's `Iterator.prototype.join` usage; any future Iterator Helpers usage (`map`, `filter`, …) on those browsers needs a real polyfill instead.
-- The shim is entry-owned, so any consumer that adds another bare-`Iterator` dependency inherits the coverage only for `join`-style prototype writes.
+- The shim is shell-owned, so every bundle the shell boots inherits the coverage; it still spans only `join`-style prototype writes.

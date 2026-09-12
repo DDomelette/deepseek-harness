@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-11-iterator-global-shim.md
-2026-09-11-iterator-global-shim.md: f89f641d00ca1b7a28542d699dcea8c48a8265cb
-2026-09-11-iterator-global-shim.zh.md: 416f83d583eb97cd27e01e275e1b2b04fbad3940
+2026-09-11-iterator-global-shim.md: 3f1c6c976ce7e0c186cb5841f8f29c7584e9c98f
+2026-09-11-iterator-global-shim.zh.md: 697beb8f7da9356b543ff6c983d8d8f8b86fc076

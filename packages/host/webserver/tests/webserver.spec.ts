@@ -352,7 +352,10 @@ describe('real Loader composition', () => {
       { kind: 'script', placement: 'head', text: 'H' },
       { kind: 'script', placement: 'body', text: 'B' },
     ])).toBe('<script>H</script><main>x</main><script>B</script>'
-      + '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>')
+      + '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => {'
+      + ' const held = {};'
+      + ' held.promise = new Promise((resolve, reject) => { held.resolve = resolve; held.reject = reject });'
+      + ' return held })()).resolve()</script>')
   })
 
   it('fails the fiber when the port is already taken (fail-loud at activation)', { timeout: 60_000 }, async () => {
