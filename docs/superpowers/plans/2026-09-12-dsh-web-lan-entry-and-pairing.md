@@ -453,6 +453,7 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 - [x] `frontend-static` 在 `auth-required` 时以 401 提供外壳本身,并在 `<head>` 后注入 `__DSH_AUTH_REQUIRED__` 启动事实。
 - [x] mob 浏览器半层新增「登录已失效」全屏界面(`shell.overlay`,order 90)、中英文案与「重新加载」按钮;`/pair` 页面仍优先渲染配对界面。
 - [x] 覆盖:connection 单测(三态 + 已配对/已吊销设备 cookie)、`frontend-static` 真实组合测试(LAN 匿名 401 HTML + 事实,设备 cookie 后 200 无事实)、mob 组件与注册测试、真实 CLI e2e(LAN 带/不带令牌都是 401 + 事实 + 无 cookie,回环仍是纯文本 401)。
+- [x] 加固:`authorizeIndex` 在交出 `auth-required` 之前先过 Host/Origin 栅栏,因此只有**受信** authority 能拿到外壳,伪造 Host 仍得到纯文本 401(组合测试覆盖;`9d5a977fdb`)。
 - [ ] 合并与重启同上(操作者执行),然后真机清单第 7 项应显示「登录已失效」全屏界面(含 设置 → 通用设置 → 连接手机 的指引与重新加载按钮),而不是英文纯文本页。
 
 ### 真机验证清单(操作者执行)
