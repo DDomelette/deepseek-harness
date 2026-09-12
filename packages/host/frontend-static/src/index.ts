@@ -23,6 +23,22 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 /** Stable Cordis plugin name. */
 export const name = 'frontend-static'
 
+/** Service name of the shell renderer other Host routes ask for index.html. */
+export const FRONTEND_SERVICE = 'frontend'
+
+/**
+ * The application shell as `/` renders it, for a Host route that serves the
+ * application itself — a page outside the frontend fallback seat still needs
+ * the same injections and site-root base.
+ */
+export interface FrontendService {
+  /**
+   * Render the shell from this deployment's dist.
+   * @returns index.html with the structured injections, the raw taps, and the site-root base.
+   */
+  renderIndex(): Promise<string>
+}
+
 /** Services required before the authenticated fallback seat can be claimed. */
 export const inject = ['webServer', 'connection']
 
@@ -121,6 +137,7 @@ export function apply(ctx: Context, config: Config): void {
     const body = ctx.webServer.renderIndex(await readFile(distIndex, 'utf8'))
     return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="/">`)
   }
+  ctx.provide(FRONTEND_SERVICE, { renderIndex })
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
     // Non-GET/HEAD without a matching named route is 405 (fallback-only
     // semantics: named routes own their method handling).
