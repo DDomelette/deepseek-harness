@@ -394,3 +394,83 @@ describe('SettingsPanel navigation', () => {
     expect(listeners.size).toBe(0)
   })
 })
+
+describe('SettingsPanel panes', () => {
+  const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+
+  /** Pin the width the panel reads when it decides between one pane and two. */
+  function setViewportWidth(width: number) {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true })
+  }
+
+  afterEach(() => {
+    if (originalInnerWidth !== undefined) Object.defineProperty(window, 'innerWidth', originalInnerWidth)
+  })
+
+  it('marks the section list until a row is chosen and the detail pane afterwards', () => {
+    mount()
+    openPanel()
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('detail')
+  })
+
+  it('names the chosen section in the detail header', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').querySelector('[data-detail-title]')?.textContent).toBe('Models')
+  })
+
+  it('returns to the list from the detail back control', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+    expect(screen.queryByTestId('section-models')).toBeNull()
+  })
+
+  it('localizes the back control', () => {
+    mount({ dictionary: zh })
+    fireEvent.click(screen.getByRole('button', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('button', { name: '返回' })).toBeTruthy()
+  })
+
+  it('steps back to the list on Escape in a handset viewport and closes on the next Escape', () => {
+    setViewportWidth(390)
+    mount()
+    const trigger = openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('closes on Escape in a desktop viewport even with a section chosen', () => {
+    setViewportWidth(1024)
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('returns to the list when the chosen row unregisters', () => {
+    const { bump } = mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    bump([{ id: 'general', order: 0, label: 'General' }])
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+  })
+})
