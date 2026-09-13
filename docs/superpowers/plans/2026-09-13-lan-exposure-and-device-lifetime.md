@@ -36,7 +36,7 @@
 - Consumes: `CredentialRecord` payload `{version: 1, devices: PairedDevice[]}` as `devicesOf` parses it today.
 - Produces: `PairedDevice.lifetimeDays?: number` (days the operator chose) and `PairedDevice.expiresAt?: number` (epoch milliseconds this window ends).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `packages/client/connection/tests/devices.host.spec.ts`, add the round-trip test inside `describe('listDevices')` after the existing 'reads the registered devices in stored order' case:
 
@@ -59,13 +59,13 @@ Then add these payloads to the `payloads` array of the existing 'fails loud on a
       { version: 1, devices: [{ ...device, expiresAt: 'soon' }] },
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/devices.host.spec.ts`
 
 Expected: FAIL — the round-trip case loses `lifetimeDays`/`expiresAt` (the parsed entry is `{id, label, registeredAt, lastSeenAt}`), and the four new malformed payloads resolve instead of rejecting.
 
-- [ ] **Step 3: Extend the declaration**
+- [x] **Step 3: Extend the declaration**
 
 In `packages/client/connection/src/device-types.ts`, replace the `PairedDevice` interface with:
 
@@ -91,7 +91,7 @@ export interface PairedDevice {
 }
 ```
 
-- [ ] **Step 4: Parse and validate the fields**
+- [x] **Step 4: Parse and validate the fields**
 
 In `packages/client/connection/src/devices.ts`, replace `deviceOf` with:
 
@@ -126,13 +126,13 @@ function deviceOf(value: unknown): PairedDevice {
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/devices.host.spec.ts`
 
 Expected: PASS — 6 cases green, including the four new malformed payloads.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/client/connection/src/device-types.ts packages/client/connection/src/devices.ts packages/client/connection/tests/devices.host.spec.ts
@@ -149,7 +149,7 @@ git commit -m "feat(client-connection): store a lifetime window on paired device
 - Consumes: `PairedDevice.lifetimeDays`/`expiresAt` from Task 1; `writeDevices`, `listDevices`, `malformed`.
 - Produces: `setDeviceLifetime(credentials: CredentialProvider, deviceId: PairedDeviceId, days: number): Promise<boolean>` — writes `lifetimeDays: days` and `expiresAt: Date.now() + days * DAY_MILLISECONDS` on the named entry, restarting that device's countdown, and returns false without writing for an unknown id.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `packages/client/connection/tests/devices.host.spec.ts`, extend the import from `../src/devices.ts` with `setDeviceLifetime`, then add this case inside `describe('paired-device registry writes')` after the revoke case:
 
@@ -185,13 +185,13 @@ Then add `setDeviceLifetime` to the existing 'fails loud instead of overwriting 
     await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/devices.host.spec.ts`
 
 Expected: FAIL — `setDeviceLifetime` is not exported (`TypeError: setDeviceLifetime is not a function`) and the malformed-registry case rejects with that same TypeError instead of `/paired-devices/u`.
 
-- [ ] **Step 3: Implement the write**
+- [x] **Step 3: Implement the write**
 
 In `packages/client/connection/src/devices.ts`, add the day constant next to `TOUCH_THROTTLE_MILLISECONDS`:
 
@@ -224,13 +224,13 @@ export async function setDeviceLifetime(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/devices.host.spec.ts`
 
 Expected: PASS — 8 cases green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/client/connection/src/devices.ts packages/client/connection/tests/devices.host.spec.ts
@@ -255,7 +255,7 @@ git commit -m "feat(client-connection): re-schedule one paired device"
 - Consumes: `PairedDevice` from Task 1, `setDeviceLifetime` from Task 2.
 - Produces: `registerDevice(credentials: CredentialProvider, request: RegisterDeviceRequest, lifetimeDays: number): Promise<PairedDevice>` (writes `lifetimeDays` + `expiresAt`); `BrowserAuth.create(processOwner: object, credentials: CredentialProvider, maxAgeDays: number, deviceLifetimeDays: number): Promise<BrowserAuth>`; `BrowserAuth.deviceLifetimeDays: number` (readonly, the window a newly registered device receives); `ConnectionConfig.deviceLifetimeDays?: number` (schema `z.natural().min(1).max(365).default(30)`) replacing `deviceCookieMaxAgeDays`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `packages/client/connection/tests/browser-auth.host.spec.ts`, add the day constant under the imports:
 
@@ -428,13 +428,13 @@ In `packages/client/connection/tests/node-half.host.spec.ts`, extend the `../src
   })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/browser-auth.host.spec.ts packages/client/connection/tests/devices.host.spec.ts packages/client/connection/tests/node-half.host.spec.ts`
 
 Expected: FAIL — the registry-window cookie case gets `Max-Age=15552000` (the 180-day policy) instead of `2592000`, `auth.deviceLifetimeDays` is `undefined`, the shortening case still authenticates, `registerDevice` drops its third argument, `device.lifetimeDays` is `undefined`, and `Config({}).deviceLifetimeDays` is `undefined` while `Config({deviceLifetimeDays: 0})` resolves.
 
-- [ ] **Step 3: Write the registry window at registration**
+- [x] **Step 3: Write the registry window at registration**
 
 In `packages/client/connection/src/devices.ts`, replace `registerDevice` with:
 
@@ -475,7 +475,7 @@ In `packages/client/connection/src/rpc-host.ts`, pass the configured window in `
       },
 ```
 
-- [ ] **Step 4: Make the registry the authority in `BrowserAuth`**
+- [x] **Step 4: Make the registry the authority in `BrowserAuth`**
 
 In `packages/client/connection/src/browser-auth.ts`, change the imports to:
 
@@ -694,7 +694,7 @@ replace `isAuthenticated` and add `accepts` after it:
   }
 ```
 
-- [ ] **Step 5: Replace the config field**
+- [x] **Step 5: Replace the config field**
 
 In `packages/client/connection/src/index.ts`, replace the `deviceCookieMaxAgeDays` declaration in `ConnectionConfig` with:
 
@@ -725,7 +725,7 @@ and in `apply` replace the resolution and the `BrowserAuth.create` call with:
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays),
 ```
 
-- [ ] **Step 6: Regenerate the config catalog and its pairing record**
+- [x] **Step 6: Regenerate the config catalog and its pairing record**
 
 Run: `pnpm run gen-config-catalog`
 
@@ -737,19 +737,19 @@ Edit `docs/config-catalog.zh.md` by hand so the same section's `ts config-catalo
 pnpm run verify-translation-pairing --write docs/config-catalog.md
 ```
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/browser-auth.host.spec.ts packages/client/connection/tests/devices.host.spec.ts packages/client/connection/tests/node-half.host.spec.ts`
 
 Expected: PASS — every case green, including the two new `node-half` cases.
 
-- [ ] **Step 8: Typecheck the changed package faces**
+- [x] **Step 8: Typecheck the changed package faces**
 
 Run: `pnpm run typecheck`
 
 Expected: PASS — `deviceCookieMaxAgeDays` no longer appears anywhere in `packages/client/connection/src`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add packages/client/connection/src packages/client/connection/tests docs/config-catalog.md docs/config-catalog.zh.md docs/config-catalog.i18n.yaml
@@ -769,7 +769,7 @@ git commit -m "feat(client-connection): make the paired-device registry the life
 - Consumes: `BrowserAuth.cookiePayload`, `BrowserAuth.accepts`, `mintDeviceCookie`, `deviceWindowEnd`, `DeviceCookiePayload` from Task 3.
 - Produces: `ConnectionIndexResponse.setHeader(name: string, value: string): unknown`, which `authorizeIndex` uses to stage the replacement `Set-Cookie` alongside a `serve` verdict.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `packages/client/connection/tests/browser-auth.host.spec.ts`, replace the `response()` helper with a recorder that also stages headers, the way node merges them into `writeHead`:
 
@@ -874,13 +874,13 @@ In `packages/api/gateway/tests/gateway.host.spec.ts` and `packages/api/gateway/t
   })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/browser-auth.host.spec.ts`
 
 Expected: FAIL — the extension case gets `'serve'` but `state.headers` holds no `set-cookie`, so `refreshed` is `undefined` and `toMatch` throws on it.
 
-- [ ] **Step 3: Add the staging member to the response interface**
+- [x] **Step 3: Add the staging member to the response interface**
 
 In `packages/client/connection/src/rpc.ts`, replace `ConnectionIndexResponse` with:
 
@@ -899,7 +899,7 @@ export interface ConnectionIndexResponse {
 }
 ```
 
-- [ ] **Step 4: Refresh on the index path**
+- [x] **Step 4: Refresh on the index path**
 
 In `packages/client/connection/src/browser-auth.ts`, replace the no-token tail of `authorizeIndex` (the `if (this.isAuthenticated(req)) return 'serve'` line) with:
 
@@ -932,13 +932,13 @@ and add these two methods after `isAuthenticated`:
   }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run packages/client/connection/tests/browser-auth.host.spec.ts packages/api/gateway/tests/gateway.host.spec.ts packages/api/gateway/tests/gateway-stream.host.spec.ts`
 
 Expected: PASS — the refresh case sees `Max-Age=5184000`, the refused case stages nothing, and both gateway suites compile and pass with their staged-header stub.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/client/connection/src/browser-auth.ts packages/client/connection/src/rpc.ts packages/client/connection/tests/browser-auth.host.spec.ts packages/api/gateway/tests/gateway.host.spec.ts packages/api/gateway/tests/gateway-stream.host.spec.ts
@@ -958,7 +958,7 @@ git commit -m "feat(client-connection): refresh a device cookie on index request
 - Consumes: `setDeviceLifetime` from Task 2, `BrowserAuth.refreshPairedDevices` from Task 3, the `refused(req, res, ctx, 'loopback')` guard and `readJsonBody`/`sendJson` in `routes.ts`, and the `/pair/revoke` route as the shape to mirror.
 - Produces: `HostConnectionDevices.setLifetime(deviceId: PairedDeviceId, days: number): Promise<boolean>`; `PAIR_PATHS.lifetime === '/pair/devices/lifetime'`; `GET /pair/devices` answers each device with its stored `lifetimeDays` and `expiresAt`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `packages/bundle/mob/tests/routes.host.spec.ts`, extend the `Bench` interface and the `bench()` fixture. Add to `Bench`:
 
@@ -1059,13 +1059,13 @@ In `apps/cli/tests/pairing.e2e.ts`, add the new route to the phone's refused-dec
         { path: '/pair/devices/lifetime', method: 'POST', body: JSON.stringify({ deviceId: 'x', days: 7 }) },
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run packages/bundle/mob/tests/routes.host.spec.ts`
 
 Expected: FAIL — `PAIR_PATHS.lifetime` is `undefined`, so `subject.call` throws `no route registered for undefined`.
 
-- [ ] **Step 3: Extend the Host handle**
+- [x] **Step 3: Extend the Host handle**
 
 In `packages/client/connection/src/rpc.ts`, add to `HostConnectionDevices` after `revoke`:
 
@@ -1089,7 +1089,7 @@ In `packages/client/connection/src/rpc-host.ts`, extend the `./devices.ts` impor
       },
 ```
 
-- [ ] **Step 4: Register the route**
+- [x] **Step 4: Register the route**
 
 In `packages/bundle/mob/src/routes.ts`, add the two bounds beside `PAIR_BODY_LIMIT_BYTES`:
 
@@ -1132,19 +1132,19 @@ update the registration JSDoc to `Register the eight pairing routes on the Host 
     }),
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run packages/bundle/mob/tests/routes.host.spec.ts`
 
 Expected: PASS — the route-registration case now lists eight paths, the new case is green, and the `/pair/devices` payload carries `lifetimeDays` and `expiresAt`.
 
-- [ ] **Step 6: Run the real-CLI guard case**
+- [x] **Step 6: Run the real-CLI guard case**
 
 Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/pairing.e2e.ts`
 
 Expected: PASS — a paired phone is refused 403 on `/pair/devices/lifetime` like every other decision route.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/client/connection/src/rpc.ts packages/client/connection/src/rpc-host.ts packages/bundle/mob/src/routes.ts packages/bundle/mob/tests/routes.host.spec.ts apps/cli/tests/pairing.e2e.ts
@@ -1165,7 +1165,7 @@ git commit -m "feat(mob): add the per-device lifetime route"
 - Consumes: the `/pair/devices/lifetime` route and the `/pair/devices` payload from Task 5.
 - Produces: `PairedDeviceView.lifetimeDays?: number` and `PairedDeviceView.expiresAt?: number`; `PairingApi.setLifetime(deviceId: string, days: number): Promise<PairingResult<void>>`; the `settings.mobile` keys `panel.lifetimeUnknown`, `panel.lifetimeExpired`, `panel.lifetimeWindow`, `panel.lifetimePreset`, `panel.lifetimeCustom`, `panel.lifetimeApply`, `panel.lifetimeNote`, `panel.revokeHint`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `packages/bundle/mob/tests/pairing-api.client.spec.ts`, replace the first `stub` and expectation of 'lists devices and rejects entries it cannot read' with:
 
@@ -1301,13 +1301,13 @@ In `packages/bundle/mob/tests/row.client.spec.tsx`, add the new member to the `a
   setLifetime: async () => ({ ok: true, value: undefined }),
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run packages/bundle/mob/tests/pairing-api.client.spec.ts packages/bundle/mob/tests/panel.client.spec.tsx`
 
 Expected: FAIL — `createPairingApi().setLifetime` is not a function, the parsed device view carries no `lifetimeDays`/`expiresAt`, and the panel renders no lifetime text because the dictionary keys do not exist yet.
 
-- [ ] **Step 3: Extend the route client**
+- [x] **Step 3: Extend the route client**
 
 In `packages/bundle/mob/src/client/pairing-api.ts`, extend `PairedDeviceView`:
 
@@ -1359,7 +1359,7 @@ and add the client half after `revoke` in the object `createPairingApi()` return
     },
 ```
 
-- [ ] **Step 4: Add the dictionary keys**
+- [x] **Step 4: Add the dictionary keys**
 
 In `packages/bundle/mob/src/client/locales.ts`, add to the English dictionary after `'panel.revoke'`:
 
@@ -1387,7 +1387,7 @@ and to the Chinese dictionary at the same position:
   'panel.revokeHint': '不再使用的设备请立即吊销；在不受信任的网络上用过之后也建议吊销。',
 ```
 
-- [ ] **Step 5: Render the column and the controls**
+- [x] **Step 5: Render the column and the controls**
 
 In `packages/bundle/mob/src/client/PairingPanel.tsx`, add the constants under `COUNTDOWN_TICK_MILLISECONDS`:
 
@@ -1501,19 +1501,19 @@ finally add the two guidance lines to the devices section, before its list:
         <p className={css.status}>{t('panel.lifetimeNote')}</p>
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run packages/bundle/mob/tests/pairing-api.client.spec.ts packages/bundle/mob/tests/panel.client.spec.tsx packages/bundle/mob/tests/row.client.spec.tsx`
 
 Expected: PASS — the three new panel cases, the new client case, and the unchanged row case are green.
 
-- [ ] **Step 7: Run the client-copy gate**
+- [x] **Step 7: Run the client-copy gate**
 
 Run: `pnpm run verify-client-ui-i18n`
 
 Expected: PASS — every new string is owned by the `settings.mobile` dictionary.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/bundle/mob/src/client packages/bundle/mob/tests
@@ -1530,7 +1530,7 @@ git commit -m "feat(mob): manage device lifetime in the pairing panel"
 - Consumes: the existing all-interfaces warning at the `console.error` call in `apply`.
 - Produces: the same warning with one appended actionable sentence; the existing wording is kept verbatim.
 
-- [ ] **Step 1: Update the pinned test**
+- [x] **Step 1: Update the pinned test**
 
 In `packages/bundle/web-app/tests/web-app.spec.ts`, replace the expected string in 'warns on stderr when serving all interfaces, and stays silent on loopback' with:
 
@@ -1538,13 +1538,13 @@ In `packages/bundle/web-app/tests/web-app.spec.ts`, replace the expected string 
     expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/web-app.spec.ts`
 
 Expected: FAIL — `console.error` received the warning without the appended sentence.
 
-- [ ] **Step 3: Append the mitigation**
+- [x] **Step 3: Append the mitigation**
 
 In `packages/bundle/web-app/src/index.ts`, replace the warning call with:
 
@@ -1552,13 +1552,13 @@ In `packages/bundle/web-app/src/index.ts`, replace the warning call with:
     console.error('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm exec vitest run packages/bundle/web-app/tests/web-app.spec.ts`
 
 Expected: PASS — every case in the file green, including the loopback silence case.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/bundle/web-app/src/index.ts packages/bundle/web-app/tests/web-app.spec.ts
@@ -1582,7 +1582,7 @@ git commit -m "feat(web-app): name the narrowing in the LAN warning"
 - Consumes: the config field and registry semantics from Task 3, the route from Task 5, the panel copy from Task 6, and the warning from Task 7.
 - Produces: current-state prose in three bilingual package READMEs, each re-recorded in its `.i18n.yaml`.
 
-- [ ] **Step 1: Write the English side**
+- [x] **Step 1: Write the English side**
 
 In `packages/bundle/web-app/README.md`, append to the paragraph under `### LAN access and trusted hosts` (the one ending `restart the GUI to re-advertise.`):
 
@@ -1623,13 +1623,13 @@ and append to the paragraph beginning `` `src/devices.ts` owns that registry. ``
 `setDeviceLifetime` writes one device's `lifetimeDays` together with the `expiresAt` it implies, so setting a window restarts that device's countdown.
 ```
 
-- [ ] **Step 2: Run the documentation gates to see the pairs stale**
+- [x] **Step 2: Run the documentation gates to see the pairs stale**
 
 Run: `pnpm exec tsx scripts/verify-translation-pairing.ts`
 
 Expected: FAIL — `packages/bundle/web-app/README.md`, `packages/bundle/mob/README.md`, and `packages/client/connection/README.md` report a hash mismatch against their recorded `.i18n.yaml`.
 
-- [ ] **Step 3: Bring the Chinese side along**
+- [x] **Step 3: Bring the Chinese side along**
 
 In `packages/bundle/web-app/README.zh.md`, append to the `### LAN 访问与可信主机` paragraph (the one ending `重启 GUI 以重新公告。`):
 
@@ -1670,7 +1670,7 @@ and append to the paragraph beginning `` `src/devices.ts` 拥有该登记表。 
 `setDeviceLifetime` 会把某台设备的 `lifetimeDays` 与它对应的 `expiresAt` 一起写入，因此设定窗口即重新开始该设备的倒计时。
 ```
 
-- [ ] **Step 4: Re-record the three pairs**
+- [x] **Step 4: Re-record the three pairs**
 
 ```bash
 pnpm run verify-translation-pairing --write packages/bundle/web-app/README.md
@@ -1678,7 +1678,7 @@ pnpm run verify-translation-pairing --write packages/bundle/mob/README.md
 pnpm run verify-translation-pairing --write packages/client/connection/README.md
 ```
 
-- [ ] **Step 5: Run the gates to verify they pass**
+- [x] **Step 5: Run the gates to verify they pass**
 
 Run: `pnpm exec tsx scripts/verify-translation-pairing.ts`
 
@@ -1688,7 +1688,7 @@ Run: `pnpm run test:docs`
 
 Expected: PASS — including `verify-md-wrap`, `verify-md-links`, and `verify-doc-budgets`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/bundle/web-app/README.md packages/bundle/web-app/README.zh.md packages/bundle/web-app/README.i18n.yaml packages/bundle/mob/README.md packages/bundle/mob/README.zh.md packages/bundle/mob/README.i18n.yaml packages/client/connection/README.md packages/client/connection/README.zh.md packages/client/connection/README.i18n.yaml
@@ -1712,7 +1712,7 @@ git commit -m "docs: document the per-device firewall rule and device lifetime"
 - Consumes: `PairedDevice.lifetimeDays`/`expiresAt`, `setDeviceLifetime`, `deviceLifetimeDays`, the index refresh, `/pair/devices/lifetime`, and the panel from Tasks 1–7.
 - Produces: one `implemented/feature` Agent Note that owns the lifetime decision, plus in-place factual corrections in the pairing and browser-token notes.
 
-- [ ] **Step 1: Write the note and its counterpart**
+- [x] **Step 1: Write the note and its counterpart**
 
 Create `.agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.md` with:
 
@@ -1759,7 +1759,7 @@ The startup warning for an all-interfaces bind keeps its wording and names the t
 
 Then write `.agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.zh.md` as the section-for-section Chinese counterpart: keep the machine-checked header tokens `# Agent Note: ` and `Status: implemented` verbatim, mirror the link line as `[English](2026-09-13-device-lifetime-authority.md)`, and translate `## Problem`, `## Decision`, `## Alternatives considered`, and `## Consequences` one paragraph per paragraph under the [translation contract](../../../docs/i18n/README.md) and its terminology guide.
 
-- [ ] **Step 2: Run the format and pairing gates to see them fail**
+- [x] **Step 2: Run the format and pairing gates to see them fail**
 
 Run: `pnpm run verify-agent-note-format`
 
@@ -1769,7 +1769,7 @@ Run: `pnpm exec tsx scripts/verify-translation-pairing.ts`
 
 Expected: FAIL — the new note reports a missing `.zh.md` pairing record, and the two older notes still carry the old device-lifetime wording.
 
-- [ ] **Step 3: Correct the pairing note in place**
+- [x] **Step 3: Correct the pairing note in place**
 
 In `.agents/notes/implemented/feature/2026-09-12-phone-device-pairing.md`, replace the sentence ``That cookie is the second cookie form: payload `{version: 2, authority, deviceId, issuedAt, expiresAt}`, lifetime `deviceCookieMaxAgeDays` (default 180) fixed at issue and never renewed by use.`` with:
 
@@ -1785,7 +1785,7 @@ and append to the rejected alternative `` **Sliding renewal of device cookies.**
 
 Mirror both changes in `.agents/notes/implemented/feature/2026-09-12-phone-device-pairing.zh.md`.
 
-- [ ] **Step 4: Correct the browser-token note in place**
+- [x] **Step 4: Correct the browser-token note in place**
 
 In `.agents/notes/implemented/architecture/2026-08-24-browser-token-authentication.md`, replace the sentence ``The persistent secret makes cookies survive restarts but gives a stolen cookie up to the configured absolute lifetime.`` with:
 
@@ -1795,7 +1795,7 @@ The persistent secret makes cookies survive restarts but gives a stolen launch-t
 
 Mirror the change in `.agents/notes/implemented/architecture/2026-08-24-browser-token-authentication.zh.md`.
 
-- [ ] **Step 5: Re-record the pairs**
+- [x] **Step 5: Re-record the pairs**
 
 ```bash
 pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.md
@@ -1803,17 +1803,17 @@ pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/20
 pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-24-browser-token-authentication.md
 ```
 
-- [ ] **Step 6: Run the supersession check**
+- [x] **Step 6: Run the supersession check**
 
 Confirm and record in the handoff: the new note partially supersedes the pairing note's device-lifetime sentence and the browser-token note's stolen-cookie lifetime clause, both corrected in place above; neither implemented note loses its decision, so no triplet moves to `archived/`. Run the calibrated workflow at `.agents/skills/dsh-archive-agent-notes/SKILL.md` only if that check finds a fully superseded triplet.
 
-- [ ] **Step 7: Run the gates to verify they pass**
+- [x] **Step 7: Run the gates to verify they pass**
 
 Run: `pnpm run verify-agent-note-format && pnpm run verify-translation-pairing && pnpm run verify-md-links`
 
 Expected: PASS on all three.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add .agents/notes
@@ -1830,19 +1830,19 @@ git commit -m "docs(agents): record the per-device device lifetime decision"
 - Consumes: every artifact from Tasks 1–9.
 - Produces: recorded evidence that the touched packages, the GUI suites, the documentation gates, and the translation pairing are green, plus the manual check only the owner can perform.
 
-- [ ] **Step 1: Run the focused suites for the touched packages**
+- [x] **Step 1: Run the focused suites for the touched packages**
 
 Run: `pnpm exec vitest run packages/client/connection packages/bundle/mob packages/bundle/web-app`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run the GUI suites**
+- [x] **Step 2: Run the GUI suites**
 
 Run: `pnpm run test:gui`
 
 Expected: PASS — the client and host suites, including the gateway and frontend-static suites that consume `ConnectionIndexResponse`.
 
-- [ ] **Step 3: Run the documentation gates**
+- [x] **Step 3: Run the documentation gates**
 
 Run: `pnpm run test:docs`
 
@@ -1860,13 +1860,13 @@ Run: `pnpm run verify-client-ui-i18n`
 
 Expected: PASS.
 
-- [ ] **Step 4: Run the real-CLI pairing case**
+- [x] **Step 4: Run the real-CLI pairing case**
 
 Run: `pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/pairing.e2e.ts`
 
 Expected: PASS — the handshake, the guard on `/pair/devices/lifetime`, and revocation against a real `dsh web` process.
 
-- [ ] **Step 5: Commit anything a gate re-recorded**
+- [x] **Step 5: Commit anything a gate re-recorded**
 
 ```bash
 git add -A
