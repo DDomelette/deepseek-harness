@@ -20,14 +20,16 @@
      column without resizing the window): the component publishes the column's
      live width as --dsh-conversation-column-width (px, via ResizeObserver —
      container-type would re-anchor the subtree's portal-free position:fixed
-     descendants) and the clamp keeps a 680px floor (a step under the figma
-     748px — the full-width reading felt wide on every screen), takes 64% of
-     wider columns, and caps at 920px for line-length
-     readability. A dragged user preference (--dsh-chat-user-width, published
-     by the width handles) replaces the adaptive term wholesale. */
+     descendants) and the clamp floors at min(680px, column) — 680 is a step
+     under the figma 748px (the full-width reading felt wide on every screen),
+     and below it the floor degrades to the column itself so a handset column
+     is never overflowed — takes 64% of wider columns, and caps at 920px for
+     line-length readability. A dragged user preference
+     (--dsh-chat-user-width, published by the width handles) replaces the
+     adaptive term wholesale. */
   --dsh-chat-content-width: var(
     --dsh-chat-user-width,
-    clamp(680px, calc(var(--dsh-conversation-column-width, 0px) * 0.64), 920px)
+    clamp(min(680px, var(--dsh-conversation-column-width, 0px)), calc(var(--dsh-conversation-column-width, 0px) * 0.64), 920px)
   );
   --dsh-composer-card-max-width: calc(var(--dsh-chat-content-width) + 32px);
   --dsh-composer-side-clearance: 16px;
@@ -243,6 +245,13 @@
   left: calc(50% + var(--dsh-chat-content-width) / 2 + 24px);
 }
 
+/* Drag handles are a mouse facility: hidden on touch and handset widths. */
+@media (max-width: 767px), (pointer: coarse) {
+  .widthHandle {
+    display: none;
+  }
+}
+
 /* The glow: a short 3px bar riding the pointer's Y, inset 16px outward from
    the strip's inner edge (40px from the content column),
    not a full-height rule — a 24px solid core centered on the pointer
@@ -372,6 +381,8 @@
   /* Above markdown CodeBlock sticky banners (z-index 6) so the footer never
      paints under a sticking code header while scrolling. */
   z-index: 7;
+  /* Lift the card off a handset's home-indicator band; 0 where no inset. */
+  padding-bottom: env(safe-area-inset-bottom);
   /* Input mask (figma 1205:27463): transcript fades out under a FIXED 36px
      band at the seat's top (the figma 24% of the resting ~150px composer),
      solid below — px stops, not %, so a growing draft only widens the solid

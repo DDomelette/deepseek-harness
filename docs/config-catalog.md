@@ -362,11 +362,13 @@ export interface ConnectionConfig {
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
   /**
-   * Absolute paired-device cookie lifetime in days. A phone's device cookie
-   * lives this long from approval and is never renewed on use; revocation ends
-   * it earlier. Default: 180.
+   * Delivery window in days a newly registered device receives. Each paired
+   * device's own window is set in the Connect-phone panel and stored in the
+   * `client-connection/paired-devices` record; this value only decides what a
+   * device starts with. Integer 1–365; there is no never-expires option.
+   * Default: 30.
    */
-  deviceCookieMaxAgeDays?: number
+  deviceLifetimeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
 }
@@ -389,7 +391,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:75`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:77`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 

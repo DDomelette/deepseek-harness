@@ -11,7 +11,7 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
-import { listDevices, registerDevice, revokeDevice, touchDevice } from './devices.ts'
+import { listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import { requestAuthority, requestHostname } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
@@ -86,7 +86,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return {
       list: () => listDevices(credentials),
       register: async (request) => {
-        const device = await registerDevice(credentials, request)
+        const device = await registerDevice(credentials, request, this.browserAuth.deviceLifetimeDays)
         await this.browserAuth.refreshPairedDevices()
         return device
       },
@@ -95,12 +95,26 @@ export class HostConnectionService extends Service implements HostConnectionHand
         if (removed) await this.browserAuth.refreshPairedDevices()
         return removed
       },
+      setLifetime: async (deviceId, days) => {
+        const updated = await setDeviceLifetime(credentials, deviceId, days)
+        if (updated) await this.browserAuth.refreshPairedDevices()
+        return updated
+      },
       touch: deviceId => touchDevice(credentials, deviceId),
       issueCookie: (request, deviceId) => {
         const authority = requestAuthority(request.headers)
         return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)
       },
     }
+  }
+
+  /**
+   * Re-read the paired-device registry, for a credential record that changed
+   * outside this service's own mutations.
+   * @returns nothing; the refreshed set is installed before it resolves.
+   */
+  async refreshDevices(): Promise<void> {
+    await this.browserAuth.refreshPairedDevices()
   }
 
   /** Generic channel registry scoped to the Context reading this service. */

@@ -20,7 +20,7 @@ HMAC 密钥是 `ctx.credentials` 中位于 `client-connection/browser-session` �
 
 页内 Web Worker preview 不暴露网络 socket。其由页面持有的 `postMessage` tunnel 先进入真实 route，收到 401 或 403 后再经 worker 本地 fetch handler 重试。这样既保留 Connection interceptor，又把认证绕过限制在创建 Host worker 的页面内。
 
-随附 CLI 把 `--host 0.0.0.0` 关在 `--allow-lan` 之后（参见 [LAN Web 服务](2026-09-11-lan-web-serving.zh.md)）。认证仍不代表 TLS、转发 header 解释或代理配置。
+随附 CLI 默认绑定所有网卡，并接受 `--host 127.0.0.1` 以仅服务本机（参见[默认绑定](2026-09-13-lan-bind-by-default.zh.md)与 [LAN Web 服务](2026-09-11-lan-web-serving.zh.md)）。认证仍不代表 TLS、转发 header 解释或代理配置。
 
 ## 验证
 
@@ -42,6 +42,6 @@ HMAC 密钥是 `ctx.credentials` 中位于 `client-connection/browser-session` �
 
 持有浏览器 cookie 就能调用完整的工具型 Host API，这与 Web 应用在创建 Session 后暴露的 authority 一致。`Host` 不授予更高的方法层级，方法在 API Proxy 与 Typert Remote 之间迁移也不会改变调用者集合。
 
-持久密钥使 cookie 跨重启生效，也让被盗 cookie 最多保有配置的绝对有效期。删除记录并重启进程是全局撤销机制；当前 Connection 刻意避免在每个请求上访问凭据提供方。不设置 `Secure` 保留 loopback HTTP；已配对手机的设备 cookie 走同一段明文链路，网络上的观察者可以读到它。启动 URL 含进程凭据，必须视为敏感输出；运行时诊断不会重复它，而只有回环 authority 接受该凭据换来的 cookie，因此把该 authority 暴露到网络的操作者，只能通过配对接纳客户端，而不是通过电脑自己的会话。
+持久密钥使 cookie 跨重启生效，但被盗的启动令牌 cookie 最多保有 `cookieMaxAgeDays`；而已配对设备的 cookie 到期于其登记表条目记录的窗口——该值由操作者按设备设定，并可随时吊销（[按设备的设备寿命](../feature/2026-09-13-device-lifetime-authority.zh.md)）。删除记录并重启进程是全局撤销机制；当前 Connection 刻意避免在每个请求上访问凭据提供方。不设置 `Secure` 保留 loopback HTTP；已配对手机的设备 cookie 走同一段明文链路，网络上的观察者可以读到它。启动 URL 含进程凭据，必须视为敏感输出；运行时诊断不会重复它，而只有回环 authority 接受该凭据换来的 cookie，因此把该 authority 暴露到网络的操作者，只能通过配对接纳客户端，而不是通过电脑自己的会话。
 
 本决策部分取代[浏览器信任说明](2026-07-28-api-browser-trust-boundary.zh.md)中的认证延期与未认证非 loopback 后果。该说明仍是媒体类型、Host、Origin、Fetch-Metadata 和配置 authority 校验的有效权威。没有 active Agent Note 被归档：重叠只发生在局部，两条安全规则都保有未来决策价值。

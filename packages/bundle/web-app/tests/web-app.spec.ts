@@ -203,7 +203,7 @@ describe('web-app runtime glue', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     apply(lan, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network')
+    expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
     await lan.fiber.dispose()
 
     diagnostic.mockClear()

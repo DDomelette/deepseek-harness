@@ -271,7 +271,9 @@ describe('StatsPills', () => {
 
     fireEvent.click(timePill)
     expect(view.queryByRole('dialog')).toBeTruthy()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(view.queryByRole('dialog')).toBeNull()
     expect(timePill.getAttribute('aria-expanded')).toBe('false')
 

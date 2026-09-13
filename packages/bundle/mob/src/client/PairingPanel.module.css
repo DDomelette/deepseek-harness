@@ -52,6 +52,7 @@
 
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
 }
@@ -82,7 +83,14 @@
 
 .actions {
   display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* The custom-days label heads its input, so it needs room for its own text. */
+.actions .field {
+  min-width: 64px;
 }
 
 .action {
@@ -104,9 +112,11 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* The device block owns a full line, so its label and stamps never collapse
+   against the action row that shares the next one. */
 .device {
   display: flex;
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   flex-direction: column;
   gap: 2px;

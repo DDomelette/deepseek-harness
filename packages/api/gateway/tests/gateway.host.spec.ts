@@ -183,6 +183,7 @@ function browserCookie(connection: HostConnectionHandle, origin: string): string
     url: `${target.pathname}${target.search}`,
     headers: { host: target.host },
   }, {
+    setHeader() {},
     writeHead(_status, headers) { setCookie = headers?.['set-cookie'] },
     end() {},
   })

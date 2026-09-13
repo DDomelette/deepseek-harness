@@ -9,6 +9,7 @@ import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
+import { PAIRED_DEVICES_RECORD_KEY } from './devices.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -35,6 +36,7 @@ export type {
   ServerResponse,
 } from './rpc.ts'
 export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+export { PairedDeviceId } from './device-brand.ts'
 export { RpcId, transportError } from './rpc.ts'
 export {
   clientRequestSchema,
@@ -87,11 +89,13 @@ export interface ConnectionConfig {
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
   /**
-   * Absolute paired-device cookie lifetime in days. A phone's device cookie
-   * lives this long from approval and is never renewed on use; revocation ends
-   * it earlier. Default: 180.
+   * Delivery window in days a newly registered device receives. Each paired
+   * device's own window is set in the Connect-phone panel and stored in the
+   * `client-connection/paired-devices` record; this value only decides what a
+   * device starts with. Integer 1–365; there is no never-expires option.
+   * Default: 30.
    */
-  deviceCookieMaxAgeDays?: number
+  deviceLifetimeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
 }
@@ -100,7 +104,7 @@ export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
-  deviceCookieMaxAgeDays: z.natural().min(1).default(180),
+  deviceLifetimeDays: z.natural().min(1).max(365).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
@@ -116,7 +120,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
-  const deviceCookieMaxAgeDays = config?.deviceCookieMaxAgeDays ?? 180
+  const deviceLifetimeDays = config?.deviceLifetimeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
@@ -125,8 +129,20 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceCookieMaxAgeDays),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays),
   )
+  // The credential record is the authority for device access, and it changes
+  // under this process too: the credentials owner reports every write, including
+  // an operator editing the file or another process revoking a device. Without
+  // this the running Host would keep honoring a cookie the record no longer lists.
+  ctx.effect(() => ctx.on('credentials/record-updated', (key) => {
+    if (key !== PAIRED_DEVICES_RECORD_KEY) return
+    void connection.refreshDevices().catch((error: unknown) => {
+      // A failed re-read keeps the previous device set; report it instead of
+      // turning one bad read into an unhandled rejection.
+      ctx.logger.warn('client-connection: could not re-read the paired-device record: %s', String(error))
+    })
+  }), 'client-connection: paired-device record changes')
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {

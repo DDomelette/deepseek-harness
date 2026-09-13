@@ -36,6 +36,24 @@
   overflow: hidden;
 }
 
+/* Drawer presentation (viewport < 768px): the sidebar leaves the grid and
+   floats over the center; the scrim freezes the center and closes on tap. */
+.sidebarCol[data-drawer] {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 13;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 8px 0 24px rgb(0 0 0 / 24%);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  background: rgb(0 0 0 / 32%);
+}
+
 /* Drag handles are frame children (columns clip overflow): an 8px hit strip
    centered on the column border via inline left, above column content. No
    handle draws a visible pill: the details column was the only one that did,

@@ -59,6 +59,7 @@ function browserCookie(ctx: Context): string {
     url: `${target.pathname}${target.search}`,
     headers: { host: target.host },
   }, {
+    setHeader() {},
     writeHead(_status, headers) { setCookie = headers?.['set-cookie'] },
     end() {},
   })

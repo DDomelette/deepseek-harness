@@ -60,7 +60,7 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
     `  name: ${pathToFileURL(join(dir, 'reader.mjs')).href}`,
     `  inject: [${WEB_STARTUP_SERVICE}]`,
     '  config:',
-    "    host: !!js ctx.webStartup.host ?? '127.0.0.1'",
+    "    host: !!js ctx.webStartup.host ?? '0.0.0.0'",
     '    openBrowser: !!js ctx.webStartup.openBrowser',
     '    port: !!js ctx.webStartup.port ?? 3080',
     '    trustedHosts: !!js ctx.webStartup.trustedHosts',
@@ -114,7 +114,7 @@ describe('web command-line provider', () => {
     const { values, observed } = await bootProvider([])
     expect(values).toEqual({ openBrowser: true, trustedHosts: [] })
     expect(observed.readerConfig).toEqual({
-      host: '127.0.0.1',
+      host: '0.0.0.0',
       openBrowser: true,
       port: 3080,
       trustedHosts: [],
@@ -139,15 +139,28 @@ describe('web command-line provider', () => {
     expect(observed.exits).toEqual([1])
   })
 
-  it('rejects the all-interfaces host without --allow-lan before the consumer activates', async () => {
-    const { values, observed } = await bootProvider(['--host', '0.0.0.0'])
-    expect(observed.out).toContain('--host 0.0.0.0 exposes remote code execution to the network; pass --allow-lan to serve on a trusted LAN, or use 127.0.0.1 instead')
-    expect(values).toBeUndefined()
-    expect(observed.readerConfig).toBeUndefined()
-    expect(observed.exits).toEqual([1])
+  it('serves every interface by default, with --host 127.0.0.1 as the loopback opt-out', async () => {
+    const { values, observed } = await bootProvider(['--no-open'])
+    expect(values).toEqual({ openBrowser: false, trustedHosts: [] })
+    expect(observed.readerConfig).toEqual({
+      host: '0.0.0.0',
+      openBrowser: false,
+      port: 3080,
+      trustedHosts: [],
+    })
+
+    const loopback = await bootProvider(['--host', '127.0.0.1', '--no-open'])
+    expect(loopback.values).toEqual({ host: '127.0.0.1', openBrowser: false, trustedHosts: [] })
+    expect(loopback.observed.readerConfig).toEqual({
+      host: '127.0.0.1',
+      openBrowser: false,
+      port: 3080,
+      trustedHosts: [],
+    })
+    expect(loopback.observed.exits).toEqual([])
   })
 
-  it('serves all interfaces when --allow-lan marks the network trusted', async () => {
+  it('still accepts --allow-lan, which the all-interfaces default made redundant', async () => {
     const { values, observed } = await bootProvider(['--host', '0.0.0.0', '--allow-lan', '--no-open'])
     expect(values).toEqual({ host: '0.0.0.0', openBrowser: false, trustedHosts: [] })
     expect(observed.readerConfig).toEqual({

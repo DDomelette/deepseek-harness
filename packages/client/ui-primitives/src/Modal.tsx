@@ -41,7 +41,12 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // Consume the key: the frame drawer, the lowest-priority Escape owner,
+      // acts only on an Escape no surface closed itself with.
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => { document.removeEventListener('keydown', onKeyDown) }

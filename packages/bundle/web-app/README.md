@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup prints an authenticated loopback URL and normally opens it in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port and allow extra hosts, and—on a trusted LAN with explicit `--allow-lan`—bind all network interfaces. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
+Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup binds every interface, prints an authenticated loopback URL plus the LAN URL, and normally opens the loopback URL in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port, allow extra hosts, and pass `--host 127.0.0.1` to serve this machine only. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### LAN access and trusted hosts
 
-By default the GUI accepts connections from this machine only. A deployment that binds all network interfaces also allows browsers from the LAN, and the readiness line then lists a LAN URL without a token; `--trusted-host` adds extra hosts in either case. Host and Origin checks control reachability, while the launch token is exchanged on a loopback authority only, so a LAN browser authenticates with the device cookie it earns by pairing ([Connect phone](../mob/README.md)). The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise.
+`dsh web` binds every interface (`0.0.0.0`), so browsers on the LAN reach the GUI at the readiness line's LAN URL, which carries no token; pass `--host 127.0.0.1` to serve this machine only, and `--trusted-host` adds extra hosts in either case. Binding every interface prints a plain-HTTP warning at mount time: anyone on the network who obtains a cookie gains full control, so serve on a network you trust. Host and Origin checks control reachability, while the launch token is exchanged on a loopback authority only, so a LAN browser authenticates with the device cookie it earns by pairing ([Connect phone](../mob/README.md)). The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise. To admit one phone instead of the whole subnet, add a per-device firewall rule for the port you serve — on Windows, from an elevated prompt, `netsh advfirewall firewall add rule name="dsh web phone" dir=in action=allow protocol=TCP localport=3080 remoteip=<phone-ip>`, where `<phone-ip>` is the address the router leases to the phone — and re-add it when the phone's DHCP address changes (`netsh advfirewall firewall delete rule name="dsh web phone"`, also elevated, removes the old rule). A paired phone holds a device cookie whose window the Connect-phone panel owns: a device starts at `deviceLifetimeDays` (30 by default, legal 1–365), the panel shows the days left and restarts that countdown when you set a new value, and revoking a device ends its access on the next request.
 
 ### Running over SSH
 
@@ -146,7 +146,8 @@ These limits tell you what to expect in unusual setups — a source checkout, SS
 - **Only the handoff start is observable** — the GUI reports that the browser was asked to open, not that it actually opened; a later browser exit is never reported, and the printed URL is your manual fallback.
 - **SSH sessions keep the URL but skip the browser handoff** — the printed URL names the remote host's loopback endpoint; the SSH client or editor must expose and open the local forwarded address.
 - **`BROWSER` overrides only come from the environment** — a discovered `.env` cannot set `BROWSER`; only an inherited value can choose the executable for the automatic handoff.
-- **LAN serving is plain HTTP** — `--host 0.0.0.0` requires `--allow-lan`, and traffic stays unencrypted; a stolen device cookie grants full control, so bind all interfaces only on a trusted network.
+- **LAN serving is plain HTTP, and it is the default** — every interface is bound unless `--host 127.0.0.1` is passed, and traffic stays unencrypted; a stolen device cookie grants full control until that device's window ends or you revoke it, so serve only on a trusted network and narrow the firewall to the phone you paired.
+- **A per-device firewall rule follows the phone's address** — the recipe above admits one IP literal, so a phone whose DHCP lease changes needs the rule re-added, and a device you no longer use stays admitted to the port until you revoke it and delete the rule. A lease that moves to another device hands that device the same admission, so reserve the phone's address with a static lease, or drop `remoteip` so the rule admits the port for any device that reaches it and revoke the device when you are done.
 
 <a id="dev-note"></a>
 ### Dev Note

@@ -1177,6 +1177,10 @@ export function WorkspaceBrowser({
                 onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Escape') return
+                  // Consume the key: the frame drawer, the lowest-priority
+                  // Escape owner, acts only on an Escape no surface closed
+                  // itself with.
+                  e.preventDefault()
                   setQuery('')
                   setSearchExpanded(false)
                 }}

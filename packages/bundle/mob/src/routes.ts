@@ -10,6 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
+import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import type { PairingSessions } from './pairing.ts'
@@ -21,6 +22,9 @@ const FRONTEND_SERVICE = 'frontend'
 const CODE_QUERY = 'c'
 /** Largest accepted decision body; these routes carry only identifiers and a label. */
 const PAIR_BODY_LIMIT_BYTES = 8 * 1024
+/** Legal per-device lifetime in days, matching the Connection config schema. */
+const MIN_DEVICE_LIFETIME_DAYS = 1
+const MAX_DEVICE_LIFETIME_DAYS = 365
 /** Source recorded when the socket exposes no remote address (in-process callers). */
 const UNKNOWN_SOURCE = 'unknown'
 
@@ -32,6 +36,7 @@ export const PAIR_PATHS = {
   requests: '/pair/requests',
   approve: '/pair/approve',
   devices: '/pair/devices',
+  lifetime: '/pair/devices/lifetime',
   revoke: '/pair/revoke',
 } as const
 
@@ -140,7 +145,7 @@ async function pairingShell(ctx: Context, code: string): Promise<string | undefi
 }
 
 /**
- * Register the seven pairing routes on the Host web server.
+ * Register the eight pairing routes on the Host web server.
  * @param ctx - plugin context carrying `webServer` and the Connection service.
  * @param pairing - the process's pairing sessions.
  * @returns disposer withdrawing every route.
@@ -186,7 +191,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         const state = pairing.stateOf(code, req.socket.remoteAddress ?? UNKNOWN_SOURCE)
-        if (state.status !== 'approved' || state.deviceId === undefined) {
+        if (state.status !== 'approved') {
           sendJson(res, 200, state)
           return
         }
@@ -196,8 +201,13 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         pairing.consume(code)
-        void ctx.connection.devices.touch(state.deviceId)
         sendJson(res, 200, { status: 'approved' }, { 'set-cookie': setCookie })
+        // Last-seen bookkeeping is owed after the cookie is handed out, so the
+        // phone never waits on a credential write; a failed write is reported
+        // instead of becoming an unhandled rejection that ends the Host.
+        void ctx.connection.devices.touch(state.deviceId).catch((error: unknown) => {
+          ctx.logger.warn('mob: could not record the last-seen time of device "%s": %s', state.deviceId, String(error))
+        })
       },
     }),
     ctx.webServer.register({
@@ -249,8 +259,16 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           sendJson(res, 200, { ok: true })
           return
         }
+        // Register first, publish second: the phone collects an approval only
+        // once the device its cookie names exists.
         const device = await ctx.connection.devices.register({ label })
-        pairing.bindDevice(code, device.id)
+        if (!pairing.bindDevice(code, device.id)) {
+          // The code expired, or another read settled it, while the row was
+          // being written: drop the row rather than list a device no phone holds.
+          await ctx.connection.devices.revoke(device.id)
+          sendJson(res, 410, { error: 'expired' })
+          return
+        }
         sendJson(res, 200, { ok: true, device })
       },
     }),
@@ -268,6 +286,28 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
     }),
     ctx.webServer.register({
       kind: 'exact',
+      path: PAIR_PATHS.lifetime,
+      handler: async (req, res) => {
+        if (req.method !== 'POST') {
+          sendMethodNotAllowed(res, 'POST')
+          return
+        }
+        if (refused(req, res, ctx, 'loopback')) return
+        const body = await readJsonBody(req)
+        const { deviceId, days } = body ?? {}
+        if (typeof deviceId !== 'string' || typeof days !== 'number'
+          || !Number.isSafeInteger(days) || days < MIN_DEVICE_LIFETIME_DAYS || days > MAX_DEVICE_LIFETIME_DAYS) {
+          sendJson(res, 400, { error: 'expected a device id and a lifetime of 1 to 365 days' })
+          return
+        }
+        // Wire boundary: the body carries the id as JSON text, and this is where
+        // the validated string earns the registry's brand.
+        const target = deviceId as PairedDeviceId
+        sendJson(res, 200, { ok: await ctx.connection.devices.setLifetime(target, days) })
+      },
+    }),
+    ctx.webServer.register({
+      kind: 'exact',
       path: PAIR_PATHS.revoke,
       handler: async (req, res) => {
         if (req.method !== 'POST') {
@@ -281,7 +321,10 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           sendJson(res, 400, { error: 'expected a device id' })
           return
         }
-        sendJson(res, 200, { ok: await ctx.connection.devices.revoke(deviceId) })
+        // Wire boundary: the body carries the id as JSON text, and this is where
+        // the validated string earns the registry's brand.
+        const target = deviceId as PairedDeviceId
+        sendJson(res, 200, { ok: await ctx.connection.devices.revoke(target) })
       },
     }),
   ]

@@ -217,6 +217,42 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* Back and section-name seats of the handset header: one pane at a time means
+   the content column needs a way back to the list and a name for what it
+   shows. Both stay out of the two-column layout, which keeps the nav rail's
+   own heading and the figma header as they are. */
+.back {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 28px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-primary);
+}
+
+.back:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.detailTitle {
+  display: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
 /* Options area (figma Options 501:29983): pad (24,0,24,24), scrolls. */
 .options {
   flex: 1;
@@ -233,4 +269,101 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Handset layout: one pane at a time. Below the breakpoint the panel fills the
+   viewport, and the section list and the chosen section never share it. The nav
+   and content columns stop generating boxes, so their children become grid
+   items: row 1 is one bar holding either the settings title or the back control
+   and section name, beside the shell-owned close control; row 2 is whichever
+   pane the chosen section selects. The breakpoint stays in step with
+   SETTINGS_PANE_BREAKPOINT. */
+@media (max-width: 767px) {
+  .overlay {
+    align-items: stretch;
+  }
+
+  .panel {
+    display: grid;
+    grid-template-rows: 60px 1fr;
+    grid-template-columns: 1fr;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    border-radius: 0;
+    /* The sheet spans the raw viewport, so the safe-area insets become its
+       padding: the top bar clears an installed PWA's status bar and a landscape
+       notch, and the scrolling pane stops above the home indicator. */
+    box-sizing: border-box;
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+
+  .nav,
+  .content {
+    display: contents;
+  }
+
+  .navTitle {
+    grid-area: 1 / 1;
+    align-self: center;
+    padding: 0 12px 0 20px;
+  }
+
+  .header {
+    grid-area: 1 / 1;
+    height: 60px;
+    padding: 10px 14px 10px 10px;
+    justify-content: flex-end;
+  }
+
+  .navList {
+    grid-area: 2 / 1;
+    min-height: 0;
+    padding: 0 12px 16px;
+    overflow-y: auto;
+  }
+
+  .options {
+    grid-area: 2 / 1;
+    padding: 0 16px 24px;
+  }
+
+  .navCell {
+    height: 48px;
+  }
+
+  /* While the list is the pane nothing is open yet, so the projected row keeps
+     no highlight. */
+  .panel[data-pane='list'] .navCell.active {
+    background: transparent;
+  }
+
+  .panel[data-pane='list'] .back,
+  .panel[data-pane='list'] .detailTitle,
+  .panel[data-pane='list'] .actions,
+  .panel[data-pane='list'] .options,
+  .panel[data-pane='detail'] .navTitle,
+  .panel[data-pane='detail'] .navList {
+    display: none;
+  }
+
+  .back,
+  .close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .panel[data-pane='detail'] .back {
+    display: inline-flex;
+  }
+
+  .panel[data-pane='detail'] .detailTitle {
+    display: block;
+    margin-right: auto;
+  }
 }

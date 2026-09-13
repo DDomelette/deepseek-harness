@@ -58,7 +58,13 @@ export class RecordCredentials {
   }
 }
 
-/** Provide the record operations Connection needs during authentication setup. */
-export function provideBrowserCredentials(ctx: Context): void {
-  ctx.provide('credentials', new RecordCredentials() as unknown as CredentialProvider)
+/**
+ * Provide the record operations Connection needs during authentication setup.
+ * @param ctx - test context receiving the credentials service.
+ * @returns the mutable store behind it, for tests that change records directly.
+ */
+export function provideBrowserCredentials(ctx: Context): RecordCredentials {
+  const store = new RecordCredentials()
+  ctx.provide('credentials', store as unknown as CredentialProvider)
+  return store
 }

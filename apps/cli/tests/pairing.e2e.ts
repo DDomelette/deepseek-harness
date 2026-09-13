@@ -277,6 +277,7 @@ describe('dsh web phone pairing through the real CLI', () => {
         { path: '/pair/session', method: 'POST', body: undefined },
         { path: '/pair/requests', method: 'GET', body: undefined },
         { path: '/pair/devices', method: 'GET', body: undefined },
+        { path: '/pair/devices/lifetime', method: 'POST', body: JSON.stringify({ deviceId: 'x', days: 7 }) },
         { path: '/pair/approve', method: 'POST', body: JSON.stringify({ code, label: 'phone', allowed: true }) },
       ]) {
         const attempt = await call(port, {

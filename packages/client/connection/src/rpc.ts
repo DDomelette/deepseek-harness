@@ -2,6 +2,7 @@
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
@@ -93,6 +94,13 @@ export interface ConnectionIndexRequest extends ConnectionTrustRequest {
 
 /** Root/index response operations owned by the browser-token exchange. */
 export interface ConnectionIndexResponse {
+  /**
+   * Stage a header written with the caller's status, such as the replacement
+   * `Set-Cookie` that aligns a device cookie with its registry window.
+   * @param name - header name.
+   * @param value - header value.
+   */
+  setHeader(name: string, value: string): unknown
   writeHead(status: number, headers?: Readonly<Record<string, string>>): unknown
   end(body?: string): unknown
 }
@@ -251,14 +259,22 @@ export interface HostConnectionDevices {
    * @param deviceId - id of the device to remove.
    * @returns true when a stored device was removed.
    */
-  revoke(deviceId: string): Promise<boolean>
+  revoke(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Set one device's delivery window, restarting its countdown.
+   * @param deviceId - id of the device to re-schedule.
+   * @param days - window in days, an integer from 1 to 365.
+   * @returns true when a stored device was re-scheduled.
+   */
+  setLifetime(deviceId: PairedDeviceId, days: number): Promise<boolean>
 
   /**
    * Record that a device authenticated, throttled to once an hour.
    * @param deviceId - id of the device that made the request.
    * @returns true when the stored last-seen time was advanced.
    */
-  touch(deviceId: string): Promise<boolean>
+  touch(deviceId: PairedDeviceId): Promise<boolean>
 
   /**
    * Mint the cookie a phone receives when its pairing request is approved.
@@ -266,7 +282,7 @@ export interface HostConnectionDevices {
    * @param deviceId - id of the approved device.
    * @returns the complete `Set-Cookie` value, or undefined when the request carries no usable Host.
    */
-  issueCookie(request: ConnectionTrustRequest, deviceId: string): string | undefined
+  issueCookie(request: ConnectionTrustRequest, deviceId: PairedDeviceId): string | undefined
 }
 
 /** Transport-independent Fetch handler used by HTTP and worker carriers. */

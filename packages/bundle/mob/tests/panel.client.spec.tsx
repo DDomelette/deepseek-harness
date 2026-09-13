@@ -25,6 +25,17 @@ const JOIN_URL = 'http://192.168.1.5:3080/'
 const CODE = 'ABCD2345'
 const START = Date.parse('2026-09-12T12:00:00.000Z')
 
+const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
+/** A windowed device row: 30 days from `START`. */
+const WINDOWED = {
+  id: 'device-1',
+  label: '客厅的手机',
+  registeredAt: START,
+  lastSeenAt: START,
+  lifetimeDays: 30,
+  expiresAt: START + 30 * DAY_MILLISECONDS,
+} as const
+
 const t: TranslateNS<'settings.mobile'> = (key, params): string => {
   const template = zh[key as MobileSettingsKey]
   return Object.entries(params ?? {}).reduce(
@@ -40,6 +51,7 @@ interface Script {
   devices?: PairingResult<readonly PairedDeviceView[]>
   decide?: PairingResult<void>
   revoke?: PairingResult<void>
+  setLifetime?: PairingResult<void>
 }
 
 /** The panel's client half as spies, so assertions never re-reference a method. */
@@ -50,6 +62,7 @@ interface FakeApi {
   readonly decide: ReturnType<typeof vi.fn>
   readonly devices: ReturnType<typeof vi.fn>
   readonly revoke: ReturnType<typeof vi.fn>
+  readonly setLifetime: ReturnType<typeof vi.fn>
 }
 
 function fakeApi(script: Script = {}): FakeApi {
@@ -61,7 +74,8 @@ function fakeApi(script: Script = {}): FakeApi {
   const devices = vi.fn(async (): Promise<PairingResult<readonly PairedDeviceView[]>> =>
     script.devices ?? { ok: true, value: [] })
   const revoke = vi.fn(async (): Promise<PairingResult<void>> => script.revoke ?? { ok: true, value: undefined })
-  return { api: { open, requests, decide, devices, revoke }, open, requests, decide, devices, revoke }
+  const setLifetime = vi.fn(async (): Promise<PairingResult<void>> => script.setLifetime ?? { ok: true, value: undefined })
+  return { api: { open, requests, decide, devices, revoke, setLifetime }, open, requests, decide, devices, revoke, setLifetime }
 }
 
 const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
@@ -189,7 +203,7 @@ describe('PairingPanel', () => {
     mount({ api: fakeApi({ open: { ok: false, reason: 'forbidden' } }) })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')
+      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
     cleanup()
 
@@ -203,7 +217,7 @@ describe('PairingPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前未开启内网访问，请用 dsh web --host 0.0.0.0 --allow-lan 启动')
+      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
   })
 
@@ -233,5 +247,72 @@ describe('PairingPanel', () => {
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '吊销' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
     expect(screen.getByText('iPad')).toBeTruthy()
+  })
+
+  it('shows each device window, an expired device, and an unknown legacy entry', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(START))
+    mount({ api: fakeApi({ devices: { ok: true, value: [
+      WINDOWED,
+      { id: 'device-2', label: 'iPad', registeredAt: START, lastSeenAt: START, lifetimeDays: 7, expiresAt: START - 1 },
+      { id: 'device-3', label: '旧手机', registeredAt: START, lastSeenAt: START },
+    ] } }) })
+
+    const first = (await waitFor(() => screen.getAllByText('客厅的手机')))[0]!
+    expect(within(first.closest('li')!).getByText(/30 天（剩余 30 天）/u)).toBeTruthy()
+    await waitFor(() => { expect(within(screen.getByText('iPad').closest('li')!).getByText('已过期')).toBeTruthy() })
+    expect(within(screen.getByText('旧手机').closest('li')!).getByText('—')).toBeTruthy()
+  })
+
+  it('re-schedules a device from a preset and from an arbitrary day count', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(START))
+    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+
+    const label = await waitFor(() => screen.getByText('客厅的手机'))
+    const row = label.closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: '7 天' }))
+    await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 7) })
+
+    const days = within(row).getByLabelText('天数') as HTMLInputElement
+    fireEvent.change(days, { target: { value: '45' } })
+    fireEvent.click(within(row).getByRole('button', { name: '设为' }))
+    await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 45) })
+
+    fireEvent.change(days, { target: { value: '366' } })
+    expect((within(row).getByRole('button', { name: '设为' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(days, { target: { value: '0' } })
+    expect((within(row).getByRole('button', { name: '设为' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(subject.setLifetime).toHaveBeenCalledTimes(2)
+  })
+
+  it('states the revoke guidance and reports a refused re-schedule', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(START))
+    const subject = mount({ api: fakeApi({
+      devices: { ok: true, value: [WINDOWED] },
+      setLifetime: { ok: false, reason: 'failed' },
+    }) })
+
+    expect(screen.getByText('不再使用的设备请立即吊销；在不受信任的网络上用过之后也建议吊销。')).toBeTruthy()
+    expect(screen.getByText('延长后，手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效；窗口已经结束的设备必须重新配对。')).toBeTruthy()
+
+    const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: '1 天' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
+    expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 1)
+    expect(screen.getByText('客厅的手机')).toBeTruthy()
+  })
+
+  it('keeps the listed devices when the re-read after a re-schedule fails', async () => {
+    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
+    subject.devices.mockResolvedValue({ ok: false, reason: 'failed' })
+
+    fireEvent.click(within(row).getByRole('button', { name: '7 天' }))
+
+    await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 7) })
+    expect(screen.getByText('客厅的手机')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })
