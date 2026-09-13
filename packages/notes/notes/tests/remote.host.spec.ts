@@ -396,6 +396,32 @@ describe('notes remote materials', () => {
     })
   })
 
+  it('reads one material\'s own thread', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+    await host.remote.materialAnalyze({ id })
+    const sent = host.base.agents.followup.mock.calls[0]?.[0] as { id: string }
+    host.base.agents.record([
+      { seq: 0, type: 'user/message', data: { id: sent.id, role: 'user', content: [{ type: 'text', text: 'body' }] } },
+      { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
+    ])
+
+    expect(host.remote.materialThread({ id })).toEqual({
+      ok: true,
+      value: { rows: [{ role: 'user', text: 'body', seq: 0 }, { role: 'assistant', text: 'answer', seq: 1 }] },
+    })
+  })
+
+  it('reports why a thread could not be read', async () => {
+    const host = await mount()
+
+    expect(host.remote.materialThread({ id: materialId('absent') })).toEqual({
+      ok: false,
+      error: { code: 'material-not-found', id: 'absent' },
+    })
+  })
+
   it('archives and restores one material', async () => {
     const host = await mount()
     const note = await liveConversation(host)

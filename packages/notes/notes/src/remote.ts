@@ -24,7 +24,8 @@ import type {
   NotesMaterialListRequest, NotesMaterialListResult, NotesMaterialRemoveRequest,
   NotesMaterialRemoveResult, NotesMaterialReorderRequest, NotesMaterialReorderResult,
   NotesMaterialRestoreRequest, NotesMaterialRestoreResult, NotesMaterialSummary,
-  NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
+  NotesMaterialThreadRequest, NotesMaterialThreadResult, NotesMaterialUpdateRequest,
+  NotesMaterialUpdateResult, NotesRejected,
   NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
   NotesSessionSelectRequest, NotesSessionSelectResult, NotesSessionSummary,
@@ -255,6 +256,17 @@ export class NotesRemote extends TypertRemoteService {
     if (rejectedId !== undefined) return rejected({ code: 'material-not-found', id: rejectedId })
     await this.ctx.notesMaterials.reorder(request.noteId, request.orderedIds)
     return success(APPLIED)
+  }
+
+  /**
+   * Read one material's own thread from its conversation's log.
+   * @param request - the material whose thread to read.
+   * @returns the rows in sequence order, or the refusal that stopped the read.
+   */
+  @Remote
+  materialThread(request: NotesMaterialThreadRequest): NotesMaterialThreadResult {
+    const read = this.ctx.notesAnalysis.thread(request.id)
+    return read.ok ? success({ rows: read.rows }) : rejected(read.failure)
   }
 
   /**

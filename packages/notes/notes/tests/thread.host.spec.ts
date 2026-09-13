@@ -1,10 +1,11 @@
 /**
- * Thread attribution. A material's thread is each of its own user messages plus
- * everything up to the next user message, so a follow-up asked long after the
- * first analysis still lands in the right thread.
+ * Thread attribution and projection. A material's thread is each of its own user
+ * messages plus everything up to the next user message, so a follow-up asked
+ * long after the first analysis still lands in the right thread; the projection
+ * turns that into the rows the panel draws.
  */
 import { describe, expect, it } from 'vitest'
-import { attributeThread } from '../src/thread.ts'
+import { attributeThread, projectThread } from '../src/thread.ts'
 
 /** Minimal event shape the attribution reads; `data.id` mirrors `UserMessage.id`. */
 interface Row {
@@ -24,6 +25,19 @@ const rows: Row[] = [
   { seq: 40, type: 'user/message', data: { id: 'b2' } },   // B follow-up
   { seq: 41, type: 'assistant/message' },
 ]
+
+/** One text part of a message. */
+const text = (value: string): { type: string; text: string } => ({ type: 'text', text: value })
+
+/** One submitted user message, as the session logs it. */
+const submitted = (seq: number, id: string, ...content: unknown[]): Row & { data: unknown } => ({
+  seq, type: 'user/message', data: { id, role: 'user', content },
+})
+
+/** One assistant turn, which nests its message. */
+const answered = (seq: number, ...content: unknown[]): Row & { data: unknown } => ({
+  seq, type: 'assistant/message', data: { turn: 1, step: 1, message: { role: 'assistant', content } },
+})
 
 describe('thread attribution', () => {
   it('keeps every non-contiguous segment belonging to one material', () => {
@@ -52,5 +66,83 @@ describe('thread attribution', () => {
       { seq: 10, type: 'user/message', data: { id: 'a1' } },
     ]
     expect(attributeThread(shuffled, ['a1', 'a2']).map(row => row.seq)).toEqual([10, 11, 30])
+  })
+})
+
+describe('thread projection', () => {
+  it('draws the submission and the answer that follows it, in sequence order', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      answered(11, text('answer')),
+    ]
+
+    expect(projectThread(log, ['a1'])).toEqual([
+      { role: 'user', text: 'body', seq: 10 },
+      { role: 'assistant', text: 'answer', seq: 11 },
+    ])
+  })
+
+  it('joins a message\'s text parts with a blank line', () => {
+    const log = [submitted(10, 'a1', text('first'), text('second'))]
+
+    expect(projectThread(log, ['a1'])).toEqual([{ role: 'user', text: 'first\n\nsecond', seq: 10 }])
+  })
+
+  it('draws a follow-up asked after another material was answered', () => {
+    const log = [
+      submitted(10, 'a1', text('first')),
+      answered(11, text('answer one')),
+      submitted(20, 'b1', text('other')),
+      answered(21, text('answer two')),
+      submitted(30, 'a2', text('why?')),
+      answered(32, text('because')),
+    ]
+
+    expect(projectThread(log, ['a1', 'a2']).map(row => row.text))
+      .toEqual(['first', 'answer one', 'why?', 'because'])
+  })
+
+  it('draws no row for a message that carries no text', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      answered(11),
+      { seq: 12, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'tool-call' }] } } },
+    ]
+
+    expect(projectThread(log, ['a1']).map(row => row.seq)).toEqual([10])
+  })
+
+  it('draws no row for a role the thread does not show', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      { seq: 11, type: 'system/message', data: { turn: 1, step: 1, message: { role: 'system', content: [text('rules')] } } },
+      { seq: 12, type: 'assistant/message', data: { message: { content: [text('no role')] } } },
+    ]
+
+    expect(projectThread(log, ['a1']).map(row => row.seq)).toEqual([10])
+  })
+
+  it('draws nothing for a payload that is not an object', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      { seq: 11, type: 'assistant/message', data: 'nonsense' },
+      { seq: 12, type: 'user/message', data: null },
+    ]
+
+    expect(projectThread(log, ['a1']).map(row => row.seq)).toEqual([10])
+  })
+
+  it('draws nothing for a message whose content is not a list', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      { seq: 11, type: 'assistant/message', data: { message: { role: 'assistant', content: 'text' } } },
+      {
+        seq: 12,
+        type: 'assistant/message',
+        data: { message: { role: 'assistant', content: [null, { type: 'text' }, { type: 'text', text: 7 }] } },
+      },
+    ]
+
+    expect(projectThread(log, ['a1']).map(row => row.seq)).toEqual([10])
   })
 })

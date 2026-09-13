@@ -259,3 +259,51 @@ describe('notes analysis', () => {
     expect(auto.analysis.submitsOnCollection(null)).toBe(true)
   })
 })
+
+describe('notes material thread', () => {
+  it('reads the material\'s own rows out of the conversation\'s log', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const submitted = sentMessage(bench).id
+    bench.agents.record([
+      { seq: 0, type: 'user/message', data: { id: submitted, role: 'user', content: [{ type: 'text', text: 'body' }] } },
+      { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
+    ])
+
+    const read = bench.analysis.thread(id)
+
+    expect(read).toEqual({
+      ok: true,
+      rows: [
+        { role: 'user', text: 'body', seq: 0 },
+        { role: 'assistant', text: 'answer', seq: 1 },
+      ],
+    })
+  })
+
+  it('reports an unknown material', async () => {
+    const bench = await mount()
+
+    expect(bench.analysis.thread('absent' as MaterialId))
+      .toEqual({ ok: false, failure: { code: 'material-not-found', id: 'absent' } })
+  })
+
+  it('reports a conversation that is not recorded', async () => {
+    const bench = await mount()
+    const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
+
+    expect(bench.analysis.thread(id))
+      .toEqual({ ok: false, failure: { code: 'session-not-found', id: 'unrecorded' } })
+  })
+
+  it('reports a conversation with no live session', async () => {
+    const bench = await mount()
+    const note = await bench.sessions.record(noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }))
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    expect(bench.analysis.thread(id))
+      .toEqual({ ok: false, failure: { code: 'session-not-live', id: note } })
+  })
+})

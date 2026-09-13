@@ -22,6 +22,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { actionFor, composeBody } from './compose.ts'
+import { projectThread } from './thread.ts'
+import type { ThreadRow } from './thread.ts'
 import type { NoteSessions } from './note-sessions.ts'
 import type { NotesSettings } from './settings.ts'
 import type { Materials } from './materials.ts'
@@ -34,6 +36,11 @@ import type {
 type AgentTarget =
   | { readonly live: true; readonly agent: Agent }
   | { readonly live: false; readonly failure: NotesSessionNotFound | NotesSessionNotLive }
+
+/** One material's thread, or the failure that stopped the read. */
+export type ThreadRead =
+  | { readonly ok: true; readonly rows: readonly ThreadRow[] }
+  | { readonly ok: false; readonly failure: NotesAskFailure }
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -103,6 +110,23 @@ export class Analysis extends Service {
   submitsOnCollection(action: string | null): boolean {
     if (this.settings.strategy() === 'auto') return true
     return actionFor(action, this.settings.actions())?.autoSend === true
+  }
+
+  /**
+   * Read one material's own thread out of its conversation's log.
+   *
+   * The log is the content truth, so this projects the conversation's live
+   * events rather than any copy the notes domain keeps: what the panel shows is
+   * what the model saw.
+   * @param id - material id.
+   * @returns the thread's rows, or the failure that stopped the read.
+   */
+  thread(id: MaterialId): ThreadRead {
+    const current = this.ctx.notesMaterials.get(id)
+    if (current === undefined) return { ok: false, failure: { code: 'material-not-found', id } }
+    const target = this.targetFor(current.noteId)
+    if (!target.live) return { ok: false, failure: target.failure }
+    return { ok: true, rows: projectThread(target.agent.session.snapshotEvents(), current.messageIds) }
   }
 
   private get materials(): Materials {

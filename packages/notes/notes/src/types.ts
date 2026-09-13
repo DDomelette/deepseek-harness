@@ -210,6 +210,28 @@ export interface NotesMaterialRemoveRequest {
   readonly id: MaterialId
 }
 
+/** Read one material's own thread from its conversation's log. */
+export interface NotesMaterialThreadRequest {
+  /** Material whose thread to read. */
+  readonly id: MaterialId
+}
+
+/** One message of a material's thread. */
+export interface NotesThreadRow {
+  /** Whether the row is the material's own submission or the model's answer. */
+  readonly role: 'user' | 'assistant'
+  /** The row's text: every text part of the message, joined. */
+  readonly text: string
+  /** Session sequence the row came from, ascending within one thread. */
+  readonly seq: number
+}
+
+/** One material's thread, in sequence order. */
+export interface NotesThreadValue {
+  /** The rows; empty while the conversation has not answered yet. */
+  readonly rows: readonly NotesThreadRow[]
+}
+
 /** Acknowledges a mutation that has no value to report. */
 export interface NotesApplied {
   /** Stable postcondition shared by the first call and every retry. */
@@ -368,3 +390,8 @@ export type NotesMaterialReorderResult =
 export type NotesMaterialRemoveResult =
   | NotesSuccess<NotesApplied>
   | NotesRejected<NotesMaterialNotFound>
+
+/** Result of `notes/materialThread`. */
+export type NotesMaterialThreadResult =
+  | NotesSuccess<NotesThreadValue>
+  | NotesRejected<NotesMaterialNotFound | NotesSessionNotFound | NotesSessionNotLive>
