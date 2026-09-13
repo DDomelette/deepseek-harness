@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.md
+2026-09-13-device-lifetime-authority.md: 78fd38784d740cf1cb34c36e5b000f5cc7e07d45
+2026-09-13-device-lifetime-authority.zh.md: 4703135f04308614bd10ae5ea7d813af611e92a6

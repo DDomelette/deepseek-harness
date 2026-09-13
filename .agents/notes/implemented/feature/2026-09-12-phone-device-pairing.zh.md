@@ -14,7 +14,7 @@ Status: implemented
 
 电脑用 `POST /pair/session` 开启一次请求，得到 8 位短码（字母表不含 `0/O` 与 `1/I`），存活 120 秒、只可使用一次。手机打开 `/pair?c=<code>` 认领它，轮询界面读取 `/pair/state`；这两条手机路由都接受尚无 cookie 的请求——手机此刻本就没有 cookie。其余配对路由（`/pair/session`、`/pair/requests`、`/pair/approve`、`/pair/devices`、`/pair/revoke`）都要求浏览器会话**且**来自回环 authority，因此唯一能接纳设备的，是坐在电脑前的人。
 
-批准会以从手机 user agent 推导、并在面板里可改的名称登记该设备；手机下一次 `/pair/state` 轮询即带回决定与设备 cookie。决定与设备行同时公布：被允许的请求在登记写入设备行之前保持 pending，因此在这段窗口里轮询的手机继续等待，而不会收到一个 cookie 指向空处的批准；若设备行与短码过期发生竞争而落败，该行会被吊销而不是留在列表里。该 cookie 是第二种 cookie 形式：载荷为 `{version: 2, authority, deviceId, issuedAt, expiresAt}`，寿命由 `deviceCookieMaxAgeDays`（默认 180）在签发时固定，绝不因使用而续期。`BrowserAuth.isAuthenticated` 只在 `client-connection/paired-devices` 凭据记录仍列出该设备时才接受它，因此吊销会在该手机的下一次请求生效，既不需要重启 Host，也不影响电脑自己的 cookie。登记表跟随记录本身而不只是自身的写入：Connection 在该键每次 `credentials/record-updated` 时重新读取它，操作者直接编辑文件、或第二个进程吊销设备，都由此抵达运行中的 Host。
+批准会以从手机 user agent 推导、并在面板里可改的名称登记该设备；手机下一次 `/pair/state` 轮询即带回决定与设备 cookie。决定与设备行同时公布：被允许的请求在登记写入设备行之前保持 pending，因此在这段窗口里轮询的手机继续等待，而不会收到一个 cookie 指向空处的批准；若设备行与短码过期发生竞争而落败，该行会被吊销而不是留在列表里。该 cookie 是第二种 cookie 形式：载荷为 `{version: 2, authority, deviceId, issuedAt, expiresAt}`，到期于 `client-connection/paired-devices` 记录为该设备保存的交付窗口——登记时为 `deviceLifetimeDays`（默认 30），之后由操作者设定——且绝不因普通使用而续期（[按设备的设备寿命](2026-09-13-device-lifetime-authority.zh.md)）。`BrowserAuth.isAuthenticated` 只在 `client-connection/paired-devices` 凭据记录仍列出该设备时才接受它，因此吊销会在该手机的下一次请求生效，既不需要重启 Host，也不影响电脑自己的 cookie。登记表跟随记录本身而不只是自身的写入：Connection 在该键每次 `credentials/record-updated` 时重新读取它，操作者直接编辑文件、或第二个进程吊销设备，都由此抵达运行中的 Host。
 
 要让吊销真正"完整"，还需要另一半规则：进程启动令牌是电脑自己的凭据，因此 `authorizeIndex` 只在回环 authority 上交换它，`isAuthenticated` 也只在回环上承认启动令牌 cookie。于是 `dsh web` 打印的局域网 URL 不带令牌，`mob.joinUrl` 返回的是面板拼配对链接所用的、无令牌的局域网 origin，而每个非回环客户端——手机、平板或第二台电脑——都用自己的设备 cookie 认证。此前由局域网 authority 签发过的启动令牌 cookie 从此被拒绝，因此对手机而言"吊销"重新成为完整的答案。
 
@@ -28,7 +28,7 @@ Status: implemented
 - **手机号或短信登录。** 否决：需要短信服务商、用户数据库与找回流程，而本 harness 都没有，且这项部署的合法使用者本来就只有房间里的人。
 - **继续用打印出的 URL 作为手机的凭据，二维码里带一份 per-phone secret。** 否决：以同样方式发放的秘密仍然无法按设备吊销，也无法区分持有它的手机。
 - **让已配对的手机批准下一台手机，或通过 `/api` 的 Remote 方法批准。** 否决：能接纳设备的设备，等于让"持有局域网地址"就足以加入；而且它会把决定搬到一个手机也能到达的通道上。回环要求是"有人正坐在电脑前"的唯一可得证据，因此设置面板走与手机相同的 `/pair*` 路由，而不是新增 Remote 孪生方法。
-- **设备 cookie 滑动续期。** 否决：被盗的 cookie 只要一直被使用就永远有效。固定寿命加显式吊销，才是操作者能据以推理的东西。
+- **设备 cookie 滑动续期。** 否决：被盗的 cookie 只要一直被使用就永远有效。固定寿命加显式吊销，才是操作者能据以推理的东西。登记表窗口在操作者设定时固定，索引请求的刷新只是让 cookie 与该窗口对齐，因此使用仍然不会延长任何东西。
 
 ## 后果
 
