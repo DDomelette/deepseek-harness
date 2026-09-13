@@ -21,6 +21,7 @@ export const PAIRED_DEVICES_RECORD_KEY = credentialKey('client-connection', 'pai
 const PAIRED_DEVICES_VERSION = 1
 const DEVICE_ID_BYTES = 16
 const TOUCH_THROTTLE_MILLISECONDS = 60 * 60 * 1000
+const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -32,16 +33,30 @@ function malformed(detail: string): Error {
 
 function deviceOf(value: unknown): PairedDevice {
   if (!isRecord(value)) throw malformed('has a non-object entry')
-  const { id, label, registeredAt, lastSeenAt } = value
+  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt } = value
   if (typeof id !== 'string' || id === '') throw malformed('has an entry without an id')
   if (typeof label !== 'string') throw malformed(`entry ${id} has a non-string label`)
   if (!Number.isSafeInteger(registeredAt)) throw malformed(`entry ${id} has an invalid registration time`)
   if (!Number.isSafeInteger(lastSeenAt)) throw malformed(`entry ${id} has an invalid last-seen time`)
-  return {
+  // The stored window is record integrity, not policy: the 1–365 day range is
+  // enforced where an operator value enters, in the config schema and the route.
+  if (lifetimeDays !== undefined && !(Number.isSafeInteger(lifetimeDays) && (lifetimeDays as number) >= 1)) {
+    throw malformed(`entry ${id} has an invalid lifetime`)
+  }
+  if (expiresAt !== undefined && !Number.isSafeInteger(expiresAt)) {
+    throw malformed(`entry ${id} has an invalid expiry`)
+  }
+  const device: PairedDevice = {
     id: PairedDeviceId(id),
     label,
     registeredAt: registeredAt as number,
     lastSeenAt: lastSeenAt as number,
+  }
+  if (lifetimeDays === undefined && expiresAt === undefined) return device
+  return {
+    ...device,
+    ...lifetimeDays === undefined ? {} : { lifetimeDays: lifetimeDays as number },
+    ...expiresAt === undefined ? {} : { expiresAt: expiresAt as number },
   }
 }
 
@@ -91,11 +106,13 @@ export async function listDevices(credentials: CredentialProvider): Promise<read
  * Register a newly approved device and mint its opaque id.
  * @param credentials - persistent credential provider for the Web profile.
  * @param request - the label the operator approved the device under.
+ * @param lifetimeDays - delivery window in days this device starts with.
  * @returns the stored device entry.
  */
 export async function registerDevice(
   credentials: CredentialProvider,
   request: RegisterDeviceRequest,
+  lifetimeDays: number,
 ): Promise<PairedDevice> {
   const now = Date.now()
   const device: PairedDevice = {
@@ -103,6 +120,8 @@ export async function registerDevice(
     label: request.label,
     registeredAt: now,
     lastSeenAt: now,
+    lifetimeDays,
+    expiresAt: now + lifetimeDays * DAY_MILLISECONDS,
   }
   await writeDevices(credentials, devices => [...devices, device])
   return device
@@ -121,6 +140,27 @@ export async function revokeDevice(
   const devices = await listDevices(credentials)
   if (!devices.some(device => device.id === deviceId)) return false
   await writeDevices(credentials, current => current.filter(device => device.id !== deviceId))
+  return true
+}
+
+/**
+ * Set one device's delivery window, restarting its countdown: a shorter window
+ * applies to that device's next request, a longer one on its next index request.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to re-schedule.
+ * @param days - window in days, written together with the expiry it implies.
+ * @returns true when a registered device was re-scheduled.
+ */
+export async function setDeviceLifetime(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+  days: number,
+): Promise<boolean> {
+  const devices = await listDevices(credentials)
+  if (!devices.some(device => device.id === deviceId)) return false
+  const expiresAt = Date.now() + days * DAY_MILLISECONDS
+  await writeDevices(credentials, current => current.map(device =>
+    (device.id === deviceId ? { ...device, lifetimeDays: days, expiresAt } : device)))
   return true
 }
 

@@ -26,6 +26,10 @@ export interface PairedDeviceView {
   readonly registeredAt: number
   /** Epoch milliseconds of the last accepted request. */
   readonly lastSeenAt: number
+  /** Days the operator set for this device's current window; absent on a legacy entry. */
+  readonly lifetimeDays?: number | undefined
+  /** Epoch milliseconds this device's window ends; absent on a legacy entry. */
+  readonly expiresAt?: number | undefined
 }
 
 /** A pairing session the computer opened for one phone. */
@@ -56,6 +60,8 @@ export interface PairingApi {
   devices(): Promise<PairingResult<readonly PairedDeviceView[]>>
   /** Revoke one device. */
   revoke(deviceId: string): Promise<PairingResult<void>>
+  /** Set one device's delivery window, in days. */
+  setLifetime(deviceId: string, days: number): Promise<PairingResult<void>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,7 +134,14 @@ function deviceOf(value: unknown): PairedDeviceView | undefined {
   if (id === undefined || label === undefined || registeredAt === undefined || lastSeenAt === undefined) {
     return undefined
   }
-  return { id, label, registeredAt, lastSeenAt }
+  return {
+    id,
+    label,
+    registeredAt,
+    lastSeenAt,
+    lifetimeDays: numberField(value, 'lifetimeDays'),
+    expiresAt: numberField(value, 'expiresAt'),
+  }
 }
 
 /**
@@ -206,6 +219,12 @@ export function createPairingApi(): PairingApi {
     },
     async revoke(deviceId) {
       const answer = await call('/pair/revoke', { method: 'POST', body: { deviceId } })
+      if (!answer.ok) return answer
+      const ok = isRecord(answer.value) ? answer.value.ok : undefined
+      return ok === true ? { ok: true, value: undefined } : { ok: false, reason: 'failed' }
+    },
+    async setLifetime(deviceId, days) {
+      const answer = await call('/pair/devices/lifetime', { method: 'POST', body: { deviceId, days } })
       if (!answer.ok) return answer
       const ok = isRecord(answer.value) ? answer.value.ok : undefined
       return ok === true ? { ok: true, value: undefined } : { ok: false, reason: 'failed' }

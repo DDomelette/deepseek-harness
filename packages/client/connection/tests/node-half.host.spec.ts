@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { API_PATH, Config, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
@@ -651,5 +651,58 @@ describe('connection device registry handle', () => {
     } finally {
       await dispose()
     }
+  })
+
+  it('gives a newly registered device the configured default window', async () => {
+    const fallback = await mounted()
+    try {
+      const device = await fallback.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(30)
+      expect(device.expiresAt).toBeGreaterThan(Date.now())
+    } finally {
+      await fallback.dispose()
+    }
+
+    const configured = await mounted({ deviceLifetimeDays: 60 })
+    try {
+      const device = await configured.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(60)
+      const [listed] = await configured.connection.devices.list()
+      expect(listed).toEqual(device)
+    } finally {
+      await configured.dispose()
+    }
+  })
+
+  it('re-schedules one device window and mints its next cookie inside it', async () => {
+    const { connection, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    // Only the clock is frozen, so the two minted windows stay exact while the
+    // Context's own scheduling keeps running on real timers.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-13T12:00:00.000Z'))
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
+        .toContain('Max-Age=2592000')
+
+      expect(await connection.devices.setLifetime(device.id, 1)).toBe(true)
+      const [listed] = await connection.devices.list()
+      expect(listed?.lifetimeDays).toBe(1)
+      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
+        .toContain('Max-Age=86400')
+
+      expect(await connection.devices.setLifetime(PairedDeviceId('ghost'), 1)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+      await dispose()
+    }
+  })
+
+  it('resolves the 30-day device lifetime default and refuses a window outside 1–365 days', () => {
+    expect(Config({}).deviceLifetimeDays).toBe(30)
+    expect(() => Config({ deviceLifetimeDays: 0 })).toThrow()
+    expect(() => Config({ deviceLifetimeDays: 366 })).toThrow()
+    expect(Config({ deviceLifetimeDays: 365 }).deviceLifetimeDays).toBe(365)
   })
 })

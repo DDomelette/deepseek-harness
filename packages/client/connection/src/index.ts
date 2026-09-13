@@ -89,11 +89,13 @@ export interface ConnectionConfig {
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
   /**
-   * Absolute paired-device cookie lifetime in days. A phone's device cookie
-   * lives this long from approval and is never renewed on use; revocation ends
-   * it earlier. Default: 180.
+   * Delivery window in days a newly registered device receives. Each paired
+   * device's own window is set in the Connect-phone panel and stored in the
+   * `client-connection/paired-devices` record; this value only decides what a
+   * device starts with. Integer 1–365; there is no never-expires option.
+   * Default: 30.
    */
-  deviceCookieMaxAgeDays?: number
+  deviceLifetimeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
 }
@@ -102,7 +104,7 @@ export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
-  deviceCookieMaxAgeDays: z.natural().min(1).default(180),
+  deviceLifetimeDays: z.natural().min(1).max(365).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
@@ -118,7 +120,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
-  const deviceCookieMaxAgeDays = config?.deviceCookieMaxAgeDays ?? 180
+  const deviceLifetimeDays = config?.deviceLifetimeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
@@ -127,7 +129,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceCookieMaxAgeDays),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays),
   )
   // The credential record is the authority for device access, and it changes
   // under this process too: the credentials owner reports every write, including

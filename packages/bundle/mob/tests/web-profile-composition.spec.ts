@@ -147,7 +147,8 @@ describe('mob join namespace over a Loader tree', () => {
     await bootTree({ host: '127.0.0.1', lanAddresses: [] })
     const globals = globalThis as unknown as { __dshMobRoutes: string[] }
     expect([...globals.__dshMobRoutes].sort()).toEqual([
-      '/pair', '/pair/approve', '/pair/devices', '/pair/requests', '/pair/revoke', '/pair/session', '/pair/state',
+      '/pair', '/pair/approve', '/pair/devices', '/pair/devices/lifetime', '/pair/requests', '/pair/revoke',
+      '/pair/session', '/pair/state',
     ])
   })
 })

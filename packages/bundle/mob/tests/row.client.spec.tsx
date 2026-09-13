@@ -39,6 +39,7 @@ const api: PairingApi = {
   decide: async () => ({ ok: true, value: undefined }),
   devices: async () => ({ ok: true, value: [] }),
   revoke: async () => ({ ok: true, value: undefined }),
+  setLifetime: async () => ({ ok: true, value: undefined }),
 }
 
 function mount(face: Partial<ConnectPhoneRowInjected> = {}): void {

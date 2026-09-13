@@ -22,6 +22,9 @@ const FRONTEND_SERVICE = 'frontend'
 const CODE_QUERY = 'c'
 /** Largest accepted decision body; these routes carry only identifiers and a label. */
 const PAIR_BODY_LIMIT_BYTES = 8 * 1024
+/** Legal per-device lifetime in days, matching the Connection config schema. */
+const MIN_DEVICE_LIFETIME_DAYS = 1
+const MAX_DEVICE_LIFETIME_DAYS = 365
 /** Source recorded when the socket exposes no remote address (in-process callers). */
 const UNKNOWN_SOURCE = 'unknown'
 
@@ -33,6 +36,7 @@ export const PAIR_PATHS = {
   requests: '/pair/requests',
   approve: '/pair/approve',
   devices: '/pair/devices',
+  lifetime: '/pair/devices/lifetime',
   revoke: '/pair/revoke',
 } as const
 
@@ -141,7 +145,7 @@ async function pairingShell(ctx: Context, code: string): Promise<string | undefi
 }
 
 /**
- * Register the seven pairing routes on the Host web server.
+ * Register the eight pairing routes on the Host web server.
  * @param ctx - plugin context carrying `webServer` and the Connection service.
  * @param pairing - the process's pairing sessions.
  * @returns disposer withdrawing every route.
@@ -278,6 +282,28 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         }
         if (refused(req, res, ctx, 'loopback')) return
         sendJson(res, 200, { devices: await ctx.connection.devices.list() })
+      },
+    }),
+    ctx.webServer.register({
+      kind: 'exact',
+      path: PAIR_PATHS.lifetime,
+      handler: async (req, res) => {
+        if (req.method !== 'POST') {
+          sendMethodNotAllowed(res, 'POST')
+          return
+        }
+        if (refused(req, res, ctx, 'loopback')) return
+        const body = await readJsonBody(req)
+        const { deviceId, days } = body ?? {}
+        if (typeof deviceId !== 'string' || typeof days !== 'number'
+          || !Number.isSafeInteger(days) || days < MIN_DEVICE_LIFETIME_DAYS || days > MAX_DEVICE_LIFETIME_DAYS) {
+          sendJson(res, 400, { error: 'expected a device id and a lifetime of 1 to 365 days' })
+          return
+        }
+        // Wire boundary: the body carries the id as JSON text, and this is where
+        // the validated string earns the registry's brand.
+        const target = deviceId as PairedDeviceId
+        sendJson(res, 200, { ok: await ctx.connection.devices.setLifetime(target, days) })
       },
     }),
     ctx.webServer.register({

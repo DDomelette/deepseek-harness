@@ -19,6 +19,13 @@ import type { MobileSettingsKey } from './locales.ts'
 const REQUEST_POLL_MILLISECONDS = 2_000
 /** How often the countdown re-renders. */
 const COUNTDOWN_TICK_MILLISECONDS = 1_000
+/** Day counts the lifetime controls offer as one-click presets. */
+const LIFETIME_PRESETS = [1, 7, 30, 90] as const
+/** Milliseconds in one day, for the remaining-days column. */
+const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
+/** Legal device lifetime in days, matching the route's acceptance rule. */
+const MIN_LIFETIME_DAYS = 1
+const MAX_LIFETIME_DAYS = 365
 
 /** Injected face: the LAN join URL, whether this page may decide, and the routes' client half. */
 export interface PairingPanelInjected {
@@ -69,6 +76,7 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   const [devices, setDevices] = useState<readonly PairedDeviceView[]>([])
   const [notice, setNotice] = useState<Notice | undefined>(undefined)
   const [now, setNow] = useState(() => Date.now())
+  const [customDays, setCustomDays] = useState<Readonly<Record<string, string>>>({})
 
   const remaining = useMemo(
     () => session === undefined ? 0 : Math.max(0, Math.ceil((session.expiresAt - now) / 1_000)),
@@ -152,6 +160,32 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
     setDevices(current => current.filter(device => device.id !== deviceId))
   }
 
+  /** Lifetime cell of one device row: its window, `expired`, or unknown for a legacy entry. */
+  const lifetimeOf = (device: PairedDeviceView): string => {
+    if (device.lifetimeDays === undefined || device.expiresAt === undefined) return t('panel.lifetimeUnknown')
+    if (device.expiresAt <= now) return t('panel.lifetimeExpired')
+    const remaining = Math.max(0, Math.ceil((device.expiresAt - now) / DAY_MILLISECONDS))
+    return t('panel.lifetimeWindow', { days: device.lifetimeDays, remaining })
+  }
+
+  /** The day count typed for one device, when it is inside the legal range. */
+  const customDaysOf = (deviceId: string): number | undefined => {
+    const entered = customDays[deviceId]
+    if (entered === undefined || entered.trim() === '') return undefined
+    const days = Number(entered)
+    return Number.isSafeInteger(days) && days >= MIN_LIFETIME_DAYS && days <= MAX_LIFETIME_DAYS ? days : undefined
+  }
+
+  const setLifetime = async (deviceId: string, days: number): Promise<void> => {
+    const answer = await api.setLifetime(deviceId, days)
+    if (!answer.ok) {
+      setNotice('failed')
+      return
+    }
+    const listed = await api.devices()
+    if (listed.ok) setDevices(listed.value)
+  }
+
   return (
     <div className={css.panel}>
       {session === undefined
@@ -208,6 +242,8 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
 
       <section className={css.section}>
         <h3 className={css.heading}>{t('panel.devices')}</h3>
+        <p className={css.status}>{t('panel.revokeHint')}</p>
+        <p className={css.status}>{t('panel.lifetimeNote')}</p>
         {devices.length === 0
           ? <p className={css.status}>{t('panel.noDevices')}</p>
           : (
@@ -220,7 +256,47 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
                       {t('panel.registered', { time: formatStamp(device.registeredAt) })}
                       {' · '}
                       {t('panel.lastSeen', { time: formatStamp(device.lastSeenAt) })}
+                      {' · '}
+                      <span>{lifetimeOf(device)}</span>
                     </div>
+                  </div>
+                  <div className={css.actions}>
+                    {LIFETIME_PRESETS.map(days => (
+                      <button
+                        key={days}
+                        type="button"
+                        className={css.action}
+                        onClick={() => { void setLifetime(device.id, days) }}
+                      >
+                        {t('panel.lifetimePreset', { days })}
+                      </button>
+                    ))}
+                    <label className={css.field}>
+                      {t('panel.lifetimeCustom')}
+                      <input
+                        className={css.input}
+                        type="number"
+                        min={MIN_LIFETIME_DAYS}
+                        max={MAX_LIFETIME_DAYS}
+                        value={customDays[device.id] ?? ''}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value
+                          setCustomDays(current => ({ ...current, [device.id]: value }))
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={css.action}
+                      disabled={customDaysOf(device.id) === undefined}
+                      onClick={() => {
+                        const days = customDaysOf(device.id)
+                        /* v8 ignore next -- defensive race guard behind the disabled button. */
+                        if (days !== undefined) void setLifetime(device.id, days)
+                      }}
+                    >
+                      {t('panel.lifetimeApply')}
+                    </button>
                   </div>
                   <button type="button" className={css.action} onClick={() => { void revoke(device.id) }}>
                     {t('panel.revoke')}
