@@ -270,9 +270,10 @@ ActionDef {
 
 ### Phase 0 — 包骨架与注册
 
-- 新建包 `packages/client/ui-notes`,包名 `@deepseek-ai/dsh-client-ui-notes`,同时具备宿主半边与浏览器半边。同一形态的先例是 `packages/client/ui-message-feedback`。
+- 新建包 `packages/notes/notes`,包名 `@deepseek-ai/dsh-notes`,**一个包同时具备宿主半边与浏览器半边**,由 `package.json` 的 `dsh.client` 声明标出浏览器半边。先例是 `packages/session-query/session-log-export`(宿主 `src/index.ts` 156 行 + `src/client/`)。
+- **不能放在 `packages/client/` 下。** 该目录的新包清单写明 `src/index.ts` 是 empty node-half apply(`packages/client/AGENTS.md`),而本插件的宿主半边很重(存储域、设置、会话编排、Remote),放进去会与该目录的约定直接冲突。
 - 三处注册缺一不可:`tsconfig.client.json` 的 aggregate `references`、`packages/bundle/web-app/cordis.patch.yml` 的 `dsh.client` 行、`packages/bundle/web-app/package.json` 的依赖。
-- `package.json` 声明 `dsh.client`(`platform: 'web'`)与 `exports["./client"]`,`tsdown` 用现有 `clientBundle()` 预设,浏览器半边保持 lazy-CJS 输出。
+- `package.json` 声明 `dsh.client`(`platform: 'web'`)与 `exports` 的 `.`、`./client`、`./package.json`、`./src/*`(以及 Remote 生成物对应的条目),`tsdown` 用现有 `clientBundle()` 预设,浏览器半边保持 lazy-CJS 输出。
 
 ### Phase 1 — 宿主半边
 
@@ -357,4 +358,4 @@ ActionDef {
 | 4 | 首版素材标题用正文截断 | 零成本;模型摘要要额外一次调用 | 加模型摘要会引入一次辅助调用与相应延迟 |
 | 5 | 翻译目标语言默认由模型判断 | 避免首版就引入语言配置 | 可改为设置项显式指定 |
 | 6 | 锚点取不到时降级而不阻断收集 | 划词本身是高频动作,失败即丢弃体验差 | 改成拒绝收集会让来源更纯,但容易丢内容 |
-| 7 | 包名 `@deepseek-ai/dsh-client-ui-notes`,路径 `packages/client/ui-notes` | 与 `ui-message-feedback` 的"宿主 + 浏览器双半边"形态一致 | 若认为宿主半边太重,可拆成两个包,但会引入跨包依赖 |
+| 7 | 包名 `@deepseek-ai/dsh-notes`,路径 `packages/notes/notes`,单包双半边 | `packages/client/AGENTS.md` 规定 `packages/client/*` 的宿主半边必须为空,而本插件宿主半边很重;双半边先例是 `session-log-export` | 若改成拆两个包(宿主包 + `packages/client/ui-notes`),就与 `feedback/message-feedback` + `client/ui-message-feedback` 的先例一致,但会多出一条跨包依赖与 Remote 消费接线 |
