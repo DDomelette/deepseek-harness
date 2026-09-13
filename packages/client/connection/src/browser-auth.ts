@@ -417,10 +417,10 @@ export class BrowserAuth {
   /**
    * Verify the authority-bound browser cookie on a Host request. A device cookie
    * must name a device the registry still holds, on the authority it was issued
-   * for, and counts only until that device's window ends — the registry's
-   * `expiresAt` when the entry carries one, otherwise the expiry the payload
-   * carries; a launch-token cookie is the computer's own and counts only on a
-   * loopback authority, so revoking a device is the whole story for every phone.
+   * for, and counts only until the earlier of the expiry its payload carries and
+   * the `expiresAt` its registry entry records, when that entry records one; a
+   * launch-token cookie is the computer's own and counts only on a loopback
+   * authority, so revoking a device is the whole story for every phone.
    * @param request - request headers carrying Host and Cookie.
    * @returns true only for a cookie this activation still accepts.
    */
