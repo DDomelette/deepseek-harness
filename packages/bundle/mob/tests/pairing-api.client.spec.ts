@@ -101,10 +101,16 @@ describe('pairing route client', () => {
 
   it('lists devices and rejects entries it cannot read', async () => {
     const api = createPairingApi()
-    stub(json({ devices: [{ id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2 }] }))
+    stub(json({ devices: [
+      { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3 },
+      { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2 },
+    ] }))
     await expect(api.devices()).resolves.toEqual({
       ok: true,
-      value: [{ id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2 }],
+      value: [
+        { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3 },
+        { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2, lifetimeDays: undefined, expiresAt: undefined },
+      ],
     })
 
     for (const body of [{}, [], { devices: {} }, { devices: [{ id: 'device-1' }] }, { devices: [null] }]) {
@@ -134,6 +140,26 @@ describe('pairing route client', () => {
 
     stub(json({ error: 'no' }, 410))
     await expect(createPairingApi().revoke('device-1')).resolves.toEqual({ ok: false, reason: 'expired' })
+  })
+
+  it('sets one device lifetime and reports the Host answer', async () => {
+    const fetchMock = stub(json({ ok: true }))
+    await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: true, value: undefined })
+    expect(fetchMock).toHaveBeenCalledWith('/pair/devices/lifetime', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'device-1', days: 7 }),
+    })
+
+    stub(json({ ok: false }))
+    await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: false, reason: 'failed' })
+
+    stub(json([]))
+    await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: false, reason: 'failed' })
+
+    stub(json({ error: 'no' }, 403))
+    await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: false, reason: 'forbidden' })
   })
 })
 
