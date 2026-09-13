@@ -11,7 +11,7 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
-import { listDevices, registerDevice, revokeDevice, touchDevice } from './devices.ts'
+import { listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import { requestAuthority, requestHostname } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
@@ -94,6 +94,11 @@ export class HostConnectionService extends Service implements HostConnectionHand
         const removed = await revokeDevice(credentials, deviceId)
         if (removed) await this.browserAuth.refreshPairedDevices()
         return removed
+      },
+      setLifetime: async (deviceId, days) => {
+        const updated = await setDeviceLifetime(credentials, deviceId, days)
+        if (updated) await this.browserAuth.refreshPairedDevices()
+        return updated
       },
       touch: deviceId => touchDevice(credentials, deviceId),
       issueCookie: (request, deviceId) => {

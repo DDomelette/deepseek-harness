@@ -48,6 +48,8 @@ interface Bench {
   readonly registered: RegisterDeviceRequest[]
   readonly revoked: string[]
   readonly touched: string[]
+  /** Per-device windows the route tests set through `/pair/devices/lifetime`. */
+  readonly windows: ReadonlyMap<string, { readonly lifetimeDays: number; readonly expiresAt: number }>
   /** Serve one route call and decode the recorded response. */
   call(path: string, init?: {
     method?: string
@@ -70,6 +72,7 @@ function bench(options: ConnectionOptions = {}): Bench {
   const registered: RegisterDeviceRequest[] = []
   const revoked: string[] = []
   const touched: string[] = []
+  const windows = new Map<string, { lifetimeDays: number; expiresAt: number }>()
   ctx.provide('webServer', {
     register(route: WebRoute) {
       routes.set(route.path, route)
@@ -80,12 +83,16 @@ function bench(options: ConnectionOptions = {}): Bench {
     requestRejection: () => options.rejection,
     isLoopbackRequest: () => options.loopback ?? true,
     devices: {
-      list: async () => registered.map((request, index) => ({
-        id: `device-${String(index + 1)}`,
-        label: request.label,
-        registeredAt: 1,
-        lastSeenAt: 1,
-      })),
+      list: async () => registered.map((request, index) => {
+        const id = `device-${String(index + 1)}`
+        return { id, label: request.label, registeredAt: 1, lastSeenAt: 1, ...windows.get(id) ?? {} }
+      }),
+      setLifetime: async (deviceId: string, days: number) => {
+        const known = registered.some((_request, index) => `device-${String(index + 1)}` === deviceId)
+        if (!known) return false
+        windows.set(deviceId, { lifetimeDays: days, expiresAt: days * 86_400_000 })
+        return true
+      },
       register: async (request: RegisterDeviceRequest) => {
         options.duringRegister?.()
         registered.push(request)
@@ -119,6 +126,7 @@ function bench(options: ConnectionOptions = {}): Bench {
     registered,
     revoked,
     touched,
+    windows,
     async call(path, init = {}) {
       const route = routes.get(path)
       if (route === undefined) throw new Error(`no route registered for ${path}`)
@@ -194,6 +202,7 @@ describe('pairing routes', () => {
         list: async () => [],
         register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
         revoke: async () => true,
+        setLifetime: async () => true,
         touch: async () => true,
         issueCookie: () => COOKIE,
       },
@@ -408,5 +417,67 @@ describe('pairing routes', () => {
     for (const rawBody of ['[1,2]', '42', 'x'.repeat(9 * 1024)]) {
       expect((await subject.call(PAIR_PATHS.revoke, { method: 'POST', rawBody })).status).toBe(400)
     }
+  })
+
+  it('re-schedules one device under the loopback-and-session guard within 1–365 days', async () => {
+    const subject = bench()
+    const { code } = subject.pairing.openSession()
+    await approve(subject, code)
+
+    const accepted = await subject.call(PAIR_PATHS.lifetime, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { deviceId: 'device-1', days: 7 },
+    })
+    expect(accepted.status).toBe(200)
+    expect(JSON.parse(accepted.body)).toEqual({ ok: true })
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{
+        id: 'device-1',
+        label: 'HUAWEI JAD-AL50',
+        registeredAt: 1,
+        lastSeenAt: 1,
+        lifetimeDays: 7,
+        expiresAt: 7 * 86_400_000,
+      }],
+    })
+
+    for (const body of [
+      { deviceId: 'device-1', days: 0 },
+      { deviceId: 'device-1', days: 366 },
+      { deviceId: 'device-1', days: 1.5 },
+      { deviceId: 'device-1', days: '30' },
+      { deviceId: 'device-1' },
+      { days: 7 },
+    ]) {
+      const rejected = await subject.call(PAIR_PATHS.lifetime, {
+        method: 'POST',
+        cookie: 'dsh-auth-test=session',
+        body,
+      })
+      expect(rejected.status).toBe(400)
+    }
+    expect((await subject.call(PAIR_PATHS.lifetime, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+    })).status).toBe(400)
+    expect(subject.windows.get('device-1')).toEqual({ lifetimeDays: 7, expiresAt: 7 * 86_400_000 })
+
+    const unknown = await subject.call(PAIR_PATHS.lifetime, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { deviceId: 'ghost', days: 7 },
+    })
+    expect(unknown.status).toBe(200)
+    expect(JSON.parse(unknown.body)).toEqual({ ok: false })
+
+    expect((await subject.call(PAIR_PATHS.lifetime, { method: 'GET' })).status).toBe(405)
+    const remote = bench({ rejection: 401 })
+    expect((await remote.call(PAIR_PATHS.lifetime, { method: 'POST' })).status).toBe(401)
+    const lan = bench({ loopback: false })
+    expect((await lan.call(PAIR_PATHS.lifetime, {
+      method: 'POST',
+      body: { deviceId: 'device-1', days: 7 },
+    })).status).toBe(403)
   })
 })

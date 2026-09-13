@@ -262,6 +262,14 @@ export interface HostConnectionDevices {
   revoke(deviceId: PairedDeviceId): Promise<boolean>
 
   /**
+   * Set one device's delivery window, restarting its countdown.
+   * @param deviceId - id of the device to re-schedule.
+   * @param days - window in days, an integer from 1 to 365.
+   * @returns true when a stored device was re-scheduled.
+   */
+  setLifetime(deviceId: PairedDeviceId, days: number): Promise<boolean>
+
+  /**
    * Record that a device authenticated, throttled to once an hour.
    * @param deviceId - id of the device that made the request.
    * @returns true when the stored last-seen time was advanced.
