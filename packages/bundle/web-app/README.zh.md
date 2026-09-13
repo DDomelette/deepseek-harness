@@ -51,7 +51,7 @@ dsh --profile web --no-open --port 8080
 
 ### LAN 访问与可信主机
 
-`dsh web` 绑定所有网卡（`0.0.0.0`），因此局域网内的浏览器可用就绪行列出的局域网 URL 访问，该 URL 不带令牌；传 `--host 127.0.0.1` 则只服务本机，`--trusted-host` 在两种情况下都能添加额外主机。绑定所有网卡会在挂载时打印明文 HTTP 警告：网络上任何拿到 cookie 的人都获得完全控制权，因此只在信任的网络上提供服务。Host 与 Origin 检查控制可达性，而启动令牌只在回环 authority 上交换，因此 LAN 浏览器用它配对所得的设备 cookie 认证（[连接手机](../mob/README.zh.md)）。LAN 地址只在启动时采样一次，因此之后的网络变化不会被感知——重启 GUI 以重新公告。若要只放行一台手机而不是整个网段，就为你提供服务的端口添加按设备防火墙规则——在 Windows 上：`netsh advfirewall firewall add rule name="dsh web phone" dir=in action=allow protocol=TCP localport=3080 remoteip=<手机 IP>`——手机 DHCP 地址变化后需重新添加（`netsh advfirewall firewall delete rule name="dsh web phone"` 可删除旧规则）。已配对手机的设备 cookie 寿命由「连接手机」面板掌管：新设备从 `deviceLifetimeDays`（默认 30，合法 1–365）开始，面板显示剩余天数，设定新值即重新计时，吊销后该设备的下一次请求即失效。
+`dsh web` 绑定所有网卡（`0.0.0.0`），因此局域网内的浏览器可用就绪行列出的局域网 URL 访问，该 URL 不带令牌；传 `--host 127.0.0.1` 则只服务本机，`--trusted-host` 在两种情况下都能添加额外主机。绑定所有网卡会在挂载时打印明文 HTTP 警告：网络上任何拿到 cookie 的人都获得完全控制权，因此只在信任的网络上提供服务。Host 与 Origin 检查控制可达性，而启动令牌只在回环 authority 上交换，因此 LAN 浏览器用它配对所得的设备 cookie 认证（[连接手机](../mob/README.zh.md)）。LAN 地址只在启动时采样一次，因此之后的网络变化不会被感知——重启 GUI 以重新公告。若要只放行一台手机而不是整个网段，就为你提供服务的端口添加按设备防火墙规则——在 Windows 上，用提升权限的命令行执行：`netsh advfirewall firewall add rule name="dsh web phone" dir=in action=allow protocol=TCP localport=3080 remoteip=<手机 IP>`（`<手机 IP>` 是路由器分配给这台手机的地址）——手机 DHCP 地址变化后需重新添加（`netsh advfirewall firewall delete rule name="dsh web phone"` 同样需要提升权限，可删除旧规则）。已配对手机的设备 cookie 寿命由「连接手机」面板掌管：新设备从 `deviceLifetimeDays`（默认 30，合法 1–365）开始，面板显示剩余天数，设定新值即重新计时，吊销后该设备的下一次请求即失效。
 
 ### 通过 SSH 运行
 

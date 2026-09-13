@@ -295,7 +295,7 @@ describe('PairingPanel', () => {
     }) })
 
     expect(screen.getByText('不再使用的设备请立即吊销；在不受信任的网络上用过之后也建议吊销。')).toBeTruthy()
-    expect(screen.getByText('延长后，手机下一次打开页面时生效。')).toBeTruthy()
+    expect(screen.getByText('延长后，手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效；窗口已经结束的设备必须重新配对。')).toBeTruthy()
 
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
     fireEvent.click(within(row).getByRole('button', { name: '1 天' }))
