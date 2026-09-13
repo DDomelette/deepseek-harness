@@ -385,7 +385,7 @@ export class BrowserAuth {
       }
       return this.refuseIndex(req, res)
     }
-    if (this.isAuthenticated(req)) return 'serve'
+    if (this.authorizeIndexCookie(req, res)) return 'serve'
     return this.refuseIndex(req, res)
   }
 
@@ -427,6 +427,26 @@ export class BrowserAuth {
   isAuthenticated(request: ConnectionTrustRequest): boolean {
     const payload = this.cookiePayload(request)
     return payload !== undefined && this.accepts(payload, request)
+  }
+
+  /**
+   * Authenticate one index request and stage the aligned device cookie when the
+   * registry window outlives the payload's expiry. Only an index request
+   * refreshes, so ordinary `/api` calls never renew a device cookie.
+   */
+  private authorizeIndexCookie(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+    const payload = this.cookiePayload(req)
+    if (payload === undefined || !this.accepts(payload, req)) return false
+    if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) this.refreshDeviceCookie(payload, res)
+    return true
+  }
+
+  /** Stage the replacement cookie for a device cookie whose payload lags its registry window. */
+  private refreshDeviceCookie(payload: DeviceCookiePayload, res: ConnectionIndexResponse): void {
+    const issuedAt = Date.now()
+    const expiresAt = this.pairedDevices.get(payload.deviceId)?.expiresAt
+    if (expiresAt === undefined || expiresAt <= payload.expiresAt) return
+    res.setHeader('set-cookie', this.mintDeviceCookie(payload.authority, payload.deviceId, issuedAt, expiresAt))
   }
 
   /** Whether one decoded cookie payload is still inside its lifetime for this request. */

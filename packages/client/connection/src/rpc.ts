@@ -94,6 +94,13 @@ export interface ConnectionIndexRequest extends ConnectionTrustRequest {
 
 /** Root/index response operations owned by the browser-token exchange. */
 export interface ConnectionIndexResponse {
+  /**
+   * Stage a header written with the caller's status, such as the replacement
+   * `Set-Cookie` that aligns a device cookie with its registry window.
+   * @param name - header name.
+   * @param value - header value.
+   */
+  setHeader(name: string, value: string): unknown
   writeHead(status: number, headers?: Readonly<Record<string, string>>): unknown
   end(body?: string): unknown
 }

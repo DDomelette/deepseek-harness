@@ -43,9 +43,12 @@ function response(): { value: ConnectionIndexResponse; state: ResponseState } {
   const state: ResponseState = {}
   return {
     value: {
+      setHeader(name, value) {
+        state.headers = { ...state.headers, [name]: value }
+      },
       writeHead(status, headers) {
         state.status = status
-        if (headers !== undefined) state.headers = headers
+        state.headers = { ...state.headers, ...headers }
       },
       end(body) {
         if (body !== undefined) state.body = body
@@ -467,6 +470,105 @@ describe('BrowserAuth', () => {
       store.setPairedDevices({ version: 1, devices: [] })
       await expect(createAuth(tooLong, 30, {}, Number.MAX_SAFE_INTEGER))
         .rejects.toThrow(/safe timestamp range/u)
+    })
+
+    it('stages no refresh for an index request whose device entry carries no window', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const store = new RecordCredentials()
+      store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie(authority, PHONE))
+
+      const served = response()
+      expect(auth.authorizeIndex(request('/', authority, { cookie }), served.value)).toBe('serve')
+      expect(served.state).toEqual({})
+    })
+
+    it('mints a zero-age cookie for a device whose registry window already elapsed', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const store = new RecordCredentials()
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', {
+          lifetimeDays: 1,
+          expiresAt: Date.now() - DAY_MILLISECONDS,
+        })],
+      })
+      const auth = await createAuth(store)
+      const setCookie = auth.issueDeviceCookie(authority, PHONE)
+
+      expect(setCookie).toMatch(/; Max-Age=0; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
+      expect(auth.isAuthenticated(request('/', authority, { cookie: cookiePair(setCookie) }))).toBe(false)
+    })
+
+    it('refreshes an aligned cookie on the index request that follows an extension', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const store = new RecordCredentials()
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', {
+          lifetimeDays: 30,
+          expiresAt: Date.now() + 30 * DAY_MILLISECONDS,
+        })],
+      })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie(authority, PHONE))
+
+      // The operator extends this device's window on the computer.
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', {
+          lifetimeDays: 60,
+          expiresAt: Date.now() + 60 * DAY_MILLISECONDS,
+        })],
+      })
+      await auth.refreshPairedDevices()
+
+      const served = response()
+      expect(auth.authorizeIndex(request('/', authority, { cookie }), served.value)).toBe('serve')
+      const refreshed = served.state.headers?.['set-cookie']
+      expect(refreshed).toMatch(/; Max-Age=5184000; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
+
+      // Until the phone loads the page, /api stays bounded by the old payload;
+      // the refreshed cookie carries the extended window from then on.
+      vi.setSystemTime(Date.now() + 31 * DAY_MILLISECONDS)
+      expect(auth.isAuthenticated(request('/', authority, { cookie }))).toBe(false)
+      expect(auth.isAuthenticated(request('/', authority, { cookie: cookiePair(refreshed!) }))).toBe(true)
+
+      // An already-aligned cookie is not re-issued.
+      const again = response()
+      expect(auth.authorizeIndex(
+        request('/', authority, { cookie: cookiePair(refreshed!) }),
+        again.value,
+      )).toBe('serve')
+      expect(again.state).toEqual({})
+    })
+
+    it('stages no refresh for an index request whose device cookie is refused', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const store = new RecordCredentials()
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', {
+          lifetimeDays: 1,
+          expiresAt: Date.now() + DAY_MILLISECONDS,
+        })],
+      })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', PHONE))
+
+      vi.setSystemTime(Date.now() + 2 * DAY_MILLISECONDS)
+      const refused = response()
+      expect(auth.authorizeIndex(request('/', '127.0.0.1:3080', { cookie }), refused.value)).toBe('answered')
+      expect(refused.state.status).toBe(401)
+      expect(refused.state.headers?.['set-cookie']).toBeUndefined()
     })
   })
 })
