@@ -280,9 +280,9 @@ describe('PairingPanel', () => {
     await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 45) })
 
     fireEvent.change(days, { target: { value: '366' } })
-    expect((within(row).getByRole('button', { name: '设为' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(within(row).getByRole<HTMLButtonElement>('button', { name: '设为' }).disabled).toBe(true)
     fireEvent.change(days, { target: { value: '0' } })
-    expect((within(row).getByRole('button', { name: '设为' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(within(row).getByRole<HTMLButtonElement>('button', { name: '设为' }).disabled).toBe(true)
     expect(subject.setLifetime).toHaveBeenCalledTimes(2)
   })
 
