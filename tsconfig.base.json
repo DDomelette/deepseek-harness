@@ -338,6 +338,7 @@
       "@deepseek-ai/dsh-message-feedback": ["./packages/feedback/message-feedback/src"],
       "@deepseek-ai/dsh-mob": ["./packages/bundle/mob/src"],
       "@deepseek-ai/dsh-native-command": ["./packages/util/native-command/src"],
+      "@deepseek-ai/dsh-notes": ["./packages/notes/notes/src"],
       "@deepseek-ai/dsh-output-retention": ["./packages/util/output-retention/src"],
       "@deepseek-ai/dsh-package-manifest": ["./packages/util/package-manifest/src"],
       "@deepseek-ai/dsh-permission-presets": ["./packages/interaction/permission-presets/src"],
