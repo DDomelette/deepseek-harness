@@ -257,7 +257,7 @@ git commit -m "feat(notes): add the plugin package skeleton"
 - Modify: `tsconfig.client.json`
 - Modify: `packages/bundle/web-app/cordis.patch.yml`
 - Modify: `packages/bundle/web-app/package.json`
-- Test: `packages/notes/notes/tests/registration.host.spec.ts`
+- Test: `packages/notes/notes/tests/node-plugin.host.spec.ts`
 
 **Interfaces:**
 - Consumes: Task 1 的包名与导出面。
@@ -293,7 +293,7 @@ git commit -m "feat(notes): add the plugin package skeleton"
 
 - [ ] **Step 3: 写加载测试(先红)**
 
-`packages/notes/notes/tests/registration.host.spec.ts`:
+`packages/notes/notes/tests/node-plugin.host.spec.ts`:
 
 ```text
 /**
@@ -328,7 +328,7 @@ describe('notes host half', () => {
 
 - [ ] **Step 4: 跑测试确认红**
 
-Run: `pnpm exec vitest run packages/notes/notes/tests/registration.host.spec.ts`
+Run: `pnpm exec vitest run packages/notes/notes/tests/node-plugin.host.spec.ts`
 
 Expected: FAIL——`../src/index.ts` 尚未导出 `inject`(Task 1 的 `apply` 没有 `inject`)。
 
@@ -343,7 +343,7 @@ export const inject: string[] = []
 
 - [ ] **Step 6: 跑测试**
 
-Run: `pnpm exec vitest run packages/notes/notes/tests/registration.host.spec.ts`
+Run: `pnpm exec vitest run packages/notes/notes/tests/node-plugin.host.spec.ts`
 
 Expected: PASS。
 
@@ -1481,7 +1481,7 @@ git commit -m "feat(notes): attribute session events to a material"
 - Create: `packages/notes/notes/src/settings.ts`
 - Modify: `packages/notes/notes/src/index.ts`
 - Modify: `packages/notes/notes/tsconfig.host.json`
-- Modify: `packages/notes/notes/tests/registration.host.spec.ts`(Task 2 建的;本任务改了 `apply` 的签名,必须同步)
+- Modify: `packages/notes/notes/tests/node-plugin.host.spec.ts`(Task 2 建的;本任务改了 `apply` 的签名,必须同步)
 - Test: `packages/notes/notes/tests/settings.host.spec.ts`
 
 **Interfaces:**
@@ -1490,7 +1490,7 @@ git commit -m "feat(notes): attribute session events to a material"
 
 **关键约束:** 设置 schema 用 **schemastery**(`import s from '@deepseek-ai/schemastery'`),不是 zod。
 
-**本任务会打破 Task 2 的测试,必须一并修。** Task 2 的 `tests/registration.host.spec.ts` 用 `ctx.plugin({ apply, inject })` 挂载,而 Cordis 会对它调用 `apply(ctx, undefined)`。Step 4 把 `apply` 改成 `(ctx, config: Config)` 之后,`undefined` 会一路传进 `NotesSettings`,读取时抛错。修法是把那个测试改成带显式 `Config` 挂载——它要证明的事(行能被解析、能干净卸载)完全不变,只是多一个参数。
+**本任务会打破 Task 2 的测试,必须一并修。** Task 2 的 `tests/node-plugin.host.spec.ts` 用 `ctx.plugin({ apply, inject })` 挂载,而 Cordis 会对它调用 `apply(ctx, undefined)`。Step 4 把 `apply` 改成 `(ctx, config: Config)` 之后,`undefined` 会一路传进 `NotesSettings`,读取时抛错。修法是把那个测试改成带显式 `Config` 挂载——它要证明的事(行能被解析、能干净卸载)完全不变,只是多一个参数。
 
 - [ ] **Step 1: 写测试(先红)**
 
@@ -1737,7 +1737,7 @@ export function apply(ctx: Context, config: Config): void {
 
 **`Config` 的再导出不是可选项。** Loader 校验 cordis 行的 config 时读的是**模块命名空间的 `Config` 导出**;只在 `settings.ts` 里导出它,行就拿不到 schema,`config` 会是 `undefined`,设置节也永远拿不到默认值——Task 10 的组合测试夹具正是一行不带 `config` 的 `notes` 行。
 
-**同时把 `tests/registration.host.spec.ts` 改成带配置挂载:**
+**同时把 `tests/node-plugin.host.spec.ts` 改成带配置挂载:**
 
 ```text
     const mounted = ctx.plugin({ apply, inject }, {
@@ -2148,7 +2148,7 @@ git commit -m "feat(notes): submit materials to the notes conversation"
 
 `packages/notes/notes/tests/notes-composition.host.spec.ts` 通过 Loader 启动一个测试专用 `cordis.yml`,其中包含 `@deepseek-ai/dsh-notes` 行与它依赖的 storage/settings 行,断言插件到达 active 且 `ctx.notesMaterials` 可用。
 
-测试专用 yml 放在 `packages/notes/notes/tests/fixtures/notes.cordis.yml`,行内容照抄 `packages/bundle/base/cordis.patch.yml` 的 storage 三行加一行 notes:
+测试专用 yml 由 spec 在它自己独占的临时目录里写出来,行内容照抄 `packages/bundle/base/cordis.patch.yml` 的 storage 三行加一行 notes。**不提交 fixtures 文件:** 套件在 fork worker 里与其他门禁进程并发运行,一个共享的 fixture 路径(或一个指向它的共享环境变量)会把它们耦在一起。行内容:
 
 ```text
 - id: storage
