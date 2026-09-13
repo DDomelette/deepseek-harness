@@ -57,7 +57,7 @@ The plugin mounts six services, and each is the documented owner of its slice of
 
 ### Browser half
 
-The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. A control in the conversation header's corner seat opens that tab, and opening it again reveals the tab already there rather than adding a second one. The panel reads and writes only through `ctx.remote.notes`, so it holds no rule the Host would not apply.
+The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. The panel shows two columns while its pane is wide enough for both, the material list and the open material's detail, and one at a time below 560px, where the reader moves between them. Its body is editable until the material entered its conversation and read-only afterwards, matching what the Host enforces. A control in the conversation header's corner seat opens the tab, and opening it again reveals the tab already there rather than adding a second one. The panel reads and writes only through `ctx.remote.notes`, so it holds no rule the Host would not apply.
 
 ### What to expect
 
@@ -125,7 +125,7 @@ None on the derived request prefix. Each submission appends to its own conversat
 
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
-- **The panel is a skeleton** — the tab, the header control, the conversation listing, and one row per material exist; the two-column list-and-detail layout, the selection bubble that collects from a transcript, and the settings card are later phases.
+- **The panel is incomplete** — the list, the detail pane, its editing, and its follow-up box exist; the selection bubble that collects from a transcript, the archived bucket, drag reordering, the settings card, and the floating and docked presentations are later phases.
 - **Screenshots are not collected yet** — the material record already carries a durable attachment reference field, but no path stores an image or resolves one into a request, and the Remote namespace has no `materialAddImage` operation.
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened.
 - **A material that entered its conversation is fixed** — `materialUpdate` reports `material-submitted` once a material has a recorded message, because the session log carries the submitted body and rewriting the record would desync the row from its thread.
@@ -143,7 +143,7 @@ This Dev Note is working context for maintainers: open directions that are not d
 
 #### Next phases
 
-The Host half is complete apart from screenshot collection, and the browser half is a skeleton reaching real operations; the two-column layout, the selection bubble, and the floating and docked presentations are the next pieces. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
+The Host half is complete apart from screenshot collection, and the browser half lists, edits, submits, and answers through real operations; the selection bubble, the archived bucket and reordering, the settings card, and the floating and docked presentations are the next pieces. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
 
 </details>
 

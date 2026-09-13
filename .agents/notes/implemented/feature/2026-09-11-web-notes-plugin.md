@@ -60,7 +60,9 @@ The `notes` Remote namespace answers every call with the vocabulary in `src/type
 
 The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes` at the `builtin` band, recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat under the definition's own `id`, so an extension may take the kind over without taking the body. A control in the conversation header's `conversation.session.header.corner` seat opens the tab by kind; `openTab` deduplicates a page within its pane, so pressing it again reveals the panel rather than adding a second one, and the control needs no state of its own.
 
-The panel's Host access is `ctx.remote.notes` and nothing else: it never reaches a service, and it holds no rule the Host would not apply. Reads and the two writes it commands run in `src/client/face.ts`, which answers with the store the registration declares; the component only renders what that store holds and calls those commands, so a refusal is a state to draw rather than an exception to catch. Carrier failures, which name no notes condition, become one local `remote-unavailable` state carrying the transport's own message.
+The panel's Host access is `ctx.remote.notes` and nothing else: it never reaches a service, and it holds no rule the Host would not apply. Reads and the two writes it commands run in `src/client/face.ts`, which answers with the store the registration declares; the component only renders what that store holds and calls those commands, so a refusal is a state to draw rather than an exception to catch. Carrier failures, which name no notes condition, become one local `remote-unavailable` state carrying the transport's own message; a refused write reports beside the content it left standing, while only a failed read replaces that content.
+
+The panel lays out two columns while its pane is wide enough and one below 560px, and the switch is a container query over the panel itself rather than the window — a right column's width is not the viewport's. Its editing follows the Host's rule instead of guessing: the wire summary carries `submitted`, derived from the material's recorded message ids, so the body is editable exactly while the material is a draft.
 
 ### Thread attribution is tested as a pure function
 
@@ -94,7 +96,7 @@ The notes package declares `dsh.client`, so the policy inspects every runtime ex
 
 ## Consequences
 
-The Host half carries the whole Remote namespace and the browser half reaches it, so a panel can list conversations and materials and start a conversation without a rule of its own. The panel is otherwise a skeleton: one row per material, no detail pane, no collection surface in the transcript, and no screenshot path — the record's attachment reference field has no writer, and there is no `materialAddImage` operation.
+The Host half carries the whole Remote namespace and the browser half reaches it, so a panel can list conversations and materials, edit a draft, submit it, read the answer back, and ask a follow-up without a rule of its own. What is missing is collection and layout: no surface in the transcript collects a selection, the archived bucket and drag reordering have no UI, and the record's attachment reference field has no writer, so there is no screenshot path and no `materialAddImage` operation.
 
 A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted reports `session-not-live` until it is reopened, because `ctx.agents` holds live Agents only.
 

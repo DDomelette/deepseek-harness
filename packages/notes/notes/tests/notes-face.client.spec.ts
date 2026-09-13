@@ -7,7 +7,10 @@
  * fails — is reachable without a gateway.
  */
 import { describe, expect, it } from 'vitest'
-import { noteId, created, harness, materialSummary, materials, sessions, sessionSummary, unavailable } from './fixtures.client.ts'
+import {
+  created, harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions,
+  thread, unavailable,
+} from './fixtures.client.ts'
 
 /** Let the command's promise chain settle. */
 async function settle(): Promise<void> {
@@ -147,5 +150,118 @@ describe('notes panel commands', () => {
 
     expect(bench.instance.getSnapshot().failure).toEqual({ code: 'workspace-missing' })
     expect(bench.remote.sessionList).not.toHaveBeenCalled()
+  })
+})
+
+describe('notes panel detail commands', () => {
+  it('reads the thread of the material it opens', async () => {
+    const bench = harness({ thread: () => thread([{ role: 'user', text: 'body', seq: 0 }]) })
+
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    expect(bench.instance.getSnapshot().selected).toBe(materialId('m1'))
+    expect(bench.remote.materialThread).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
+    expect(bench.instance.getSnapshot().thread).toEqual([{ role: 'user', text: 'body', seq: 0 }])
+  })
+
+  it('closes the detail without reading a thread', async () => {
+    const bench = harness()
+
+    bench.face.select(null)
+    await settle()
+
+    expect(bench.instance.getSnapshot().selected).toBeNull()
+    expect(bench.remote.materialThread).not.toHaveBeenCalled()
+  })
+
+  it('reports a carrier failure while reading a thread', async () => {
+    const bench = harness({ thread: () => ({ ok: false, error: unavailable('socket closed') }) })
+
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    expect(bench.instance.getSnapshot().threadFailure?.code).toBe('remote-unavailable')
+  })
+
+  it('reports the Host\'s refusal while reading a thread', async () => {
+    const bench = harness({
+      thread: () => ({ ok: true, value: { ok: false, error: { code: 'session-not-live', id: noteId('n1') } } }),
+    })
+
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    expect(bench.instance.getSnapshot().threadFailure).toEqual({ code: 'session-not-live', id: noteId('n1') })
+  })
+
+  it('re-reads the open detail after a write lands', async () => {
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: noteId('n1') })], [], noteId('n1')),
+      materials: () => materials([materialSummary({ noteId: noteId('n1') })]),
+    })
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    bench.face.analyze(materialId('m1'))
+    await settle()
+
+    expect(bench.remote.materialAnalyze).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
+    expect(bench.remote.materialThread).toHaveBeenCalledTimes(2)
+    expect(bench.instance.getSnapshot().notice).toBeUndefined()
+  })
+
+  it('reports a carrier failure from a write', async () => {
+    const bench = harness()
+    bench.remote.materialUpdate.mockResolvedValueOnce({ ok: false, error: unavailable('socket closed') })
+
+    bench.face.saveText(materialId('m1'), 'edited')
+    await settle()
+
+    expect(bench.instance.getSnapshot().notice?.code).toBe('remote-unavailable')
+  })
+
+  it('reports the Host\'s refusal from a write', async () => {
+    const bench = harness()
+    bench.remote.materialUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { code: 'material-submitted', id: materialId('m1') } },
+    })
+
+    bench.face.saveText(materialId('m1'), 'edited')
+    await settle()
+
+    expect(bench.instance.getSnapshot().notice).toEqual({ code: 'material-submitted', id: materialId('m1') })
+  })
+
+  it('closes the detail when a write removes the material it showed', async () => {
+    const bench = harness()
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    bench.face.remove(materialId('m1'))
+    await settle()
+
+    expect(bench.instance.getSnapshot().selected).toBeNull()
+    expect(bench.remote.materialRemove).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
+  })
+
+  it('closes the detail when the Host no longer lists the material', async () => {
+    const listed = { value: true }
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: noteId('n1') })], [], noteId('n1')),
+      materials: () => materials(listed.value ? [materialSummary({ noteId: noteId('n1') })] : []),
+    })
+    bench.face.load()
+    await settle()
+    bench.face.select(materialId('m1'))
+    await settle()
+
+    listed.value = false
+    bench.face.refresh()
+    await settle()
+
+    expect(bench.instance.getSnapshot().selected).toBeNull()
+    expect(bench.instance.getSnapshot().thread).toEqual([])
   })
 })

@@ -10,7 +10,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { NotesPanel } from '../src/client/NotesPanel.tsx'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
-  harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, unavailable,
+  harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
+  unavailable,
 } from './fixtures.client.ts'
 
 afterEach(() => {
@@ -100,6 +101,55 @@ describe('notes panel', () => {
     render(<NotesPanel {...bench.props()} />)
 
     expect(screen.getByText('tab.title')).toBeDefined()
+  })
+
+  it('opens one material\'s detail from its row and closes it again', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([materialSummary({ noteId: note, text: 'row body' })]),
+      thread: () => thread([{ role: 'user', text: 'row body', seq: 0 }]),
+    })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByText('row body')).toBeDefined() })
+
+    fireEvent.click(screen.getByText('source.chat'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).not.toBeNull() })
+    expect(bench.remote.materialThread).toHaveBeenCalledExactlyOnceWith({ id: materialSummary().id })
+
+    fireEvent.click(screen.getByLabelText('detail.back'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).toBeNull() })
+  })
+
+  it('says a conversation has no materials yet in place of the list', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+
+    await waitFor(() => { expect(screen.getByText('panel.noMaterials')).toBeDefined() })
+  })
+
+  it('reports a refused write over the content it left standing', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([materialSummary({ noteId: note })]),
+    })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByText('source.chat')).toBeDefined() })
+    bench.remote.materialUpdate.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { code: 'material-submitted', id: materialSummary().id } },
+    })
+
+    bench.face.saveText(materialSummary().id, 'edited')
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice]')).not.toBeNull() })
+    expect(screen.getByText('error.materialSubmitted')).toBeDefined()
+    // The listing the refusal left standing stays: only a failed read replaces it.
+    expect(screen.getByText('source.chat')).toBeDefined()
   })
 })
 

@@ -9,8 +9,8 @@
 import { defineStore } from '@deepseek-ai/dsh-client-store'
 import type { EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type {
-  NotesMaterialListValue, NotesMaterialSummary, NotesSessionListValue, NotesSessionSummary,
-  NoteSessionId,
+  MaterialId, NotesMaterialListValue, NotesMaterialSummary, NotesSessionListValue,
+  NotesSessionSummary, NotesThreadRow, NoteSessionId,
 } from '../types.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 
@@ -26,15 +26,25 @@ export interface NotesState {
   materials: readonly NotesMaterialSummary[]
   /** Archived materials of the active conversation. */
   archivedMaterials: readonly NotesMaterialSummary[]
+  /** Material whose detail is open, or null while the list alone is shown. */
+  selected: MaterialId | null
+  /** The selected material's thread, in sequence order. */
+  thread: readonly NotesThreadRow[]
+  /** The thread read is in flight. */
+  threadLoading: boolean
+  /** Why the last thread read produced nothing. */
+  threadFailure: NotesPanelFailure | undefined
   /** A read is in flight. */
   loading: boolean
   /** The Host answered at least once, so a remount has something to show. */
   loaded: boolean
   /** Why the last read produced nothing; cleared by the next read. */
   failure: NotesPanelFailure | undefined
+  /** Why the last write was refused; the panel's content stays under it. */
+  notice: NotesPanelFailure | undefined
 }
 
-/** The store's write set; every action is one step of one read. */
+/** The store's write set; every action is one step of one read or write. */
 type NotesActions = {
   started: (draft: NotesState) => void
   failed: (draft: NotesState, failure: NotesPanelFailure) => void
@@ -43,6 +53,11 @@ type NotesActions = {
     sessions: NotesSessionListValue,
     materials: NotesMaterialListValue | null,
   ) => void
+  refused: (draft: NotesState, failure: NotesPanelFailure) => void
+  selected: (draft: NotesState, id: MaterialId | null) => void
+  threadStarted: (draft: NotesState) => void
+  threadFailed: (draft: NotesState, failure: NotesPanelFailure) => void
+  threadLoaded: (draft: NotesState, rows: readonly NotesThreadRow[]) => void
 }
 
 /**
@@ -57,9 +72,14 @@ export function createNotesStore(): EngineStoreHandle<NotesState, NotesActions> 
       activeId: null,
       materials: [],
       archivedMaterials: [],
+      selected: null,
+      thread: [],
+      threadLoading: false,
+      threadFailure: undefined,
       loading: false,
       loaded: false,
       failure: undefined,
+      notice: undefined,
     }),
     actions: {
       /** @param d - draft state. */
@@ -73,7 +93,8 @@ export function createNotesStore(): EngineStoreHandle<NotesState, NotesActions> 
         d.failure = failure
       },
       /**
-       * Record one complete read.
+       * Record one complete read. A material the Host no longer lists closes its
+       * detail, so the panel never shows a row that is gone.
        * @param d - draft state.
        * @param sessions - the conversations the Host listed.
        * @param materials - the active conversation's materials, or null when
@@ -88,6 +109,38 @@ export function createNotesStore(): EngineStoreHandle<NotesState, NotesActions> 
         d.loading = false
         d.loaded = true
         d.failure = undefined
+        d.notice = undefined
+        if (d.selected !== null && !d.materials.some(row => row.id === d.selected)) {
+          d.selected = null
+          d.thread = []
+          d.threadFailure = undefined
+        }
+      },
+      /** @param d - draft state. @param failure - the refusal the last write reported. */
+      refused: (d, failure) => {
+        d.notice = failure
+      },
+      /** @param d - draft state. @param id - the material to open, or null to close the detail. */
+      selected: (d, id) => {
+        d.selected = id
+        d.thread = []
+        d.threadFailure = undefined
+      },
+      /** @param d - draft state. */
+      threadStarted: (d) => {
+        d.threadLoading = true
+        d.threadFailure = undefined
+      },
+      /** @param d - draft state. @param failure - the settled failure. */
+      threadFailed: (d, failure) => {
+        d.threadLoading = false
+        d.threadFailure = failure
+      },
+      /** @param d - draft state. @param rows - the thread the Host returned. */
+      threadLoaded: (d, rows) => {
+        d.thread = rows
+        d.threadLoading = false
+        d.threadFailure = undefined
       },
     },
   })

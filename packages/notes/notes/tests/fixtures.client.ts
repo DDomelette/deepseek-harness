@@ -20,7 +20,8 @@ import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import { createNotesStore } from '../src/client/store.ts'
 import type {
   MaterialId, MaterialSource, NoteSessionId, NotesMaterialListResult, NotesMaterialSummary,
-  NotesSessionCreateResult, NotesSessionListResult, NotesSessionSummary,
+  NotesMaterialThreadResult, NotesSessionCreateResult, NotesSessionListResult,
+  NotesSessionSummary, NotesThreadRow,
 } from '../src/types.ts'
 
 /** The session the panel is mounted beside. */
@@ -60,6 +61,7 @@ export const materialSummary = (overrides: Partial<NotesMaterialSummary> = {}): 
   kind: 'text',
   text: 'body',
   hasImage: false,
+  submitted: false,
   source: source(),
   action: null,
   order: 0,
@@ -92,6 +94,16 @@ export function created(id = noteId('n1')): RemoteResult<NotesSessionCreateResul
   return { ok: true, value: { ok: true, value: { id } } }
 }
 
+/** One successful publication of a thread. */
+export function thread(rows: readonly NotesThreadRow[] = []): RemoteResult<NotesMaterialThreadResult> {
+  return { ok: true, value: { ok: true, value: { rows } } }
+}
+
+/** The answer every valueless write reports when it lands. */
+export function applied(): { readonly ok: true; readonly value: { readonly ok: true; readonly value: { readonly applied: true } } } {
+  return { ok: true, value: { ok: true, value: { applied: true } } }
+}
+
 /** One carrier failure, as the Remote face delivers it. */
 export function unavailable(message = 'socket closed'): RemoteFailure {
   return { code: 'gateway/internal', message, name: 'RemoteError' } as unknown as RemoteFailure
@@ -111,6 +123,19 @@ function hookOf<T>(instance: { subscribe: (fn: () => void) => () => void; getSna
   }
 }
 
+/** The scripted Remote face, one mock per operation. */
+export interface HarnessRemote {
+  readonly sessionList: Mock<NotesRemoteFace['sessionList']>
+  readonly sessionCreate: Mock<NotesRemoteFace['sessionCreate']>
+  readonly materialList: Mock<NotesRemoteFace['materialList']>
+  readonly materialThread: Mock<NotesRemoteFace['materialThread']>
+  readonly materialUpdate: Mock<NotesRemoteFace['materialUpdate']>
+  readonly materialAnalyze: Mock<NotesRemoteFace['materialAnalyze']>
+  readonly materialAsk: Mock<NotesRemoteFace['materialAsk']>
+  readonly materialArchive: Mock<NotesRemoteFace['materialArchive']>
+  readonly materialRemove: Mock<NotesRemoteFace['materialRemove']>
+}
+
 /** What one scripted Harness hands a spec. */
 export interface Harness {
   /** The live store instance the panel reads. */
@@ -118,11 +143,7 @@ export interface Harness {
   /** The command face bound to this instance and the scripted Remote. */
   readonly face: NotesInjected
   /** The scripted Remote face, for assertions and re-scripting. */
-  readonly remote: NotesRemoteFace & {
-    sessionList: Mock<NotesRemoteFace['sessionList']>
-    sessionCreate: Mock<NotesRemoteFace['sessionCreate']>
-    materialList: Mock<NotesRemoteFace['materialList']>
-  }
+  readonly remote: HarnessRemote
   /** Composed props for the panel. */
   readonly props: () => NotesPanelProps
   /** Composed props for the header control. */
@@ -138,6 +159,7 @@ export function harness(script: {
   readonly sessions?: () => RemoteResult<NotesSessionListResult>
   readonly materials?: () => RemoteResult<NotesMaterialListResult>
   readonly create?: () => RemoteResult<NotesSessionCreateResult>
+  readonly thread?: () => RemoteResult<NotesMaterialThreadResult>
 } = {}): Harness {
   const instance = createNotesStore().create()
   const remote = {
@@ -150,6 +172,14 @@ export function harness(script: {
     materialList: vi.fn<NotesRemoteFace['materialList']>(
       async () => script.materials?.() ?? materials(),
     ),
+    materialThread: vi.fn<NotesRemoteFace['materialThread']>(
+      async () => script.thread?.() ?? thread(),
+    ),
+    materialUpdate: vi.fn<NotesRemoteFace['materialUpdate']>(async () => applied()),
+    materialAnalyze: vi.fn<NotesRemoteFace['materialAnalyze']>(async () => applied()),
+    materialAsk: vi.fn<NotesRemoteFace['materialAsk']>(async () => applied()),
+    materialArchive: vi.fn<NotesRemoteFace['materialArchive']>(async () => applied()),
+    materialRemove: vi.fn<NotesRemoteFace['materialRemove']>(async () => applied()),
   }
   const face = notesFace(remote, instance.actions)
   const tabActions = { openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
@@ -180,6 +210,12 @@ export function harness(script: {
       load: face.load,
       refresh: face.refresh,
       createConversation: face.createConversation,
+      select: face.select,
+      saveText: face.saveText,
+      analyze: face.analyze,
+      ask: face.ask,
+      archive: face.archive,
+      remove: face.remove,
       t,
     }) as unknown as NotesPanelProps,
     buttonProps: () => ({

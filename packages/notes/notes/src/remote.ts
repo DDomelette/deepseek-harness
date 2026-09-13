@@ -304,6 +304,7 @@ function materialSummary(stored: StoredMaterial): NotesMaterialSummary {
     kind: stored.kind,
     text: stored.text,
     hasImage: stored.image !== null,
+    submitted: stored.messageIds.length > 0,
     source: { ...stored.source },
     action: stored.action,
     order: stored.order,

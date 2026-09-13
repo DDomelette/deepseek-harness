@@ -229,6 +229,7 @@ describe('notes remote materials', () => {
       kind: 'text',
       text: 'body',
       hasImage: false,
+      submitted: false,
       action: null,
       status: 'draft',
       error: null,
@@ -351,6 +352,9 @@ describe('notes remote materials', () => {
     })
 
     expect(host.base.materials.get(id)?.text).toBe('body')
+    // The listing the panel reads says the same thing the write enforces.
+    const listed = host.remote.materialList({ noteId: note })
+    expect(listed.ok && listed.value.materials[0]?.submitted).toBe(true)
   })
 
   it('submits one material for analysis', async () => {

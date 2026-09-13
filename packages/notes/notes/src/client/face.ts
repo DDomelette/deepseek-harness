@@ -9,8 +9,13 @@
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  NotesMaterialListRequest, NotesMaterialListResult, NotesMaterialListValue,
-  NotesSessionCreateResult, NotesSessionListResult,
+  MaterialId, NotesApplied, NotesFailure, NotesMaterialAnalyzeRequest,
+  NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
+  NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
+  NotesMaterialListResult, NotesMaterialListValue, NotesMaterialRemoveRequest,
+  NotesMaterialRemoveResult, NotesMaterialThreadRequest, NotesMaterialThreadResult,
+  NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected, NotesSessionCreateResult,
+  NotesSessionListResult, NotesSuccess,
 } from '../types.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesStore } from './store.ts'
@@ -33,6 +38,42 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the materials.
    */
   materialList(request: NotesMaterialListRequest): Promise<RemoteResult<NotesMaterialListResult>>
+  /**
+   * One material's own thread.
+   * @param request - the material whose thread to read.
+   * @returns the carrier result carrying the rows.
+   */
+  materialThread(request: NotesMaterialThreadRequest): Promise<RemoteResult<NotesMaterialThreadResult>>
+  /**
+   * Replace one draft material's text.
+   * @param request - the material and its replacement body.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialUpdate(request: NotesMaterialUpdateRequest): Promise<RemoteResult<NotesMaterialUpdateResult>>
+  /**
+   * Submit one material to its conversation.
+   * @param request - the material to analyse.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialAnalyze(request: NotesMaterialAnalyzeRequest): Promise<RemoteResult<NotesMaterialAnalyzeResult>>
+  /**
+   * Ask a follow-up inside one material's thread.
+   * @param request - the material and the question.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialAsk(request: NotesMaterialAskRequest): Promise<RemoteResult<NotesMaterialAskResult>>
+  /**
+   * Move one material to its conversation's archived bucket.
+   * @param request - the material to archive.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialArchive(request: NotesMaterialArchiveRequest): Promise<RemoteResult<NotesMaterialArchiveResult>>
+  /**
+   * Delete one material record.
+   * @param request - the material to delete.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialRemove(request: NotesMaterialRemoveRequest): Promise<RemoteResult<NotesMaterialRemoveResult>>
 }
 
 /** The commands the panel's body calls. */
@@ -43,12 +84,27 @@ export interface NotesInjected {
   readonly refresh: () => void
   /** Start a conversation and show it. */
   readonly createConversation: () => void
+  /** Open one material's detail and read its thread, or close the detail with null. */
+  readonly select: (id: MaterialId | null) => void
+  /** Replace one draft material's text. */
+  readonly saveText: (id: MaterialId, text: string) => void
+  /** Submit one material to its conversation. */
+  readonly analyze: (id: MaterialId) => void
+  /** Ask a follow-up inside one material's thread. */
+  readonly ask: (id: MaterialId, question: string) => void
+  /** Move one material to the archived bucket and close its detail. */
+  readonly archive: (id: MaterialId) => void
+  /** Delete one material record and close its detail. */
+  readonly remove: (id: MaterialId) => void
 }
 
 /** One carrier failure as the panel reports it. */
 function unavailable(error: { readonly message: string }): NotesPanelFailure {
   return { code: 'remote-unavailable', message: error.message }
 }
+
+/** What every valueless write resolves to. */
+type AppliedResult = NotesSuccess<NotesApplied> | NotesRejected<NotesFailure>
 
 /**
  * Build the panel's commands over one store instance.
@@ -62,6 +118,7 @@ export function notesFace(
 ): NotesInjected {
   let reading = false
   let answered = false
+  let open: MaterialId | null = null
 
   /**
    * Read the conversations, then the shown conversation's materials.
@@ -119,5 +176,67 @@ export function notesFace(
         await read(true)
       })()
     },
+    select: (id) => {
+      open = id
+      actions.selected(id)
+      if (id !== null) void readThread(id)
+    },
+    saveText: (id, text) => {
+      void write(async () => await remote.materialUpdate({ id, text }))
+    },
+    analyze: (id) => {
+      void write(async () => await remote.materialAnalyze({ id }))
+    },
+    ask: (id, question) => {
+      void write(async () => await remote.materialAsk({ id, question }))
+    },
+    archive: (id) => {
+      close()
+      void write(async () => await remote.materialArchive({ id }))
+    },
+    remove: (id) => {
+      close()
+      void write(async () => await remote.materialRemove({ id }))
+    },
+  }
+
+  /** Read one material's thread, into the detail the panel has open for it. */
+  async function readThread(id: MaterialId): Promise<void> {
+    actions.threadStarted()
+    const answer = await remote.materialThread({ id })
+    if (!answer.ok) {
+      actions.threadFailed(unavailable(answer.error))
+      return
+    }
+    if (!answer.value.ok) {
+      actions.threadFailed(answer.value.error)
+      return
+    }
+    actions.threadLoaded(answer.value.value.rows)
+  }
+
+  /**
+   * Run one write, report its refusal, and re-read every view of it when it
+   * landed.
+   * @param operation - the Host call to make.
+   */
+  async function write(operation: () => Promise<RemoteResult<AppliedResult>>): Promise<void> {
+    const answer = await operation()
+    if (!answer.ok) {
+      actions.refused(unavailable(answer.error))
+      return
+    }
+    if (!answer.value.ok) {
+      actions.refused(answer.value.error)
+      return
+    }
+    await read(true)
+    if (open !== null) await readThread(open)
+  }
+
+  /** Forget the open detail, so its thread's answer cannot land in another material's. */
+  function close(): void {
+    open = null
+    actions.selected(null)
   }
 }

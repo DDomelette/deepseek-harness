@@ -1,0 +1,154 @@
+/*
+ * One material's detail: a source strip, its body, its actions, and its thread.
+ * It fills the pane's second column and scrolls on its own, so the list keeps
+ * its place while the reader moves down an answer.
+ */
+.detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.source {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.sourceLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceView {
+  flex: none;
+  margin-left: auto;
+}
+
+.body {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: pre-wrap;
+}
+
+.editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 96px;
+  padding: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.status {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.action {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-button-tool-bar-fill);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.failure {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pending {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.user,
+.assistant {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  border-radius: 8px;
+}
+
+.user {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+.assistant {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+}
+
+.ask {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.question {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+}
+
+.send {
+  flex: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary-foreground);
+  background: var(--dsw-alias-button-primary-fill);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.send:disabled {
+  cursor: default;
+  opacity: 0.5;
+}

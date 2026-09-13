@@ -80,6 +80,8 @@ export interface NotesMaterialSummary {
   readonly text: string | null
   /** Whether a screenshot reference is stored for this material. */
   readonly hasImage: boolean
+  /** Whether the material already entered its conversation, which fixes its text. */
+  readonly submitted: boolean
   /** Where the material was collected from. */
   readonly source: MaterialSource
   /** Collection action that produced it, or null for a plain collection. */

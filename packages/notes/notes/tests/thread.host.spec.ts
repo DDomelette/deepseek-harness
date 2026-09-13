@@ -26,16 +26,23 @@ const rows: Row[] = [
   { seq: 41, type: 'assistant/message' },
 ]
 
+/** One event as the projection reads it: a sequence, a type, and a payload. */
+interface Event {
+  readonly seq: number
+  readonly type: string
+  readonly data?: unknown
+}
+
 /** One text part of a message. */
 const text = (value: string): { type: string; text: string } => ({ type: 'text', text: value })
 
 /** One submitted user message, as the session logs it. */
-const submitted = (seq: number, id: string, ...content: unknown[]): Row & { data: unknown } => ({
+const submitted = (seq: number, id: string, ...content: unknown[]): Event => ({
   seq, type: 'user/message', data: { id, role: 'user', content },
 })
 
 /** One assistant turn, which nests its message. */
-const answered = (seq: number, ...content: unknown[]): Row & { data: unknown } => ({
+const answered = (seq: number, ...content: unknown[]): Event => ({
   seq, type: 'assistant/message', data: { turn: 1, step: 1, message: { role: 'assistant', content } },
 })
 
