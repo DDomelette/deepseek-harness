@@ -623,13 +623,44 @@ describe('ConversationRoot resident composer', () => {
     const b = mount(sessionSnapshotOf())
     const root = b.view.container.querySelector('[data-phase]') as HTMLElement
     // jsdom offsetWidth is 0 until faked: the observer publishes whatever the
-    // layout reports, and the CSS clamp() floors the axis at 680px either way.
+    // layout reports, and the CSS clamp floors the axis at min(680px, column)
+    // either way.
     Object.defineProperty(root, 'offsetWidth', { value: 1200, configurable: true })
     act(() => { fireResize(root) })
     expect(root.style.getPropertyValue('--dsh-conversation-column-width')).toBe('1200px')
     // No dragged preference: the user-width override stays absent so the
     // adaptive clamp term applies.
     expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('')
+  })
+
+  it('fits the content width to a handset column, clamping even a stored wide preference', () => {
+    localStorage.setItem('dsh.conversation.contentWidth', '800')
+    const b = mount(sessionSnapshotOf())
+    const root = b.view.container.querySelector('[data-phase]') as HTMLElement
+    // A 390px handset column: the floor degrades to the column width, so even
+    // a stored 800px preference clamps down to content = column.
+    Object.defineProperty(root, 'offsetWidth', { value: 390, configurable: true })
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('390px')
+    // No preference: the override stays absent and the CSS clamp's
+    // min(680px, column) floor resolves the same full-width result (e2e
+    // verifies the CSS side).
+    localStorage.removeItem('dsh.conversation.contentWidth')
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('')
+  })
+
+  it('keeps the desktop width axis unchanged on wide columns', () => {
+    localStorage.setItem('dsh.conversation.contentWidth', '800')
+    const b = mount(sessionSnapshotOf())
+    const root = b.view.container.querySelector('[data-phase]') as HTMLElement
+    // A stored preference inside the desktop bounds is used verbatim. The
+    // no-preference adaptive values (column 1000 → 680 floor, column 2000 →
+    // 920 cap) are formula-identical to before; the 1600 drag round-trip
+    // above covers the 920 cap through the handle base.
+    Object.defineProperty(root, 'offsetWidth', { value: 1000, configurable: true })
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('800px')
   })
 
   it('drag → persist → window clamp round-trip on a width handle', () => {

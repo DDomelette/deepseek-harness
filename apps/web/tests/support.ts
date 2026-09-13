@@ -33,6 +33,23 @@ export async function newEnglishPage(browser: Browser, height = 1000): Promise<P
 }
 
 /**
+ * Open a handset-sized touch page (390×844) advertising English. Playwright's
+ * touch flag needs a context (newPage alone cannot set it); callers dispose
+ * the page's context.
+ * @param browser - Playwright browser owning the page.
+ * @returns the initialized page.
+ */
+export async function newMobilePage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    locale: 'en-US',
+    timezoneId: 'Asia/Shanghai',
+  })
+  return await context.newPage()
+}
+
+/**
  * Expand every currently eligible Turn-process group so a Tool-focused
  * scenario can exercise the original row contract beneath product-default
  * compact Chat presentation.

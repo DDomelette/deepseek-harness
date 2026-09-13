@@ -63,7 +63,7 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 
-  it('clears the manual override only when crossing 1024px', () => {
+  it('clears the manual override when crossing 1024px', () => {
     const { store, actions } = createLayoutStore().create()
     actions.setViewportWidth(980)
     actions.toggleSidebar()
@@ -73,6 +73,25 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(1024)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     actions.setViewportWidth(980)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
+
+  it('drops the narrow expansion override when crossing the overlay breakpoint in either direction', () => {
+    const { store, actions } = createLayoutStore().create()
+    // Entering the handset band and expanding the drawer.
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    // Back into the squeeze band: the override is dropped.
+    actions.setViewportWidth(800)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    // Moving within the squeeze band keeps it (squeeze semantics unchanged).
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(1023)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    // Back into the handset band: dropped again.
+    actions.setViewportWidth(500)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
 })

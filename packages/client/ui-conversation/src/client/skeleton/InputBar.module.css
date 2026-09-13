@@ -384,3 +384,11 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+/* Touch targets: 44px floor on coarse pointers (WCAG 2.5.5). */
+@media (pointer: coarse) {
+  .root button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
