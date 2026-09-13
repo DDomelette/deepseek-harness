@@ -39,7 +39,7 @@
 
 在 `layout-store.client.spec.ts` 的现有 viewport 用例(参考 :59-75 的 1024 跨越用例形态)后新增:
 
-```ts
+```text
   it('drops the narrow expansion override when crossing the overlay breakpoint in either direction', () => {
     const store = createStore(1920)
     // 进入手机档并展开抽屉。
@@ -79,7 +79,7 @@ export const SIDEBAR_OVERLAY = 768
 
 (b) `stores.ts`:import 加 `SIDEBAR_OVERLAY`;`setViewportWidth`(:115-122)的跨越判断改为:
 
-```ts
+```text
         if ((d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) !== (width < SIDEBAR_AUTO_COLLAPSE)
           || (d.layoutInfo.viewportWidth < SIDEBAR_OVERLAY) !== (width < SIDEBAR_OVERLAY)) {
           d.layoutInfo.narrowExpanded = false
@@ -116,7 +116,7 @@ git commit -m "feat(ui-layout): add the 768px overlay breakpoint to the layout s
 
 在 `app-frame.client.spec.tsx` 中(用该文件既有渲染夹具)新增窄视口用例骨架:
 
-```ts
+```text
 it('renders the expanded sidebar as a drawer with a scrim below the overlay breakpoint', async () => {
   // 视口 390,narrowExpanded=true:sidebar track 为 0,drawer 覆盖,scrim 在;
   // 视口 800,narrowExpanded=true:维持挤压(track > 0),无 scrim。
@@ -139,7 +139,7 @@ Run: `pnpm exec vitest run packages/client/ui-layout/tests/app-frame.client.spec
 - import 加 `SIDEBAR_OVERLAY`;
 - :160 后加:
 
-```ts
+```text
   const overlay = viewport < SIDEBAR_OVERLAY
   const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded : layoutInfo.sidebar === 0
   const drawerOpen = overlay && !sidebarCollapsed
@@ -176,7 +176,7 @@ Run: `pnpm exec vitest run packages/client/ui-layout/tests/app-frame.client.spec
 
 - Escape 关闭(组件内,drag callbacks 附近):
 
-```ts
+```text
   useEffect(() => {
     if (!drawerOpen) return
     const onKey = (event: KeyboardEvent) => {
@@ -237,7 +237,7 @@ git commit -m "feat(ui-layout): render the narrow expanded sidebar as a drawer"
 
 `skeleton.client.spec.tsx` 已有 ResizeObserverStub + offsetWidth 伪造(:52-81、:625-638,现有 1200/1600 用例)。新增窄列用例:
 
-```ts
+```text
 it('fits the content width to a handset column, clamping even a stored wide preference', async () => {
   // localStorage 存偏好 800;offsetWidth 伪造为 390:
   localStorage.setItem('dsh.conversation.contentWidth', '800')
@@ -259,7 +259,7 @@ Run: `pnpm exec vitest run packages/client/ui-conversation/tests/skeleton.client
 
 (a) `ConversationRoot.tsx` 的 `resolveContentWidth`(:40-44)改为:
 
-```ts
+```text
 function resolveContentWidth(columnWidth: number, preference: number | null): number {
   const effectiveMin = Math.min(CONTENT_MIN, columnWidth)
   const max = Math.max(effectiveMin, columnWidth - CONTENT_EDGE_BUDGET)
@@ -405,7 +405,7 @@ git commit -m "feat(ui-conversation): raise composer touch targets to 44px on co
 
 `newEnglishPage`(:31-33)后加:
 
-```ts
+```text
 /**
  * Open a handset-sized touch page (390×844) advertising English. Playwright's
  * touch flag needs a context (newPage alone cannot set it); callers dispose
@@ -428,7 +428,7 @@ export async function newMobilePage(browser: Browser): Promise<Page> {
 
 `apps/web/tests/mobile-drawer.e2e.ts`:
 
-```ts
+```text
 // Handset-viewport coverage for the drawer sidebar, the fitted content width
 // axis, and composer usability at 390px: the official roster, one Chromium,
 // touch emulation. See sidebar-right.e2e.ts for the scaffold pattern.

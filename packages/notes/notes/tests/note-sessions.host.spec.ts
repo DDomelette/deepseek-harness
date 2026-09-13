@@ -29,15 +29,40 @@ async function record(title: string, at: number): Promise<ReturnType<typeof note
 describe('notes conversations', () => {
   it('records a conversation, makes it active, and archives it out of the list', async () => {
     const first = await record('a', 1)
-    expect(mounted.sessions.active()).toBe(first)
-    expect(mounted.sessions.list().map(row => row.title)).toEqual(['a'])
+    const second = await record('b', 2)
+    expect(mounted.sessions.active()).toBe(second)
+    expect(mounted.sessions.list().map(row => row.title)).toEqual(['b', 'a'])
 
     await mounted.sessions.archive(first)
-    expect(mounted.sessions.list()).toEqual([])
+    expect(mounted.sessions.list().map(row => row.title)).toEqual(['b'])
     expect(mounted.sessions.archived().map(row => row.title)).toEqual(['a'])
-    // The archived conversation was the active one, and nothing is left to
-    // point at, so the pointer clears rather than dangling.
-    expect(mounted.sessions.active()).toBeNull()
+  })
+
+  it('refuses to archive the last unarchived conversation', async () => {
+    const only = await record('a', 1)
+
+    await expect(mounted.sessions.archive(only))
+      .rejects.toThrow(/last notes conversation cannot be archived/)
+
+    // The refusal leaves both the list and the active pointer untouched.
+    expect(mounted.sessions.list().map(row => row.title)).toEqual(['a'])
+    expect(mounted.sessions.active()).toBe(only)
+  })
+
+  it('follows the pointer to a restored conversation, and away from it again', async () => {
+    const first = await record('a', 1)
+    const second = await record('b', 2)
+    // Archiving `second` is allowed while `first` remains, so the pointer moves
+    // to `first`; restoring `second` takes the pointer back, which is what lets
+    // the other one be archived afterwards.
+    await mounted.sessions.archive(second)
+    expect(mounted.sessions.active()).toBe(first)
+
+    await mounted.sessions.restore(second)
+    expect(mounted.sessions.active()).toBe(second)
+
+    await mounted.sessions.archive(first)
+    expect(mounted.sessions.active()).toBe(second)
   })
 
   it('moves the active pointer to the newest remaining conversation', async () => {
@@ -51,12 +76,15 @@ describe('notes conversations', () => {
   it('orders the archived bucket by archive instant', async () => {
     const first = await record('a', 1)
     const second = await record('b', 2)
+    // A third conversation keeps the list non-empty, so both archives are
+    // allowed by the last-conversation rule.
+    await record('c', 3)
     await mounted.sessions.archive(first)
     await mounted.sessions.archive(second)
     // Two immediate archives may share one `Date.now()` millisecond, so this
     // pins bucket membership and leaves the instant tie to the stable sort.
     expect(mounted.sessions.archived().map(row => row.title).sort()).toEqual(['a', 'b'])
-    expect(mounted.sessions.list()).toEqual([])
+    expect(mounted.sessions.list().map(row => row.title)).toEqual(['c'])
   })
 
   it('keeps the active pointer when a different conversation is archived', async () => {

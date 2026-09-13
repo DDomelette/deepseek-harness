@@ -10,8 +10,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
+import type { MessageId } from '@deepseek-ai/dsh-llm'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
@@ -24,17 +25,23 @@ import type { MaterialId, MaterialSource, NoteSessionId } from '../src/types.ts'
 /** Brand a raw string as a material id. */
 export const materialId = (value: string): MaterialId => brandString<MaterialId>(value)
 
+/** Brand a raw string as a durable message id. */
+export const messageId = (value: string): MessageId => brandString<MessageId>(value)
+
 /** Brand a raw string as a notes conversation id. */
 export const noteId = (value: string): NoteSessionId => brandString<NoteSessionId>(value)
 
 /** Brand a raw string as a session id. */
 export const sessionId = (value: string): SessionId => brandString<SessionId>(value)
 
+/** Brand a raw number as a session sequence. */
+export const sessionSeq = (value: number): SessionSeq => brandNumber<SessionSeq>(value)
+
 /** One collection source stamp; every fixture material shares it unless overridden. */
 export const source = (overrides: Partial<MaterialSource> = {}): MaterialSource => ({
   sessionId: sessionId('source-session'),
   view: 'chat',
-  seq: 1,
+  seq: sessionSeq(1),
   messageId: null,
   callId: null,
   label: 'conversation «probe» turn 1',

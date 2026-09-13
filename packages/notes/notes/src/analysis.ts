@@ -44,7 +44,7 @@ export class Analysis extends Service {
 
   /**
    * Submit one material for analysis. A material that already entered its
-   * conversation is left alone, so a repeated call cannot double-send.
+   * conversation is left alone, including one a concurrent call claimed first.
    * @param id - material id.
    * @throws {Error} when the material's conversation is unrecorded or not live.
    */
@@ -53,11 +53,12 @@ export class Analysis extends Service {
     if (current === undefined) return
     if (current.messageIds.length > 0) return
     const agent = this.agentFor(current.noteId)
-    await this.submit(id, agent, composeBody(current, this.settings.actions()))
+    await this.submit(id, agent, composeBody(current, this.settings.actions()), true)
   }
 
   /**
-   * Ask a follow-up inside one material's thread.
+   * Ask a follow-up inside one material's thread. Every call submits its own
+   * message; a question is not idempotent the way the first analysis is.
    * @param id - material id.
    * @param question - the user's question.
    * @throws {Error} when the material's conversation is unrecorded or not live.
@@ -65,7 +66,7 @@ export class Analysis extends Service {
   async ask(id: MaterialId, question: string): Promise<void> {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined || current.messageIds.length === 0) return
-    await this.submit(id, this.agentFor(current.noteId), question)
+    await this.submit(id, this.agentFor(current.noteId), question, false)
   }
 
   private get materials(): Materials {
@@ -109,19 +110,37 @@ export class Analysis extends Service {
    * @param id - material id.
    * @param agent - the live notes agent.
    * @param text - the body to submit.
+   * @param claim - whether this call may only send if it is the first to record
+   *   an id, which makes the first analysis idempotent under concurrency.
    * @throws the send failure, after the material is marked `failed`.
    */
-  private async submit(id: MaterialId, agent: Agent, text: string): Promise<void> {
+  private async submit(id: MaterialId, agent: Agent, text: string, claim: boolean): Promise<void> {
     const message = createUserMessage({
       content: [{ type: 'text', text }],
       source: { kind: 'plugin', plugin: 'notes' },
     })
-    await this.materials.update(id, record => ({
-      ...record,
-      status: 'analyzing',
-      messageIds: [...record.messageIds, message.id],
-      error: null,
-    }))
+    if (claim) {
+      // The domain's write chain is the claim. Two concurrent analyses both
+      // pass `analyse`'s synchronous check, so the loser must observe the
+      // winner's id inside the same atomic read-modify-write and submit
+      // nothing.
+      const next = await this.materials.update(id, record => record.messageIds.length > 0
+        ? record
+        : {
+          ...record,
+          status: 'analyzing',
+          messageIds: [...record.messageIds, message.id],
+          error: null,
+        })
+      if (!next.messageIds.includes(message.id)) return
+    } else {
+      await this.materials.update(id, record => ({
+        ...record,
+        status: 'analyzing',
+        messageIds: [...record.messageIds, message.id],
+        error: null,
+      }))
+    }
     try {
       agent.followup(message)
     } catch (error: unknown) {

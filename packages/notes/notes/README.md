@@ -57,7 +57,7 @@ The plugin mounts five services, and each is the documented owner of its slice o
 
 ### What to expect
 
-A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable.
+A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable. Two analyses of one material racing each other send once: the first caller claims the material on the domain's write chain, and the loser sees the recorded id and submits nothing. The operations that mint a material's order value are serialized for the same reason, so a new material always lands above the previous one. A conversation that is the last unarchived one cannot be archived, so the panel always has one to show.
 
 -----
 

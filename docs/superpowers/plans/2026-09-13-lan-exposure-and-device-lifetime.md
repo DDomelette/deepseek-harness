@@ -40,7 +40,7 @@
 
 In `packages/client/connection/tests/devices.host.spec.ts`, add the round-trip test inside `describe('listDevices')` after the existing 'reads the registered devices in stored order' case:
 
-```ts
+```text
   it('round-trips the lifetime fields and leaves a legacy entry unchanged', async () => {
     const store = new RecordCredentials()
     const windowed = { ...device, lifetimeDays: 30, expiresAt: 1_702_592_000_000 }
@@ -52,7 +52,7 @@ In `packages/client/connection/tests/devices.host.spec.ts`, add the round-trip t
 
 Then add these payloads to the `payloads` array of the existing 'fails loud on a record it cannot interpret' case:
 
-```ts
+```text
       { version: 1, devices: [{ ...device, lifetimeDays: 0 }] },
       { version: 1, devices: [{ ...device, lifetimeDays: 1.5 }] },
       { version: 1, devices: [{ ...device, lifetimeDays: '30' }] },
@@ -69,7 +69,7 @@ Expected: FAIL — the round-trip case loses `lifetimeDays`/`expiresAt` (the par
 
 In `packages/client/connection/src/device-types.ts`, replace the `PairedDevice` interface with:
 
-```ts
+```text
 /** One device approved through the pairing handshake. */
 export interface PairedDevice {
   /** Opaque id minted at approval and carried by that device's cookie. */
@@ -95,7 +95,7 @@ export interface PairedDevice {
 
 In `packages/client/connection/src/devices.ts`, replace `deviceOf` with:
 
-```ts
+```text
 function deviceOf(value: unknown): PairedDevice {
   if (!isRecord(value)) throw malformed('has a non-object entry')
   const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt } = value
@@ -153,7 +153,7 @@ git commit -m "feat(client-connection): store a lifetime window on paired device
 
 In `packages/client/connection/tests/devices.host.spec.ts`, extend the import from `../src/devices.ts` with `setDeviceLifetime`, then add this case inside `describe('paired-device registry writes')` after the revoke case:
 
-```ts
+```text
   it('re-schedules one device and restarts its countdown', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
@@ -181,7 +181,7 @@ In `packages/client/connection/tests/devices.host.spec.ts`, extend the import fr
 
 Then add `setDeviceLifetime` to the existing 'fails loud instead of overwriting a registry it cannot read' case:
 
-```ts
+```text
     await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
 ```
 
@@ -195,13 +195,13 @@ Expected: FAIL — `setDeviceLifetime` is not exported (`TypeError: setDeviceLif
 
 In `packages/client/connection/src/devices.ts`, add the day constant next to `TOUCH_THROTTLE_MILLISECONDS`:
 
-```ts
+```text
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 ```
 
 and insert this function after `revokeDevice`:
 
-```ts
+```text
 /**
  * Set one device's delivery window, restarting its countdown: a shorter window
  * applies to that device's next request, a longer one on its next index request.
@@ -259,13 +259,13 @@ git commit -m "feat(client-connection): re-schedule one paired device"
 
 In `packages/client/connection/tests/browser-auth.host.spec.ts`, add the day constant under the imports:
 
-```ts
+```text
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 ```
 
 replace the `createAuth` helper's fourth parameter name and default:
 
-```ts
+```text
 function createAuth(
   store: RecordCredentials,
   maxAgeDays = 30,
@@ -278,7 +278,7 @@ function createAuth(
 
 replace the `deviceEntry` helper with a version that can carry a window:
 
-```ts
+```text
 /** One stored paired-device entry, as the browser-auth tests seed it. */
 function deviceEntry(
   id: string,
@@ -297,7 +297,7 @@ function deviceEntry(
 
 then replace the existing 'mints a v2 cookie bound to the authority and the configured device lifetime' and 'enforces the device lifetime of this activation' cases with these three:
 
-```ts
+```text
     it('mints a v2 cookie bound to the authority and the registry window of its device', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
@@ -376,7 +376,7 @@ then replace the existing 'mints a v2 cookie bound to the authority and the conf
 
 In `packages/client/connection/tests/devices.host.spec.ts`, give `registerDevice` its window argument in the registration case:
 
-```ts
+```text
     const first = await registerDevice(credentials(store), { label: 'HUAWEI JAD-AL50' }, 30)
     vi.setSystemTime(new Date('2026-09-12T10:05:00.000Z'))
     const second = await registerDevice(credentials(store), { label: 'iPad' }, 7)
@@ -384,7 +384,7 @@ In `packages/client/connection/tests/devices.host.spec.ts`, give `registerDevice
 
 and assert the written window there, right after the existing `expect(first).toEqual({...})`:
 
-```ts
+```text
     expect(first.lifetimeDays).toBe(30)
     expect(first.expiresAt).toBe(Date.parse('2026-09-12T10:00:00.000Z') + 30 * 24 * 60 * 60 * 1000)
     expect(second.lifetimeDays).toBe(7)
@@ -392,13 +392,13 @@ and assert the written window there, right after the existing `expect(first).toE
 
 and in 'fails loud instead of overwriting a registry it cannot read':
 
-```ts
+```text
     await expect(registerDevice(provider, { label: 'phone' }, 30)).rejects.toThrow(/paired-devices/u)
 ```
 
 In `packages/client/connection/tests/node-half.host.spec.ts`, extend the `../src/index.ts` import with `Config`, then add these two cases at the end of `describe('connection device registry handle')`:
 
-```ts
+```text
   it('gives a newly registered device the configured default window', async () => {
     const fallback = await mounted()
     try {
@@ -438,7 +438,7 @@ Expected: FAIL — the registry-window cookie case gets `Max-Age=15552000` (the 
 
 In `packages/client/connection/src/devices.ts`, replace `registerDevice` with:
 
-```ts
+```text
 /**
  * Register a newly approved device and mint its opaque id.
  * @param credentials - persistent credential provider for the Web profile.
@@ -467,7 +467,7 @@ export async function registerDevice(
 
 In `packages/client/connection/src/rpc-host.ts`, pass the configured window in `devices.register`:
 
-```ts
+```text
       register: async (request) => {
         const device = await registerDevice(credentials, request, this.browserAuth.deviceLifetimeDays)
         await this.browserAuth.refreshPairedDevices()
@@ -479,7 +479,7 @@ In `packages/client/connection/src/rpc-host.ts`, pass the configured window in `
 
 In `packages/client/connection/src/browser-auth.ts`, change the imports to:
 
-```ts
+```text
 import { PairedDeviceId } from './device-brand.ts'
 import { listDevices } from './devices.ts'
 import type { PairedDevice } from './device-types.ts'
@@ -487,7 +487,7 @@ import type { PairedDevice } from './device-types.ts'
 
 replace the `BrowserCookiePayload` interface with the discriminated union:
 
-```ts
+```text
 interface LaunchCookiePayload {
   readonly version: typeof COOKIE_PAYLOAD_VERSION
   readonly authority: string
@@ -515,7 +515,7 @@ function devicesById(devices: readonly PairedDevice[]): ReadonlyMap<PairedDevice
 
 replace the tail of `decodeCookie` (from the `if (!isRecord(decoded)` check) with a version-discriminated construction:
 
-```ts
+```text
   if (!isRecord(decoded)
     || decoded.version !== version
     || typeof decoded.authority !== 'string'
@@ -539,7 +539,7 @@ replace the tail of `decodeCookie` (from the `if (!isRecord(decoded)` check) wit
 
 replace the class fields, constructor, and `create` with:
 
-```ts
+```text
 export class BrowserAuth {
   private readonly launchToken: string
   private readonly maxAgeMilliseconds: number
@@ -599,7 +599,7 @@ export class BrowserAuth {
 
 replace `issueDeviceCookie` and `refreshPairedDevices` with:
 
-```ts
+```text
   /**
    * Mint the cookie a phone receives once its pairing request is approved. The
    * cookie expires with the registry window of that device; a device whose entry
@@ -662,7 +662,7 @@ replace `issueDeviceCookie` and `refreshPairedDevices` with:
 
 replace `isAuthenticated` and add `accepts` after it:
 
-```ts
+```text
   /**
    * Verify the authority-bound browser cookie on a Host request. A device cookie
    * must name a device the registry still holds, on the authority it was issued
@@ -698,7 +698,7 @@ replace `isAuthenticated` and add `accepts` after it:
 
 In `packages/client/connection/src/index.ts`, replace the `deviceCookieMaxAgeDays` declaration in `ConnectionConfig` with:
 
-```ts
+```text
   /**
    * Delivery window in days a newly registered device receives. Each paired
    * device's own window is set in the Connect-phone panel and stored in the
@@ -711,17 +711,17 @@ In `packages/client/connection/src/index.ts`, replace the `deviceCookieMaxAgeDay
 
 replace the schema line with:
 
-```ts
+```text
   deviceLifetimeDays: z.natural().min(1).max(365).default(30),
 ```
 
 and in `apply` replace the resolution and the `BrowserAuth.create` call with:
 
-```ts
+```text
   const deviceLifetimeDays = config?.deviceLifetimeDays ?? 30
 ```
 
-```ts
+```text
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays),
 ```
 
@@ -773,7 +773,7 @@ git commit -m "feat(client-connection): make the paired-device registry the life
 
 In `packages/client/connection/tests/browser-auth.host.spec.ts`, replace the `response()` helper with a recorder that also stages headers, the way node merges them into `writeHead`:
 
-```ts
+```text
 function response(): { value: ConnectionIndexResponse; state: ResponseState } {
   const state: ResponseState = {}
   return {
@@ -796,7 +796,7 @@ function response(): { value: ConnectionIndexResponse; state: ResponseState } {
 
 then add these two cases at the end of `describe('device cookies')`:
 
-```ts
+```text
     it('refreshes an aligned cookie on the index request that follows an extension', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
@@ -866,7 +866,7 @@ then add these two cases at the end of `describe('device cookies')`:
 
 In `packages/api/gateway/tests/gateway.host.spec.ts` and `packages/api/gateway/tests/gateway-stream.host.spec.ts`, give each hand-built `ConnectionIndexResponse` literal the new member (it sits beside `writeHead`):
 
-```ts
+```text
   }, {
     setHeader() {},
     writeHead(_status, headers) { setCookie = headers?.['set-cookie'] },
@@ -884,7 +884,7 @@ Expected: FAIL — the extension case gets `'serve'` but `state.headers` holds n
 
 In `packages/client/connection/src/rpc.ts`, replace `ConnectionIndexResponse` with:
 
-```ts
+```text
 /** Root/index response operations owned by the browser-token exchange. */
 export interface ConnectionIndexResponse {
   /**
@@ -903,14 +903,14 @@ export interface ConnectionIndexResponse {
 
 In `packages/client/connection/src/browser-auth.ts`, replace the no-token tail of `authorizeIndex` (the `if (this.isAuthenticated(req)) return 'serve'` line) with:
 
-```ts
+```text
     if (this.authorizeIndexCookie(req, res)) return 'serve'
     return this.refuseIndex(req, res)
 ```
 
 and add these two methods after `isAuthenticated`:
 
-```ts
+```text
   /**
    * Authenticate one index request and stage the aligned device cookie when the
    * registry window outlives the payload's expiry. Only an index request
@@ -962,27 +962,27 @@ git commit -m "feat(client-connection): refresh a device cookie on index request
 
 In `packages/bundle/mob/tests/routes.host.spec.ts`, extend the `Bench` interface and the `bench()` fixture. Add to `Bench`:
 
-```ts
+```text
   /** Per-device windows the route tests set through `/pair/devices/lifetime`. */
   readonly windows: ReadonlyMap<string, { readonly lifetimeDays: number; readonly expiresAt: number }>
 ```
 
 add beside the other fixture arrays inside `bench()`:
 
-```ts
+```text
   const windows = new Map<string, { lifetimeDays: number; expiresAt: number }>()
 ```
 
 replace the fake `list` and add `setLifetime` in `ctx.provide('connection', {...})`:
 
-```ts
+```text
       list: async () => registered.map((request, index) => {
         const id = `device-${String(index + 1)}`
         return { id, label: request.label, registeredAt: 1, lastSeenAt: 1, ...windows.get(id) ?? {} }
       }),
 ```
 
-```ts
+```text
       setLifetime: async (deviceId: string, days: number) => {
         const known = registered.some((_request, index) => `device-${String(index + 1)}` === deviceId)
         if (!known) return false
@@ -993,7 +993,7 @@ replace the fake `list` and add `setLifetime` in `ctx.provide('connection', {...
 
 return `windows` from `bench()`, and add `setLifetime: async () => true` to the inline `connection.devices` fake in the 'registers one route per handshake step' case. Then add this case before the closing `})` of `describe('pairing routes')`:
 
-```ts
+```text
   it('re-schedules one device under the loopback-and-session guard within 1–365 days', async () => {
     const subject = bench()
     const { code } = subject.pairing.openSession()
@@ -1055,7 +1055,7 @@ return `windows` from `bench()`, and add `setLifetime: async () => true` to the 
 
 In `apps/cli/tests/pairing.e2e.ts`, add the new route to the phone's refused-decision list, after the `/pair/devices` entry:
 
-```ts
+```text
         { path: '/pair/devices/lifetime', method: 'POST', body: JSON.stringify({ deviceId: 'x', days: 7 }) },
 ```
 
@@ -1069,7 +1069,7 @@ Expected: FAIL — `PAIR_PATHS.lifetime` is `undefined`, so `subject.call` throw
 
 In `packages/client/connection/src/rpc.ts`, add to `HostConnectionDevices` after `revoke`:
 
-```ts
+```text
   /**
    * Set one device's delivery window, restarting its countdown.
    * @param deviceId - id of the device to re-schedule.
@@ -1081,7 +1081,7 @@ In `packages/client/connection/src/rpc.ts`, add to `HostConnectionDevices` after
 
 In `packages/client/connection/src/rpc-host.ts`, extend the `./devices.ts` import with `setDeviceLifetime`, then add the implementation after `revoke` inside the `devices` getter:
 
-```ts
+```text
       setLifetime: async (deviceId, days) => {
         const updated = await setDeviceLifetime(credentials, deviceId, days)
         if (updated) await this.browserAuth.refreshPairedDevices()
@@ -1093,7 +1093,7 @@ In `packages/client/connection/src/rpc-host.ts`, extend the `./devices.ts` impor
 
 In `packages/bundle/mob/src/routes.ts`, add the two bounds beside `PAIR_BODY_LIMIT_BYTES`:
 
-```ts
+```text
 /** Legal per-device lifetime in days, matching the Connection config schema. */
 const MIN_DEVICE_LIFETIME_DAYS = 1
 const MAX_DEVICE_LIFETIME_DAYS = 365
@@ -1101,13 +1101,13 @@ const MAX_DEVICE_LIFETIME_DAYS = 365
 
 add the path to `PAIR_PATHS` after `devices`:
 
-```ts
+```text
   lifetime: '/pair/devices/lifetime',
 ```
 
 update the registration JSDoc to `Register the eight pairing routes on the Host web server.`, and register the eighth route after the `PAIR_PATHS.devices` route:
 
-```ts
+```text
     ctx.webServer.register({
       kind: 'exact',
       path: PAIR_PATHS.lifetime,
@@ -1169,7 +1169,7 @@ git commit -m "feat(mob): add the per-device lifetime route"
 
 In `packages/bundle/mob/tests/pairing-api.client.spec.ts`, replace the first `stub` and expectation of 'lists devices and rejects entries it cannot read' with:
 
-```ts
+```text
     stub(json({ devices: [
       { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3 },
       { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2 },
@@ -1185,7 +1185,7 @@ In `packages/bundle/mob/tests/pairing-api.client.spec.ts`, replace the first `st
 
 and add this case after 'revokes a device and reports a refusal the Host answered':
 
-```ts
+```text
   it('sets one device lifetime and reports the Host answer', async () => {
     const fetchMock = stub(json({ ok: true }))
     await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: true, value: undefined })
@@ -1206,25 +1206,25 @@ and add this case after 'revokes a device and reports a refusal the Host answere
 
 In `packages/bundle/mob/tests/panel.client.spec.tsx`, add to `Script`:
 
-```ts
+```text
   setLifetime?: PairingResult<void>
 ```
 
 add to `FakeApi`:
 
-```ts
+```text
   readonly setLifetime: ReturnType<typeof vi.fn>
 ```
 
 add to `fakeApi` beside the other spies:
 
-```ts
+```text
   const setLifetime = vi.fn(async (): Promise<PairingResult<void>> => script.setLifetime ?? { ok: true, value: undefined })
 ```
 
 return it (`return { api: { open, requests, decide, devices, revoke, setLifetime }, open, requests, decide, devices, revoke, setLifetime }`), add the fixture constants under `START`:
 
-```ts
+```text
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 /** A windowed device row: 30 days from `START`. */
 const WINDOWED = {
@@ -1239,7 +1239,7 @@ const WINDOWED = {
 
 and add these three cases:
 
-```ts
+```text
   it('shows each device window, an expired device, and an unknown legacy entry', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(START))
@@ -1297,7 +1297,7 @@ and add these three cases:
 
 In `packages/bundle/mob/tests/row.client.spec.tsx`, add the new member to the `api` fixture:
 
-```ts
+```text
   setLifetime: async () => ({ ok: true, value: undefined }),
 ```
 
@@ -1311,7 +1311,7 @@ Expected: FAIL — `createPairingApi().setLifetime` is not a function, the parse
 
 In `packages/bundle/mob/src/client/pairing-api.ts`, extend `PairedDeviceView`:
 
-```ts
+```text
   /** Days the operator set for this device's current window; absent on a legacy entry. */
   readonly lifetimeDays?: number
   /** Epoch milliseconds this device's window ends; absent on a legacy entry. */
@@ -1320,14 +1320,14 @@ In `packages/bundle/mob/src/client/pairing-api.ts`, extend `PairedDeviceView`:
 
 add to `PairingApi` after `revoke`:
 
-```ts
+```text
   /** Set one device's delivery window, in days. */
   setLifetime(deviceId: string, days: number): Promise<PairingResult<void>>
 ```
 
 replace `deviceOf` with:
 
-```ts
+```text
 function deviceOf(value: unknown): PairedDeviceView | undefined {
   if (!isRecord(value)) return undefined
   const id = stringField(value, 'id')
@@ -1350,7 +1350,7 @@ function deviceOf(value: unknown): PairedDeviceView | undefined {
 
 and add the client half after `revoke` in the object `createPairingApi()` returns:
 
-```ts
+```text
     async setLifetime(deviceId, days) {
       const answer = await call('/pair/devices/lifetime', { method: 'POST', body: { deviceId, days } })
       if (!answer.ok) return answer
@@ -1363,7 +1363,7 @@ and add the client half after `revoke` in the object `createPairingApi()` return
 
 In `packages/bundle/mob/src/client/locales.ts`, add to the English dictionary after `'panel.revoke'`:
 
-```ts
+```text
   'panel.lifetimeUnknown': '—',
   'panel.lifetimeExpired': 'Expired',
   'panel.lifetimeWindow': '{days} days ({remaining} days left)',
@@ -1376,7 +1376,7 @@ In `packages/bundle/mob/src/client/locales.ts`, add to the English dictionary af
 
 and to the Chinese dictionary at the same position:
 
-```ts
+```text
   'panel.lifetimeUnknown': '—',
   'panel.lifetimeExpired': '已过期',
   'panel.lifetimeWindow': '{days} 天（剩余 {remaining} 天）',
@@ -1391,7 +1391,7 @@ and to the Chinese dictionary at the same position:
 
 In `packages/bundle/mob/src/client/PairingPanel.tsx`, add the constants under `COUNTDOWN_TICK_MILLISECONDS`:
 
-```ts
+```text
 /** Day counts the lifetime controls offer as one-click presets. */
 const LIFETIME_PRESETS = [1, 7, 30, 90] as const
 /** Milliseconds in one day, for the remaining-days column. */
@@ -1403,13 +1403,13 @@ const MAX_LIFETIME_DAYS = 365
 
 add the input state beside the other `useState` calls:
 
-```ts
+```text
   const [customDays, setCustomDays] = useState<Readonly<Record<string, string>>>({})
 ```
 
 and add these three functions after the `revoke` function:
 
-```ts
+```text
   /** Lifetime cell of one device row: its window, `expired`, or unknown for a legacy entry. */
   const lifetimeOf = (device: PairedDeviceView): string => {
     if (device.lifetimeDays === undefined || device.expiresAt === undefined) return t('panel.lifetimeUnknown')
@@ -1439,7 +1439,7 @@ and add these three functions after the `revoke` function:
 
 add `lifetimeOf` to the device row's status line, so the block reads:
 
-```tsx
+```text
                   <div className={css.device}>
                     <div className={css.deviceLabel}>{device.label}</div>
                     <div className={css.status}>
@@ -1454,7 +1454,7 @@ add `lifetimeOf` to the device row's status line, so the block reads:
 
 and add the controls before the revoke button in the same list item:
 
-```tsx
+```text
                   <div className={css.actions}>
                     {LIFETIME_PRESETS.map(days => (
                       <button
@@ -1496,7 +1496,7 @@ and add the controls before the revoke button in the same list item:
 
 finally add the two guidance lines to the devices section, before its list:
 
-```tsx
+```text
         <p className={css.status}>{t('panel.revokeHint')}</p>
         <p className={css.status}>{t('panel.lifetimeNote')}</p>
 ```
@@ -1534,7 +1534,7 @@ git commit -m "feat(mob): manage device lifetime in the pairing panel"
 
 In `packages/bundle/web-app/tests/web-app.spec.ts`, replace the expected string in 'warns on stderr when serving all interfaces, and stays silent on loopback' with:
 
-```ts
+```text
     expect(diagnostic).toHaveBeenCalledWith('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
 ```
 
@@ -1548,7 +1548,7 @@ Expected: FAIL — `console.error` received the warning without the appended sen
 
 In `packages/bundle/web-app/src/index.ts`, replace the warning call with:
 
-```ts
+```text
     console.error('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
 ```
 

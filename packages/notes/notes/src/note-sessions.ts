@@ -96,12 +96,21 @@ export class NoteSessions extends Service {
   /**
    * Move one conversation to the archived bucket, moving the active pointer to
    * the newest remaining conversation when it pointed at the archived one.
+   *
+   * The last unarchived conversation cannot be archived: the panel always owns
+   * one conversation to show, and the browser half must not be the only thing
+   * enforcing that (a direct caller would bypass a hidden button).
    * @param id - conversation id.
+   * @throws {Error} when `id` is the last unarchived conversation.
    */
   async archive(id: NoteSessionId): Promise<void> {
+    const [next] = this.list().filter(row => row.id !== id)
+    if (next === undefined) {
+      throw new Error('notes: the last notes conversation cannot be archived')
+    }
     await this.table.update(id, record => ({ ...record, archivedAt: Date.now() }))
     if (this.active() !== id) return
-    await this.setActive(this.list()[0]?.id ?? null)
+    await this.setActive(next.id)
   }
 
   /**
