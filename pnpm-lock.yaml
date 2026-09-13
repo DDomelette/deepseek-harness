@@ -2069,6 +2069,9 @@ importers:
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:^
         version: link:../../feedback/message-feedback
+      '@deepseek-ai/dsh-notes':
+        specifier: workspace:^
+        version: link:../../notes/notes
       '@deepseek-ai/dsh-session-deletion':
         specifier: workspace:^
         version: link:../../session/session-deletion

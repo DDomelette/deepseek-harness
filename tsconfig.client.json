@@ -120,6 +120,7 @@
     { "path": "./packages/client/ui-pinned-sessions" },
     { "path": "./packages/client/ui-settings-archived" },
     { "path": "./packages/client/ui-settings-mcp" },
-    { "path": "./packages/client/ui-settings-skills" }
+    { "path": "./packages/client/ui-settings-skills" },
+    { "path": "./packages/notes/notes/tsconfig.client.json" }
   ]
 }
