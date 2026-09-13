@@ -21,6 +21,7 @@ export const PAIRED_DEVICES_RECORD_KEY = credentialKey('client-connection', 'pai
 const PAIRED_DEVICES_VERSION = 1
 const DEVICE_ID_BYTES = 16
 const TOUCH_THROTTLE_MILLISECONDS = 60 * 60 * 1000
+const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -135,6 +136,27 @@ export async function revokeDevice(
   const devices = await listDevices(credentials)
   if (!devices.some(device => device.id === deviceId)) return false
   await writeDevices(credentials, current => current.filter(device => device.id !== deviceId))
+  return true
+}
+
+/**
+ * Set one device's delivery window, restarting its countdown: a shorter window
+ * applies to that device's next request, a longer one on its next index request.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to re-schedule.
+ * @param days - window in days, written together with the expiry it implies.
+ * @returns true when a registered device was re-scheduled.
+ */
+export async function setDeviceLifetime(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+  days: number,
+): Promise<boolean> {
+  const devices = await listDevices(credentials)
+  if (!devices.some(device => device.id === deviceId)) return false
+  const expiresAt = Date.now() + days * DAY_MILLISECONDS
+  await writeDevices(credentials, current => current.map(device =>
+    (device.id === deviceId ? { ...device, lifetimeDays: days, expiresAt } : device)))
   return true
 }
 

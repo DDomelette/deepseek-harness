@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import {
-  PAIRED_DEVICES_RECORD_KEY, listDevices, registerDevice, revokeDevice, touchDevice,
+  PAIRED_DEVICES_RECORD_KEY, listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice,
 } from '../src/devices.ts'
 import { PAIRED_DEVICES_KEY, RecordCredentials } from './browser-credentials.ts'
 
@@ -122,6 +122,30 @@ describe('paired-device registry writes', () => {
     expect(store).toMatchObject({ writes: 1 })
   })
 
+  it('re-schedules one device and restarts its countdown', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+    const store = new RecordCredentials()
+    store.setPairedDevices({ version: 1, devices: [device, { ...device, id: 'dev-2', label: 'iPad' }] })
+    const provider = credentials(store)
+
+    await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).resolves.toBe(true)
+    vi.setSystemTime(new Date('2026-09-12T12:05:00.000Z'))
+    await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 7)).resolves.toBe(true)
+
+    const listed = await listDevices(provider)
+    expect(listed[0]).toEqual({
+      ...device,
+      lifetimeDays: 7,
+      expiresAt: Date.parse('2026-09-12T12:05:00.000Z') + 7 * 24 * 60 * 60 * 1000,
+    })
+    expect(listed[1]).toEqual({ ...device, id: 'dev-2', label: 'iPad' })
+    expect(store).toMatchObject({ writes: 2 })
+
+    await expect(setDeviceLifetime(provider, PairedDeviceId('ghost'), 30)).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 2 })
+  })
+
   it('writes the last-seen time only outside the one-hour throttle window', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
@@ -154,6 +178,7 @@ describe('paired-device registry writes', () => {
     await expect(registerDevice(provider, { label: 'phone' })).rejects.toThrow(/paired-devices/u)
     await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(touchDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
+    await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',
       payload: { version: 9, devices: [] },
