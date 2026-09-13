@@ -7,6 +7,7 @@
  * drives the panel without a gateway.
  */
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
+import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   MaterialId, NoteSessionId, NotesApplied, NotesFailure, NotesMaterialAnalyzeRequest,
@@ -18,7 +19,8 @@ import type {
   NotesMaterialThreadResult, NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
   NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
-  NotesSessionSelectRequest, NotesSessionSelectResult, NotesSuccess,
+  NotesSessionSelectRequest, NotesSessionSelectResult, NotesSettingsReadResult,
+  NotesSettingsUpdateRequest, NotesSettingsUpdateResult, NotesSuccess,
 } from '../types.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesStore } from './store.ts'
@@ -107,6 +109,31 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the acknowledgment or the refusal.
    */
   sessionRestore(request: NotesSessionRestoreRequest): Promise<RemoteResult<NotesSessionRestoreResult>>
+  /**
+   * The notes settings section as this deployment resolves it.
+   * @returns the carrier result carrying the settings or the refusal.
+   */
+  settingsRead(): Promise<RemoteResult<NotesSettingsReadResult>>
+  /**
+   * Write the fields one settings patch names.
+   * @param request - the fields to change.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  settingsUpdate(request: NotesSettingsUpdateRequest): Promise<RemoteResult<NotesSettingsUpdateResult>>
+}
+
+/** The frame operations one tab may ask for. */
+export interface NotesPaneFace {
+  /**
+   * Take the tab out into a floating panel.
+   * @param tabId - the tab to float.
+   */
+  float(tabId: TabId): void
+  /**
+   * Return a floating panel's tab to the docked column.
+   * @param paneId - the floating pane.
+   */
+  dock(paneId: PaneId): void
 }
 
 /** The commands the panel's body calls. */
@@ -137,6 +164,12 @@ export interface NotesInjected {
   readonly restore: (id: MaterialId) => void
   /** Apply a complete manual ordering to the shown conversation. */
   readonly reorder: (orderedIds: readonly MaterialId[]) => void
+  /** Move the panel between its docked and floating presentations. */
+  readonly present: (tab: TabId, pane: PaneId, floating: boolean) => void
+  /** Read the notes settings section once, for the settings card. */
+  readonly readSettings: () => void
+  /** Write the fields one settings patch names. */
+  readonly saveSettings: (patch: NotesSettingsUpdateRequest) => void
   /** Delete one material record and close its detail. */
   readonly remove: (id: MaterialId) => void
 }
@@ -152,17 +185,21 @@ type AppliedResult = NotesSuccess<NotesApplied> | NotesRejected<NotesFailure>
 /**
  * Build the panel's commands over one store instance.
  * @param remote - the notes namespace of the Client Remote face.
+ * @param frame - the right column's operations the tab may ask for.
  * @param actions - the store actions of the instance the panel is registered with.
  * @returns the commands the panel calls.
  */
 export function notesFace(
   remote: NotesRemoteFace,
+  frame: NotesPaneFace,
   actions: BoundActions<NotesStore>,
 ): NotesInjected {
   let reading = false
   let answered = false
   let open: MaterialId | null = null
   let shown: NoteSessionId | null = null
+  let settingsReading = false
+  let settingsAnswered = false
 
   /**
    * Read the conversations, then the shown conversation's materials.
@@ -260,15 +297,60 @@ export function notesFace(
       const noteId = shown
       void write(async () => await remote.materialReorder({ noteId, orderedIds }))
     },
+    present: (tab, pane, floating) => {
+      if (floating) frame.dock(pane)
+      else frame.float(tab)
+    },
+    readSettings: () => {
+      void readSettings(false)
+    },
+    saveSettings: (patch) => {
+      void (async () => {
+        const answer = await remote.settingsUpdate(patch)
+        if (!answer.ok) {
+          actions.settingsFailed(unavailable(answer.error))
+          return
+        }
+        if (!answer.value.ok) {
+          actions.settingsFailed(answer.value.error)
+          return
+        }
+        await readSettings(true)
+      })()
+    },
     remove: (id) => {
       close()
       void write(async () => await remote.materialRemove({ id }))
     },
   }
 
+  /**
+   * Read the notes settings section into the card's state.
+   * @param force - read again even though an earlier read already answered.
+   */
+  async function readSettings(force: boolean): Promise<void> {
+    if (settingsReading || (settingsAnswered && !force)) return
+    settingsReading = true
+    actions.settingsStarted()
+    try {
+      const answer = await remote.settingsRead()
+      if (!answer.ok) {
+        actions.settingsFailed(unavailable(answer.error))
+        return
+      }
+      if (!answer.value.ok) {
+        actions.settingsFailed(answer.value.error)
+        return
+      }
+      settingsAnswered = true
+      actions.settingsLoaded(answer.value.value)
+    } finally {
+      settingsReading = false
+    }
+  }
+
   /** Read one material's thread, into the detail the panel has open for it. */
-  async function readThread(id: MaterialId): Promise<void> {
-    actions.threadStarted()
+  async function readThread(id: MaterialId): Promise<void> {    actions.threadStarted()
     const answer = await remote.materialThread({ id })
     if (!answer.ok) {
       actions.threadFailed(unavailable(answer.error))

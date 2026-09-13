@@ -28,7 +28,8 @@ import type {
   NotesMaterialUpdateResult, NotesRejected,
   NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
-  NotesSessionSelectRequest, NotesSessionSelectResult, NotesSessionSummary,
+  NotesSessionSelectRequest, NotesSessionSelectResult, NotesSettingsReadResult,
+  NotesSettingsUpdateRequest, NotesSettingsUpdateResult, NotesSessionSummary,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -255,6 +256,38 @@ export class NotesRemote extends TypertRemoteService {
     )
     if (rejectedId !== undefined) return rejected({ code: 'material-not-found', id: rejectedId })
     await this.ctx.notesMaterials.reorder(request.noteId, request.orderedIds)
+    return success(APPLIED)
+  }
+
+  /**
+   * The notes settings section as this deployment resolves it.
+   * @returns the current settings, or the refusal when no provider is mounted.
+   */
+  @Remote
+  settingsRead(): NotesSettingsReadResult {
+    if (!this.ctx.notesSettings.writable()) return rejected({ code: 'settings-unavailable' })
+    return success({
+      strategy: this.ctx.notesSettings.strategy(),
+      actions: this.ctx.notesSettings.actions().map(action => ({ ...action })),
+      workspace: this.ctx.notesSettings.workspace(),
+      model: this.ctx.notesSettings.model(),
+      writable: true,
+    })
+  }
+
+  /**
+   * Write the fields one settings patch names.
+   * @param request - the fields to change.
+   * @returns the acknowledgment, or the refusal when no provider is mounted.
+   */
+  @Remote
+  async settingsUpdate(request: NotesSettingsUpdateRequest): Promise<NotesSettingsUpdateResult> {
+    if (!this.ctx.notesSettings.writable()) return rejected({ code: 'settings-unavailable' })
+    await this.ctx.notesSettings.update({
+      ...request.strategy === undefined ? {} : { strategy: request.strategy },
+      ...'workspace' in request ? { workspace: request.workspace ?? null } : {},
+      ...'model' in request ? { model: request.model ?? null } : {},
+    })
     return success(APPLIED)
   }
 

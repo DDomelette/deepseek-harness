@@ -234,6 +234,45 @@ export interface NotesThreadValue {
   readonly rows: readonly NotesThreadRow[]
 }
 
+/** One collection action as the settings card shows it. */
+export interface NotesActionView {
+  /** Stable action id, stored as the material's own `action`. */
+  readonly id: string
+  /** Localized label the selection bubble shows. */
+  readonly label: string
+  /** Prompt text prepended to the material body before submission. */
+  readonly prompt: string
+  /** Whether picking the action analyses immediately, ignoring the strategy. */
+  readonly autoSend: boolean
+}
+
+/** The notes settings section as the settings card shows it. */
+export interface NotesSettingsView {
+  /** `manual` waits for an explicit analyse; `auto` analyses each collection. */
+  readonly strategy: 'manual' | 'auto'
+  /** Collection actions the selection bubble offers. */
+  readonly actions: readonly NotesActionView[]
+  /** Absolute workspace path, or null before first-run setup has chosen one. */
+  readonly workspace: string | null
+  /** Model override for notes conversations, or null to follow the session default. */
+  readonly model: { readonly provider: string; readonly model: string } | null
+  /** Whether this deployment persists a write, so the card can offer editing. */
+  readonly writable: boolean
+}
+
+/**
+ * One settings write: only the fields it names change. A field set to null
+ * clears its user value and returns it to the composition default.
+ */
+export interface NotesSettingsUpdateRequest {
+  /** Replacement model-call strategy. */
+  readonly strategy?: 'manual' | 'auto'
+  /** Replacement workspace path, or null to clear it. */
+  readonly workspace?: string | null
+  /** Replacement model override, or null to follow the session default. */
+  readonly model?: { readonly provider: string; readonly model: string } | null
+}
+
 /** Acknowledges a mutation that has no value to report. */
 export interface NotesApplied {
   /** Stable postcondition shared by the first call and every retry. */
@@ -287,6 +326,11 @@ export interface NotesUnknownAction {
   readonly action: string
 }
 
+/** The deployment mounts no settings provider, so a write cannot be persisted. */
+export interface NotesSettingsUnavailable {
+  readonly code: 'settings-unavailable'
+}
+
 /** Failures the notes operations can report. */
 export type NotesFailure =
   | NotesSessionNotFound
@@ -296,6 +340,7 @@ export type NotesFailure =
   | NotesLastConversation
   | NotesSessionNotLive
   | NotesUnknownAction
+  | NotesSettingsUnavailable
 
 /**
  * Failures submitting one material for analysis can report. `Analysis.analyse`
@@ -397,3 +442,13 @@ export type NotesMaterialRemoveResult =
 export type NotesMaterialThreadResult =
   | NotesSuccess<NotesThreadValue>
   | NotesRejected<NotesMaterialNotFound | NotesSessionNotFound | NotesSessionNotLive>
+
+/** Result of `notes/settingsRead`. */
+export type NotesSettingsReadResult =
+  | NotesSuccess<NotesSettingsView>
+  | NotesRejected<NotesSettingsUnavailable>
+
+/** Result of `notes/settingsUpdate`. */
+export type NotesSettingsUpdateResult =
+  | NotesSuccess<NotesApplied>
+  | NotesRejected<NotesSettingsUnavailable>

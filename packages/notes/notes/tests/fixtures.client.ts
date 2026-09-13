@@ -12,16 +12,17 @@ import { vi } from 'vitest'
 import type { Mock } from 'vitest'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { brandString } from '@deepseek-ai/dsh-brand'
+import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
-import type { NotesInjected, NotesRemoteFace } from '../src/client/face.ts'
+import type { NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import { createNotesStore } from '../src/client/store.ts'
 import type {
   MaterialId, MaterialSource, NoteSessionId, NotesMaterialListResult, NotesMaterialSummary,
   NotesMaterialThreadResult, NotesSessionCreateResult, NotesSessionListResult,
-  NotesSessionSummary, NotesThreadRow,
+  NotesSessionSummary, NotesSettingsReadResult, NotesSettingsView, NotesThreadRow,
 } from '../src/types.ts'
 
 /** The session the panel is mounted beside. */
@@ -104,6 +105,25 @@ export function applied(): { readonly ok: true; readonly value: { readonly ok: t
   return { ok: true, value: { ok: true, value: { applied: true } } }
 }
 
+/** One deployment's notes settings, as the card reads them. */
+export function settings(
+  overrides: Partial<NotesSettingsView> = {},
+): RemoteResult<NotesSettingsReadResult> {
+  return { ok: true, value: { ok: true, value: {
+    strategy: 'manual',
+    actions: [{
+      id: 'translate',
+      label: '翻译',
+      prompt: '不改变语句结构，翻译下列内容：',
+      autoSend: true,
+    }],
+    workspace: '/work/notes',
+    model: null,
+    writable: true,
+    ...overrides,
+  } } }
+}
+
 /** One carrier failure, as the Remote face delivers it. */
 export function unavailable(message = 'socket closed'): RemoteFailure {
   return { code: 'gateway/internal', message, name: 'RemoteError' } as unknown as RemoteFailure
@@ -139,6 +159,8 @@ export interface HarnessRemote {
   readonly materialRestore: Mock<NotesRemoteFace['materialRestore']>
   readonly materialReorder: Mock<NotesRemoteFace['materialReorder']>
   readonly materialRemove: Mock<NotesRemoteFace['materialRemove']>
+  readonly settingsRead: Mock<NotesRemoteFace['settingsRead']>
+  readonly settingsUpdate: Mock<NotesRemoteFace['settingsUpdate']>
 }
 
 /** What one scripted Harness hands a spec. */
@@ -149,6 +171,11 @@ export interface Harness {
   readonly face: NotesInjected
   /** The scripted Remote face, for assertions and re-scripting. */
   readonly remote: HarnessRemote
+  /** The frame operations the panel asks for, recorded. */
+  readonly frame: NotesPaneFace & {
+    float: Mock<NotesPaneFace['float']>
+    dock: Mock<NotesPaneFace['dock']>
+  }
   /** Composed props for the panel. */
   readonly props: () => NotesPanelProps
   /** Composed props for the header control. */
@@ -165,6 +192,8 @@ export function harness(script: {
   readonly materials?: () => RemoteResult<NotesMaterialListResult>
   readonly create?: () => RemoteResult<NotesSessionCreateResult>
   readonly thread?: () => RemoteResult<NotesMaterialThreadResult>
+  readonly settings?: () => RemoteResult<NotesSettingsReadResult>
+  readonly floating?: boolean
 } = {}): Harness {
   const instance = createNotesStore().create()
   const remote = {
@@ -190,15 +219,20 @@ export function harness(script: {
     materialRestore: vi.fn<NotesRemoteFace['materialRestore']>(async () => applied()),
     materialReorder: vi.fn<NotesRemoteFace['materialReorder']>(async () => applied()),
     materialRemove: vi.fn<NotesRemoteFace['materialRemove']>(async () => applied()),
+    settingsRead: vi.fn<NotesRemoteFace['settingsRead']>(
+      async () => script.settings?.() ?? settings(),
+    ),
+    settingsUpdate: vi.fn<NotesRemoteFace['settingsUpdate']>(async () => applied()),
   }
-  const face = notesFace(remote, instance.actions)
+  const frame = { float: vi.fn<NotesPaneFace['float']>(), dock: vi.fn<NotesPaneFace['dock']>() }
+  const face = notesFace(remote, frame, instance.actions)
   const tabActions = { openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
   const controller = new AbortController()
   const useTabInfo = () => ({
     sidebar: { expanded: true, fullscreen: false },
-    panel: { id: 'pane-1' },
+    panel: { id: 'pane-1' as PaneId, floating: script.floating ?? false },
     tab: {
-      id: 'tab-1',
+      id: 'tab-1' as TabId,
       kind: 'notes',
       contentId: 'sidebar://notes',
       title: 'notes',
@@ -208,11 +242,16 @@ export function harness(script: {
       actions: tabActions,
     },
   })
+  // Composed props are built once and reused: a spec spies on one of their
+  // commands, and the component has to receive the object that spy belongs to.
+  let panelProps: NotesPanelProps | undefined
+  let controlProps: NotesButtonProps | undefined
   return {
     instance,
     face,
     remote,
-    props: () => ({
+    frame,
+    props: () => panelProps ??= ({
       useTabInfo,
       sessionId: SESSION,
       useStore: hookOf(instance),
@@ -230,10 +269,13 @@ export function harness(script: {
       archive: face.archive,
       restore: face.restore,
       reorder: face.reorder,
+      present: face.present,
+      readSettings: face.readSettings,
+      saveSettings: face.saveSettings,
       remove: face.remove,
       t,
     }) as unknown as NotesPanelProps,
-    buttonProps: () => ({
+    buttonProps: () => controlProps ??= ({
       sessionId: SESSION,
       open: vi.fn(),
       t,

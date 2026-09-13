@@ -196,6 +196,41 @@ describe('notes panel', () => {
     await waitFor(() => { expect(screen.getByText('panel.empty')).toBeDefined() })
   })
 
+  it('floats the panel out of the column and docks it back', async () => {
+    const docked = harness()
+    render(<NotesPanel {...docked.props()} />)
+    fireEvent.click(screen.getByLabelText('panel.float'))
+    expect(docked.frame.float).toHaveBeenCalledExactlyOnceWith('tab-1')
+    cleanup()
+
+    const floating = harness({ floating: true })
+    render(<NotesPanel {...floating.props()} />)
+    expect(document.querySelector('[data-notes-present="dock"]')).not.toBeNull()
+    fireEvent.click(screen.getByLabelText('panel.dock'))
+    expect(floating.frame.dock).toHaveBeenCalledExactlyOnceWith('pane-1')
+  })
+
+  it('opens the settings card and reads the section for it', async () => {
+    const bench = harness()
+    render(<NotesPanel {...bench.props()} />)
+
+    fireEvent.click(screen.getByLabelText('panel.settings'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-settings]')).not.toBeNull() })
+    expect(bench.remote.settingsRead).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes the settings card again', async () => {
+    const bench = harness()
+    render(<NotesPanel {...bench.props()} />)
+    fireEvent.click(screen.getByLabelText('panel.settings'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-settings]')).not.toBeNull() })
+
+    fireEvent.click(document.querySelector('[aria-label="settings.close"]') as Element)
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-settings]')).toBeNull() })
+  })
+
   it('reports a refused write over the content it left standing', async () => {
     const note = noteId('n1')
     const bench = harness({

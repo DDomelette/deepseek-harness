@@ -19,6 +19,7 @@ import { failureLine } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
 import { MaterialDetail } from './MaterialDetail.tsx'
 import { MaterialList } from './MaterialList.tsx'
+import { NotesSettingsCard } from './NotesSettingsCard.tsx'
 import type { NotesStore } from './store.ts'
 import css from './NotesPanel.module.css'
 
@@ -66,17 +67,21 @@ export type NotesPanelProps =
  * @returns the panel, or the reason it has nothing to show.
  */
 export function NotesPanel({
-  useStore, load, refresh, createConversation, openSession, archiveSession, restoreSession,
-  select, saveText, analyze, ask, archive, restore, reorder, remove, t,
+  useStore, useTabInfo, load, refresh, createConversation, openSession, archiveSession,
+  restoreSession, select, saveText, analyze, ask, archive, restore, reorder, present,
+  readSettings, saveSettings, remove, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
+  const { tab, panel } = useTabInfo()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   useEffect(() => {
     load()
   }, [load])
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
-    select, saveText, analyze, ask, archive, restore, reorder, remove,
+    select, saveText, analyze, ask, archive, restore, reorder, present,
+    readSettings, saveSettings, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)
@@ -170,6 +175,31 @@ export function NotesPanel({
             </button>
           </Tooltip>
         )}
+        <Tooltip label={panel.floating ? t('panel.dock') : t('panel.float')} side="bottom" delayMs={500}>
+          <button
+            type="button"
+            className={css.tool}
+            aria-label={panel.floating ? t('panel.dock') : t('panel.float')}
+            data-notes-present={panel.floating ? 'dock' : 'float'}
+            onClick={() => { present(tab.id, panel.id, panel.floating) }}
+          >
+            {panel.floating ? t('panel.dock') : t('panel.float')}
+          </button>
+        </Tooltip>
+        <Tooltip label={t('panel.settings')} side="bottom" delayMs={500}>
+          <button
+            type="button"
+            className={css.tool}
+            aria-label={t('panel.settings')}
+            data-notes-settings-open
+            onClick={() => {
+              setSettingsOpen(true)
+              readSettings()
+            }}
+          >
+            {t('panel.settings')}
+          </button>
+        </Tooltip>
         <Tooltip label={t('panel.refresh')} side="bottom" delayMs={500}>
           <button
             type="button"
@@ -224,6 +254,16 @@ export function NotesPanel({
         )}
         {state.loading && <p className={css.loading} data-notes-reading>{t('panel.loading')}</p>}
       </div>
+      {settingsOpen && (
+        <NotesSettingsCard
+          settings={state.settings}
+          loading={state.settingsLoading}
+          failure={state.settingsFailure}
+          commands={commands}
+          t={t}
+          close={() => { setSettingsOpen(false) }}
+        />
+      )}
     </div>
   )
 }

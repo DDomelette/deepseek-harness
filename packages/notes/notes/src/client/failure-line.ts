@@ -28,6 +28,7 @@ export function failureLine(t: TranslateNS<'notes'>, failure: NotesPanelFailure)
     case 'last-conversation': return t('error.lastConversation')
     case 'session-not-live': return t('error.sessionNotLive')
     case 'unknown-action': return t('error.unknownAction')
+    case 'settings-unavailable': return t('error.settingsUnavailable')
     case 'remote-unavailable': return t('error.remoteUnavailable', { message: failure.message })
   }
 }

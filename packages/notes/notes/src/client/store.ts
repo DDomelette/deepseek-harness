@@ -10,7 +10,7 @@ import { defineStore } from '@deepseek-ai/dsh-client-store'
 import type { EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type {
   MaterialId, NotesMaterialListValue, NotesMaterialSummary, NotesSessionListValue,
-  NotesSessionSummary, NotesThreadRow, NoteSessionId,
+  NotesSessionSummary, NotesSettingsView, NotesThreadRow, NoteSessionId,
 } from '../types.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 
@@ -42,6 +42,12 @@ export interface NotesState {
   failure: NotesPanelFailure | undefined
   /** Why the last write was refused; the panel's content stays under it. */
   notice: NotesPanelFailure | undefined
+  /** The notes settings section, once the card has read it. */
+  settings: NotesSettingsView | undefined
+  /** A settings read is in flight. */
+  settingsLoading: boolean
+  /** Why the last settings read or write produced nothing. */
+  settingsFailure: NotesPanelFailure | undefined
 }
 
 /** The store's write set; every action is one step of one read or write. */
@@ -58,6 +64,9 @@ type NotesActions = {
   threadStarted: (draft: NotesState) => void
   threadFailed: (draft: NotesState, failure: NotesPanelFailure) => void
   threadLoaded: (draft: NotesState, rows: readonly NotesThreadRow[]) => void
+  settingsStarted: (draft: NotesState) => void
+  settingsFailed: (draft: NotesState, failure: NotesPanelFailure) => void
+  settingsLoaded: (draft: NotesState, settings: NotesSettingsView) => void
 }
 
 /**
@@ -80,6 +89,9 @@ export function createNotesStore(): EngineStoreHandle<NotesState, NotesActions> 
       loaded: false,
       failure: undefined,
       notice: undefined,
+      settings: undefined,
+      settingsLoading: false,
+      settingsFailure: undefined,
     }),
     actions: {
       /** @param d - draft state. */
@@ -141,6 +153,22 @@ export function createNotesStore(): EngineStoreHandle<NotesState, NotesActions> 
         d.thread = rows
         d.threadLoading = false
         d.threadFailure = undefined
+      },
+      /** @param d - draft state. */
+      settingsStarted: (d) => {
+        d.settingsLoading = true
+        d.settingsFailure = undefined
+      },
+      /** @param d - draft state. @param failure - the settled failure. */
+      settingsFailed: (d, failure) => {
+        d.settingsLoading = false
+        d.settingsFailure = failure
+      },
+      /** @param d - draft state. @param settings - the section the Host returned. */
+      settingsLoaded: (d, settings) => {
+        d.settings = settings
+        d.settingsLoading = false
+        d.settingsFailure = undefined
       },
     },
   })

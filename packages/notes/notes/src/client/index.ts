@@ -54,7 +54,7 @@ export function apply(ctx: ClientContext): void {
     key: NOTES_ID,
     locale: NS,
     store,
-    inject: (_sessionId, actions) => notesFace(ctx.remote.notes, actions),
+    inject: (_sessionId, actions) => notesFace(ctx.remote.notes, ctx.sidebarRight, actions),
   }, NotesPanel)), 'notes: panel body')
 
   ctx.effect(() => ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({

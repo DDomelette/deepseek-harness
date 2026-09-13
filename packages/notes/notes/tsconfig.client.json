@@ -15,6 +15,7 @@
     "src/client/MaterialList.tsx",
     "src/client/NotesButton.tsx",
     "src/client/NotesPanel.tsx",
+    "src/client/NotesSettingsCard.tsx",
     "src/client/store.ts",
     "src/css-modules.d.ts",
     "src/types.ts"
@@ -25,6 +26,7 @@
     { "path": "../../client/locale" },
     { "path": "../../client/store" },
     { "path": "../../client/ui-conversation" },
+    { "path": "../../client/ui-dockkit" },
     { "path": "../../client/ui-primitives" },
     { "path": "../../client/ui-renderer" },
     { "path": "../../client/ui-session" },

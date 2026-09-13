@@ -9,6 +9,8 @@
  */
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { SettingsProvider } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { Analysis } from '../src/analysis.ts'
 import { NotesRemote } from '../src/remote.ts'
 import type { ActionDef, Config } from '../src/settings.ts'
@@ -19,6 +21,29 @@ import type { MaterialId, NoteSessionId, NotesApplied } from '../src/types.ts'
 
 /** The workspace every fixture conversation is created over. */
 const workspace = join('probe-root', 'notes-workspace')
+
+/**
+ * Minimal in-memory settings provider. `@deepseek-ai/dsh-settings` exports the
+ * abstract `SettingsProvider`, which cannot be mounted itself, and its own
+ * `tests/` directory is not part of the package's `exports`, so every consumer
+ * spec declares its own.
+ */
+class MemorySettings extends SettingsProvider {
+  private doc: Record<string, unknown> = {}
+
+  get writable(): boolean {
+    return true
+  }
+
+  protected load(): Promise<Record<string, unknown>> {
+    return Promise.resolve(structuredClone(this.doc))
+  }
+
+  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
+    this.doc[ns] = structuredClone(section)
+    return Promise.resolve()
+  }
+}
 
 /** The acknowledgment every valueless mutation reports. */
 const applied: NotesApplied = { applied: true }
@@ -505,5 +530,61 @@ describe('notes remote materials', () => {
       ok: false,
       error: { code: 'material-not-found', id: 'absent' },
     })
+  })
+})
+
+describe('notes remote settings', () => {
+  it('refuses to read or write the section while no provider is mounted', async () => {
+    const host = await mount()
+
+    expect(host.remote.settingsRead()).toEqual({
+      ok: false,
+      error: { code: 'settings-unavailable' },
+    })
+    await expect(host.remote.settingsUpdate({ strategy: 'auto' })).resolves.toEqual({
+      ok: false,
+      error: { code: 'settings-unavailable' },
+    })
+  })
+
+  it('reads the resolved section and writes one field at a time', async () => {
+    const host = await mount()
+    await host.ctx.plugin(MemorySettings).await()
+
+    expect(host.remote.settingsRead()).toEqual({
+      ok: true,
+      value: { strategy: 'manual', actions: [], workspace, model: null, writable: true },
+    })
+
+    await expect(host.remote.settingsUpdate({ model: { provider: 'deepseek', model: 'deepseek-flash' } }))
+      .resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
+
+    await expect(host.remote.settingsUpdate({ model: null })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.model()).toBeNull()
+  })
+
+  it('carries the collection actions and writes the strategy and workspace', async () => {
+    const translate: ActionDef = {
+      id: 'translate',
+      label: '翻译',
+      prompt: '不改变语句结构，翻译下列内容：',
+      autoSend: true,
+    }
+    const host = await mount({ actions: [translate] })
+    await host.ctx.plugin(MemorySettings).await()
+
+    const read = host.remote.settingsRead()
+    expect(read.ok && read.value.actions).toEqual([translate])
+
+    await expect(host.remote.settingsUpdate({ strategy: 'auto' })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.strategy()).toBe('auto')
+
+    await expect(host.remote.settingsUpdate({ workspace: '/work/other' })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.workspace()).toBe('/work/other')
+
+    // Clearing the user value returns the field to the composition entry.
+    await expect(host.remote.settingsUpdate({ workspace: null })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.workspace()).toBe(workspace)
   })
 })
