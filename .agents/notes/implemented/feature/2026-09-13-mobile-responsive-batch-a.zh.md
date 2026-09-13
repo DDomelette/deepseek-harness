@@ -14,7 +14,7 @@ Status: implemented
 
 ui-conversation 让内容宽度轴适配列宽。内容宽度 clamp 的下限从固定 680px 改为 `min(680px, 列宽)`，因此低于 680px 时下限退化为列宽本身，手机宽度的列不会溢出；64% 的自适应项与 920px 的行长上限不变。宽度手柄是鼠标设施，在 `(max-width: 767px), (pointer: coarse)` 下隐藏。吸附底部的输入区座位增加 `env(safe-area-inset-bottom)` 内边距，以避开手机的主屏指示条；在粗指针设备上，输入栏按钮的最小触控目标为 44px（WCAG 2.5.5）。
 
-`apps/web` 在 viewport meta 中声明 `viewport-fit=cover` 与 `interactive-widget=resizes-content`，外壳高度链（`html`、`body`、`#root`）使用 `100dvh`，因此布局跟随移动浏览器动态视口在地址栏收起时的变化，以及键盘对内容区的挤压。
+`apps/web` 在 viewport meta 中声明 `viewport-fit=cover` 与 `interactive-widget=resizes-content`，外壳高度链（`html`、`body`、`#root`）使用 `100dvh`，因此布局跟随移动浏览器动态视口在地址栏收起时的变化，以及键盘对内容区的挤压。挂载根还承载顶部与左右安全区 inset（`env(safe-area-inset-top)` 与 `env(safe-area-inset-left/right)`），并设置 `box-sizing: border-box`，因此已安装 PWA 的状态栏与横屏刘海都不会遮挡头部或侧栏开关；底部 inset 仍由贴合主屏指示条的输入区座位承担。
 
 覆盖：e2e 通道新增 `newMobilePage` 辅助函数（390×844、触摸）与 `mobile-drawer.e2e.ts` 三个用例——无横向溢出、抽屉开合、输入区可见且可聚焦；桌面黄金场景回放不变。
 
@@ -27,5 +27,5 @@ ui-conversation 让内容宽度轴适配列宽。内容宽度 clamp 的下限从
 ## 后果
 
 - 桌面路径不受影响：每个新分支都以 768px 常量或粗指针媒体查询为条件，桌面 e2e 黄金场景回放全绿。
-- iOS 安全区与键盘行为无法在 CI 中验证；这是已接受的缺口，由真机手测覆盖。
-- 次要界面——设置族与会话外壳之外的其他路由——在后续批次之前保持桌面布局。
+- iOS 安全区与键盘行为无法在 CI 中验证；这是已接受的缺口，由真机手测覆盖，而手机通道会锁定零 inset 的情形——此时所有请求的 inset 都必须解析为不产生内边距。
+- 会话外壳之外的次要界面保持桌面布局；设置面板有自己的手机布局（[手机上的单窗格设置面板](2026-09-13-settings-single-pane-handset.zh.md)），而固定定位的浮层仍覆盖原始视口而非安全区。

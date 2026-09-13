@@ -81,4 +81,23 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(box!.width).toBeLessThanOrEqual(390)
     expect(tripwire.pageErrors).toEqual([])
   })
+
+  it('reserves no safe-area padding where the viewport reports no insets', async () => {
+    // This browser reports no notch or status bar, so every safe-area inset the
+    // shell asks for resolves to zero: the mount root must not reserve padding
+    // the viewport does not have, and it must still fill the dynamic viewport.
+    await expect.poll(async () => await page.evaluate(() => document.getElementById('root')?.innerHTML.length ?? 0)).toBeGreaterThan(1000)
+    const metrics = await page.evaluate(() => {
+      const root = document.getElementById('root')!
+      const style = getComputedStyle(root)
+      return {
+        padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+        height: root.getBoundingClientRect().height,
+        viewport: window.innerHeight,
+      }
+    })
+    expect(metrics.padding).toEqual(['0px', '0px', '0px', '0px'])
+    expect(Math.abs(metrics.height - metrics.viewport)).toBeLessThanOrEqual(1)
+    expect(tripwire.pageErrors).toEqual([])
+  })
 })

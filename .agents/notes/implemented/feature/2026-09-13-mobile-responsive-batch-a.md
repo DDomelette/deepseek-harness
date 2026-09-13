@@ -14,7 +14,7 @@ The frame gains a handset band. `SIDEBAR_OVERLAY = 768` in `packages/client/ui-l
 
 ui-conversation fits the content width axis to the column. The content width clamp floors at `min(680px, column)` instead of a fixed 680px, so below 680px the floor degrades to the column itself and a handset column never overflows; the 64% adaptive term and the 920px line-length cap are unchanged. The width handles are a mouse facility and hide under `(max-width: 767px), (pointer: coarse)`. The sticky composer seat adds `env(safe-area-inset-bottom)` padding to clear a handset's home-indicator band, and on coarse pointers the input bar buttons carry a 44px minimum touch target (WCAG 2.5.5).
 
-`apps/web` declares `viewport-fit=cover` and `interactive-widget=resizes-content` in the viewport meta, and the shell height chain (`html`, `body`, `#root`) uses `100dvh`, so the layout tracks the mobile browser's dynamic viewport as the URL bar collapses and the keyboard resizes the content.
+`apps/web` declares `viewport-fit=cover` and `interactive-widget=resizes-content` in the viewport meta, and the shell height chain (`html`, `body`, `#root`) uses `100dvh`, so the layout tracks the mobile browser's dynamic viewport as the URL bar collapses and the keyboard resizes the content. The mount root also carries the top and inline safe-area insets (`env(safe-area-inset-top)` and `env(safe-area-inset-left/right)`) under `box-sizing: border-box`, so an installed PWA's status bar and a landscape notch cannot overlap the header or the sidebar toggle; the bottom inset stays with the composer seat that meets the home indicator.
 
 Coverage: the e2e lane gains a `newMobilePage` helper (390×844, touch) and `mobile-drawer.e2e.ts` with three cases — no horizontal overflow, drawer open and close, composer visible and focusable; the desktop golden scenarios replay unchanged.
 
@@ -27,5 +27,5 @@ Coverage: the e2e lane gains a `newMobilePage` helper (390×844, touch) and `mob
 ## Consequences
 
 - The desktop path is untouched: every new branch keys off the 768px constant or a coarse-pointer media query, and the desktop e2e golden scenarios replay green.
-- iOS safe-area and keyboard behavior is not verifiable in CI; it is an accepted gap covered by manual device checks.
-- Secondary surfaces — the Settings family and other routes outside the conversation shell — keep the desktop layout until a later batch.
+- iOS safe-area and keyboard behavior is not verifiable in CI; it is an accepted gap covered by manual device checks, while the mobile lane pins the zero-inset case where every requested inset must resolve to no padding.
+- Secondary surfaces outside the conversation shell keep the desktop layout; the Settings panel has its own handset layout ([Single-pane settings on a handset](2026-09-13-settings-single-pane-handset.md)), and fixed overlays still span the raw viewport rather than the safe area.
