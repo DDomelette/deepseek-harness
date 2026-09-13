@@ -567,6 +567,6 @@ git commit -m "docs: record the mobile responsive batch-a decision"
 
 ## 收尾
 
-- 真机手测清单(写进 PR 描述):`pnpm dsh mob` → 手机打开 → 抽屉开合(按钮/遮罩/Escape 等价物)、发一条消息、审批一次、横竖屏旋转、PWA 主屏打开看刘海安全区。
+- 真机手测清单(写进 PR 描述):`pnpm dsh web` → 手机打开 → 抽屉开合(按钮/遮罩/Escape 等价物)、发一条消息、审批一次、横竖屏旋转、PWA 主屏打开看刘海安全区。
 - 推送前检查按 `.agents/skills/dsh-pre-push-checks/SKILL.md` 选最小集。
 - PR 目标:dev 分支(fork: DDomelette/deepseek-harness)。

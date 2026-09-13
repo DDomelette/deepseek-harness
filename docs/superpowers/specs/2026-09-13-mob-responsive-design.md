@@ -64,7 +64,7 @@ dsh-mob Phase 0-2 已落地 dev(LAN 默认绑定、配对码认证、PWA 基础�
 - 回归:变视口 e2e 黄金(details-session-lifecycle、sidebar-right、composer-tab-geometry、plan-control-row)全绿;`DSH_SNAPSHOT=replay pnpm run test:web`。
 - 新增:移动视口 e2e(W4)。
 - 门禁:`pnpm run test:gui`、per-file 100% 覆盖、verify-client-ui-i18n(新文案键)、Agent Note 同 PR。
-- 真机:`pnpm dsh mob` 手测清单——抽屉开关、发消息、审批、横竖屏旋转。
+- 真机:`pnpm dsh web` 手测清单——抽屉开关、发消息、审批、横竖屏旋转。
 
 ## 明确不做(YAGNI)
 
