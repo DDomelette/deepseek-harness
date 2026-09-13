@@ -1602,6 +1602,56 @@ export interface Config {
 
 来源：[`packages/feedback/message-feedback/src/index.ts:40`](../packages/feedback/message-feedback/src/index.ts)
 
+<a id="deepseek-aidsh-notes"></a>
+
+## `@deepseek-ai/dsh-notes`
+
+需要：`storageDomain`
+
+```ts config-catalog
+/** Composition entry, also the settings base layer. */
+export interface Config {
+  /** `manual` waits for an explicit analyse; `auto` analyses on collection. */
+  readonly strategy: NotesStrategy
+  /** Collection actions the selection bubble offers. */
+  readonly actions: ActionDef[]
+  /**
+   * Absolute workspace path for notes conversations. Absent until first-run
+   * setup has chosen one; schemastery reserves `null` as "no default", so
+   * absence is `undefined` and the accessors report it as `null`.
+   */
+  readonly workspace?: string
+  /**
+   * Model override for notes conversations; absent follows the session default.
+   * A nested literal rather than a named type, so the config catalog renders
+   * both fields with their own prose.
+   */
+  readonly model?: {
+    /** Registered provider route. */
+    readonly provider: string
+    /** Provider-owned model id. */
+    readonly model: string
+  }
+}
+
+/** When a newly collected material is sent to the model. */
+export type NotesStrategy = 'manual' | 'auto'
+
+/** One collection action: the bubble entry and the prompt it prepends. */
+export interface ActionDef {
+  /** Stable action id, stored as the material's `action`. */
+  readonly id: string
+  /** Localized label the selection bubble shows. */
+  readonly label: string
+  /** Prompt text prepended to the material body before submission. */
+  readonly prompt: string
+  /** Whether picking the action analyses immediately, ignoring the strategy. */
+  readonly autoSend: boolean
+}
+```
+
+来源：[`packages/notes/notes/src/settings.ts:36`](../packages/notes/notes/src/settings.ts)
+
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`

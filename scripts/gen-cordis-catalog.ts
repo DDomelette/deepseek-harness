@@ -183,6 +183,11 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   sidebarRight: 'client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API',
   sidebarRightTabs: 'client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API',
   documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
+  notesStore: 'Host service the notes function plugin mounts to own the notes storage domain — packages/notes/notes/README.md owns the API',
+  notesMaterials: 'Host service the notes function plugin mounts for durable material storage — packages/notes/notes/README.md owns the API',
+  notesSessions: 'Host service the notes function plugin mounts for notes-conversation records — packages/notes/notes/README.md owns the API',
+  notesSettings: 'Host service the notes function plugin mounts as the settings-section owner — packages/notes/notes/README.md owns the API',
+  notesAnalysis: 'Host service the notes function plugin mounts to submit a material into its notes conversation — packages/notes/notes/README.md owns the API',
 }
 
 /**
