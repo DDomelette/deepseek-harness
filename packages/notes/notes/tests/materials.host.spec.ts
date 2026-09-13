@@ -42,6 +42,13 @@ describe('notes materials', () => {
     expect(mounted.materials.list(noteId('n1')).map(row => row.text)).toEqual(['b', 'a'])
   })
 
+  it('keeps the newest-on-top rule when two materials are created concurrently', async () => {
+    await Promise.all([seed('a'), seed('b')])
+    // The second create must land above the first, exactly as two sequential
+    // creates do; a shared order value would leave the pair unordered.
+    expect(mounted.materials.list(noteId('n1')).map(row => row.text)).toEqual(['b', 'a'])
+  })
+
   it('archives out of the list and restores to the top', async () => {
     const a = await seed('a')
     await seed('b')
@@ -102,5 +109,18 @@ describe('notes materials', () => {
     await mounted.materials.archive(a)
     await expect(mounted.materials.reorder(noteId('n1'), [a]))
       .rejects.toThrow(/is not visible in this conversation/)
+  })
+
+  it('keeps ordering usable after an order-reading operation is rejected', async () => {
+    const a = await seed('a')
+    await expect(mounted.materials.reorder(noteId('n1'), [materialId('absent')]))
+      .rejects.toThrow(/is not visible in this conversation/)
+
+    // The serialized tail must settle on failure, so the next create still
+    // lands above the material that was already there.
+    const b = await seed('b')
+    expect(mounted.materials.list(noteId('n1')).map(row => row.text)).toEqual(['b', 'a'])
+    expect(mounted.materials.get(a)).toBeDefined()
+    expect(mounted.materials.get(b)).toBeDefined()
   })
 })

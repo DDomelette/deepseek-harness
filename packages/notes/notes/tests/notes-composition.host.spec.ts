@@ -31,6 +31,18 @@ const NOTES_PACKAGE = '@deepseek-ai/dsh-notes'
 /** A conversation id no fixture ever writes to. */
 const listedNoteId = noteId('probe-conversation')
 
+/**
+ * Stand-in for the host's agent row. The notes row resolves `agents` from a
+ * sibling host row in the shipped composition, so this mounts as its own Loader
+ * row rather than as a root-level provide.
+ */
+const FakeAgentRegistry = {
+  name: 'fake-agent-registry',
+  apply: (ctx: Context): void => {
+    ctx.provide('agents', { get: () => undefined } as never)
+  },
+}
+
 let root: string | undefined
 const contexts: Context[] = []
 
@@ -55,6 +67,7 @@ async function loadComposition(configPath: string): Promise<Context> {
     ['@deepseek-ai/dsh-storage', Storage],
     ['@deepseek-ai/dsh-storage-json', StorageJson],
     ['@deepseek-ai/dsh-storage-domain', StorageDomain],
+    ['@deepseek-ai/dsh-agent', FakeAgentRegistry],
     [NOTES_PACKAGE, Notes],
   ])
   ctx.loader.internal = {
@@ -87,6 +100,10 @@ async function writeComposition(): Promise<string> {
     "- name: '@deepseek-ai/dsh-storage-domain'",
     '  config:',
     '    backend: json',
+    // A sibling row, not a root-level provide: the notes row must resolve
+    // `agents` the way it does in the shipped composition, where another host
+    // row owns the registry.
+    "- name: '@deepseek-ai/dsh-agent'",
     '- id: notes',
     `  name: '${NOTES_PACKAGE}'`,
     '',
@@ -111,6 +128,14 @@ describe('notes through a real Loader composition', () => {
     expect(ctx.notesSettings.actions().map(action => action.id)).toEqual(['translate'])
     expect(ctx.notesSettings.workspace()).toBeNull()
     expect(ctx.notesSettings.model()).toBeNull()
+  })
+
+  it('activates the analysis service when a sibling host row owns the agent registry', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+
+    await published(() => ctx.get('notesAnalysis'), 'notesAnalysis')
+    expect(ctx.notesAnalysis).toBeDefined()
   })
 
   it('releases the domain name when the notes row unmounts', async () => {

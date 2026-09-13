@@ -31,6 +31,14 @@ declare module '@deepseek-ai/cordis' {
 export class Materials extends Service {
   static inject = ['notesStore']
 
+  /**
+   * Settled tail of the operations that read the visible order and then write
+   * it. The order value comes from a synchronous read of the in-memory table,
+   * which a sibling write that has not landed yet does not reflect, so
+   * `create`, `restore`, and `reorder` must not interleave.
+   */
+  private operationTail: Promise<void> = Promise.resolve()
+
   /** @param ctx - host context carrying the open notes domain. */
   constructor(ctx: Context) {
     super(ctx, 'notesMaterials')
@@ -80,9 +88,11 @@ export class Materials extends Service {
    * @returns the minted material id.
    */
   async create(record: MaterialRecord): Promise<MaterialId> {
-    const id = brandString<MaterialId>(randomUUID())
-    await this.table.put(id, { ...record, order: this.topOrder(record.noteId) })
-    return id
+    return await this.enqueue(async () => {
+      const id = brandString<MaterialId>(randomUUID())
+      await this.table.put(id, { ...record, order: this.topOrder(record.noteId) })
+      return id
+    })
   }
 
   /**
@@ -119,13 +129,15 @@ export class Materials extends Service {
    * @param id - material id.
    */
   async restore(id: MaterialId): Promise<void> {
-    const current = this.table.get(id)
-    if (current === undefined) return
-    await this.update(id, record => ({
-      ...record,
-      archivedAt: null,
-      order: this.topOrder(record.noteId),
-    }))
+    await this.enqueue(async () => {
+      const current = this.table.get(id)
+      if (current === undefined) return
+      await this.update(id, record => ({
+        ...record,
+        archivedAt: null,
+        order: this.topOrder(record.noteId),
+      }))
+    })
   }
 
   /**
@@ -135,13 +147,15 @@ export class Materials extends Service {
    * @throws {Error} when an id is not a visible material of that conversation.
    */
   async reorder(noteId: NoteSessionId, orderedIds: readonly MaterialId[]): Promise<void> {
-    const visible = new Set(this.list(noteId).map(row => row.id))
-    for (const id of orderedIds) {
-      if (!visible.has(id)) throw new Error(`notes: material '${id}' is not visible in this conversation`)
-    }
-    for (const [index, id] of orderedIds.entries()) {
-      await this.update(id, record => ({ ...record, order: index }))
-    }
+    await this.enqueue(async () => {
+      const visible = new Set(this.list(noteId).map(row => row.id))
+      for (const id of orderedIds) {
+        if (!visible.has(id)) throw new Error(`notes: material '${id}' is not visible in this conversation`)
+      }
+      for (const [index, id] of orderedIds.entries()) {
+        await this.update(id, record => ({ ...record, order: index }))
+      }
+    })
   }
 
   /**
@@ -159,6 +173,19 @@ export class Materials extends Service {
     return visible.length === 0
       ? 0
       : Math.min(...visible.map(row => row.order)) - 1
+  }
+
+  /**
+   * Run one order-reading operation after every queued one. The tail settles
+   * on failure too, so a rejected operation never poisons the queue for the
+   * callers behind it.
+   * @param operation - the operation to run.
+   * @returns the operation's own result or rejection.
+   */
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operationTail.then(operation)
+    this.operationTail = result.then(() => {}, () => {})
+    return result
   }
 }
 

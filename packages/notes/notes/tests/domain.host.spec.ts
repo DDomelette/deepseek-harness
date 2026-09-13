@@ -11,7 +11,7 @@ import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import { afterEach, describe, expect, it } from 'vitest'
 import { NOTES_DOMAIN_NAME, notesDomainSpec } from '../src/domain.ts'
-import { material, materialId, noteId, noteSession, sessionId } from './bench.ts'
+import { material, materialId, messageId, noteId, noteSession, sessionId, sessionSeq, source } from './bench.ts'
 
 let ctx: Context | undefined
 let root: string | undefined
@@ -41,13 +41,23 @@ describe('notes domain', () => {
     expect(domain.name).toBe(NOTES_DOMAIN_NAME)
 
     const id = materialId('m1')
-    const record = material({ noteId: noteId('n1'), text: 'hello' })
+    // Every optional source field carries a value, so the reopen exercises each
+    // brand-minting schema at the durable read boundary rather than only the
+    // null path.
+    const record = material({
+      noteId: noteId('n1'),
+      text: 'hello',
+      source: source({ messageId: messageId('m-7'), seq: sessionSeq(7) }),
+    })
     await domain.table('materials').put(id, record)
     expect(domain.table('materials').get(id)?.text).toBe('hello')
 
     await domain.close()
     const reopened = await created.storageDomain.open(notesDomainSpec)
-    expect(reopened.table('materials').get(id)?.text).toBe('hello')
+    const stored = reopened.table('materials').get(id)
+    expect(stored?.text).toBe('hello')
+    expect(stored?.source.messageId).toBe('m-7')
+    expect(stored?.source.seq).toBe(7)
     await reopened.close()
   })
 

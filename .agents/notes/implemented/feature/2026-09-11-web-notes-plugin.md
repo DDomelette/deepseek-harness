@@ -30,6 +30,16 @@ Identity is matched rather than sequence because `Agent.followup(message)` retur
 
 Both entry points resolve the live Agent from the material's own conversation record (`Material.noteId` → the recorded dsh Session), never from `Material.source.sessionId`, which names the session the material was collected from. A follow-up that used the source session would post the question into an unrelated conversation.
 
+### A concurrent analysis claims its material on the domain write chain
+
+Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first records its id, and the loser sees that id in the returned record and submits nothing. A plain check-then-send would let a double click send the same material twice.
+
+The operations that mint a material's order value (`create`, `restore`, `reorder`) are serialized behind one settled tail for the same reason. The order value comes from a synchronous read of the in-memory table, which a sibling write that has not landed yet does not reflect, so two concurrent creates would otherwise mint the same order and lose the newest-on-top rule. The tail settles on rejection, so a refused `reorder` does not stall the operations behind it.
+
+### The last notes conversation cannot be archived
+
+`ctx.notesSessions.archive` refuses to archive the last unarchived conversation. The panel always owns one conversation to show, and the browser half must not be the only thing enforcing that: the spec puts the rule on the archive action, and a direct caller would bypass a hidden button.
+
 ### One service opens the notes domain
 
 `ctx.storageDomain.open` admits one open per domain name. `ctx.notesStore` is therefore the single owner: it opens the domain in its own `[Service.init]`, binds the close to its fiber's effect, and exposes the material and conversation tables plus the panel's active pointer. The material store, the conversation records, and the settings owner read those handles instead of opening a second domain.
@@ -72,13 +82,15 @@ A material's text and every model answer live in session events, so the plugin d
 
 A refused submission rolls its recorded message id back and marks the material `failed`. Without that rollback, `analyse` would read the material as already submitted and it could never be retried.
 
+Ordering operations run one at a time behind a settled tail, so a burst of collections writes materials in call order at the cost of serializing them; the work each one does is a single table write, so the queue is not a throughput concern at panel scale.
+
 Restoring an archived conversation returns it to its creation position rather than the top of the list, because `NoteSessionRecord` carries no order value; materials do restore to the top, through an explicit `order` value that `create` and `restore` both mint below every visible sibling.
 
 ## Testing
 
 `packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, thread attribution, body composition, the settings section over a memory provider, and analysis orchestration against a stand-in agent registry.
 
-`notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization.
+`notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization. Its `agents` row is a sibling Loader row rather than a root-level provide, so the spec exercises the same resolution the shipped composition uses.
 
 ## Related
 

@@ -10,11 +10,14 @@
 
 import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
+import type { MessageId } from '@deepseek-ai/dsh-llm'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 import type { Domain } from '@deepseek-ai/dsh-storage-domain'
-import type { MaterialId, MaterialKind, MaterialSource, MaterialStatus, NoteSessionId } from './types.ts'
+import type {
+  MaterialId, MaterialKind, MaterialSource, MaterialStatus, MaterialView, NoteSessionId,
+} from './types.ts'
 
 /** Domain name; also the backend unit name. */
 export const NOTES_DOMAIN_NAME = 'notes'
@@ -30,20 +33,26 @@ export const NOTES_TABLES = {
   sessions: 'sessions',
 } as const
 
-// Branding has no runtime representation: the medium stores plain strings, and
-// these schemas are what turn one back into its opaque id at the read boundary.
+// Branding has no runtime representation: the medium stores plain strings and
+// numbers, and these schemas are what turn one back into its opaque id at the
+// read boundary. Shape checks stay here with the brand, so a malformed stored
+// value fails the open rather than entering memory unbranded.
 const sessionIdSchema = z.string().transform(value => brandString<SessionId>(value))
 const noteSessionIdSchema = z.string().transform(value => brandString<NoteSessionId>(value))
+const messageIdSchema = z.string().transform(value => brandString<MessageId>(value))
+const sessionSeqSchema = z.number().int().nonnegative()
+  .transform(value => brandNumber<SessionSeq>(value))
 const materialKindSchema: z.ZodType<MaterialKind> = z.union([z.literal('text'), z.literal('image')])
+const materialViewSchema: z.ZodType<MaterialView> = z.union([z.literal('chat'), z.literal('trajectory')])
 const materialStatusSchema: z.ZodType<MaterialStatus> = z.union([
   z.literal('draft'), z.literal('analyzing'), z.literal('analyzed'), z.literal('failed'),
 ])
 
 const materialSourceSchema: z.ZodType<MaterialSource> = z.object({
   sessionId: sessionIdSchema,
-  view: z.string(),
-  seq: z.number().nullable(),
-  messageId: z.string().nullable(),
+  view: materialViewSchema,
+  seq: sessionSeqSchema.nullable(),
+  messageId: messageIdSchema.nullable(),
   callId: z.string().nullable(),
   label: z.string(),
 })
@@ -64,7 +73,7 @@ export const materialRecord = z.object({
   action: z.string().nullable(),
   order: z.number(),
   status: materialStatusSchema,
-  messageIds: z.array(z.string()),
+  messageIds: z.array(messageIdSchema),
   error: z.string().nullable(),
   createdAt: z.number(),
   archivedAt: z.number().nullable(),

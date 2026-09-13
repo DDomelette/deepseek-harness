@@ -20,7 +20,7 @@ import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { material, noteId, noteSession, sessionId } from './bench.ts'
+import { material, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId } from '../src/types.ts'
 
 /**
@@ -128,6 +128,17 @@ describe('notes analysis', () => {
     expect(stored?.error).toBeNull()
   })
 
+  it('submits once when two analyses race on the same material', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    await Promise.all([bench.analysis.analyse(id), bench.analysis.analyse(id)])
+
+    expect(bench.agents.followup).toHaveBeenCalledTimes(1)
+    expect(bench.materials.get(id)?.messageIds).toHaveLength(1)
+  })
+
   it('leaves a material that already entered the conversation alone', async () => {
     const bench = await mount()
     const note = await liveConversation(bench)
@@ -207,7 +218,7 @@ describe('notes analysis', () => {
     const id = await bench.materials.create(material({
       noteId: note,
       text: 'body',
-      source: { sessionId: sessionId('collected-from'), view: 'chat', seq: 1, messageId: null, callId: null, label: 'l' },
+      source: source({ sessionId: sessionId('collected-from') }),
     }))
 
     await bench.analysis.analyse(id)

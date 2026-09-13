@@ -1,5 +1,5 @@
 /**
- * Shared public types of the notes plugin: the two opaque ids, the material
+ * Shared public types of the notes plugin: the opaque ids, the material
  * vocabulary, and the source stamp a collected material carries.
  *
  * Identities are `Branded` from `@deepseek-ai/dsh-brand` rather than a
@@ -10,7 +10,8 @@
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { MessageId } from '@deepseek-ai/dsh-llm'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 
 /** Opaque id of one collected material. */
 export type MaterialId = Branded<'material-id'>
@@ -24,16 +25,19 @@ export type MaterialKind = 'text' | 'image'
 /** Lifecycle of one material. */
 export type MaterialStatus = 'draft' | 'analyzing' | 'analyzed' | 'failed'
 
+/** The views a material can be collected from. */
+export type MaterialView = 'chat' | 'trajectory'
+
 /** Where a collected material came from. */
 export interface MaterialSource {
   /** Session the text or image was collected from. */
   readonly sessionId: SessionId
-  /** `chat` or `trajectory`, as the collecting surface reported it. */
-  readonly view: string
+  /** The view the collecting surface reported. */
+  readonly view: MaterialView
   /** Source event sequence, when the collecting surface resolved one. */
-  readonly seq: number | null
+  readonly seq: SessionSeq | null
   /** Durable message id, when the source was a conversation message. */
-  readonly messageId: string | null
+  readonly messageId: MessageId | null
   /** Tool call id, when the source was a tool row. */
   readonly callId: string | null
   /** Display label, resolved and localized at collection time. */
