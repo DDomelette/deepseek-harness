@@ -901,6 +901,14 @@ export class Materials extends Service {
     this.domain = await openNotesDomain(this.ctx)
   }
 
+  /**
+   * Open the domain as part of activation, so a mounted plugin is usable
+   * without any caller awaiting `ready()` first.
+   */
+  protected async [Service.init](): Promise<void> {
+    await this.ready()
+  }
+
   private table() {
     if (this.domain === undefined) throw new Error('notes: materials used before ready()')
     return this.domain.table('materials')
@@ -1200,6 +1208,14 @@ export class NoteSessions extends Service {
     this.domain = await openNotesDomain(this.ctx)
   }
 
+  /**
+   * Open the domain as part of activation, so a mounted plugin is usable
+   * without any caller awaiting `ready()` first.
+   */
+  protected async [Service.init](): Promise<void> {
+    await this.ready()
+  }
+
   private table() {
     if (this.domain === undefined) throw new Error('notes: sessions used before ready()')
     return this.domain.table('sessions')
@@ -1465,13 +1481,16 @@ git commit -m "feat(notes): attribute session events to a material"
 - Create: `packages/notes/notes/src/settings.ts`
 - Modify: `packages/notes/notes/src/index.ts`
 - Modify: `packages/notes/notes/tsconfig.host.json`
+- Modify: `packages/notes/notes/tests/registration.host.spec.ts`(Task 2 建的;本任务改了 `apply` 的签名,必须同步)
 - Test: `packages/notes/notes/tests/settings.host.spec.ts`
 
 **Interfaces:**
 - Consumes: `ctx.settings.installSection`。
-- Produces: `NOTES_SETTINGS_NAMESPACE = 'notes'`、`Config`(插件的 cordis 行 config,同时是设置的 base 层)、`class NotesSettings`(服务键 `notesSettings`),方法 `strategy(): 'manual' | 'auto'`、`actions(): ActionDef[]`、`workspace(): string | null`、`model(): { provider: string; model: string } | null`。
+- Produces: `NOTES_SETTINGS_NAMESPACE = 'notes'`、`Config`(插件的 cordis 行 config,同时是设置的 base 层,并由 `src/index.ts` 再导出)、`class NotesSettings`(服务键 `notesSettings`),方法 `strategy(): 'manual' | 'auto'`、`actions(): ActionDef[]`、`workspace(): string | null`、`model(): { provider: string; model: string } | null`。
 
 **关键约束:** 设置 schema 用 **schemastery**(`import s from '@deepseek-ai/schemastery'`),不是 zod。
+
+**本任务会打破 Task 2 的测试,必须一并修。** Task 2 的 `tests/registration.host.spec.ts` 用 `ctx.plugin({ apply, inject })` 挂载,而 Cordis 会对它调用 `apply(ctx, undefined)`。Step 4 把 `apply` 改成 `(ctx, config: Config)` 之后,`undefined` 会一路传进 `NotesSettings`,读取时抛错。修法是把那个测试改成带显式 `Config` 挂载——它要证明的事(行能被解析、能干净卸载)完全不变,只是多一个参数。
 
 - [ ] **Step 1: 写测试(先红)**
 
@@ -1701,6 +1720,9 @@ export default NotesSettings
 /** Services the host half needs. */
 export const inject: string[] = []
 
+/** The row's config schema, so the Loader validates and defaults it. */
+export { Config } from './settings.ts'
+
 /**
  * Host plugin body.
  * @param ctx - host context.
@@ -1712,6 +1734,18 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(NotesSettings, config)
 }
 ```
+
+**`Config` 的再导出不是可选项。** Loader 校验 cordis 行的 config 时读的是**模块命名空间的 `Config` 导出**;只在 `settings.ts` 里导出它,行就拿不到 schema,`config` 会是 `undefined`,设置节也永远拿不到默认值——Task 10 的组合测试夹具正是一行不带 `config` 的 `notes` 行。
+
+**同时把 `tests/registration.host.spec.ts` 改成带配置挂载:**
+
+```text
+    const mounted = ctx.plugin({ apply, inject }, {
+      strategy: 'manual', actions: [], workspace: null, model: null,
+    })
+```
+
+其余断言不动。
 
 **两个容易写错的地方。** 其一,`ctx.plugin()` 接收的是**类或其配置**,不是实例——写 `ctx.plugin(new NotesSettings(ctx, config))` 在 Cordis 里是无效的,第二个参数才是传给构造函数的配置。其二,`SettingsProvider` 是 **abstract**,不能直接 `ctx.plugin(SettingsProvider)`;测试里必须自己声明一个内存实现(见 Step 1 的 `MemorySettings`)。
 
@@ -1871,10 +1905,11 @@ describe('notes analysis', () => {
     const followup = vi.fn()
     ctx!.provide('agents', { get: () => ({ followup, session: { id: 's1' } }) } as never)
 
-    const materials = new Materials(ctx!)
-    await materials.ready()
+    await ctx!.plugin(Materials).await()
     await ctx!.plugin(NotesSettings, { strategy: 'manual', actions: [], workspace: null, model: null }).await()
-    const analysis = new Analysis(ctx!, materials, ctx!.notesSettings)
+    await ctx!.plugin(Analysis).await()
+    const materials = ctx!.notesMaterials
+    const analysis = ctx!.notesAnalysis
 
     const id = await materials.create({
       noteId: 'n1', kind: 'text', text: 'body', image: null,
@@ -1896,10 +1931,11 @@ describe('notes analysis', () => {
     const followup = vi.fn(() => { throw new Error('inbox rejected') })
     ctx!.provide('agents', { get: () => ({ followup, session: { id: 's1' } }) } as never)
 
-    const materials = new Materials(ctx!)
-    await materials.ready()
+    await ctx!.plugin(Materials).await()
     await ctx!.plugin(NotesSettings, { strategy: 'manual', actions: [], workspace: null, model: null }).await()
-    const analysis = new Analysis(ctx!, materials, ctx!.notesSettings)
+    await ctx!.plugin(Analysis).await()
+    const materials = ctx!.notesMaterials
+    const analysis = ctx!.notesAnalysis
 
     const id = await materials.create({
       noteId: 'n1', kind: 'text', text: 'body', image: null,
@@ -1918,10 +1954,11 @@ describe('notes analysis', () => {
     const followup = vi.fn()
     ctx!.provide('agents', { get: () => ({ followup, session: { id: 's1' } }) } as never)
 
-    const materials = new Materials(ctx!)
-    await materials.ready()
+    await ctx!.plugin(Materials).await()
     await ctx!.plugin(NotesSettings, { strategy: 'manual', actions: [], workspace: null, model: null }).await()
-    const analysis = new Analysis(ctx!, materials, ctx!.notesSettings)
+    await ctx!.plugin(Analysis).await()
+    const materials = ctx!.notesMaterials
+    const analysis = ctx!.notesAnalysis
 
     const id = await materials.create({
       noteId: 'n1', kind: 'text', text: 'body', image: null,
@@ -1955,6 +1992,8 @@ Expected: FAIL——`../src/analysis.ts` 不存在。
  * @module @deepseek-ai/dsh-notes/analysis
  */
 
+import { Service } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -1963,23 +2002,31 @@ import type { Materials } from './materials.ts'
 import type { NotesSettings } from './settings.ts'
 import type { MaterialId } from './types.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Submits materials into the notes conversation. */
+    notesAnalysis: Analysis
+  }
+}
+
 /** Drives materials into the notes conversation. */
-export class Analysis {
-  private readonly materials: Materials
-  private readonly settings: NotesSettings
+export class Analysis extends Service {
+  static inject = ['agents', 'notesMaterials', 'notesSettings']
 
   /**
-   * @param ctx - host context carrying the agent registry.
-   * @param materials - durable material storage.
-   * @param settings - live notes settings.
+   * @param ctx - host context carrying the agent registry, the material store,
+   *   and the live notes settings.
    */
-  constructor(
-    private readonly ctx: Context,
-    materials: Materials,
-    settings: NotesSettings,
-  ) {
-    this.materials = materials
-    this.settings = settings
+  constructor(ctx: Context) {
+    super(ctx, 'notesAnalysis')
+  }
+
+  private get materials(): Materials {
+    return this.ctx.notesMaterials
+  }
+
+  private get settings(): NotesSettings {
+    return this.ctx.notesSettings
   }
 
   /**
@@ -2056,9 +2103,17 @@ export default Analysis
 
 `Agent.followup()` **可能同步抛错**——inbox 的 splice 会校验 JSON 与 surface 元数据,仓内先例 `packages/acp/acp/src/session.ts` 就为此包了 try/catch,所以这里的 try/catch 是必需的而不是防御性代码。
 
-- [ ] **Step 7: 跑测试**
+- [ ] **Step 7: 在 `apply` 里挂载 `Analysis`**
 
-Run: `pnpm exec vitest run packages/notes/notes/tests/compose.host.spec.ts packages/notes/notes/tests/analysis.host.spec.ts`
+`src/index.ts` 的 `apply` 追加一行:
+
+```text
+  ctx.plugin(Analysis)
+```
+
+并把 `src/analysis.ts`、`src/compose.ts` 加进 `tsconfig.host.json` 的 `files` 数组。
+
+`Analysis` 声明了 `static inject = ['agents', 'notesMaterials', 'notesSettings']`,必须挂在这三个服务可用之后——`NotesSettings` 由 Task 8 挂上,顺序没有问题。
 
 - [ ] **Step 8: 跑测试**
 
