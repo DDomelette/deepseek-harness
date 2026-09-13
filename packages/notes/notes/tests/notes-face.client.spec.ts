@@ -264,4 +264,29 @@ describe('notes panel detail commands', () => {
     expect(bench.instance.getSnapshot().selected).toBeNull()
     expect(bench.instance.getSnapshot().thread).toEqual([])
   })
+
+  it('applies a reorder to the conversation it last read', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([materialSummary({ noteId: note })]),
+    })
+    bench.face.load()
+    await settle()
+
+    bench.face.reorder([materialId('m1')])
+    await settle()
+
+    expect(bench.remote.materialReorder)
+      .toHaveBeenCalledExactlyOnceWith({ noteId: note, orderedIds: [materialId('m1')] })
+  })
+
+  it('restores an archived material', async () => {
+    const bench = harness()
+
+    bench.face.restore(materialId('m1'))
+    await settle()
+
+    expect(bench.remote.materialRestore).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
+  })
 })

@@ -12,6 +12,7 @@
     "src/client/index.ts",
     "src/client/locales.ts",
     "src/client/MaterialDetail.tsx",
+    "src/client/MaterialList.tsx",
     "src/client/NotesButton.tsx",
     "src/client/NotesPanel.tsx",
     "src/client/store.ts",

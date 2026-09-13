@@ -13,8 +13,9 @@ import type {
   NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
   NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
   NotesMaterialListResult, NotesMaterialListValue, NotesMaterialRemoveRequest,
-  NotesMaterialRemoveResult, NotesMaterialThreadRequest, NotesMaterialThreadResult,
-  NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
+  NotesMaterialRemoveResult, NotesMaterialReorderRequest, NotesMaterialReorderResult,
+  NotesMaterialRestoreRequest, NotesMaterialRestoreResult, NotesMaterialThreadRequest,
+  NotesMaterialThreadResult, NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
   NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
   NotesSessionSelectRequest, NotesSessionSelectResult, NotesSuccess,
@@ -71,6 +72,18 @@ export interface NotesRemoteFace {
    */
   materialArchive(request: NotesMaterialArchiveRequest): Promise<RemoteResult<NotesMaterialArchiveResult>>
   /**
+   * Return one archived material to the top of its conversation.
+   * @param request - the material to restore.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialRestore(request: NotesMaterialRestoreRequest): Promise<RemoteResult<NotesMaterialRestoreResult>>
+  /**
+   * Apply a complete manual ordering to one conversation.
+   * @param request - the conversation and its materials, top first.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialReorder(request: NotesMaterialReorderRequest): Promise<RemoteResult<NotesMaterialReorderResult>>
+  /**
    * Delete one material record.
    * @param request - the material to delete.
    * @returns the carrier result carrying the acknowledgment or the refusal.
@@ -120,6 +133,10 @@ export interface NotesInjected {
   readonly ask: (id: MaterialId, question: string) => void
   /** Move one material to the archived bucket and close its detail. */
   readonly archive: (id: MaterialId) => void
+  /** Return one archived material to the top of its conversation. */
+  readonly restore: (id: MaterialId) => void
+  /** Apply a complete manual ordering to the shown conversation. */
+  readonly reorder: (orderedIds: readonly MaterialId[]) => void
   /** Delete one material record and close its detail. */
   readonly remove: (id: MaterialId) => void
 }
@@ -145,6 +162,7 @@ export function notesFace(
   let reading = false
   let answered = false
   let open: MaterialId | null = null
+  let shown: NoteSessionId | null = null
 
   /**
    * Read the conversations, then the shown conversation's materials.
@@ -175,6 +193,7 @@ export function notesFace(
         buckets = answer.value.value
       }
       answered = true
+      shown = list.activeId
       actions.loaded(list, buckets)
     } finally {
       reading = false
@@ -231,6 +250,15 @@ export function notesFace(
     archive: (id) => {
       close()
       void write(async () => await remote.materialArchive({ id }))
+    },
+    restore: (id) => {
+      void write(async () => await remote.materialRestore({ id }))
+    },
+    reorder: (orderedIds) => {
+      /* v8 ignore next -- a list offering a reorder was drawn from a listed conversation. */
+      if (shown === null) return
+      const noteId = shown
+      void write(async () => await remote.materialReorder({ noteId, orderedIds }))
     },
     remove: (id) => {
       close()

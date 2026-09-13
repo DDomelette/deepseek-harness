@@ -14,19 +14,13 @@ import type {
   InjectFace, PropsLocale, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { NotesMaterialSummary, NotesSessionSummary, NoteSessionId } from '../types.ts'
+import type { NotesSessionSummary, NoteSessionId } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
-import type { NotesKey } from './locales.ts'
 import { MaterialDetail } from './MaterialDetail.tsx'
+import { MaterialList } from './MaterialList.tsx'
 import type { NotesStore } from './store.ts'
 import css from './NotesPanel.module.css'
-
-/** The dictionary line for each collection view. */
-const VIEW_LINES: Readonly<Record<NotesMaterialSummary['source']['view'], NotesKey>> = {
-  chat: 'source.chat',
-  trajectory: 'source.trajectory',
-}
 
 /** Which command one entry of the conversation menu asks for. */
 export interface SessionIntent {
@@ -73,7 +67,7 @@ export type NotesPanelProps =
  */
 export function NotesPanel({
   useStore, load, refresh, createConversation, openSession, archiveSession, restoreSession,
-  select, saveText, analyze, ask, archive, remove, t,
+  select, saveText, analyze, ask, archive, restore, reorder, remove, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -82,7 +76,7 @@ export function NotesPanel({
   }, [load])
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
-    select, saveText, analyze, ask, archive, remove,
+    select, saveText, analyze, ask, archive, restore, reorder, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)
@@ -209,14 +203,13 @@ export function NotesPanel({
         )}
         {state.failure === undefined && active !== undefined && (
           <div className={css.columns}>
-            <ul className={css.list} data-notes-materials>
-              {state.materials.map(row => (
-                <MaterialRow key={row.id} material={row} open={row.id === state.selected} select={select} t={t} />
-              ))}
-              {state.materials.length === 0 && (
-                <li className={css.emptyLine} data-notes-no-materials>{t('panel.noMaterials')}</li>
-              )}
-            </ul>
+            <MaterialList
+              materials={state.materials}
+              archived={state.archivedMaterials}
+              selected={state.selected}
+              commands={commands}
+              t={t}
+            />
             {selected !== undefined && (
               <MaterialDetail
                 material={selected}
@@ -232,41 +225,5 @@ export function NotesPanel({
         {state.loading && <p className={css.loading} data-notes-reading>{t('panel.loading')}</p>}
       </div>
     </div>
-  )
-}
-
-/** One material as the list draws it: its state, its first line, and its source. */
-function MaterialRow(
-  { material, open, select, t }: {
-    readonly material: NotesMaterialSummary
-    readonly open: boolean
-    readonly select: (id: NotesMaterialSummary['id'] | null) => void
-    readonly t: NotesPanelProps['t']
-  },
-): ReactNode {
-  return (
-    <li
-      className={css.row}
-      data-notes-material={material.id}
-      data-notes-status={material.status}
-      data-notes-open={open ? '' : undefined}
-    >
-      <button
-        type="button"
-        className={css.rowButton}
-        aria-current={open}
-        data-notes-select={material.id}
-        onClick={() => { select(material.id) }}
-      >
-        <span className={css.dot} data-notes-dot={material.status} />
-        <span className={css.rowText}>
-          <span className={css.rowTitle}>{material.source.label}</span>
-          <span className={css.rowPreview}>{material.text ?? t('source.image')}</span>
-        </span>
-        <span className={css.rowSource}>
-          {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
-        </span>
-      </button>
-    </li>
   )
 }

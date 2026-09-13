@@ -1,0 +1,175 @@
+/*
+ * The list column: one draggable row per material, and the archived bucket
+ * folded under them. A row's archive control appears while the row is under
+ * the pointer, and the drop line marks where a dragged row would land.
+ */
+.list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: 240px;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  list-style: none;
+  border-right: 1px solid var(--dsw-alias-border-l2);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* The drop line sits on the row a dragged material would land on. */
+.row[data-notes-drop] {
+  box-shadow: inset 0 2px 0 0 var(--dsw-alias-brand-primary);
+}
+
+.rowButton {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rowButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.rowButton[aria-current='true'] {
+  background: var(--dsw-alias-interactive-bg-active);
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.handle {
+  position: absolute;
+  right: 4px;
+  display: none;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-button-tool-bar-fill);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.row:hover .handle {
+  display: block;
+}
+
+.handle:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--dsw-alias-label-tertiary);
+  border-radius: 8px;
+}
+
+.dot[data-notes-dot='analyzing'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dot[data-notes-dot='analyzed'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dot[data-notes-dot='failed'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rowTitle {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowPreview {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSource {
+  flex: none;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.emptyLine {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.archivedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.archivedToggle {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.archivedToggle:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* An archived row stays dimmed until the reader takes it back. */
+.archivedRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.archivedRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  opacity: 1;
+}

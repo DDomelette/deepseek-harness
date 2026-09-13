@@ -136,6 +136,8 @@ export interface HarnessRemote {
   readonly materialAnalyze: Mock<NotesRemoteFace['materialAnalyze']>
   readonly materialAsk: Mock<NotesRemoteFace['materialAsk']>
   readonly materialArchive: Mock<NotesRemoteFace['materialArchive']>
+  readonly materialRestore: Mock<NotesRemoteFace['materialRestore']>
+  readonly materialReorder: Mock<NotesRemoteFace['materialReorder']>
   readonly materialRemove: Mock<NotesRemoteFace['materialRemove']>
 }
 
@@ -185,6 +187,8 @@ export function harness(script: {
     materialAnalyze: vi.fn<NotesRemoteFace['materialAnalyze']>(async () => applied()),
     materialAsk: vi.fn<NotesRemoteFace['materialAsk']>(async () => applied()),
     materialArchive: vi.fn<NotesRemoteFace['materialArchive']>(async () => applied()),
+    materialRestore: vi.fn<NotesRemoteFace['materialRestore']>(async () => applied()),
+    materialReorder: vi.fn<NotesRemoteFace['materialReorder']>(async () => applied()),
     materialRemove: vi.fn<NotesRemoteFace['materialRemove']>(async () => applied()),
   }
   const face = notesFace(remote, instance.actions)
@@ -224,6 +228,8 @@ export function harness(script: {
       analyze: face.analyze,
       ask: face.ask,
       archive: face.archive,
+      restore: face.restore,
+      reorder: face.reorder,
       remove: face.remove,
       t,
     }) as unknown as NotesPanelProps,
