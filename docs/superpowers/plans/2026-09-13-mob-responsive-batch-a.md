@@ -64,8 +64,7 @@
 
 - [ ] **Step 2: 跑红**
 
-Run: `pnpm exec vitest run packages/client/ui-layout/tests/layout-store.client.spec.ts`
-Expected: FAIL(800 时 narrowExpanded 仍为 true)。
+Run: `pnpm exec vitest run packages/client/ui-layout/tests/layout-store.client.spec.ts` Expected: FAIL(800 时 narrowExpanded 仍为 true)。
 
 - [ ] **Step 3: 实现**
 
@@ -91,8 +90,7 @@ export const SIDEBAR_OVERLAY = 768
 
 - [ ] **Step 4: 跑绿 + 全量**
 
-Run: `pnpm exec vitest run packages/client/ui-layout`
-Expected: PASS(含既有全部用例)。
+Run: `pnpm exec vitest run packages/client/ui-layout` Expected: PASS(含既有全部用例)。
 
 - [ ] **Step 5: Commit**
 
@@ -133,8 +131,7 @@ it('renders the expanded sidebar as a drawer with a scrim below the overlay brea
 
 - [ ] **Step 2: 跑红**
 
-Run: `pnpm exec vitest run packages/client/ui-layout/tests/app-frame.client.spec.tsx`
-Expected: FAIL(无 data-drawer/scrim)。
+Run: `pnpm exec vitest run packages/client/ui-layout/tests/app-frame.client.spec.tsx` Expected: FAIL(无 data-drawer/scrim)。
 
 - [ ] **Step 3: 实现**
 
@@ -214,8 +211,7 @@ Expected: FAIL(无 data-drawer/scrim)。
 
 - [ ] **Step 4: 跑绿 + 全量 + 覆盖率**
 
-Run: `pnpm exec vitest run packages/client/ui-layout`
-Expected: PASS;新分支(overlay/drawerOpen/scrim/Escape)被用例覆盖。
+Run: `pnpm exec vitest run packages/client/ui-layout` Expected: PASS;新分支(overlay/drawerOpen/scrim/Escape)被用例覆盖。
 
 - [ ] **Step 5: Commit**
 
@@ -257,8 +253,7 @@ it('fits the content width to a handset column, clamping even a stored wide pref
 
 - [ ] **Step 2: 跑红**
 
-Run: `pnpm exec vitest run packages/client/ui-conversation/tests/skeleton.client.spec.tsx`
-Expected: FAIL(现为 `640px`)。
+Run: `pnpm exec vitest run packages/client/ui-conversation/tests/skeleton.client.spec.tsx` Expected: FAIL(现为 `640px`)。
 
 - [ ] **Step 3: 实现**
 
@@ -273,8 +268,7 @@ function resolveContentWidth(columnWidth: number, preference: number | null): nu
 }
 ```
 
-桌面行为不变校验(写进测试或注释):column=1000 无偏好 → 680;column=2000 → 920;column=1000 偏好 800 → 800。
-同步更新 `CONTENT_MIN`/`CONTENT_EDGE_BUDGET`(:18-24)的 JSDoc:窄列时 effectiveMin 退化为列宽,EDGE_BUDGET 预算让位于"内容=列宽"。
+桌面行为不变校验(写进测试或注释):column=1000 无偏好 → 680;column=2000 → 920;column=1000 偏好 800 → 800。 同步更新 `CONTENT_MIN`/`CONTENT_EDGE_BUDGET`(:18-24)的 JSDoc:窄列时 effectiveMin 退化为列宽,EDGE_BUDGET 预算让位于"内容=列宽"。
 
 (b) `ConversationRoot.module.css` :28-31 改为:
 
@@ -306,8 +300,7 @@ function resolveContentWidth(columnWidth: number, preference: number | null): nu
 
 - [ ] **Step 4: 跑绿 + 全量**
 
-Run: `pnpm exec vitest run packages/client/ui-conversation`
-Expected: PASS(505 基线不回归)。
+Run: `pnpm exec vitest run packages/client/ui-conversation` Expected: PASS(505 基线不回归)。
 
 - [ ] **Step 5: Commit**
 
@@ -350,9 +343,7 @@ body,
 
 - [ ] **Step 2: 验证**
 
-Run: `pnpm run build`
-Expected: 构建通过,`apps/web/dist/index.html` 含 `viewport-fit=cover`。
-iOS 真机行为(safe-area/键盘)记入 Task 6 的真机手测清单,CI 不可验证属已接受缺口。
+Run: `pnpm run build` Expected: 构建通过,`apps/web/dist/index.html` 含 `viewport-fit=cover`。 iOS 真机行为(safe-area/键盘)记入 Task 6 的真机手测清单,CI 不可验证属已接受缺口。
 
 - [ ] **Step 3: Commit**
 
@@ -389,8 +380,7 @@ git commit -m "feat(web): declare viewport-fit cover and dvh height chain"
 
 - [ ] **Step 2: 验证**
 
-Run: `pnpm exec vitest run packages/client/ui-conversation` + `pnpm run build`
-Expected: PASS;无测试断言尺寸时以 e2e(Task 6)的 composer 可用性兜底。
+Run: `pnpm exec vitest run packages/client/ui-conversation` + `pnpm run build` Expected: PASS;无测试断言尺寸时以 e2e(Task 6)的 composer 可用性兜底。
 
 - [ ] **Step 3: Commit**
 
@@ -520,13 +510,11 @@ describe('mobile viewport (390×844, touch)', () => {
 
 - [ ] **Step 3: 跑 e2e**
 
-Run: `pnpm run build && pnpm exec vitest run apps/web/tests/mobile-drawer.e2e.ts`(若 e2e 有独立 config,以 apps/web 既有 e2e 运行方式为准,如 `pnpm run test:web` 或 vitest.e2e.config)
-Expected: 三个用例 PASS。
+Run: `pnpm run build && pnpm exec vitest run apps/web/tests/mobile-drawer.e2e.ts`(若 e2e 有独立 config,以 apps/web 既有 e2e 运行方式为准,如 `pnpm run test:web` 或 vitest.e2e.config) Expected: 三个用例 PASS。
 
 - [ ] **Step 4: 回归跑变视口黄金**
 
-Run: `pnpm exec vitest run apps/web/tests/sidebar-right.e2e.ts apps/web/tests/details-session-lifecycle.e2e.ts`
-Expected: 既有 1024/767 断言全绿(PC 行为未变)。
+Run: `pnpm exec vitest run apps/web/tests/sidebar-right.e2e.ts apps/web/tests/details-session-lifecycle.e2e.ts` Expected: 既有 1024/767 断言全绿(PC 行为未变)。
 
 - [ ] **Step 5: Commit**
 
