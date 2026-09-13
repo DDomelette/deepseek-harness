@@ -40,6 +40,12 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 `ctx.notesSessions.archive` 拒绝归档最后一个未归档会话。面板永远拥有一个可显示的会话，而浏览器半边不能是唯一强制这件事的地方：spec 把规则放在归档动作上，直接调用者会绕过被隐藏的按钮。
 
+### 新会话加入部署的默认 preset
+
+`NoteSessions.create` 通过 `ctx.agents.create` 启动一条真实 dsh Session，工作区与模型取自设置节。拥有 agent 注册表的那一行也可能挂载 preset roster，而在那种部署里，不入伙任何一个 preset 的新会话会是一个空世界——没有工具、没有 prompt 片段——因为面向模型的行是按 preset 分发的。因此该服务可选地解析 `agentPresets`：有 roster 时，把它的默认 id 记进 `meta.agentPreset`，并在创建期的 `setup` 回调里挂载它。没有 roster 时，面向模型的行留在 host 平面、由注册表从全局层读取，headless bundle 就是这样。
+
+配置好的工作区是必需的：没有工作区的会话无处运行，所以 `create` 以具名错误拒绝，而不是随手挑一个。agent handle 不被保留——创建上下文就是本服务的 fiber，因此卸载插件会释放它启动的每个会话；记录失败时会释放刚创建的 agent，而不是让它毫无记录地继续运行。
+
 ### 由一个服务打开笔记域
 
 `ctx.storageDomain.open` 对同一个域名只允许一次打开。因此 `ctx.notesStore` 是唯一所有者：它在自己的 `[Service.init]` 里打开域，把关闭绑到自身 fiber 的 effect 上，并暴露素材表、会话表与面板的活动指针。素材存储、会话记录与设置所有者读取这些句柄，而不是去开第二个域。
@@ -88,7 +94,7 @@ notes 包声明了 `dsh.client`，因此策略会检查它宿主半边引入的�
 
 ## 测试
 
-`packages/notes/notes/tests/` 以逐文件 100% 覆盖率覆盖宿主半边：真实存储栈上的域、素材排序与归档、会话记录与活动指针、线程归属、正文组装、内存 provider 上的设置节，以及针对替身 agent 注册表的分析编排。
+`packages/notes/notes/tests/` 以逐文件 100% 覆盖率覆盖宿主半边：真实存储栈上的域、素材排序与归档、会话记录与活动指针、按配置的工作区与模型创建会话（含加入 preset roster 与记录失败时释放 agent）、线程归属、正文组装、内存 provider 上的设置节，以及针对替身 agent 注册表的分析编排。
 
 `notes-composition.host.spec.ts` 是 `packages/AGENTS.md` 对产品可见插件要求的非单测组合测试：它通过真实 Loader 启动一个测试专属的 `cordis.yml`，断言裸 `notes` 行到达 active、该行对外提供的正是 schema 默认值，以及卸载该行会释放域名。它等待服务发布而不是等 `loader.await()`，因为行的 fiber 会在它 `apply` 挂载的服务完成异步初始化之前就 settle。它的 `agents` 行是一个兄弟 Loader 行而不是 root 级 provide，因此该 spec 走的是与线上组合相同的解析路径。
 

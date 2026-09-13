@@ -40,6 +40,12 @@ The operations that mint a material's order value (`create`, `restore`, `reorder
 
 `ctx.notesSessions.archive` refuses to archive the last unarchived conversation. The panel always owns one conversation to show, and the browser half must not be the only thing enforcing that: the spec puts the rule on the archive action, and a direct caller would bypass a hidden button.
 
+### A new conversation joins the deployment's default preset
+
+`NoteSessions.create` starts a real dsh Session through `ctx.agents.create`, using the workspace and model from the settings section. The row that owns the agent registry may also mount a preset roster, and a Session created without joining one would be an empty world — no tools, no prompt sections — because the model-facing rows live per-preset in that deployment. The service therefore resolves `agentPresets` optionally and, when a roster exists, records its default id as `meta.agentPreset` and mounts it from the creation `setup` callback. Without a roster the model-facing rows stay on the host plane and the registry reads them from the global layer, which is what the headless bundle does.
+
+The configured workspace is required: a conversation with no workspace has nowhere to run, so `create` rejects by name rather than picking one. The agent handle is not retained — the creation context is this service's fiber, so unmounting the plugin disposes every conversation it started; a failed record disposes the just-created agent instead of leaving it running without a record.
+
 ### One service opens the notes domain
 
 `ctx.storageDomain.open` admits one open per domain name. `ctx.notesStore` is therefore the single owner: it opens the domain in its own `[Service.init]`, binds the close to its fiber's effect, and exposes the material and conversation tables plus the panel's active pointer. The material store, the conversation records, and the settings owner read those handles instead of opening a second domain.
@@ -88,7 +94,7 @@ Restoring an archived conversation returns it to its creation position rather th
 
 ## Testing
 
-`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, thread attribution, body composition, the settings section over a memory provider, and analysis orchestration against a stand-in agent registry.
+`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, and analysis orchestration against a stand-in agent registry.
 
 `notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization. Its `agents` row is a sibling Loader row rather than a root-level provide, so the spec exercises the same resolution the shipped composition uses.
 

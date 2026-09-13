@@ -53,7 +53,7 @@ A bare row needs no `config`: the schema defaults the strategy to `manual` and t
 
 ### Host services
 
-The plugin mounts five services, and each is the documented owner of its slice of the contract. `ctx.notesStore` opens the notes domain and holds the material and conversation tables; `ctx.notesMaterials` stores materials, their manual order, and their archived bucket; `ctx.notesSessions` records one entry per notes conversation and holds the panel's active pointer; `ctx.notesSettings` reads the settings section above, falling back to the composition entry when no settings provider is mounted; `ctx.notesAnalysis` turns one material into one user message on its conversation.
+The plugin mounts five services, and each is the documented owner of its slice of the contract. `ctx.notesStore` opens the notes domain and holds the material and conversation tables; `ctx.notesMaterials` stores materials, their manual order, and their archived bucket; `ctx.notesSessions` starts a conversation over the configured workspace and model, records one entry per conversation, and holds the panel's active pointer; `ctx.notesSettings` reads the settings section above, falling back to the composition entry when no settings provider is mounted; `ctx.notesAnalysis` turns one material into one user message on its conversation.
 
 ### What to expect
 
@@ -127,6 +127,7 @@ These limits define when this package is a poor fit or needs special operational
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted rejects with a named error until it is reopened.
 - **Orphaned attachments are never reclaimed** — a material deleted while still a draft leaves its uploaded bytes behind, matching the attachment facility's existing semantics.
 - **Conversations restore in creation order** — a restored conversation returns to its creation position rather than the top of the list, because the record carries no separate order value.
+- **A conversation needs a configured workspace** — starting one before the notes workspace is set rejects with a named error; this phase ships no first-run setup screen, so the workspace comes from the settings document or the composition entry.
 
 <a id="dev-note"></a>
 ### Dev Note
