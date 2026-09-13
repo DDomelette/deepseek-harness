@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Analysis } from './analysis.ts'
 import { Materials } from './materials.ts'
 import { NoteSessions } from './note-sessions.ts'
+import { NotesRemote } from './remote.ts'
 import { NotesSettings } from './settings.ts'
 import type { Config } from './settings.ts'
 import { NotesStore } from './store.ts'
@@ -43,4 +44,5 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(NoteSessions)
   ctx.plugin(NotesSettings, config)
   ctx.plugin(Analysis)
+  ctx.plugin(NotesRemote)
 }

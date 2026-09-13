@@ -53,7 +53,7 @@ A bare row needs no `config`: the schema defaults the strategy to `manual` and t
 
 ### Host services
 
-The plugin mounts five services, and each is the documented owner of its slice of the contract. `ctx.notesStore` opens the notes domain and holds the material and conversation tables; `ctx.notesMaterials` stores materials, their manual order, and their archived bucket; `ctx.notesSessions` starts a conversation over the configured workspace and model, records one entry per conversation, and holds the panel's active pointer; `ctx.notesSettings` reads the settings section above, falling back to the composition entry when no settings provider is mounted; `ctx.notesAnalysis` turns one material into one user message on its conversation.
+The plugin mounts six services, and each is the documented owner of its slice of the contract. `ctx.notesStore` opens the notes domain and holds the material and conversation tables; `ctx.notesMaterials` stores materials, their manual order, and their archived bucket; `ctx.notesSessions` starts a conversation over the configured workspace and model, records one entry per conversation, and holds the panel's active pointer; `ctx.notesSettings` reads the settings section above, falling back to the composition entry when no settings provider is mounted; `ctx.notesAnalysis` turns one material into one user message on its conversation; `ctx.notes` is the Remote namespace the browser panel calls, whose operations answer with the wire vocabulary in `src/types.ts` — a successful value or a named refusal — so nothing reaches the panel as a thrown error.
 
 ### What to expect
 
@@ -122,12 +122,12 @@ None on the derived request prefix. Each submission appends to its own conversat
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
 - **The panel UI does not exist yet** — this package ships the Host half and an inert browser entry; the panel, the selection bubble, and the settings card are later phases.
-- **No Remote namespace yet** — the browser half has no typed operations to call until the notes Remote lands, so nothing in the browser can reach these services.
-- **Screenshots are not collected yet** — the material record already carries a durable attachment reference field, but no path stores an image or resolves one into a request.
-- **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted rejects with a named error until it is reopened.
+- **Screenshots are not collected yet** — the material record already carries a durable attachment reference field, but no path stores an image or resolves one into a request, and the Remote namespace has no `materialAddImage` operation.
+- **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened.
+- **A material that entered its conversation is fixed** — `materialUpdate` reports `material-submitted` once a material has a recorded message, because the session log carries the submitted body and rewriting the record would desync the row from its thread.
 - **Orphaned attachments are never reclaimed** — a material deleted while still a draft leaves its uploaded bytes behind, matching the attachment facility's existing semantics.
 - **Conversations restore in creation order** — a restored conversation returns to its creation position rather than the top of the list, because the record carries no separate order value.
-- **A conversation needs a configured workspace** — starting one before the notes workspace is set rejects with a named error; this phase ships no first-run setup screen, so the workspace comes from the settings document or the composition entry.
+- **A conversation needs a configured workspace** — starting one before the notes workspace is set reports `workspace-missing`; this phase ships no first-run setup screen, so the workspace comes from the settings document or the composition entry.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -139,7 +139,7 @@ This Dev Note is working context for maintainers: open directions that are not d
 
 #### Next phases
 
-The notes Remote namespace and session creation are the next pieces of the Host half; the panel and the selection bubble follow. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
+The Host half is complete apart from screenshot collection; the panel and the selection bubble are the next pieces. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
 
 </details>
 

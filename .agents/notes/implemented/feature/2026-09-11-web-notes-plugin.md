@@ -50,6 +50,12 @@ The configured workspace is required: a conversation with no workspace has nowhe
 
 `ctx.storageDomain.open` admits one open per domain name. `ctx.notesStore` is therefore the single owner: it opens the domain in its own `[Service.init]`, binds the close to its fiber's effect, and exposes the material and conversation tables plus the panel's active pointer. The material store, the conversation records, and the settings owner read those handles instead of opening a second domain.
 
+### Remote operations report refusals instead of throwing
+
+The `notes` Remote namespace answers every call with the vocabulary in `src/types.ts`: `NotesSuccess<T>` for a value, `NotesRejected<E>` for a refusal whose `code` names the condition. A caller across the wire cannot see an exception type, and the panel has to explain a refusal beside the row that caused it, so each rule is exposed as a predicate on the service that owns it — `NoteSessions.hasWorkspace`, `NoteSessions.canArchive`, `Materials.isVisible` — and the method that enforces the rule reads that same predicate. `Analysis.analyse` and `Analysis.ask` return the failure they would otherwise throw, because reporting it is their caller's whole job. Enforcement therefore stays in the operation that makes the decision, and the browser never holds a rule the Host would not apply.
+
+`materialUpdate` refuses a material that already entered its conversation (`material-submitted`): the session log carries the submitted body, and rewriting the recorded text would desync the row from its thread.
+
 ### Thread attribution is tested as a pure function
 
 `src/thread.ts` depends on nothing but the event shape it reads (`seq`, `type`, and `data.id`), so the attribution rule is pinned by hand-written event lists rather than by driving a live Session. The same shape reads a persisted log, so the rule survives a restart with no extra path.
@@ -82,9 +88,9 @@ The notes package declares `dsh.client`, so the policy inspects every runtime ex
 
 ## Consequences
 
-The panel's browser half is a separate phase, and the Remote namespace that would carry it is not built, so the Host half has no browser consumer yet. The materials this phase stores are text only: the record carries an attachment reference field, but nothing writes an image into it.
+The Host half now carries the whole Remote namespace, so the panel has typed operations to call; the browser half itself is a later phase, and the namespace has no consumer beyond the generated Client assembly. The materials this phase stores are text only: the record carries an attachment reference field, but nothing writes an image into it, and there is no `materialAddImage` operation.
 
-A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted rejects with a named error until it is reopened, because `ctx.agents` holds live Agents only.
+A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted reports `session-not-live` until it is reopened, because `ctx.agents` holds live Agents only.
 
 A refused submission rolls its recorded message id back and marks the material `failed`. Without that rollback, `analyse` would read the material as already submitted and it could never be retried.
 
@@ -94,7 +100,7 @@ Restoring an archived conversation returns it to its creation position rather th
 
 ## Testing
 
-`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, and analysis orchestration against a stand-in agent registry.
+`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, analysis orchestration against a stand-in agent registry, and every Remote operation on its success and refusal path.
 
 `notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization. Its `agents` row is a sibling Loader row rather than a root-level provide, so the spec exercises the same resolution the shipped composition uses.
 

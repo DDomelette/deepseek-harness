@@ -959,6 +959,9 @@ importers:
       '@deepseek-ai/dsh-mob':
         specifier: workspace:^
         version: link:../../bundle/mob
+      '@deepseek-ai/dsh-notes':
+        specifier: workspace:^
+        version: link:../../notes/notes
       '@deepseek-ai/dsh-scope':
         specifier: workspace:^
         version: link:../../core/scope
@@ -7793,6 +7796,9 @@ importers:
       '@deepseek-ai/dsh-storage-domain':
         specifier: workspace:^
         version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
