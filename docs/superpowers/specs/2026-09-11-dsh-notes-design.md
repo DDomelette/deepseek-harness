@@ -96,7 +96,7 @@ Material {
   action      ActionId | null     null = 添加到笔记
   order       number              手工排序位
   status      'draft' | 'analyzing' | 'analyzed' | 'failed'
-  anchors     SessionSeq[]        该素材产生的每条 user/message 的 seq(含首次分析与后续追问)
+  messageIds  string[]            该素材提交过的每条 user message 的 id(含首次分析与后续追问)
   error       string | null
   createdAt   number
   archivedAt  number | null
@@ -126,7 +126,9 @@ MaterialSource {
 
 一条素材在会话里可能产生多段对话:首次分析一段,之后每次追问又一段,而且追问不保证与首次分析相邻(用户可以先分析素材 B,再回到素材 A 追问)。
 
-因此不用"连续区间"划分线程,而是**显式记录归属**:每条由素材产生的 user message,其 seq 被追加进该素材的 `anchors`。渲染某素材的线程时,按 seq 升序取会话事件,遇到属于该素材的 user message 就纳入,并纳入它之后、下一条 user message 之前的全部事件。
+因此不用"连续区间"划分线程,而是**显式记录归属**:素材记录它提交过的每条 user message 的 **id**,归属计算时再把 id 解析成会话里的 seq,然后按 seq 升序取事件——遇到属于该素材的 user message 就纳入,并纳入它之后、下一条 user message 之前的全部事件。
+
+**为什么记 id 而不是记 seq:** `Agent.followup(message)` 的签名是 `followup(message: UserMessage): void`——它**不返回任何回执**,调用方拿不到这条消息落进日志后的 seq。而 `createUserMessage()` 在发送之前就返回带稳定 `id` 的消息,所以 id 是同步可得的。记 seq 就只能靠抢在提交时捕获 `session/event`,那是一个有竞态窗口的方案;记 id 没有竞态,重启后读日志也能照常解析。`user/message` 事件的 `data` 就是 `UserMessage` 本身,所以 `event.data.id` 即消息 id。
 
 这样归属是精确的,不依赖消息在日志里是否相邻;模型输出与工具调用不需要复制到插件存储,永远从日志读。
 
@@ -159,14 +161,15 @@ MaterialSource {
 
 1. 组装 content:截图素材是 `[{ type: 'image', attachment: ref }]`;文字素材是 `[{ type: 'text', text }]`;动作类素材把动作模板前置,即 `text = promptTemplate + '\n' + material.text`。
 2. `createUserMessage({ content, source: { kind: 'plugin', plugin: 'notes' } })`。
-3. `agent.followup(message)`,并把返回的 seq 追加进该素材的 `anchors`,状态置 `analyzing`。
+3. 先 `createUserMessage({ content, source: { kind: 'plugin', plugin: 'notes' } })` 造出消息(此时 `id` 已同步可得,不必等日志),把它的 `id` 追加进该素材的 `messageIds` 并把状态置 `analyzing`,**然后**才 `agent.followup(message)`。
+4. `followup` 可能**同步抛错**——inbox 的 splice 会校验 JSON 与 surface 元数据(仓内先例 `packages/acp/acp/src/session.ts` 就为此包了 try/catch)。所以发送失败时要把刚追加的 id **回滚**,并把状态置 `failed` 并记下原因;否则那条悬空 id 会让素材永远卡在"已提交"而无法重试。
 4. 模型收束后状态置 `analyzed`;失败置 `failed` 并保留原因。
 
 **关于"仅添加"的机制更正**:早前讨论中曾把 `agent.inject()` 当作"仅添加"的实现。它不适用——`inject()` 的语义是内容停在 inbox,等下一个消息被 admitted 时**合并进同一次请求**,这与"各答各的"直接冲突。正确做法是素材根本不进 inbox,先落在插件存储里,点「分析」时才 `followup()`。两种策略因此是同一个入口,差别只在触发时机。
 
 ### 追问
 
-在素材详情底部输入并发送,宿主对笔记会话再 `followup()` 一条 user message,其 seq 追加进当前素材的 `anchors`。
+在素材详情底部输入并发送,宿主对笔记会话再提交一条 user message,其 `id` 按同样的事务顺序追加进当前素材的 `messageIds`(先记后发,失败回滚)。
 
 一个笔记会话同一时刻只跑一个 turn;连续提交的分析请求会按序排进后续 step,每条消息各占一个 step,因此仍然各答各的。
 
@@ -262,7 +265,11 @@ ActionDef {
 
 ### 首次启用与工作区
 
-第一次打开面板时引导选择一个工作区,可同时选定模型;写入设置后不再询问。新建笔记会话时沿用该工作区与模型,并可在会话菜单里更改。权限沿用 dsh 会话默认,插件不引入独立权限模型。
+第一次打开面板时引导选择一个工作区,可同时选定模型;写入设置后不再询问。新建笔记会话时沿用该工作区与模型,并可在会话菜单里更改。
+
+**权限与"新建会话时选权限"的直觉不同,这里必须按实际机制写。** `ctx.agents.create` 的入参只有 `sessionId`、`parentAgent?`、`meta?`(cwd / 谱系 / agentPreset)、`inheritedEventCount?`、`seed?`、`agentOptions?`(provider / model / reasoningEffort / maxTokens)、`signal?`、`setup?` —— **没有任何权限或沙箱字段**(`packages/core/agent/src/index.ts`)。权限是**会话级的持久事件**:`permission/preset`、`sandbox/mode`、`approval/policy`,由 `session/created` 时从 `permission` 设置节的 `defaultPreset` 自动钉入,之后经 `ctx.permissionPresets.set(session, preset)` 改写。
+
+所以本插件的做法是:**不引入独立权限模型,沿用 `permission` 设置节的默认**。若将来确实要按笔记会话钉一个不同预设,做法与 `packages/webhook/webhook/src/session.ts` 一致——`create` 之后调用 `ctx.permissionPresets.set(handle.agent.session, preset)`,而不是在创建时传参。
 
 ## 改动清单(按 Phase)
 
@@ -272,7 +279,8 @@ ActionDef {
 
 - 新建包 `packages/notes/notes`,包名 `@deepseek-ai/dsh-notes`,**一个包同时具备宿主半边与浏览器半边**,由 `package.json` 的 `dsh.client` 声明标出浏览器半边。先例是 `packages/session-query/session-log-export`(宿主 `src/index.ts` 156 行 + `src/client/`)。
 - **不能放在 `packages/client/` 下。** 该目录的新包清单写明 `src/index.ts` 是 empty node-half apply(`packages/client/AGENTS.md`),而本插件的宿主半边很重(存储域、设置、会话编排、Remote),放进去会与该目录的约定直接冲突。
-- 三处注册缺一不可:`tsconfig.client.json` 的 aggregate `references`、`packages/bundle/web-app/cordis.patch.yml` 的 `dsh.client` 行、`packages/bundle/web-app/package.json` 的依赖。
+- **注册面是五处,不是三处**(双面包比单面客户端包多两处)。逐条已核实,以 `ui-deliverables` 为范本:`tsconfig.base.json` 的 `paths`(`:204` 形态)、根 `tsconfig.host.json` 的 `{ path: ... }`(`:141` 形态)、根 `tsconfig.client.json` 的 `{ path: ... }`(`:78` 形态)、`packages/bundle/web-app/cordis.patch.yml` 的一行(同时挂载两个半边)、`packages/bundle/web-app/package.json` 的依赖。若浏览器半边要读新 Remote 命名空间,还要在 `packages/api/remotes/src/client/index.ts` 加一条 import 与 `$mount`。
+- **存储不需要额外的 cordis 行。** `dsh-base` 已经挂载了 `storage` + `storage-json`(root 为 `dshHomePath('storages')`)+ `storage-domain`,本插件只需在宿主半边 `ctx.storageDomain.open(...)` 打开自己的域。
 - `package.json` 声明 `dsh.client`(`platform: 'web'`)与 `exports` 的 `.`、`./client`、`./package.json`、`./src/*`(以及 Remote 生成物对应的条目),`tsdown` 用现有 `clientBundle()` 预设,浏览器半边保持 lazy-CJS 输出。
 
 ### Phase 1 — 宿主半边
@@ -281,7 +289,7 @@ ActionDef {
 - settings 命名空间与 `installSection()`。
 - 自有 RPC 命名空间与装配清单登记。
 - 会话创建:按设置里的工作区与模型建 dsh 会话,并把 `NoteSession` 落库。
-- 素材分析与追问:组装 content、`followup()`、回写 `anchors` 与状态。
+- 素材分析与追问:组装 content、`createUserMessage`、回写 `messageIds` 与状态、发送失败回滚。
 - 截图落盘:接收字节并调用 `ctx.attachments.saveImage()`。
 
 ### Phase 2 — 面板 UI
@@ -352,7 +360,7 @@ ActionDef {
 
 | # | 我定的 | 理由 | 若不同意会怎样 |
 |---|---|---|---|
-| 1 | 线程归属用"显式记录每条 user message 的 seq"而非连续区间 | 追问可能不与首次分析相邻,区间划分会错 | 改用区间划分会让线程渲染在追问场景下归属错误 |
+| 1 | 线程归属记录 user message 的 **id** 而非 seq | `Agent.followup()` 返回 `void`,拿不到 seq;`createUserMessage()` 的 id 同步可得,无竞态 | 记 seq 就得靠抢在提交时订阅 `session/event`,多一个竞态窗口且重启后难补 |
 | 2 | 两种策略都走 `followup()`,不使用 `inject()` | `inject()` 会把多条素材合并进同一次请求,与"各答各的"冲突 | 若改成 inject,左列表就无法一行对一段输出 |
 | 3 | 截图在收集时即上传 | 素材需要稳定引用,宿主构造消息需要 ref | 改成分析时上传,素材需要多一个待上传状态,且 draft 期间字节无处安放 |
 | 4 | 首版素材标题用正文截断 | 零成本;模型摘要要额外一次调用 | 加模型摘要会引入一次辅助调用与相应延迟 |
