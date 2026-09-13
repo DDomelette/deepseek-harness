@@ -23,6 +23,7 @@
     { "path": "../../core/agent" },
     { "path": "../../core/session" },
     { "path": "../../llm/llm" },
+    { "path": "../../preset/agent-presets" },
     { "path": "../../settings/settings" },
     { "path": "../../storage/storage" },
     { "path": "../../storage/storage-domain" },

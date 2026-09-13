@@ -16,9 +16,13 @@ import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
+import { vi } from 'vitest'
+import type { Mock } from 'vitest'
 import type { MaterialRecord, NoteSessionRecord } from '../src/domain.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
+import { NotesSettings } from '../src/settings.ts'
+import type { Config } from '../src/settings.ts'
 import { NotesStore } from '../src/store.ts'
 import type { MaterialId, MaterialSource, NoteSessionId } from '../src/types.ts'
 
@@ -81,36 +85,115 @@ export interface Bench {
   readonly ctx: Context
   /** The temporary storage root this bench owns. */
   readonly root: string
+  /** The agent-registry stand-in the mounted services resolve. */
+  readonly agents: FakeAgents
   /** The notes domain owner. */
   readonly store: NotesStore
   /** Material storage. */
   readonly materials: Materials
   /** Notes-conversation records. */
   readonly sessions: NoteSessions
+  /** The live settings section. */
+  readonly settings: NotesSettings
   /** Dispose the context and remove the temporary root. */
   dispose(): Promise<void>
 }
 
+/** One recorded follow-up submission. */
+type FollowupCall = (message: unknown) => void
+
 /**
- * Mount a real storage stack and the notes services over a fresh temporary
- * directory.
+ * Stand-in for the agent registry. The bench mounts it because every notes
+ * service that starts or drives a conversation injects `agents`; a spec that
+ * only stores records still needs the service present for the store to
+ * activate.
+ */
+export class FakeAgents {
+  /** Every accepted `create` request, in call order. */
+  readonly created: Record<string, unknown>[] = []
+
+  /** The handle returned by each accepted `create`, in call order. */
+  readonly handles: { disposed: boolean }[] = []
+
+  /** Set to make the next `create` reject, which the caller must roll back. */
+  failure: Error | undefined
+
+  /**
+   * Records every message handed to a live agent. The annotation is required:
+   * an inferred `vi.fn()` type names a vitest-internal type and is not
+   * portable across the package boundary.
+   */
+  readonly followup: Mock<FollowupCall> = vi.fn<FollowupCall>()
+
+  /** Sessions this stand-in holds live, resolved by {@link get}. */
+  private readonly live = new Set<string>()
+
+  /**
+   * Mark one dsh session id live.
+   * @param id - the session the stand-in should resolve.
+   */
+  open(id: string): void {
+    this.live.add(id)
+  }
+
+  /**
+   * Accept one creation request.
+   * @param options - the caller's creation options, recorded verbatim.
+   * @returns an inert handle whose disposal is observable.
+   * @throws the configured {@link failure}, when one is set.
+   */
+  async create(options: Record<string, unknown>): Promise<{
+    agent: unknown
+    dispose: () => Promise<void>
+  }> {
+    if (this.failure !== undefined) throw this.failure
+    this.created.push(options)
+    const handle = { disposed: false }
+    this.handles.push(handle)
+    return {
+      agent: {},
+      dispose: async () => {
+        handle.disposed = true
+      },
+    }
+  }
+
+  /**
+   * Resolve the live agent of one session.
+   * @param id - session id.
+   * @returns the agent stand-in, or undefined when the session is not live.
+   */
+  get(id: string): { followup: FakeAgents['followup'] } | undefined {
+    return this.live.has(id) ? { followup: this.followup } : undefined
+  }
+}
+
+/**
+ * Mount a real storage stack, an agent-registry stand-in, the settings
+ * section, and the notes services over a fresh temporary directory.
+ * @param settings - the composition entry the settings section serves.
  * @returns the mounted bench, with its own teardown.
  */
-export async function bench(): Promise<Bench> {
+export async function bench(settings: Config = { strategy: 'manual', actions: [] }): Promise<Bench> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-notes-'))
   const ctx = new Context()
+  const agents = new FakeAgents()
   await ctx.plugin(Storage).await()
   await ctx.plugin(StorageJson, { root }).await()
   await ctx.plugin(StorageDomain, { backend: 'json' }).await()
   await ctx.plugin(NotesStore).await()
+  ctx.provide('agents', agents as never)
+  await ctx.plugin(NotesSettings, settings).await()
   await ctx.plugin(Materials).await()
   await ctx.plugin(NoteSessions).await()
   return {
     ctx,
     root,
+    agents,
     store: ctx.notesStore,
     materials: ctx.notesMaterials,
     sessions: ctx.notesSessions,
+    settings: ctx.notesSettings,
     dispose: async () => {
       await ctx.fiber.dispose()
       await rm(root, { recursive: true, force: true })

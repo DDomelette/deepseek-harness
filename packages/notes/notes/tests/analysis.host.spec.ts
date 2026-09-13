@@ -6,52 +6,20 @@
  * Both entry points resolve the conversation's own Session, so a follow-up
  * never lands in the session the material was collected from.
  */
-import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Analysis } from '../src/analysis.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
-import { NotesSettings } from '../src/settings.ts'
 import type { ActionDef, Config } from '../src/settings.ts'
-import { NotesStore } from '../src/store.ts'
-import Storage from '@deepseek-ai/dsh-storage'
-import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
-import * as StorageJson from '@deepseek-ai/dsh-storage-json'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { bench } from './bench.ts'
+import type { Bench, FakeAgents } from './bench.ts'
 import { material, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId } from '../src/types.ts'
 
-/**
- * Stand-in for the agent registry: one live agent per marked session id, and
- * `undefined` for a session this process does not hold.
- */
-class LiveAgents {
-  /** Records every message handed to a live agent. */
-  readonly followup = vi.fn()
-
-  private readonly live = new Set<string>()
-
-  /** Mark one session id live. */
-  open(id: string): void {
-    this.live.add(id)
-  }
-
-  /**
-   * Resolve the live agent of one session.
-   * @param id - session id.
-   * @returns the agent stand-in, or undefined when the session is not live.
-   */
-  get(id: string): { followup: LiveAgents['followup'] } | undefined {
-    return this.live.has(id) ? { followup: this.followup } : undefined
-  }
-}
-
 /** The mounted analysis bench. */
 interface AnalysisBench {
-  readonly ctx: Context
-  readonly agents: LiveAgents
+  readonly ctx: Bench['ctx']
+  readonly agents: FakeAgents
   readonly analysis: Analysis
   readonly materials: Materials
   readonly sessions: NoteSessions
@@ -59,38 +27,25 @@ interface AnalysisBench {
 }
 
 let mounted: AnalysisBench | undefined
-let root: string | undefined
 
 afterEach(async () => {
   if (mounted !== undefined) await mounted.dispose()
   mounted = undefined
-  if (root !== undefined) await rm(root, { recursive: true, force: true })
-  root = undefined
 })
 
 const config = (actions: ActionDef[]): Config => ({ strategy: 'manual', actions })
 
-/** Mount the storage stack, the notes services, a live agent, and Analysis. */
+/** Mount the notes services and Analysis over the given collection actions. */
 async function mount(actions: ActionDef[] = []): Promise<AnalysisBench> {
-  root = await mkdtemp(join(tmpdir(), 'dsh-notes-analysis-'))
-  const ctx = new Context()
-  const agents = new LiveAgents()
-  await ctx.plugin(Storage).await()
-  await ctx.plugin(StorageJson, { root }).await()
-  await ctx.plugin(StorageDomain, { backend: 'json' }).await()
-  await ctx.plugin(NotesStore).await()
-  await ctx.plugin(Materials).await()
-  await ctx.plugin(NoteSessions).await()
-  await ctx.plugin(NotesSettings, config(actions)).await()
-  ctx.provide('agents', agents as never)
-  await ctx.plugin(Analysis).await()
+  const base = await bench(config(actions))
+  await base.ctx.plugin(Analysis).await()
   mounted = {
-    ctx,
-    agents,
-    analysis: ctx.notesAnalysis,
-    materials: ctx.notesMaterials,
-    sessions: ctx.notesSessions,
-    dispose: async () => { await ctx.fiber.dispose() },
+    ctx: base.ctx,
+    agents: base.agents,
+    analysis: base.ctx.notesAnalysis,
+    materials: base.materials,
+    sessions: base.sessions,
+    dispose: async () => { await base.dispose() },
   }
   return mounted
 }

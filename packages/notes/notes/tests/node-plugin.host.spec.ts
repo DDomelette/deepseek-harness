@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { notesDomainSpec } from '../src/domain.ts'
 import { Config, apply, inject, name } from '../src/index.ts'
 import { noteId, published } from './bench.ts'
+import { FakeAgents } from './bench.ts'
 
 let ctx: Context | undefined
 let root: string | undefined
@@ -33,6 +34,9 @@ describe('notes host half', () => {
     await host.plugin(Storage).await()
     await host.plugin(StorageJson, { root }).await()
     await host.plugin(StorageDomain, { backend: 'json' }).await()
+    // The conversation store injects `agents`, which the shipped composition
+    // supplies from its own host row; this spec stands one in.
+    host.provide('agents', new FakeAgents() as never)
 
     const mounted = host.plugin({ name, apply, inject, Config }, Config(undefined))
     await mounted.await()

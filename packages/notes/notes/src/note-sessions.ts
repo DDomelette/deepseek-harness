@@ -14,9 +14,13 @@
 import { randomUUID } from 'node:crypto'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
+import type { AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type {} from '@deepseek-ai/dsh-agent-presets'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { NoteSessionRecord } from './domain.ts'
+import type { NotesSettings } from './settings.ts'
 import type { NoteSessionId } from './types.ts'
 
 /** A stored notes conversation together with its id. */
@@ -31,15 +35,86 @@ declare module '@deepseek-ai/cordis' {
 
 /** Durable notes-conversation records. */
 export class NoteSessions extends Service {
-  static inject = ['notesStore']
+  static inject = ['notesStore', 'agents', 'notesSettings']
 
-  /** @param ctx - host context carrying the open notes domain. */
+  /** @param ctx - host context carrying the open notes domain and the agent registry. */
   constructor(ctx: Context) {
     super(ctx, 'notesSessions')
   }
 
   private get table(): KvTable<NoteSessionId, NoteSessionRecord> {
     return this.ctx.notesStore.sessions
+  }
+
+  private get settings(): NotesSettings {
+    return this.ctx.notesSettings
+  }
+
+  /**
+   * Start a new notes conversation: a real dsh Session over the configured
+   * workspace and model, recorded and made active.
+   *
+   * A deployment whose row owns a preset roster mounts the default preset into
+   * the new Session, so its tools and prompt sections match every other Session
+   * the deployment starts. Without a roster the model-facing rows live on the
+   * host plane, and the registry reads them from the global layer.
+   *
+   * Agent lifetime belongs to this service's fiber through the creation
+   * context, so an unmount disposes every conversation it started; a failed
+   * record disposes the just-created agent rather than leaving it running
+   * without a record.
+   * @returns the recorded conversation id.
+   * @throws {Error} when no workspace is configured, or creation or recording fails.
+   */
+  async create(): Promise<NoteSessionId> {
+    const cwd = this.requireWorkspace()
+    const presets = this.ctx.get('agentPresets')
+    const presetId = presets === undefined ? undefined : (await presets.resolve()).id
+    const setup: AgentSetup | undefined = presets === undefined || presetId === undefined
+      ? undefined
+      : async (agentCtx: Context): Promise<void> => { await presets.mount(agentCtx, presetId) }
+    const model = this.settings.model()
+    const sessionId = brandString<SessionId>(randomUUID())
+    const handle = await this.ctx.agents.create({
+      sessionId,
+      meta: { cwd, ...presetId === undefined ? {} : { agentPreset: presetId } },
+      ...model === null ? {} : { agentOptions: { provider: model.provider, model: model.model } },
+      ...setup === undefined ? {} : { setup },
+    })
+    try {
+      return await this.record({
+        sessionId,
+        title: this.defaultTitle(cwd),
+        createdAt: Date.now(),
+        archivedAt: null,
+      })
+    } catch (error) {
+      await handle.dispose()
+      throw error
+    }
+  }
+
+  /** The configured conversation workspace. */
+  private requireWorkspace(): string {
+    const cwd = this.settings.workspace()
+    if (cwd === null) {
+      throw new Error(
+        'notes: no workspace is configured; set the notes workspace before creating a conversation',
+      )
+    }
+    return cwd
+  }
+
+  /**
+   * The default display title: the notes prefix, the workspace's own name, and
+   * a running number. The number counts every recorded conversation, archived
+   * ones included, so a title is never reused.
+   * @param cwd - the conversation workspace.
+   * @returns the display title.
+   */
+  private defaultTitle(cwd: string): string {
+    const name = cwd.split(/[\\/]/).filter(segment => segment.length > 0).pop() ?? cwd
+    return `笔记 · ${name} ${String(this.table.size + 1)}`
   }
 
   /**
