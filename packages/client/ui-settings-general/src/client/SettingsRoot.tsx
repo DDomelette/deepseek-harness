@@ -72,6 +72,7 @@ function SettingsPanel({ rows, renderSlot, activeId, backLabel, onSelect, onBack
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      e.preventDefault()
       // One pane at a time means Escape leaves the section before the dialog.
       if (selected !== undefined && isSinglePaneViewport()) {
         onBack()

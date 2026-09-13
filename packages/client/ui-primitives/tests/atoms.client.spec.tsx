@@ -83,7 +83,9 @@ describe('Menu', () => {
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Beta' }))
     expect(onSelect).not.toHaveBeenCalled()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(onClose).toHaveBeenCalledTimes(1)
     fireEvent.pointerDown(document.body)
     expect(onClose).toHaveBeenCalledTimes(2)
@@ -438,7 +440,9 @@ describe('Modal', () => {
     expect(screen.getByText('Name it.').parentElement?.className).toContain('scrolling-content')
     fireEvent.keyDown(document, { key: 'a' })
     expect(onClose).not.toHaveBeenCalled()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(onClose).toHaveBeenCalledTimes(1)
     // Mask is the presentation sibling behind the dialog.
     const mask = document.querySelector('[aria-hidden="true"]') as HTMLElement

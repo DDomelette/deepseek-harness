@@ -197,11 +197,15 @@ export function AppFrame({
   const onRightbarDrag = useCallback((dx: number) => {
     actions.setRightbar(rightbarBase.current - dx)
   }, [actions])
-  // An open drawer closes on Escape anywhere in the window.
+  // The drawer is the lowest-priority Escape owner: every surface above it
+  // consumes the key when it closes itself, so this toggles only on an
+  // unconsumed Escape.
   useEffect(() => {
     if (!drawerOpen) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') actions.toggleSidebar()
+      if (event.key !== 'Escape') return
+      if (event.defaultPrevented) return
+      actions.toggleSidebar()
     }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey) }

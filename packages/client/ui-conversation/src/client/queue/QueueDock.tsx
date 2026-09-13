@@ -181,6 +181,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                       onChange={(event) => { setEditing({ id: row.id, text: event.currentTarget.value }) }}
                       onKeyDown={(event) => {
                         if (event.key === 'Escape') {
+                          event.preventDefault()
                           setEditing(null)
                           return
                         }
