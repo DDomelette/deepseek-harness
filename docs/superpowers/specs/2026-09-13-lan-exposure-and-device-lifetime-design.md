@@ -72,7 +72,7 @@ cookie 仍然是「身份 + authority + 签发时刻 + 到期」的签名载荷�
 ### 5. 暴露面收窄的其余三件事
 
 - **启动警告补上动作**（`packages/bundle/web-app/src/index.ts` 的 `console.error`）：保留现有措辞，追加一句可操作的收窄办法（按设备限防火墙，或 `--host 127.0.0.1` 只服务本机）。
-- **README**：`packages/bundle/web-app/README.{md,zh.md}` 的 LAN 访问段与 Known Limitations 增加「按设备放行」的 Windows 防火墙配方（可复制命令 + 手机 IP 变化时的注意事项），并写明设备寿命与吊销；`packages/bundle/mob/README.{md,zh.md}` 增加逐设备寿命的事实。
+- **README**：`packages/bundle/web-app/README.md` 与 `packages/bundle/web-app/README.zh.md` 的 LAN 访问段与 Known Limitations 增加「按设备放行」的 Windows 防火墙配方（可复制命令 + 手机 IP 变化时的注意事项），并写明设备寿命与吊销；`packages/bundle/mob/README.md` 与 `packages/bundle/mob/README.zh.md` 增加逐设备寿命的事实。
 - **Agent Note**：新增一条记录本次决策（登记表权威、懒刷新、不写回旧条目、默认 30 天、面板面），并把 `2026-09-12-phone-device-pairing` 与 `2026-08-24-browser-token-authentication` 里被本次改写的寿命描述就地更新。
 
 ## 验证计划

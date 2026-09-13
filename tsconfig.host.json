@@ -373,6 +373,7 @@
     { "path": "./packages/session/session-pins" },
     { "path": "./packages/skill/skill-settings" },
     { "path": "./packages/telemetry/usage-exporter" },
-    { "path": "./packages/telemetry/usage-telemetry" }
+    { "path": "./packages/telemetry/usage-telemetry" },
+    { "path": "./packages/notes/notes/tsconfig.host.json" }
   ]
 }

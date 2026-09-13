@@ -80,6 +80,12 @@
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
 
+    # Web notes panel, one row for both halves: the host half opens the material
+    # store, serves the notes settings section, and drives materials into dsh
+    # Sessions; the browser half is the panel itself.
+    - id: notes
+      name: '@deepseek-ai/dsh-notes'
+
     # Session-header "Open In..." split button over the host application
     # resolution (macOS/Windows/Linux; a host with no resolved application
     # renders no button). Two halves: the host routes and the browser surface.
