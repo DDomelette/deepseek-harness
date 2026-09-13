@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { NotesPanel } from '../src/client/NotesPanel.tsx'
+import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
   harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
@@ -131,6 +131,71 @@ describe('notes panel', () => {
     await waitFor(() => { expect(screen.getByText('panel.noMaterials')).toBeDefined() })
   })
 
+  it('starts another conversation from the navigation bar', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByLabelText('panel.create')).toBeDefined() })
+
+    fireEvent.click(screen.getByLabelText('panel.create'))
+
+    await waitFor(() => { expect(bench.remote.sessionCreate).toHaveBeenCalledTimes(1) })
+  })
+
+  it('switches to another conversation and restores an archived one', async () => {
+    const first = sessionSummary({ id: noteId('n1'), title: 'Notes · one' })
+    const second = sessionSummary({ id: noteId('n2'), title: 'Notes · two' })
+    const stored = sessionSummary({ id: noteId('n3'), title: 'Notes · three', archivedAt: 1 })
+    const bench = harness({
+      sessions: () => sessions([first, second], [stored], first.id),
+    })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByText('Notes · one')).toBeDefined() })
+
+    fireEvent.click(screen.getByText('Notes · one'))
+    fireEvent.click(await screen.findByText('Notes · two'))
+
+    await waitFor(() => { expect(bench.remote.sessionSelect).toHaveBeenCalledExactlyOnceWith({ id: second.id }) })
+
+    fireEvent.click(screen.getByText('Notes · one'))
+    fireEvent.click(await screen.findByText('panel.archivedItem(title=Notes · three)'))
+
+    await waitFor(() => { expect(bench.remote.sessionRestore).toHaveBeenCalledExactlyOnceWith({ id: stored.id }) })
+  })
+
+  it('archives the conversation it shows', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByLabelText('panel.archiveSession')).toBeDefined() })
+
+    fireEvent.click(screen.getByLabelText('panel.archiveSession'))
+
+    await waitFor(() => { expect(bench.remote.sessionArchive).toHaveBeenCalledExactlyOnceWith({ id: note }) })
+  })
+
+  it('closes the conversation menu without choosing', async () => {
+    const first = sessionSummary({ id: noteId('n1'), title: 'Notes · one' })
+    const second = sessionSummary({ id: noteId('n2'), title: 'Notes · two' })
+    const bench = harness({ sessions: () => sessions([first, second], [], first.id) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByText('Notes · one')).toBeDefined() })
+    fireEvent.click(screen.getByText('Notes · one'))
+    expect(await screen.findByText('Notes · two')).toBeDefined()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    await waitFor(() => { expect(screen.queryByText('Notes · two')).toBeNull() })
+    expect(bench.remote.sessionSelect).not.toHaveBeenCalled()
+  })
+
+  it('treats a missing conversation pointer as no conversation yet', async () => {
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: noteId('n1') })], [], null) })
+    render(<NotesPanel {...bench.props()} />)
+
+    await waitFor(() => { expect(screen.getByText('panel.empty')).toBeDefined() })
+  })
+
   it('reports a refused write over the content it left standing', async () => {
     const note = noteId('n1')
     const bench = harness({
@@ -150,6 +215,23 @@ describe('notes panel', () => {
     expect(screen.getByText('error.materialSubmitted')).toBeDefined()
     // The listing the refusal left standing stays: only a failed read replaces it.
     expect(screen.getByText('source.chat')).toBeDefined()
+  })
+})
+
+describe('conversation menu entries', () => {
+  const listed = [sessionSummary({ id: noteId('n1') })]
+  const archived = [sessionSummary({ id: noteId('n2'), archivedAt: 1 })]
+
+  it('opens a listed conversation', () => {
+    expect(sessionIntent('n1', listed, archived)).toEqual({ kind: 'open', id: noteId('n1') })
+  })
+
+  it('restores an archived one', () => {
+    expect(sessionIntent('n2', listed, archived)).toEqual({ kind: 'restore', id: noteId('n2') })
+  })
+
+  it('asks for nothing when the entry names no conversation', () => {
+    expect(sessionIntent('gone', listed, archived)).toBeNull()
   })
 })
 

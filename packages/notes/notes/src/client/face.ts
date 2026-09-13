@@ -9,13 +9,15 @@
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  MaterialId, NotesApplied, NotesFailure, NotesMaterialAnalyzeRequest,
+  MaterialId, NoteSessionId, NotesApplied, NotesFailure, NotesMaterialAnalyzeRequest,
   NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
   NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
   NotesMaterialListResult, NotesMaterialListValue, NotesMaterialRemoveRequest,
   NotesMaterialRemoveResult, NotesMaterialThreadRequest, NotesMaterialThreadResult,
-  NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected, NotesSessionCreateResult,
-  NotesSessionListResult, NotesSuccess,
+  NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
+  NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
+  NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
+  NotesSessionSelectRequest, NotesSessionSelectResult, NotesSuccess,
 } from '../types.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesStore } from './store.ts'
@@ -74,6 +76,24 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the acknowledgment or the refusal.
    */
   materialRemove(request: NotesMaterialRemoveRequest): Promise<RemoteResult<NotesMaterialRemoveResult>>
+  /**
+   * Point the panel at one conversation.
+   * @param request - the conversation to show.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  sessionSelect(request: NotesSessionSelectRequest): Promise<RemoteResult<NotesSessionSelectResult>>
+  /**
+   * Archive one conversation, moving the active pointer when it pointed there.
+   * @param request - the conversation to archive.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  sessionArchive(request: NotesSessionArchiveRequest): Promise<RemoteResult<NotesSessionArchiveResult>>
+  /**
+   * Return one archived conversation to the list and make it active.
+   * @param request - the conversation to restore.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  sessionRestore(request: NotesSessionRestoreRequest): Promise<RemoteResult<NotesSessionRestoreResult>>
 }
 
 /** The commands the panel's body calls. */
@@ -84,6 +104,12 @@ export interface NotesInjected {
   readonly refresh: () => void
   /** Start a conversation and show it. */
   readonly createConversation: () => void
+  /** Show one listed conversation. */
+  readonly openSession: (id: NoteSessionId) => void
+  /** Archive one conversation. */
+  readonly archiveSession: (id: NoteSessionId) => void
+  /** Return one archived conversation to the list and show it. */
+  readonly restoreSession: (id: NoteSessionId) => void
   /** Open one material's detail and read its thread, or close the detail with null. */
   readonly select: (id: MaterialId | null) => void
   /** Replace one draft material's text. */
@@ -175,6 +201,18 @@ export function notesFace(
         }
         await read(true)
       })()
+    },
+    openSession: (id) => {
+      close()
+      void write(async () => await remote.sessionSelect({ id }))
+    },
+    archiveSession: (id) => {
+      close()
+      void write(async () => await remote.sessionArchive({ id }))
+    },
+    restoreSession: (id) => {
+      close()
+      void write(async () => await remote.sessionRestore({ id }))
     },
     select: (id) => {
       open = id

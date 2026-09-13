@@ -127,6 +127,9 @@ function hookOf<T>(instance: { subscribe: (fn: () => void) => () => void; getSna
 export interface HarnessRemote {
   readonly sessionList: Mock<NotesRemoteFace['sessionList']>
   readonly sessionCreate: Mock<NotesRemoteFace['sessionCreate']>
+  readonly sessionSelect: Mock<NotesRemoteFace['sessionSelect']>
+  readonly sessionArchive: Mock<NotesRemoteFace['sessionArchive']>
+  readonly sessionRestore: Mock<NotesRemoteFace['sessionRestore']>
   readonly materialList: Mock<NotesRemoteFace['materialList']>
   readonly materialThread: Mock<NotesRemoteFace['materialThread']>
   readonly materialUpdate: Mock<NotesRemoteFace['materialUpdate']>
@@ -175,6 +178,9 @@ export function harness(script: {
     materialThread: vi.fn<NotesRemoteFace['materialThread']>(
       async () => script.thread?.() ?? thread(),
     ),
+    sessionSelect: vi.fn<NotesRemoteFace['sessionSelect']>(async () => applied()),
+    sessionArchive: vi.fn<NotesRemoteFace['sessionArchive']>(async () => applied()),
+    sessionRestore: vi.fn<NotesRemoteFace['sessionRestore']>(async () => applied()),
     materialUpdate: vi.fn<NotesRemoteFace['materialUpdate']>(async () => applied()),
     materialAnalyze: vi.fn<NotesRemoteFace['materialAnalyze']>(async () => applied()),
     materialAsk: vi.fn<NotesRemoteFace['materialAsk']>(async () => applied()),
@@ -210,6 +216,9 @@ export function harness(script: {
       load: face.load,
       refresh: face.refresh,
       createConversation: face.createConversation,
+      openSession: face.openSession,
+      archiveSession: face.archiveSession,
+      restoreSession: face.restoreSession,
       select: face.select,
       saveText: face.saveText,
       analyze: face.analyze,

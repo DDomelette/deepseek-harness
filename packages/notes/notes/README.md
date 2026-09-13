@@ -57,7 +57,7 @@ The plugin mounts six services, and each is the documented owner of its slice of
 
 ### Browser half
 
-The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. The panel shows two columns while its pane is wide enough for both, the material list and the open material's detail, and one at a time below 560px, where the reader moves between them. Its body is editable until the material entered its conversation and read-only afterwards, matching what the Host enforces. A control in the conversation header's corner seat opens the tab, and opening it again reveals the tab already there rather than adding a second one. The panel reads and writes only through `ctx.remote.notes`, so it holds no rule the Host would not apply.
+The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. The panel shows two columns while its pane is wide enough for both, the material list and the open material's detail, and one at a time below 560px, where the reader moves between them. Its body is editable until the material entered its conversation and read-only afterwards, matching what the Host enforces. The conversation chip in the navigation bar lists every conversation, archived ones included, and picking an archived one brings it back; the controls beside it start a conversation, archive the one shown, and re-read everything. A control in the conversation header's corner seat opens the tab, and opening it again reveals the tab already there rather than adding a second one. The panel reads and writes only through `ctx.remote.notes`, so it holds no rule the Host would not apply.
 
 ### What to expect
 
@@ -125,7 +125,7 @@ None on the derived request prefix. Each submission appends to its own conversat
 
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
-- **The panel is incomplete** — the list, the detail pane, its editing, and its follow-up box exist; the selection bubble that collects from a transcript, the archived bucket, drag reordering, the settings card, and the floating and docked presentations are later phases.
+- **The panel is incomplete** — the list, the detail pane, its editing, the conversation list, and the follow-up box exist; the selection bubble that collects from a transcript, the archived bucket for materials, drag reordering, the settings card, and the floating and docked presentations are later phases.
 - **Screenshots are not collected yet** — the material record already carries a durable attachment reference field, but no path stores an image or resolves one into a request, and the Remote namespace has no `materialAddImage` operation.
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened.
 - **A material that entered its conversation is fixed** — `materialUpdate` reports `material-submitted` once a material has a recorded message, because the session log carries the submitted body and rewriting the record would desync the row from its thread.
