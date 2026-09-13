@@ -22,9 +22,9 @@ describe('mobile viewport (390×844, touch)', () => {
   }, 120_000)
 
   afterAll(async () => {
-    await page.context().close()
-    await scaffold.close()
-    await browser.close()
+    await page?.context().close()
+    await scaffold?.close()
+    await browser?.close()
   })
 
   it('keeps the document within the viewport (no horizontal overflow)', async () => {
@@ -54,8 +54,11 @@ describe('mobile viewport (390×844, touch)', () => {
       return columns.startsWith('56px')
     }).toBe(true)
     // No horizontal overflow with the drawer open.
-    const scroll = await page.evaluate(() => document.documentElement.scrollWidth)
-    expect(scroll).toBeLessThanOrEqual(390)
+    const metrics = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      inner: window.innerWidth,
+    }))
+    expect(metrics.scroll).toBeLessThanOrEqual(metrics.inner)
     // A scrim tap closes the drawer. The open panel (280px, above the scrim in
     // z-order) covers the scrim's centre, so tap the exposed strip at the
     // right edge like a user would.
@@ -69,7 +72,7 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  it('keeps the composer visible and focusable', async () => {
+  it('keeps the composer visible inside the viewport', async () => {
     const composer = page.locator('[class*="composerSeat"]').first()
     await composer.waitFor({ state: 'visible' })
     const box = await composer.boundingBox()

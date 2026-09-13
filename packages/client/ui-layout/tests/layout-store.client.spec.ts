@@ -63,7 +63,7 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 
-  it('clears the manual override only when crossing 1024px', () => {
+  it('clears the manual override when crossing 1024px', () => {
     const { store, actions } = createLayoutStore().create()
     actions.setViewportWidth(980)
     actions.toggleSidebar()

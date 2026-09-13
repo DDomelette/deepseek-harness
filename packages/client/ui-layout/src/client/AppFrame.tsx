@@ -207,7 +207,9 @@ export function AppFrame({
     return () => { window.removeEventListener('keydown', onKey) }
   }, [drawerOpen, actions])
   const productTitle = process.env.DSH_CLIENT_TITLE ?? t('brand.localBuild')
-  const sidebarWidth = drawerOpen ? sidebarPreference : cols.sidebar
+  // A desktop-dragged preference can exceed a handset viewport; the floating
+  // drawer caps at the frame so the scrim and rail toggle stay reachable.
+  const sidebarWidth = drawerOpen ? Math.min(sidebarPreference, viewport) : cols.sidebar
   const sidebar = useMemo(() => renderSlot('sidebar', {
     collapsed: sidebarCollapsed,
     width: sidebarWidth,

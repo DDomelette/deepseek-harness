@@ -245,6 +245,12 @@ describe('AppFrame', () => {
     act(() => { scrim.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    // A desktop-dragged preference (up to the 420px maximum) stays stored into
+    // the handset band; the drawer caps the rendered width at the viewport.
+    act(() => { instance.actions.setSidebar(420) })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.drawer).toBe('true')
+    expect(sidebarOwner().width).toBeLessThanOrEqual(390)
   })
 
   it('keeps the drawer floating above an open right panel', () => {
