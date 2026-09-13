@@ -14,13 +14,14 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import clsx from 'clsx'
 import {
   ConnectionIndicator,
-  IconAgentPresetOutline16, IconCloseOutline16, IconDataOutline16,
+  IconAgentPresetOutline16, IconChevronLeftOutline14, IconCloseOutline16, IconDataOutline16,
   IconPersonalizationOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionFailureReason } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 import type { SettingsKey } from './locales.ts'
+import { isSinglePaneViewport } from './pane.ts'
 import css from './SettingsRoot.module.css'
 
 const RECOVERY_CONFIRMATION_MS = 2_000
@@ -46,28 +47,41 @@ type PanelProps = {
   rows: readonly SettingsSectionRow[]
   renderSlot: SettingsRootComponentProps['renderSlot']
   activeId: string | undefined
+  backLabel: string
   onSelect: (id: string) => void
+  onBack: () => void
   onClose: () => void
 }
 
 /**
  * The modal layer: full-viewport mask + centered panel. Close paths: the
  * header button, a mask click, and document-level Escape (mounted only while
- * open, so the listener lifetime is the panel's).
+ * open, so the listener lifetime is the panel's). The panel publishes the one
+ * layout fact its stylesheets need — whether a section is chosen — as
+ * `data-pane`: on a handset viewport that choice swaps the listed sections for
+ * the chosen one, while wider viewports keep both columns and only re-render
+ * the section.
  */
-function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
+function SettingsPanel({ rows, renderSlot, activeId, backLabel, onSelect, onBack, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
-  const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
+  const selected = rows.find(r => r.id === activeId)
+  const active = selected?.id ?? rows[0]?.id
   const titleId = useId()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // One pane at a time means Escape leaves the section before the dialog.
+      if (selected !== undefined && isSinglePaneViewport()) {
+        onBack()
+        return
+      }
+      onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => { document.removeEventListener('keydown', onKeyDown) }
-  }, [onClose])
+  }, [onBack, onClose, selected])
 
   // Entering the dialog focuses the close button; the root restores its trigger on close.
   const closeButton = useRef<HTMLButtonElement | null>(null)
@@ -76,7 +90,13 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
   return (
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div
+        className={css.panel}
+        data-pane={selected === undefined ? 'list' : 'detail'}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
         <nav className={css.nav}>
           <div className={css.navTitle} id={titleId}>{renderSlot('settings.header', {})}</div>
           <div className={css.navList}>
@@ -96,6 +116,10 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
         </nav>
         <div className={css.content}>
           <div className={css.header}>
+            <button type="button" className={css.back} aria-label={backLabel} onClick={onBack}>
+              <IconChevronLeftOutline14 size={14} />
+            </button>
+            {selected !== undefined && <div className={css.detailTitle} data-detail-title>{selected.label}</div>}
             <div className={css.actions}>{renderSlot('settings.action', {})}</div>
             <button ref={closeButton} type="button" className={css.close} onClick={onClose}>
               <IconCloseOutline16 size={14} />
@@ -139,6 +163,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     setActiveId(id)
     setOpen(true)
   }, [])
+  // Handset layout: the panel's back control returns to the section list
+  // without closing the dialog.
+  const backToList = useCallback(() => { setActiveId(undefined) }, [])
 
   // The ledger tick keeps the nav rows fresh: registrants re-register with
   // freshly localized text on locale change, and the trigger/header/close
@@ -221,7 +248,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           rows={rows}
           renderSlot={renderSlot}
           activeId={activeId}
+          backLabel={t('back')}
           onSelect={setActiveId}
+          onBack={backToList}
           onClose={close}
         />
       )}
