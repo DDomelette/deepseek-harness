@@ -17,6 +17,14 @@ export interface PairedDevice {
   readonly registeredAt: number
   /** Epoch milliseconds of the last accepted request, written back with throttling. */
   readonly lastSeenAt: number
+  /** Days this device's current window lasts, as the operator set it; absent on a legacy entry. */
+  readonly lifetimeDays?: number
+  /**
+   * Epoch milliseconds this device's current window ends, written with
+   * {@link PairedDevice.lifetimeDays}. Absent on a legacy entry, which keeps
+   * running on the expiry its cookie payload carries.
+   */
+  readonly expiresAt?: number
 }
 
 /** Fields the approve dialog supplies for a newly paired device. */

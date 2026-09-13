@@ -32,16 +32,30 @@ function malformed(detail: string): Error {
 
 function deviceOf(value: unknown): PairedDevice {
   if (!isRecord(value)) throw malformed('has a non-object entry')
-  const { id, label, registeredAt, lastSeenAt } = value
+  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt } = value
   if (typeof id !== 'string' || id === '') throw malformed('has an entry without an id')
   if (typeof label !== 'string') throw malformed(`entry ${id} has a non-string label`)
   if (!Number.isSafeInteger(registeredAt)) throw malformed(`entry ${id} has an invalid registration time`)
   if (!Number.isSafeInteger(lastSeenAt)) throw malformed(`entry ${id} has an invalid last-seen time`)
-  return {
+  // The stored window is record integrity, not policy: the 1–365 day range is
+  // enforced where an operator value enters, in the config schema and the route.
+  if (lifetimeDays !== undefined && !(Number.isSafeInteger(lifetimeDays) && (lifetimeDays as number) >= 1)) {
+    throw malformed(`entry ${id} has an invalid lifetime`)
+  }
+  if (expiresAt !== undefined && !Number.isSafeInteger(expiresAt)) {
+    throw malformed(`entry ${id} has an invalid expiry`)
+  }
+  const device: PairedDevice = {
     id: PairedDeviceId(id),
     label,
     registeredAt: registeredAt as number,
     lastSeenAt: lastSeenAt as number,
+  }
+  if (lifetimeDays === undefined && expiresAt === undefined) return device
+  return {
+    ...device,
+    ...lifetimeDays === undefined ? {} : { lifetimeDays: lifetimeDays as number },
+    ...expiresAt === undefined ? {} : { expiresAt: expiresAt as number },
   }
 }
 

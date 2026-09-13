@@ -34,6 +34,23 @@ describe('listDevices', () => {
     expect(String(PAIRED_DEVICES_KEY)).toBe(String(PAIRED_DEVICES_RECORD_KEY))
   })
 
+  it('round-trips the lifetime fields and leaves a legacy entry unchanged', async () => {
+    const store = new RecordCredentials()
+    const windowed = { ...device, lifetimeDays: 30, expiresAt: 1_702_592_000_000 }
+    store.setPairedDevices({ version: 1, devices: [device, windowed] })
+
+    await expect(listDevices(credentials(store))).resolves.toEqual([device, windowed])
+  })
+
+  it('round-trips an entry that carries only one of the lifetime fields', async () => {
+    const store = new RecordCredentials()
+    const scheduled = { ...device, lifetimeDays: 7 }
+    const expiring = { ...device, id: 'dev-2', label: 'iPad', expiresAt: 1_702_592_000_000 }
+    store.setPairedDevices({ version: 1, devices: [scheduled, expiring] })
+
+    await expect(listDevices(credentials(store))).resolves.toEqual([scheduled, expiring])
+  })
+
   it('treats a missing record as no paired devices', async () => {
     await expect(listDevices(credentials(new RecordCredentials()))).resolves.toEqual([])
   })
@@ -48,6 +65,10 @@ describe('listDevices', () => {
       { version: 1, devices: [{ ...device, label: 7 }] },
       { version: 1, devices: [{ ...device, registeredAt: 'then' }] },
       { version: 1, devices: [{ ...device, lastSeenAt: 'later' }] },
+      { version: 1, devices: [{ ...device, lifetimeDays: 0 }] },
+      { version: 1, devices: [{ ...device, lifetimeDays: 1.5 }] },
+      { version: 1, devices: [{ ...device, lifetimeDays: '30' }] },
+      { version: 1, devices: [{ ...device, expiresAt: 'soon' }] },
       { version: 1 },
       null,
     ]
