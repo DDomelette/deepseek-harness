@@ -106,11 +106,13 @@ export async function listDevices(credentials: CredentialProvider): Promise<read
  * Register a newly approved device and mint its opaque id.
  * @param credentials - persistent credential provider for the Web profile.
  * @param request - the label the operator approved the device under.
+ * @param lifetimeDays - delivery window in days this device starts with.
  * @returns the stored device entry.
  */
 export async function registerDevice(
   credentials: CredentialProvider,
   request: RegisterDeviceRequest,
+  lifetimeDays: number,
 ): Promise<PairedDevice> {
   const now = Date.now()
   const device: PairedDevice = {
@@ -118,6 +120,8 @@ export async function registerDevice(
     label: request.label,
     registeredAt: now,
     lastSeenAt: now,
+    lifetimeDays,
+    expiresAt: now + lifetimeDays * DAY_MILLISECONDS,
   }
   await writeDevices(credentials, devices => [...devices, device])
   return device

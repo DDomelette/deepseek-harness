@@ -86,7 +86,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return {
       list: () => listDevices(credentials),
       register: async (request) => {
-        const device = await registerDevice(credentials, request)
+        const device = await registerDevice(credentials, request, this.browserAuth.deviceLifetimeDays)
         await this.browserAuth.refreshPairedDevices()
         return device
       },

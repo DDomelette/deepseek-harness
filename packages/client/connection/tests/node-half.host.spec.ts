@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { API_PATH, Config, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
@@ -651,5 +651,33 @@ describe('connection device registry handle', () => {
     } finally {
       await dispose()
     }
+  })
+
+  it('gives a newly registered device the configured default window', async () => {
+    const fallback = await mounted()
+    try {
+      const device = await fallback.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(30)
+      expect(device.expiresAt).toBeGreaterThan(Date.now())
+    } finally {
+      await fallback.dispose()
+    }
+
+    const configured = await mounted({ deviceLifetimeDays: 60 })
+    try {
+      const device = await configured.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(60)
+      const [listed] = await configured.connection.devices.list()
+      expect(listed).toEqual(device)
+    } finally {
+      await configured.dispose()
+    }
+  })
+
+  it('resolves the 30-day device lifetime default and refuses a window outside 1–365 days', () => {
+    expect(Config({}).deviceLifetimeDays).toBe(30)
+    expect(() => Config({ deviceLifetimeDays: 0 })).toThrow()
+    expect(() => Config({ deviceLifetimeDays: 366 })).toThrow()
+    expect(Config({ deviceLifetimeDays: 365 }).deviceLifetimeDays).toBe(365)
   })
 })

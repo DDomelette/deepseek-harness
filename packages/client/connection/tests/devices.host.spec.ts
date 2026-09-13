@@ -90,16 +90,21 @@ describe('paired-device registry writes', () => {
     vi.setSystemTime(new Date('2026-09-12T10:00:00.000Z'))
     const store = new RecordCredentials()
 
-    const first = await registerDevice(credentials(store), { label: 'HUAWEI JAD-AL50' })
+    const first = await registerDevice(credentials(store), { label: 'HUAWEI JAD-AL50' }, 30)
     vi.setSystemTime(new Date('2026-09-12T10:05:00.000Z'))
-    const second = await registerDevice(credentials(store), { label: 'iPad' })
+    const second = await registerDevice(credentials(store), { label: 'iPad' }, 7)
 
     expect(first).toEqual({
       id: first.id,
       label: 'HUAWEI JAD-AL50',
       registeredAt: Date.parse('2026-09-12T10:00:00.000Z'),
       lastSeenAt: Date.parse('2026-09-12T10:00:00.000Z'),
+      lifetimeDays: 30,
+      expiresAt: Date.parse('2026-09-12T10:00:00.000Z') + 30 * 24 * 60 * 60 * 1000,
     })
+    expect(first.lifetimeDays).toBe(30)
+    expect(first.expiresAt).toBe(Date.parse('2026-09-12T10:00:00.000Z') + 30 * 24 * 60 * 60 * 1000)
+    expect(second.lifetimeDays).toBe(7)
     expect(first.id).not.toBe(second.id)
     expect(first.id.length).toBeGreaterThanOrEqual(20)
     await expect(listDevices(credentials(store))).resolves.toEqual([first, second])
@@ -175,7 +180,7 @@ describe('paired-device registry writes', () => {
     store.setPairedDevices({ version: 9, devices: [] })
     const provider = credentials(store)
 
-    await expect(registerDevice(provider, { label: 'phone' })).rejects.toThrow(/paired-devices/u)
+    await expect(registerDevice(provider, { label: 'phone' }, 30)).rejects.toThrow(/paired-devices/u)
     await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(touchDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
