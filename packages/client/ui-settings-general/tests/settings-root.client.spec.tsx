@@ -270,7 +270,9 @@ describe('SettingsPanel close paths', () => {
   it('closes via document-level Escape, restores trigger focus, and unhooks the listener', async () => {
     mount()
     const trigger = openPanel()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(screen.queryByRole('dialog')).toBeNull()
     await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
     // Ignored while closed (listener removed with the panel) and non-Escape
@@ -447,9 +449,14 @@ describe('SettingsPanel panes', () => {
     const trigger = openPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Models' }))
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    // Both panes consume the key: stepping back, then closing.
+    const back = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, back)
+    expect(back.defaultPrevented).toBe(true)
     expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const close = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, close)
+    expect(close.defaultPrevented).toBe(true)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
   })
@@ -460,7 +467,9 @@ describe('SettingsPanel panes', () => {
     openPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Models' }))
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 

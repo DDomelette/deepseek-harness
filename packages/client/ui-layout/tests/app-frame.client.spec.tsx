@@ -253,6 +253,30 @@ describe('AppFrame', () => {
     expect(sidebarOwner().width).toBeLessThanOrEqual(390)
   })
 
+  it('ignores an Escape a higher surface already consumed', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.drawer).toBe('true')
+    // A surface above the drawer closes itself on Escape and consumes the key;
+    // the drawer is the lowest-priority owner and must stay open.
+    const consumer = (event: KeyboardEvent) => { event.preventDefault() }
+    document.addEventListener('keydown', consumer)
+    try {
+      const consumed = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      act(() => { document.body.dispatchEvent(consumed) })
+      expect(consumed.defaultPrevented).toBe(true)
+    } finally {
+      document.removeEventListener('keydown', consumer)
+    }
+    expect(frame.dataset.drawer).toBe('true')
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    // An unconsumed Escape still closes it.
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })) })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.dataset.drawer).toBeUndefined()
+  })
+
   it('keeps the drawer floating above an open right panel', () => {
     frameWidth = 390
     const { frame, instance, rightOwner, sidebarOwner } = mountFrame()

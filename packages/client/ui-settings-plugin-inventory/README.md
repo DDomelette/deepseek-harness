@@ -26,7 +26,7 @@ The **Plugin list** tab lets Web users inspect plugins without changing their co
 ## Use this package
 
 
-Groups persist browser-locally. Users can create groups, edit membership and delete groups while global and preset sections retain their enablement and conditional states. Member keys include scope to distinguish same-named rows across presets; legacy bare ids match only global rows. Membership changes save immediately. Long titles scroll while respecting reduced motion.
+Groups persist browser-locally. Users can create groups, edit membership and delete groups while global and preset sections retain their enablement and conditional states. Member keys include scope to distinguish same-named rows across presets; legacy bare ids match only global rows. Membership changes save immediately. Long titles scroll while respecting reduced motion, and on coarse pointers the toolbar's group select carries a 44px minimum touch target.
 
 Open the Plugins section in Settings and select the **Plugin list** tab to inspect the Host's plugin inventory. The tab reads no Remote during plugin activation — selecting it for the first time mounts the component and lazily calls `ctx.remote.pluginInventory.list()` through `api-remotes`.
 

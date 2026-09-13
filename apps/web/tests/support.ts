@@ -50,6 +50,74 @@ export async function newMobilePage(browser: Browser): Promise<Page> {
 }
 
 /**
+ * Resize to a measurement viewport and wait out the responsive frame's track
+ * transition.
+ *
+ * Crossing the sidebar breakpoint animates its track from 280px to the 56px
+ * rail on `--ds-transition-duration-slow`, and the composer card tracks the
+ * transient column through the `min(680px, column)` content floor, so geometry
+ * measured before the track settles can catch a mid-animation overlap the
+ * resting layout never has. Waits for the collapsed marker to reach the
+ * expected state, then polls the conversation column's rendered width in the
+ * page until three consecutive frames agree.
+ * @param page - the page under test.
+ * @param viewport - the viewport dimensions to apply.
+ * @param options - `sidebarCollapsed` is the sidebar state this width is expected to show; defaults to `true`.
+ * @throws when the column's width never holds three stable frames within five
+ *   seconds (`conversation width did not settle after the viewport changed`).
+ */
+export async function settleViewport(
+  page: Page,
+  viewport: { width: number; height: number },
+  options: { sidebarCollapsed?: boolean } = {},
+): Promise<void> {
+  await page.setViewportSize(viewport)
+  const collapsed = options.sidebarCollapsed ?? true
+  await page.locator('[data-sidebar-collapsed="true"]').waitFor({
+    state: collapsed ? 'attached' : 'detached',
+    timeout: 10_000,
+  })
+  await page.locator('[data-conversation-scroll]').evaluate(async (host) => {
+    const deadline = performance.now() + 5_000
+    let previous = host.getBoundingClientRect().width
+    let stableFrames = 0
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      const current = host.getBoundingClientRect().width
+      stableFrames = Math.abs(current - previous) < 0.01 ? stableFrames + 1 : 0
+      if (stableFrames >= 3) return
+      previous = current
+    }
+    throw new Error('conversation width did not settle after the viewport changed')
+  })
+}
+
+/**
+ * A rendered width, read once the frame's eased grid track has settled.
+ *
+ * The frame eases its grid tracks, so a single sample taken right after a
+ * gesture reports a frame of the animation; column arithmetic is only exact at
+ * rest, so this samples until three consecutive readings agree. Reads the
+ * layout width rather than the visible box, so a zero-width track is still an
+ * answer.
+ * @param locator - the element whose width is read.
+ * @returns the settled width in whole CSS pixels.
+ * @throws when no two consecutive readings agree within eighty attempts (`width never settled (last <n>px)`).
+ */
+export async function readSettledWidth(locator: Locator): Promise<number> {
+  let last = Number.NaN
+  let steady = 0
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const now = Math.round(await locator.evaluate(node => node.getBoundingClientRect().width))
+    steady = now === last ? steady + 1 : 0
+    if (steady === 2) return now
+    last = now
+    await locator.page().waitForTimeout(50)
+  }
+  throw new Error(`width never settled (last ${last}px)`)
+}
+
+/**
  * Expand every currently eligible Turn-process group so a Tool-focused
  * scenario can exercise the original row contract beneath product-default
  * compact Chat presentation.

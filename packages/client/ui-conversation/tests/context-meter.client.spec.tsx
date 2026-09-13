@@ -160,7 +160,9 @@ describe('ContextMeter', () => {
     expect(view.container.querySelector('[role="dialog"]')).toBeNull()
     // Escape.
     openPanel()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(view.container.querySelector('[role="dialog"]')).toBeNull()
   })
 })

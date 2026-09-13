@@ -28,4 +28,4 @@ Coverage: the e2e lane gains a `newMobilePage` helper (390×844, touch) and `mob
 
 - The desktop path is untouched: every new branch keys off the 768px constant or a coarse-pointer media query, and the desktop e2e golden scenarios replay green.
 - iOS safe-area and keyboard behavior is not verifiable in CI; it is an accepted gap covered by manual device checks, while the mobile lane pins the zero-inset case where every requested inset must resolve to no padding.
-- Secondary surfaces outside the conversation shell keep the desktop layout; the Settings panel has its own handset layout ([Single-pane settings on a handset](2026-09-13-settings-single-pane-handset.md)), and fixed overlays still span the raw viewport rather than the safe area.
+- Secondary surfaces outside the conversation shell keep the desktop layout; the Settings panel has its own handset layout ([Single-pane settings on a handset](2026-09-13-settings-single-pane-handset.md)), and the fixed overlays that cover the phone screen take the safe-area insets as their own spacing ([Mobile follow-ups, batch B](2026-09-13-mobile-follow-ups-batch-b.md)).

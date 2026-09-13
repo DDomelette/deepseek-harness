@@ -292,6 +292,15 @@
     height: 100dvh;
     max-width: none;
     border-radius: 0;
+    /* The sheet spans the raw viewport, so the safe-area insets become its
+       padding: the top bar clears an installed PWA's status bar and a landscape
+       notch, and the scrolling pane stops above the home indicator. */
+    box-sizing: border-box;
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
   }
 
   .nav,
