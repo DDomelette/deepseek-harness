@@ -7,6 +7,13 @@
 
 .label { margin-right: 8px; }
 
+/* Coarse pointers (touch): WCAG 2.5.5 target size. */
+@media (pointer: coarse) {
+  .groupSelect {
+    min-height: 44px;
+  }
+}
+
 .dialog {
   display: flex;
   flex-direction: column;

@@ -192,6 +192,20 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     await page.getByRole('menuitem', { name: 'Rename' }).click()
     const dialog = page.getByRole('dialog', { name: 'Rename workspace' })
     await dialog.waitFor({ timeout: 10_000 })
+    // The modal layer's gutter doubles as the safe-area inset, and this browser
+    // reports no notch, so the declared 24px is what every side resolves to; the
+    // mask stays viewport-fixed behind the card either way.
+    const layers = await dialog.evaluate((card) => {
+      const layer = card.parentElement!
+      const mask = layer.firstElementChild!
+      return {
+        padding: [getComputedStyle(layer).paddingTop, getComputedStyle(layer).paddingRight,
+          getComputedStyle(layer).paddingBottom, getComputedStyle(layer).paddingLeft],
+        maskPosition: getComputedStyle(mask).position,
+      }
+    })
+    expect(layers.padding).toEqual(['24px', '24px', '24px', '24px'])
+    expect(layers.maskPosition).toBe('fixed')
     const input = dialog.getByLabel('Workspace name')
     // Client pre-check: a name colliding with another live workspace raises
     // the inline alert and blocks the primary button before any wire call.
