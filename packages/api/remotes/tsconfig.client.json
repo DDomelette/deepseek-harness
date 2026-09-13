@@ -51,9 +51,6 @@
       "path": "../../llm/llm"
     },
     {
-      "path": "../../notes/notes/tsconfig.client.json"
-    },
-    {
       "path": "../../preset/agent-presets"
     },
     {

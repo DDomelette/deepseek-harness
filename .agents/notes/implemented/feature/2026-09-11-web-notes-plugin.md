@@ -56,6 +56,12 @@ The `notes` Remote namespace answers every call with the vocabulary in `src/type
 
 `materialUpdate` refuses a material that already entered its conversation (`material-submitted`): the session log carries the submitted body, and rewriting the recorded text would desync the row from its thread.
 
+### The panel is a tab type that reads only through the Remote namespace
+
+The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes` at the `builtin` band, recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat under the definition's own `id`, so an extension may take the kind over without taking the body. A control in the conversation header's `conversation.session.header.corner` seat opens the tab by kind; `openTab` deduplicates a page within its pane, so pressing it again reveals the panel rather than adding a second one, and the control needs no state of its own.
+
+The panel's Host access is `ctx.remote.notes` and nothing else: it never reaches a service, and it holds no rule the Host would not apply. Reads and the two writes it commands run in `src/client/face.ts`, which answers with the store the registration declares; the component only renders what that store holds and calls those commands, so a refusal is a state to draw rather than an exception to catch. Carrier failures, which name no notes condition, become one local `remote-unavailable` state carrying the transport's own message.
+
 ### Thread attribution is tested as a pure function
 
 `src/thread.ts` depends on nothing but the event shape it reads (`seq`, `type`, and `data.id`), so the attribution rule is pinned by hand-written event lists rather than by driving a live Session. The same shape reads a persisted log, so the rule survives a restart with no extra path.
@@ -88,7 +94,7 @@ The notes package declares `dsh.client`, so the policy inspects every runtime ex
 
 ## Consequences
 
-The Host half now carries the whole Remote namespace, so the panel has typed operations to call; the browser half itself is a later phase, and the namespace has no consumer beyond the generated Client assembly. The materials this phase stores are text only: the record carries an attachment reference field, but nothing writes an image into it, and there is no `materialAddImage` operation.
+The Host half carries the whole Remote namespace and the browser half reaches it, so a panel can list conversations and materials and start a conversation without a rule of its own. The panel is otherwise a skeleton: one row per material, no detail pane, no collection surface in the transcript, and no screenshot path — the record's attachment reference field has no writer, and there is no `materialAddImage` operation.
 
 A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted reports `session-not-live` until it is reopened, because `ctx.agents` holds live Agents only.
 
@@ -100,7 +106,7 @@ Restoring an archived conversation returns it to its creation position rather th
 
 ## Testing
 
-`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, analysis orchestration against a stand-in agent registry, and every Remote operation on its success and refusal path.
+`packages/notes/notes/tests/` covers both halves at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, analysis orchestration against a stand-in agent registry, every Remote operation on its success and refusal path, and the browser half's registrations, commands, refusal lines, and rendered panel against a scripted Remote face.
 
 `notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization. Its `agents` row is a sibling Loader row rather than a root-level provide, so the spec exercises the same resolution the shipped composition uses.
 

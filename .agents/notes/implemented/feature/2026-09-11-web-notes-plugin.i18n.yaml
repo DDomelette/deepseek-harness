@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-11-web-notes-plugin.md
-2026-09-11-web-notes-plugin.md: 0e9041abe0f0ed06f0209a5505b3b56b70c47c10
-2026-09-11-web-notes-plugin.zh.md: 9c192f12df247df9d02395b3d66ce6757aef452b
+2026-09-11-web-notes-plugin.md: 9ff56583e3c2f785ae5a499a8f7dc202c5a7d7a9
+2026-09-11-web-notes-plugin.zh.md: df90ad08f15db97275488186876fb1c52e9804e1

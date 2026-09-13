@@ -1,0 +1,129 @@
+/*
+ * The notes panel's skeleton: a title bar and a scrolling body. It fills the
+ * right column's pane, so it owns no chrome of its own — no border, no radius.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  flex: none;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.tool {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+}
+
+.tool:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.empty,
+.loading {
+  margin: auto;
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.emptyLine {
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.create {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary-foreground);
+  background: var(--dsw-alias-button-primary-fill);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.create:hover {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+.failure {
+  font-size: 13px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.materials {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.material {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+}
+
+.materialText {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materialSource {
+  flex: none;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
