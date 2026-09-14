@@ -1,5 +1,6 @@
 /**
- * Analysis orchestration: turning a stored material into one model request.
+ * Analysis orchestration: turning a stored material into one model request, and
+ * settling the material when the turn that carried it ends.
  *
  * Every path is `followup()`, never `inject()`. `inject` parks content in the
  * inbox until the next message merges it into the SAME request, which would
@@ -22,9 +23,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { actionFor, composeContent } from './compose.ts'
 import { projectThread } from './thread.ts'
 import type { ThreadRow } from './thread.ts'
+import { turnMessages, turnOutcome } from './turns.ts'
 import type { NoteSessions } from './note-sessions.ts'
 import type { NotesSettings } from './settings.ts'
 import type { Materials } from './materials.ts'
@@ -60,6 +64,58 @@ export class Analysis extends Service {
    */
   constructor(ctx: Context) {
     super(ctx, 'notesAnalysis')
+    // A submission's outcome arrives with the turn that carried it, never at the
+    // call site, so the service settles its materials from the closing event.
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'turn/end') return
+      void this.settleTurn(session, event).catch(() => {
+        // A settle that cannot write leaves the material `analyzing`; the next
+        // turn of that conversation settles it, and every read of the store
+        // surfaces the same medium failure again. One event observer must not
+        // reject into the session's own publication.
+      })
+    })
+  }
+
+  /**
+   * Settle the materials one conversation's closed turn carried.
+   *
+   * The turn's own messages come from the log rather than from memory, so a
+   * conversation that was restored still settles the material it carried. Only
+   * a material still `analyzing` changes: a draft was never submitted, and one
+   * a later turn already settled keeps the first answer's outcome.
+   * @param session - the session whose turn closed.
+   * @param event - the closing `turn/end` event.
+   */
+  private async settleTurn(
+    session: Session,
+    event: Extract<SessionEvent, { type: 'turn/end' }>,
+  ): Promise<void> {
+    const noteIds = this.noteIdsFor(session.id)
+    if (noteIds.length === 0) return
+    const ids = turnMessages(session.snapshotEvents(), event.data.turn)
+    if (ids.length === 0) return
+    const outcome = turnOutcome(event.data)
+    for (const noteId of noteIds) {
+      for (const stored of [...this.materials.list(noteId), ...this.materials.archived(noteId)]) {
+        if (stored.status !== 'analyzing') continue
+        if (!stored.messageIds.some(id => ids.includes(id))) continue
+        await this.materials.update(stored.id, record => record.status === 'analyzing'
+          ? { ...record, status: outcome.answered ? 'analyzed' : 'failed', error: outcome.reason }
+          : record)
+      }
+    }
+  }
+
+  /**
+   * The notes conversations driven by one session.
+   * @param sessionId - the session whose notes records to find.
+   * @returns the recorded conversation ids, listed ones first.
+   */
+  private noteIdsFor(sessionId: SessionId): NoteSessionId[] {
+    return [...this.sessions.list(), ...this.sessions.archived()]
+      .filter(record => record.sessionId === sessionId)
+      .map(record => record.id)
   }
 
   /**

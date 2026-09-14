@@ -473,6 +473,27 @@ describe('notes remote materials', () => {
     })
   })
 
+  it('refuses to edit a screenshot, which has no text body', async () => {
+    const host = await mount()
+    await host.attach()
+    const note = await liveConversation(host)
+    const collected = await host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: null,
+    })
+    const id = collected.ok ? collected.value.id : materialId('absent')
+
+    await expect(host.remote.materialUpdate({ id, text: 'edited' })).resolves.toEqual({
+      ok: false,
+      error: { code: 'material-not-text', id },
+    })
+
+    expect(host.base.materials.get(id)?.text).toBeNull()
+  })
+
   it('refuses to edit a material that already entered its conversation', async () => {
     const host = await mount()
     const note = await liveConversation(host)

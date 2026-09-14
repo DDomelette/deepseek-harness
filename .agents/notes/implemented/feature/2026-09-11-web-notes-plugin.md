@@ -30,6 +30,12 @@ Identity is matched rather than sequence because `Agent.followup(message)` retur
 
 Both entry points resolve the live Agent from the material's own conversation record (`Material.noteId` → the recorded dsh Session), never from `Material.source.sessionId`, which names the session the material was collected from. A follow-up that used the source session would post the question into an unrelated conversation.
 
+### A submission settles with the turn that carried it
+
+`Agent.followup()` returns void, so a submission has no result at its call site: the answer, or the failure, arrives with the turn that carries the message. `src/analysis.ts` subscribes to `session/event` and settles its materials on `turn/end`, and `src/turns.ts` answers the two questions that settle needs by reading that turn back out of the log — which user messages it carried, and whether the model answered. The log is the source rather than a table of open turns in memory, so a restored conversation settles by the same rule, and the reading stays structural like `src/thread.ts`.
+
+Only a material still `analyzing` moves, and the write re-checks that inside the domain's own read-modify-write, so a settle that lost a race leaves the winning outcome alone. A turn that completed makes the material `analyzed`; every other ending makes it `failed` with the reason the event carries — the failure's own message, or the ending's kind. A turn that never closed therefore leaves the material `analyzing`, which is the honest state: nothing in the log reports how it ended.
+
 ### A concurrent analysis claims its material on the domain write chain
 
 Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first records its id, and the loser sees that id in the returned record and submits nothing. A plain check-then-send would let a double click send the same material twice.
@@ -89,6 +95,8 @@ Picking the image is the panel's own control, not a capture of the conversation:
 The material records the whole reference the store returned — the domain's version 2 record, and version 1 stored only the id — because the request part that names an image is `{ type: 'image', attachment }`: an id alone cannot say which media type, byte length, or dimensions the assembly and its normalization need. `src/compose.ts` therefore composes a screenshot as that image block, preceded by the action's template as a text block when the material was collected through one, and a text material as the single text block it always was. `src/thread.ts` keeps the row a screenshot submits: it carries no text, so the row also reports `hasImage` and the panel names the image beside whatever text it does have.
 
 A submission that carries an image asks the LLM service what the conversation's route declares before it sends anything: `Analysis` reads `Agent.options`, resolves that route's model metadata, and reports `image-unsupported` when the route declares text-only input, so the panel asks for another model instead of the model reading a placeholder where the screenshot should be. Only a declared negative is a refusal — an agent whose options name no route, a deployment with no LLM service, and metadata that cannot be read are unknown rather than unsupported, and those submissions proceed to the request path that owns them. The image admission rule therefore reads the same way here as it does in the entry points that already refuse before prompting.
+
+A screenshot's body is that reference, not text, so the detail pane names it where a text material shows its editor, and `materialUpdate` reports `material-not-text` rather than writing a body the request would never submit. The rule sits in the operation that would write, so a direct caller cannot store the shape the panel declines to offer.
 
 ### Thread attribution is tested as a pure function
 

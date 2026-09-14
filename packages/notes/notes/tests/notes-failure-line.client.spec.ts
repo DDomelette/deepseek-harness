@@ -15,6 +15,7 @@ describe('notes failure lines', () => {
     expect(line({ code: 'material-not-found', id: 'm1' as never })).toBe('error.materialNotFound')
     expect(line({ code: 'material-submitted', id: 'm1' as never })).toBe('error.materialSubmitted')
     expect(line({ code: 'material-not-submitted', id: 'm1' as never })).toBe('error.materialNotSubmitted')
+    expect(line({ code: 'material-not-text', id: 'm1' as never })).toBe('error.materialNotText')
     expect(line({ code: 'workspace-missing' })).toBe('error.workspaceMissing')
     expect(line({ code: 'last-conversation', id: 'n1' as never })).toBe('error.lastConversation')
     expect(line({ code: 'session-not-live', id: 'n1' as never })).toBe('error.sessionNotLive')
