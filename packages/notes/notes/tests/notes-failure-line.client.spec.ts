@@ -14,12 +14,14 @@ describe('notes failure lines', () => {
     expect(line({ code: 'session-not-found', id: 'n1' as never })).toBe('error.sessionNotFound')
     expect(line({ code: 'material-not-found', id: 'm1' as never })).toBe('error.materialNotFound')
     expect(line({ code: 'material-submitted', id: 'm1' as never })).toBe('error.materialSubmitted')
+    expect(line({ code: 'material-not-submitted', id: 'm1' as never })).toBe('error.materialNotSubmitted')
     expect(line({ code: 'workspace-missing' })).toBe('error.workspaceMissing')
     expect(line({ code: 'last-conversation', id: 'n1' as never })).toBe('error.lastConversation')
     expect(line({ code: 'session-not-live', id: 'n1' as never })).toBe('error.sessionNotLive')
     expect(line({ code: 'unknown-action', action: 'translate' })).toBe('error.unknownAction')
     expect(line({ code: 'settings-unavailable' })).toBe('error.settingsUnavailable')
     expect(line({ code: 'attachments-unavailable' })).toBe('error.attachmentsUnavailable')
+    expect(line({ code: 'image-not-submittable', id: 'm1' as never })).toBe('error.imageNotSubmittable')
   })
 
   it('names the two image refusals the panel makes on its own', () => {

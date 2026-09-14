@@ -123,6 +123,7 @@ export function MaterialDetail({
         thread={thread}
         loading={threadLoading}
         failure={threadFailure}
+        askable={material.submitted}
         commands={commands}
         t={t}
       />
@@ -131,11 +132,13 @@ export function MaterialDetail({
 }
 
 /** The material's own questions and the model's answers, and the next question. */
-function Thread({ id, thread, loading, failure, commands, t }: {
+function Thread({ id, thread, loading, failure, askable, commands, t }: {
   readonly id: NotesMaterialSummary['id']
   readonly thread: readonly NotesThreadRow[]
   readonly loading: boolean
   readonly failure: NotesPanelFailure | undefined
+  /** Whether the material already entered its conversation, so it has a thread to add to. */
+  readonly askable: boolean
   readonly commands: NotesInjected
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
@@ -153,27 +156,29 @@ function Thread({ id, thread, loading, failure, commands, t }: {
       {!loading && failure === undefined && thread.length === 0 && (
         <p className={css.pending} data-notes-thread-empty>{t('detail.threadEmpty')}</p>
       )}
-      <form
-        className={css.ask}
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!asked) return
-          commands.ask(id, question)
-          setQuestion('')
-        }}
-      >
-        <input
-          className={css.question}
-          aria-label={t('detail.ask')}
-          placeholder={t('detail.ask')}
-          data-notes-question
-          value={question}
-          onChange={(event) => { setQuestion(event.target.value) }}
-        />
-        <button type="submit" className={css.send} data-notes-send disabled={!asked}>
-          {t('detail.ask')}
-        </button>
-      </form>
+      {askable && (
+        <form
+          className={css.ask}
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!asked) return
+            commands.ask(id, question)
+            setQuestion('')
+          }}
+        >
+          <input
+            className={css.question}
+            aria-label={t('detail.ask')}
+            placeholder={t('detail.ask')}
+            data-notes-question
+            value={question}
+            onChange={(event) => { setQuestion(event.target.value) }}
+          />
+          <button type="submit" className={css.send} data-notes-send disabled={!asked}>
+            {t('detail.ask')}
+          </button>
+        </form>
+      )}
     </div>
   )
 }

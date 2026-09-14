@@ -4,7 +4,7 @@
  * current configuration still offers it.
  */
 import { describe, expect, it } from 'vitest'
-import { actionFor, composeBody } from '../src/compose.ts'
+import { actionFor, composeBody, hasComposableBody } from '../src/compose.ts'
 import type { ActionDef } from '../src/settings.ts'
 import { material, noteId } from './bench.ts'
 
@@ -41,5 +41,17 @@ describe('body composition', () => {
 
   it('reads a text-less material as an empty body', () => {
     expect(composeBody(material({ noteId: noteId('n1'), text: null }), undefined)).toBe('')
+  })
+})
+
+describe('body composability', () => {
+  it('composes a text material, with or without an action', () => {
+    expect(hasComposableBody(material({ noteId: noteId('n1'), text: 'body' }))).toBe(true)
+    expect(hasComposableBody(material({ noteId: noteId('n1'), text: 'body', action: 'translate' }))).toBe(true)
+  })
+
+  it('refuses to compose a screenshot, whose body is an attachment reference', () => {
+    const stored = material({ noteId: noteId('n1'), kind: 'image', text: null, image: 'attachment-1' })
+    expect(hasComposableBody(stored)).toBe(false)
   })
 })

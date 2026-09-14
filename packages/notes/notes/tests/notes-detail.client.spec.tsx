@@ -15,6 +15,9 @@ afterEach(cleanup)
 /** One material of a live conversation, as the list hands it to the detail. */
 const draft = materialSummary({ noteId: noteId('n1'), text: 'body' })
 
+/** One material that already entered its conversation, so it has a thread. */
+const submitted = materialSummary({ noteId: noteId('n1'), text: 'body', submitted: true, status: 'analyzed' })
+
 /** Render the detail with the panel's own commands. */
 function show(
   props: NotesPanelProps,
@@ -60,7 +63,7 @@ describe('material detail', () => {
 
   it('shows a submitted material read-only', () => {
     const bench = harness()
-    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', submitted: true, status: 'analyzed' }))
+    show(bench.props(), submitted)
 
     expect(screen.queryByLabelText('detail.body')).toBeNull()
     expect(document.querySelector('[data-notes-body]')?.textContent).toBe('body')
@@ -150,13 +153,13 @@ describe('material detail', () => {
     const bench = harness()
     const props = bench.props()
     const ask = vi.spyOn(props, 'ask')
-    show(props)
+    show(props, submitted)
 
     const box = screen.getByPlaceholderText('detail.ask')
     fireEvent.change(box, { target: { value: 'why?' } })
     fireEvent.submit(box.closest('form') as HTMLFormElement)
 
-    expect(ask).toHaveBeenCalledExactlyOnceWith(draft.id, 'why?')
+    expect(ask).toHaveBeenCalledExactlyOnceWith(submitted.id, 'why?')
     await waitFor(() => { expect((box as HTMLInputElement).value).toBe('') })
   })
 
@@ -164,11 +167,19 @@ describe('material detail', () => {
     const bench = harness()
     const props = bench.props()
     const ask = vi.spyOn(props, 'ask')
-    show(props)
+    show(props, submitted)
 
     const box = screen.getByPlaceholderText('detail.ask')
     fireEvent.submit(box.closest('form') as HTMLFormElement)
 
     expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('offers no follow-up before the material entered its conversation', () => {
+    const bench = harness()
+    show(bench.props())
+
+    // The Host refuses the question in the same state, so the box is not drawn.
+    expect(screen.queryByPlaceholderText('detail.ask')).toBeNull()
   })
 })
