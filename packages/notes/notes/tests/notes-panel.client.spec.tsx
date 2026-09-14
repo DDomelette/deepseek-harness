@@ -26,9 +26,33 @@ describe('notes panel', () => {
     render(<NotesPanel {...bench.props()} />)
 
     expect(screen.getByText('panel.empty')).toBeDefined()
-    fireEvent.click(screen.getByText('panel.create'))
+    fireEvent.click(document.querySelector('[data-notes-create]') as Element)
 
     await waitFor(() => { expect(bench.remote.sessionCreate).toHaveBeenCalledTimes(1) })
+  })
+
+  it('reads the settings section when it opens, so a row can name its action', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([materialSummary({ noteId: note, text: 'body', action: 'translate' })]),
+    })
+    render(<NotesPanel {...bench.props()} />)
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-action="translate"]')).not.toBeNull() })
+    expect(bench.remote.settingsRead).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a label on every navigation control', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-refresh]')).not.toBeNull() })
+
+    // The container query hides these below 500px; above it they are the control's text.
+    expect(document.querySelector('[data-notes-refresh]')?.textContent).toBe('panel.refresh')
+    expect(document.querySelector('[data-notes-settings-open]')?.textContent).toBe('panel.settings')
+    expect(document.querySelector('[data-notes-present="float"]')?.textContent).toBe('panel.float')
   })
 
   it('draws the shown conversation, its count, and one row per material', async () => {

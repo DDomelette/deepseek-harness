@@ -7,9 +7,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MaterialList, orderAfter } from '../src/client/MaterialList.tsx'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
+import type { NotesActionView } from '../src/types.ts'
 import { harness, materialId, materialSummary, noteId } from './fixtures.client.ts'
 
 afterEach(cleanup)
+
+/** The one collection action the deployments below configure. */
+const translate: NotesActionView = {
+  id: 'translate',
+  label: '翻译',
+  prompt: '不改变语句结构，翻译下列内容：',
+  autoSend: true,
+}
 
 /** One listed material. */
 const row = (id: string, text = id): ReturnType<typeof materialSummary> =>
@@ -21,12 +30,14 @@ function show(
   materials: readonly ReturnType<typeof materialSummary>[] = [row('m1')],
   archived: readonly ReturnType<typeof materialSummary>[] = [],
   selected: string | null = null,
+  actions: NotesActionView[] = [],
 ): void {
   render(
     <MaterialList
       materials={materials}
       archived={archived}
       selected={selected === null ? null : materialId(selected)}
+      actions={actions}
       commands={props}
       t={props.t}
     />,
@@ -165,6 +176,32 @@ describe('material list', () => {
     show(bench.props())
 
     expect(document.querySelector('[data-notes-archived]')).toBeNull()
+  })
+
+  it('names the collection action a row was collected through', () => {
+    const bench = harness()
+    show(bench.props(), [materialSummary({
+      id: materialId('m1'),
+      noteId: noteId('n1'),
+      text: 'body',
+      action: 'translate',
+    })], [], null, [translate])
+
+    expect(document.querySelector('[data-notes-action="translate"]')?.textContent).toBe('翻译')
+  })
+
+  it('falls back to the stored id for an action the configuration dropped', () => {
+    const bench = harness()
+    show(bench.props(), [materialSummary({ id: materialId('m1'), action: 'gone' })], [], null, [translate])
+
+    expect(document.querySelector('[data-notes-action="gone"]')?.textContent).toBe('gone')
+  })
+
+  it('carries no badge on a material that names no action', () => {
+    const bench = harness()
+    show(bench.props(), [row('m1')], [], null, [translate])
+
+    expect(document.querySelector('[data-notes-action]')).toBeNull()
   })
 })
 

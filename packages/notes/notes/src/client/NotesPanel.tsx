@@ -5,11 +5,15 @@
  * Two columns while the panel is wide enough for both, and one at a time below
  * that — the list, or the open material with a way back. The switch is a
  * container query over the panel's own width, so the panel follows its pane
- * rather than the window.
+ * rather than the window. The navigation bar keeps its labels until the pane is
+ * too narrow for them, and then shows the same controls as icons alone.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { IconPlusOutline16, IconRefreshOutline16, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconArchiveOutline20, IconFullscreenOutline16, IconPanelLeftOutline16, IconPaperclipOutline16,
+  IconPlusOutline16, IconRefreshOutline16, IconSettingsOutline16, Menu, Tooltip,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   InjectFace, PropsLocale, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -78,7 +82,11 @@ export function NotesPanel({
   const [settingsOpen, setSettingsOpen] = useState(false)
   useEffect(() => {
     load()
-  }, [load])
+    // The rows name their collection action and the detail echoes its prompt
+    // template, so the section is read when the panel opens rather than when
+    // the settings card does. The face reads it once per instance either way.
+    readSettings()
+  }, [load, readSettings])
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
     select, saveText, analyze, ask, archive, restore, reorder, present,
@@ -86,6 +94,9 @@ export function NotesPanel({
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)
+  // An unread or unavailable section leaves the badges without labels and the
+  // detail without a template; the Host still applies the action it names.
+  const collectionActions = state.settings?.actions ?? []
   const sessions = [
     ...state.sessions.map(session => ({ session, archived: false })),
     ...state.archived.map(session => ({ session, archived: true })),
@@ -159,7 +170,8 @@ export function NotesPanel({
               data-notes-archive-session
               onClick={() => { archiveSession(active.id) }}
             >
-              {t('panel.archive')}
+              <IconArchiveOutline20 size={14} />
+              <span className={css.toolLabel}>{t('panel.archive')}</span>
             </button>
           </Tooltip>
         )}
@@ -172,7 +184,8 @@ export function NotesPanel({
               data-notes-add-image
               onClick={() => { fileRef.current?.click() }}
             >
-              {t('panel.image')}
+              <IconPaperclipOutline16 size={14} />
+              <span className={css.toolLabel}>{t('panel.image')}</span>
             </button>
           </Tooltip>
         )}
@@ -186,6 +199,7 @@ export function NotesPanel({
               onClick={createConversation}
             >
               <IconPlusOutline16 size={14} />
+              <span className={css.toolLabel}>{t('panel.create')}</span>
             </button>
           </Tooltip>
         )}
@@ -197,7 +211,8 @@ export function NotesPanel({
             data-notes-present={panel.floating ? 'dock' : 'float'}
             onClick={() => { present(tab.id, panel.id, panel.floating) }}
           >
-            {panel.floating ? t('panel.dock') : t('panel.float')}
+            {panel.floating ? <IconPanelLeftOutline16 size={14} /> : <IconFullscreenOutline16 size={14} />}
+            <span className={css.toolLabel}>{panel.floating ? t('panel.dock') : t('panel.float')}</span>
           </button>
         </Tooltip>
         <Tooltip label={t('panel.settings')} side="bottom" delayMs={500}>
@@ -211,7 +226,8 @@ export function NotesPanel({
               readSettings()
             }}
           >
-            {t('panel.settings')}
+            <IconSettingsOutline16 size={14} />
+            <span className={css.toolLabel}>{t('panel.settings')}</span>
           </button>
         </Tooltip>
         <Tooltip label={t('panel.refresh')} side="bottom" delayMs={500}>
@@ -223,6 +239,7 @@ export function NotesPanel({
             onClick={refresh}
           >
             <IconRefreshOutline16 size={14} />
+            <span className={css.toolLabel}>{t('panel.refresh')}</span>
           </button>
         </Tooltip>
       </div>
@@ -251,6 +268,7 @@ export function NotesPanel({
               materials={state.materials}
               archived={state.archivedMaterials}
               selected={state.selected}
+              actions={collectionActions}
               commands={commands}
               t={t}
             />
@@ -260,6 +278,7 @@ export function NotesPanel({
                 thread={state.thread}
                 threadLoading={state.threadLoading}
                 threadFailure={state.threadFailure}
+                actions={collectionActions}
                 commands={commands}
                 t={t}
               />

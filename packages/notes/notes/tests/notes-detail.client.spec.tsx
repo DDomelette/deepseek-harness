@@ -2,21 +2,39 @@
 /**
  * What one material's detail draws and what its controls do: an editable body
  * while the material is a draft, a read-only one after it entered its
- * conversation, the thread the model produced, and the next question.
+ * conversation, the action template it will submit, the thread the model
+ * produced, and the next question.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MaterialDetail } from '../src/client/MaterialDetail.tsx'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
+import type { NotesActionView } from '../src/types.ts'
 import { harness, materialSummary, noteId } from './fixtures.client.ts'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 /** One material of a live conversation, as the list hands it to the detail. */
 const draft = materialSummary({ noteId: noteId('n1'), text: 'body' })
 
 /** One material that already entered its conversation, so it has a thread. */
 const submitted = materialSummary({ noteId: noteId('n1'), text: 'body', submitted: true, status: 'analyzed' })
+
+/** The one collection action the deployments below configure. */
+const translate: NotesActionView = {
+  id: 'translate',
+  label: '翻译',
+  prompt: '不改变语句结构，翻译下列内容：',
+  autoSend: true,
+}
+
+/** Install the async browser clipboard and restore its prior host shape. */
+function installClipboard(writeText: (text: string) => Promise<void>): void {
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+}
 
 /** Render the detail with the panel's own commands. */
 function show(
@@ -26,6 +44,7 @@ function show(
     readonly thread?: Parameters<typeof MaterialDetail>[0]['thread']
     readonly loading?: boolean
     readonly failure?: Parameters<typeof MaterialDetail>[0]['threadFailure']
+    readonly actions?: readonly NotesActionView[]
   } = {},
 ): void {
   render(
@@ -34,6 +53,7 @@ function show(
       thread={extra.thread ?? []}
       threadLoading={extra.loading ?? false}
       threadFailure={extra.failure}
+      actions={extra.actions ?? []}
       commands={props}
       t={props.t}
     />,
@@ -181,5 +201,93 @@ describe('material detail', () => {
 
     // The Host refuses the question in the same state, so the box is not drawn.
     expect(screen.queryByPlaceholderText('detail.ask')).toBeNull()
+  })
+
+  it('echoes the prompt template of the action the material names', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'translate' }), {
+      actions: [translate],
+    })
+
+    expect(document.querySelector('[data-notes-action-template="translate"]')?.textContent)
+      .toContain('不改变语句结构，翻译下列内容：')
+  })
+
+  it('echoes nothing for an action the configuration dropped', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'gone' }), {
+      actions: [translate],
+    })
+
+    expect(document.querySelector('[data-notes-action-template]')).toBeNull()
+  })
+
+  it('copies the body it shows and reports the write', async () => {
+    const bench = harness()
+    const writeText = vi.fn(async () => {})
+    installClipboard(writeText)
+    show(bench.props())
+
+    fireEvent.click(screen.getByText('detail.copy'))
+
+    await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('body')
+  })
+
+  it('copies what the reader typed, not the stored body', () => {
+    const bench = harness()
+    const writeText = vi.fn(async () => {})
+    installClipboard(writeText)
+    show(bench.props())
+    fireEvent.change(screen.getByLabelText('detail.body'), { target: { value: 'edited' } })
+
+    fireEvent.click(screen.getByText('detail.copy'))
+
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('edited')
+  })
+
+  it('keeps its label when the host refuses the write', async () => {
+    const bench = harness()
+    installClipboard(vi.fn(async () => { throw new Error('denied') }))
+    show(bench.props())
+
+    fireEvent.click(screen.getByText('detail.copy'))
+
+    await waitFor(() => { expect(screen.queryByText('detail.copied')).toBeNull() })
+    expect(screen.getByText('detail.copy')).toBeDefined()
+  })
+
+  it('writes once while it is still reporting the first copy', async () => {
+    const bench = harness()
+    const writeText = vi.fn(async () => {})
+    installClipboard(writeText)
+    show(bench.props())
+
+    fireEvent.click(screen.getByText('detail.copy'))
+    await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
+    fireEvent.click(screen.getByText('detail.copied'))
+
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('body')
+  })
+
+  it('stops reporting success once the copy feedback window passes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const bench = harness()
+    installClipboard(vi.fn(async () => {}))
+    show(bench.props())
+
+    fireEvent.click(screen.getByText('detail.copy'))
+    await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
+
+    act(() => { vi.advanceTimersByTime(1000) })
+
+    expect(screen.getByText('detail.copy')).toBeDefined()
+  })
+
+  it('offers no copy for a material with no text', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), kind: 'image', text: null, hasImage: true }))
+
+    expect(screen.queryByText('detail.copy')).toBeNull()
   })
 })

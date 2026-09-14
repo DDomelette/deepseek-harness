@@ -1,6 +1,6 @@
 /**
- * One material's detail: where it came from, its own text, what the model
- * answered, and the actions a reader takes on it.
+ * One material's detail: where it came from, what its action will submit, its
+ * own text, what the model answered, and the actions a reader takes on it.
  *
  * The text is editable until the material entered its conversation and
  * read-only afterwards, because the session log carries the submitted body and
@@ -10,13 +10,18 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { NotesMaterialSummary, NotesThreadRow } from '../types.ts'
+import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
+import { configuredAction } from './actions.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
 import type { NotesKey } from './locales.ts'
 import css from './MaterialDetail.module.css'
+
+/** How long the copy control reports success, in ms. */
+const COPIED_MS = 1000
 
 /** The dictionary line for each collection view. */
 const VIEW_LINES: Readonly<Record<NotesMaterialSummary['source']['view'], NotesKey>> = {
@@ -42,6 +47,8 @@ export interface MaterialDetailProps {
   readonly threadLoading: boolean
   /** Why the thread read produced nothing. */
   readonly threadFailure: NotesPanelFailure | undefined
+  /** Collection actions the settings section lists, for the action it names. */
+  readonly actions: readonly NotesActionView[]
   /** The panel's commands. */
   readonly commands: NotesInjected
   /** Namespace-bound translate. */
@@ -54,11 +61,21 @@ export interface MaterialDetailProps {
  * @returns the pane.
  */
 export function MaterialDetail({
-  material, thread, threadLoading, threadFailure, commands, t,
+  material, thread, threadLoading, threadFailure, actions, commands, t,
 }: MaterialDetailProps): ReactNode {
   const [draft, setDraft] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const text = material.text ?? ''
   const shown = draft ?? text
+  const action = configuredAction(material.action, actions)
+  const copy = (): void => {
+    if (copied) return
+    void writeClipboard(shown).then((ok) => {
+      if (!ok) return
+      setCopied(true)
+      window.setTimeout(() => { setCopied(false) }, COPIED_MS)
+    })
+  }
   return (
     <section className={css.detail} data-notes-detail={material.id}>
       <div className={css.source} data-notes-source>
@@ -67,6 +84,12 @@ export function MaterialDetail({
           {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
         </span>
       </div>
+      {action !== undefined && (
+        <div className={css.template} data-notes-action-template={action.id}>
+          <span className={css.templateLabel}>{t('detail.actionTemplate')}</span>
+          <p className={css.templateText}>{action.prompt}</p>
+        </div>
+      )}
       {material.submitted
         ? <p className={css.body} data-notes-body>{text}</p>
         : (
@@ -90,6 +113,17 @@ export function MaterialDetail({
             onClick={() => { commands.saveText(material.id, draft) }}
           >
             {t('detail.save')}
+          </button>
+        )}
+        {/* Nothing to copy would replace the clipboard with an empty string. */}
+        {shown !== '' && (
+          <button
+            type="button"
+            className={css.action}
+            data-notes-copy
+            onClick={copy}
+          >
+            {copied ? t('detail.copied') : t('detail.copy')}
           </button>
         )}
         <button

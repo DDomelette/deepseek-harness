@@ -85,6 +85,19 @@
 
 .dot[data-notes-dot='analyzing'] {
   background: var(--dsw-alias-state-business-primary);
+  animation: notesDot 1.2s ease-in-out infinite;
+}
+
+@keyframes notesDot {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot[data-notes-dot='analyzing'] {
+    animation: none;
+  }
 }
 
 .dot[data-notes-dot='analyzed'] {
@@ -102,6 +115,13 @@
   min-width: 0;
 }
 
+.rowHead {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
 .rowTitle {
   overflow: hidden;
   font-size: 12px;
@@ -110,12 +130,18 @@
   white-space: nowrap;
 }
 
+.rowAction {
+  flex: none;
+}
+
 .rowPreview {
+  display: -webkit-box;
   overflow: hidden;
   font-size: 12px;
   color: var(--dsw-alias-label-tertiary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .rowSource {

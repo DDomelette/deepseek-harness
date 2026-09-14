@@ -6,6 +6,7 @@
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
   "files": [
+    "src/client/actions.ts",
     "src/client/definition.ts",
     "src/client/face.ts",
     "src/client/failure-line.ts",

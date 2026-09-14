@@ -1,7 +1,9 @@
 /*
- * One material's detail: a source strip, its body, its actions, and its thread.
- * It fills the pane's second column and scrolls on its own, so the list keeps
- * its place while the reader moves down an answer.
+ * One material's detail: a source strip, what its action will submit, its body,
+ * its actions, and its thread. It fills the pane's second column and scrolls on
+ * its own, so the list keeps its place while the reader moves down an answer.
+ * The sheet paints elevated surfaces (the editor and the action template), so
+ * its scroll container rebinds the bar to the l2 pair.
  */
 .detail {
   display: flex;
@@ -12,6 +14,8 @@
   min-height: 0;
   padding: 10px;
   overflow-y: auto;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .source {
@@ -31,6 +35,27 @@
 .sourceView {
   flex: none;
   margin-left: auto;
+}
+
+.template {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  border-radius: 6px;
+}
+
+.templateLabel {
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.templateText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: pre-wrap;
 }
 
 .body {
