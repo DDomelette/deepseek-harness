@@ -50,6 +50,42 @@ The configured workspace is required: a conversation with no workspace has nowhe
 
 `ctx.storageDomain.open` admits one open per domain name. `ctx.notesStore` is therefore the single owner: it opens the domain in its own `[Service.init]`, binds the close to its fiber's effect, and exposes the material and conversation tables plus the panel's active pointer. The material store, the conversation records, and the settings owner read those handles instead of opening a second domain.
 
+### Remote operations report refusals instead of throwing
+
+The `notes` Remote namespace answers every call with the vocabulary in `src/types.ts`: `NotesSuccess<T>` for a value, `NotesRejected<E>` for a refusal whose `code` names the condition. A caller across the wire cannot see an exception type, and the panel has to explain a refusal beside the row that caused it, so each rule is exposed as a predicate on the service that owns it — `NoteSessions.hasWorkspace`, `NoteSessions.canArchive`, `Materials.isVisible` — and the method that enforces the rule reads that same predicate. `Analysis.analyse` and `Analysis.ask` return the failure they would otherwise throw, because reporting it is their caller's whole job. Enforcement therefore stays in the operation that makes the decision, and the browser never holds a rule the Host would not apply.
+
+`materialUpdate` refuses a material that already entered its conversation (`material-submitted`): the session log carries the submitted body, and rewriting the recorded text would desync the row from its thread.
+
+### The panel is a tab type that reads only through the Remote namespace
+
+The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes` at the `builtin` band, recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat under the definition's own `id`, so an extension may take the kind over without taking the body. A control in the conversation header's `conversation.session.header.corner` seat opens the tab by kind; `openTab` deduplicates a page within its pane, so pressing it again reveals the panel rather than adding a second one, and the control needs no state of its own.
+
+The panel's Host access is `ctx.remote.notes` and nothing else: it never reaches a service, and it holds no rule the Host would not apply. Reads and the two writes it commands run in `src/client/face.ts`, which answers with the store the registration declares; the component only renders what that store holds and calls those commands, so a refusal is a state to draw rather than an exception to catch. Carrier failures, which name no notes condition, become one local `remote-unavailable` state carrying the transport's own message; a refused write reports beside the content it left standing, while only a failed read replaces that content.
+
+The panel lays out two columns while its pane is wide enough and one below 560px, and the switch is a container query over the panel itself rather than the window — a right column's width is not the viewport's. Its editing follows the Host's rule instead of guessing: the wire summary carries `submitted`, derived from the material's recorded message ids, so the body is editable exactly while the material is a draft. The navigation bar's conversation chip lists every conversation including the archived ones, because a notes conversation is never deleted: picking one that is archived restores it, and the operations behind both choices already existed on the namespace.
+
+Floating and docking are the right column's presentations, not the panel's: `ui-sidebar-right` already floats a tab into a panel and docks it back, with the floating window's own header. What the panel needs from that is knowing which presentation it is in, so `SidebarRightTabInfo.panel` carries `floating` — the one fact a tab's own presentation control cannot derive — and the control calls the frame's `float`/`dock` through the same face that opens the panel.
+
+The settings card is the panel's second write surface, and it writes where the composition entry reads: `notes/settingsUpdate` merges into the notes section through `ctx.settings`, and a field the request names as null or omits is unset rather than stored as null, because the section's schema expresses an absent workspace or model override as an absent field. Clearing a field is therefore the same operation as returning it to the deployment default, and there is no second copy of the default in the browser.
+
+### The header corner holds more than one control
+
+`conversation.session.header.corner` was a single seat, and `ui-sidebar-right` already keeps its panel-recall button there. A second registration into a single seat fails, and in the shipped composition that failure took the whole notes browser half with it: the plugin never activated, and the shell rendered without its frame at all. The seat is a list now and each occupant names itself with an id, so a session header's corner carries the recall button and a notes control at once.
+
+### Collecting a passage needs a seat over the conversation
+
+Nothing in the shipped Conversation seats covers its content: `conversation.session` declared only `conversation.view`. A bubble that collects what the reader selected has to sit over that content, so `conversation.session` gained one more child, `conversation.session.overlay` (`single`, session scope), rendered after the View inside the same element. It hands its occupant two facts — the View currently shown, and the element holding it — because a collecting surface needs both to say where a passage came from and to tell whether a selection belongs to this conversation at all.
+
+The first consumer is `dsh-notes`, and its bubble registers the way any other extension does: `ctx.slots.inject('conversation.session.overlay', …)`. The alternative — covering the conversation from outside the slot system — would have put a floating layer's lifetime and authorization outside the mechanism that owns composition.
+
+A collected passage records `sessionId`, the View, a localized label, and no message identity: the conversation's DOM does not mark which message a passage came from, and adding that mark would touch every message renderer for a feature whose "locate the source text" entry point is deferred. The bubble therefore appears only over the Views the notes vocabulary can name, and starts the first notes conversation when the deployment has none.
+
+### A screenshot keeps the reference, not the bytes
+
+`notes/materialAddImage` hands the encoded bytes to the deployment's attachment store and stores only what the store returns, so a material's record stays small, an image is stored once however many materials point at it, and the notes domain never becomes a second image store. A deployment with no attachment store reports `attachments-unavailable` rather than storing nothing silently.
+
+Picking the image is the panel's own control, not a capture of the conversation: the browser reads the file as canonical base64 because that is the shape the attachment store takes over the wire, and a format or a read the browser cannot use is reported without asking the Host. Resolving a stored reference back into a model request is still open, which is why an image material is collected and listed but not yet answered.
+
 ### Thread attribution is tested as a pure function
 
 `src/thread.ts` depends on nothing but the event shape it reads (`seq`, `type`, and `data.id`), so the attribution rule is pinned by hand-written event lists rather than by driving a live Session. The same shape reads a persisted log, so the rule survives a restart with no extra path.
@@ -82,9 +118,9 @@ The notes package declares `dsh.client`, so the policy inspects every runtime ex
 
 ## Consequences
 
-The panel's browser half is a separate phase, and the Remote namespace that would carry it is not built, so the Host half has no browser consumer yet. The materials this phase stores are text only: the record carries an attachment reference field, but nothing writes an image into it.
+The Host half carries the whole Remote namespace and the browser half reaches it, so a panel can list conversations and materials, edit a draft, submit it, read the answer back, and ask a follow-up without a rule of its own. What is missing is collection and layout: no surface in the transcript collects a selection, the archived bucket and drag reordering have no UI, and the record's attachment reference field has no writer, so there is no screenshot path and no `materialAddImage` operation.
 
-A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted rejects with a named error until it is reopened, because `ctx.agents` holds live Agents only.
+A material's text and every model answer live in session events, so the plugin domain stays small and a material's content is never duplicated. That also means reading a material's answer requires the session log, and answering requires a live Session: a conversation whose process restarted reports `session-not-live` until it is reopened, because `ctx.agents` holds live Agents only.
 
 A refused submission rolls its recorded message id back and marks the material `failed`. Without that rollback, `analyse` would read the material as already submitted and it could never be retried.
 
@@ -94,7 +130,7 @@ Restoring an archived conversation returns it to its creation position rather th
 
 ## Testing
 
-`packages/notes/notes/tests/` covers the Host half at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution, body composition, the settings section over a memory provider, and analysis orchestration against a stand-in agent registry.
+`packages/notes/notes/tests/` covers both halves at per-file 100% coverage: the domain over a real storage stack, material ordering and archiving, conversation records and the active pointer, conversation creation over the configured workspace and model (including joining a preset roster and disposing the agent when the record fails), thread attribution and projection, body composition, the settings section over a memory provider (including the unset semantics of a write), analysis orchestration against a stand-in agent registry, every Remote operation on its success and refusal path, and the browser half's registrations, commands, refusal lines, rendered list and detail, and settings card against a scripted Remote face.
 
 `notes-composition.host.spec.ts` is the non-unit composition test `packages/AGENTS.md` requires for a product-visible plugin: it boots a test-owned `cordis.yml` through the real Loader and asserts that a bare `notes` row reaches active, that its schema defaults are what the row serves, and that unmounting the row frees the domain name. It waits on published services rather than on `loader.await()`, because a row's fiber settles before the services its `apply` mounts finish their asynchronous initialization. Its `agents` row is a sibling Loader row rather than a root-level provide, so the spec exercises the same resolution the shipped composition uses.
 

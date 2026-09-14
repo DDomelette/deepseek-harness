@@ -91,4 +91,73 @@ describe('notes settings', () => {
     expect(resolved.workspace).toBeUndefined()
     expect(resolved.model).toBeUndefined()
   })
+
+  it('offers a write only while a provider is mounted', async () => {
+    const notes = await bench()
+    expect(notes.writable()).toBe(true)
+
+    await ctx?.fiber.dispose()
+    ctx = new Context()
+    await ctx.plugin(NotesSettings, entry).await()
+    expect(ctx.notesSettings.writable()).toBe(false)
+    await expect(ctx.notesSettings.update({ strategy: 'auto' }))
+      .rejects.toThrow(/no settings provider is mounted/)
+  })
+
+  it('writes the strategy through the provider', async () => {
+    const notes = await bench()
+
+    await notes.update({ strategy: 'auto' })
+
+    expect(notes.strategy()).toBe('auto')
+    expect(ctx?.settings.get(NOTES_SETTINGS_NAMESPACE)).toMatchObject({ strategy: 'auto' })
+  })
+
+  it('sets and clears the workspace', async () => {
+    const notes = await bench()
+
+    await notes.update({ workspace: '/work/notes' })
+    expect(notes.workspace()).toBe('/work/notes')
+
+    await notes.update({ workspace: null })
+    expect(notes.workspace()).toBeNull()
+  })
+
+  it('clears the workspace for an explicitly absent value too', async () => {
+    const notes = await bench()
+    await notes.update({ workspace: '/work/notes' })
+
+    // The wire reports "no value" as either null or an omitted field; both mean
+    // the field leaves the user layer.
+    await notes.update({ workspace: undefined })
+
+    expect(notes.workspace()).toBeNull()
+  })
+
+  it('sets and clears the model override', async () => {
+    const notes = await bench()
+
+    await notes.update({ model: { provider: 'deepseek', model: 'deepseek-flash' } })
+    expect(notes.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
+
+    await notes.update({ model: null })
+    expect(notes.model()).toBeNull()
+  })
+
+  it('clears an explicitly absent model override too', async () => {
+    const notes = await bench()
+    await notes.update({ model: { provider: 'deepseek', model: 'deepseek-flash' } })
+
+    await notes.update({ model: undefined })
+
+    expect(notes.model()).toBeNull()
+  })
+
+  it('writes nothing for an empty patch', async () => {
+    const notes = await bench()
+
+    await notes.update({})
+
+    expect(ctx?.settings.get(NOTES_SETTINGS_NAMESPACE)).toEqual({ strategy: 'manual', actions: [] })
+  })
 })

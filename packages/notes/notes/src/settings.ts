@@ -12,6 +12,7 @@
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import s from '@deepseek-ai/schemastery'
+import type { SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-settings'
 
 /** Settings namespace owned by this plugin. */
@@ -31,6 +32,21 @@ export interface ActionDef {
 
 /** When a newly collected material is sent to the model. */
 export type NotesStrategy = 'manual' | 'auto'
+
+/**
+ * One settings write: only the fields it names change, and a field that is
+ * absent, null, or explicitly undefined is unset, so the composition default
+ * applies again. A wire caller reports "no value" as either null or an omitted
+ * field, and both mean the same thing here.
+ */
+export interface NotesPatch {
+  /** Replacement model-call strategy. */
+  readonly strategy?: NotesStrategy | undefined
+  /** Replacement workspace path. */
+  readonly workspace?: string | null | undefined
+  /** Replacement model override. */
+  readonly model?: { readonly provider: string; readonly model: string } | null | undefined
+}
 
 /** Composition entry, also the settings base layer. */
 export interface Config {
@@ -154,6 +170,47 @@ export class NotesSettings extends Service {
    */
   model(): { provider: string; model: string } | null {
     return this.source().model ?? null
+  }
+
+  /**
+   * Whether a settings provider is mounted, so a write can be persisted. The
+   * composition entry alone is not writable: it is the row's own literal.
+   * @returns true when the notes section can be updated in this deployment.
+   */
+  writable(): boolean {
+    return this.ctx.get('settings') !== undefined
+  }
+
+  /**
+   * Write one patch into the notes section's user layer, which the provider
+   * persists and every accessor above reads on its next use.
+   *
+   * A field set to null is unset rather than stored as null, because the
+   * section's schema expresses an absent workspace or model override as an
+   * absent field; that is also what returns the field to the composition
+   * default.
+   * @param patch - the fields to change.
+   * @throws {Error} when no settings provider is mounted.
+   */
+  async update(patch: NotesPatch): Promise<void> {
+    const settings = this.ctx.get('settings')
+    if (settings === undefined) {
+      throw new Error('notes: no settings provider is mounted, so the notes section cannot be written')
+    }
+    const ops: SettingsPathOp[] = []
+    if (patch.strategy !== undefined) ops.push({ op: 'set', path: ['strategy'], value: patch.strategy })
+    if ('workspace' in patch) {
+      ops.push(patch.workspace === null || patch.workspace === undefined
+        ? { op: 'unset', path: ['workspace'] }
+        : { op: 'set', path: ['workspace'], value: patch.workspace })
+    }
+    if ('model' in patch) {
+      ops.push(patch.model === null || patch.model === undefined
+        ? { op: 'unset', path: ['model'] }
+        : { op: 'set', path: ['model'], value: patch.model })
+    }
+    if (ops.length === 0) return
+    await settings.mutate(NOTES_SETTINGS_NAMESPACE, ops)
   }
 }
 

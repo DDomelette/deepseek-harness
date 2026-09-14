@@ -141,6 +141,18 @@ export class Materials extends Service {
   }
 
   /**
+   * Whether one material is a visible member of one conversation.
+   * @param noteId - notes conversation id.
+   * @param id - material id.
+   * @returns true when the material is stored, unarchived, and owned by that
+   *   conversation.
+   */
+  isVisible(noteId: NoteSessionId, id: MaterialId): boolean {
+    const record = this.table.get(id)
+    return record !== undefined && record.noteId === noteId && record.archivedAt === null
+  }
+
+  /**
    * Apply a complete manual ordering to one conversation.
    * @param noteId - notes conversation id.
    * @param orderedIds - every visible material of the conversation, top first.
@@ -148,9 +160,10 @@ export class Materials extends Service {
    */
   async reorder(noteId: NoteSessionId, orderedIds: readonly MaterialId[]): Promise<void> {
     await this.enqueue(async () => {
-      const visible = new Set(this.list(noteId).map(row => row.id))
       for (const id of orderedIds) {
-        if (!visible.has(id)) throw new Error(`notes: material '${id}' is not visible in this conversation`)
+        if (!this.isVisible(noteId, id)) {
+          throw new Error(`notes: material '${id}' is not visible in this conversation`)
+        }
       }
       for (const [index, id] of orderedIds.entries()) {
         await this.update(id, record => ({ ...record, order: index }))

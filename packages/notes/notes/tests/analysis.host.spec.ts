@@ -4,16 +4,17 @@
  * draft -> analyzing (or -> failed when the send is refused).
  *
  * Both entry points resolve the conversation's own Session, so a follow-up
- * never lands in the session the material was collected from.
+ * never lands in the session the material was collected from, and both report
+ * why they did not submit instead of throwing.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { Analysis } from '../src/analysis.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
-import type { ActionDef, Config } from '../src/settings.ts'
+import type { ActionDef, Config, NotesStrategy } from '../src/settings.ts'
 import { bench } from './bench.ts'
 import type { Bench, FakeAgents } from './bench.ts'
-import { material, noteId, noteSession, sessionId, source } from './bench.ts'
+import { material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId } from '../src/types.ts'
 
 /** The mounted analysis bench. */
@@ -33,11 +34,15 @@ afterEach(async () => {
   mounted = undefined
 })
 
-const config = (actions: ActionDef[]): Config => ({ strategy: 'manual', actions })
+const config = (actions: ActionDef[], strategy: NotesStrategy = 'manual'): Config =>
+  ({ strategy, actions })
 
-/** Mount the notes services and Analysis over the given collection actions. */
-async function mount(actions: ActionDef[] = []): Promise<AnalysisBench> {
-  const base = await bench(config(actions))
+/** Mount the notes services and Analysis over the given settings entry. */
+async function mount(
+  actions: ActionDef[] = [],
+  strategy: NotesStrategy = 'manual',
+): Promise<AnalysisBench> {
+  const base = await bench(config(actions, strategy))
   await base.ctx.plugin(Analysis).await()
   mounted = {
     ctx: base.ctx,
@@ -72,7 +77,7 @@ describe('notes analysis', () => {
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
 
-    await bench.analysis.analyse(id)
+    await expect(bench.analysis.analyse(id)).resolves.toBeNull()
 
     expect(bench.agents.followup).toHaveBeenCalledTimes(1)
     const sent = sentMessage(bench)
@@ -105,9 +110,10 @@ describe('notes analysis', () => {
     expect(bench.agents.followup).toHaveBeenCalledTimes(1)
   })
 
-  it('ignores an unknown material id', async () => {
+  it('reports an unknown material id', async () => {
     const bench = await mount()
-    await expect(bench.analysis.analyse('absent' as MaterialId)).resolves.toBeUndefined()
+    await expect(bench.analysis.analyse('absent' as MaterialId))
+      .resolves.toEqual({ code: 'material-not-found', id: 'absent' })
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
@@ -154,17 +160,31 @@ describe('notes analysis', () => {
     expect(bench.materials.get(id)?.error).toBe('refused')
   })
 
-  it('refuses a material whose conversation is not recorded', async () => {
+  it('reports an action the configuration no longer offers', async () => {
     const bench = await mount()
-    const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
-    await expect(bench.analysis.analyse(id)).rejects.toThrow(/is not recorded/)
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body', action: 'gone' }))
+
+    await expect(bench.analysis.analyse(id))
+      .resolves.toEqual({ code: 'unknown-action', action: 'gone' })
+
+    expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
-  it('refuses a material whose conversation has no live session', async () => {
+  it('reports a material whose conversation is not recorded', async () => {
+    const bench = await mount()
+    const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
+    await expect(bench.analysis.analyse(id))
+      .resolves.toEqual({ code: 'session-not-found', id: 'unrecorded' })
+    expect(bench.agents.followup).not.toHaveBeenCalled()
+  })
+
+  it('reports a material whose conversation has no live session', async () => {
     const bench = await mount()
     const note = await bench.sessions.record(noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }))
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
-    await expect(bench.analysis.analyse(id)).rejects.toThrow(/has no live session/)
+    await expect(bench.analysis.analyse(id)).resolves.toEqual({ code: 'session-not-live', id: note })
+    expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
   it('asks a follow-up inside the conversation that already answered the material', async () => {
@@ -178,7 +198,7 @@ describe('notes analysis', () => {
 
     await bench.analysis.analyse(id)
     const first = sentMessage(bench)
-    await bench.analysis.ask(id, 'why?')
+    await expect(bench.analysis.ask(id, 'why?')).resolves.toBeNull()
 
     expect(bench.agents.followup).toHaveBeenCalledTimes(2)
     const question = sentMessage(bench, 1)
@@ -192,14 +212,98 @@ describe('notes analysis', () => {
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
 
-    await expect(bench.analysis.ask(id, 'why?')).resolves.toBeUndefined()
+    await expect(bench.analysis.ask(id, 'why?')).resolves.toBeNull()
 
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
-  it('ignores a follow-up on an unknown material', async () => {
+  it('reports a follow-up on an unknown material', async () => {
     const bench = await mount()
-    await expect(bench.analysis.ask('absent' as MaterialId, 'why?')).resolves.toBeUndefined()
+    await expect(bench.analysis.ask('absent' as MaterialId, 'why?'))
+      .resolves.toEqual({ code: 'material-not-found', id: 'absent' })
     expect(bench.agents.followup).not.toHaveBeenCalled()
+  })
+
+  it('reports a follow-up whose conversation has no live session', async () => {
+    const bench = await mount()
+    const note = await bench.sessions.record(
+      noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }),
+    )
+    const id = await bench.materials.create(material({
+      noteId: note,
+      text: 'body',
+      status: 'analyzed',
+      messageIds: [messageId('submitted')],
+    }))
+
+    await expect(bench.analysis.ask(id, 'why?')).resolves.toEqual({ code: 'session-not-live', id: note })
+
+    expect(bench.agents.followup).not.toHaveBeenCalled()
+  })
+
+  it('submits a collection on its own when the strategy says so', async () => {
+    const translate: ActionDef = {
+      id: 'translate',
+      label: '翻译',
+      prompt: '不改变语句结构，翻译下列内容：',
+      autoSend: true,
+    }
+    const manual = await mount([translate])
+    expect(manual.analysis.submitsOnCollection(null)).toBe(false)
+    expect(manual.analysis.submitsOnCollection('translate')).toBe(true)
+    expect(manual.analysis.submitsOnCollection('gone')).toBe(false)
+    await manual.dispose()
+    mounted = undefined
+
+    const auto = await mount([], 'auto')
+    expect(auto.analysis.submitsOnCollection(null)).toBe(true)
+  })
+})
+
+describe('notes material thread', () => {
+  it('reads the material\'s own rows out of the conversation\'s log', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const submitted = sentMessage(bench).id
+    bench.agents.record([
+      { seq: 0, type: 'user/message', data: { id: submitted, role: 'user', content: [{ type: 'text', text: 'body' }] } },
+      { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
+    ])
+
+    const read = bench.analysis.thread(id)
+
+    expect(read).toEqual({
+      ok: true,
+      rows: [
+        { role: 'user', text: 'body', seq: 0 },
+        { role: 'assistant', text: 'answer', seq: 1 },
+      ],
+    })
+  })
+
+  it('reports an unknown material', async () => {
+    const bench = await mount()
+
+    expect(bench.analysis.thread('absent' as MaterialId))
+      .toEqual({ ok: false, failure: { code: 'material-not-found', id: 'absent' } })
+  })
+
+  it('reports a conversation that is not recorded', async () => {
+    const bench = await mount()
+    const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
+
+    expect(bench.analysis.thread(id))
+      .toEqual({ ok: false, failure: { code: 'session-not-found', id: 'unrecorded' } })
+  })
+
+  it('reports a conversation with no live session', async () => {
+    const bench = await mount()
+    const note = await bench.sessions.record(noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }))
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    expect(bench.analysis.thread(id))
+      .toEqual({ ok: false, failure: { code: 'session-not-live', id: note } })
   })
 })

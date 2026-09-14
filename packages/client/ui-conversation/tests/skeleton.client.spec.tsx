@@ -23,6 +23,7 @@ import { SessionInputShell } from '../src/client/input/facade.ts'
 import { en, zh } from '../src/client/locales.ts'
 import { ConversationRoot } from '../src/client/skeleton/ConversationRoot.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
+import type { ConversationOverlayOwnerProps } from '../src/client/contract/slots.ts'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
 import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
 import type { HeroShellProps } from '../src/client/skeleton/EmptyHero.tsx'
@@ -170,6 +171,8 @@ function mount(
   const open = vi.fn()
   const slotCalls: string[] = []
   const lineageOwners: ConversationHeaderLineageOwnerProps[] = []
+  /** Owner share handed to the Session body's covering layer, per render. */
+  const overlayOwners: ConversationOverlayOwnerProps[] = []
   const viewTabs = options.viewTabs ?? [
     { id: 'chat', label: 'Chat' },
     { id: 'trajectory', label: 'Trajectory' },
@@ -214,6 +217,10 @@ function mount(
           t={t}
         />
       )
+    }
+    if (key === 'conversation.session.overlay') {
+      overlayOwners.push(owner as ConversationOverlayOwnerProps)
+      return null
     }
     if (key === 'conversation.session') {
       return (
@@ -318,7 +325,8 @@ function mount(
   }
   const view = render(<ConversationRoot {...props} />)
   return {
-    view, store, wiring, sink, retargetWorkspace, session, conversation, slotCalls, lineageOwners, seatOwners, open,
+    view, store, wiring, sink, retargetWorkspace, session, conversation, slotCalls, lineageOwners, seatOwners,
+    overlayOwners, open,
     pickerOwner: () => pickerOwner,
     rerender: () => { view.rerender(<ConversationRoot {...props} />) },
   }
@@ -451,6 +459,18 @@ describe('ConversationRoot resident composer', () => {
     expect(b.slotCalls).toContain('conversation.session.header.actions')
     expect(b.slotCalls).toContain('conversation.session.header.utilities')
     expect(b.slotCalls).toContain('conversation.session.header.corner')
+  })
+
+  it('covers the Session body, handing the layer the shown View and its content element', () => {
+    const b = mount(sessionSnapshotOf())
+    const last = b.overlayOwners.at(-1)
+
+    expect(b.slotCalls).toContain('conversation.session.overlay')
+    expect(last?.view).toBe('chat')
+    // The element is the one the View is rendered into, so a layer can tell
+    // whether a selection belongs to this conversation.
+    expect(last?.content?.className).toContain('viewArea')
+    expect(b.view.container.contains(last?.content ?? null)).toBe(true)
   })
 
   it('sticky composer seat wraps the whole overlay chain, not only the fallback stack', () => {

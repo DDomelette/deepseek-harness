@@ -94,6 +94,15 @@ export class NoteSessions extends Service {
     }
   }
 
+  /**
+   * Whether a notes conversation can be started at all: a dsh Session has no
+   * workspace of its own, so the notes settings must name one.
+   * @returns true when a workspace is configured.
+   */
+  hasWorkspace(): boolean {
+    return this.settings.workspace() !== null
+  }
+
   /** The configured conversation workspace. */
   private requireWorkspace(): string {
     const cwd = this.settings.workspace()
@@ -166,6 +175,16 @@ export class NoteSessions extends Service {
     await this.table.put(id, record)
     await this.setActive(id)
     return id
+  }
+
+  /**
+   * Whether one conversation may be archived. The last unarchived conversation
+   * cannot be: the panel always owns one conversation to show.
+   * @param id - conversation id.
+   * @returns true when archiving `id` would leave another conversation listed.
+   */
+  canArchive(id: NoteSessionId): boolean {
+    return this.list().some(row => row.id !== id)
   }
 
   /**

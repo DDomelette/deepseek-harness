@@ -11,16 +11,23 @@ import type { MaterialRecord } from './domain.ts'
 import type { ActionDef } from './settings.ts'
 
 /**
+ * The configured action one material names.
+ * @param action - the action id stored on the material, or null for none.
+ * @param actions - the currently configured actions.
+ * @returns the action, or undefined when the material names none, or names one
+ *   the current configuration no longer offers.
+ */
+export function actionFor(action: string | null, actions: readonly ActionDef[]): ActionDef | undefined {
+  return action === null ? undefined : actions.find(candidate => candidate.id === action)
+}
+
+/**
  * The text one material submits.
  * @param material - the stored material.
- * @param actions - the currently configured actions.
+ * @param action - the action it names, as {@link actionFor} resolved it.
  * @returns the body, with the action's prompt template prepended when set.
- * @throws {Error} when the material names an action that is no longer configured.
  */
-export function composeBody(material: MaterialRecord, actions: readonly ActionDef[]): string {
+export function composeBody(material: MaterialRecord, action: ActionDef | undefined): string {
   const body = material.text ?? ''
-  if (material.action === null) return body
-  const action = actions.find(candidate => candidate.id === material.action)
-  if (action === undefined) throw new Error(`notes: unknown action "${material.action}"`)
-  return `${action.prompt}\n${body}`
+  return action === undefined ? body : `${action.prompt}\n${body}`
 }

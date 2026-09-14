@@ -188,6 +188,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   notesSessions: 'Host service the notes function plugin mounts for notes-conversation records — packages/notes/notes/README.md owns the API',
   notesSettings: 'Host service the notes function plugin mounts as the settings-section owner — packages/notes/notes/README.md owns the API',
   notesAnalysis: 'Host service the notes function plugin mounts to submit a material into its notes conversation — packages/notes/notes/README.md owns the API',
+  notes: 'Host service the notes function plugin mounts as the Remote namespace the Web panel calls — packages/notes/notes/README.md owns the API',
 }
 
 /**

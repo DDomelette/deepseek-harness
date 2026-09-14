@@ -5,10 +5,37 @@
     "outDir": "lib/types",
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
-  "files": ["src/client/index.ts", "src/types.ts"],
+  "files": [
+    "src/client/definition.ts",
+    "src/client/face.ts",
+    "src/client/failure-line.ts",
+    "src/client/index.ts",
+    "src/client/locales.ts",
+    "src/client/MaterialDetail.tsx",
+    "src/client/MaterialList.tsx",
+    "src/client/NotesButton.tsx",
+    "src/client/NotesPanel.tsx",
+    "src/client/NotesSettingsCard.tsx",
+    "src/client/SelectionBubble.tsx",
+    "src/client/store.ts",
+    "src/css-modules.d.ts",
+    "src/types.ts"
+  ],
   "references": [
     { "path": "../../../vendor/cordis" },
+    { "path": "../../api/remotes/tsconfig.client.json" },
+    { "path": "../../client/locale" },
+    { "path": "../../client/store" },
+    { "path": "../../client/ui-conversation" },
+    { "path": "../../client/ui-dockkit" },
+    { "path": "../../client/ui-primitives" },
+    { "path": "../../client/ui-renderer" },
+    { "path": "../../client/ui-session" },
+    { "path": "../../client/ui-sidebar-right" },
+    { "path": "../../client/ui-slots" },
     { "path": "../../core/session" },
+    { "path": "../../llm/llm" },
+    { "path": "../../typert/protocol" },
     { "path": "../../util/brand" }
   ]
 }

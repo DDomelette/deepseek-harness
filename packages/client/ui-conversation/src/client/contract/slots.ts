@@ -143,17 +143,28 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     /**
      * The header's far-right corner, past the utilities' edge and into the
-     * header's own padding, for one control. The corner is laid out only while
-     * its occupant renders something; an occupant with nothing to show renders
-     * nothing, and the utilities take the header's edge.
+     * header's own padding. The corner is laid out only while its occupants
+     * render something; occupants with nothing to show render nothing, and the
+     * utilities take the header's edge.
      */
     'conversation.session.header.corner': {
-      kind: 'single'
+      kind: 'list'
       scope: 'session'
       owner: ConversationHeaderCornerOwnerProps
     }
     /** Registered Conversation target Views, rendered one at a time. */
     'conversation.view': { kind: 'list'; scope: 'session'; owner: ConvViewOwnerProps }
+    /**
+     * One layer covering the Session body, drawn after its View. A control that
+     * belongs to the content rather than to the chrome — a bubble over a
+     * selection, a placeholder over a loading View — registers here instead of
+     * wrapping the View, which the shell owns.
+     */
+    'conversation.session.overlay': {
+      kind: 'single'
+      scope: 'session'
+      owner: ConversationOverlayOwnerProps
+    }
     /** Selector-routed replacements for the current Session's resident composer. */
     'conversation.composer': { kind: 'chain'; scope: 'session'; owner: ComposerChainProps }
     /** Workspace picker shown by the blank-session Hero. */
@@ -256,6 +267,19 @@ export interface ConvViewOwnerProps {
 
 /** Base props of one target-owned Conversation View entry. */
 export type ConvViewProps = PropsRuntime<'conversation.view'>
+
+/**
+ * What the Session body tells the layer covering it: which View is shown, and
+ * the element holding that View's content. A layer that responds to what the
+ * reader selected needs both — the View names where the selection came from,
+ * and the element says whether a selection is inside this conversation at all.
+ */
+export interface ConversationOverlayOwnerProps {
+  /** The View currently shown, by its `conversation.view` entry id. */
+  readonly view: string
+  /** The element holding the rendered View, or null before it mounts. */
+  readonly content: HTMLElement | null
+}
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
@@ -383,7 +407,7 @@ export type ConversationStore = ReturnType<typeof createConversationStore>
 /** Full props of the strict Session body. */
 export type ConversationSessionSlotProps =
   PropsRuntime<'conversation.session'>
-  & PropsRenderSlots<'conversation.view'>
+  & PropsRenderSlots<'conversation.view' | 'conversation.session.overlay'>
   & PropsStore<ConversationStore>
   & InjectFace<ConversationSessionInjected>
 

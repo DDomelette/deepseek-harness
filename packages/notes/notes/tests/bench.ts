@@ -128,12 +128,23 @@ export class FakeAgents {
   /** Sessions this stand-in holds live, resolved by {@link get}. */
   private readonly live = new Set<string>()
 
+  /** The event log every live session's snapshot reports. */
+  private events: readonly unknown[] = []
+
   /**
    * Mark one dsh session id live.
    * @param id - the session the stand-in should resolve.
    */
   open(id: string): void {
     this.live.add(id)
+  }
+
+  /**
+   * Replace the event log every live session reports.
+   * @param events - the session events a reader should see, in log order.
+   */
+  record(events: readonly unknown[]): void {
+    this.events = events
   }
 
   /**
@@ -163,8 +174,13 @@ export class FakeAgents {
    * @param id - session id.
    * @returns the agent stand-in, or undefined when the session is not live.
    */
-  get(id: string): { followup: FakeAgents['followup'] } | undefined {
-    return this.live.has(id) ? { followup: this.followup } : undefined
+  get(id: string): {
+    followup: FakeAgents['followup']
+    session: { snapshotEvents: () => readonly unknown[] }
+  } | undefined {
+    return this.live.has(id)
+      ? { followup: this.followup, session: { snapshotEvents: () => this.events } }
+      : undefined
   }
 }
 
