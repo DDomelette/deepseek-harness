@@ -7,7 +7,7 @@
  * container query over the panel's own width, so the panel follows its pane
  * rather than the window.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { IconPlusOutline16, IconRefreshOutline16, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
@@ -67,12 +67,13 @@ export type NotesPanelProps =
  * @returns the panel, or the reason it has nothing to show.
  */
 export function NotesPanel({
-  useStore, useTabInfo, load, refresh, createConversation, openSession, archiveSession,
-  restoreSession, select, saveText, analyze, ask, archive, restore, reorder, present,
-  readSettings, saveSettings, collect, remove, t,
+  sessionId, useStore, useTabInfo, actions, load, refresh, createConversation, openSession,
+  archiveSession, restoreSession, select, saveText, analyze, ask, archive, restore, reorder,
+  present, readSettings, saveSettings, collect, addImage, remove, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
   const { tab, panel } = useTabInfo()
+  const fileRef = useRef<HTMLInputElement | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   useEffect(() => {
@@ -81,7 +82,7 @@ export function NotesPanel({
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
     select, saveText, analyze, ask, archive, restore, reorder, present,
-    readSettings, saveSettings, collect, remove,
+    readSettings, saveSettings, collect, addImage, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)
@@ -159,6 +160,19 @@ export function NotesPanel({
               onClick={() => { archiveSession(active.id) }}
             >
               {t('panel.archive')}
+            </button>
+          </Tooltip>
+        )}
+        {selected === undefined && active !== undefined && (
+          <Tooltip label={t('panel.addImage')} side="bottom" delayMs={500}>
+            <button
+              type="button"
+              className={css.tool}
+              aria-label={t('panel.addImage')}
+              data-notes-add-image
+              onClick={() => { fileRef.current?.click() }}
+            >
+              {t('panel.image')}
             </button>
           </Tooltip>
         )}
@@ -264,6 +278,76 @@ export function NotesPanel({
           close={() => { setSettingsOpen(false) }}
         />
       )}
+      {active !== undefined && selected === undefined && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          hidden
+          data-notes-image-input
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            // A file input keeps its value, so picking the same image twice
+            // would otherwise fire no change event.
+            event.target.value = ''
+            if (file === undefined) return
+            void (async () => {
+              const mediaType = IMAGE_TYPES.find(candidate => candidate === file.type)
+              if (mediaType === undefined) {
+                actions.refused({ code: 'image-unsupported' })
+                return
+              }
+              const data = await readBase64(file)
+              if (data === null) {
+                actions.refused({ code: 'image-unreadable' })
+                return
+              }
+              const failure = await addImage(data, mediaType, {
+                sessionId,
+                view: 'chat',
+                seq: null,
+                messageId: null,
+                callId: null,
+                label: t('panel.image'),
+              }, null)
+              if (failure !== null) actions.refused(failure)
+            })()
+          }}
+        />
+      )}
     </div>
   )
+}
+
+/** The raster formats the attachment store accepts, as the file picker reports them. */
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
+
+/**
+ * The base64 payload of one data URL, which is the only shape the Host's
+ * attachment store takes. A reader that produced something else — the binary
+ * result of a different read — yields nothing rather than a stringified buffer.
+ * @param result - what the reader produced.
+ * @returns the encoded bytes, or null when the result was not a data URL.
+ */
+export function payloadOf(result: string | ArrayBuffer | null): string | null {
+  if (typeof result !== 'string') return null
+  return result.slice(result.indexOf(',') + 1)
+}
+
+/**
+ * Read one picked image as the canonical base64 the Host's attachment store takes.
+ * @param file - the file the reader picked.
+ * @returns the encoded bytes without the data-URL prefix, or null when the
+ *   browser could not read the file at all.
+ */
+async function readBase64(file: File): Promise<string | null> {
+  return await new Promise<string | null>((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => { resolve(payloadOf(reader.result)) }
+    // An unreadable pick is reported like any other refusal: the reader is
+    // still looking at the panel, and a thrown rejection would only surface as
+    // an unhandled one.
+    reader.onerror = () => { resolve(null) }
+    reader.readAsDataURL(file)
+  })
 }

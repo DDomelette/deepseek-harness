@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
+import { NotesPanel, payloadOf, sessionIntent } from '../src/client/NotesPanel.tsx'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
   harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
@@ -17,6 +17,7 @@ import {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('notes panel', () => {
@@ -231,6 +232,101 @@ describe('notes panel', () => {
     await waitFor(() => { expect(document.querySelector('[data-notes-settings]')).toBeNull() })
   })
 
+  it('collects a picked screenshot as its own material', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+    const file = new File([new Uint8Array([1, 2, 3])], 'shot.png', { type: 'image/png' })
+
+    fireEvent.change(document.querySelector('[data-notes-image-input]') as Element, { target: { files: [file] } })
+
+    await waitFor(() => { expect(bench.remote.materialAddImage).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddImage.mock.calls[0]?.[0]).toMatchObject({
+      noteId: note,
+      // The bytes travel as canonical base64, without the data-URL prefix.
+      data: 'AQID',
+      mediaType: 'image/png',
+      action: null,
+      source: { view: 'chat', label: 'panel.image', seq: null, messageId: null, callId: null },
+    })
+  })
+
+  it('refuses a format the attachment store does not take, without asking the Host', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+    const file = new File([new Uint8Array([1])], 'sketch.bmp', { type: 'image/bmp' })
+
+    fireEvent.change(document.querySelector('[data-notes-image-input]') as Element, { target: { files: [file] } })
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-unsupported"]')).not.toBeNull() })
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+  })
+
+  it('opens the image picker from the navigation bar', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByLabelText('panel.addImage')).toBeDefined() })
+    const input = document.querySelector('[data-notes-image-input]') as HTMLInputElement
+    const click = vi.spyOn(input, 'click')
+
+    fireEvent.click(screen.getByLabelText('panel.addImage'))
+
+    expect(click).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a change that carries no file', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+
+    fireEvent.change(document.querySelector('[data-notes-image-input]') as Element)
+
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-notes-notice]')).toBeNull()
+  })
+
+  it('reports an image the browser cannot read', async () => {    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+    // A reader that fails instead of loading, which is what a browser does for
+    // bytes it cannot decode as a data URL.
+    vi.stubGlobal('FileReader', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      readAsDataURL(): void { this.onerror?.() }
+    })
+    const file = new File([new Uint8Array([1])], 'shot.png', { type: 'image/png' })
+
+    fireEvent.change(document.querySelector('[data-notes-image-input]') as Element, { target: { files: [file] } })
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-unreadable"]')).not.toBeNull() })
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+  })
+
+  it('reports a screenshot the Host refused', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+    bench.remote.materialAddImage.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { code: 'attachments-unavailable' } },
+    })
+    const file = new File([new Uint8Array([1])], 'shot.png', { type: 'image/png' })
+
+    fireEvent.change(document.querySelector('[data-notes-image-input]') as Element, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-notice="attachments-unavailable"]')).not.toBeNull()
+    })
+  })
+
   it('reports a refused write over the content it left standing', async () => {
     const note = noteId('n1')
     const bench = harness({
@@ -253,8 +349,18 @@ describe('notes panel', () => {
   })
 })
 
-describe('conversation menu entries', () => {
-  const listed = [sessionSummary({ id: noteId('n1') })]
+describe('picked image payloads', () => {
+  it('takes the bytes out of a data URL', () => {
+    expect(payloadOf('data:image/png;base64,AQID')).toBe('AQID')
+  })
+
+  it('takes nothing from a read that produced bytes instead', () => {
+    expect(payloadOf(new ArrayBuffer(3))).toBeNull()
+    expect(payloadOf(null)).toBeNull()
+  })
+})
+
+describe('conversation menu entries', () => {  const listed = [sessionSummary({ id: noteId('n1') })]
   const archived = [sessionSummary({ id: noteId('n2'), archivedAt: 1 })]
 
   it('opens a listed conversation', () => {

@@ -12,13 +12,16 @@
  * @module @deepseek-ai/dsh-notes/remote
  */
 
+import { Buffer } from 'node:buffer'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-attachment'
 import type { MaterialRecord } from './domain.ts'
 import type { StoredMaterial } from './materials.ts'
 import type { StoredNoteSession } from './note-sessions.ts'
 import type {
-  NotesApplied, NotesFailure, NotesMaterialAddResult, NotesMaterialAddTextRequest,
+  NotesApplied, NotesFailure, NotesMaterialAddImageRequest, NotesMaterialAddImageResult,
+  NotesMaterialAddResult, NotesMaterialAddTextRequest,
   NotesMaterialAnalyzeRequest, NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest,
   NotesMaterialArchiveResult, NotesMaterialAskRequest, NotesMaterialAskResult,
   NotesMaterialListRequest, NotesMaterialListResult, NotesMaterialRemoveRequest,
@@ -159,6 +162,45 @@ export class NotesRemote extends TypertRemoteService {
       kind: 'text',
       text: request.text,
       image: null,
+      source: request.source,
+      action: request.action,
+      order: 0,
+      status: 'draft',
+      messageIds: [],
+      error: null,
+      createdAt: Date.now(),
+      archivedAt: null,
+    }
+    const id = await this.ctx.notesMaterials.create(record)
+    if (this.ctx.notesAnalysis.submitsOnCollection(request.action)) {
+      await this.ctx.notesAnalysis.analyse(id)
+    }
+    return success({ id })
+  }
+
+  /**
+   * Collect one screenshot into a conversation. The bytes go to the deployment's
+   * attachment store and the material keeps only the durable reference, so a
+   * material's own record stays small and an image is stored once.
+   * @param request - the conversation, image bytes, media type, source, and action.
+   * @returns the new material id, or the refusal that stopped the collection.
+   */
+  @Remote
+  async materialAddImage(request: NotesMaterialAddImageRequest): Promise<NotesMaterialAddImageResult> {
+    if (this.ctx.notesSessions.get(request.noteId) === undefined) {
+      return rejected({ code: 'session-not-found', id: request.noteId })
+    }
+    const attachments = this.ctx.get('attachments')
+    if (attachments === undefined) return rejected({ code: 'attachments-unavailable' })
+    const stored = await attachments.saveImage({
+      data: Buffer.from(request.data, 'base64'),
+      mediaType: request.mediaType,
+    })
+    const record: MaterialRecord = {
+      noteId: request.noteId,
+      kind: 'image',
+      text: null,
+      image: stored.attachmentId,
       source: request.source,
       action: request.action,
       order: 0,

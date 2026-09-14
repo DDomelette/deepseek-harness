@@ -76,6 +76,12 @@ The first consumer is `dsh-notes`, and its bubble registers the way any other ex
 
 A collected passage records `sessionId`, the View, a localized label, and no message identity: the conversation's DOM does not mark which message a passage came from, and adding that mark would touch every message renderer for a feature whose "locate the source text" entry point is deferred. The bubble therefore appears only over the Views the notes vocabulary can name, and starts the first notes conversation when the deployment has none.
 
+### A screenshot keeps the reference, not the bytes
+
+`notes/materialAddImage` hands the encoded bytes to the deployment's attachment store and stores only what the store returns, so a material's record stays small, an image is stored once however many materials point at it, and the notes domain never becomes a second image store. A deployment with no attachment store reports `attachments-unavailable` rather than storing nothing silently.
+
+Picking the image is the panel's own control, not a capture of the conversation: the browser reads the file as canonical base64 because that is the shape the attachment store takes over the wire, and a format or a read the browser cannot use is reported without asking the Host. Resolving a stored reference back into a model request is still open, which is why an image material is collected and listed but not yet answered.
+
 ### Thread attribution is tested as a pure function
 
 `src/thread.ts` depends on nothing but the event shape it reads (`seq`, `type`, and `data.id`), so the attribution rule is pinned by hand-written event lists rather than by driving a live Session. The same shape reads a persisted log, so the rule survives a restart with no extra path.

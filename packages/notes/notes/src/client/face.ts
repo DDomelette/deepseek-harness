@@ -11,6 +11,7 @@ import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   MaterialId, MaterialSource, NoteSessionId, NotesApplied, NotesFailure,
+  NotesImageMediaType, NotesMaterialAddImageRequest, NotesMaterialAddImageResult,
   NotesMaterialAddResult, NotesMaterialAddTextRequest, NotesMaterialAnalyzeRequest,
   NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
   NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
@@ -50,6 +51,12 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the new material's id.
    */
   materialAddText(request: NotesMaterialAddTextRequest): Promise<RemoteResult<NotesMaterialAddResult>>
+  /**
+   * Collect one screenshot into a conversation.
+   * @param request - the conversation, image bytes, media type, source, and action.
+   * @returns the carrier result carrying the new material's id.
+   */
+  materialAddImage(request: NotesMaterialAddImageRequest): Promise<RemoteResult<NotesMaterialAddImageResult>>
   /**
    * One material's own thread.
    * @param request - the material whose thread to read.
@@ -188,6 +195,20 @@ export interface NotesInjected {
     text: string,
     action: string | null,
     source: MaterialSource,
+  ) => Promise<NotesPanelFailure | null>
+  /**
+   * Add one screenshot to the notes.
+   * @param data - canonical base64 of the image bytes.
+   * @param mediaType - the media type the bytes carry.
+   * @param source - where the image came from.
+   * @param action - the collection action, or null for a plain collection.
+   * @returns the refusal that stopped the collection, or null when it landed.
+   */
+  readonly addImage: (
+    data: string,
+    mediaType: NotesImageMediaType,
+    source: MaterialSource,
+    action: string | null,
   ) => Promise<NotesPanelFailure | null>
   /** Delete one material record and close its detail. */
   readonly remove: (id: MaterialId) => void
@@ -338,19 +359,18 @@ export function notesFace(
       })()
     },
     collect: async (text, action, source) => {
-      // The panel and the collecting surface share one namespace but not one
-      // store, so the conversation a passage lands in is read here rather than
-      // assumed from whatever the panel last showed.
-      const listed = await remote.sessionList()
-      if (!listed.ok) return unavailable(listed.error)
-      let noteId = listed.value.value.activeId
-      if (noteId === null) {
-        const created = await remote.sessionCreate()
-        if (!created.ok) return unavailable(created.error)
-        if (!created.value.ok) return created.value.error
-        noteId = created.value.value.id
-      }
-      const added = await remote.materialAddText({ noteId, text, source, action })
+      const target = await collectTarget()
+      if (!target.ok) return target.failure
+      const added = await remote.materialAddText({ noteId: target.id, text, source, action })
+      if (!added.ok) return unavailable(added.error)
+      if (!added.value.ok) return added.value.error
+      await read(true)
+      return null
+    },
+    addImage: async (data, mediaType, source, action) => {
+      const target = await collectTarget()
+      if (!target.ok) return target.failure
+      const added = await remote.materialAddImage({ noteId: target.id, data, mediaType, source, action })
       if (!added.ok) return unavailable(added.error)
       if (!added.value.ok) return added.value.error
       await read(true)
@@ -360,6 +380,25 @@ export function notesFace(
       close()
       void write(async () => await remote.materialRemove({ id }))
     },
+  }
+
+  /**
+   * The conversation a collection lands in: the one the Host shows, or a new
+   * one when the deployment has none yet. The panel and the collecting surface
+   * share one namespace but not one store, so this is read here rather than
+   * assumed from whatever either last showed.
+   */
+  async function collectTarget(): Promise<
+    { readonly ok: true; readonly id: NoteSessionId } | { readonly ok: false; readonly failure: NotesPanelFailure }
+  > {
+    const listed = await remote.sessionList()
+    if (!listed.ok) return { ok: false, failure: unavailable(listed.error) }
+    const active = listed.value.value.activeId
+    if (active !== null) return { ok: true, id: active }
+    const created = await remote.sessionCreate()
+    if (!created.ok) return { ok: false, failure: unavailable(created.error) }
+    if (!created.value.ok) return { ok: false, failure: created.value.error }
+    return { ok: true, id: created.value.value.id }
   }
 
   /**

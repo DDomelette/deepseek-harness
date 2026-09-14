@@ -153,6 +153,7 @@ export interface HarnessRemote {
   readonly sessionRestore: Mock<NotesRemoteFace['sessionRestore']>
   readonly materialList: Mock<NotesRemoteFace['materialList']>
   readonly materialAddText: Mock<NotesRemoteFace['materialAddText']>
+  readonly materialAddImage: Mock<NotesRemoteFace['materialAddImage']>
   readonly materialThread: Mock<NotesRemoteFace['materialThread']>
   readonly materialUpdate: Mock<NotesRemoteFace['materialUpdate']>
   readonly materialAnalyze: Mock<NotesRemoteFace['materialAnalyze']>
@@ -215,6 +216,9 @@ export function harness(script: {
     ),
     materialAddText: vi.fn<NotesRemoteFace['materialAddText']>(
       async () => ({ ok: true, value: { ok: true, value: { id: materialId('m1') } } }),
+    ),
+    materialAddImage: vi.fn<NotesRemoteFace['materialAddImage']>(
+      async () => ({ ok: true, value: { ok: true, value: { id: materialId('m2') } } }),
     ),
     materialThread: vi.fn<NotesRemoteFace['materialThread']>(
       async () => script.thread?.() ?? thread(),
@@ -283,6 +287,7 @@ export function harness(script: {
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
       collect: face.collect,
+      addImage: face.addImage,
       remove: face.remove,
       t,
     }) as unknown as NotesPanelProps,

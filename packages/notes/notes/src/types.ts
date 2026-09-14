@@ -158,6 +158,23 @@ export interface NotesMaterialAddTextRequest {
   readonly action: string | null
 }
 
+/** Collect one screenshot into a conversation. */
+export interface NotesMaterialAddImageRequest {
+  /** Conversation that receives the material. */
+  readonly noteId: NoteSessionId
+  /** Canonical base64 of the encoded image bytes. */
+  readonly data: string
+  /** Media type the caller declares, which the attachment store verifies against the bytes. */
+  readonly mediaType: NotesImageMediaType
+  /** Where the image came from. */
+  readonly source: MaterialSource
+  /** Action that produced it, or null for a plain collection. */
+  readonly action: string | null
+}
+
+/** Raster formats the attachment store accepts. */
+export type NotesImageMediaType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+
 /** The newly collected material. */
 export interface NotesMaterialAddValue {
   /** Id of the material that was recorded. */
@@ -331,6 +348,11 @@ export interface NotesSettingsUnavailable {
   readonly code: 'settings-unavailable'
 }
 
+/** The deployment mounts no attachment store, so an image cannot be stored. */
+export interface NotesAttachmentsUnavailable {
+  readonly code: 'attachments-unavailable'
+}
+
 /** Failures the notes operations can report. */
 export type NotesFailure =
   | NotesSessionNotFound
@@ -341,6 +363,7 @@ export type NotesFailure =
   | NotesSessionNotLive
   | NotesUnknownAction
   | NotesSettingsUnavailable
+  | NotesAttachmentsUnavailable
 
 /**
  * Failures submitting one material for analysis can report. `Analysis.analyse`
@@ -402,6 +425,11 @@ export type NotesMaterialListResult =
 export type NotesMaterialAddResult =
   | NotesSuccess<NotesMaterialAddValue>
   | NotesRejected<NotesSessionNotFound>
+
+/** Result of `notes/materialAddImage`. */
+export type NotesMaterialAddImageResult =
+  | NotesSuccess<NotesMaterialAddValue>
+  | NotesRejected<NotesSessionNotFound | NotesAttachmentsUnavailable>
 
 /** Result of `notes/materialUpdate`. */
 export type NotesMaterialUpdateResult =

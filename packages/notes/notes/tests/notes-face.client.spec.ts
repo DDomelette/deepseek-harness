@@ -334,4 +334,49 @@ describe('notes collection commands', () => {
     await expect(bench.face.collect('a passage', null, source()))
       .resolves.toEqual({ code: 'workspace-missing' })
   })
+
+  it('adds a screenshot to the conversation the Host already shows', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+
+    await expect(bench.face.addImage('AQID', 'image/png', source(), 'translate')).resolves.toBeNull()
+
+    expect(bench.remote.materialAddImage).toHaveBeenCalledExactlyOnceWith({
+      noteId: note,
+      data: 'AQID',
+      mediaType: 'image/png',
+      source: source(),
+      action: 'translate',
+    })
+  })
+
+  it('reports a carrier failure while adding a screenshot', async () => {
+    const bench = harness()
+    bench.remote.materialAddImage.mockResolvedValueOnce({ ok: false, error: unavailable('socket closed') })
+
+    await expect(bench.face.addImage('AQID', 'image/png', source(), null))
+      .resolves.toEqual({ code: 'remote-unavailable', message: 'socket closed' })
+  })
+
+  it('reports the Host\'s refusal while adding a screenshot', async () => {
+    const bench = harness()
+    bench.remote.materialAddImage.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { code: 'attachments-unavailable' } },
+    })
+
+    await expect(bench.face.addImage('AQID', 'image/png', source(), null))
+      .resolves.toEqual({ code: 'attachments-unavailable' })
+  })
+
+  it('reports a refusal while starting the conversation a screenshot needs', async () => {
+    const bench = harness({
+      sessions: () => sessions([], [], null),
+      create: () => ({ ok: true, value: { ok: false, error: { code: 'workspace-missing' } } }),
+    })
+
+    await expect(bench.face.addImage('AQID', 'image/png', source(), null))
+      .resolves.toEqual({ code: 'workspace-missing' })
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+  })
 })

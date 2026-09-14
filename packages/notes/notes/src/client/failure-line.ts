@@ -12,6 +12,8 @@ import type { NotesFailure } from '../types.ts'
 export type NotesPanelFailure =
   | NotesFailure
   | { readonly code: 'remote-unavailable'; readonly message: string }
+  | { readonly code: 'image-unsupported' }
+  | { readonly code: 'image-unreadable' }
 
 /**
  * Say what went wrong in terms of the notes, not of the transport.
@@ -29,6 +31,9 @@ export function failureLine(t: TranslateNS<'notes'>, failure: NotesPanelFailure)
     case 'session-not-live': return t('error.sessionNotLive')
     case 'unknown-action': return t('error.unknownAction')
     case 'settings-unavailable': return t('error.settingsUnavailable')
+    case 'attachments-unavailable': return t('error.attachmentsUnavailable')
+    case 'image-unsupported': return t('error.imageUnsupported')
+    case 'image-unreadable': return t('error.imageUnreadable')
     case 'remote-unavailable': return t('error.remoteUnavailable', { message: failure.message })
   }
 }

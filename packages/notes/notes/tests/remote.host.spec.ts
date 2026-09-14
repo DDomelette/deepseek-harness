@@ -8,6 +8,7 @@
  * call performs.
  */
 import { join } from 'node:path'
+import { Buffer } from 'node:buffer'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SettingsProvider } from '@deepseek-ai/dsh-settings'
 import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
@@ -53,6 +54,10 @@ interface RemoteBench {
   readonly ctx: Bench['ctx']
   readonly base: Bench
   readonly remote: NotesRemote
+  /** Every image the stand-in attachment store was asked to keep. */
+  readonly saved: Record<string, unknown>[]
+  /** Mount the stand-in attachment store, as a deployment with screenshots has. */
+  attach(): Promise<void>
   dispose(): Promise<void>
 }
 
@@ -85,10 +90,29 @@ async function mount(settings: {
   })
   await base.ctx.plugin(Analysis).await()
   await base.ctx.plugin(NotesRemote).await()
+  const saved: Record<string, unknown>[] = []
   mounted = {
     ctx: base.ctx,
     base,
     remote: base.ctx.notes,
+    saved,
+    attach: async () => {
+      // Stand-in for the deployment's attachment store: the notes Host hands it
+      // bytes and keeps only what it returns.
+      base.ctx.provide('attachments', {
+        saveImage: async (input: Record<string, unknown>) => {
+          saved.push(input)
+          return {
+            attachmentId: 'attachment-1',
+            mediaType: input['mediaType'],
+            bytes: 3,
+            width: 1,
+            height: 1,
+          }
+        },
+      } as never)
+      await Promise.resolve()
+    },
     dispose: async () => { await base.dispose() },
   }
   return mounted
@@ -343,6 +367,83 @@ describe('notes remote materials', () => {
       source: source(),
       action: null,
     })).resolves.toEqual({ ok: false, error: { code: 'session-not-found', id: 'absent' } })
+  })
+
+  it('stores a screenshot and keeps only its durable reference', async () => {
+    const host = await mount()
+    await host.attach()
+    const note = await liveConversation(host)
+
+    const result = await host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1, 2, 3]).toString('base64'),
+      mediaType: 'image/png',
+      source: source({ label: 'screenshot' }),
+      action: null,
+    })
+
+    expect(result.ok).toBe(true)
+    const id = result.ok ? result.value.id : undefined
+    expect(host.base.materials.get(id as MaterialId)).toMatchObject({
+      noteId: note,
+      kind: 'image',
+      text: null,
+      image: 'attachment-1',
+    })
+    const listed = host.remote.materialList({ noteId: note })
+    expect(listed.ok && listed.value.materials[0]).toMatchObject({ kind: 'image', hasImage: true, text: null })
+    // The bytes reach the deployment's store; the material keeps the reference.
+    expect(host.saved[0]).toMatchObject({ mediaType: 'image/png' })
+  })
+
+  it('submits a screenshot on its own when the strategy says so', async () => {
+    const translate: ActionDef = {
+      id: 'translate',
+      label: '翻译',
+      prompt: '不改变语句结构，翻译下列内容：',
+      autoSend: true,
+    }
+    const host = await mount({ actions: [translate] })
+    await host.attach()
+    const note = await liveConversation(host)
+
+    const result = await host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: 'translate',
+    })
+
+    const id = result.ok ? result.value.id : undefined
+    expect(host.base.agents.followup).toHaveBeenCalledTimes(1)
+    expect(host.base.materials.get(id as MaterialId)?.status).toBe('analyzing')
+  })
+
+  it('refuses a screenshot into a conversation that is not recorded', async () => {
+    const host = await mount()
+    await host.attach()
+
+    await expect(host.remote.materialAddImage({
+      noteId: noteId('absent'),
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: null,
+    })).resolves.toEqual({ ok: false, error: { code: 'session-not-found', id: 'absent' } })
+  })
+
+  it('refuses a screenshot while no attachment store is mounted', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+
+    await expect(host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: null,
+    })).resolves.toEqual({ ok: false, error: { code: 'attachments-unavailable' } })
   })
 
   it('replaces the body of a draft', async () => {

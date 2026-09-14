@@ -71,6 +71,11 @@ export const zh = {
   'error.sessionNotLive': '这个会话已经不在运行，需要重新打开。',
   'error.unknownAction': '这条素材用的动作已经不在配置里了。',
   'error.settingsUnavailable': '这个部署没有挂载设置 provider。',
+  'error.attachmentsUnavailable': '这个部署没有挂载附件存储。',
+  'error.imageUnsupported': '只支持 PNG、JPEG、WebP 与 GIF 截图。',
+  'error.imageUnreadable': '这张图片读不出来，请重新选择。',
+  'panel.addImage': '添加截图',
+  'panel.image': '截图',
   'error.remoteUnavailable': '无法连接到宿主：{message}',
 } satisfies Record<string, string>
 
@@ -141,6 +146,11 @@ export const en = {
   'error.sessionNotLive': 'That conversation is no longer running and has to be reopened.',
   'error.unknownAction': 'The action this material used is no longer configured.',
   'error.settingsUnavailable': 'This deployment mounts no settings provider.',
+  'error.attachmentsUnavailable': 'This deployment mounts no attachment store.',
+  'error.imageUnsupported': 'Only PNG, JPEG, WebP, and GIF screenshots are accepted.',
+  'error.imageUnreadable': 'That image could not be read; pick it again.',
+  'panel.addImage': 'Add a screenshot',
+  'panel.image': 'Screenshot',
   'error.remoteUnavailable': 'The Host is unreachable: {message}',
 } satisfies Record<NotesKey, string>
 

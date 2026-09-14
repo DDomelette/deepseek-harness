@@ -18,6 +18,13 @@ describe('notes failure lines', () => {
     expect(line({ code: 'last-conversation', id: 'n1' as never })).toBe('error.lastConversation')
     expect(line({ code: 'session-not-live', id: 'n1' as never })).toBe('error.sessionNotLive')
     expect(line({ code: 'unknown-action', action: 'translate' })).toBe('error.unknownAction')
+    expect(line({ code: 'settings-unavailable' })).toBe('error.settingsUnavailable')
+    expect(line({ code: 'attachments-unavailable' })).toBe('error.attachmentsUnavailable')
+  })
+
+  it('names the two image refusals the panel makes on its own', () => {
+    expect(line({ code: 'image-unsupported' })).toBe('error.imageUnsupported')
+    expect(line({ code: 'image-unreadable' })).toBe('error.imageUnreadable')
   })
 
   it('carries the transport message a carrier failure brings', () => {
