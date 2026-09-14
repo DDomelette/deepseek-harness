@@ -16,6 +16,7 @@
 .count {
   padding: 0 7px;
   border-radius: 999px;
+  corner-shape: round;
   background: rgba(77, 141, 255, 0.14);
   color: #9cc0ff;
   font-size: 11px;
@@ -91,6 +92,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  corner-shape: round;
   background: #7a7a84;
 }
 
@@ -122,6 +124,7 @@
   height: 22px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -144,7 +147,7 @@
 
 .divider {
   position: relative;
-  height: 1px;
+  height: 0.5px;
   margin: 8px 4px 10px;
   background: var(--dsw-alias-border-l2);
 }
