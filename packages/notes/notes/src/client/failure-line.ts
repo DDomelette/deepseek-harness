@@ -12,7 +12,7 @@ import type { NotesFailure } from '../types.ts'
 export type NotesPanelFailure =
   | NotesFailure
   | { readonly code: 'remote-unavailable'; readonly message: string }
-  | { readonly code: 'image-unsupported' }
+  | { readonly code: 'image-format' }
   | { readonly code: 'image-unreadable' }
 
 /**
@@ -31,9 +31,10 @@ export function failureLine(t: TranslateNS<'notes'>, failure: NotesPanelFailure)
     case 'last-conversation': return t('error.lastConversation')
     case 'session-not-live': return t('error.sessionNotLive')
     case 'unknown-action': return t('error.unknownAction')
+    case 'image-unsupported': return t('error.imageUnsupported')
     case 'settings-unavailable': return t('error.settingsUnavailable')
     case 'attachments-unavailable': return t('error.attachmentsUnavailable')
-    case 'image-unsupported': return t('error.imageUnsupported')
+    case 'image-format': return t('error.imageFormat')
     case 'image-unreadable': return t('error.imageUnreadable')
     case 'remote-unavailable': return t('error.remoteUnavailable', { message: failure.message })
   }

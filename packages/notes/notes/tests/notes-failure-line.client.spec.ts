@@ -23,8 +23,12 @@ describe('notes failure lines', () => {
     expect(line({ code: 'attachments-unavailable' })).toBe('error.attachmentsUnavailable')
   })
 
+  it('names the Host refusal a model without image input produces', () => {
+    expect(line({ code: 'image-unsupported', id: 'm1' as never })).toBe('error.imageUnsupported')
+  })
+
   it('names the two image refusals the panel makes on its own', () => {
-    expect(line({ code: 'image-unsupported' })).toBe('error.imageUnsupported')
+    expect(line({ code: 'image-format' })).toBe('error.imageFormat')
     expect(line({ code: 'image-unreadable' })).toBe('error.imageUnreadable')
   })
 

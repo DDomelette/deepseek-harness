@@ -14,13 +14,14 @@ import { NoteSessions } from '../src/note-sessions.ts'
 import type { ActionDef, Config, NotesStrategy } from '../src/settings.ts'
 import { bench } from './bench.ts'
 import type { Bench, FakeAgents } from './bench.ts'
-import { imageRef, material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
+import { FakeLlm, imageRef, material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId } from '../src/types.ts'
 
 /** The mounted analysis bench. */
 interface AnalysisBench {
   readonly ctx: Bench['ctx']
   readonly agents: FakeAgents
+  readonly llm: FakeLlm
   readonly analysis: Analysis
   readonly materials: Materials
   readonly sessions: NoteSessions
@@ -51,10 +52,13 @@ async function mount(
   strategy: NotesStrategy = 'manual',
 ): Promise<AnalysisBench> {
   const base = await bench(config(actions, strategy))
+  const llm = new FakeLlm()
+  base.ctx.provide('llm', llm as never)
   await base.ctx.plugin(Analysis).await()
   mounted = {
     ctx: base.ctx,
     agents: base.agents,
+    llm,
     analysis: base.ctx.notesAnalysis,
     materials: base.materials,
     sessions: base.sessions,
@@ -206,6 +210,62 @@ describe('notes analysis', () => {
       { type: 'text', text: '不改变语句结构，翻译下列内容：' },
       { type: 'image', attachment: imageRef() },
     ])
+  })
+
+  it('reports a route that declares text-only input, without sending the screenshot', async () => {
+    const bench = await mount()
+    bench.llm.modalities = ['text']
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+    }))
+
+    await expect(bench.analysis.analyse(id)).resolves.toEqual({ code: 'image-unsupported', id })
+
+    expect(bench.llm.asked).toEqual([{ provider: 'notes-provider', model: 'notes-model' }])
+    expect(bench.agents.followup).not.toHaveBeenCalled()
+    expect(bench.materials.get(id)?.status).toBe('draft')
+  })
+
+  it('reads an unknown or unreadable route as capable rather than as a refusal', async () => {
+    const unknown = await mount()
+    unknown.llm.modalities = undefined
+    const note = await liveConversation(unknown)
+    const id = await unknown.materials.create(material({
+      noteId: note,
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+    }))
+
+    await expect(unknown.analysis.analyse(id)).resolves.toBeNull()
+    expect(unknown.agents.followup).toHaveBeenCalledTimes(1)
+
+    const unreadable = await mount()
+    unreadable.llm.failure = new Error('no adapter serves this provider')
+    const second = await liveConversation(unreadable)
+    const other = await unreadable.materials.create(material({
+      noteId: second,
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+    }))
+
+    await expect(unreadable.analysis.analyse(other)).resolves.toBeNull()
+    expect(unreadable.agents.followup).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks no route about a text material', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    await bench.analysis.analyse(id)
+
+    expect(bench.llm.asked).toEqual([])
   })
 
   it('reports a material whose conversation is not recorded', async () => {

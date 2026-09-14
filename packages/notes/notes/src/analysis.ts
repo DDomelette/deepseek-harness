@@ -79,7 +79,11 @@ export class Analysis extends Service {
     }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
-    await this.submit(id, target.agent, composeContent(current, action), true)
+    const content = composeContent(current, action)
+    if (content.some(block => block.type === 'image') && await this.imagesUnsupported(target.agent)) {
+      return { code: 'image-unsupported', id }
+    }
+    await this.submit(id, target.agent, content, true)
     return null
   }
 
@@ -140,6 +144,33 @@ export class Analysis extends Service {
 
   private get settings(): NotesSettings {
     return this.ctx.notesSettings
+  }
+
+  /**
+   * Whether one conversation's route declares that it takes no image input.
+   *
+   * A route that declares text-only input would receive the request assembly's
+   * placeholder instead of the screenshot, which is the silent drop the panel
+   * has to explain instead. Only a resolved route is judged: an agent whose
+   * options name no route, a deployment that mounts no LLM service, and a route
+   * whose model metadata cannot be read are all unknown rather than negative,
+   * and the submission proceeds — the request itself reports what it could not
+   * resolve, and a refusal here would blame the model for a missing answer.
+   * @param agent - the live notes agent whose route would carry the message.
+   * @returns true when that route declares text-only input.
+   */
+  private async imagesUnsupported(agent: Agent): Promise<boolean> {
+    const llm = this.ctx.get('llm')
+    const { provider, model } = agent.options
+    if (llm === undefined || provider === undefined || model === undefined) return false
+    try {
+      const info = await llm.resolveModelInfo(provider, model)
+      return info.inputModalities !== undefined && !info.inputModalities.includes('image')
+    } catch {
+      // Unknown route or unreachable provider metadata: the request path owns
+      // that failure, and this check owns only a declared negative capability.
+      return false
+    }
   }
 
   /**

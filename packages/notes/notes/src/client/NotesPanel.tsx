@@ -313,7 +313,7 @@ export function NotesPanel({
             void (async () => {
               const mediaType = IMAGE_TYPES.find(candidate => candidate === file.type)
               if (mediaType === undefined) {
-                actions.refused({ code: 'image-unsupported' })
+                actions.refused({ code: 'image-format' })
                 return
               }
               const data = await readBase64(file)

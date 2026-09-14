@@ -85,7 +85,31 @@ describe('notes conversation creation', () => {
       .toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
   })
 
-  it('follows the session default when no model override is configured', async () => {
+  it('follows the deployment default when no model override is configured', async () => {
+    const host = await mount()
+    host.ctx.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-flash' }),
+    } as never)
+
+    await host.sessions.create()
+
+    expect(host.agents.created[0]?.agentOptions)
+      .toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  })
+
+  it('prefers the configured override over the deployment default', async () => {
+    const host = await mount({ model: { provider: 'deepseek', model: 'deepseek-v4-pro' } })
+    host.ctx.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-flash' }),
+    } as never)
+
+    await host.sessions.create()
+
+    expect(host.agents.created[0]?.agentOptions)
+      .toEqual({ provider: 'deepseek', model: 'deepseek-v4-pro' })
+  })
+
+  it('leaves the route to the request waterfall when the deployment names none', async () => {
     const host = await mount()
 
     await host.sessions.create()
