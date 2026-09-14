@@ -53,10 +53,6 @@ export function SelectionBubble({
   const [bubble, setBubble] = useState<Bubble | null>(null)
   const [failure, setFailure] = useState<NotesPanelFailure | undefined>(undefined)
 
-  useEffect(() => {
-    readSettings()
-  }, [readSettings])
-
   const measure = useCallback((): void => {
     if (content === null || !COLLECTABLE_VIEWS.has(view)) {
       setBubble(null)
@@ -75,7 +71,10 @@ export function SelectionBubble({
     }
     const box = range.getBoundingClientRect()
     setBubble({ text, left: box.left + box.width / 2, top: box.top })
-  }, [content, view])
+    // The actions are read only once a selection offers them: this layer covers
+    // every conversation, and most of them never collect anything.
+    readSettings()
+  }, [content, view, readSettings])
 
   useEffect(() => {
     document.addEventListener('selectionchange', measure)
