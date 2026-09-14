@@ -56,8 +56,6 @@ The `notes` Remote namespace answers every call with the vocabulary in `src/type
 
 `materialUpdate` refuses a material that already entered its conversation (`material-submitted`): the session log carries the submitted body, and rewriting the recorded text would desync the row from its thread. `materialAsk` refuses the opposite state (`material-not-submitted`): a draft has no thread, so the question would be reported as submitted while nothing left the process.
 
-`materialAnalyze` refuses a screenshot (`image-not-submittable`). A screenshot material's body is a stored attachment reference, and composing its request would produce a message that names no material — the action template alone, or an empty body — so the rule the panel explains is the rule `Analysis.analyse` applies through `hasComposableBody`.
-
 ### The panel is a tab type that reads only through the Remote namespace
 
 The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes` at the `builtin` band, recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat under the definition's own `id`, so an extension may take the kind over without taking the body. A control in the conversation header's `conversation.session.header.corner` seat opens the tab by kind; `openTab` deduplicates a page within its pane, so pressing it again reveals the panel rather than adding a second one, and the control needs no state of its own.
@@ -86,7 +84,9 @@ A collected passage records `sessionId`, the View, a localized label, and no mes
 
 `notes/materialAddImage` hands the encoded bytes to the deployment's attachment store and stores only what the store returns, so a material's record stays small, an image is stored once however many materials point at it, and the notes domain never becomes a second image store. A deployment with no attachment store reports `attachments-unavailable` rather than storing nothing silently.
 
-Picking the image is the panel's own control, not a capture of the conversation: the browser reads the file as canonical base64 because that is the shape the attachment store takes over the wire, and a format or a read the browser cannot use is reported without asking the Host. The material keeps the store's `attachmentId` and not the reference the store returned, so a reader has no way back to the media type, byte length, and dimensions a request part needs; an analyse therefore reports `image-not-submittable` instead of sending a request that names no material, and an auto-submitting deployment stores the screenshot as a draft. Resolving a stored reference back into a model request is still open.
+Picking the image is the panel's own control, not a capture of the conversation: the browser reads the file as canonical base64 because that is the shape the attachment store takes over the wire, and a format or a read the browser cannot use is reported without asking the Host.
+
+The material records the whole reference the store returned — the domain's version 2 record, and version 1 stored only the id — because the request part that names an image is `{ type: 'image', attachment }`: an id alone cannot say which media type, byte length, or dimensions the assembly and its normalization need. `src/compose.ts` therefore composes a screenshot as that image block, preceded by the action's template as a text block when the material was collected through one, and a text material as the single text block it always was. `src/thread.ts` keeps the row a screenshot submits: it carries no text, so the row also reports `hasImage` and the panel names the image beside whatever text it does have. A route that accepts text only needs no refusal from this plugin: the request assembly already substitutes its own placeholder for an image block, so the submission lands either way.
 
 ### Thread attribution is tested as a pure function
 

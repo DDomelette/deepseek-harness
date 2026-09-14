@@ -1,12 +1,16 @@
 /**
- * Composing the text one material submits.
+ * Composing what one material submits.
  *
- * An action contributes a prompt template prepended to the body on its own
- * line. The template is configuration, never a constant, so a deployment can
- * change what "translate" asks for without a code change.
+ * An action contributes a prompt template, and the material contributes its own
+ * body: a text material submits the template prepended to its body on its own
+ * line, and a screenshot submits the durable reference the attachment store
+ * returned, because the request part a model reads names that reference rather
+ * than any text. The template is configuration, never a constant, so a
+ * deployment can change what "translate" asks for without a code change.
  * @module @deepseek-ai/dsh-notes/compose
  */
 
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { MaterialRecord } from './domain.ts'
 import type { ActionDef } from './settings.ts'
 
@@ -22,25 +26,34 @@ export function actionFor(action: string | null, actions: readonly ActionDef[]):
 }
 
 /**
- * Whether one material's body can be composed into a model request.
- *
- * A screenshot material stores a durable attachment reference instead of a
- * body, and nothing yet resolves that reference back into an image content
- * part, so composing one would submit a request that names no material.
+ * The content one material submits.
  * @param material - the stored material.
- * @returns true when {@link composeBody} produces the material's own body.
+ * @param action - the action it names, as {@link actionFor} resolved it.
+ * @returns one text block for a text material, with the action's prompt
+ *   template prepended on its own line; for a screenshot, the action's template
+ *   as a text block when it names one, followed by the image block naming the
+ *   stored reference.
  */
-export function hasComposableBody(material: MaterialRecord): boolean {
-  return material.kind !== 'image'
+export function composeContent(
+  material: MaterialRecord,
+  action: ActionDef | undefined,
+): ContentBlock[] {
+  if (material.image !== null) {
+    return [
+      ...action === undefined ? [] : [{ type: 'text', text: action.prompt } as const],
+      { type: 'image', attachment: material.image },
+    ]
+  }
+  return [{ type: 'text', text: submittedText(material, action) }]
 }
 
 /**
- * The text one material submits.
+ * The text a text material submits.
  * @param material - the stored material.
  * @param action - the action it names, as {@link actionFor} resolved it.
  * @returns the body, with the action's prompt template prepended when set.
  */
-export function composeBody(material: MaterialRecord, action: ActionDef | undefined): string {
+function submittedText(material: MaterialRecord, action: ActionDef | undefined): string {
   const body = material.text ?? ''
   return action === undefined ? body : `${action.prompt}\n${body}`
 }

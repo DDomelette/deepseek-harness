@@ -10,6 +10,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
@@ -68,6 +69,19 @@ export const material = (
   createdAt: 0,
   archivedAt: null,
   ...overrides,
+})
+
+/**
+ * One stored screenshot reference, the shape an attachment provider returns.
+ * @param attachmentId - the durable id, defaulting to the first stored image.
+ * @returns the reference a material records for its screenshot.
+ */
+export const imageRef = (attachmentId = 'attachment-1'): ImageAttachmentRef => ({
+  attachmentId: brandString<ImageAttachmentRef['attachmentId']>(attachmentId),
+  mediaType: 'image/png',
+  bytes: 3,
+  width: 1,
+  height: 1,
 })
 
 /** A complete notes-conversation record. */

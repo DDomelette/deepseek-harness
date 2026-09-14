@@ -10,20 +10,25 @@
 
 import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
+import type { AttachmentId, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 import type { Domain } from '@deepseek-ai/dsh-storage-domain'
 import type {
-  MaterialId, MaterialKind, MaterialSource, MaterialStatus, MaterialView, NoteSessionId,
+  MaterialId, MaterialKind, MaterialSource, MaterialStatus, MaterialView, NotesImageMediaType,
+  NoteSessionId,
 } from './types.ts'
 
 /** Domain name; also the backend unit name. */
 export const NOTES_DOMAIN_NAME = 'notes'
 
-/** Current domain format version. */
-export const NOTES_DOMAIN_VERSION = 1
+/**
+ * Current domain format version. Version 2 stores the whole attachment
+ * reference a screenshot was saved as; version 1 stored only its id.
+ */
+export const NOTES_DOMAIN_VERSION = 2
 
 /** The domain's table names, as the owner opens them. */
 export const NOTES_TABLES = {
@@ -57,18 +62,44 @@ const materialSourceSchema: z.ZodType<MaterialSource> = z.object({
   label: z.string(),
 })
 
+const imageMediaTypeSchema: z.ZodType<NotesImageMediaType> = z.union([
+  z.literal('image/png'), z.literal('image/jpeg'), z.literal('image/webp'), z.literal('image/gif'),
+])
+
+/**
+ * One screenshot's durable attachment reference, as the attachment provider
+ * wrote it.
+ *
+ * zod's `.optional()` types the two optional members `string | undefined` and
+ * `{…} | undefined` where the attachment vocabulary says `name?: string` and
+ * `originalDimensions?: …`; the two serialize identically (an absent member),
+ * so the cast records exactly that `exactOptionalPropertyTypes` widening.
+ */
+const imageRefSchema = z.object({
+  attachmentId: z.string().min(1).transform(value => brandString<AttachmentId>(value)),
+  mediaType: imageMediaTypeSchema,
+  bytes: z.number().int().nonnegative(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  name: z.string().optional(),
+  originalDimensions: z.object({
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+  }).optional(),
+}) as unknown as z.ZodType<ImageAttachmentRef>
+
 /**
  * One collected material. `text` carries the user's edited body while the
  * material is a draft; once it enters a session the log carries the body and
- * this field is the text as submitted. `image` is a durable attachment
- * reference id — screenshot bytes never enter this domain, which is why it is
- * a reference and not bytes.
+ * this field is the text as submitted. `image` is the durable attachment
+ * reference the screenshot was saved as — the bytes never enter this domain,
+ * and the whole reference is kept because a model request part names it.
  */
 export const materialRecord = z.object({
   noteId: noteSessionIdSchema,
   kind: materialKindSchema,
   text: z.string().nullable(),
-  image: z.string().nullable(),
+  image: imageRefSchema.nullable(),
   source: materialSourceSchema,
   action: z.string().nullable(),
   order: z.number(),

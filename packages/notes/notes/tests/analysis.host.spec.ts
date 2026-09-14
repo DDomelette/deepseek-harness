@@ -14,7 +14,7 @@ import { NoteSessions } from '../src/note-sessions.ts'
 import type { ActionDef, Config, NotesStrategy } from '../src/settings.ts'
 import { bench } from './bench.ts'
 import type { Bench, FakeAgents } from './bench.ts'
-import { material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
+import { imageRef, material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId } from '../src/types.ts'
 
 /** The mounted analysis bench. */
@@ -33,6 +33,14 @@ afterEach(async () => {
   if (mounted !== undefined) await mounted.dispose()
   mounted = undefined
 })
+
+/** The one collection action the benches below configure. */
+const translate: ActionDef = {
+  id: 'translate',
+  label: '翻译',
+  prompt: '不改变语句结构，翻译下列内容：',
+  autoSend: true,
+}
 
 const config = (actions: ActionDef[], strategy: NotesStrategy = 'manual'): Config =>
   ({ strategy, actions })
@@ -118,12 +126,6 @@ describe('notes analysis', () => {
   })
 
   it('prepends the action prompt template the material names', async () => {
-    const translate: ActionDef = {
-      id: 'translate',
-      label: '翻译',
-      prompt: '不改变语句结构，翻译下列内容：',
-      autoSend: true,
-    }
     const bench = await mount([translate])
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body', action: 'translate' }))
@@ -171,22 +173,39 @@ describe('notes analysis', () => {
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
-  it('reports a screenshot it cannot turn into a model request', async () => {
+  it('submits a screenshot as the image block naming its stored reference', async () => {
     const bench = await mount()
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({
       noteId: note,
       kind: 'image',
       text: null,
-      image: 'attachment-1',
+      image: imageRef(),
     }))
 
-    await expect(bench.analysis.analyse(id))
-      .resolves.toEqual({ code: 'image-not-submittable', id })
+    await expect(bench.analysis.analyse(id)).resolves.toBeNull()
 
-    // No body is composed, so nothing is sent and the material stays a draft.
-    expect(bench.agents.followup).not.toHaveBeenCalled()
-    expect(bench.materials.get(id)?.status).toBe('draft')
+    expect(sentMessage(bench).content).toEqual([{ type: 'image', attachment: imageRef() }])
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('submits the action template in front of the screenshot it collected', async () => {
+    const bench = await mount([translate])
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+      action: 'translate',
+    }))
+
+    await bench.analysis.analyse(id)
+
+    expect(sentMessage(bench).content).toEqual([
+      { type: 'text', text: '不改变语句结构，翻译下列内容：' },
+      { type: 'image', attachment: imageRef() },
+    ])
   })
 
   it('reports a material whose conversation is not recorded', async () => {
@@ -296,8 +315,8 @@ describe('notes material thread', () => {
     expect(read).toEqual({
       ok: true,
       rows: [
-        { role: 'user', text: 'body', seq: 0 },
-        { role: 'assistant', text: 'answer', seq: 1 },
+        { role: 'user', text: 'body', hasImage: false, seq: 0 },
+        { role: 'assistant', text: 'answer', hasImage: false, seq: 1 },
       ],
     })
   })

@@ -36,6 +36,10 @@ interface Event {
 /** One text part of a message. */
 const text = (value: string): { type: string; text: string } => ({ type: 'text', text: value })
 
+/** One collected screenshot, which carries no text. */
+const image = (): { type: string; attachment: { attachmentId: string } } =>
+  ({ type: 'image', attachment: { attachmentId: 'attachment-1' } })
+
 /** One submitted user message, as the session logs it. */
 const submitted = (seq: number, id: string, ...content: unknown[]): Event => ({
   seq, type: 'user/message', data: { id, role: 'user', content },
@@ -84,15 +88,32 @@ describe('thread projection', () => {
     ]
 
     expect(projectThread(log, ['a1'])).toEqual([
-      { role: 'user', text: 'body', seq: 10 },
-      { role: 'assistant', text: 'answer', seq: 11 },
+      { role: 'user', text: 'body', hasImage: false, seq: 10 },
+      { role: 'assistant', text: 'answer', hasImage: false, seq: 11 },
     ])
   })
 
   it('joins a message\'s text parts with a blank line', () => {
     const log = [submitted(10, 'a1', text('first'), text('second'))]
 
-    expect(projectThread(log, ['a1'])).toEqual([{ role: 'user', text: 'first\n\nsecond', seq: 10 }])
+    expect(projectThread(log, ['a1']))
+      .toEqual([{ role: 'user', text: 'first\n\nsecond', hasImage: false, seq: 10 }])
+  })
+
+  it('keeps a screenshot submission, which carries no text of its own', () => {
+    const log = [submitted(10, 'a1', image()), answered(11, text('answer'))]
+
+    expect(projectThread(log, ['a1'])).toEqual([
+      { role: 'user', text: '', hasImage: true, seq: 10 },
+      { role: 'assistant', text: 'answer', hasImage: false, seq: 11 },
+    ])
+  })
+
+  it('keeps the action template a screenshot was submitted under beside its image', () => {
+    const log = [submitted(10, 'a1', text('translate:'), image())]
+
+    expect(projectThread(log, ['a1']))
+      .toEqual([{ role: 'user', text: 'translate:', hasImage: true, seq: 10 }])
   })
 
   it('draws a follow-up asked after another material was answered', () => {

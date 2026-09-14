@@ -35,7 +35,6 @@ export function failureLine(t: TranslateNS<'notes'>, failure: NotesPanelFailure)
     case 'attachments-unavailable': return t('error.attachmentsUnavailable')
     case 'image-unsupported': return t('error.imageUnsupported')
     case 'image-unreadable': return t('error.imageUnreadable')
-    case 'image-not-submittable': return t('error.imageNotSubmittable')
     case 'remote-unavailable': return t('error.remoteUnavailable', { message: failure.message })
   }
 }
