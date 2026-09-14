@@ -68,6 +68,14 @@ Floating and docking are the right column's presentations, not the panel's: `ui-
 
 The settings card is the panel's second write surface, and it writes where the composition entry reads: `notes/settingsUpdate` merges into the notes section through `ctx.settings`, and a field the request names as null or omits is unset rather than stored as null, because the section's schema expresses an absent workspace or model override as an absent field. Clearing a field is therefore the same operation as returning it to the deployment default, and there is no second copy of the default in the browser.
 
+### Collecting a passage needs a seat over the conversation
+
+Nothing in the shipped Conversation seats covers its content: `conversation.session` declared only `conversation.view`. A bubble that collects what the reader selected has to sit over that content, so `conversation.session` gained one more child, `conversation.session.overlay` (`single`, session scope), rendered after the View inside the same element. It hands its occupant two facts — the View currently shown, and the element holding it — because a collecting surface needs both to say where a passage came from and to tell whether a selection belongs to this conversation at all.
+
+The first consumer is `dsh-notes`, and its bubble registers the way any other extension does: `ctx.slots.inject('conversation.session.overlay', …)`. The alternative — covering the conversation from outside the slot system — would have put a floating layer's lifetime and authorization outside the mechanism that owns composition.
+
+A collected passage records `sessionId`, the View, a localized label, and no message identity: the conversation's DOM does not mark which message a passage came from, and adding that mark would touch every message renderer for a feature whose "locate the source text" entry point is deferred. The bubble therefore appears only over the Views the notes vocabulary can name, and starts the first notes conversation when the deployment has none.
+
 ### Thread attribution is tested as a pure function
 
 `src/thread.ts` depends on nothing but the event shape it reads (`seq`, `type`, and `data.id`), so the attribution rule is pinned by hand-written event lists rather than by driving a live Session. The same shape reads a persisted log, so the rule survives a restart with no extra path.

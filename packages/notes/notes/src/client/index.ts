@@ -21,11 +21,14 @@ import { notesFace } from './face.ts'
 import type { NotesButtonInjected } from './NotesButton.tsx'
 import { NotesButton } from './NotesButton.tsx'
 import { NotesPanel } from './NotesPanel.tsx'
+import { SelectionBubble } from './SelectionBubble.tsx'
 import { createNotesStore } from './store.ts'
 import { en, zh } from './locales.ts'
 
 export type { NotesPanelProps } from './NotesPanel.tsx'
 export type { NotesButtonProps, NotesButtonInjected } from './NotesButton.tsx'
+export type { NotesSettingsCardProps } from './NotesSettingsCard.tsx'
+export type { SelectionBubbleProps } from './SelectionBubble.tsx'
 export type { NotesInjected, NotesRemoteFace } from './face.ts'
 export type { NotesState, NotesStore } from './store.ts'
 export type { NotesPanelFailure } from './failure-line.ts'
@@ -49,6 +52,10 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.sidebarRightTabs.register(notesDefinition(t)), 'notes: tab type')
 
   const store = createNotesStore()
+  // The bubble covers a conversation rather than the panel, so it reads the
+  // collection actions through its own store instance instead of sharing one
+  // that a different slot scope mints.
+  const selectionStore = createNotesStore()
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab',
     key: NOTES_ID,
@@ -64,4 +71,11 @@ export function apply(ctx: ClientContext): void {
       open: () => { ctx.sidebarRight.openTab(NOTES_KIND) },
     }),
   }, NotesButton)), 'notes: header control')
+
+  ctx.effect(() => ctx.slots.inject('conversation.session.overlay', () => ctx.slots.register({
+    name: 'conversation.session.overlay',
+    locale: NS,
+    store: selectionStore,
+    inject: (_sessionId, actions) => notesFace(ctx.remote.notes, ctx.sidebarRight, actions),
+  }, SelectionBubble)), 'notes: selection bubble')
 }

@@ -10,7 +10,8 @@ import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  MaterialId, NoteSessionId, NotesApplied, NotesFailure, NotesMaterialAnalyzeRequest,
+  MaterialId, MaterialSource, NoteSessionId, NotesApplied, NotesFailure,
+  NotesMaterialAddResult, NotesMaterialAddTextRequest, NotesMaterialAnalyzeRequest,
   NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
   NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
   NotesMaterialListResult, NotesMaterialListValue, NotesMaterialRemoveRequest,
@@ -43,6 +44,12 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the materials.
    */
   materialList(request: NotesMaterialListRequest): Promise<RemoteResult<NotesMaterialListResult>>
+  /**
+   * Collect one text material into a conversation.
+   * @param request - the conversation, body, source, and action.
+   * @returns the carrier result carrying the new material's id.
+   */
+  materialAddText(request: NotesMaterialAddTextRequest): Promise<RemoteResult<NotesMaterialAddResult>>
   /**
    * One material's own thread.
    * @param request - the material whose thread to read.
@@ -170,6 +177,18 @@ export interface NotesInjected {
   readonly readSettings: () => void
   /** Write the fields one settings patch names. */
   readonly saveSettings: (patch: NotesSettingsUpdateRequest) => void
+  /**
+   * Add one collected passage to the notes, under an optional collection action.
+   * @param text - the passage as collected.
+   * @param action - the collection action, or null for a plain collection.
+   * @param source - where the passage came from.
+   * @returns the refusal that stopped the collection, or null when it landed.
+   */
+  readonly collect: (
+    text: string,
+    action: string | null,
+    source: MaterialSource,
+  ) => Promise<NotesPanelFailure | null>
   /** Delete one material record and close its detail. */
   readonly remove: (id: MaterialId) => void
 }
@@ -317,6 +336,25 @@ export function notesFace(
         }
         await readSettings(true)
       })()
+    },
+    collect: async (text, action, source) => {
+      // The panel and the collecting surface share one namespace but not one
+      // store, so the conversation a passage lands in is read here rather than
+      // assumed from whatever the panel last showed.
+      const listed = await remote.sessionList()
+      if (!listed.ok) return unavailable(listed.error)
+      let noteId = listed.value.value.activeId
+      if (noteId === null) {
+        const created = await remote.sessionCreate()
+        if (!created.ok) return unavailable(created.error)
+        if (!created.value.ok) return created.value.error
+        noteId = created.value.value.id
+      }
+      const added = await remote.materialAddText({ noteId, text, source, action })
+      if (!added.ok) return unavailable(added.error)
+      if (!added.value.ok) return added.value.error
+      await read(true)
+      return null
     },
     remove: (id) => {
       close()

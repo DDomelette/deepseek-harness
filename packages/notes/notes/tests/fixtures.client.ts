@@ -18,6 +18,7 @@ import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
 import type { NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
+import type { SelectionBubbleProps } from '../src/client/SelectionBubble.tsx'
 import { createNotesStore } from '../src/client/store.ts'
 import type {
   MaterialId, MaterialSource, NoteSessionId, NotesMaterialListResult, NotesMaterialSummary,
@@ -151,6 +152,7 @@ export interface HarnessRemote {
   readonly sessionArchive: Mock<NotesRemoteFace['sessionArchive']>
   readonly sessionRestore: Mock<NotesRemoteFace['sessionRestore']>
   readonly materialList: Mock<NotesRemoteFace['materialList']>
+  readonly materialAddText: Mock<NotesRemoteFace['materialAddText']>
   readonly materialThread: Mock<NotesRemoteFace['materialThread']>
   readonly materialUpdate: Mock<NotesRemoteFace['materialUpdate']>
   readonly materialAnalyze: Mock<NotesRemoteFace['materialAnalyze']>
@@ -180,6 +182,11 @@ export interface Harness {
   readonly props: () => NotesPanelProps
   /** Composed props for the header control. */
   readonly buttonProps: () => NotesButtonProps
+  /** Composed props for the selection bubble over one conversation. */
+  readonly bubbleProps: (options?: {
+    readonly view?: string
+    readonly content?: HTMLElement | null
+  }) => SelectionBubbleProps
 }
 
 /**
@@ -205,6 +212,9 @@ export function harness(script: {
     ),
     materialList: vi.fn<NotesRemoteFace['materialList']>(
       async () => script.materials?.() ?? materials(),
+    ),
+    materialAddText: vi.fn<NotesRemoteFace['materialAddText']>(
+      async () => ({ ok: true, value: { ok: true, value: { id: materialId('m1') } } }),
     ),
     materialThread: vi.fn<NotesRemoteFace['materialThread']>(
       async () => script.thread?.() ?? thread(),
@@ -272,6 +282,7 @@ export function harness(script: {
       present: face.present,
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
+      collect: face.collect,
       remove: face.remove,
       t,
     }) as unknown as NotesPanelProps,
@@ -280,5 +291,16 @@ export function harness(script: {
       open: vi.fn(),
       t,
     }) as unknown as NotesButtonProps,
+    bubbleProps: (options = {}) => ({
+      sessionId: SESSION,
+      view: options.view ?? 'chat',
+      content: options.content ?? null,
+      useStore: hookOf(instance),
+      actions: instance.actions,
+      readSettings: face.readSettings,
+      saveSettings: face.saveSettings,
+      collect: face.collect,
+      t,
+    }) as unknown as SelectionBubbleProps,
   }
 }

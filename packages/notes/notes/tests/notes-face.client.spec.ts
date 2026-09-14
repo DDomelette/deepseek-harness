@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   created, harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions,
-  thread, unavailable,
+  source, thread, unavailable,
 } from './fixtures.client.ts'
 
 /** Let the command's promise chain settle. */
@@ -288,5 +288,50 @@ describe('notes panel detail commands', () => {
     await settle()
 
     expect(bench.remote.materialRestore).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
+  })
+})
+
+describe('notes collection commands', () => {
+  it('collects into the conversation the Host already shows', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+
+    await expect(bench.face.collect('a passage', null, source())).resolves.toBeNull()
+
+    expect(bench.remote.sessionCreate).not.toHaveBeenCalled()
+    expect(bench.remote.materialAddText).toHaveBeenCalledExactlyOnceWith({
+      noteId: note,
+      text: 'a passage',
+      source: source(),
+      action: null,
+    })
+  })
+
+  it('reports a carrier failure on the conversation listing', async () => {
+    const bench = harness({ sessions: () => ({ ok: false, error: unavailable('socket closed') }) })
+
+    await expect(bench.face.collect('a passage', null, source()))
+      .resolves.toEqual({ code: 'remote-unavailable', message: 'socket closed' })
+    expect(bench.remote.materialAddText).not.toHaveBeenCalled()
+  })
+
+  it('reports a carrier failure while starting the first conversation', async () => {
+    const bench = harness({
+      sessions: () => sessions([], [], null),
+      create: () => ({ ok: false, error: unavailable('socket closed') }),
+    })
+
+    await expect(bench.face.collect('a passage', null, source()))
+      .resolves.toEqual({ code: 'remote-unavailable', message: 'socket closed' })
+  })
+
+  it('reports the Host\'s refusal while starting the first conversation', async () => {
+    const bench = harness({
+      sessions: () => sessions([], [], null),
+      create: () => ({ ok: true, value: { ok: false, error: { code: 'workspace-missing' } } }),
+    })
+
+    await expect(bench.face.collect('a passage', null, source()))
+      .resolves.toEqual({ code: 'workspace-missing' })
   })
 })

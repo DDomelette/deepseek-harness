@@ -14,6 +14,7 @@ import { NOTES_ID, NOTES_KIND } from '../src/client/definition.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import { NotesPanel } from '../src/client/NotesPanel.tsx'
+import { SelectionBubble } from '../src/client/SelectionBubble.tsx'
 import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
@@ -52,8 +53,9 @@ async function boot() {
   }
   const notes = {
     sessionList: vi.fn(async () => sessions()),
-    sessionCreate: vi.fn(),
+    sessionCreate: vi.fn(async () => ({ ok: true, value: { ok: true, value: { id: 'n1' } } })),
     materialList: vi.fn(),
+    materialAddText: vi.fn(async () => ({ ok: true, value: { ok: true, value: { id: 'm1' } } })),
   }
   const sidebarRight = { openTab: vi.fn() }
   ctx.provide('sidebarRightTabs', tabs as never)
@@ -84,6 +86,7 @@ describe('notes browser half', () => {
     expect(registered.map(entry => [entry.name, entry.key, entry.locale, entry.component])).toEqual([
       ['sidebar.right.pane.tab', NOTES_ID, 'notes', NotesPanel],
       ['conversation.session.header.corner', undefined, 'notes', NotesButton],
+      ['conversation.session.overlay', undefined, 'notes', SelectionBubble],
     ])
     const panel = registered[0]
     expect(panel?.store).toBeDefined()
@@ -103,6 +106,31 @@ describe('notes browser half', () => {
     face.load()
 
     expect(notes.sessionList).toHaveBeenCalledTimes(1)
+  })
+
+  it('commands the bubble with the store instance its own seat declares', async () => {
+    const { registered, notes } = await boot()
+    const registration = registered.find(entry => entry.component === SelectionBubble)
+    if (registration === undefined) throw new Error('missing bubble registration')
+    const instance = (registration.store as NotesStore).create()
+    const face = (registration.inject as (
+      session: string,
+      actions: unknown,
+    ) => { collect: (text: string, action: null, source: unknown) => Promise<unknown> })(
+      's-1',
+      instance.actions,
+    )
+
+    await face.collect('a passage', null, {
+      sessionId: 's-1',
+      view: 'chat',
+      seq: null,
+      messageId: null,
+      callId: null,
+      label: 'passage',
+    })
+
+    expect(notes.materialAddText).toHaveBeenCalledTimes(1)
   })
 
   it('opens the notes tab from the header control', async () => {

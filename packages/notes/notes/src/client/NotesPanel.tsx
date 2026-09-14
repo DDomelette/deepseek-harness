@@ -69,7 +69,7 @@ export type NotesPanelProps =
 export function NotesPanel({
   useStore, useTabInfo, load, refresh, createConversation, openSession, archiveSession,
   restoreSession, select, saveText, analyze, ask, archive, restore, reorder, present,
-  readSettings, saveSettings, remove, t,
+  readSettings, saveSettings, collect, remove, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
   const { tab, panel } = useTabInfo()
@@ -81,7 +81,7 @@ export function NotesPanel({
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
     select, saveText, analyze, ask, archive, restore, reorder, present,
-    readSettings, saveSettings, remove,
+    readSettings, saveSettings, collect, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)

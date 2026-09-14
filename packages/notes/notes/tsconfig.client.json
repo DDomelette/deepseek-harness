@@ -16,6 +16,7 @@
     "src/client/NotesButton.tsx",
     "src/client/NotesPanel.tsx",
     "src/client/NotesSettingsCard.tsx",
+    "src/client/SelectionBubble.tsx",
     "src/client/store.ts",
     "src/css-modules.d.ts",
     "src/types.ts"
