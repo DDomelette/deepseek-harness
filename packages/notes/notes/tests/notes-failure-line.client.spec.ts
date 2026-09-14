@@ -21,7 +21,6 @@ describe('notes failure lines', () => {
     expect(line({ code: 'unknown-action', action: 'translate' })).toBe('error.unknownAction')
     expect(line({ code: 'settings-unavailable' })).toBe('error.settingsUnavailable')
     expect(line({ code: 'attachments-unavailable' })).toBe('error.attachmentsUnavailable')
-    expect(line({ code: 'image-not-submittable', id: 'm1' as never })).toBe('error.imageNotSubmittable')
   })
 
   it('names the two image refusals the panel makes on its own', () => {

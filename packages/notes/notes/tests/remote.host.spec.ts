@@ -17,7 +17,7 @@ import { NotesRemote } from '../src/remote.ts'
 import type { ActionDef, Config } from '../src/settings.ts'
 import { bench } from './bench.ts'
 import type { Bench } from './bench.ts'
-import { materialId, noteId, noteSession, sessionId, source } from './bench.ts'
+import { imageRef, materialId, noteId, noteSession, sessionId, source } from './bench.ts'
 import type { MaterialId, NoteSessionId, NotesApplied } from '../src/types.ts'
 
 /** The workspace every fixture conversation is created over. */
@@ -369,7 +369,7 @@ describe('notes remote materials', () => {
     })).resolves.toEqual({ ok: false, error: { code: 'session-not-found', id: 'absent' } })
   })
 
-  it('stores a screenshot and keeps only its durable reference', async () => {
+  it('stores a screenshot and keeps the reference its store returned', async () => {
     const host = await mount()
     await host.attach()
     const note = await liveConversation(host)
@@ -388,7 +388,7 @@ describe('notes remote materials', () => {
       noteId: note,
       kind: 'image',
       text: null,
-      image: 'attachment-1',
+      image: imageRef(),
     })
     const listed = host.remote.materialList({ noteId: note })
     expect(listed.ok && listed.value.materials[0]).toMatchObject({ kind: 'image', hasImage: true, text: null })
@@ -396,7 +396,7 @@ describe('notes remote materials', () => {
     expect(host.saved[0]).toMatchObject({ mediaType: 'image/png' })
   })
 
-  it('stores a screenshot an auto-sending action cannot submit', async () => {
+  it('submits a screenshot an auto-sending action collects', async () => {
     const translate: ActionDef = {
       id: 'translate',
       label: '翻译',
@@ -415,13 +415,16 @@ describe('notes remote materials', () => {
       action: 'translate',
     })
 
-    // The collection lands; nothing composes the stored reference into a
-    // request, so the material stays a draft instead of submitting a prompt
-    // that names no material.
+    // The collection lands and the strategy's submission carries the image.
     const id = result.ok ? result.value.id : undefined
     expect(result.ok).toBe(true)
-    expect(host.base.agents.followup).not.toHaveBeenCalled()
-    expect(host.base.materials.get(id as MaterialId)?.status).toBe('draft')
+    expect(host.base.agents.followup).toHaveBeenCalledTimes(1)
+    const sent = host.base.agents.followup.mock.calls[0]?.[0] as { content: unknown }
+    expect(sent.content).toEqual([
+      { type: 'text', text: '不改变语句结构，翻译下列内容：' },
+      { type: 'image', attachment: imageRef() },
+    ])
+    expect(host.base.materials.get(id as MaterialId)?.status).toBe('analyzing')
   })
 
   it('refuses a screenshot into a conversation that is not recorded', async () => {
@@ -508,7 +511,7 @@ describe('notes remote materials', () => {
     })
   })
 
-  it('refuses to analyse a screenshot, which has no composable body', async () => {
+  it('analyses a collected screenshot', async () => {
     const host = await mount()
     await host.attach()
     const note = await liveConversation(host)
@@ -521,11 +524,11 @@ describe('notes remote materials', () => {
     })
     const id = collected.ok ? collected.value.id : materialId('absent')
 
-    await expect(host.remote.materialAnalyze({ id }))
-      .resolves.toEqual({ ok: false, error: { code: 'image-not-submittable', id } })
+    await expect(host.remote.materialAnalyze({ id })).resolves.toEqual({ ok: true, value: applied })
 
-    expect(host.base.agents.followup).not.toHaveBeenCalled()
-    expect(host.base.materials.get(id)?.status).toBe('draft')
+    expect(host.base.materials.get(id)?.status).toBe('analyzing')
+    const sent = host.base.agents.followup.mock.calls[0]?.[0] as { content: unknown }
+    expect(sent.content).toEqual([{ type: 'image', attachment: imageRef() }])
   })
 
   it('asks a follow-up inside a material thread', async () => {
@@ -574,7 +577,12 @@ describe('notes remote materials', () => {
 
     expect(host.remote.materialThread({ id })).toEqual({
       ok: true,
-      value: { rows: [{ role: 'user', text: 'body', seq: 0 }, { role: 'assistant', text: 'answer', seq: 1 }] },
+      value: {
+        rows: [
+          { role: 'user', text: 'body', hasImage: false, seq: 0 },
+          { role: 'assistant', text: 'answer', hasImage: false, seq: 1 },
+        ],
+      },
     })
   })
 

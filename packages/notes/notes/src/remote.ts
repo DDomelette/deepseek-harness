@@ -200,7 +200,7 @@ export class NotesRemote extends TypertRemoteService {
       noteId: request.noteId,
       kind: 'image',
       text: null,
-      image: stored.attachmentId,
+      image: stored,
       source: request.source,
       action: request.action,
       order: 0,

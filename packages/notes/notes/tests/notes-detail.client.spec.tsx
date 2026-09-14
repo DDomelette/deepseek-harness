@@ -140,13 +140,26 @@ describe('material detail', () => {
     const bench = harness()
     show(bench.props(), draft, {
       thread: [
-        { role: 'user', text: 'body', seq: 0 },
-        { role: 'assistant', text: 'answer', seq: 1 },
+        { role: 'user', text: 'body', hasImage: false, seq: 0 },
+        { role: 'assistant', text: 'answer', hasImage: false, seq: 1 },
       ],
     })
 
     expect(document.querySelectorAll('[data-notes-row]')).toHaveLength(2)
     expect(screen.getByText('answer')).toBeDefined()
+  })
+
+  it('names the screenshot a submitted row carried', () => {
+    const bench = harness()
+    show(bench.props(), submitted, {
+      thread: [
+        { role: 'user', text: '', hasImage: true, seq: 0 },
+        { role: 'assistant', text: 'answer', hasImage: false, seq: 1 },
+      ],
+    })
+
+    expect(document.querySelector('[data-notes-row-image]')?.textContent).toBe('source.image')
+    expect(document.querySelectorAll('[data-notes-row]')).toHaveLength(2)
   })
 
   it('says so while the thread is being read and while it is empty', () => {

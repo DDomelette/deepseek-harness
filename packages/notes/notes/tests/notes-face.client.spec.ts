@@ -155,14 +155,15 @@ describe('notes panel commands', () => {
 
 describe('notes panel detail commands', () => {
   it('reads the thread of the material it opens', async () => {
-    const bench = harness({ thread: () => thread([{ role: 'user', text: 'body', seq: 0 }]) })
+    const bench = harness({ thread: () => thread([{ role: 'user', text: 'body', hasImage: false, seq: 0 }]) })
 
     bench.face.select(materialId('m1'))
     await settle()
 
     expect(bench.instance.getSnapshot().selected).toBe(materialId('m1'))
     expect(bench.remote.materialThread).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
-    expect(bench.instance.getSnapshot().thread).toEqual([{ role: 'user', text: 'body', seq: 0 }])
+    expect(bench.instance.getSnapshot().thread)
+      .toEqual([{ role: 'user', text: 'body', hasImage: false, seq: 0 }])
   })
 
   it('closes the detail without reading a thread', async () => {

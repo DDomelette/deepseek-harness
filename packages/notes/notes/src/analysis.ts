@@ -21,7 +21,8 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { actionFor, composeBody, hasComposableBody } from './compose.ts'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import { actionFor, composeContent } from './compose.ts'
 import { projectThread } from './thread.ts'
 import type { ThreadRow } from './thread.ts'
 import type { NoteSessions } from './note-sessions.ts'
@@ -72,14 +73,13 @@ export class Analysis extends Service {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined) return { code: 'material-not-found', id }
     if (current.messageIds.length > 0) return null
-    if (!hasComposableBody(current)) return { code: 'image-not-submittable', id }
     const action = actionFor(current.action, this.settings.actions())
     if (current.action !== null && action === undefined) {
       return { code: 'unknown-action', action: current.action }
     }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
-    await this.submit(id, target.agent, composeBody(current, action), true)
+    await this.submit(id, target.agent, composeContent(current, action), true)
     return null
   }
 
@@ -97,7 +97,7 @@ export class Analysis extends Service {
     if (current.messageIds.length === 0) return { code: 'material-not-submitted', id }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
-    await this.submit(id, target.agent, question, false)
+    await this.submit(id, target.agent, [{ type: 'text', text: question }], false)
     return null
   }
 
@@ -169,14 +169,19 @@ export class Analysis extends Service {
    * `analyse` reads a non-empty `messageIds` as "already sent".
    * @param id - material id.
    * @param agent - the live notes agent.
-   * @param text - the body to submit.
+   * @param content - the blocks to submit.
    * @param claim - whether this call may only send if it is the first to record
    *   an id, which makes the first analysis idempotent under concurrency.
    * @throws the send failure, after the material is marked `failed`.
    */
-  private async submit(id: MaterialId, agent: Agent, text: string, claim: boolean): Promise<void> {
+  private async submit(
+    id: MaterialId,
+    agent: Agent,
+    content: ContentBlock[],
+    claim: boolean,
+  ): Promise<void> {
     const message = createUserMessage({
-      content: [{ type: 'text', text }],
+      content,
       source: { kind: 'plugin', plugin: 'notes' },
     })
     if (claim) {

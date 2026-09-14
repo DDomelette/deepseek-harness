@@ -10,8 +10,10 @@ import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import { afterEach, describe, expect, it } from 'vitest'
-import { NOTES_DOMAIN_NAME, notesDomainSpec } from '../src/domain.ts'
-import { material, materialId, messageId, noteId, noteSession, sessionId, sessionSeq, source } from './bench.ts'
+import { NOTES_DOMAIN_NAME, materialRecord, notesDomainSpec } from '../src/domain.ts'
+import {
+  imageRef, material, materialId, messageId, noteId, noteSession, sessionId, sessionSeq, source,
+} from './bench.ts'
 
 let ctx: Context | undefined
 let root: string | undefined
@@ -69,5 +71,28 @@ describe('notes domain', () => {
     // is usable everywhere the branded id is required.
     expect(domain.table('sessions').get(noteId('n1'))?.sessionId).toBe('s1')
     await domain.close()
+  })
+
+  it('round-trips a screenshot reference and refuses a bare attachment id', async () => {
+    const created = await storageStack()
+    const domain = await created.storageDomain.open(notesDomainSpec)
+    const id = materialId('m1')
+    await domain.table('materials').put(id, material({
+      noteId: noteId('n1'),
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+    }))
+
+    await domain.close()
+    const reopened = await created.storageDomain.open(notesDomainSpec)
+    expect(reopened.table('materials').get(id)?.image).toEqual(imageRef())
+    await reopened.close()
+
+    // The reference is the request part's shape: an id alone cannot name the
+    // media type, byte length, and dimensions a model request needs, so a
+    // version-1 record is refused rather than read as an unusable reference.
+    const versionOne = { ...material({ noteId: noteId('n1') }), image: 'attachment-1' }
+    expect(materialRecord.safeParse(versionOne).success).toBe(false)
   })
 })

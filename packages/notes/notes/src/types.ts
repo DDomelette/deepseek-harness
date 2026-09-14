@@ -241,6 +241,8 @@ export interface NotesThreadRow {
   readonly role: 'user' | 'assistant'
   /** The row's text: every text part of the message, joined. */
   readonly text: string
+  /** Whether the message carried an image part, which contributes no text. */
+  readonly hasImage: boolean
   /** Session sequence the row came from, ascending within one thread. */
   readonly seq: number
 }
@@ -336,13 +338,6 @@ export interface NotesMaterialSubmitted {
   readonly id: MaterialId
 }
 
-/** The material's body is a stored screenshot, which nothing resolves into a model request. */
-export interface NotesImageNotSubmittable {
-  readonly code: 'image-not-submittable'
-  /** The material whose body cannot be submitted. */
-  readonly id: MaterialId
-}
-
 /** The material has not entered its conversation, so it has no thread to ask in. */
 export interface NotesMaterialNotSubmitted {
   readonly code: 'material-not-submitted'
@@ -377,7 +372,6 @@ export type NotesFailure =
   | NotesLastConversation
   | NotesSessionNotLive
   | NotesUnknownAction
-  | NotesImageNotSubmittable
   | NotesSettingsUnavailable
   | NotesAttachmentsUnavailable
 
@@ -390,7 +384,6 @@ export type NotesAnalyzeFailure =
   | NotesSessionNotFound
   | NotesSessionNotLive
   | NotesUnknownAction
-  | NotesImageNotSubmittable
 
 /** Failures asking a follow-up inside one material's thread can report. */
 export type NotesAskFailure =

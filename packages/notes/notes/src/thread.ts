@@ -36,6 +36,8 @@ export interface ThreadRow {
   readonly role: 'user' | 'assistant'
   /** Every text part of the message, joined with a blank line. */
   readonly text: string
+  /** Whether the message carried an image part, which contributes no text. */
+  readonly hasImage: boolean
   /** Session sequence the row came from. */
   readonly seq: number
 }
@@ -72,9 +74,10 @@ export function attributeThread<T extends AttributedRow>(
  * The rows one material's thread draws: its own submissions and the model's
  * answers, in sequence order.
  *
- * A message with no text — an assistant turn that only carried a tool call, a
- * usage-only record — contributes no row, so the panel never draws an empty
- * bubble.
+ * A message with no text and no image — an assistant turn that only carried a
+ * tool call, a usage-only record — contributes no row, so the panel never draws
+ * an empty bubble. A screenshot submission carries no text and is kept: the row
+ * says what it holds rather than showing nothing.
  * @param events - the session's events, in any order.
  * @param messageIds - ids of this material's own user messages.
  * @returns the rows, ascending by sequence.
@@ -85,8 +88,9 @@ export function projectThread(events: readonly AttributedRow[], messageIds: read
     const message = messageOf(event)
     if (message === undefined) continue
     const text = textOf(message.content)
-    if (text === '') continue
-    rows.push({ role: message.role, text, seq: event.seq })
+    const hasImage = carriesImage(message.content)
+    if (text === '' && !hasImage) continue
+    rows.push({ role: message.role, text, hasImage, seq: event.seq })
   }
   return rows
 }
@@ -127,6 +131,12 @@ function textOf(content: unknown): string {
     if (typeof text === 'string') texts.push(text)
   }
   return texts.join('\n\n')
+}
+
+/** Whether one message's content carries an image part, which draws as its own row. */
+function carriesImage(content: unknown): boolean {
+  if (!Array.isArray(content)) return false
+  return content.some(block => asPayload(block)?.['type'] === 'image')
 }
 
 /** One structurally readable payload, or undefined for a primitive or null. */

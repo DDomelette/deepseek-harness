@@ -133,7 +133,7 @@ describe('notes panel', () => {
     const bench = harness({
       sessions: () => sessions([sessionSummary({ id: note })], [], note),
       materials: () => materials([materialSummary({ noteId: note, text: 'row body' })]),
-      thread: () => thread([{ role: 'user', text: 'row body', seq: 0 }]),
+      thread: () => thread([{ role: 'user', text: 'row body', hasImage: false, seq: 0 }]),
     })
     render(<NotesPanel {...bench.props()} />)
     await waitFor(() => { expect(screen.getByText('row body')).toBeDefined() })

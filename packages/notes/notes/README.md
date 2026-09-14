@@ -65,7 +65,7 @@ The settings card edits the same section the composition entry seeds: the model-
 
 ### What to expect
 
-A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable. Two analyses of one material racing each other send once: the first caller claims the material on the domain's write chain, and the loser sees the recorded id and submits nothing. The operations that mint a material's order value are serialized for the same reason, so a new material always lands above the previous one. A conversation that is the last unarchived one cannot be archived, so the panel always has one to show. A screenshot is collected and listed but never submitted: nothing composes its stored attachment reference into a model request, so an analyse reports `image-not-submittable` rather than sending a request that names no material, and a follow-up on a material that has not entered its conversation reports `material-not-submitted`.
+A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable. Two analyses of one material racing each other send once: the first caller claims the material on the domain's write chain, and the loser sees the recorded id and submits nothing. The operations that mint a material's order value are serialized for the same reason, so a new material always lands above the previous one. A conversation that is the last unarchived one cannot be archived, so the panel always has one to show. A screenshot is submitted like any other material, as the image block naming the reference its store returned, and its row in the thread says it carried an image; a follow-up on a material that has not entered its conversation reports `material-not-submitted`.
 
 -----
 
@@ -83,7 +83,7 @@ The session log stays the content truth. The plugin's own domain stores only wha
 
 ### Submission
 
-`src/analysis.ts` composes the body, mints the user message with `createUserMessage`, records the message id, and only then calls `followup`. The order is deliberate: `Agent.followup()` returns void, so the sequence a message lands on is not knowable at the call site, while its id is knowable before the send. A refused send rolls the id back — otherwise the material would read as already submitted and could never be retried.
+`src/analysis.ts` composes the content, mints the user message with `createUserMessage`, records the message id, and only then calls `followup`. `src/compose.ts` decides what the content is: a text material contributes one text block with the action's template in front of its body, and a screenshot contributes the image block naming the reference the material stored, with that template as a text block ahead of it. The order is deliberate: `Agent.followup()` returns void, so the sequence a message lands on is not knowable at the call site, while its id is knowable before the send. A refused send rolls the id back — otherwise the material would read as already submitted and could never be retried.
 
 ### Thread attribution
 
@@ -113,7 +113,7 @@ Read these pages when the package-level contract is not enough.
 
 #### What the model sees
 
-One `user/message` per analysis or follow-up, on that material's own notes conversation. The body is the material's text; a material collected through an action carries that action's configured prompt template prepended on its own line. The message source is `{ kind: 'plugin', plugin: 'notes' }`, so the transcript attributes it to this plugin rather than to the user. Only text materials reach the model: a screenshot stores a durable attachment reference, and nothing yet resolves that reference into an image content part.
+One `user/message` per analysis or follow-up, on that material's own notes conversation. A text material submits its text; a material collected through an action carries that action's configured prompt template prepended on its own line, in front of the image when the material is a screenshot. A screenshot submits an image block naming the durable reference its store returned, so the model reads the picture itself. The message source is `{ kind: 'plugin', plugin: 'notes' }`, so the transcript attributes it to this plugin rather than to the user. A route that accepts text only receives the request assembly's placeholder for the image instead of the image.
 
 #### Token effect
 
@@ -130,7 +130,8 @@ None on the derived request prefix. Each submission appends to its own conversat
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
 - **A collected passage carries no message identity** — the bubble reads the selection from the conversation's DOM, which does not mark which message it came from, so a material records no `seq`, `messageId`, or `callId` and the deferred "locate the source text" entry point has nothing to point at yet.
-- **A screenshot is collected but not submitted** — `notes/materialAddImage` keeps only the attachment reference its store returns, and nothing yet resolves that reference into an image content part, so an analyse reports `image-not-submittable`; nothing captures a region of the conversation itself either.
+- **A screenshot comes from the panel, not from the conversation** — `notes/materialAddImage` stores the reference its attachment store returns and submits that reference as the image block, but nothing captures a region of the conversation itself, and the panel collects a file rather than a paste.
+- **A screenshot needs a route that accepts images** — the submission carries an image block whatever the conversation's model is; a text-only route receives the request assembly's placeholder text in its place rather than a refusal.
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened.
 - **A material that entered its conversation is fixed** — `materialUpdate` reports `material-submitted` once a material has a recorded message, because the session log carries the submitted body and rewriting the record would desync the row from its thread.
 - **Orphaned attachments are never reclaimed** — a material deleted while still a draft leaves its uploaded bytes behind, matching the attachment facility's existing semantics.
@@ -147,7 +148,7 @@ This Dev Note is working context for maintainers: open directions that are not d
 
 #### Next phases
 
-What is left is the source side of collection and the image side of submission: a collected passage records no message identity because the conversation DOM does not mark which message a selection came from, and a screenshot material keeps only the attachment id, which no reader can turn back into the reference a request needs. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
+What is left is the source side of collection and the collection side of a screenshot: a collected passage records no message identity because the conversation DOM does not mark which message a selection came from, and a screenshot is picked from the panel's own control rather than captured or pasted in the conversation. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
 
 </details>
 

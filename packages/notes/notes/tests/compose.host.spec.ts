@@ -1,12 +1,13 @@
 /**
- * Body composition: an action prepends its prompt template to the material,
- * and resolving the action a material names is what tells a caller whether the
- * current configuration still offers it.
+ * Content composition: an action contributes its prompt template, a text
+ * material submits its body under that template, a screenshot submits the
+ * reference it was stored as, and resolving the action a material names tells a
+ * caller whether the current configuration still offers it.
  */
 import { describe, expect, it } from 'vitest'
-import { actionFor, composeBody, hasComposableBody } from '../src/compose.ts'
+import { actionFor, composeContent } from '../src/compose.ts'
 import type { ActionDef } from '../src/settings.ts'
-import { material, noteId } from './bench.ts'
+import { imageRef, material, noteId } from './bench.ts'
 
 const translate: ActionDef = {
   id: 'translate',
@@ -29,29 +30,43 @@ describe('action resolution', () => {
   })
 })
 
-describe('body composition', () => {
-  it('returns the material text unchanged without an action', () => {
-    expect(composeBody(material({ noteId: noteId('n1'), text: 'body' }), undefined)).toBe('body')
+describe('text composition', () => {
+  it('submits the material text unchanged without an action', () => {
+    expect(composeContent(material({ noteId: noteId('n1'), text: 'body' }), undefined))
+      .toEqual([{ type: 'text', text: 'body' }])
   })
 
   it('prepends the action prompt template', () => {
     const stored = material({ noteId: noteId('n1'), text: 'body', action: 'translate' })
-    expect(composeBody(stored, translate)).toBe('不改变语句结构，翻译下列内容：\nbody')
+    expect(composeContent(stored, translate))
+      .toEqual([{ type: 'text', text: '不改变语句结构，翻译下列内容：\nbody' }])
   })
 
   it('reads a text-less material as an empty body', () => {
-    expect(composeBody(material({ noteId: noteId('n1'), text: null }), undefined)).toBe('')
+    expect(composeContent(material({ noteId: noteId('n1'), text: null }), undefined))
+      .toEqual([{ type: 'text', text: '' }])
   })
 })
 
-describe('body composability', () => {
-  it('composes a text material, with or without an action', () => {
-    expect(hasComposableBody(material({ noteId: noteId('n1'), text: 'body' }))).toBe(true)
-    expect(hasComposableBody(material({ noteId: noteId('n1'), text: 'body', action: 'translate' }))).toBe(true)
+describe('screenshot composition', () => {
+  it('submits the stored reference as an image block', () => {
+    const stored = material({ noteId: noteId('n1'), kind: 'image', text: null, image: imageRef() })
+
+    expect(composeContent(stored, undefined)).toEqual([{ type: 'image', attachment: imageRef() }])
   })
 
-  it('refuses to compose a screenshot, whose body is an attachment reference', () => {
-    const stored = material({ noteId: noteId('n1'), kind: 'image', text: null, image: 'attachment-1' })
-    expect(hasComposableBody(stored)).toBe(false)
+  it('puts the action template in front of the image it collected through', () => {
+    const stored = material({
+      noteId: noteId('n1'),
+      kind: 'image',
+      text: null,
+      image: imageRef(),
+      action: 'translate',
+    })
+
+    expect(composeContent(stored, translate)).toEqual([
+      { type: 'text', text: '不改变语句结构，翻译下列内容：' },
+      { type: 'image', attachment: imageRef() },
+    ])
   })
 })

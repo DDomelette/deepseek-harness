@@ -185,7 +185,10 @@ function Thread({ id, thread, loading, failure, askable, commands, t }: {
         <p className={css.failure} data-notes-thread-failure={failure.code}>{failureLine(t, failure)}</p>
       )}
       {thread.map(row => (
-        <p key={row.seq} className={css[row.role]} data-notes-row={row.role}>{row.text}</p>
+        <p key={row.seq} className={css[row.role]} data-notes-row={row.role}>
+          {row.text}
+          {row.hasImage && <span className={css.rowImage} data-notes-row-image>{t('source.image')}</span>}
+        </p>
       ))}
       {!loading && failure === undefined && thread.length === 0 && (
         <p className={css.pending} data-notes-thread-empty>{t('detail.threadEmpty')}</p>
