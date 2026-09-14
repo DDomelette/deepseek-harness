@@ -16,7 +16,7 @@
 .transport {
   display: inline-flex;
   gap: 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   padding: 3px;
   background: var(--dsw-alias-bg-layer-1);
@@ -67,7 +67,7 @@
 .multiline {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
@@ -94,7 +94,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
 }
 
