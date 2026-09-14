@@ -22,6 +22,19 @@ export function actionFor(action: string | null, actions: readonly ActionDef[]):
 }
 
 /**
+ * Whether one material's body can be composed into a model request.
+ *
+ * A screenshot material stores a durable attachment reference instead of a
+ * body, and nothing yet resolves that reference back into an image content
+ * part, so composing one would submit a request that names no material.
+ * @param material - the stored material.
+ * @returns true when {@link composeBody} produces the material's own body.
+ */
+export function hasComposableBody(material: MaterialRecord): boolean {
+  return material.kind !== 'image'
+}
+
+/**
  * The text one material submits.
  * @param material - the stored material.
  * @param action - the action it names, as {@link actionFor} resolved it.

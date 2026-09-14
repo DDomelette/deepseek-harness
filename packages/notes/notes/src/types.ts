@@ -336,6 +336,20 @@ export interface NotesMaterialSubmitted {
   readonly id: MaterialId
 }
 
+/** The material's body is a stored screenshot, which nothing resolves into a model request. */
+export interface NotesImageNotSubmittable {
+  readonly code: 'image-not-submittable'
+  /** The material whose body cannot be submitted. */
+  readonly id: MaterialId
+}
+
+/** The material has not entered its conversation, so it has no thread to ask in. */
+export interface NotesMaterialNotSubmitted {
+  readonly code: 'material-not-submitted'
+  /** The material that is still a draft. */
+  readonly id: MaterialId
+}
+
 /** The material names a collection action that is no longer configured. */
 export interface NotesUnknownAction {
   readonly code: 'unknown-action'
@@ -358,10 +372,12 @@ export type NotesFailure =
   | NotesSessionNotFound
   | NotesMaterialNotFound
   | NotesMaterialSubmitted
+  | NotesMaterialNotSubmitted
   | NotesWorkspaceMissing
   | NotesLastConversation
   | NotesSessionNotLive
   | NotesUnknownAction
+  | NotesImageNotSubmittable
   | NotesSettingsUnavailable
   | NotesAttachmentsUnavailable
 
@@ -374,9 +390,17 @@ export type NotesAnalyzeFailure =
   | NotesSessionNotFound
   | NotesSessionNotLive
   | NotesUnknownAction
+  | NotesImageNotSubmittable
 
 /** Failures asking a follow-up inside one material's thread can report. */
 export type NotesAskFailure =
+  | NotesMaterialNotFound
+  | NotesMaterialNotSubmitted
+  | NotesSessionNotFound
+  | NotesSessionNotLive
+
+/** Failures reading one material's thread can report. */
+export type NotesThreadFailure =
   | NotesMaterialNotFound
   | NotesSessionNotFound
   | NotesSessionNotLive
@@ -469,7 +493,7 @@ export type NotesMaterialRemoveResult =
 /** Result of `notes/materialThread`. */
 export type NotesMaterialThreadResult =
   | NotesSuccess<NotesThreadValue>
-  | NotesRejected<NotesMaterialNotFound | NotesSessionNotFound | NotesSessionNotLive>
+  | NotesRejected<NotesThreadFailure>
 
 /** Result of `notes/settingsRead`. */
 export type NotesSettingsReadResult =

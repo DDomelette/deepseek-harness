@@ -21,7 +21,7 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { actionFor, composeBody } from './compose.ts'
+import { actionFor, composeBody, hasComposableBody } from './compose.ts'
 import { projectThread } from './thread.ts'
 import type { ThreadRow } from './thread.ts'
 import type { NoteSessions } from './note-sessions.ts'
@@ -29,7 +29,7 @@ import type { NotesSettings } from './settings.ts'
 import type { Materials } from './materials.ts'
 import type {
   MaterialId, NoteSessionId, NotesAnalyzeFailure, NotesAskFailure, NotesSessionNotFound,
-  NotesSessionNotLive,
+  NotesSessionNotLive, NotesThreadFailure,
 } from './types.ts'
 
 /** One conversation's live Agent, or the failure that keeps it from receiving a message. */
@@ -40,7 +40,7 @@ type AgentTarget =
 /** One material's thread, or the failure that stopped the read. */
 export type ThreadRead =
   | { readonly ok: true; readonly rows: readonly ThreadRow[] }
-  | { readonly ok: false; readonly failure: NotesAskFailure }
+  | { readonly ok: false; readonly failure: NotesThreadFailure }
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -72,6 +72,7 @@ export class Analysis extends Service {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined) return { code: 'material-not-found', id }
     if (current.messageIds.length > 0) return null
+    if (!hasComposableBody(current)) return { code: 'image-not-submittable', id }
     const action = actionFor(current.action, this.settings.actions())
     if (current.action !== null && action === undefined) {
       return { code: 'unknown-action', action: current.action }
@@ -88,12 +89,12 @@ export class Analysis extends Service {
    * @param id - material id.
    * @param question - the user's question.
    * @returns the failure that stopped the question, or null when it was
-   *   submitted or there was no thread to ask in.
+   *   submitted.
    */
   async ask(id: MaterialId, question: string): Promise<NotesAskFailure | null> {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined) return { code: 'material-not-found', id }
-    if (current.messageIds.length === 0) return null
+    if (current.messageIds.length === 0) return { code: 'material-not-submitted', id }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
     await this.submit(id, target.agent, question, false)

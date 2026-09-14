@@ -57,7 +57,7 @@ The plugin mounts six services, and each is the documented owner of its slice of
 
 ### Browser half
 
-The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. The panel shows two columns while its pane is wide enough for both, the material list and the open material's detail, and one at a time below 560px, where the reader moves between them. Its body is editable until the material entered its conversation and read-only afterwards, matching what the Host enforces. The conversation chip in the navigation bar lists every conversation, archived ones included, and picking an archived one brings it back; the controls beside it start a conversation, archive the one shown, re-read everything, move the panel between its docked and floating presentations, and open a settings card over the notes section. A control in the conversation header's corner seat opens the tab, and opening it again reveals the tab already there rather than adding a second one. The browser half also covers the conversation itself: a bubble over the selected passage offers the deployment's collection actions, and picking one stores the passage in the shown conversation — starting the first conversation when there is none. A screenshot picked from the panel's navigation bar is stored the same way, as a material whose body is a durable attachment reference rather than the bytes. The panel and the bubble read and write only through `ctx.remote.notes`, so neither holds a rule the Host would not apply.
+The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes`, opened by name and recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat. The panel shows two columns while its pane is wide enough for both, the material list and the open material's detail, and one at a time below 560px, where the reader moves between them. Its body is editable until the material entered its conversation, and the follow-up box is drawn once it has, matching what the Host enforces. The conversation chip in the navigation bar lists every conversation, archived ones included, and picking an archived one brings it back; the controls beside it start a conversation, archive the one shown, re-read everything, move the panel between its docked and floating presentations, and open a settings card over the notes section. A control in the conversation header's corner seat opens the tab, and opening it again reveals the tab already there rather than adding a second one. The browser half also covers the conversation itself: a bubble over the selected passage offers the deployment's collection actions, and picking one stores the passage in the shown conversation — starting the first conversation when there is none. A screenshot picked from the panel's navigation bar is stored the same way, as a material whose body is a durable attachment reference rather than the bytes. The panel and the bubble read and write only through `ctx.remote.notes`, so neither holds a rule the Host would not apply.
 
 ### Settings
 
@@ -65,7 +65,7 @@ The settings card edits the same section the composition entry seeds: the model-
 
 ### What to expect
 
-A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable. Two analyses of one material racing each other send once: the first caller claims the material on the domain's write chain, and the loser sees the recorded id and submits nothing. The operations that mint a material's order value are serialized for the same reason, so a new material always lands above the previous one. A conversation that is the last unarchived one cannot be archived, so the panel always has one to show.
+A material is stored first and submitted later, so collecting never blocks on a model. Analysis and follow-ups both call `Agent.followup()` on the material's own notes conversation — never on the session the material was collected from — and each submission occupies its own step, so two materials always produce two answers. A send the inbox refuses marks the material `failed` with the reason and rolls the recorded message id back, so the material stays analysable. Two analyses of one material racing each other send once: the first caller claims the material on the domain's write chain, and the loser sees the recorded id and submits nothing. The operations that mint a material's order value are serialized for the same reason, so a new material always lands above the previous one. A conversation that is the last unarchived one cannot be archived, so the panel always has one to show. A screenshot is collected and listed but never submitted: nothing composes its stored attachment reference into a model request, so an analyse reports `image-not-submittable` rather than sending a request that names no material, and a follow-up on a material that has not entered its conversation reports `material-not-submitted`.
 
 -----
 
@@ -113,11 +113,11 @@ Read these pages when the package-level contract is not enough.
 
 #### What the model sees
 
-One `user/message` per analysis or follow-up, on that material's own notes conversation. The body is the material's text; a material collected through an action carries that action's configured prompt template prepended on its own line. The message source is `{ kind: 'plugin', plugin: 'notes' }`, so the transcript attributes it to this plugin rather than to the user.
+One `user/message` per analysis or follow-up, on that material's own notes conversation. The body is the material's text; a material collected through an action carries that action's configured prompt template prepended on its own line. The message source is `{ kind: 'plugin', plugin: 'notes' }`, so the transcript attributes it to this plugin rather than to the user. Only text materials reach the model: a screenshot stores a durable attachment reference, and nothing yet resolves that reference into an image content part.
 
 #### Token effect
 
-The submitted body plus the ordinary per-message framing of the notes conversation. Nothing is sent while a material is a draft, and the action template is configuration, so a deployment changes its length without a code change. Images become an image content part once screenshot collection lands; this phase stores text bodies only.
+The submitted body plus the ordinary per-message framing of the notes conversation. Nothing is sent while a material is a draft, and the action template is configuration, so a deployment changes its length without a code change.
 
 #### KV Cache effect
 
@@ -130,7 +130,7 @@ None on the derived request prefix. Each submission appends to its own conversat
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
 - **A collected passage carries no message identity** — the bubble reads the selection from the conversation's DOM, which does not mark which message it came from, so a material records no `seq`, `messageId`, or `callId` and the deferred "locate the source text" entry point has nothing to point at yet.
-- **Screenshots come from the panel, not from the conversation** — picking an image stores it through `notes/materialAddImage`, which keeps only the attachment reference, but nothing captures a region of the conversation itself and no path resolves a stored image back into a model request yet.
+- **A screenshot is collected but not submitted** — `notes/materialAddImage` keeps only the attachment reference its store returns, and nothing yet resolves that reference into an image content part, so an analyse reports `image-not-submittable`; nothing captures a region of the conversation itself either.
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened.
 - **A material that entered its conversation is fixed** — `materialUpdate` reports `material-submitted` once a material has a recorded message, because the session log carries the submitted body and rewriting the record would desync the row from its thread.
 - **Orphaned attachments are never reclaimed** — a material deleted while still a draft leaves its uploaded bytes behind, matching the attachment facility's existing semantics.
@@ -147,7 +147,7 @@ This Dev Note is working context for maintainers: open directions that are not d
 
 #### Next phases
 
-The Host half is complete apart from screenshot collection, and the browser half lists, edits, submits, and answers through real operations; the selection bubble, the archived bucket and reordering, the settings card, and the floating and docked presentations are the next pieces. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
+What is left is the source side of collection and the image side of submission: a collected passage records no message identity because the conversation DOM does not mark which message a selection came from, and a screenshot material keeps only the attachment id, which no reader can turn back into the reference a request needs. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
 
 </details>
 

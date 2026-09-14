@@ -396,7 +396,7 @@ describe('notes remote materials', () => {
     expect(host.saved[0]).toMatchObject({ mediaType: 'image/png' })
   })
 
-  it('submits a screenshot on its own when the strategy says so', async () => {
+  it('stores a screenshot an auto-sending action cannot submit', async () => {
     const translate: ActionDef = {
       id: 'translate',
       label: '翻译',
@@ -415,9 +415,13 @@ describe('notes remote materials', () => {
       action: 'translate',
     })
 
+    // The collection lands; nothing composes the stored reference into a
+    // request, so the material stays a draft instead of submitting a prompt
+    // that names no material.
     const id = result.ok ? result.value.id : undefined
-    expect(host.base.agents.followup).toHaveBeenCalledTimes(1)
-    expect(host.base.materials.get(id as MaterialId)?.status).toBe('analyzing')
+    expect(result.ok).toBe(true)
+    expect(host.base.agents.followup).not.toHaveBeenCalled()
+    expect(host.base.materials.get(id as MaterialId)?.status).toBe('draft')
   })
 
   it('refuses a screenshot into a conversation that is not recorded', async () => {
@@ -504,6 +508,26 @@ describe('notes remote materials', () => {
     })
   })
 
+  it('refuses to analyse a screenshot, which has no composable body', async () => {
+    const host = await mount()
+    await host.attach()
+    const note = await liveConversation(host)
+    const collected = await host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: null,
+    })
+    const id = collected.ok ? collected.value.id : materialId('absent')
+
+    await expect(host.remote.materialAnalyze({ id }))
+      .resolves.toEqual({ ok: false, error: { code: 'image-not-submittable', id } })
+
+    expect(host.base.agents.followup).not.toHaveBeenCalled()
+    expect(host.base.materials.get(id)?.status).toBe('draft')
+  })
+
   it('asks a follow-up inside a material thread', async () => {
     const host = await mount()
     const note = await liveConversation(host)
@@ -523,6 +547,17 @@ describe('notes remote materials', () => {
     await expect(host.remote.materialAsk({ id: materialId('absent'), question: 'why?' })).resolves.toEqual({
       ok: false,
       error: { code: 'material-not-found', id: 'absent' },
+    })
+  })
+
+  it('refuses a follow-up on a material that has not entered its conversation', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+
+    await expect(host.remote.materialAsk({ id, question: 'why?' })).resolves.toEqual({
+      ok: false,
+      error: { code: 'material-not-submitted', id },
     })
   })
 

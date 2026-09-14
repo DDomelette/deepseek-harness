@@ -171,6 +171,24 @@ describe('notes analysis', () => {
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
+  it('reports a screenshot it cannot turn into a model request', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      kind: 'image',
+      text: null,
+      image: 'attachment-1',
+    }))
+
+    await expect(bench.analysis.analyse(id))
+      .resolves.toEqual({ code: 'image-not-submittable', id })
+
+    // No body is composed, so nothing is sent and the material stays a draft.
+    expect(bench.agents.followup).not.toHaveBeenCalled()
+    expect(bench.materials.get(id)?.status).toBe('draft')
+  })
+
   it('reports a material whose conversation is not recorded', async () => {
     const bench = await mount()
     const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
@@ -207,12 +225,13 @@ describe('notes analysis', () => {
     expect(bench.materials.get(id)?.messageIds).toEqual([first.id, question.id])
   })
 
-  it('ignores a follow-up on a material that never entered the conversation', async () => {
+  it('reports a follow-up on a material that never entered the conversation', async () => {
     const bench = await mount()
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
 
-    await expect(bench.analysis.ask(id, 'why?')).resolves.toBeNull()
+    await expect(bench.analysis.ask(id, 'why?'))
+      .resolves.toEqual({ code: 'material-not-submitted', id })
 
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
