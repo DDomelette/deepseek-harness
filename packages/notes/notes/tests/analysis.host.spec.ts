@@ -7,7 +7,7 @@
  * never lands in the session the material was collected from, and both report
  * why they did not submit instead of throwing.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Analysis } from '../src/analysis.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
@@ -403,5 +403,161 @@ describe('notes material thread', () => {
 
     expect(bench.analysis.thread(id))
       .toEqual({ ok: false, failure: { code: 'session-not-live', id: note } })
+  })
+})
+
+describe('turn settlement', () => {
+  /**
+   * Publish the closing event of a turn.
+   * @param bench - the mounted bench.
+   * @param session - the dsh session id whose turn closed.
+   * @param messageId - the message the turn carried, or null for a turn that
+   *   carried none.
+   * @param reason - the turn's end reason.
+   */
+  function closeTurn(
+    bench: AnalysisBench,
+    session: string,
+    messageId: string | null,
+    reason: unknown = { kind: 'completed' },
+  ): void {
+    const events = [
+      { seq: 0, type: 'turn/start', data: { turn: 1 } },
+      ...messageId === null
+        ? []
+        : [{ seq: 1, type: 'user/message', data: { id: messageId, role: 'user', content: [] } }],
+      { seq: 2, type: 'turn/end', data: { turn: 1, reason } },
+    ]
+    const target = { id: sessionId(session), snapshotEvents: () => events } as never
+    bench.ctx.emit('session/event', target, events[events.length - 1] as never)
+  }
+
+  /** Publish one event of a conversation, for the paths that are not turn ends. */
+  function publish(bench: AnalysisBench, session: string, event: unknown): void {
+    const target = { id: sessionId(session), snapshotEvents: () => [] } as never
+    bench.ctx.emit('session/event', target, event as never)
+  }
+
+  it('marks a submitted material analyzed when its turn completes', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const sent = sentMessage(bench)
+
+    closeTurn(bench, 'dsh-notes-1', sent.id)
+
+    await vi.waitFor(() => { expect(bench.materials.get(id)?.status).toBe('analyzed') })
+    expect(bench.materials.get(id)?.error).toBeNull()
+  })
+
+  it('marks a material failed with the reason its turn reports', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const sent = sentMessage(bench)
+
+    closeTurn(bench, 'dsh-notes-1', sent.id, { kind: 'error', error: { message: 'socket closed', code: 'x' } })
+
+    await vi.waitFor(() => { expect(bench.materials.get(id)?.status).toBe('failed') })
+    expect(bench.materials.get(id)?.error).toBe('socket closed')
+  })
+
+  it('settles only the material the closed turn carried', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const first = await bench.materials.create(material({ noteId: note, text: 'first' }))
+    const second = await bench.materials.create(material({ noteId: note, text: 'second' }))
+    await bench.analysis.analyse(first)
+    const sent = sentMessage(bench)
+    await bench.materials.update(second, record => ({ ...record, status: 'analyzing' }))
+
+    closeTurn(bench, 'dsh-notes-1', sent.id)
+
+    await vi.waitFor(() => { expect(bench.materials.get(first)?.status).toBe('analyzed') })
+    expect(bench.materials.get(second)?.status).toBe('analyzing')
+  })
+
+  it('ignores a turn of a conversation the notes do not drive', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const sent = sentMessage(bench)
+
+    closeTurn(bench, 'some-other-session', sent.id)
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('leaves a draft alone when a turn closes', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    closeTurn(bench, 'dsh-notes-1', 'never-submitted')
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    expect(bench.materials.get(id)?.status).toBe('draft')
+  })
+
+  it('ignores every event that is not a turn end', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+
+    publish(bench, 'dsh-notes-1', { seq: 5, type: 'step/end', data: { turn: 1, step: 1 } })
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('reads a turn that carried no identified message as nothing to settle', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+
+    closeTurn(bench, 'dsh-notes-1', null)
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('keeps the material analyzing when the settle cannot read the store', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const sent = sentMessage(bench)
+    vi.spyOn(bench.materials, 'list').mockImplementation(() => { throw new Error('medium down') })
+
+    closeTurn(bench, 'dsh-notes-1', sent.id)
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('keeps the outcome a concurrent settle recorded first', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const sent = sentMessage(bench)
+    // The claim is checked again inside the write: a settle that lost the race
+    // sees the winning record and leaves it alone.
+    const write = bench.materials.update.bind(bench.materials)
+    vi.spyOn(bench.materials, 'update').mockImplementationOnce(async (material, transform) => {
+      await write(material, record => ({ ...record, status: 'failed', error: 'settled first' }))
+      return await write(material, transform)
+    })
+
+    closeTurn(bench, 'dsh-notes-1', sent.id)
+
+    await vi.waitFor(() => { expect(bench.materials.get(id)?.status).toBe('failed') })
+    expect(bench.materials.get(id)?.error).toBe('settled first')
   })
 })

@@ -105,11 +105,14 @@ describe('material detail', () => {
     expect(screen.getByText('source.trajectory')).toBeDefined()
   })
 
-  it('names a screenshot collection', () => {
+  it('names a screenshot collection where its text would be', () => {
     const bench = harness()
-    show(bench.props(), materialSummary({ kind: 'image', text: null, hasImage: true }))
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), kind: 'image', text: null, hasImage: true }))
 
-    expect(screen.getAllByText('source.image')).toHaveLength(1)
+    // Its source strip and its body both name it, and it offers no editor.
+    expect(screen.getAllByText('source.image')).toHaveLength(2)
+    expect(screen.queryByLabelText('detail.body')).toBeNull()
+    expect(document.querySelector('[data-notes-body]')?.textContent).toBe('source.image')
   })
 
   it('reports the reason a material failed', () => {

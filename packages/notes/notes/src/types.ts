@@ -352,6 +352,13 @@ export interface NotesImageUnsupported {
   readonly id: MaterialId
 }
 
+/** The material records a screenshot, so it has no text body to replace. */
+export interface NotesMaterialNotText {
+  readonly code: 'material-not-text'
+  /** The material whose body is not text. */
+  readonly id: MaterialId
+}
+
 /** The material names a collection action that is no longer configured. */
 export interface NotesUnknownAction {
   readonly code: 'unknown-action'
@@ -375,6 +382,7 @@ export type NotesFailure =
   | NotesMaterialNotFound
   | NotesMaterialSubmitted
   | NotesMaterialNotSubmitted
+  | NotesMaterialNotText
   | NotesWorkspaceMissing
   | NotesLastConversation
   | NotesSessionNotLive
@@ -460,7 +468,7 @@ export type NotesMaterialAddImageResult =
 /** Result of `notes/materialUpdate`. */
 export type NotesMaterialUpdateResult =
   | NotesSuccess<NotesApplied>
-  | NotesRejected<NotesMaterialNotFound | NotesMaterialSubmitted>
+  | NotesRejected<NotesMaterialNotFound | NotesMaterialNotText | NotesMaterialSubmitted>
 
 /** Result of `notes/materialAnalyze`. */
 export type NotesMaterialAnalyzeResult =

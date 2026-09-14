@@ -90,17 +90,21 @@ export function MaterialDetail({
           <p className={css.templateText}>{action.prompt}</p>
         </div>
       )}
-      {material.submitted
-        ? <p className={css.body} data-notes-body>{text}</p>
-        : (
-          <textarea
-            className={css.editor}
-            aria-label={t('detail.body')}
-            data-notes-editor
-            value={shown}
-            onChange={(event) => { setDraft(event.target.value) }}
-          />
-        )}
+      {material.kind === 'image'
+        // A screenshot's body is the reference it was stored as, so the pane
+        // names it rather than offering an editor the Host would refuse.
+        ? <p className={css.body} data-notes-body>{t('source.image')}</p>
+        : material.submitted
+          ? <p className={css.body} data-notes-body>{text}</p>
+          : (
+            <textarea
+              className={css.editor}
+              aria-label={t('detail.body')}
+              data-notes-editor
+              value={shown}
+              onChange={(event) => { setDraft(event.target.value) }}
+            />
+          )}
       <div className={css.actions}>
         <span className={css.status} data-notes-status={material.status}>
           {t(STATUS_LINES[material.status])}

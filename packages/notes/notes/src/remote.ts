@@ -20,6 +20,7 @@ import type { MaterialRecord } from './domain.ts'
 import type { StoredMaterial } from './materials.ts'
 import type { StoredNoteSession } from './note-sessions.ts'
 import type {
+  MaterialId, MaterialSource, NoteSessionId,
   NotesApplied, NotesFailure, NotesMaterialAddImageRequest, NotesMaterialAddImageResult,
   NotesMaterialAddResult, NotesMaterialAddTextRequest,
   NotesMaterialAnalyzeRequest, NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest,
@@ -157,25 +158,8 @@ export class NotesRemote extends TypertRemoteService {
     if (this.ctx.notesSessions.get(request.noteId) === undefined) {
       return rejected({ code: 'session-not-found', id: request.noteId })
     }
-    const record: MaterialRecord = {
-      noteId: request.noteId,
-      kind: 'text',
-      text: request.text,
-      image: null,
-      source: request.source,
-      action: request.action,
-      order: 0,
-      status: 'draft',
-      messageIds: [],
-      error: null,
-      createdAt: Date.now(),
-      archivedAt: null,
-    }
-    const id = await this.ctx.notesMaterials.create(record)
-    if (this.ctx.notesAnalysis.submitsOnCollection(request.action)) {
-      await this.ctx.notesAnalysis.analyse(id)
-    }
-    return success({ id })
+    const record = this.draft(request, { kind: 'text', text: request.text, image: null })
+    return success({ id: await this.collect(record, request.action) })
   }
 
   /**
@@ -196,31 +180,16 @@ export class NotesRemote extends TypertRemoteService {
       data: Buffer.from(request.data, 'base64'),
       mediaType: request.mediaType,
     })
-    const record: MaterialRecord = {
-      noteId: request.noteId,
-      kind: 'image',
-      text: null,
-      image: stored,
-      source: request.source,
-      action: request.action,
-      order: 0,
-      status: 'draft',
-      messageIds: [],
-      error: null,
-      createdAt: Date.now(),
-      archivedAt: null,
-    }
-    const id = await this.ctx.notesMaterials.create(record)
-    if (this.ctx.notesAnalysis.submitsOnCollection(request.action)) {
-      await this.ctx.notesAnalysis.analyse(id)
-    }
-    return success({ id })
+    const record = this.draft(request, { kind: 'image', text: null, image: stored })
+    return success({ id: await this.collect(record, request.action) })
   }
 
   /**
    * Replace one draft material's body. A material that already entered its
    * conversation keeps the body it submitted: the session log carries that
-   * text, and rewriting the record would desync the row from its thread.
+   * text, and rewriting the record would desync the row from its thread. A
+   * screenshot has no text body at all: its body is the reference it was stored
+   * as, which only a new collection replaces.
    * @param request - the material and its replacement body.
    * @returns the acknowledgment, or the refusal that stopped it.
    */
@@ -228,6 +197,7 @@ export class NotesRemote extends TypertRemoteService {
   async materialUpdate(request: NotesMaterialUpdateRequest): Promise<NotesMaterialUpdateResult> {
     const material = this.ctx.notesMaterials.get(request.id)
     if (material === undefined) return rejected({ code: 'material-not-found', id: request.id })
+    if (material.kind === 'image') return rejected({ code: 'material-not-text', id: request.id })
     if (material.messageIds.length > 0) return rejected({ code: 'material-submitted', id: request.id })
     await this.ctx.notesMaterials.update(request.id, record => ({ ...record, text: request.text }))
     return success(APPLIED)
@@ -357,6 +327,49 @@ export class NotesRemote extends TypertRemoteService {
     }
     await this.ctx.notesMaterials.remove(request.id)
     return success(APPLIED)
+  }
+
+  /**
+   * One new draft record over a collection request's own facts.
+   * @param request - the conversation, source, and action the caller collected under.
+   * @param body - the body this kind of material records.
+   * @returns the complete record to store.
+   */
+  private draft(
+    request: {
+      readonly noteId: NoteSessionId
+      readonly source: MaterialSource
+      readonly action: string | null
+    },
+    body: Pick<MaterialRecord, 'kind' | 'text' | 'image'>,
+  ): MaterialRecord {
+    return {
+      noteId: request.noteId,
+      ...body,
+      source: request.source,
+      action: request.action,
+      order: 0,
+      status: 'draft',
+      messageIds: [],
+      error: null,
+      createdAt: Date.now(),
+      archivedAt: null,
+    }
+  }
+
+  /**
+   * Store one collected material and submit it when this deployment's strategy,
+   * or the action it names, asks for that.
+   * @param record - the complete record to store.
+   * @param action - the collection action the material names, or null for none.
+   * @returns the new material id.
+   */
+  private async collect(record: MaterialRecord, action: string | null): Promise<MaterialId> {
+    const id = await this.ctx.notesMaterials.create(record)
+    if (this.ctx.notesAnalysis.submitsOnCollection(action)) {
+      await this.ctx.notesAnalysis.analyse(id)
+    }
+    return id
   }
 }
 
