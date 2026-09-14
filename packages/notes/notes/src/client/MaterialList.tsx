@@ -2,16 +2,19 @@
  * The material list: one row per material, the order the reader drags them
  * into, and the archived bucket under them.
  *
- * A row carries its state, where it came from, and its own text; the handles
- * that archive it and drag it appear while the row is under the pointer. The
- * drop line marks where a dragged row would land, and the order it produces is
- * the complete list the Host's reorder takes — never a pair of neighbours, so a
- * drop cannot depend on what the list looked like when the drag began.
+ * A row carries its state, where it came from, its own text, and the
+ * collection action that produced it; the handles that archive it and drag it
+ * appear while the row is under the pointer. The drop line marks where a
+ * dragged row would land, and the order it produces is the complete list the
+ * Host's reorder takes — never a pair of neighbours, so a drop cannot depend on
+ * what the list looked like when the drag began.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { MaterialId, NotesMaterialSummary } from '../types.ts'
+import type { MaterialId, NotesActionView, NotesMaterialSummary } from '../types.ts'
+import { actionBadge } from './actions.ts'
 import type { NotesInjected } from './face.ts'
 import type { NotesKey } from './locales.ts'
 import css from './MaterialList.module.css'
@@ -30,6 +33,8 @@ export interface MaterialListProps {
   readonly archived: readonly NotesMaterialSummary[]
   /** Material whose detail is open. */
   readonly selected: MaterialId | null
+  /** Collection actions the settings section lists, for each row's badge. */
+  readonly actions: readonly NotesActionView[]
   /** The panel's commands. */
   readonly commands: NotesInjected
   /** Namespace-bound translate. */
@@ -63,11 +68,12 @@ export function orderAfter(
  * @returns the list.
  */
 export function MaterialList({
-  materials, archived, selected, commands, t,
+  materials, archived, selected, actions, commands, t,
 }: MaterialListProps): ReactNode {
   const [dragging, setDragging] = useState<MaterialId | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+  const rows = materials.map(row => ({ row, badge: actionBadge(row.action, actions) }))
   const drop = (index: number): void => {
     if (dragging === null) return
     const next = orderAfter(materials, dragging, index)
@@ -77,7 +83,7 @@ export function MaterialList({
   }
   return (
     <ul className={css.list} data-notes-materials>
-      {materials.map((row, index) => (
+      {rows.map(({ row, badge }, index) => (
         <li
           key={row.id}
           className={css.row}
@@ -106,7 +112,14 @@ export function MaterialList({
           >
             <span className={css.dot} data-notes-dot={row.status} />
             <span className={css.rowText}>
-              <span className={css.rowTitle}>{row.source.label}</span>
+              <span className={css.rowHead}>
+                <span className={css.rowTitle}>{row.source.label}</span>
+                {badge !== null && (
+                  <span className={css.rowAction} data-notes-action={badge.id}>
+                    <Tag tone="neutral">{badge.label}</Tag>
+                  </span>
+                )}
+              </span>
               <span className={css.rowPreview}>{row.text ?? t('source.image')}</span>
             </span>
             <span className={css.rowSource}>
