@@ -143,12 +143,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     /**
      * The header's far-right corner, past the utilities' edge and into the
-     * header's own padding, for one control. The corner is laid out only while
-     * its occupant renders something; an occupant with nothing to show renders
-     * nothing, and the utilities take the header's edge.
+     * header's own padding. The corner is laid out only while its occupants
+     * render something; occupants with nothing to show render nothing, and the
+     * utilities take the header's edge.
      */
     'conversation.session.header.corner': {
-      kind: 'single'
+      kind: 'list'
       scope: 'session'
       owner: ConversationHeaderCornerOwnerProps
     }

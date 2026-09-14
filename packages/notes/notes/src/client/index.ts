@@ -66,6 +66,7 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({
     name: 'conversation.session.header.corner',
+    id: NOTES_ID,
     locale: NS,
     inject: (): NotesButtonInjected => ({
       open: () => { ctx.sidebarRight.openTab(NOTES_KIND) },

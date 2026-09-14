@@ -68,6 +68,10 @@ Floating and docking are the right column's presentations, not the panel's: `ui-
 
 The settings card is the panel's second write surface, and it writes where the composition entry reads: `notes/settingsUpdate` merges into the notes section through `ctx.settings`, and a field the request names as null or omits is unset rather than stored as null, because the section's schema expresses an absent workspace or model override as an absent field. Clearing a field is therefore the same operation as returning it to the deployment default, and there is no second copy of the default in the browser.
 
+### The header corner holds more than one control
+
+`conversation.session.header.corner` was a single seat, and `ui-sidebar-right` already keeps its panel-recall button there. A second registration into a single seat fails, and in the shipped composition that failure took the whole notes browser half with it: the plugin never activated, and the shell rendered without its frame at all. The seat is a list now and each occupant names itself with an id, so a session header's corner carries the recall button and a notes control at once.
+
 ### Collecting a passage needs a seat over the conversation
 
 Nothing in the shipped Conversation seats covers its content: `conversation.session` declared only `conversation.view`. A bubble that collects what the reader selected has to sit over that content, so `conversation.session` gained one more child, `conversation.session.overlay` (`single`, session scope), rendered after the View inside the same element. It hands its occupant two facts — the View currently shown, and the element holding it — because a collecting surface needs both to say where a passage came from and to tell whether a selection belongs to this conversation at all.

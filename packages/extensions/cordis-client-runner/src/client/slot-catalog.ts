@@ -1120,11 +1120,30 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   },
   {
     key: 'conversation.session.header.corner',
-    kind: 'single',
+    kind: 'list',
     scope: 'session',
-    summary: 'The header\'s far-right corner, past the utilities\' edge and into the header\'s own padding, for one control.',
-    doc: 'The header\'s far-right corner, past the utilities\' edge and into the\nheader\'s own padding, for one control. The corner is laid out only while\nits occupant renders something; an occupant with nothing to show renders\nnothing, and the utilities take the header\'s edge.',
-    registerOptions: [],
+    summary: 'The header\'s far-right corner, past the utilities\' edge and into the header\'s own padding.',
+    doc: 'The header\'s far-right corner, past the utilities\' edge and into the\nheader\'s own padding. The corner is laid out only while its occupants\nrender something; occupants with nothing to show render nothing, and the\nutilities take the header\'s edge.',
+    registerOptions: [
+      {
+        name: 'id',
+        requirement: 'required',
+        type: 'string',
+        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
+      },
+      {
+        name: 'order',
+        requirement: 'optional',
+        type: 'number',
+        doc: 'Position among the entries, ascending (default 0).',
+      },
+      {
+        name: 'label',
+        requirement: 'optional',
+        type: 'string | (() => string)',
+        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
+      },
+    ],
     ownerProps: [
       '/** The header corner\'s occupant derives its state from standard Session props. */\nexport interface ConversationHeaderCornerOwnerProps {\n  /** Marker field: the occupant receives no owner-specific values. */\n  children?: never\n}',
     ],
@@ -1150,11 +1169,11 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation.session.header\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
-      'client-ui-sidebar-right ExpandButton',
+      'client-ui-sidebar-right ExpandButton id \'sidebar-right-expand\'',
       'notes NotesButton',
     ],
-    replaceRisk: 'shadows-shipped-ui',
-    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.session.header.corner\', () => ctx.slots.register(\n      { name: \'conversation.session.header.corner\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    replaceRisk: 'none',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.session.header.corner\', () => ctx.slots.register(\n      { name: \'conversation.session.header.corner\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
     source: 'packages/client/ui-conversation/src/client/contract/slots.ts:150',
   },
   {

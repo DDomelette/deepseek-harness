@@ -68,6 +68,10 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 设置卡是面板的第二个写入面，它写向组装入口读取的同一处：`notes/settingsUpdate` 经 `ctx.settings` 合并进笔记设置节，而被请求命名为 null 或干脆省略的字段会被取消，而不是存成 null，因为该节的 schema 用"字段不存在"表达缺省的工作区或模型覆盖。因此清空一个字段与把它交还给部署默认值是同一个操作，浏览器里也不会存在第二份默认值。
 
+### 标题栏角落容纳不止一个控件
+
+`conversation.session.header.corner` 原本是 single 座位，而 `ui-sidebar-right` 早已把它的面板召回按钮放在那里。向 single 座位第二次注册会失败，而在线上组合里，这个失败把整个 notes 浏览器半边一起带走了：插件从未激活，应用壳连 frame 都没有渲染。现在这个座位是 list，每个占用者用 id 标出自己，因此一个会话标题栏的角落可以同时承载召回按钮与笔记控件。
+
 ### 收集一段文字需要一个覆盖会话的座位
 
 已交付的会话座位里没有任何一个覆盖它的内容：`conversation.session` 只声明了 `conversation.view`。一个收集读者所选内容的气泡必须坐在那份内容之上，因此 `conversation.session` 多了一个子座位 `conversation.session.overlay`（`single`、session 作用域），在同一个元素内、View 之后渲染。它交给占用者两个事实——当前显示的 View 与承载它的元素——因为收集面既需要说明一段文字来自哪里，也需要判断某个选区是否属于这个会话。
