@@ -345,6 +345,13 @@ export interface NotesMaterialNotSubmitted {
   readonly id: MaterialId
 }
 
+/** The material's conversation runs on a route that declares text-only input. */
+export interface NotesImageUnsupported {
+  readonly code: 'image-unsupported'
+  /** The screenshot that cannot enter that conversation. */
+  readonly id: MaterialId
+}
+
 /** The material names a collection action that is no longer configured. */
 export interface NotesUnknownAction {
   readonly code: 'unknown-action'
@@ -372,6 +379,7 @@ export type NotesFailure =
   | NotesLastConversation
   | NotesSessionNotLive
   | NotesUnknownAction
+  | NotesImageUnsupported
   | NotesSettingsUnavailable
   | NotesAttachmentsUnavailable
 
@@ -384,6 +392,7 @@ export type NotesAnalyzeFailure =
   | NotesSessionNotFound
   | NotesSessionNotLive
   | NotesUnknownAction
+  | NotesImageUnsupported
 
 /** Failures asking a follow-up inside one material's thread can report. */
 export type NotesAskFailure =

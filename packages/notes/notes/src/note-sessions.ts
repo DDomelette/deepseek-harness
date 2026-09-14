@@ -17,6 +17,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-presets'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { NoteSessionRecord } from './domain.ts'
@@ -54,6 +55,12 @@ export class NoteSessions extends Service {
    * Start a new notes conversation: a real dsh Session over the configured
    * workspace and model, recorded and made active.
    *
+   * The conversation's route is the notes model override when the settings carry
+   * one, and the deployment's default model selection otherwise — the same
+   * default every other entry point reads at creation time, so a conversation
+   * created here is routed like one created anywhere else. A deployment with
+   * neither leaves the route to the request waterfall.
+   *
    * A deployment whose row owns a preset roster mounts the default preset into
    * the new Session, so its tools and prompt sections match every other Session
    * the deployment starts. Without a roster the model-facing rows live on the
@@ -74,11 +81,12 @@ export class NoteSessions extends Service {
       ? undefined
       : async (agentCtx: Context): Promise<void> => { await presets.mount(agentCtx, presetId) }
     const model = this.settings.model()
+    const route = model ?? this.ctx.get('agentDefaultModel')?.currentSelection()
     const sessionId = brandString<SessionId>(randomUUID())
     const handle = await this.ctx.agents.create({
       sessionId,
       meta: { cwd, ...presetId === undefined ? {} : { agentPreset: presetId } },
-      ...model === null ? {} : { agentOptions: { provider: model.provider, model: model.model } },
+      ...route === undefined ? {} : { agentOptions: { provider: route.provider, model: route.model } },
       ...setup === undefined ? {} : { setup },
     })
     try {

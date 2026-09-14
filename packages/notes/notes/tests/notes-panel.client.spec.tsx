@@ -285,7 +285,7 @@ describe('notes panel', () => {
 
     fireEvent.change(document.querySelector('[data-notes-image-input]') as Element, { target: { files: [file] } })
 
-    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-unsupported"]')).not.toBeNull() })
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-format"]')).not.toBeNull() })
     expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
   })
 

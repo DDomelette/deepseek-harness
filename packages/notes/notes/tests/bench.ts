@@ -11,8 +11,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { AgentOptions } from '@deepseek-ai/dsh-agent'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
-import type { MessageId } from '@deepseek-ai/dsh-llm'
+import type { LlmModelInfo, MessageId, ModelModality } from '@deepseek-ai/dsh-llm'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
@@ -132,6 +133,9 @@ export class FakeAgents {
   /** Set to make the next `create` reject, which the caller must roll back. */
   failure: Error | undefined
 
+  /** The route every live agent reports, as `Agent.options` reports it. */
+  route: AgentOptions = { provider: 'notes-provider', model: 'notes-model' }
+
   /**
    * Records every message handed to a live agent. The annotation is required:
    * an inferred `vi.fn()` type names a vitest-internal type and is not
@@ -190,11 +194,45 @@ export class FakeAgents {
    */
   get(id: string): {
     followup: FakeAgents['followup']
+    options: AgentOptions
     session: { snapshotEvents: () => readonly unknown[] }
   } | undefined {
     return this.live.has(id)
-      ? { followup: this.followup, session: { snapshotEvents: () => this.events } }
+      ? { followup: this.followup, options: this.route, session: { snapshotEvents: () => this.events } }
       : undefined
+  }
+}
+
+/**
+ * Stand-in for the LLM service's model metadata. A spec scripts the modalities
+ * one route declares; `undefined` reports what the vocabulary calls unknown.
+ */
+export class FakeLlm {
+  /** Input modalities every route declares, or undefined for unknown capability. */
+  modalities: readonly ModelModality[] | undefined = ['text', 'image']
+
+  /** Set to make the next resolution reject, which callers read as unknown. */
+  failure: Error | undefined
+
+  /** Every route this stand-in was asked about, in call order. */
+  readonly asked: { provider: string; model: string }[] = []
+
+  /**
+   * Report one route's metadata.
+   * @param provider - registered provider route.
+   * @param model - provider-owned model id.
+   * @returns the model metadata, with the scripted modalities when set.
+   * @throws the configured {@link failure}, when one is set.
+   */
+  readonly resolveModelInfo = async (provider: string, model: string): Promise<LlmModelInfo> => {
+    this.asked.push({ provider, model })
+    if (this.failure !== undefined) throw this.failure
+    return {
+      provider,
+      id: model,
+      name: model,
+      ...this.modalities === undefined ? {} : { inputModalities: [...this.modalities] },
+    }
   }
 }
 

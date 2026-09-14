@@ -42,7 +42,7 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 ### 新会话加入部署的默认 preset
 
-`NoteSessions.create` 通过 `ctx.agents.create` 启动一条真实 dsh Session，工作区与模型取自设置节。拥有 agent 注册表的那一行也可能挂载 preset roster，而在那种部署里，不入伙任何一个 preset 的新会话会是一个空世界——没有工具、没有 prompt 片段——因为面向模型的行是按 preset 分发的。因此该服务可选地解析 `agentPresets`：有 roster 时，把它的默认 id 记进 `meta.agentPreset`，并在创建期的 `setup` 回调里挂载它。没有 roster 时，面向模型的行留在 host 平面、由注册表从全局层读取，headless bundle 就是这样。
+`NoteSessions.create` 通过 `ctx.agents.create` 启动一条真实 dsh Session，工作区与模型取自设置节。会话的路由在设置节带有模型覆盖时就是该覆盖，否则是部署的默认模型选择（`ctx.agentDefaultModel`）——与其他每个创建型入口读的是同一个默认值——并作为 `agentOptions` 传给创建，因为创建时没有路由的 agent 在它的第一个请求上就没有路由。拥有 agent 注册表的那一行也可能挂载 preset roster，而在那种部署里，不入伙任何一个 preset 的新会话会是一个空世界——没有工具、没有 prompt 片段——因为面向模型的行是按 preset 分发的。因此该服务可选地解析 `agentPresets`：有 roster 时，把它的默认 id 记进 `meta.agentPreset`，并在创建期的 `setup` 回调里挂载它。没有 roster 时，面向模型的行留在 host 平面、由注册表从全局层读取，headless bundle 就是这样。
 
 配置好的工作区是必需的：没有工作区的会话无处运行，所以 `create` 以具名错误拒绝，而不是随手挑一个。agent handle 不被保留——创建上下文就是本服务的 fiber，因此卸载插件会释放它启动的每个会话；记录失败时会释放刚创建的 agent，而不是让它毫无记录地继续运行。
 
@@ -86,7 +86,9 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 选图是面板自己的控件，而不是对会话的截取：浏览器把文件读成规范 base64，因为那正是附件存储在 wire 上接受的形态；格式不受支持或浏览器读不出来都会如实报告，不去打扰宿主。
 
-素材记录下的是存储返回的整份引用——域记录的版本 2，版本 1 只存 id——因为点名一张图片的请求部分就是 `{ type: 'image', attachment }`：只有 id 说不清组装与归一化所需的 media type、字节长度与尺寸。因此 `src/compose.ts` 把截图组装成那个 image block；素材是通过某个动作收集时，该动作的模板作为 text block 排在它前面；文字素材仍然只是它一直以来的那一个 text block。`src/thread.ts` 也会保留截图提交的那一行：它不带文字，因此该行同时报告 `hasImage`，面板则把图片与它可能带有的文字一并标出。只接受文字的路由不需要本插件给出任何拒绝：请求组装本来就会为 image block 换上它自己的占位文本，所以这次提交照常成立。
+素材记录下的是存储返回的整份引用——域记录的版本 2，版本 1 只存 id——因为点名一张图片的请求部分就是 `{ type: 'image', attachment }`：只有 id 说不清组装与归一化所需的 media type、字节长度与尺寸。因此 `src/compose.ts` 把截图组装成那个 image block；素材是通过某个动作收集时，该动作的模板作为 text block 排在它前面；文字素材仍然只是它一直以来的那一个 text block。`src/thread.ts` 也会保留截图提交的那一行：它不带文字，因此该行同时报告 `hasImage`，面板则把图片与它可能带有的文字一并标出。
+
+带图片的提交在发出任何东西之前，会先向 LLM 服务询问该会话路由声明了什么：`Analysis` 读 `Agent.options`，解析该路由的模型元数据，并在路由声明只接受文字输入时回报 `image-unsupported`，于是面板请用户换一个模型，而不是让模型在本该是截图的位置读到一段占位文本。只有"明确声明的否定"才算拒绝——agent 的 options 没有点名路由、部署没有挂载 LLM 服务、元数据读不出来，这些都属于未知而非不支持，这类提交照常进入拥有该失败路径的请求侧。因此这里的图像准入规则，与那些已经在提示前就拒绝的入口读的是同一套规则。
 
 ### 线程归属按纯函数测试
 
