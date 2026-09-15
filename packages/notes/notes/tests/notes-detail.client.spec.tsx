@@ -10,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MaterialDetail } from '../src/client/MaterialDetail.tsx'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import type { NotesActionView } from '../src/types.ts'
-import { harness, materialSummary, noteId } from './fixtures.client.ts'
+import { harness, materialSummary, noteId, sessionSeq, source } from './fixtures.client.ts'
 
 afterEach(() => {
   cleanup()
@@ -113,6 +113,38 @@ describe('material detail', () => {
     expect(screen.getAllByText('source.image')).toHaveLength(2)
     expect(screen.queryByLabelText('detail.body')).toBeNull()
     expect(document.querySelector('[data-notes-body]')?.textContent).toBe('source.image')
+  })
+
+  it('offers the source row a locate entry for a position the material recorded', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ seq: sessionSeq(42) }) }))
+
+    expect(document.querySelector('[data-notes-locate]')).not.toBeNull()
+  })
+
+  it('offers the source row a locate entry for a recorded tool call too', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ callId: 'call-7' }) }))
+
+    expect(document.querySelector('[data-notes-locate]')).not.toBeNull()
+  })
+
+  it('offers no locate entry for a material that recorded no position', () => {
+    const bench = harness()
+    show(bench.props())
+
+    expect(document.querySelector('[data-notes-locate]')).toBeNull()
+  })
+
+  it('explains that a recorded source cannot be opened yet', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ seq: sessionSeq(42) }) }))
+
+    expect(document.querySelector('[data-notes-locate-hint]')).toBeNull()
+
+    fireEvent.click(screen.getByText('detail.locate'))
+
+    expect(document.querySelector('[data-notes-locate-hint]')?.textContent).toBe('detail.locateHint')
   })
 
   it('reports the reason a material failed', () => {

@@ -11,9 +11,9 @@ import { useSyncExternalStore } from 'react'
 import { vi } from 'vitest'
 import type { Mock } from 'vitest'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { brandString } from '@deepseek-ai/dsh-brand'
+import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
 import type { NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
@@ -34,6 +34,9 @@ export const noteId = (value: string): NoteSessionId => brandString<NoteSessionI
 
 /** Brand one material id. */
 export const materialId = (value: string): MaterialId => brandString<MaterialId>(value)
+
+/** Brand one recorded session sequence. */
+export const sessionSeq = (value: number): SessionSeq => brandNumber<SessionSeq>(value)
 
 /** One collection source stamp. */
 export const source = (overrides: Partial<MaterialSource> = {}): MaterialSource => ({
