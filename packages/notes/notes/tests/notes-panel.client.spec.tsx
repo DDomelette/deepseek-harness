@@ -7,7 +7,8 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { NotesPanel, payloadOf, sessionIntent } from '../src/client/NotesPanel.tsx'
+import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
+import { payloadOf } from '../src/client/image.ts'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
   harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
@@ -19,6 +20,22 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
+
+/** One clipboard item holding an image file. */
+function imageItem(type: string, file: File): { kind: string; type: string; getAsFile: () => File } {
+  return { kind: 'file', type, getAsFile: () => file }
+}
+
+/**
+ * Paste a clipboard carrying these items into the panel.
+ * @param items - the clipboard's items as the browser reports them.
+ * @returns whether the paste kept its default behavior.
+ */
+function paste(items: readonly unknown[]): boolean {
+  return fireEvent.paste(document.querySelector('[data-notes-panel]') as Element, {
+    clipboardData: { items },
+  })
+}
 
 describe('notes panel', () => {
   it('offers to start a conversation while none exists', async () => {
@@ -315,8 +332,116 @@ describe('notes panel', () => {
     expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
   })
 
-  it('opens the image picker from the navigation bar', async () => {
+  it('collects a pasted screenshot the same way the picker does', async () => {
     const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+    const file = new File([new Uint8Array([1, 2, 3])], 'shot.png', { type: 'image/png' })
+
+    const kept = paste([imageItem('image/png', file)])
+
+    await waitFor(() => { expect(bench.remote.materialAddImage).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddImage.mock.calls[0]?.[0]).toMatchObject({
+      noteId: note,
+      data: 'AQID',
+      mediaType: 'image/png',
+      action: null,
+      // A pasted screenshot belongs to no row, exactly like a picked one.
+      source: { view: 'chat', label: 'panel.image', seq: null, messageId: null, callId: null },
+    })
+    // The panel consumed the image, so the browser's own paste does nothing.
+    expect(kept).toBe(false)
+  })
+
+  it('leaves every paste that carries no image alone', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+
+    const kept = paste([{ kind: 'string', type: 'text/plain', getAsFile: () => null }])
+
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+    expect(kept).toBe(true)
+  })
+
+  it('collects the first image of a paste carrying several', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+    const first = new File([new Uint8Array([1, 2, 3])], 'first.png', { type: 'image/png' })
+    const second = new File([new Uint8Array([4, 5, 6])], 'second.png', { type: 'image/png' })
+
+    paste([imageItem('image/png', first), imageItem('image/png', second)])
+
+    await waitFor(() => { expect(bench.remote.materialAddImage).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddImage.mock.calls[0]?.[0]).toMatchObject({ data: 'AQID' })
+  })
+
+  it('refuses a pasted format the attachment store does not take', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+    const file = new File([new Uint8Array([1])], 'sketch.bmp', { type: 'image/bmp' })
+
+    paste([imageItem('image/bmp', file)])
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-format"]')).not.toBeNull() })
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+  })
+
+  it('reports a pasted image the browser cannot read', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+    vi.stubGlobal('FileReader', class {
+      onerror: (() => void) | null = null
+      onload: (() => void) | null = null
+      readAsDataURL(): void { this.onerror?.() }
+    })
+    const file = new File([new Uint8Array([1])], 'shot.png', { type: 'image/png' })
+
+    paste([imageItem('image/png', file)])
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-notice="image-unreadable"]')).not.toBeNull() })
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+  })
+
+  it('leaves a paste whose clipboard entry holds no file alone', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+
+    const kept = paste([{ kind: 'file', type: 'image/png', getAsFile: () => null }])
+
+    expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
+    expect(kept).toBe(true)
+  })
+
+  it('reports a pasted screenshot the Host refused', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-panel]')).not.toBeNull() })
+    bench.remote.materialAddImage.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { code: 'attachments-unavailable' } },
+    })
+    const file = new File([new Uint8Array([1])], 'shot.png', { type: 'image/png' })
+
+    paste([imageItem('image/png', file)])
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-notice="attachments-unavailable"]')).not.toBeNull()
+    })
+  })
+
+  it('opens the image picker from the navigation bar', async () => {    const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
     render(<NotesPanel {...bench.props()} />)
     await waitFor(() => { expect(screen.getByLabelText('panel.addImage')).toBeDefined() })
@@ -399,7 +524,7 @@ describe('notes panel', () => {
   })
 })
 
-describe('picked image payloads', () => {
+describe('collected image payloads', () => {
   it('takes the bytes out of a data URL', () => {
     expect(payloadOf('data:image/png;base64,AQID')).toBe('AQID')
   })
@@ -407,6 +532,10 @@ describe('picked image payloads', () => {
   it('takes nothing from a read that produced bytes instead', () => {
     expect(payloadOf(new ArrayBuffer(3))).toBeNull()
     expect(payloadOf(null)).toBeNull()
+  })
+
+  it('takes nothing from a string that carries no payload', () => {
+    expect(payloadOf('not a data URL')).toBeNull()
   })
 })
 

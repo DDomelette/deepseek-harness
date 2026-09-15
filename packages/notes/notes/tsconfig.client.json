@@ -11,6 +11,7 @@
     "src/client/definition.ts",
     "src/client/face.ts",
     "src/client/failure-line.ts",
+    "src/client/image.ts",
     "src/client/index.ts",
     "src/client/locales.ts",
     "src/client/MaterialDetail.tsx",

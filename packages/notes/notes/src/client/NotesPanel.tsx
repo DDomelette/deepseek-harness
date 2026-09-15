@@ -9,7 +9,7 @@
  * too narrow for them, and then shows the same controls as icons alone.
  */
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ClipboardEvent, ReactNode } from 'react'
 import {
   IconArchiveOutline20, IconFullscreenOutline16, IconPanelLeftOutline16, IconPaperclipOutline16,
   IconPlusOutline16, IconRefreshOutline16, IconSettingsOutline16, Menu, Tooltip,
@@ -18,9 +18,10 @@ import type {
   InjectFace, PropsLocale, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { NotesSessionSummary, NoteSessionId } from '../types.ts'
+import type { NotesSessionSummary, NoteSessionId, MaterialSource } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
+import { readImage } from './image.ts'
 import { MaterialDetail } from './MaterialDetail.tsx'
 import { MaterialList } from './MaterialList.tsx'
 import { NotesSettingsCard } from './NotesSettingsCard.tsx'
@@ -101,12 +102,47 @@ export function NotesPanel({
     ...state.sessions.map(session => ({ session, archived: false })),
     ...state.archived.map(session => ({ session, archived: true })),
   ]
+  /** The source stamp a screenshot collected in the panel carries: no row. */
+  const panelImageSource = (): MaterialSource => ({
+    sessionId,
+    view: 'chat',
+    seq: null,
+    messageId: null,
+    callId: null,
+    label: t('panel.image'),
+  })
+  /** Collect one image file the panel took in, through the picker or a paste. */
+  async function collectImage(file: File): Promise<void> {
+    const image = await readImage(file)
+    if ('code' in image) {
+      actions.refused(image)
+      return
+    }
+    const failure = await addImage(image.data, image.mediaType, panelImageSource(), null)
+    if (failure !== null) actions.refused(failure)
+  }
+  /**
+   * Collect the screenshot a paste carries.
+   *
+   * The listener sits on the panel rather than on the document: a paste in the
+   * conversation's composer is an attachment for the model, and the notes must
+   * not take it. A paste carrying no image keeps its own default behavior.
+   * @param event - the paste, as React reports it.
+   */
+  const paste = (event: ClipboardEvent<HTMLDivElement>): void => {
+    const item = Array.from(event.clipboardData.items).find(candidate => candidate.kind === 'file')
+    const file = item?.getAsFile() ?? null
+    if (file === null) return
+    event.preventDefault()
+    void collectImage(file)
+  }
   return (
     <div
       className={css.panel}
       data-notes-panel
       data-notes-selected={selected === undefined ? undefined : ''}
       data-notes-loading={state.loading ? '' : undefined}
+      onPaste={paste}
     >
       <div className={css.bar}>
         {selected !== undefined && (
@@ -314,63 +350,10 @@ export function NotesPanel({
             // would otherwise fire no change event.
             event.target.value = ''
             if (file === undefined) return
-            void (async () => {
-              const mediaType = IMAGE_TYPES.find(candidate => candidate === file.type)
-              if (mediaType === undefined) {
-                actions.refused({ code: 'image-format' })
-                return
-              }
-              const data = await readBase64(file)
-              if (data === null) {
-                actions.refused({ code: 'image-unreadable' })
-                return
-              }
-              const failure = await addImage(data, mediaType, {
-                sessionId,
-                view: 'chat',
-                seq: null,
-                messageId: null,
-                callId: null,
-                label: t('panel.image'),
-              }, null)
-              if (failure !== null) actions.refused(failure)
-            })()
+            void collectImage(file)
           }}
         />
       )}
     </div>
   )
-}
-
-/** The raster formats the attachment store accepts, as the file picker reports them. */
-const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
-
-/**
- * The base64 payload of one data URL, which is the only shape the Host's
- * attachment store takes. A reader that produced something else — the binary
- * result of a different read — yields nothing rather than a stringified buffer.
- * @param result - what the reader produced.
- * @returns the encoded bytes, or null when the result was not a data URL.
- */
-export function payloadOf(result: string | ArrayBuffer | null): string | null {
-  if (typeof result !== 'string') return null
-  return result.slice(result.indexOf(',') + 1)
-}
-
-/**
- * Read one picked image as the canonical base64 the Host's attachment store takes.
- * @param file - the file the reader picked.
- * @returns the encoded bytes without the data-URL prefix, or null when the
- *   browser could not read the file at all.
- */
-async function readBase64(file: File): Promise<string | null> {
-  return await new Promise<string | null>((resolve) => {
-    const reader = new FileReader()
-    reader.onload = () => { resolve(payloadOf(reader.result)) }
-    // An unreadable pick is reported like any other refusal: the reader is
-    // still looking at the panel, and a thrown rejection would only surface as
-    // an unhandled one.
-    reader.onerror = () => { resolve(null) }
-    reader.readAsDataURL(file)
-  })
 }
