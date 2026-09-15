@@ -148,6 +148,32 @@ describe('notes panel', () => {
     await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).toBeNull() })
   })
 
+  it('keeps an unsaved draft with the material it was typed in', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([
+        materialSummary({ noteId: note, text: 'first body' }),
+        materialSummary({ noteId: note, id: materialId('m2'), text: 'second body' }),
+      ]),
+      thread: () => thread([]),
+    })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(screen.getByText('first body')).toBeDefined() })
+
+    fireEvent.click(screen.getAllByText('source.chat')[0] as HTMLElement)
+    await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).not.toBeNull() })
+    fireEvent.change(screen.getByLabelText('detail.body'), { target: { value: 'unsaved edit' } })
+
+    // The list stays beside the open detail, so the second row is clicked with
+    // the first material's draft still standing in the pane.
+    fireEvent.click(screen.getAllByText('source.chat')[1] as HTMLElement)
+
+    const editor = await screen.findByLabelText('detail.body')
+    expect((editor as HTMLTextAreaElement).value).toBe('second body')
+    expect(screen.queryByText('detail.save')).toBeNull()
+  })
+
   it('says a conversation has no materials yet in place of the list', async () => {
     const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })

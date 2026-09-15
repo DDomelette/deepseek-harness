@@ -274,6 +274,10 @@ export function NotesPanel({
             />
             {selected !== undefined && (
               <MaterialDetail
+                // The pane's own state — an unsaved draft, the copy feedback,
+                // the locate hint — belongs to the material it was made in, and
+                // the list stays mounted beside it while the reader switches.
+                key={selected.id}
                 material={selected}
                 thread={state.thread}
                 threadLoading={state.threadLoading}

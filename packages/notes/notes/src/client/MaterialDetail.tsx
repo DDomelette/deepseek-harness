@@ -37,6 +37,15 @@ const STATUS_LINES: Readonly<Record<NotesMaterialSummary['status'], NotesKey>> =
   failed: 'status.failed',
 }
 
+/**
+ * Whether a material's source records any position to open.
+ * @param source - the material's collection source.
+ * @returns true when it carries a sequence, a message, or a call.
+ */
+function locatable(source: NotesMaterialSummary['source']): boolean {
+  return [source.seq, source.messageId, source.callId].some(value => value !== null)
+}
+
 /** The detail pane's props: the material, its thread, and the panel's commands. */
 export interface MaterialDetailProps {
   /** The material being shown. */
@@ -65,6 +74,7 @@ export function MaterialDetail({
 }: MaterialDetailProps): ReactNode {
   const [draft, setDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [locating, setLocating] = useState(false)
   const text = material.text ?? ''
   const shown = draft ?? text
   const action = configuredAction(material.action, actions)
@@ -83,7 +93,20 @@ export function MaterialDetail({
         <span className={css.sourceView}>
           {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
         </span>
+        {/* A material collected from the panel records no row, so it offers no
+            entry that could never point anywhere. */}
+        {locatable(material.source) && (
+          <button
+            type="button"
+            className={css.locate}
+            data-notes-locate
+            onClick={() => { setLocating(true) }}
+          >
+            {t('detail.locate')}
+          </button>
+        )}
       </div>
+      {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
       {action !== undefined && (
         <div className={css.template} data-notes-action-template={action.id}>
           <span className={css.templateLabel}>{t('detail.actionTemplate')}</span>
