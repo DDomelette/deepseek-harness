@@ -41,6 +41,14 @@ function contentWith(text = 'a passage worth keeping'): HTMLElement {
   return host
 }
 
+/** One element holding a rendered row around its selectable passage. */
+function contentIn(row: string, text = 'a passage worth keeping'): HTMLElement {
+  const host = document.createElement('div')
+  host.innerHTML = `<div ${row}><p>${text}</p></div>`
+  document.body.append(host)
+  return host
+}
+
 /** Select one node's text, the way a reader's drag does. */
 function select(node: Node): void {
   const range = document.createRange()
@@ -88,6 +96,70 @@ describe('selection bubble', () => {
         callId: null,
         label: 'collect.source',
       },
+    })
+  })
+
+  it('sends the identities of the row the passage started in', async () => {
+    const bench = harness()
+    const content = contentIn('data-chat-anchor-key="user:1" data-chat-seq="42" data-chat-message-id="message-1"')
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.querySelector('p') as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(screen.getByText('collect.add')).toBeDefined() })
+    bench.remote.sessionList.mockResolvedValue(sessions([], [], null))
+
+    fireEvent.click(screen.getByText('collect.add'))
+
+    await waitFor(() => { expect(bench.remote.materialAddText).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddText.mock.calls[0]?.[0]?.source).toMatchObject({
+      view: 'chat',
+      seq: 42,
+      messageId: 'message-1',
+      callId: null,
+    })
+  })
+
+  it('sends the call of the tool row a passage came from', async () => {
+    const bench = harness()
+    const content = contentIn('data-chat-anchor-key="tool:1" data-chat-seq="7"')
+    const wrapper = document.createElement('div')
+    wrapper.setAttribute('data-chat-call-id', 'call-7')
+    wrapper.setAttribute('data-chat-anchor-key', 'call:call-7')
+    wrapper.append(content.querySelector('p') as Node)
+    content.firstElementChild?.append(wrapper)
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.querySelector('p') as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(screen.getByText('collect.add')).toBeDefined() })
+    bench.remote.sessionList.mockResolvedValue(sessions([], [], null))
+
+    fireEvent.click(screen.getByText('collect.add'))
+
+    await waitFor(() => { expect(bench.remote.materialAddText).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddText.mock.calls[0]?.[0]?.source).toMatchObject({
+      seq: 7,
+      messageId: null,
+      callId: 'call-7',
+    })
+  })
+
+  it('sends the sequence of the trajectory row a passage came from', async () => {
+    const bench = harness()
+    const content = contentIn('data-trajectory-row-key="assistant:seq:9" data-trajectory-seq="9"')
+    render(<SelectionBubble {...bench.bubbleProps({ content, view: 'trajectory' })} />)
+    select(content.querySelector('p') as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(screen.getByText('collect.add')).toBeDefined() })
+    bench.remote.sessionList.mockResolvedValue(sessions([], [], null))
+
+    fireEvent.click(screen.getByText('collect.add'))
+
+    await waitFor(() => { expect(bench.remote.materialAddText).toHaveBeenCalledTimes(1) })
+    expect(bench.remote.materialAddText.mock.calls[0]?.[0]?.source).toMatchObject({
+      view: 'trajectory',
+      seq: 9,
+      messageId: null,
+      callId: null,
     })
   })
 

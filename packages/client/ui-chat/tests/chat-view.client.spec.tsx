@@ -130,6 +130,7 @@ function makeChatSource(init: ChatSlice = {}, snapshot?: ChatSnapshot) {
 
 const user = (seq: number, text: string): UserMessageNode => ({
   kind: 'user',
+  messageId: `message-${String(seq)}` as NonNullable<UserMessageNode['messageId']>,
   seq,
   time: seq * 1000,
   content: [{ type: 'text', text }] as never,
@@ -142,7 +143,8 @@ const userInTurn = (seq: number, text: string, turn: number): ConversationNode =
   turn,
 } as unknown as ConversationNode)
 const assistant = (seq: number, text: string, turn = 1, step = 1): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step, blocks: [{ kind: 'text', text }],
+  kind: 'assistant', seq, messageId: `message-${String(seq)}` as NonNullable<AssistantMessageNode['messageId']>,
+  time: seq * 1_000, turn, step, blocks: [{ kind: 'text', text }],
 })
 const reasoningAssistant = (seq: number, text: string, turn = 1, step = 1): AssistantMessageNode => ({
   kind: 'assistant', seq, time: seq * 1_000, turn, step, blocks: [{ kind: 'reasoning', text }],
@@ -939,6 +941,39 @@ describe('ChatView', () => {
         'fixture:user:1', 'fixture:turn-process:1', 'fixture:assistant:2',
         'fixture:tool:a', 'call:a', 'fixture:tool:b', 'call:b',
       ])
+  })
+
+  it('publishes each row\'s sequence and message for a collecting surface', () => {
+    const h = makeHarness({
+      nodes: [user(1, 'do the thing'), assistant(2, 'an answer'), toolResult(3, 'a')],
+    })
+    const view = render(<h.ChatView {...h.props} />)
+
+    expect([...view.container.querySelectorAll('[data-chat-flow-key]')].map(row => ({
+      kind: row.getAttribute('data-chat-flow-kind'),
+      seq: row.getAttribute('data-chat-seq'),
+      messageId: row.getAttribute('data-chat-message-id'),
+    }))).toEqual([
+      { kind: 'user', seq: '1', messageId: 'message-1' },
+      // A Turn-process disclosure renders no single event of its own.
+      { kind: 'turn-process', seq: null, messageId: null },
+      { kind: 'assistant-step', seq: '2', messageId: 'message-2' },
+      // A settled tool row addresses its call; the sequence is its result's.
+      { kind: 'tool-call', seq: '3', messageId: null },
+    ])
+  })
+
+  it('publishes no sequence for a row assembled without a durable event', () => {
+    const h = makeHarness({
+      nodes: [user(1, 'q'), { ...assistant(2, 'cut off'), seq: 2.1, interrupted: true }],
+    })
+    const view = render(<h.ChatView {...h.props} />)
+
+    // An interruption-frozen prefix keeps its message but sits on a synthetic
+    // coordinate, so it publishes no sequence a store could hold.
+    const row = view.container.querySelector('[data-chat-flow-key="fixture:assistant:2.1"]')
+    expect(row?.getAttribute('data-chat-seq')).toBeNull()
+    expect(row?.getAttribute('data-chat-message-id')).toBe('message-2')
   })
 
   it('renders Host-pending steering at the flow tail and hands off to the durable node', () => {

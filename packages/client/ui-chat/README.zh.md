@@ -18,6 +18,7 @@ kind: "package-reference"
 - [轮次 token 用量](#turn-token-usage)
 - [轮次过程折叠](#turn-process-folding)
 - [滚动归属](#scroll-ownership)
+- [DOM 中的行身份](#row-identities)
 - [模型体验](#model-experience)
 - [已知限制与暂缓事项](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
@@ -49,6 +50,13 @@ kind: "package-reference"
 ## 滚动归属
 
 Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点。没有读者移动的贴底滚动事件会立即更新跟随归属，避免后续布局变化使其底部位置失效。读者移动即使位于跟随阈值内，也保持待处理直到采样周期或 `scrollend`，防止布局增长抵消小幅滚动操作。读者跟随底部时，`ResizeObserver` 追随新的底部，并且无需读取行几何就选中最后一个已加载轮次；读者离开底部后，高度变化会保持顶部位置，再由阅读线几何选择活跃轮次。轮次导航预览位于 Markdown 代码块粘性头栏上方，而导航外框始终处于 composer 上方的 transcript 区域内。
+
+-----
+
+<a id="row-identities"></a>
+## DOM 中的行身份
+
+每个 Chat 行都发布它所属 Node 构建时所用的身份，供从 transcript 里读取文本选区的界面使用：`data-chat-seq` 是该行渲染的持久事件 `seq`，`data-chat-message-id` 是它渲染的消息；该行没有对应项时两者都缺席。由没有持久事件序列的行——轮次过程披露行、被中断冻结的前缀——不发布 `data-chat-seq`，而工具行自己的包装层另外带上它所要寻址调用的 `data-chat-call-id`。这些值来自 Node payload，绝不取自 `anchorSeq`：那个坐标只负责行的排序，为落在事件之间而合成的行还可能是分数，因此它不是身份。
 
 -----
 

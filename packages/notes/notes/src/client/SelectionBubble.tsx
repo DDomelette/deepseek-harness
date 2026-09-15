@@ -4,10 +4,9 @@
  *
  * It sits in the conversation's covering layer rather than in the panel, because
  * the passage it collects is the one under the pointer. The Host receives the
- * passage, the View it came from, and a localized label; the message identity
- * behind the selection is not readable from the DOM yet, so a collected material
- * records no sequence and no message id — the same lack the deferred "locate the
- * source text" entry point has.
+ * passage, the View it came from, and a localized label; the identities of the
+ * row the passage started in are read from the row's own DOM attributes and
+ * recorded with it.
  *
  * The bubble appears only over the Views whose collection the notes vocabulary
  * can name, and only while the selection is inside this conversation.
@@ -17,6 +16,8 @@ import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { MaterialSource, NotesActionView } from '../types.ts'
+import { anchorAt } from './anchor.ts'
+import type { CollectedAnchor } from './anchor.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
@@ -40,6 +41,8 @@ interface Bubble {
   /** Where the bubble sits, in viewport coordinates. */
   readonly left: number
   readonly top: number
+  /** What the row the passage started in says about itself. */
+  readonly anchor: CollectedAnchor
 }
 
 /**
@@ -70,7 +73,10 @@ export function SelectionBubble({
       return
     }
     const box = range.getBoundingClientRect()
-    setBubble({ text, left: box.left + box.width / 2, top: box.top })
+    // The row is read here rather than at the click: a press on this layer can
+    // take the selection away before the command runs, and the passage's row is
+    // part of what the reader selected.
+    setBubble({ text, left: box.left + box.width / 2, top: box.top, anchor: anchorAt(range.startContainer) })
     // The actions are read only once a selection offers them: this layer covers
     // every conversation, and most of them never collect anything.
     readSettings()
@@ -82,12 +88,12 @@ export function SelectionBubble({
   }, [measure])
 
   const actions = useStore(state => state.settings?.actions ?? [])
-  const source = (): MaterialSource => ({
+  const source = (anchor: CollectedAnchor): MaterialSource => ({
     sessionId,
     view: view === 'trajectory' ? 'trajectory' : 'chat',
-    seq: null,
-    messageId: null,
-    callId: null,
+    seq: anchor.seq,
+    messageId: anchor.messageId,
+    callId: anchor.callId,
     label: t('collect.source'),
   })
   const submit = (action: string | null): void => {
@@ -95,7 +101,7 @@ export function SelectionBubble({
     /* v8 ignore next -- the button only exists while a bubble does. */
     if (passage === null) return
     void (async () => {
-      const refused = await collect(passage.text, action, source())
+      const refused = await collect(passage.text, action, source(passage.anchor))
       setFailure(refused ?? undefined)
       if (refused === null) setBubble(null)
     })()

@@ -138,6 +138,31 @@ describe('TrajectoryTable', () => {
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['System Prompt'])
   })
 
+  it('publishes each record\'s sequence and call for a collecting surface', () => {
+    const turns: readonly TrajectoryTurnModel[] = [{
+      turn: 1,
+      groups: [{
+        title: 'Step 1',
+        cells: [
+          { index: 1, kind: 'message', text: 'Checking files', sourceSeq: 7, timeSeconds: 1 },
+          { index: 2, kind: 'tool', text: 'bash · {"command":"pwd"}', sourceSeq: 8, callId: 'call-8', timeSeconds: null },
+          { index: 3, kind: 'tool', text: 'bash · {"command":"false"}', timeSeconds: null },
+        ],
+      }],
+    }]
+    const view = render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
+
+    expect([...view.container.querySelectorAll('tr[data-trajectory-row-key]')].map(row => ({
+      seq: row.getAttribute('data-trajectory-seq'),
+      callId: row.getAttribute('data-trajectory-call-id'),
+    }))).toEqual([
+      { seq: '7', callId: null },
+      { seq: '8', callId: 'call-8' },
+      // A record whose projection holds no event of its own publishes neither.
+      { seq: null, callId: null },
+    ])
+  })
+
   it('shows a muted placeholder for an assistant response containing only tool calls', () => {
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
