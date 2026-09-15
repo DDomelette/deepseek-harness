@@ -14,6 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import s from '@deepseek-ai/schemastery'
 import type { SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-settings'
+import type { NotesInvalidActions } from './types.ts'
 
 /** Settings namespace owned by this plugin. */
 export const NOTES_SETTINGS_NAMESPACE = 'notes'
@@ -42,10 +43,33 @@ export type NotesStrategy = 'manual' | 'auto'
 export interface NotesPatch {
   /** Replacement model-call strategy. */
   readonly strategy?: NotesStrategy | undefined
+  /**
+   * Replacement collection actions, as the complete list. Null or undefined
+   * unsets the field, so the composition entry's actions apply again.
+   */
+  readonly actions?: readonly ActionDef[] | null | undefined
   /** Replacement workspace path. */
   readonly workspace?: string | null | undefined
   /** Replacement model override. */
   readonly model?: { readonly provider: string; readonly model: string } | null | undefined
+}
+
+/**
+ * Whether one list of actions is usable: every action needs a non-blank id,
+ * label, and prompt, and no two actions may share an id. A material stores the
+ * id it was collected under, so a blank or duplicated one would name an action
+ * the notes can no longer resolve.
+ * @param actions - the list a write carried.
+ * @returns true when the notes can use every action in it.
+ */
+function usable(actions: readonly ActionDef[]): boolean {
+  const ids = new Set<string>()
+  return actions.every((action) => {
+    const id = action.id.trim()
+    if (id === '' || action.label.trim() === '' || action.prompt.trim() === '' || ids.has(id)) return false
+    ids.add(id)
+    return true
+  })
 }
 
 /** Composition entry, also the settings base layer. */
@@ -189,16 +213,29 @@ export class NotesSettings extends Service {
    * section's schema expresses an absent workspace or model override as an
    * absent field; that is also what returns the field to the composition
    * default.
+   *
+   * The action list is written whole rather than by index: the card holds the
+   * complete list, and an index-addressed path would drift as soon as the list
+   * changes shape.
    * @param patch - the fields to change.
+   * @returns the refusal for an unusable action list, otherwise null.
    * @throws {Error} when no settings provider is mounted.
    */
-  async update(patch: NotesPatch): Promise<void> {
+  async update(patch: NotesPatch): Promise<NotesInvalidActions | null> {
     const settings = this.ctx.get('settings')
     if (settings === undefined) {
       throw new Error('notes: no settings provider is mounted, so the notes section cannot be written')
     }
     const ops: SettingsPathOp[] = []
     if (patch.strategy !== undefined) ops.push({ op: 'set', path: ['strategy'], value: patch.strategy })
+    if ('actions' in patch) {
+      if (patch.actions === null || patch.actions === undefined) {
+        ops.push({ op: 'unset', path: ['actions'] })
+      } else {
+        if (!usable(patch.actions)) return { code: 'invalid-actions' }
+        ops.push({ op: 'set', path: ['actions'], value: patch.actions })
+      }
+    }
     if ('workspace' in patch) {
       ops.push(patch.workspace === null || patch.workspace === undefined
         ? { op: 'unset', path: ['workspace'] }
@@ -209,8 +246,9 @@ export class NotesSettings extends Service {
         ? { op: 'unset', path: ['model'] }
         : { op: 'set', path: ['model'], value: patch.model })
     }
-    if (ops.length === 0) return
+    if (ops.length === 0) return null
     await settings.mutate(NOTES_SETTINGS_NAMESPACE, ops)
+    return null
   }
 }
 

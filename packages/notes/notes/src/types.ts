@@ -286,6 +286,11 @@ export interface NotesSettingsView {
 export interface NotesSettingsUpdateRequest {
   /** Replacement model-call strategy. */
   readonly strategy?: 'manual' | 'auto'
+  /**
+   * Replacement collection actions, as the complete list. Null clears the user
+   * value and returns the list to the composition default.
+   */
+  readonly actions?: readonly NotesActionView[] | null
   /** Replacement workspace path, or null to clear it. */
   readonly workspace?: string | null
   /** Replacement model override, or null to follow the session default. */
@@ -371,6 +376,14 @@ export interface NotesSettingsUnavailable {
   readonly code: 'settings-unavailable'
 }
 
+/**
+ * A settings write carried a collection action the notes cannot use: an id,
+ * label, or prompt that is blank once trimmed, or two actions sharing one id.
+ */
+export interface NotesInvalidActions {
+  readonly code: 'invalid-actions'
+}
+
 /** The deployment mounts no attachment store, so an image cannot be stored. */
 export interface NotesAttachmentsUnavailable {
   readonly code: 'attachments-unavailable'
@@ -389,6 +402,7 @@ export type NotesFailure =
   | NotesUnknownAction
   | NotesImageUnsupported
   | NotesSettingsUnavailable
+  | NotesInvalidActions
   | NotesAttachmentsUnavailable
 
 /**
@@ -513,4 +527,4 @@ export type NotesSettingsReadResult =
 /** Result of `notes/settingsUpdate`. */
 export type NotesSettingsUpdateResult =
   | NotesSuccess<NotesApplied>
-  | NotesRejected<NotesSettingsUnavailable>
+  | NotesRejected<NotesSettingsUnavailable | NotesInvalidActions>

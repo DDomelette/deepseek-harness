@@ -6,9 +6,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotesSettingsCard } from '../src/client/NotesSettingsCard.tsx'
+import type { NotesActionView } from '../src/types.ts'
 import { harness, settings, unavailable } from './fixtures.client.ts'
 
 afterEach(cleanup)
+
+/** The collection action the default fixture section carries. */
+const TRANSLATE: NotesActionView = {
+  id: 'translate',
+  label: '翻译',
+  prompt: '不改变语句结构，翻译下列内容：',
+  autoSend: true,
+}
 
 /** Render the card over one bench's stored section. */
 function show(bench: ReturnType<typeof harness>, close = vi.fn()): void {
@@ -41,7 +50,11 @@ describe('notes settings card', () => {
     expect(document.querySelector('[data-notes-strategy="manual"]')?.getAttribute('aria-pressed')).toBe('true')
     expect(document.querySelector('[data-notes-strategy="auto"]')?.getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/notes')
-    expect(screen.getByText('翻译')).toBeDefined()
+    // An action's label and prompt are what the reader edits, so they are the
+    // fields' values rather than a read-only line.
+    expect(screen.getByLabelText<HTMLInputElement>('settings.actionLabel(action=translate)').value).toBe('翻译')
+    expect(screen.getByLabelText<HTMLTextAreaElement>('settings.actionPrompt(action=translate)').value)
+      .toBe('不改变语句结构，翻译下列内容：')
     expect(screen.getByText('settings.autoSend')).toBeDefined()
   })
 
@@ -72,6 +85,41 @@ describe('notes settings card', () => {
     fireEvent.click(document.querySelector('[data-notes-strategy="auto"]')!)
 
     expect(save).toHaveBeenCalledExactlyOnceWith({ strategy: 'auto' })
+  })
+
+  it('edits one action\'s label and prompt, and keeps the others as stored', async () => {
+    const clip: NotesActionView = { id: 'clip', label: '剪藏', prompt: '保存：', autoSend: false }
+    const bench = harness({ settings: () => settings({ actions: [TRANSLATE, clip] }) })
+    const save = vi.spyOn(bench.props(), 'saveSettings')
+    await opened(bench)
+
+    fireEvent.change(screen.getByLabelText('settings.actionLabel(action=translate)'), { target: { value: '译' } })
+    fireEvent.change(screen.getByLabelText('settings.actionPrompt(action=translate)'), { target: { value: '翻译下面这段：' } })
+    fireEvent.click(document.querySelector('[data-notes-save-action="translate"]') as Element)
+
+    expect(save).toHaveBeenCalledExactlyOnceWith({
+      actions: [{ ...TRANSLATE, label: '译', prompt: '翻译下面这段：' }, clip],
+    })
+  })
+
+  it('keeps an action\'s save disabled until its copy changes', async () => {
+    const bench = harness()
+    await opened(bench)
+
+    expect(document.querySelector('[data-notes-save-action="translate"]')?.hasAttribute('disabled')).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('settings.actionLabel(action=translate)'), { target: { value: '译' } })
+
+    expect(document.querySelector('[data-notes-save-action="translate"]')?.hasAttribute('disabled')).toBe(false)
+  })
+
+  it('keeps an action\'s save disabled while a field is blank', async () => {
+    const bench = harness()
+    await opened(bench)
+
+    fireEvent.change(screen.getByLabelText('settings.actionPrompt(action=translate)'), { target: { value: '   ' } })
+
+    expect(document.querySelector('[data-notes-save-action="translate"]')?.hasAttribute('disabled')).toBe(true)
   })
 
   it('saves the workspace, and clears it when the field is emptied', async () => {

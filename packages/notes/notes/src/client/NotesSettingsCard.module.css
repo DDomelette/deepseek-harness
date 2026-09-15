@@ -74,29 +74,30 @@
 
 .actionRow {
   display: flex;
-  gap: 8px;
-  align-items: baseline;
-  padding: 4px 8px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
   font-size: 12px;
   background: var(--dsw-alias-bg-layer-2);
   border-radius: 6px;
 }
 
-.actionLabel {
-  flex: none;
-  font-weight: 600;
+.actionPrompt {
+  composes: field;
+  min-height: 44px;
+  font-size: 12px;
+  resize: vertical;
 }
 
-.actionPrompt {
-  flex: 1;
-  overflow: hidden;
-  color: var(--dsw-alias-label-tertiary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.actionFoot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .actionFlags {
   flex: none;
+  margin-left: auto;
   color: var(--dsw-alias-label-tertiary);
 }
 

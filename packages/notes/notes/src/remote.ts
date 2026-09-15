@@ -295,11 +295,13 @@ export class NotesRemote extends TypertRemoteService {
   @Remote
   async settingsUpdate(request: NotesSettingsUpdateRequest): Promise<NotesSettingsUpdateResult> {
     if (!this.ctx.notesSettings.writable()) return rejected({ code: 'settings-unavailable' })
-    await this.ctx.notesSettings.update({
+    const invalid = await this.ctx.notesSettings.update({
       ...request.strategy === undefined ? {} : { strategy: request.strategy },
+      ...'actions' in request ? { actions: request.actions ?? null } : {},
       ...'workspace' in request ? { workspace: request.workspace ?? null } : {},
       ...'model' in request ? { model: request.model ?? null } : {},
     })
+    if (invalid !== null) return rejected(invalid)
     return success(APPLIED)
   }
 
