@@ -131,7 +131,7 @@ None on the derived request prefix. Each submission appends to its own conversat
 
 These limits define when this package is a poor fit or needs special operational care. They are current constraints, not a task backlog.
 
-- **A collected passage carries no message identity** — the bubble reads the selection from the conversation's DOM, which does not mark which message it came from, so a material records no `seq`, `messageId`, or `callId` and the deferred "locate the source text" entry point has nothing to point at yet.
+- **A collected passage records where it came from but cannot return there** — the bubble reads `seq`, `messageId`, and `callId` from the DOM row the selection started in, so a material carries its source identities; no entry point opens that row yet, because the conversation's public face offers no view navigation to a panel outside the conversation slot tree.
 - **A screenshot comes from the panel, not from the conversation** — `notes/materialAddImage` stores the reference its attachment store returns and submits that reference as the image block, but nothing captures a region of the conversation itself, and the panel collects a file rather than a paste.
 - **A route that declares text-only input refuses the screenshot** — the conversation's model metadata decides: an explicit text-only declaration reports `image-unsupported` and the panel asks for another model, while a route whose modalities are unknown is treated as capable and the request assembly decides.
 - **A notes conversation must be live** — `analyse` and `ask` resolve the live Agent through `ctx.agents`, so a conversation whose process restarted reports `session-not-live` until it is reopened, and a material whose turn never closed stays `analyzing` because only a closing turn settles one.
@@ -150,7 +150,7 @@ This Dev Note is working context for maintainers: open directions that are not d
 
 #### Next phases
 
-What is left is the source side of collection and the collection side of a screenshot: a collected passage records no message identity because the conversation DOM does not mark which message a selection came from, and a screenshot is picked from the panel's own control rather than captured or pasted in the conversation. The design record for the whole feature, including the deferred "locate the source text" entry point, is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
+What is left is the way back to a material's source and the collection side of a screenshot: a material records its source row's identities but nothing opens them, so the "locate the source text" entry point needs `IConversation.openView` on the product side, and a screenshot is picked from the panel's own control rather than captured or pasted in the conversation. The design record for the whole feature is `docs/superpowers/specs/2026-09-11-dsh-notes-design.md`.
 
 </details>
 

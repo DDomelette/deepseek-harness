@@ -18,6 +18,7 @@ File-mention providers receive the viewed Session ID with the closing-turn owner
 - [Turn token usage](#turn-token-usage)
 - [Turn Process Folding](#turn-process-folding)
 - [Scroll ownership](#scroll-ownership)
+- [Row identities in the DOM](#row-identities)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
@@ -47,6 +48,13 @@ Settings → General exposes a persisted, localized `Normal` / `Compact` convers
 ## Scroll ownership
 
 Chat restores semantic anchors across history prepend and renderer remounts. Pinned scroll deliveries without reader movement update follow ownership immediately, before subsequent layout changes can invalidate their floor. Reader movement remains pending until the sampling interval or `scrollend`, even inside the follow threshold, so layout growth cannot erase small scroll gestures. While the reader is pinned to the floor, `ResizeObserver` follows the new floor and selects the latest loaded Turn without reading row geometry. Once the reader moves away, flow-height changes preserve the top position and the reading-line geometry selects the active Turn. Turn-rail previews paint above sticky Markdown code-block banners, while the rail frame remains inside the transcript band above the composer.
+
+-----
+
+<a id="row-identities"></a>
+## Row identities in the DOM
+
+Every Chat row publishes the identities its Node was built from, for surfaces that read a text selection out of the transcript: `data-chat-seq` carries the durable event `seq` the row renders and `data-chat-message-id` the message it renders, each absent when that row names none. A row assembled without a durable event sequence — a Turn-process disclosure, an interruption-frozen prefix — publishes no `data-chat-seq`, and a Tool row's own wrapper adds `data-chat-call-id` for the call it addresses. The values come from the Node payload, never from `anchorSeq`: that coordinate orders rows, may be fractional for a row synthesized between events, and is therefore not an identity.
 
 -----
 
