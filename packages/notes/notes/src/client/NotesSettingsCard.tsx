@@ -1,17 +1,18 @@
 /**
  * The notes settings card: what the deployment's notes section resolves to,
- * and the three fields a reader can change from the panel.
+ * and the fields a reader can change from the panel.
  *
  * The card edits one field at a time and writes only what changed, so two
  * readers on the same document cannot overwrite each other's unrelated fields.
- * The collection actions stay read-only here: they are a list of prompt
- * templates, and editing them needs a form this card does not have yet.
+ * A collection action is the exception: an action's label and prompt are edited
+ * in place and written as the complete list, because the list is one document
+ * value and an index-addressed write would drift as soon as it changes shape.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { NotesSettingsView } from '../types.ts'
+import type { NotesActionView, NotesSettingsView } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
@@ -143,13 +144,20 @@ function SettingsForm({ settings, commands, t }: {
         <h3 className={css.heading}>{t('settings.actions')}</h3>
         <ul className={css.actions}>
           {settings.actions.map(action => (
-            <li key={action.id} className={css.actionRow} data-notes-action={action.id}>
-              <span className={css.actionLabel}>{action.label}</span>
-              <span className={css.actionPrompt}>{action.prompt}</span>
-              <span className={css.actionFlags}>
-                {action.autoSend ? t('settings.autoSend') : t('settings.manualSend')}
-              </span>
-            </li>
+            <ActionRow
+              key={action.id}
+              action={action}
+              t={t}
+              save={(edited) => {
+                // The list is one document value, so an edit writes the whole
+                // list with this action replaced and every other action as the
+                // last read resolved it.
+                commands.saveSettings({
+                  actions: settings.actions.map(candidate =>
+                    candidate.id === action.id ? edited : candidate),
+                })
+              }}
+            />
           ))}
         </ul>
       </section>
@@ -157,5 +165,57 @@ function SettingsForm({ settings, commands, t }: {
         <p className={css.line} data-notes-settings-readonly>{t('settings.readOnly')}</p>
       )}
     </>
+  )
+}
+
+/**
+ * One configured collection action, editable in place.
+ *
+ * The draft lives here rather than in the form so each row keeps its own edit;
+ * the save is offered only once the copy differs from what the Host resolved,
+ * and never while a field is blank, which is what the Host refuses too.
+ * @param props - the action, the write to make, and copy.
+ * @returns the row.
+ */
+function ActionRow({ action, save, t }: {
+  readonly action: NotesActionView
+  readonly save: (action: NotesActionView) => void
+  readonly t: PropsLocale<'notes'>['t']
+}): ReactNode {
+  const [label, setLabel] = useState(action.label)
+  const [prompt, setPrompt] = useState(action.prompt)
+  const changed = label !== action.label || prompt !== action.prompt
+  const blank = label.trim() === '' || prompt.trim() === ''
+  return (
+    <li className={css.actionRow} data-notes-action={action.id}>
+      <input
+        className={css.field}
+        aria-label={t('settings.actionLabel', { action: action.id })}
+        data-notes-action-label={action.id}
+        value={label}
+        onChange={(event) => { setLabel(event.target.value) }}
+      />
+      <textarea
+        className={css.actionPrompt}
+        aria-label={t('settings.actionPrompt', { action: action.id })}
+        data-notes-action-prompt={action.id}
+        value={prompt}
+        onChange={(event) => { setPrompt(event.target.value) }}
+      />
+      <div className={css.actionFoot}>
+        <button
+          type="button"
+          className={css.action}
+          data-notes-save-action={action.id}
+          disabled={!changed || blank}
+          onClick={() => { save({ ...action, label, prompt }) }}
+        >
+          {t('settings.saveAction')}
+        </button>
+        <span className={css.actionFlags}>
+          {action.autoSend ? t('settings.autoSend') : t('settings.manualSend')}
+        </span>
+      </div>
+    </li>
   )
 }

@@ -752,4 +752,27 @@ describe('notes remote settings', () => {
     await expect(host.remote.settingsUpdate({ workspace: null })).resolves.toEqual({ ok: true, value: applied })
     expect(host.base.settings.workspace()).toBe(workspace)
   })
+
+  it('replaces the collection actions through one write, and refuses a list the notes cannot use', async () => {
+    const translate: ActionDef = {
+      id: 'translate',
+      label: '翻译',
+      prompt: '不改变语句结构，翻译下列内容：',
+      autoSend: true,
+    }
+    const edited: ActionDef = { ...translate, label: '译', prompt: '翻译下面这段：' }
+    const host = await mount({ actions: [translate] })
+    await host.ctx.plugin(MemorySettings).await()
+
+    await expect(host.remote.settingsUpdate({ actions: [edited] })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.actions()).toEqual([edited])
+
+    await expect(host.remote.settingsUpdate({ actions: [{ ...edited, prompt: '   ' }] }))
+      .resolves.toEqual({ ok: false, error: { code: 'invalid-actions' } })
+    expect(host.base.settings.actions()).toEqual([edited])
+
+    // Clearing the user value returns the list to the composition entry.
+    await expect(host.remote.settingsUpdate({ actions: null })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.actions()).toEqual([translate])
+  })
 })

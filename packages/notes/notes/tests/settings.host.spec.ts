@@ -153,6 +153,46 @@ describe('notes settings', () => {
     expect(notes.model()).toBeNull()
   })
 
+  it('replaces the whole action list', async () => {
+    const notes = await bench()
+    const actions = [{ id: 'translate', label: '译', prompt: '翻译下面这段：', autoSend: true }]
+
+    expect(await notes.update({ actions })).toBeNull()
+
+    expect(notes.actions()).toEqual(actions)
+  })
+
+  it('clears the action list back to the composition entry', async () => {
+    const notes = await bench()
+    await notes.update({ actions: [{ id: 'translate', label: '译', prompt: '翻译：', autoSend: true }] })
+
+    expect(await notes.update({ actions: null })).toBeNull()
+
+    expect(notes.actions()).toEqual([])
+  })
+
+  it('refuses an action with no id, label, or prompt', async () => {
+    const notes = await bench()
+    const action = { id: 'translate', label: '译', prompt: '翻译：', autoSend: true }
+
+    expect(await notes.update({ actions: [{ ...action, id: '  ' }] })).toEqual({ code: 'invalid-actions' })
+    expect(await notes.update({ actions: [{ ...action, label: ' ' }] })).toEqual({ code: 'invalid-actions' })
+    expect(await notes.update({ actions: [{ ...action, prompt: '\n' }] })).toEqual({ code: 'invalid-actions' })
+
+    // Nothing was written, so the refused list never became the section.
+    expect(notes.actions()).toEqual([])
+  })
+
+  it('refuses two actions sharing one id', async () => {
+    const notes = await bench()
+    const action = { id: 'translate', label: '译', prompt: '翻译：', autoSend: true }
+
+    expect(await notes.update({ actions: [action, { ...action, label: '另一条' }] }))
+      .toEqual({ code: 'invalid-actions' })
+
+    expect(notes.actions()).toEqual([])
+  })
+
   it('writes nothing for an empty patch', async () => {
     const notes = await bench()
 

@@ -61,7 +61,7 @@ The browser half registers one page type with `ctx.sidebarRightTabs` — kind `n
 
 ### Settings
 
-The settings card edits the same section the composition entry seeds: the model-call strategy, the workspace, and the model override. It writes one field at a time through `notes/settingsUpdate`, which unsets a field rather than storing null, so clearing the workspace or the model override returns that field to the composition default. The collection actions are listed read-only; editing a list of prompt templates needs a form this card does not have. A deployment with no writable settings provider reports that instead of offering the controls.
+The settings card edits the same section the composition entry seeds: the model-call strategy, the workspace, the model override, and each collection action's label and prompt. It writes one field at a time through `notes/settingsUpdate`, which unsets a field rather than storing null, so clearing the workspace or the model override returns that field to the composition default. An action's edit is the exception to one-field writes: the card sends the complete list with that action replaced, because the list is one document value. The Host refuses a list whose action carries a blank id, label, or prompt, or two actions sharing an id, and reports `invalid-actions`; the card also offers no save while a field is blank. A deployment with no writable settings provider reports that instead of offering the controls.
 
 ### What to expect
 
