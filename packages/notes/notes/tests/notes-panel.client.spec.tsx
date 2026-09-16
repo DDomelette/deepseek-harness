@@ -314,6 +314,23 @@ describe('notes panel', () => {
     })
   })
 
+  it('reports a directory browser the host cannot read', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    bench.directoryPicker.list.mockResolvedValueOnce({ ok: false, error: unavailable('unreadable') })
+    render(<NotesPanel {...bench.props()} />)
+    fireEvent.click(screen.getByLabelText('panel.settings'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse]')).not.toBeNull() })
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    // The panel is subscribed to the store, so the refusal reaches the card's
+    // failure line.
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-settings-failure="directory-unavailable"]')).not.toBeNull()
+    })
+  })
+
   it('collects a picked screenshot as its own material', async () => {
     const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })

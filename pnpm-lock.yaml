@@ -7857,6 +7857,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../../client/ui-slots
+      '@deepseek-ai/dsh-host-directory-picker':
+        specifier: workspace:^
+        version: link:../../host/directory-picker
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session

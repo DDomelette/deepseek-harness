@@ -10,6 +10,7 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesSettingsView } from '../types.ts'
@@ -66,13 +67,30 @@ function SettingsForm({ settings, commands, t }: {
   const [workspace, setWorkspace] = useState(settings.workspace ?? '')
   const [provider, setProvider] = useState(settings.model?.provider ?? '')
   const [model, setModel] = useState(settings.model?.model ?? '')
+  const [listed, setListed] = useState<DirectoryListing | undefined>(undefined)
+  const [reading, setReading] = useState(false)
   const overridden = settings.model !== null
-  /** Fill the directory field from the host's own chooser. */
+  /**
+   * Read one directory level into the card's browser.
+   * @param path - the level to show, or null for the host's home directory.
+   */
+  const readLevel = async (path: string | null): Promise<void> => {
+    setReading(true)
+    const level = await commands.listDirectories(path)
+    setReading(false)
+    // A refused level leaves the browser where it was; the face reports the
+    // refusal on the card's failure line.
+    if (level !== null) setListed(level)
+  }
+  /** Fill the directory field from the host's own chooser, or browse when it serves none. */
   const browse = async (): Promise<void> => {
     const picked = await commands.pickDirectory()
-    // Null is a cancelled chooser or a deployment that serves none; the face
-    // reports the second case on the card's failure line.
-    if (picked !== null) setWorkspace(picked)
+    if (picked.kind === 'picked') {
+      setWorkspace(picked.path)
+      return
+    }
+    if (picked.kind === 'cancelled') return
+    await readLevel(null)
   }
   return (
     <>
@@ -111,6 +129,19 @@ function SettingsForm({ settings, commands, t }: {
             {t('settings.browse')}
           </button>
         </div>
+        {listed !== undefined && (
+          <DirectoryBrowser
+            listing={listed}
+            reading={reading}
+            t={t}
+            open={(path) => { void readLevel(path) }}
+            choose={() => {
+              setWorkspace(listed.path)
+              setListed(undefined)
+            }}
+            close={() => { setListed(undefined) }}
+          />
+        )}
         <button
           type="button"
           className={css.action}
@@ -180,6 +211,68 @@ function SettingsForm({ settings, commands, t }: {
         </ul>
       </section>
     </>
+  )
+}
+
+/**
+ * The directory browser a deployment without a native chooser gets.
+ *
+ * It shows one level at a time — the host lists directories and their ancestry,
+ * so the card never joins path segments itself — and the reader descends by
+ * opening a child and chooses by taking the level it is standing in. Hidden
+ * entries stay out of the list: the host platform's convention decides which
+ * they are, and a configuration field does not need them.
+ * @param props - the level, its read state, the navigations, and copy.
+ * @returns the browser.
+ */
+function DirectoryBrowser({ listing, reading, open, choose, close, t }: {
+  readonly listing: DirectoryListing
+  readonly reading: boolean
+  readonly open: (path: string) => void
+  readonly choose: () => void
+  readonly close: () => void
+  readonly t: PropsLocale<'notes'>['t']
+}): ReactNode {
+  const parent = listing.crumbs.at(-2)
+  return (
+    <div className={css.browser} data-notes-browser>
+      <p className={css.browserPath} data-notes-browser-path>{listing.path}</p>
+      {reading && <p className={css.line}>{t('settings.browseReading')}</p>}
+      <ul className={css.browserList}>
+        {listing.entries.filter(entry => !entry.hidden).map(entry => (
+          <li key={entry.path}>
+            <button
+              type="button"
+              className={css.browserEntry}
+              data-notes-browse-entry={entry.path}
+              onClick={() => { open(entry.path) }}
+            >
+              {entry.name}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className={css.browserActions}>
+        {/* The filesystem root has no parent, so the control that needs one is not drawn. */}
+        {parent !== undefined && (
+          <button
+            type="button"
+            className={css.action}
+            data-notes-browse-up
+            disabled={reading}
+            onClick={() => { open(parent.path) }}
+          >
+            {t('settings.browseUp')}
+          </button>
+        )}
+        <button type="button" className={css.action} data-notes-browse-choose onClick={choose}>
+          {t('settings.browseChoose')}
+        </button>
+        <button type="button" className={css.action} data-notes-browse-close onClick={close}>
+          {t('settings.browseClose')}
+        </button>
+      </div>
+    </div>
   )
 }
 

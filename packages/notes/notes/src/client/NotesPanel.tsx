@@ -74,7 +74,7 @@ export type NotesPanelProps =
 export function NotesPanel({
   sessionId, useStore, useTabInfo, actions, load, refresh, createConversation, openSession,
   archiveSession, restoreSession, select, saveText, analyze, ask, archive, restore, reorder,
-  present, readSettings, saveSettings, pickDirectory, collect, addImage, remove, t,
+  present, readSettings, saveSettings, pickDirectory, listDirectories, collect, addImage, remove, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
   const { tab, panel } = useTabInfo()
@@ -91,7 +91,7 @@ export function NotesPanel({
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
     select, saveText, analyze, ask, archive, restore, reorder, present,
-    readSettings, saveSettings, pickDirectory, collect, addImage, remove,
+    readSettings, saveSettings, pickDirectory, listDirectories, collect, addImage, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)
   const selected = state.materials.find(row => row.id === state.selected)

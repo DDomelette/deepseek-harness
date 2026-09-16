@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotesSettingsCard } from '../src/client/NotesSettingsCard.tsx'
 import type { NotesActionView } from '../src/types.ts'
-import { harness, settings, unavailable } from './fixtures.client.ts'
+import { harness, directoryListing, settings, unavailable } from './fixtures.client.ts'
 
 afterEach(cleanup)
 
@@ -160,6 +160,71 @@ describe('notes settings card', () => {
     await waitFor(() => { expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1) })
 
     expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/mine')
+  })
+
+  it('browses the host when the deployment serves no native chooser', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-browser]')).not.toBeNull() })
+    // The host home, and one level of it: hidden entries stay out of the list,
+    // and a level with no parent above it offers no way up.
+    expect(screen.getByText('/work')).toBeDefined()
+    expect(document.querySelector('[data-notes-browse-entry="/work/notes"]')).not.toBeNull()
+    expect(document.querySelector('[data-notes-browse-entry="/work/.hidden"]')).toBeNull()
+    expect(document.querySelector('[data-notes-browse-up]')).toBeNull()
+  })
+
+  it('descends, goes back up, and takes the level it stands in', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValue({ ok: false, error: unavailable('no chooser') })
+    bench.directoryPicker.list.mockImplementation(async path => ({
+      ok: true,
+      value: directoryListing(path === '/work/notes'
+        ? {
+          path: '/work/notes',
+          crumbs: [
+            { name: '/', path: '/', hidden: false },
+            { name: 'work', path: '/work', hidden: false },
+            { name: 'notes', path: '/work/notes', hidden: false },
+          ],
+          entries: [],
+        }
+        : {}),
+    }))
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse-entry="/work/notes"]')).not.toBeNull() })
+
+    fireEvent.click(document.querySelector('[data-notes-browse-entry="/work/notes"]') as Element)
+    await waitFor(() => { expect(screen.getByText('/work/notes')).toBeDefined() })
+
+    fireEvent.click(document.querySelector('[data-notes-browse-up]') as Element)
+    await waitFor(() => { expect(screen.getByText('/work')).toBeDefined() })
+
+    fireEvent.click(document.querySelector('[data-notes-browse-choose]') as Element)
+
+    // Taking a level fills the field and closes the browser.
+    expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work')
+    expect(document.querySelector('[data-notes-browser]')).toBeNull()
+  })
+
+  it('leaves the field alone when the browser is cancelled', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browser]')).not.toBeNull() })
+
+    fireEvent.click(document.querySelector('[data-notes-browse-close]') as Element)
+
+    expect(document.querySelector('[data-notes-browser]')).toBeNull()
+    expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/notes')
   })
 
   it('saves a model override once both names are given', async () => {

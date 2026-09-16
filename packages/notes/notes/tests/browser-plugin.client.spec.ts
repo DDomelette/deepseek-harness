@@ -19,7 +19,7 @@ import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
 import {
-  materialSummary, materials, noteId, sessionSummary, sessions, source,
+  directoryListing, materialSummary, materials, noteId, sessionSummary, sessions, source,
 } from './fixtures.client.ts'
 
 /** One recorded slot registration. */
@@ -60,7 +60,10 @@ async function boot() {
     materialAddText: vi.fn(async () => ({ ok: true, value: { ok: true, value: { id: 'm1' } } })),
   }
   const sidebarRight = { openTab: vi.fn() }
-  const directoryPicker = { pick: vi.fn(async () => ({ ok: true, value: '/work/chosen' })) }
+  const directoryPicker = {
+    pick: vi.fn(async () => ({ ok: true, value: '/work/chosen' })),
+    list: vi.fn(async () => ({ ok: true, value: directoryListing() })),
+  }
   ctx.provide('sidebarRightTabs', tabs as never)
   ctx.provide('slots', slots as never)
   ctx.provide('locale', locale as never)
