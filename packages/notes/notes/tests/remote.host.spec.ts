@@ -779,6 +779,26 @@ describe('notes remote settings', () => {
       .resolves.toEqual({ ok: true, value: applied })
     expect(host.base.settings.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
 
+    // A named effort is stored, and the read reports it; an absent one reads
+    // as null rather than as a missing field.
+    await host.remote.settingsUpdate({
+      model: { provider: 'deepseek', model: 'deepseek-v4-pro', reasoningEffort: 'max' },
+    })
+    expect(host.base.settings.model())
+      .toEqual({ provider: 'deepseek', model: 'deepseek-v4-pro', reasoningEffort: 'max' })
+    expect(host.remote.settingsRead()).toMatchObject({
+      ok: true,
+      value: { model: { provider: 'deepseek', model: 'deepseek-v4-pro', reasoningEffort: 'max' } },
+    })
+
+    await expect(host.remote.settingsUpdate({ model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: null } }))
+      .resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.settings.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
+    expect(host.remote.settingsRead()).toMatchObject({
+      ok: true,
+      value: { model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: null } },
+    })
+
     await expect(host.remote.settingsUpdate({ model: null })).resolves.toEqual({ ok: true, value: applied })
     expect(host.base.settings.model()).toBeNull()
   })

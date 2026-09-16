@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
 import type { DirectoryPickerBrowseCapability } from '@deepseek-ai/dsh-host-directory-picker'
-import BrowseDirectoryPicker, { boundedInsert, fullyQualified, raceAbort } from '../src/index.ts'
+import BrowseDirectoryPicker, { boundedInsert, fullyQualified, listingDrives, raceAbort } from '../src/index.ts'
 import type { ListingCandidate } from '../src/index.ts'
 
 let root: string
@@ -106,6 +106,36 @@ describe('BrowseDirectoryPicker', () => {
     const failure = await capability.list(missing, live.signal).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(DirectoryPickerError)
     expect((failure as DirectoryPickerError).code).toBe('directory-unreadable')
+  })
+
+  it('carries the mounted drive roots on Windows and none elsewhere', async () => {
+    // A synthetic probe: the platform decides whether the field exists at all,
+    // and the probe decides which letters are volumes behind it.
+    const mounted = new Set(['C:\\', 'D:\\'])
+    const probe = async (drive: string): Promise<boolean> => mounted.has(drive)
+    await expect(listingDrives('win32', probe)).resolves.toEqual([
+      { name: 'C:\\', path: 'C:\\', hidden: false },
+      { name: 'D:\\', path: 'D:\\', hidden: false },
+    ])
+    await expect(listingDrives('win32', async () => false)).resolves.toEqual([])
+    // One root on POSIX: the drive level does not exist, so the field is absent.
+    await expect(listingDrives('linux', probe)).resolves.toBeUndefined()
+    await expect(listingDrives('darwin', probe)).resolves.toBeUndefined()
+  })
+
+  it('probes the host\'s own drives, and lists them beside a real level on Windows', async () => {
+    const listing = await capability.list(root)
+    if (process.platform === 'win32') {
+      // The running host's own volumes, by letter, including the one holding
+      // the temporary tree this suite lists.
+      const system = `${(process.env.SystemDrive ?? 'C:').slice(0, 2)}\\`
+      expect(listing.drives?.map(drive => drive.path)).toContain(system)
+      expect(listing.drives?.every(drive => /^[A-Z]:\\$/.test(drive.name))).toBe(true)
+      expect(listing.drives?.map(drive => drive.name)).toEqual([...listing.drives ?? []]
+        .map(drive => drive.name).sort())
+    } else {
+      expect(listing.drives).toBeUndefined()
+    }
   })
 
   it('raceAbort follows the operation until the signal wins, and swallows the abandoned settlement', async () => {

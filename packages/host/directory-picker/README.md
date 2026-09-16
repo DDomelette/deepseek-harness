@@ -37,7 +37,7 @@ The [native backend](../directory-picker-native/README.md) is the right choice w
 
 ### What rows carry
 
-`DirectoryEntry` rows expose the absolute `path` and a host-owned `hidden` flag (dot-prefixed on POSIX) so display policy stays client-side; clients never join path segments themselves. `DirectoryListing.crumbs` is the ancestor chain from the filesystem root to the listed directory — every crumb is a jump target, and the root crumb is labeled by its full path.
+`DirectoryEntry` rows expose the absolute `path` and a host-owned `hidden` flag (dot-prefixed on POSIX) so display policy stays client-side; clients never join path segments themselves. `DirectoryListing.crumbs` is the ancestor chain from the filesystem root to the listed directory — every crumb is a jump target, and the root crumb is labeled by its full path. A platform whose root is one of several volumes reports them in `drives`, because that ancestry stops at the listed path's own volume: a Windows backend lists its mounted drive letters, so a browser can step from a drive root to the others.
 
 -----
 

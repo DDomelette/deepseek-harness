@@ -19,7 +19,7 @@ import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
 import {
-  directoryListing, materialSummary, materials, noteId, sessionSummary, sessions, source,
+  directoryListing, materialSummary, materials, modelCatalog, noteId, sessionSummary, sessions, source,
 } from './fixtures.client.ts'
 
 /** One recorded slot registration. */
@@ -64,12 +64,14 @@ async function boot() {
     pick: vi.fn(async () => ({ ok: true, value: '/work/chosen' })),
     list: vi.fn(async () => ({ ok: true, value: directoryListing() })),
   }
+  const session = { modelCatalog: vi.fn(async () => modelCatalog()) }
   ctx.provide('sidebarRightTabs', tabs as never)
   ctx.provide('slots', slots as never)
   ctx.provide('locale', locale as never)
-  ctx.provide('remote', { notes, directoryPicker } as never)
+  ctx.provide('remote', { notes, directoryPicker, session } as never)
   ctx.provide('remote.notes', notes as never)
   ctx.provide('remote.directoryPicker', directoryPicker as never)
+  ctx.provide('remote.session', session as never)
   ctx.provide('sidebarRight', sidebarRight as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   onTestFinished(async () => { await fiber.dispose() })

@@ -11,13 +11,16 @@ import { useSyncExternalStore } from 'react'
 import { vi } from 'vitest'
 import type { Mock } from 'vitest'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
-import type { NotesDirectoryFace, NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
+import type {
+  NotesDirectoryFace, NotesInjected, NotesPaneFace, NotesRemoteFace, NotesSessionFace,
+} from '../src/client/face.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import type { SelectionBubbleProps } from '../src/client/SelectionBubble.tsx'
 import { createNotesStore } from '../src/client/store.ts'
@@ -149,6 +152,28 @@ export function directoryListing(overrides: Partial<DirectoryListing> = {}): Dir
   }
 }
 
+/** One deployment's model catalog, as the session namespace reports it. */
+export function modelCatalog(overrides: Partial<ModelCatalog> = {}): RemoteResult<ModelCatalog> {
+  return { ok: true, value: {
+    default: { provider: 'deepseek-official', model: 'deepseek-flash' },
+    routableProviders: ['deepseek-official'],
+    groups: [{
+      id: 'deepseek-official',
+      name: 'DeepSeek',
+      models: [
+        {
+          id: 'deepseek-flash',
+          name: 'DeepSeek-Flash',
+          reasoning: { efforts: [{ id: 'high', name: 'High' }, { id: 'max', name: 'Max' }], defaultEffort: 'high' },
+        },
+        { id: 'deepseek-pro', name: 'DeepSeek-Pro' },
+      ],
+    }],
+    failures: [],
+    ...overrides,
+  } }
+}
+
 /** Key-echoing translate that also shows its parameters. */
 export function t(key: string, params?: Record<string, unknown>): string {
   return params === undefined
@@ -198,6 +223,8 @@ export interface Harness {
     pick: Mock<NotesDirectoryFace['pick']>
     list: Mock<NotesDirectoryFace['list']>
   }
+  /** The session namespace, recorded. */
+  readonly session: { modelCatalog: Mock<NotesSessionFace['modelCatalog']> }
   /** The frame operations the panel asks for, recorded. */
   readonly frame: NotesPaneFace & {
     float: Mock<NotesPaneFace['float']>
@@ -225,6 +252,7 @@ export function harness(script: {
   readonly create?: () => RemoteResult<NotesSessionCreateResult>
   readonly thread?: () => RemoteResult<NotesMaterialThreadResult>
   readonly settings?: () => RemoteResult<NotesSettingsReadResult>
+  readonly catalog?: () => RemoteResult<ModelCatalog>
   readonly floating?: boolean
 } = {}): Harness {
   const instance = createNotesStore().create()
@@ -272,7 +300,12 @@ export function harness(script: {
       value: directoryListing(path === undefined ? { path: '/work' } : { path }),
     })),
   }
-  const face = notesFace(remote, directoryPicker, frame, instance.actions)
+  const session = {
+    modelCatalog: vi.fn<NotesSessionFace['modelCatalog']>(
+      async () => script.catalog?.() ?? modelCatalog(),
+    ),
+  }
+  const face = notesFace(remote, directoryPicker, session, frame, instance.actions)
   const tabActions = { openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
   const controller = new AbortController()
   const useTabInfo = () => ({
@@ -299,6 +332,7 @@ export function harness(script: {
     remote,
     frame,
     directoryPicker,
+    session,
     props: () => panelProps ??= ({
       useTabInfo,
       sessionId: SESSION,
@@ -322,6 +356,7 @@ export function harness(script: {
       saveSettings: face.saveSettings,
       pickDirectory: face.pickDirectory,
       listDirectories: face.listDirectories,
+      loadModels: face.loadModels,
       collect: face.collect,
       addImage: face.addImage,
       remove: face.remove,

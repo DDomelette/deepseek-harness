@@ -16,6 +16,7 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-presets'
@@ -101,7 +102,16 @@ export class NoteSessions extends Service {
     const handle = await this.ctx.agents.create({
       sessionId,
       meta: { cwd, ...presetId === undefined ? {} : { agentPreset: presetId } },
-      ...route === undefined ? {} : { agentOptions: { provider: route.provider, model: route.model } },
+      ...route === undefined ? {} : {
+        agentOptions: {
+          provider: route.provider,
+          model: route.model,
+          // An absent effort leaves the choice to the route's own default.
+          ...route.reasoningEffort === undefined
+            ? {}
+            : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
+        },
+      },
       ...setup === undefined ? {} : { setup },
     })
     this.titleSession(handle.agent, title)

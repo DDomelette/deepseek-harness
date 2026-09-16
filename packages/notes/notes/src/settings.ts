@@ -53,7 +53,12 @@ export interface NotesPatch {
   /** Replacement workspace path. */
   readonly workspace?: string | null | undefined
   /** Replacement model override. */
-  readonly model?: { readonly provider: string; readonly model: string } | null | undefined
+  readonly model?: {
+    readonly provider: string
+    readonly model: string
+    /** Adapter-owned reasoning effort, absent to use the route's own default. */
+    readonly reasoningEffort?: string | undefined
+  } | null | undefined
 }
 
 /**
@@ -96,6 +101,8 @@ export interface Config {
     readonly provider: string
     /** Provider-owned model id. */
     readonly model: string
+    /** Adapter-owned reasoning effort; absent asks for the route's own default. */
+    readonly reasoningEffort?: string
   }
 }
 
@@ -109,6 +116,7 @@ const actionSchema: s<ActionDef> = s.object({
 const modelSchema = s.object({
   provider: s.string().required(),
   model: s.string().required(),
+  reasoningEffort: s.string(),
 })
 
 /**
@@ -121,7 +129,7 @@ export const Config: s<Config> = s.object({
   actions: s.array(actionSchema).default([{
     id: 'translate',
     label: '翻译',
-    prompt: '不改变语句结构，翻译下列内容：',
+    prompt: '你仅作翻译，不改变语句结构，直接翻译下列内容为中文：',
     autoSend: true,
   }]),
   workspace: s.string(),
@@ -192,9 +200,10 @@ export class NotesSettings extends Service {
 
   /**
    * Configured model override.
-   * @returns provider and model, or null to follow the session default.
+   * @returns the route to route notes conversations through, or null to follow
+   *   the session default.
    */
-  model(): { provider: string; model: string } | null {
+  model(): { provider: string; model: string; reasoningEffort?: string } | null {
     return this.source().model ?? null
   }
 

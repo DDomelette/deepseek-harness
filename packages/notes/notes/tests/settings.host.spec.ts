@@ -83,7 +83,7 @@ describe('notes settings', () => {
     expect(resolved.actions).toEqual([{
       id: 'translate',
       label: '翻译',
-      prompt: '不改变语句结构，翻译下列内容：',
+      prompt: '你仅作翻译，不改变语句结构，直接翻译下列内容为中文：',
       autoSend: true,
     }])
     // Absence is `undefined`, never `null`: schemastery reserves a null default
@@ -142,6 +142,17 @@ describe('notes settings', () => {
 
     await notes.update({ model: null })
     expect(notes.model()).toBeNull()
+  })
+
+  it('stores a reasoning effort with the override, and drops it when one is not named', async () => {
+    const notes = await bench()
+
+    await notes.update({ model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: 'max' } })
+    expect(notes.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: 'max' })
+
+    // A route without an effort stores none, so the route's own default applies.
+    await notes.update({ model: { provider: 'deepseek', model: 'deepseek-flash' } })
+    expect(notes.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
   })
 
   it('clears an explicitly absent model override too', async () => {

@@ -38,9 +38,13 @@ export type { NotesMaterialSummary, NotesSessionSummary } from '../types.ts'
 /** This package's copy namespace. */
 const NS = 'notes'
 
-/** Required browser services: the tab registry, the slots, copy, the notes Remote namespace, and the host's directory chooser. */
+/**
+ * Required browser services: the tab registry, the slots, copy, the notes
+ * Remote namespace, the model catalog, and the host's directory chooser.
+ */
 export const inject = [
-  'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'remote', 'remote.notes', 'remote.directoryPicker',
+  'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'remote',
+  'remote.notes', 'remote.directoryPicker', 'remote.session',
 ]
 
 /**
@@ -66,6 +70,7 @@ export function apply(ctx: ClientContext): void {
     inject: (_sessionId, actions) => notesFace(
       ctx.remote.notes,
       ctx.remote.directoryPicker,
+      ctx.remote.session,
       ctx.sidebarRight,
       actions,
     ),
@@ -87,6 +92,7 @@ export function apply(ctx: ClientContext): void {
     inject: (_sessionId, actions) => notesFace(
       ctx.remote.notes,
       ctx.remote.directoryPicker,
+      ctx.remote.session,
       ctx.sidebarRight,
       actions,
     ),

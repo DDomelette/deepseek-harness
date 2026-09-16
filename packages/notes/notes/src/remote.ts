@@ -34,13 +34,43 @@ import type {
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
   NotesSessionSelectRequest, NotesSessionSelectResult, NotesSettingsReadResult,
   NotesSettingsUpdateRequest, NotesSettingsUpdateResult, NotesSessionSummary,
-  NotesAnalyzeFailure,
+  NotesAnalyzeFailure, NotesModelView,
 } from './types.ts'
+import type { NotesPatch } from './settings.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Host owner of the `notes` Remote namespace. */
     notes: NotesRemote
+  }
+}
+
+/**
+ * One resolved model override as the wire view expresses it.
+ * @param model - the settings section's own override, or null.
+ * @returns the view, with an absent effort reported as null.
+ */
+function modelViewOf(
+  model: { readonly provider: string; readonly model: string; readonly reasoningEffort?: string } | null,
+): NotesModelView | null {
+  return model === null ? null : { ...model, reasoningEffort: model.reasoningEffort ?? null }
+}
+
+/**
+ * One wire model override as the settings patch expresses it.
+ * @param model - the request's override, or null to clear it.
+ * @returns the patch value, with an unnamed effort stored as an absent field.
+ */
+function modelPatchOf(
+  model: NotesSettingsUpdateRequest['model'],
+): NonNullable<NotesPatch['model']> | null {
+  if (model === null || model === undefined) return null
+  return {
+    provider: model.provider,
+    model: model.model,
+    ...model.reasoningEffort === null || model.reasoningEffort === undefined
+      ? {}
+      : { reasoningEffort: model.reasoningEffort },
   }
 }
 
@@ -285,7 +315,7 @@ export class NotesRemote extends TypertRemoteService {
       strategy: this.ctx.notesSettings.strategy(),
       actions: this.ctx.notesSettings.actions().map(action => ({ ...action })),
       workspace: this.ctx.notesSettings.workspace(),
-      model: this.ctx.notesSettings.model(),
+      model: modelViewOf(this.ctx.notesSettings.model()),
     })
   }
 
@@ -301,7 +331,7 @@ export class NotesRemote extends TypertRemoteService {
       ...request.strategy === undefined ? {} : { strategy: request.strategy },
       ...'actions' in request ? { actions: request.actions ?? null } : {},
       ...'workspace' in request ? { workspace: request.workspace ?? null } : {},
-      ...'model' in request ? { model: request.model ?? null } : {},
+      ...'model' in request ? { model: modelPatchOf(request.model) } : {},
     })
     if (invalid !== null) return rejected(invalid)
     return success(APPLIED)

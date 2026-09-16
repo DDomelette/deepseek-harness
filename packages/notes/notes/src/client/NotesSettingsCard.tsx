@@ -4,16 +4,19 @@
  *
  * The card edits one field at a time and writes only what changed, so two
  * readers on the same document cannot overwrite each other's unrelated fields.
- * A collection action is the exception: an action's label and prompt are edited
- * in place and written as the complete list, because the list is one document
- * value and an index-addressed write would drift as soon as it changes shape.
+ * The selection-feature list is the exception: the editor holds one feature and
+ * writes the complete list, because the list is one document value and an
+ * index-addressed write would drift as soon as it changes shape. The model and
+ * feature pickers read the deployment's own catalog, so the card offers what
+ * this deployment serves instead of a second copy of what is configured.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { NotesActionView, NotesSettingsView } from '../types.ts'
+import type { NotesSettingsView } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
@@ -65,11 +68,28 @@ function SettingsForm({ settings, commands, t }: {
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
   const [workspace, setWorkspace] = useState(settings.workspace ?? '')
-  const [provider, setProvider] = useState(settings.model?.provider ?? '')
-  const [model, setModel] = useState(settings.model?.model ?? '')
+  const [browsing, setBrowsing] = useState<'closed' | 'level' | 'drives'>('closed')
   const [listed, setListed] = useState<DirectoryListing | undefined>(undefined)
   const [reading, setReading] = useState(false)
-  const overridden = settings.model !== null
+  const [catalog, setCatalog] = useState<ModelCatalog | undefined>(undefined)
+  const [modelKey, setModelKey] = useState(modelKeyOf(settings.model))
+  const [effort, setEffort] = useState(settings.model?.reasoningEffort ?? '')
+  const [feature, setFeature] = useState(settings.actions[0]?.id ?? '')
+  const [label, setLabel] = useState(settings.actions[0]?.label ?? '')
+  const [prompt, setPrompt] = useState(settings.actions[0]?.prompt ?? '')
+  useEffect(() => {
+    // The catalog is the deployment's own answer, read once per open like the
+    // section itself; a refusal leaves the pickers showing the stored route.
+    void commands.loadModels().then((loaded) => { if (loaded !== null) setCatalog(loaded) })
+  }, [commands])
+  const picked = findModel(catalog, modelKey)
+  const efforts = picked?.reasoning?.efforts ?? []
+  const current = settings.actions.find(action => action.id === feature)
+  // A feature being added has nothing stored to compare against, so its save
+  // is offered as soon as both fields carry text; a blank field is what the
+  // Host refuses too.
+  const unchanged = current !== undefined && label === current.label && prompt === current.prompt
+  const blank = label.trim() === '' || prompt.trim() === ''
   /**
    * Read one directory level into the card's browser.
    * @param path - the level to show, or null for the host's home directory.
@@ -80,17 +100,62 @@ function SettingsForm({ settings, commands, t }: {
     setReading(false)
     // A refused level leaves the browser where it was; the face reports the
     // refusal on the card's failure line.
-    if (level !== null) setListed(level)
+    if (level === null) return
+    setListed(level)
+    setBrowsing('level')
   }
   /** Fill the directory field from the host's own chooser, or browse when it serves none. */
   const browse = async (): Promise<void> => {
-    const picked = await commands.pickDirectory()
-    if (picked.kind === 'picked') {
-      setWorkspace(picked.path)
+    const chosen = await commands.pickDirectory()
+    if (chosen.kind === 'picked') {
+      setWorkspace(chosen.path)
       return
     }
-    if (picked.kind === 'cancelled') return
+    if (chosen.kind === 'cancelled') return
     await readLevel(null)
+  }
+  /** Write the model route and effort the pickers show. */
+  const saveModel = (): void => {
+    if (picked === undefined) {
+      commands.saveSettings({ model: null })
+      return
+    }
+    commands.saveSettings({
+      model: {
+        provider: picked.group,
+        model: picked.id,
+        reasoningEffort: effort === '' ? null : effort,
+      },
+    })
+  }
+  /** Show one configured feature in the editor. */
+  const openFeature = (id: string): void => {
+    setFeature(id)
+    const action = settings.actions.find(candidate => candidate.id === id)
+    setLabel(action?.label ?? '')
+    setPrompt(action?.prompt ?? '')
+  }
+  /** Start a feature that is not in the list yet. */
+  const addFeature = (): void => {
+    setFeature('')
+    setLabel('')
+    setPrompt('')
+  }
+  /** Write the editor's feature into the complete list. */
+  const saveFeature = (): void => {
+    if (current === undefined) {
+      const id = mintActionId(settings.actions)
+      setFeature(id)
+      commands.saveSettings({ actions: [...settings.actions, { id, label, prompt, autoSend: false }] })
+      return
+    }
+    // The list is one document value, so an edit writes the whole list with
+    // this feature replaced and every other one as the last read resolved it.
+    commands.saveSettings({
+      actions: settings.actions.map(candidate => candidate.id === feature
+        ? { ...candidate, label, prompt }
+        : candidate),
+    })
   }
   return (
     <>
@@ -129,17 +194,19 @@ function SettingsForm({ settings, commands, t }: {
             {t('settings.browse')}
           </button>
         </div>
-        {listed !== undefined && (
+        {browsing !== 'closed' && listed !== undefined && (
           <DirectoryBrowser
-            listing={listed}
+            view={browsing}
+            listed={listed}
             reading={reading}
             t={t}
             open={(path) => { void readLevel(path) }}
+            showDrives={() => { setBrowsing('drives') }}
             choose={() => {
               setWorkspace(listed.path)
-              setListed(undefined)
+              setBrowsing('closed')
             }}
-            close={() => { setListed(undefined) }}
+            close={() => { setBrowsing('closed') }}
           />
         )}
         <button
@@ -153,108 +220,202 @@ function SettingsForm({ settings, commands, t }: {
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.model')}</h3>
-        <input
+        <select
           className={css.field}
-          aria-label={t('settings.provider')}
-          placeholder={t('settings.provider')}
-          data-notes-provider
-          value={provider}
-          onChange={(event) => { setProvider(event.target.value) }}
-        />
-        <input
-          className={css.field}
-          aria-label={t('settings.modelName')}
-          placeholder={t('settings.modelName')}
-          data-notes-model
-          value={model}
-          onChange={(event) => { setModel(event.target.value) }}
-        />
+          aria-label={t('settings.modelPick')}
+          data-notes-model-pick
+          value={modelKey}
+          onChange={(event) => {
+            setModelKey(event.target.value)
+            // Each route declares its own efforts, so the effort follows the pick.
+            setEffort('')
+          }}
+        >
+          <option value="">{t('settings.modelFollow')}</option>
+          {catalog?.groups.map(group => (
+            <optgroup key={group.id} label={group.name}>
+              {group.models.map(model => (
+                <option key={`${group.id}/${model.id}`} value={`${group.id}/${model.id}`}>{model.name}</option>
+              ))}
+            </optgroup>
+          ))}
+          {/* A route the catalog no longer advertises stays selectable while the
+              section stores it; switching away from it is the reader's call. */}
+          {picked === undefined && modelKey !== '' && <option value={modelKey}>{modelKey}</option>}
+        </select>
+        {efforts.length > 0 && (
+          <select
+            className={css.field}
+            aria-label={t('settings.effort')}
+            data-notes-effort-pick
+            value={effort}
+            onChange={(event) => { setEffort(event.target.value) }}
+          >
+            <option value="">{t('settings.effortDefault')}</option>
+            {efforts.map(option => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           className={css.action}
           data-notes-save-model
-          disabled={provider === '' || model === ''}
-          onClick={() => { commands.saveSettings({ model: { provider, model } }) }}
+          disabled={modelKey === modelKeyOf(settings.model) && effort === (settings.model?.reasoningEffort ?? '')}
+          onClick={saveModel}
         >
           {t('settings.saveModel')}
         </button>
-        {overridden && (
-          <button
-            type="button"
-            className={css.action}
-            data-notes-clear-model
-            onClick={() => { commands.saveSettings({ model: null }) }}
-          >
-            {t('settings.clearModel')}
-          </button>
-        )}
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.actions')}</h3>
-        <ul className={css.actions}>
+        <select
+          className={css.field}
+          aria-label={t('settings.actionPick')}
+          data-notes-action-pick
+          value={feature}
+          onChange={(event) => { openFeature(event.target.value) }}
+        >
+          {current === undefined && <option value="">{t('settings.actionNew')}</option>}
           {settings.actions.map(action => (
-            <ActionRow
-              key={action.id}
-              action={action}
-              t={t}
-              save={(edited) => {
-                // The list is one document value, so an edit writes the whole
-                // list with this action replaced and every other action as the
-                // last read resolved it.
-                commands.saveSettings({
-                  actions: settings.actions.map(candidate =>
-                    candidate.id === action.id ? edited : candidate),
-                })
-              }}
-            />
+            <option key={action.id} value={action.id}>{action.label}</option>
           ))}
-        </ul>
+        </select>
+        <button
+          type="button"
+          className={css.addFeature}
+          aria-label={t('settings.actionAdd')}
+          data-notes-add-action
+          onClick={addFeature}
+        >
+          +
+        </button>
+        <input
+          className={css.field}
+          aria-label={t('settings.actionLabelInput')}
+          placeholder={t('settings.actionLabelPlaceholder')}
+          data-notes-action-label
+          value={label}
+          onChange={(event) => { setLabel(event.target.value) }}
+        />
+        <textarea
+          className={css.actionPrompt}
+          aria-label={t('settings.actionPromptInput')}
+          placeholder={t('settings.actionPromptPlaceholder')}
+          data-notes-action-prompt
+          value={prompt}
+          onChange={(event) => { setPrompt(event.target.value) }}
+        />
+        <div className={css.actionFoot}>
+          <button
+            type="button"
+            className={css.action}
+            data-notes-save-action
+            disabled={unchanged || blank}
+            onClick={saveFeature}
+          >
+            {t('settings.saveAction')}
+          </button>
+          {current !== undefined && (
+            <span className={css.actionFlags}>
+              {current.autoSend ? t('settings.autoSend') : t('settings.manualSend')}
+            </span>
+          )}
+        </div>
       </section>
     </>
   )
 }
 
+/** The picker key of one stored model override: `provider/model`, or '' for none. */
+function modelKeyOf(model: NotesSettingsView['model']): string {
+  return model === null ? '' : `${model.provider}/${model.model}`
+}
+
+/** One catalog model together with the provider group it belongs to. */
+type PickedModel = ModelCatalog['groups'][number]['models'][number] & { readonly group: string }
+
+/**
+ * Find the catalog entry one picker key names.
+ * @param catalog - the deployment's catalog, or undefined while it is unread.
+ * @param key - the picker key (`provider/model`), or ''.
+ * @returns the model and its provider, or undefined when the catalog holds none.
+ */
+function findModel(catalog: ModelCatalog | undefined, key: string): PickedModel | undefined {
+  if (catalog === undefined || key === '') return undefined
+  const separator = key.indexOf('/')
+  const provider = key.slice(0, separator)
+  const id = key.slice(separator + 1)
+  const group = catalog.groups.find(candidate => candidate.id === provider)
+  const model = group?.models.find(candidate => candidate.id === id)
+  return model === undefined ? undefined : { ...model, group: provider }
+}
+
+/**
+ * Mint the id of a feature the reader is adding.
+ *
+ * A material stores the id it was collected under, so it must be stable and
+ * unique within the list; the label is free text the reader may rename at any
+ * time, which is why the id is not derived from it.
+ * @param actions - the features already configured.
+ * @returns an id no configured feature uses.
+ */
+function mintActionId(actions: NotesSettingsView['actions']): string {
+  for (let index = 1; ; index += 1) {
+    const id = `custom-${String(index)}`
+    if (!actions.some(action => action.id === id)) return id
+  }
+}
+
 /**
  * The directory browser a deployment without a native chooser gets.
  *
- * It shows one level at a time — the host lists directories and their ancestry,
- * so the card never joins path segments itself — and the reader descends by
+ * It shows one level at a time 鈥?the host lists directories and their ancestry,
+ * so the card never joins path segments itself 鈥?and the reader descends by
  * opening a child and chooses by taking the level it is standing in. Hidden
  * entries stay out of the list: the host platform's convention decides which
- * they are, and a configuration field does not need them.
- * @param props - the level, its read state, the navigations, and copy.
+ * they are, and a configuration field does not need them. A level that is
+ * itself a volume root has no parent to step up into, so the control that
+ * leads on from it opens the volume list the host reported instead.
+ * @param props - the view, its level, the read state, navigations, and copy.
  * @returns the browser.
  */
-function DirectoryBrowser({ listing, reading, open, choose, close, t }: {
-  readonly listing: DirectoryListing
+function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, close, t }: {
+  readonly view: 'level' | 'drives'
+  readonly listed: DirectoryListing
   readonly reading: boolean
   readonly open: (path: string) => void
+  readonly showDrives: () => void
   readonly choose: () => void
   readonly close: () => void
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
-  const parent = listing.crumbs.at(-2)
+  const parent = listed.crumbs.at(-2)
+  const drives = listed.drives ?? []
+  const rows = view === 'drives' ? drives : listed.entries.filter(entry => !entry.hidden)
   return (
     <div className={css.browser} data-notes-browser>
-      <p className={css.browserPath} data-notes-browser-path>{listing.path}</p>
+      <p className={css.browserPath} data-notes-browser-path>
+        {view === 'drives' ? t('settings.browseDrives') : listed.path}
+      </p>
       {reading && <p className={css.line}>{t('settings.browseReading')}</p>}
       <ul className={css.browserList}>
-        {listing.entries.filter(entry => !entry.hidden).map(entry => (
-          <li key={entry.path}>
+        {rows.map(row => (
+          <li key={row.path}>
             <button
               type="button"
               className={css.browserEntry}
-              data-notes-browse-entry={entry.path}
-              onClick={() => { open(entry.path) }}
+              data-notes-browse-entry={row.path}
+              onClick={() => { open(row.path) }}
             >
-              {entry.name}
+              {row.name}
             </button>
           </li>
         ))}
       </ul>
       <div className={css.browserActions}>
-        {/* The filesystem root has no parent, so the control that needs one is not drawn. */}
-        {parent !== undefined && (
+        {/* Up one level, or on to the volumes where this level is a root. */}
+        {view === 'level' && parent !== undefined && (
           <button
             type="button"
             className={css.action}
@@ -265,65 +426,26 @@ function DirectoryBrowser({ listing, reading, open, choose, close, t }: {
             {t('settings.browseUp')}
           </button>
         )}
-        <button type="button" className={css.action} data-notes-browse-choose onClick={choose}>
-          {t('settings.browseChoose')}
-        </button>
+        {view === 'level' && parent === undefined && drives.length > 0 && (
+          <button
+            type="button"
+            className={css.action}
+            data-notes-browse-drives
+            disabled={reading}
+            onClick={showDrives}
+          >
+            {t('settings.browseDrives')}
+          </button>
+        )}
+        {view === 'level' && (
+          <button type="button" className={css.action} data-notes-browse-choose onClick={choose}>
+            {t('settings.browseChoose')}
+          </button>
+        )}
         <button type="button" className={css.action} data-notes-browse-close onClick={close}>
           {t('settings.browseClose')}
         </button>
       </div>
     </div>
-  )
-}
-
-/**
- * One configured collection action, editable in place.
- *
- * The draft lives here rather than in the form so each row keeps its own edit;
- * the save is offered only once the copy differs from what the Host resolved,
- * and never while a field is blank, which is what the Host refuses too.
- * @param props - the action, the write to make, and copy.
- * @returns the row.
- */
-function ActionRow({ action, save, t }: {
-  readonly action: NotesActionView
-  readonly save: (action: NotesActionView) => void
-  readonly t: PropsLocale<'notes'>['t']
-}): ReactNode {
-  const [label, setLabel] = useState(action.label)
-  const [prompt, setPrompt] = useState(action.prompt)
-  const changed = label !== action.label || prompt !== action.prompt
-  const blank = label.trim() === '' || prompt.trim() === ''
-  return (
-    <li className={css.actionRow} data-notes-action={action.id}>
-      <input
-        className={css.field}
-        aria-label={t('settings.actionLabel', { action: action.id })}
-        data-notes-action-label={action.id}
-        value={label}
-        onChange={(event) => { setLabel(event.target.value) }}
-      />
-      <textarea
-        className={css.actionPrompt}
-        aria-label={t('settings.actionPrompt', { action: action.id })}
-        data-notes-action-prompt={action.id}
-        value={prompt}
-        onChange={(event) => { setPrompt(event.target.value) }}
-      />
-      <div className={css.actionFoot}>
-        <button
-          type="button"
-          className={css.action}
-          data-notes-save-action={action.id}
-          disabled={!changed || blank}
-          onClick={() => { save({ ...action, label, prompt }) }}
-        >
-          {t('settings.saveAction')}
-        </button>
-        <span className={css.actionFlags}>
-          {action.autoSend ? t('settings.autoSend') : t('settings.manualSend')}
-        </span>
-      </div>
-    </li>
   )
 }
