@@ -153,14 +153,18 @@ export function MaterialDetail({
             {copied ? t('detail.copied') : t('detail.copy')}
           </button>
         )}
-        <button
-          type="button"
-          className={css.action}
-          data-notes-analyze
-          onClick={() => { commands.analyze(material.id) }}
-        >
-          {t('detail.analyze')}
-        </button>
+        {/* The Host submits a material once, so a submitted one offers no
+            analysis: the control would report success while sending nothing. */}
+        {!material.submitted && (
+          <button
+            type="button"
+            className={css.action}
+            data-notes-analyze
+            onClick={() => { commands.analyze(material.id) }}
+          >
+            {t('detail.analyze')}
+          </button>
+        )}
         <button
           type="button"
           className={css.action}

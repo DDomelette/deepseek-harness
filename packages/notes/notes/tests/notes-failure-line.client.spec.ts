@@ -21,6 +21,8 @@ describe('notes failure lines', () => {
     expect(line({ code: 'session-not-live', id: 'n1' as never })).toBe('error.sessionNotLive')
     expect(line({ code: 'unknown-action', action: 'translate' })).toBe('error.unknownAction')
     expect(line({ code: 'settings-unavailable' })).toBe('error.settingsUnavailable')
+    expect(line({ code: 'submit-refused', id: 'm1' as never, message: 'inbox rejected' }))
+      .toBe('error.submitRefused(message=inbox rejected)')
     expect(line({ code: 'invalid-actions' })).toBe('error.invalidActions')
     expect(line({ code: 'attachments-unavailable' })).toBe('error.attachmentsUnavailable')
   })

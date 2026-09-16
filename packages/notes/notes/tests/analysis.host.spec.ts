@@ -140,13 +140,20 @@ describe('notes analysis', () => {
       .toEqual([{ type: 'text', text: '不改变语句结构，翻译下列内容：\nbody' }])
   })
 
-  it('rolls the id back and marks the material failed when the send throws', async () => {
+  it('rolls the id back and reports the refusal as a value when the send throws', async () => {
     const bench = await mount()
     const note = await liveConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
     bench.agents.followup.mockImplementationOnce(() => { throw new Error('inbox rejected') })
 
-    await expect(bench.analysis.analyse(id)).rejects.toThrow('inbox rejected')
+    // Every Remote operation answers with the wire vocabulary, so a refused
+    // send is a named refusal rather than a throw the gateway would report as
+    // an unreachable Host.
+    await expect(bench.analysis.analyse(id)).resolves.toEqual({
+      code: 'submit-refused',
+      id,
+      message: 'inbox rejected',
+    })
 
     const stored = bench.materials.get(id)
     expect(stored?.messageIds).toEqual([])
@@ -161,9 +168,21 @@ describe('notes analysis', () => {
     // A refusal need not be an Error; the stored reason is still readable text.
     bench.agents.followup.mockImplementationOnce(() => { throw 'refused' })
 
-    await expect(bench.analysis.analyse(id)).rejects.toBe('refused')
+    await expect(bench.analysis.analyse(id))
+      .resolves.toEqual({ code: 'submit-refused', id, message: 'refused' })
 
     expect(bench.materials.get(id)?.error).toBe('refused')
+  })
+
+  it('reports the refusal of a question the inbox would not take', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    bench.agents.followup.mockImplementationOnce(() => { throw new Error('queue closed') })
+
+    await expect(bench.analysis.ask(id, 'why?'))
+      .resolves.toEqual({ code: 'submit-refused', id, message: 'queue closed' })
   })
 
   it('reports an action the configuration no longer offers', async () => {
@@ -464,8 +483,28 @@ describe('turn settlement', () => {
     expect(bench.materials.get(id)?.error).toBe('socket closed')
   })
 
-  it('settles only the material the closed turn carried', async () => {
+  it('settles a material only from the turn that carried its newest message', async () => {
     const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const first = sentMessage(bench)
+    // The question is submitted while the first turn is still open, so the
+    // material holds two ids and only the later turn can settle it.
+    await bench.analysis.ask(id, 'why?')
+    const asked = sentMessage(bench, 1)
+
+    closeTurn(bench, 'dsh-notes-1', first.id)
+
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+
+    closeTurn(bench, 'dsh-notes-1', asked.id, { kind: 'error', error: { message: 'socket closed', code: 'x' } })
+
+    await vi.waitFor(() => { expect(bench.materials.get(id)?.status).toBe('failed') })
+    expect(bench.materials.get(id)?.error).toBe('socket closed')
+  })
+
+  it('settles only the material the closed turn carried', async () => {    const bench = await mount()
     const note = await liveConversation(bench)
     const first = await bench.materials.create(material({ noteId: note, text: 'first' }))
     const second = await bench.materials.create(material({ noteId: note, text: 'second' }))

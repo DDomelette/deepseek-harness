@@ -171,6 +171,15 @@ describe('material detail', () => {
     expect(remove).toHaveBeenCalledExactlyOnceWith(draft.id)
   })
 
+  it('offers no analysis for a material that already entered its conversation', () => {
+    const bench = harness()
+    show(bench.props(), submitted)
+
+    // The Host submits a material once, so the control would report success
+    // while sending nothing.
+    expect(document.querySelector('[data-notes-analyze]')).toBeNull()
+  })
+
   it('draws the thread the model produced', () => {
     const bench = harness()
     show(bench.props(), draft, {

@@ -282,7 +282,7 @@ export function notesFace(
       void read(false)
     },
     refresh: () => {
-      void read(true)
+      void refreshAll()
     },
     createConversation: () => {
       void (async () => {
@@ -427,8 +427,12 @@ export function notesFace(
   }
 
   /** Read one material's thread, into the detail the panel has open for it. */
-  async function readThread(id: MaterialId): Promise<void> {    actions.threadStarted()
+  async function readThread(id: MaterialId): Promise<void> {
+    actions.threadStarted()
     const answer = await remote.materialThread({ id })
+    // The reader may have moved to another material while this read was in
+    // flight; its answer belongs to a detail that is no longer open.
+    if (open !== id) return
     if (!answer.ok) {
       actions.threadFailed(unavailable(answer.error))
       return
@@ -438,6 +442,15 @@ export function notesFace(
       return
     }
     actions.threadLoaded(answer.value.value.rows)
+  }
+
+  /**
+   * Read everything the panel shows: the conversations, the shown
+   * conversation's materials, and the thread of the detail that is open.
+   */
+  async function refreshAll(): Promise<void> {
+    await read(true)
+    if (open !== null) await readThread(open)
   }
 
   /**

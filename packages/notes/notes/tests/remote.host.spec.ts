@@ -532,6 +532,60 @@ describe('notes remote materials', () => {
     })
   })
 
+  it('reports a refused send as a refusal, not as an unreachable Host', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+    host.base.agents.followup.mockImplementationOnce(() => { throw new Error('inbox rejected') })
+
+    await expect(host.remote.materialAnalyze({ id })).resolves.toEqual({
+      ok: false,
+      error: { code: 'submit-refused', id, message: 'inbox rejected' },
+    })
+
+    expect(host.base.materials.get(id)?.status).toBe('failed')
+  })
+
+  it('keeps an auto-collected material and reports the refused submission', async () => {
+    const host = await mount({ strategy: 'auto' })
+    const note = await liveConversation(host)
+    host.base.agents.followup.mockImplementationOnce(() => { throw new Error('inbox rejected') })
+
+    const added = await host.remote.materialAddText({
+      noteId: note,
+      text: 'body',
+      source: source(),
+      action: null,
+    })
+
+    expect(added.ok).toBe(false)
+    if (added.ok) throw new Error('expected the submission to be refused')
+    expect(added.error).toMatchObject({ code: 'submit-refused', message: 'inbox rejected' })
+    // The material stays: the reader can see it failed and collect again.
+    expect(host.base.materials.list(note)).toHaveLength(1)
+    expect(host.base.materials.list(note)[0]?.status).toBe('failed')
+  })
+
+  it('reports a refused auto-submission of a collected screenshot too', async () => {
+    const host = await mount({ strategy: 'auto' })
+    await host.attach()
+    const note = await liveConversation(host)
+    host.base.agents.followup.mockImplementationOnce(() => { throw new Error('inbox rejected') })
+
+    const added = await host.remote.materialAddImage({
+      noteId: note,
+      data: Buffer.from([1]).toString('base64'),
+      mediaType: 'image/png',
+      source: source(),
+      action: null,
+    })
+
+    expect(added.ok).toBe(false)
+    if (added.ok) throw new Error('expected the submission to be refused')
+    expect(added.error).toMatchObject({ code: 'submit-refused', message: 'inbox rejected' })
+    expect(host.base.materials.list(note)).toHaveLength(1)
+  })
+
   it('analyses a collected screenshot', async () => {
     const host = await mount()
     await host.attach()
@@ -718,7 +772,7 @@ describe('notes remote settings', () => {
 
     expect(host.remote.settingsRead()).toEqual({
       ok: true,
-      value: { strategy: 'manual', actions: [], workspace, model: null, writable: true },
+      value: { strategy: 'manual', actions: [], workspace, model: null },
     })
 
     await expect(host.remote.settingsUpdate({ model: { provider: 'deepseek', model: 'deepseek-flash' } }))
