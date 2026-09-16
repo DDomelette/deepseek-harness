@@ -64,6 +64,10 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 被 inbox 拒绝的发送也以同样方式回报（`submit-refused`，带上原因）：此前已把记录的消息 id 回滚、并把素材标记为 `failed`。把它抛成异常会脱离这套词表，让面板把它读成"宿主不可达"，而不是一次被拒绝的发送。两个收集操作也会回报它们自己的自动提交所产生的那次拒绝，因此在收集时即提交的部署不会对一条被拒绝的素材回答"已存储"。
 
+### Remote 命名空间声明它够到的每个服务
+
+`NotesRemote` 把经 `ctx.<name>` 读取的每个服务都列在自己的 `static inject` 里。已声明的注入通过 fiber 自身的依赖解析；未声明的那个则靠沿访问方 fiber 的父链向上查找，而真实运行时会在这条链先走完时抛出 `cannot get property "<name>" without inject`——它到达面板的形态是"宿主不可达"，而不是一条缺失声明。手工搭的 context 反而会回退到全局 store，因此单测看不见这处遗漏：`tests/injections.host.spec.ts` 为包内每个插件主体（宿主半边与浏览器半边）钉住这份声明，`notes-composition.host.spec.ts` 则通过真实 Loader 组合应答该命名空间的操作。
+
 ### 面板是一个只经 Remote 命名空间读取的页签类型
 
 浏览器半边向 `ctx.sidebarRightTabs` 注册一个页面类型——kind 为 `notes`、处在 `builtin` 档、不识别任何资源地址——并从 keyed 座位 `sidebar.right.pane.tab` 上、以该定义自己的 `id` 绘制它，因此扩展可以接管这个 kind 而不必接管正文。对话标题栏 `conversation.session.header.corner` 座位上的控件按 kind 打开页签；`openTab` 会在同一窗格内去重页面，所以再次按下只是显示面板而不是新增一个，控件本身不需要任何状态。

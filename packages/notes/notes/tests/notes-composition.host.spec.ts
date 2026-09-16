@@ -138,6 +138,23 @@ describe('notes through a real Loader composition', () => {
     expect(ctx.notesAnalysis).toBeDefined()
   })
 
+  it('answers the Remote namespace without reaching past its own injections', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+    await published(() => ctx.get('notesSessions'), 'notesSessions')
+
+    // The loaded runtime enforces what a hand-built context does not: a service
+    // the namespace reaches without declaring it throws
+    // `cannot get property "…" without inject`, which reaches the panel as an
+    // unreachable Host. Every operation below must answer with a notes result.
+    expect(ctx.notes.sessionList()).toEqual({ ok: true, value: { sessions: [], archived: [], activeId: null } })
+    expect(ctx.notes.materialList({ noteId: listedNoteId }))
+      .toEqual({ ok: false, error: { code: 'session-not-found', id: listedNoteId } })
+    // No settings provider is mounted here, so the section is refused rather
+    // than answered — the refusal, not a throw.
+    expect(ctx.notes.settingsRead()).toEqual({ ok: false, error: { code: 'settings-unavailable' } })
+  })
+
   it('releases the domain name when the notes row unmounts', async () => {
     const configPath = await writeComposition()
     const ctx = await loadComposition(configPath)
