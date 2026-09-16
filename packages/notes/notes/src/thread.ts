@@ -6,7 +6,15 @@
  * the material's first analysis and after other materials were analysed, so a
  * contiguous range would steal a neighbour's events. The material records the
  * ids of its own user messages; this function takes, for each, the events up to
- * the next user message.
+ * the next prompt the conversation received.
+ *
+ * A prompt is a user message that declares no context form: a person's message,
+ * or one a plugin submitted. The harness also lands its own context — workspace
+ * instructions, a system-prompt snapshot, the skill catalog — as user messages
+ * inside the turn it belongs to, and each of those declares the form its text
+ * was rendered in. Treating that context as a boundary would end a material's
+ * segment before the answer arrived, so the segment carries it transparently and
+ * the projection draws no row for it.
  *
  * Identity is matched, not sequence: `Agent.followup()` returns void, so the
  * sequence a message lands on is not knowable when it is sent, while its id is
@@ -64,7 +72,9 @@ export function attributeThread<T extends AttributedRow>(
   const thread: T[] = []
   let collecting = false
   for (const event of ordered) {
-    if (event.type === 'user/message') collecting = owns(event, owned)
+    // Context the harness injected is carried by the segment it lands in; only
+    // a prompt the conversation received opens or closes one.
+    if (event.type === 'user/message' && !isContext(event)) collecting = owns(event, owned)
     if (collecting) thread.push(event)
   }
   return thread
@@ -76,8 +86,10 @@ export function attributeThread<T extends AttributedRow>(
  *
  * A message with no text and no image — an assistant turn that only carried a
  * tool call, a usage-only record — contributes no row, so the panel never draws
- * an empty bubble. A screenshot submission carries no text and is kept: the row
- * says what it holds rather than showing nothing.
+ * an empty bubble. Context the harness injected contributes no row either, for
+ * the same reason its text is not the conversation's: it is the harness talking
+ * to the model, not a prompt anyone sent. A screenshot submission carries no
+ * text and is kept: the row says what it holds rather than showing nothing.
  * @param events - the session's events, in any order.
  * @param messageIds - ids of this material's own user messages.
  * @returns the rows, ascending by sequence.
@@ -87,12 +99,27 @@ export function projectThread(events: readonly AttributedRow[], messageIds: read
   for (const event of attributeThread(events, messageIds)) {
     const message = messageOf(event)
     if (message === undefined) continue
+    if (message.role === 'user' && isContext(event)) continue
     const text = textOf(message.content)
     const hasImage = carriesImage(message.content)
     if (text === '' && !hasImage) continue
     rows.push({ role: message.role, text, hasImage, seq: event.seq })
   }
   return rows
+}
+
+/**
+ * Whether one user message is context the harness injected rather than a prompt
+ * the conversation received.
+ *
+ * A context contribution declares the form its text was rendered in; a prompt
+ * from a person or a plugin declares none.
+ * @param event - one user/message event.
+ * @returns true when the event carries a context form.
+ */
+function isContext(event: AttributedRow): boolean {
+  const source = asPayload(asPayload(event.data)?.['source'])
+  return typeof source?.['form'] === 'string'
 }
 
 /**
