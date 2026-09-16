@@ -193,7 +193,7 @@ describe('material detail', () => {
     expect(screen.getByText('answer')).toBeDefined()
   })
 
-  it('renders the model\'s answer as Markdown and the collected text as written', () => {
+  it('renders both sides of the thread as Markdown', () => {
     const bench = harness()
     show(bench.props(), draft, {
       thread: [
@@ -207,10 +207,21 @@ describe('material detail', () => {
     expect(answer?.querySelector('strong')?.textContent).toBe('Windows 通道')
     expect([...(answer?.querySelectorAll('li') ?? [])].map(item => item.textContent))
       .toEqual(['第一条', '第二条'])
-    // The material's own text is the reader's data, so the asterisks stay.
+    // The collected passage is Markdown too: a material is as likely to be a
+    // document as it is to be prose.
     const own = document.querySelector('[data-notes-row="user"]')
-    expect(own?.querySelector('strong')).toBeNull()
-    expect(own?.textContent).toBe('a **passage**')
+    expect(own?.querySelector('strong')?.textContent).toBe('passage')
+  })
+
+  it('renders the submitted body as Markdown in the pane above the thread', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({
+      noteId: noteId('n1'), text: '## 小节\n\n- 一条', submitted: true, status: 'analyzed',
+    }))
+
+    const body = document.querySelector('[data-notes-body]')
+    expect(body?.querySelector('h2')?.textContent).toBe('小节')
+    expect([...(body?.querySelectorAll('li') ?? [])].map(item => item.textContent)).toEqual(['一条'])
   })
 
   it('names the screenshot a submitted row carried', () => {

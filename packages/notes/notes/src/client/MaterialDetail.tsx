@@ -8,7 +8,7 @@
  * the store: leaving the detail discards an unsaved edit, which is what a
  * reader expects from a pane they navigated away from.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { MarkdownText, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -89,6 +89,9 @@ export function MaterialDetail({
   const [draft, setDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [locating, setLocating] = useState(false)
+  // Stable per locale revision: a fresh labels object per render would rebuild
+  // MarkdownText's component table on every keystroke of the editor below.
+  const labels = useMemo(() => markdownLabels(t), [t])
   const text = material.text ?? ''
   const shown = draft ?? text
   const action = configuredAction(material.action, actions)
@@ -132,7 +135,10 @@ export function MaterialDetail({
         // names it rather than offering an editor the Host would refuse.
         ? <p className={css.body} data-notes-body>{t('source.image')}</p>
         : material.submitted
-          ? <p className={css.body} data-notes-body>{text}</p>
+          // A submitted body is what entered the conversation, and a collected
+          // passage is as likely to be Markdown as the answer it produced, so
+          // the read-only body renders like the thread row it appears in.
+          ? <div className={css.body} data-notes-body><MarkdownText text={text} labels={labels} /></div>
           : (
             <textarea
               className={css.editor}
@@ -204,6 +210,7 @@ export function MaterialDetail({
         failure={threadFailure}
         askable={material.submitted}
         commands={commands}
+        labels={labels}
         t={t}
       />
     </section>
@@ -211,7 +218,7 @@ export function MaterialDetail({
 }
 
 /** The material's own questions and the model's answers, and the next question. */
-function Thread({ id, thread, loading, failure, askable, commands, t }: {
+function Thread({ id, thread, loading, failure, askable, commands, labels, t }: {
   readonly id: NotesMaterialSummary['id']
   readonly thread: readonly NotesThreadRow[]
   readonly loading: boolean
@@ -219,11 +226,11 @@ function Thread({ id, thread, loading, failure, askable, commands, t }: {
   /** Whether the material already entered its conversation, so it has a thread to add to. */
   readonly askable: boolean
   readonly commands: NotesInjected
+  readonly labels: MarkdownLabels
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
   const [question, setQuestion] = useState('')
   const asked = question.trim() !== ''
-  const labels = markdownLabels(t)
   return (
     <div className={css.thread} data-notes-thread>
       {loading && <p className={css.pending}>{t('detail.threadLoading')}</p>}
@@ -232,12 +239,10 @@ function Thread({ id, thread, loading, failure, askable, commands, t }: {
       )}
       {thread.map(row => (
         <div key={row.seq} className={css[row.role]} data-notes-row={row.role}>
-          {/* A model writes Markdown, so its row renders as Markdown; the
-              material's own text is data the reader collected, and stays as it
-              was written. */}
-          {row.role === 'assistant'
-            ? <MarkdownText text={row.text} labels={labels} />
-            : row.text}
+          {/* Both sides render as Markdown: a collected passage is as likely to
+              be Markdown as the answer it produced, and the thread reads as one
+              document rather than two vocabularies. */}
+          <MarkdownText text={row.text} labels={labels} />
           {row.hasImage && <span className={css.rowImage} data-notes-row-image>{t('source.image')}</span>}
         </div>
       ))}
