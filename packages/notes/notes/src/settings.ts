@@ -35,10 +35,12 @@ export interface ActionDef {
 export type NotesStrategy = 'manual' | 'auto'
 
 /**
- * One settings write: only the fields it names change, and a field that is
- * absent, null, or explicitly undefined is unset, so the composition default
- * applies again. A wire caller reports "no value" as either null or an omitted
- * field, and both mean the same thing here.
+ * One settings write: only the fields it names change. The action list, the
+ * workspace, and the model override are unset by naming them null or explicitly
+ * undefined, so the composition default applies again; the strategy has no
+ * composition default to return to, so only a named value changes it. A wire
+ * caller reports "no value" as either null or an omitted field, and both mean
+ * the same thing here.
  */
 export interface NotesPatch {
   /** Replacement model-call strategy. */

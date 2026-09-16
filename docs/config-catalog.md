@@ -1650,7 +1650,7 @@ export interface ActionDef {
 }
 ```
 
-Source: [`packages/notes/notes/src/settings.ts:76`](../packages/notes/notes/src/settings.ts)
+Source: [`packages/notes/notes/src/settings.ts:78`](../packages/notes/notes/src/settings.ts)
 
 <a id="deepseek-aidsh-permission-presets"></a>
 

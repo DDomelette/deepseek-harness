@@ -36,8 +36,9 @@ function turnOf(node: ChatNode | undefined): number | undefined {
 
 /**
  * The identity fields a Node payload may carry, as this seat reads them. A
- * business Definition owns its own payload, so the seat reads the fields every
- * Definition writes under the same names instead of enumerating the kinds.
+ * business Definition owns its own payload, so the seat reads the names the
+ * Definitions that carry an identity agree on rather than enumerating kinds; a
+ * Definition that nests its sequence elsewhere publishes none.
  */
 interface NodeIdentity {
   readonly seq?: unknown

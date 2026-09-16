@@ -452,7 +452,8 @@ describe('notes panel', () => {
       .toBe(IMAGE_TYPES.join(','))
   })
 
-  it('opens the image picker from the navigation bar', async () => {    const note = noteId('n1')
+  it('opens the image picker from the navigation bar', async () => {
+    const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
     render(<NotesPanel {...bench.props()} />)
     await waitFor(() => { expect(screen.getByLabelText('panel.addImage')).toBeDefined() })
@@ -476,7 +477,8 @@ describe('notes panel', () => {
     expect(document.querySelector('[data-notes-notice]')).toBeNull()
   })
 
-  it('reports an image the browser cannot read', async () => {    const note = noteId('n1')
+  it('reports an image the browser cannot read', async () => {
+    const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
     render(<NotesPanel {...bench.props()} />)
     await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })

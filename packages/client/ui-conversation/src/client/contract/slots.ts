@@ -233,7 +233,7 @@ export interface ConversationHeaderActionOwnerProps {
   children?: never
 }
 
-/** The header corner's occupant derives its state from standard Session props. */
+/** The header corner's occupants derive their state from standard Session props. */
 export interface ConversationHeaderCornerOwnerProps {
   /** Marker field: the occupant receives no owner-specific values. */
   children?: never
