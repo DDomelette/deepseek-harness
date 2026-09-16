@@ -67,6 +67,13 @@ function SettingsForm({ settings, commands, t }: {
   const [provider, setProvider] = useState(settings.model?.provider ?? '')
   const [model, setModel] = useState(settings.model?.model ?? '')
   const overridden = settings.model !== null
+  /** Fill the directory field from the host's own chooser. */
+  const browse = async (): Promise<void> => {
+    const picked = await commands.pickDirectory()
+    // Null is a cancelled chooser or a deployment that serves none; the face
+    // reports the second case on the card's failure line.
+    if (picked !== null) setWorkspace(picked)
+  }
   return (
     <>
       <section className={css.section}>
@@ -86,13 +93,24 @@ function SettingsForm({ settings, commands, t }: {
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.workspace')}</h3>
-        <input
-          className={css.field}
-          aria-label={t('settings.workspace')}
-          data-notes-workspace
-          value={workspace}
-          onChange={(event) => { setWorkspace(event.target.value) }}
-        />
+        <div className={css.directory}>
+          <input
+            className={css.field}
+            aria-label={t('settings.workspace')}
+            data-notes-workspace
+            value={workspace}
+            onChange={(event) => { setWorkspace(event.target.value) }}
+          />
+          <button
+            type="button"
+            className={css.browse}
+            aria-label={t('settings.browse')}
+            data-notes-browse
+            onClick={() => { void browse() }}
+          >
+            {t('settings.browse')}
+          </button>
+        </div>
         <button
           type="button"
           className={css.action}

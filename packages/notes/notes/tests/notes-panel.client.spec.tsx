@@ -299,6 +299,21 @@ describe('notes panel', () => {
     await waitFor(() => { expect(document.querySelector('[data-notes-settings]')).toBeNull() })
   })
 
+  it('hands the settings card the directory chooser the field offers', async () => {
+    const bench = harness()
+    render(<NotesPanel {...bench.props()} />)
+    fireEvent.click(screen.getByLabelText('panel.settings'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse]')).not.toBeNull() })
+
+    // The panel assembles the card's commands from its own props, so a command
+    // it forgets is a button that does nothing.
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/chosen')
+    })
+  })
+
   it('collects a picked screenshot as its own material', async () => {
     const note = noteId('n1')
     const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })

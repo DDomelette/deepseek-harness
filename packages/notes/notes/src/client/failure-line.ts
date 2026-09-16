@@ -14,6 +14,7 @@ export type NotesPanelFailure =
   | { readonly code: 'remote-unavailable'; readonly message: string }
   | { readonly code: 'image-format' }
   | { readonly code: 'image-unreadable' }
+  | { readonly code: 'directory-unavailable' }
 
 /**
  * Say what went wrong in terms of the notes, not of the transport.
@@ -39,6 +40,7 @@ export function failureLine(t: TranslateNS<'notes'>, failure: NotesPanelFailure)
     case 'attachments-unavailable': return t('error.attachmentsUnavailable')
     case 'image-format': return t('error.imageFormat')
     case 'image-unreadable': return t('error.imageUnreadable')
+    case 'directory-unavailable': return t('error.directoryUnavailable')
     case 'remote-unavailable': return t('error.remoteUnavailable', { message: failure.message })
   }
 }

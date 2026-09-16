@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * The settings card: what one deployment's notes section resolves to, and the
- * three fields a reader can change from it, plus the commands behind them.
+ * The settings card: what one deployment's notes section resolves to, the three
+ * fields a reader can change from it, the chooser the directory field offers,
+ * and the commands behind them.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -135,6 +136,30 @@ describe('notes settings card', () => {
     fireEvent.change(field, { target: { value: '' } })
     fireEvent.click(screen.getByText('settings.saveWorkspace'))
     expect(save).toHaveBeenLastCalledWith({ workspace: null })
+  })
+
+  it('fills the directory field from the host\'s chooser', async () => {
+    const bench = harness()
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/chosen')
+    })
+    expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps what the reader typed when the chooser is cancelled', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: true, value: null })
+    await opened(bench)
+
+    fireEvent.change(screen.getByLabelText('settings.workspace'), { target: { value: '/work/mine' } })
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1) })
+
+    expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/mine')
   })
 
   it('saves a model override once both names are given', async () => {

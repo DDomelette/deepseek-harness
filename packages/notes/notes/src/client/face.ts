@@ -185,6 +185,12 @@ export interface NotesInjected {
   /** Write the fields one settings patch names. */
   readonly saveSettings: (patch: NotesSettingsUpdateRequest) => void
   /**
+   * Open the host's directory chooser for the notes directory field.
+   * @returns the chosen path, or null when the operator cancelled or the
+   *   deployment serves no chooser.
+   */
+  readonly pickDirectory: () => Promise<string | null>
+  /**
    * Add one collected passage to the notes, under an optional collection action.
    * @param text - the passage as collected.
    * @param action - the collection action, or null for a plain collection.
@@ -223,14 +229,31 @@ function unavailable(error: { readonly message: string }): NotesPanelFailure {
 type AppliedResult = NotesSuccess<NotesApplied> | NotesRejected<NotesFailure>
 
 /**
+ * The directory-picking namespace, as this panel calls it.
+ *
+ * The panel reaches the host's own chooser over the wire instead of importing
+ * another feature plugin: the operation is the same one the workspace flow uses,
+ * and a deployment whose picker serves no native chooser refuses it here.
+ */
+export interface NotesDirectoryFace {
+  /**
+   * Open the host's chooser.
+   * @returns the chosen absolute path, or null when the operator cancels.
+   */
+  pick(): Promise<RemoteResult<string | null>>
+}
+
+/**
  * Build the panel's commands over one store instance.
  * @param remote - the notes namespace of the Client Remote face.
+ * @param directoryPicker - the host's directory-picking namespace.
  * @param frame - the right column's operations the tab may ask for.
  * @param actions - the store actions of the instance the panel is registered with.
  * @returns the commands the panel calls.
  */
 export function notesFace(
   remote: NotesRemoteFace,
+  directoryPicker: NotesDirectoryFace,
   frame: NotesPaneFace,
   actions: BoundActions<NotesStore>,
 ): NotesInjected {
@@ -357,6 +380,14 @@ export function notesFace(
         }
         await readSettings(true)
       })()
+    },
+    pickDirectory: async () => {
+      const picked = await directoryPicker.pick()
+      if (!picked.ok) {
+        actions.settingsFailed({ code: 'directory-unavailable' })
+        return null
+      }
+      return picked.value
     },
     collect: async (text, action, source) => {
       const target = await collectTarget()

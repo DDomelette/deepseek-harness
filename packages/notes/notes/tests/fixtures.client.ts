@@ -16,7 +16,7 @@ import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
-import type { NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
+import type { NotesDirectoryFace, NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import type { SelectionBubbleProps } from '../src/client/SelectionBubble.tsx'
 import { createNotesStore } from '../src/client/store.ts'
@@ -176,6 +176,8 @@ export interface Harness {
   readonly face: NotesInjected
   /** The scripted Remote face, for assertions and re-scripting. */
   readonly remote: HarnessRemote
+  /** The host's directory chooser, recorded. */
+  readonly directoryPicker: { pick: Mock<NotesDirectoryFace['pick']> }
   /** The frame operations the panel asks for, recorded. */
   readonly frame: NotesPaneFace & {
     float: Mock<NotesPaneFace['float']>
@@ -241,7 +243,11 @@ export function harness(script: {
     settingsUpdate: vi.fn<NotesRemoteFace['settingsUpdate']>(async () => applied()),
   }
   const frame = { float: vi.fn<NotesPaneFace['float']>(), dock: vi.fn<NotesPaneFace['dock']>() }
-  const face = notesFace(remote, frame, instance.actions)
+  const directoryPicker = {
+    // The host's chooser answers a path; a spec overrides this per case.
+    pick: vi.fn<NotesDirectoryFace['pick']>(async () => ({ ok: true, value: '/work/chosen' })),
+  }
+  const face = notesFace(remote, directoryPicker, frame, instance.actions)
   const tabActions = { openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
   const controller = new AbortController()
   const useTabInfo = () => ({
@@ -267,6 +273,7 @@ export function harness(script: {
     face,
     remote,
     frame,
+    directoryPicker,
     props: () => panelProps ??= ({
       useTabInfo,
       sessionId: SESSION,
@@ -288,6 +295,7 @@ export function harness(script: {
       present: face.present,
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
+      pickDirectory: face.pickDirectory,
       collect: face.collect,
       addImage: face.addImage,
       remove: face.remove,
@@ -306,6 +314,7 @@ export function harness(script: {
       actions: instance.actions,
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
+      pickDirectory: face.pickDirectory,
       collect: face.collect,
       t,
     }) as unknown as SelectionBubbleProps,

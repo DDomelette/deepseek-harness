@@ -433,3 +433,31 @@ describe('notes collection commands', () => {
     expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
   })
 })
+
+describe('notes directory picking', () => {
+  it('answers the path the host\'s chooser returned', async () => {
+    const bench = harness()
+
+    await expect(bench.face.pickDirectory()).resolves.toBe('/work/chosen')
+
+    expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers a cancelled chooser with null and reports nothing', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: true, value: null })
+
+    await expect(bench.face.pickDirectory()).resolves.toBeNull()
+
+    expect(bench.instance.getSnapshot().settingsFailure).toBeUndefined()
+  })
+
+  it('reports a deployment whose picker serves no chooser', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+
+    await expect(bench.face.pickDirectory()).resolves.toBeNull()
+
+    expect(bench.instance.getSnapshot().settingsFailure).toEqual({ code: 'directory-unavailable' })
+  })
+})
