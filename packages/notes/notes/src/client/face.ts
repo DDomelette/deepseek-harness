@@ -7,6 +7,7 @@
  * drives the panel without a gateway.
  */
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
@@ -199,6 +200,11 @@ export interface NotesInjected {
    */
   readonly listDirectories: (path: string | null) => Promise<DirectoryListing | null>
   /**
+   * Read the deployment's model catalog for the settings card's pickers.
+   * @returns the catalog, or null when the host refused the read.
+   */
+  readonly loadModels: () => Promise<ModelCatalog | null>
+  /**
    * Add one collected passage to the notes, under an optional collection action.
    * @param text - the passage as collected.
    * @param action - the collection action, or null for a plain collection.
@@ -266,9 +272,25 @@ export type NotesPickResult =
   | { readonly kind: 'unavailable' }
 
 /**
+ * The session namespace, as this panel reads one deployment fact from it.
+ *
+ * The model catalog is the same Host-generation answer the conversation's own
+ * model picker renders, so the notes section names a route the deployment
+ * actually serves instead of holding a second copy of what is configured.
+ */
+export interface NotesSessionFace {
+  /**
+   * Read the models this deployment can route a request to.
+   * @returns the catalog, with its provider groups and each model's efforts.
+   */
+  modelCatalog(): Promise<RemoteResult<ModelCatalog>>
+}
+
+/**
  * Build the panel's commands over one store instance.
  * @param remote - the notes namespace of the Client Remote face.
  * @param directoryPicker - the host's directory-picking namespace.
+ * @param session - the session namespace carrying the model catalog.
  * @param frame - the right column's operations the tab may ask for.
  * @param actions - the store actions of the instance the panel is registered with.
  * @returns the commands the panel calls.
@@ -276,6 +298,7 @@ export type NotesPickResult =
 export function notesFace(
   remote: NotesRemoteFace,
   directoryPicker: NotesDirectoryFace,
+  session: NotesSessionFace,
   frame: NotesPaneFace,
   actions: BoundActions<NotesStore>,
 ): NotesInjected {
@@ -417,6 +440,14 @@ export function notesFace(
         return null
       }
       return listed.value
+    },
+    loadModels: async () => {
+      const catalog = await session.modelCatalog()
+      if (!catalog.ok) {
+        actions.settingsFailed({ code: 'settings-unavailable' })
+        return null
+      }
+      return catalog.value
     },
     collect: async (text, action, source) => {
       const target = await collectTarget()

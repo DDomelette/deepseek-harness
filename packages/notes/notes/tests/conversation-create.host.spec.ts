@@ -175,6 +175,19 @@ describe('notes conversation creation', () => {
       .toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
   })
 
+  it('passes the configured reasoning effort with the override', async () => {
+    const host = await mount({
+      model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: 'max' },
+    })
+
+    await host.sessions.create()
+
+    // The effort rides the same route: a conversation created here reasons at
+    // the level the notes section names, not at the route's own default.
+    expect(host.agents.created[0]?.agentOptions)
+      .toEqual({ provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: 'max' })
+  })
+
   it('follows the deployment default when no model override is configured', async () => {
     const host = await mount()
     host.ctx.provide('agentDefaultModel', {
@@ -185,6 +198,20 @@ describe('notes conversation creation', () => {
 
     expect(host.agents.created[0]?.agentOptions)
       .toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  })
+
+  it('carries the deployment default\'s own reasoning effort', async () => {
+    const host = await mount()
+    host.ctx.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'high' }),
+    } as never)
+
+    await host.sessions.create()
+
+    // The default selection is forwarded whole, so a notes conversation is
+    // routed exactly like one created anywhere else.
+    expect(host.agents.created[0]?.agentOptions)
+      .toEqual({ provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'high' })
   })
 
   it('prefers the configured override over the deployment default', async () => {

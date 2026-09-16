@@ -274,7 +274,17 @@ export interface NotesSettingsView {
   /** Absolute workspace path, or null before first-run setup has chosen one. */
   readonly workspace: string | null
   /** Model override for notes conversations, or null to follow the session default. */
-  readonly model: { readonly provider: string; readonly model: string } | null
+  readonly model: NotesModelView | null
+}
+
+/** The model override one deployment resolved for its notes conversations. */
+export interface NotesModelView {
+  /** Registered provider route. */
+  readonly provider: string
+  /** Provider-owned model id. */
+  readonly model: string
+  /** Adapter-owned reasoning effort, or null to use the route's own default. */
+  readonly reasoningEffort: string | null
 }
 
 /**
@@ -292,7 +302,12 @@ export interface NotesSettingsUpdateRequest {
   /** Replacement workspace path, or null to clear it. */
   readonly workspace?: string | null
   /** Replacement model override, or null to follow the session default. */
-  readonly model?: { readonly provider: string; readonly model: string } | null
+  readonly model?: {
+    readonly provider: string
+    readonly model: string
+    /** Adapter-owned reasoning effort; null or absent uses the route's own default. */
+    readonly reasoningEffort?: string | null
+  } | null
 }
 
 /** Acknowledges a mutation that has no value to report. */

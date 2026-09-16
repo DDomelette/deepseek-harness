@@ -41,15 +41,16 @@ A bare row needs no `config`: the schema defaults the strategy to `manual` and t
 | Field | Default | Meaning |
 |---|---|---|
 | `strategy` | `manual` | `manual` waits for an explicit analyse; `auto` analyses each material as it is collected. |
-| `actions` | one `translate` action | The collection actions the selection bubble offers. |
-| `actions[].id` | — | Stable action id, stored as the material's own `action`. |
+| `actions` | one `translate` feature | The selection features the bubble offers. |
+| `actions[].id` | — | Stable feature id, stored as the material's own `action`. |
 | `actions[].label` | — | Localized label the selection bubble shows. |
 | `actions[].prompt` | — | Prompt text prepended to the material body before submission. |
-| `actions[].autoSend` | `false` | Whether picking the action analyses immediately, ignoring the strategy. |
+| `actions[].autoSend` | `false` | Whether picking the feature analyses immediately, ignoring the strategy. |
 | `workspace` | absent | Absolute directory the notes conversations run in; set from the settings card or the composition entry. |
 | `model` | absent | Model override for notes conversations; absent follows the session default. |
 | `model.provider` | — | Registered provider route. |
 | `model.model` | — | Provider-owned model id. |
+| `model.reasoningEffort` | absent | Adapter-owned reasoning effort for that route; absent asks for the route's own default. |
 
 ### Host services
 
@@ -61,7 +62,11 @@ The browser half registers one page type with `ctx.sidebarRightTabs` — kind `n
 
 ### Settings
 
-The settings card edits the same section the composition entry seeds: the model-call strategy, the workspace, the model override, and each collection action's label and prompt. It writes one field at a time through `notes/settingsUpdate`, which unsets a field rather than storing null, so clearing the workspace or the model override returns that field to the composition default. An action's edit is the exception to one-field writes: the card sends the complete list with that action replaced, because the list is one document value. The Host refuses a list whose action carries a blank id, label, or prompt, or two actions sharing an id, and reports `invalid-actions`; the card also offers no save while a field is blank. The directory field carries a chooser button that asks the host for a directory over the wire: a deployment whose picker serves a native chooser opens it, and one that serves only the browse primitives gets an in-card browser instead — the listed level, its child directories, and the controls to descend, step up, take the level, or leave it. A cancelled chooser or browser leaves the field as typed, and a level the host cannot read reports `directory-unavailable`. A deployment with no writable settings provider reports that instead of offering the controls.
+The settings card edits the same section the composition entry seeds: the model-call strategy, the workspace, the model override, and each selection feature's name and prompt. It writes one field at a time through `notes/settingsUpdate`, which unsets a field rather than storing null, so clearing the workspace or the model override returns that field to the composition default. The feature list is the exception to one-field writes: the card sends the complete list with the edited feature replaced, because the list is one document value. The Host refuses a list whose feature carries a blank id, label, or prompt, or two features sharing an id, and reports `invalid-actions`; the card also offers no save while a field is blank.
+
+The directory field carries a chooser button that asks the host for a directory over the wire: a deployment whose picker serves a native chooser opens it, and one that serves only the browse primitives gets an in-card browser instead — the listed level, its child directories, and the controls to descend, step up, take the level, or leave it, with the volumes the host reports one step above a drive root. A cancelled chooser or browser leaves the field as typed, and a level the host cannot read reports `directory-unavailable`.
+
+The model picker offers the routes the deployment's own catalog serves, grouped by provider, read from the same session operation the conversation's model picker uses; each route's declared reasoning efforts appear as a second picker, and a route the catalog no longer advertises stays selectable while the section stores it. The selection feature picker lists the configured features and the editor beside it renames one or adds one: an added feature gets the next free `custom-N` id, a blank name or prompt is refused, and the add row sits below the picker. A deployment with no writable settings provider reports that instead of offering the controls.
 
 ### What to expect
 

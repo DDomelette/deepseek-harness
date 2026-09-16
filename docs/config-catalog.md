@@ -911,7 +911,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/directory-picker-browse/src/index.ts:182`](../packages/host/directory-picker-browse/src/index.ts)
+Source: [`packages/host/directory-picker-browse/src/index.ts:222`](../packages/host/directory-picker-browse/src/index.ts)
 
 <a id="deepseek-aidsh-host-frontend-static"></a>
 
@@ -1631,6 +1631,8 @@ export interface Config {
     readonly provider: string
     /** Provider-owned model id. */
     readonly model: string
+    /** Adapter-owned reasoning effort; absent asks for the route's own default. */
+    readonly reasoningEffort?: string
   }
 }
 
@@ -1650,7 +1652,7 @@ export interface ActionDef {
 }
 ```
 
-Source: [`packages/notes/notes/src/settings.ts:78`](../packages/notes/notes/src/settings.ts)
+Source: [`packages/notes/notes/src/settings.ts:83`](../packages/notes/notes/src/settings.ts)
 
 <a id="deepseek-aidsh-permission-presets"></a>
 

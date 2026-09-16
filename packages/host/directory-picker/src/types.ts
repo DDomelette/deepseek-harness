@@ -36,4 +36,12 @@ export interface DirectoryListing {
    * the name-sorted tail (hidden rows count toward the bound).
    */
   truncated: boolean
+  /**
+   * The volume roots a browser may switch to, absent where the platform has a
+   * single root. A Windows host reports its mounted drive letters here, because
+   * `crumbs` stops at the drive root of the listed path and no parent level
+   * holds the others; a POSIX host omits the field, its one root being the end
+   * of the chain already.
+   */
+  drives?: readonly DirectoryEntry[]
 }

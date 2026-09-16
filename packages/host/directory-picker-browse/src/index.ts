@@ -54,6 +54,46 @@ export function fullyQualified(path: string, platform: NodeJS.Platform = process
     : posix.isAbsolute(path)
 }
 
+/** Every drive letter Windows can mount a volume on, in display order. */
+const DRIVE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+/**
+ * Whether a volume is mounted on one Windows drive root. A letter with nothing
+ * behind it is not a level a browser can enter; probing the letters is the only
+ * enumeration Windows offers without spawning a process.
+ * @param root - the drive root to probe (`C:\`).
+ * @returns true when the root exists.
+ */
+async function driveExists(root: string): Promise<boolean> {
+  try {
+    await stat(root)
+    return true
+  } catch {
+    // An unused or unavailable letter is simply not a mounted volume.
+    return false
+  }
+}
+
+/**
+ * The volume roots a listing carries, or undefined where the platform has one
+ * root. `crumbs` stops at the listed path's own drive, so a Windows browser has
+ * no parent level to reach the other drives from; this is that level.
+ * @param platform - platform whose volume roots to enumerate.
+ * @param probe - mount probe, replaced by tests.
+ * @returns the mounted drive roots in letter order, or undefined on POSIX.
+ */
+export async function listingDrives(
+  platform: NodeJS.Platform = process.platform,
+  probe: (root: string) => Promise<boolean> = driveExists,
+): Promise<DirectoryEntry[] | undefined> {
+  if (platform !== 'win32') return undefined
+  const rows = await Promise.all(DRIVE_LETTERS.split('').map(async (letter): Promise<DirectoryEntry | undefined> => {
+    const root = `${letter}:\\`
+    return await probe(root) ? { name: root, path: root, hidden: false } : undefined
+  }))
+  return rows.filter((row): row is DirectoryEntry => row !== undefined)
+}
+
 /** One streamed listing candidate: the dirent facts a row needs, nothing else retained. */
 export interface ListingCandidate {
   /** Base name within the streamed level. */
@@ -305,7 +345,15 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
       }
       entries.push(row)
     }
-    return { path: target, home, crumbs: ancestryCrumbs(target), entries, truncated }
+    const drives = await listingDrives()
+    return {
+      path: target,
+      home,
+      crumbs: ancestryCrumbs(target),
+      entries,
+      truncated,
+      ...drives === undefined ? {} : { drives },
+    }
   }
 
   private async createDirectory(path: string, name: string): Promise<string> {
