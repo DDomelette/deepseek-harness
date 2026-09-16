@@ -38,8 +38,10 @@ export type { NotesMaterialSummary, NotesSessionSummary } from '../types.ts'
 /** This package's copy namespace. */
 const NS = 'notes'
 
-/** Required browser services: the tab registry, the slots, copy, and the notes Remote namespace. */
-export const inject = ['slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'remote', 'remote.notes']
+/** Required browser services: the tab registry, the slots, copy, the notes Remote namespace, and the host's directory chooser. */
+export const inject = [
+  'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'remote', 'remote.notes', 'remote.directoryPicker',
+]
 
 /**
  * Client plugin body: own the copy, declare the tab type, and register the
@@ -51,17 +53,22 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'notes: dictionaries')
   ctx.effect(() => ctx.sidebarRightTabs.register(notesDefinition(t)), 'notes: tab type')
 
+  // One handle for both seats: the bubble collects into the conversation and
+  // the panel renders the right column, so a collection has to land in the state
+  // the reader is looking at. Two instances left the panel showing whatever it
+  // read when it opened, which reads as a collection that did nothing.
   const store = createNotesStore()
-  // The bubble covers a conversation rather than the panel, so it reads the
-  // collection actions through its own store instance instead of sharing one
-  // that a different slot scope mints.
-  const selectionStore = createNotesStore()
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab',
     key: NOTES_ID,
     locale: NS,
     store,
-    inject: (_sessionId, actions) => notesFace(ctx.remote.notes, ctx.sidebarRight, actions),
+    inject: (_sessionId, actions) => notesFace(
+      ctx.remote.notes,
+      ctx.remote.directoryPicker,
+      ctx.sidebarRight,
+      actions,
+    ),
   }, NotesPanel)), 'notes: panel body')
 
   ctx.effect(() => ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({
@@ -76,7 +83,12 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.slots.inject('conversation.session.overlay', () => ctx.slots.register({
     name: 'conversation.session.overlay',
     locale: NS,
-    store: selectionStore,
-    inject: (_sessionId, actions) => notesFace(ctx.remote.notes, ctx.sidebarRight, actions),
+    store,
+    inject: (_sessionId, actions) => notesFace(
+      ctx.remote.notes,
+      ctx.remote.directoryPicker,
+      ctx.sidebarRight,
+      actions,
+    ),
   }, SelectionBubble)), 'notes: selection bubble')
 }

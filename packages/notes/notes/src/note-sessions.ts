@@ -14,15 +14,28 @@
 import { randomUUID } from 'node:crypto'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import type { AgentSetup } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-session-title'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
+import type { Workspace, WorkspaceRegistry } from '@deepseek-ai/dsh-workspace'
 import type { NoteSessionRecord } from './domain.ts'
 import type { NotesSettings } from './settings.ts'
 import type { NoteSessionId } from './types.ts'
+
+/** The notes prefix every generated conversation title carries. */
+const NOTES_TITLE_PREFIX = '笔记 · '
+
+/**
+ * The display title this plugin gives a workspace it registers itself. A
+ * directory the reader already registered keeps its own title: the session list
+ * groups by workspace, and renaming one of theirs would move their other
+ * conversations.
+ */
+const NOTES_WORKSPACE_TITLE = '笔记'
 
 /** A stored notes conversation together with its id. */
 export type StoredNoteSession = NoteSessionRecord & { readonly id: NoteSessionId }
@@ -75,6 +88,7 @@ export class NoteSessions extends Service {
    */
   async create(): Promise<NoteSessionId> {
     const cwd = this.requireWorkspace()
+    const workspace = await this.ensureWorkspaceRecord(cwd)
     const presets = this.ctx.get('agentPresets')
     const presetId = presets === undefined ? undefined : (await presets.resolve()).id
     const setup: AgentSetup | undefined = presets === undefined || presetId === undefined
@@ -83,16 +97,19 @@ export class NoteSessions extends Service {
     const model = this.settings.model()
     const route = model ?? this.ctx.get('agentDefaultModel')?.currentSelection()
     const sessionId = brandString<SessionId>(randomUUID())
+    const title = this.defaultTitle()
     const handle = await this.ctx.agents.create({
       sessionId,
       meta: { cwd, ...presetId === undefined ? {} : { agentPreset: presetId } },
       ...route === undefined ? {} : { agentOptions: { provider: route.provider, model: route.model } },
       ...setup === undefined ? {} : { setup },
     })
+    this.titleSession(handle.agent, title)
+    await this.joinWorkspace(workspace, sessionId)
     try {
       return await this.record({
         sessionId,
-        title: this.defaultTitle(cwd),
+        title,
         createdAt: Date.now(),
         archivedAt: null,
       })
@@ -111,6 +128,78 @@ export class NoteSessions extends Service {
     return this.settings.workspace() !== null
   }
 
+  /**
+   * Make the notes directory a workspace the session list can group by.
+   *
+   * A dsh Session appears under a registered workspace, and a directory nothing
+   * registered lands among the reader's ungrouped sessions, where the notes
+   * conversations would be scattered through unrelated work. The registry keeps
+   * an existing record's title, so a directory the reader registered keeps the
+   * name they gave it; a directory this plugin registers is titled `笔记`.
+   * @param cwd - the configured notes directory.
+   * @returns the workspace owning the directory, or undefined when the
+   *   deployment serves no registry or the directory cannot be one.
+   */
+  private async ensureWorkspaceRecord(cwd: string): Promise<Workspace | undefined> {
+    const registry: WorkspaceRegistry | undefined = this.ctx.get('workspaceRegistry')
+    if (registry === undefined) return undefined
+    try {
+      return await registry.create(cwd, NOTES_WORKSPACE_TITLE)
+    } catch {
+      // The registry owns only directories that exist, and grouping is a
+      // convenience: a directory it cannot own must not stop the conversation
+      // the reader asked for. That conversation keeps its cwd and is listed as
+      // ungrouped, which is what a deployment without this registry does too.
+      return undefined
+    }
+  }
+
+  /**
+   * Put the conversation on its workspace's account.
+   *
+   * A workspace lists the Sessions it accounts for rather than every Session
+   * under its directory, so the record alone leaves the conversation ungrouped.
+   * The registry validates the Session's stored header cwd against the
+   * directory, which is why this runs once the conversation exists.
+   * @param workspace - the notes directory's workspace, when there is one.
+   * @param sessionId - the conversation's Session.
+   */
+  private async joinWorkspace(workspace: Workspace | undefined, sessionId: SessionId): Promise<void> {
+    if (workspace === undefined) return
+    try {
+      await workspace.attachSession(sessionId)
+    } catch {
+      // The registry refuses a Session whose header cwd it cannot validate
+      // against the directory. Accounting is a convenience like the record
+      // itself, so the conversation the reader asked for still starts; it is
+      // listed as ungrouped until the directory is registered again.
+    }
+  }
+
+  /**
+   * Name the conversation where the session list shows it.
+   *
+   * A session-list row carries the Session's own durable title and falls back
+   * to the workspace directory's name, which for a notes directory is a path
+   * segment the reader never chose. The explicit title also pins the Session:
+   * automatic generation would otherwise retitle it from a message the reader
+   * types into the conversation later, and the panel's own chip would stop
+   * matching the row.
+   * @param agent - the live agent of the conversation just started.
+   * @param title - the display title to record.
+   */
+  private titleSession(agent: Agent, title: string): void {
+    const titles = this.ctx.get('sessionTitle')
+    if (titles === undefined) return
+    try {
+      titles.rename(agent.session, title)
+    } catch {
+      // The service refuses a blank title, a Session its store does not hold
+      // live, and a disposed service. A name is not worth failing the
+      // conversation the reader asked for; the row keeps its fallback label.
+    }
+  }
+
   /** The configured conversation workspace. */
   private requireWorkspace(): string {
     const cwd = this.settings.workspace()
@@ -123,15 +212,13 @@ export class NoteSessions extends Service {
   }
 
   /**
-   * The default display title: the notes prefix, the workspace's own name, and
-   * a running number. The number counts every recorded conversation, archived
-   * ones included, so a title is never reused.
-   * @param cwd - the conversation workspace.
+   * The default display title: the notes prefix and a running two-digit number.
+   * The number counts every recorded conversation, archived ones included, so a
+   * title is never reused and the reader cannot confuse two of them.
    * @returns the display title.
    */
-  private defaultTitle(cwd: string): string {
-    const name = cwd.split(/[\\/]/).filter(segment => segment.length > 0).pop() ?? cwd
-    return `笔记 · ${name} ${String(this.table.size + 1)}`
+  private defaultTitle(): string {
+    return `${NOTES_TITLE_PREFIX}${String(this.table.size).padStart(2, '0')}`
   }
 
   /**

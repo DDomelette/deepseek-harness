@@ -433,3 +433,57 @@ describe('notes collection commands', () => {
     expect(bench.remote.materialAddImage).not.toHaveBeenCalled()
   })
 })
+
+describe('notes directory picking', () => {
+  it('answers the path the host\'s chooser returned', async () => {
+    const bench = harness()
+
+    await expect(bench.face.pickDirectory()).resolves.toEqual({ kind: 'picked', path: '/work/chosen' })
+
+    expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers a cancelled chooser as a cancellation, reporting nothing', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: true, value: null })
+
+    await expect(bench.face.pickDirectory()).resolves.toEqual({ kind: 'cancelled' })
+
+    expect(bench.instance.getSnapshot().settingsFailure).toBeUndefined()
+  })
+
+  it('answers a deployment whose picker serves no native chooser without reporting a failure', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+
+    // The card browses instead, so this is not an error state.
+    await expect(bench.face.pickDirectory()).resolves.toEqual({ kind: 'unavailable' })
+
+    expect(bench.instance.getSnapshot().settingsFailure).toBeUndefined()
+  })
+
+  it('lists the level the browser asks for', async () => {
+    const bench = harness()
+
+    await expect(bench.face.listDirectories('/work')).resolves.toMatchObject({ path: '/work' })
+
+    expect(bench.directoryPicker.list).toHaveBeenCalledExactlyOnceWith('/work')
+  })
+
+  it('lists the host home when the browser does not name a level', async () => {
+    const bench = harness()
+
+    await expect(bench.face.listDirectories(null)).resolves.toMatchObject({ path: '/work' })
+
+    expect(bench.directoryPicker.list).toHaveBeenCalledExactlyOnceWith(undefined)
+  })
+
+  it('reports a level the host cannot read', async () => {
+    const bench = harness()
+    bench.directoryPicker.list.mockResolvedValueOnce({ ok: false, error: unavailable('unreadable') })
+
+    await expect(bench.face.listDirectories(null)).resolves.toBeNull()
+
+    expect(bench.instance.getSnapshot().settingsFailure).toEqual({ code: 'directory-unavailable' })
+  })
+})

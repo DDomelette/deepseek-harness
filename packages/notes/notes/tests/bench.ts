@@ -130,6 +130,9 @@ export class FakeAgents {
   /** The handle returned by each accepted `create`, in call order. */
   readonly handles: { disposed: boolean }[] = []
 
+  /** The agent each accepted `create` handed back, in call order. */
+  readonly agents: { readonly session: { readonly id: string } }[] = []
+
   /** Set to make the next `create` reject, which the caller must roll back. */
   failure: Error | undefined
 
@@ -168,19 +171,22 @@ export class FakeAgents {
   /**
    * Accept one creation request.
    * @param options - the caller's creation options, recorded verbatim.
-   * @returns an inert handle whose disposal is observable.
+   * @returns an inert handle whose disposal is observable, over an agent whose
+   *   Session a caller may name.
    * @throws the configured {@link failure}, when one is set.
    */
   async create(options: Record<string, unknown>): Promise<{
-    agent: unknown
+    agent: { readonly session: { readonly id: string } }
     dispose: () => Promise<void>
   }> {
     if (this.failure !== undefined) throw this.failure
     this.created.push(options)
     const handle = { disposed: false }
     this.handles.push(handle)
+    const agent = { session: { id: `notes-session-${String(this.handles.length)}` } }
+    this.agents.push(agent)
     return {
-      agent: {},
+      agent,
       dispose: async () => {
         handle.disposed = true
       },

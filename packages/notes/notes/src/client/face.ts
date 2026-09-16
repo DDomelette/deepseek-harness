@@ -9,6 +9,7 @@
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
+import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import type {
   MaterialId, MaterialSource, NoteSessionId, NotesApplied, NotesFailure,
   NotesImageMediaType, NotesMaterialAddImageRequest, NotesMaterialAddImageResult,
@@ -185,6 +186,19 @@ export interface NotesInjected {
   /** Write the fields one settings patch names. */
   readonly saveSettings: (patch: NotesSettingsUpdateRequest) => void
   /**
+   * Ask the host to open its own directory chooser for the notes directory field.
+   * @returns what the request answered: a chosen path, a cancelled chooser, or a
+   *   deployment whose picker serves no native chooser.
+   */
+  readonly pickDirectory: () => Promise<NotesPickResult>
+  /**
+   * List one directory level for the in-card browser a deployment without a
+   * native chooser needs.
+   * @param path - the absolute directory to list, or null for the host's home.
+   * @returns the level, or null when the host refused the listing.
+   */
+  readonly listDirectories: (path: string | null) => Promise<DirectoryListing | null>
+  /**
    * Add one collected passage to the notes, under an optional collection action.
    * @param text - the passage as collected.
    * @param action - the collection action, or null for a plain collection.
@@ -223,14 +237,45 @@ function unavailable(error: { readonly message: string }): NotesPanelFailure {
 type AppliedResult = NotesSuccess<NotesApplied> | NotesRejected<NotesFailure>
 
 /**
+ * The directory-picking namespace, as this panel calls it.
+ *
+ * The panel reaches the host's own chooser over the wire instead of importing
+ * another feature plugin: `pick` is the operation the workspace flow uses and
+ * refuses on a deployment that serves no native chooser, and `list` is the
+ * browse primitive that deployment does serve, which the card draws as its own
+ * browser.
+ */
+export interface NotesDirectoryFace {
+  /**
+   * Open the host's chooser.
+   * @returns the chosen absolute path, or null when the operator cancels.
+   */
+  pick(): Promise<RemoteResult<string | null>>
+  /**
+   * List one directory level.
+   * @param path - absolute directory to list; absent lists the home directory.
+   * @returns the level's child directories and its ancestry.
+   */
+  list(path: string | undefined): Promise<RemoteResult<DirectoryListing>>
+}
+
+/** What one directory-chooser request answered. */
+export type NotesPickResult =
+  | { readonly kind: 'picked'; readonly path: string }
+  | { readonly kind: 'cancelled' }
+  | { readonly kind: 'unavailable' }
+
+/**
  * Build the panel's commands over one store instance.
  * @param remote - the notes namespace of the Client Remote face.
+ * @param directoryPicker - the host's directory-picking namespace.
  * @param frame - the right column's operations the tab may ask for.
  * @param actions - the store actions of the instance the panel is registered with.
  * @returns the commands the panel calls.
  */
 export function notesFace(
   remote: NotesRemoteFace,
+  directoryPicker: NotesDirectoryFace,
   frame: NotesPaneFace,
   actions: BoundActions<NotesStore>,
 ): NotesInjected {
@@ -357,6 +402,21 @@ export function notesFace(
         }
         await readSettings(true)
       })()
+    },
+    pickDirectory: async () => {
+      const picked = await directoryPicker.pick()
+      // A refused pick is a deployment that composes the browse primitives
+      // instead of a native chooser, not a failure: the card draws its browser.
+      if (!picked.ok) return { kind: 'unavailable' }
+      return picked.value === null ? { kind: 'cancelled' } : { kind: 'picked', path: picked.value }
+    },
+    listDirectories: async (path) => {
+      const listed = await directoryPicker.list(path ?? undefined)
+      if (!listed.ok) {
+        actions.settingsFailed({ code: 'directory-unavailable' })
+        return null
+      }
+      return listed.value
     },
     collect: async (text, action, source) => {
       const target = await collectTarget()

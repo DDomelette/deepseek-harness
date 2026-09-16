@@ -14,9 +14,10 @@ import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/c
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
+import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import type { NotesButtonProps } from '../src/client/NotesButton.tsx'
 import { notesFace } from '../src/client/face.ts'
-import type { NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
+import type { NotesDirectoryFace, NotesInjected, NotesPaneFace, NotesRemoteFace } from '../src/client/face.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import type { SelectionBubbleProps } from '../src/client/SelectionBubble.tsx'
 import { createNotesStore } from '../src/client/store.ts'
@@ -132,6 +133,22 @@ export function unavailable(message = 'socket closed'): RemoteFailure {
   return { code: 'gateway/internal', message, name: 'RemoteError' } as unknown as RemoteFailure
 }
 
+/** One directory level, as the host's browse primitives report it. */
+export function directoryListing(overrides: Partial<DirectoryListing> = {}): DirectoryListing {
+  const path = overrides.path ?? '/work'
+  return {
+    path,
+    home: '/work',
+    crumbs: [{ name: path, path, hidden: false }],
+    entries: [
+      { name: 'notes', path: `${path}/notes`, hidden: false },
+      { name: '.hidden', path: `${path}/.hidden`, hidden: true },
+    ],
+    truncated: false,
+    ...overrides,
+  }
+}
+
 /** Key-echoing translate that also shows its parameters. */
 export function t(key: string, params?: Record<string, unknown>): string {
   return params === undefined
@@ -176,6 +193,11 @@ export interface Harness {
   readonly face: NotesInjected
   /** The scripted Remote face, for assertions and re-scripting. */
   readonly remote: HarnessRemote
+  /** The host's directory chooser, recorded. */
+  readonly directoryPicker: {
+    pick: Mock<NotesDirectoryFace['pick']>
+    list: Mock<NotesDirectoryFace['list']>
+  }
   /** The frame operations the panel asks for, recorded. */
   readonly frame: NotesPaneFace & {
     float: Mock<NotesPaneFace['float']>
@@ -241,7 +263,16 @@ export function harness(script: {
     settingsUpdate: vi.fn<NotesRemoteFace['settingsUpdate']>(async () => applied()),
   }
   const frame = { float: vi.fn<NotesPaneFace['float']>(), dock: vi.fn<NotesPaneFace['dock']>() }
-  const face = notesFace(remote, frame, instance.actions)
+  const directoryPicker = {
+    // The host's chooser answers a path; a spec overrides this per case.
+    pick: vi.fn<NotesDirectoryFace['pick']>(async () => ({ ok: true, value: '/work/chosen' })),
+    // One level of the host's home directory, with one child to descend into.
+    list: vi.fn<NotesDirectoryFace['list']>(async path => ({
+      ok: true,
+      value: directoryListing(path === undefined ? { path: '/work' } : { path }),
+    })),
+  }
+  const face = notesFace(remote, directoryPicker, frame, instance.actions)
   const tabActions = { openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
   const controller = new AbortController()
   const useTabInfo = () => ({
@@ -267,6 +298,7 @@ export function harness(script: {
     face,
     remote,
     frame,
+    directoryPicker,
     props: () => panelProps ??= ({
       useTabInfo,
       sessionId: SESSION,
@@ -288,6 +320,8 @@ export function harness(script: {
       present: face.present,
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
+      pickDirectory: face.pickDirectory,
+      listDirectories: face.listDirectories,
       collect: face.collect,
       addImage: face.addImage,
       remove: face.remove,
@@ -306,6 +340,7 @@ export function harness(script: {
       actions: instance.actions,
       readSettings: face.readSettings,
       saveSettings: face.saveSettings,
+      pickDirectory: face.pickDirectory,
       collect: face.collect,
       t,
     }) as unknown as SelectionBubbleProps,

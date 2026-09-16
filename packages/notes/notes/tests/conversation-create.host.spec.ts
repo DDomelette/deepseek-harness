@@ -3,7 +3,7 @@
  * section, a preset roster (when the deployment has one) joins the new Session,
  * and the record is what the panel later lists and opens.
  */
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bench } from './bench.ts'
 import type { Bench } from './bench.ts'
@@ -52,7 +52,7 @@ describe('notes conversation creation', () => {
     expect(host.agents.created).toHaveLength(1)
     expect(host.agents.created[0]?.meta).toEqual({ cwd: workspace })
     const stored = host.sessions.get(id)
-    expect(stored?.title).toBe('笔记 · notes-workspace 1')
+    expect(stored?.title).toBe('笔记 · 00')
     expect(stored?.archivedAt).toBeNull()
     expect(stored?.sessionId).toBe(host.agents.created[0]?.sessionId)
     expect(host.sessions.active()).toBe(id)
@@ -65,15 +65,105 @@ describe('notes conversation creation', () => {
     await host.sessions.create()
     const second = await host.sessions.create()
 
-    expect(host.sessions.get(second)?.title).toBe('笔记 · notes-workspace 2')
+    expect(host.sessions.get(second)?.title).toBe('笔记 · 01')
   })
 
-  it('falls back to the whole path when the workspace has no name segment', async () => {
-    const host = await mount({ workspace: sep })
+  it('titles the Session, so its row is named rather than labelled by the directory', async () => {
+    const host = await mount()
+    const rename = vi.fn()
+    host.ctx.provide('sessionTitle', { rename } as never)
 
     const id = await host.sessions.create()
 
-    expect(host.sessions.get(id)?.title).toBe(`笔记 · ${sep} 1`)
+    // A session-list row carries the Session's own title and falls back to the
+    // workspace directory's name.
+    expect(rename).toHaveBeenCalledExactlyOnceWith(host.agents.agents[0]?.session, '笔记 · 00')
+    expect(host.sessions.get(id)?.title).toBe('笔记 · 00')
+  })
+
+  it('starts the conversation anyway when the title cannot be written', async () => {
+    const host = await mount()
+    host.ctx.provide('sessionTitle', {
+      rename: vi.fn(() => { throw new Error('session is not live') }),
+    } as never)
+
+    const id = await host.sessions.create()
+
+    // A name is a convenience: the reader asked for a conversation, and it is
+    // recorded whether or not the Session could be titled.
+    expect(host.sessions.get(id)?.title).toBe('笔记 · 00')
+    expect(host.agents.handles[0]?.disposed).toBe(false)
+  })
+
+  it('registers the notes directory as a workspace titled 笔记', async () => {
+    const host = await mount()
+    const create = vi.fn(async () => ({ attachSession: vi.fn(async () => undefined) }))
+    host.ctx.provide('workspaceRegistry', { create } as never)
+
+    await host.sessions.create()
+
+    // The session list groups by workspace, so the directory has to be one; the
+    // registry keeps an existing record's title, which is why this only passes
+    // one for a record the registry itself creates.
+    expect(create).toHaveBeenCalledExactlyOnceWith(workspace, '笔记')
+  })
+
+  it('puts the conversation on its workspace account, which is what groups it', async () => {
+    const host = await mount()
+    const attachSession = vi.fn(async () => undefined)
+    host.ctx.provide('workspaceRegistry', {
+      create: vi.fn(async () => ({ attachSession })),
+    } as never)
+
+    await host.sessions.create()
+
+    // A workspace lists the Sessions it accounts for rather than every Session
+    // under its directory, so the record alone leaves the row ungrouped.
+    expect(attachSession).toHaveBeenCalledExactlyOnceWith(host.agents.created[0]?.sessionId)
+  })
+
+  it('reuses the record a directory already has, and joins each conversation to it', async () => {
+    const host = await mount()
+    const attachSession = vi.fn(async () => undefined)
+    const create = vi.fn(async () => ({ attachSession }))
+    host.ctx.provide('workspaceRegistry', { create } as never)
+
+    await host.sessions.create()
+    await host.sessions.create()
+
+    // The registry returns the record a path already has, so a directory the
+    // reader registered keeps their own name and the plugin adds only
+    // membership.
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(attachSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('starts the conversation anyway when the registry cannot own the directory', async () => {
+    const host = await mount()
+    host.ctx.provide('workspaceRegistry', {
+      create: vi.fn(async () => { throw new Error('not a directory') }),
+    } as never)
+
+    const id = await host.sessions.create()
+
+    // Grouping is a convenience: the reader asked for a conversation, and it
+    // starts with its workspace recorded on the Session either way.
+    expect(host.sessions.get(id)?.title).toBe('笔记 · 00')
+    expect(host.agents.created[0]?.meta).toEqual({ cwd: workspace })
+  })
+
+  it('starts the conversation anyway when the Session cannot join the workspace', async () => {
+    const host = await mount()
+    host.ctx.provide('workspaceRegistry', {
+      create: vi.fn(async () => ({
+        attachSession: vi.fn(async () => { throw new Error('cwd does not resolve') }),
+      })),
+    } as never)
+
+    const id = await host.sessions.create()
+
+    expect(host.sessions.get(id)?.title).toBe('笔记 · 00')
+    expect(host.agents.handles[0]?.disposed).toBe(false)
   })
 
   it('passes the configured model override to the agent', async () => {

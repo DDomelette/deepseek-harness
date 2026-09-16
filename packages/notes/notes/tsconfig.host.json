@@ -28,10 +28,12 @@
     { "path": "../../core/session" },
     { "path": "../../llm/llm" },
     { "path": "../../preset/agent-presets" },
+    { "path": "../../session/session-title" },
     { "path": "../../settings/settings" },
     { "path": "../../storage/storage" },
     { "path": "../../storage/storage-domain" },
     { "path": "../../typert/protocol" },
-    { "path": "../../util/brand" }
+    { "path": "../../util/brand" },
+    { "path": "../../workspace/workspace" }
   ]
 }

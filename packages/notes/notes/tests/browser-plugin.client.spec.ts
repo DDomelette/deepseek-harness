@@ -18,7 +18,9 @@ import { SelectionBubble } from '../src/client/SelectionBubble.tsx'
 import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
-import { sessions } from './fixtures.client.ts'
+import {
+  directoryListing, materialSummary, materials, noteId, sessionSummary, sessions, source,
+} from './fixtures.client.ts'
 
 /** One recorded slot registration. */
 interface Recorded {
@@ -58,11 +60,16 @@ async function boot() {
     materialAddText: vi.fn(async () => ({ ok: true, value: { ok: true, value: { id: 'm1' } } })),
   }
   const sidebarRight = { openTab: vi.fn() }
+  const directoryPicker = {
+    pick: vi.fn(async () => ({ ok: true, value: '/work/chosen' })),
+    list: vi.fn(async () => ({ ok: true, value: directoryListing() })),
+  }
   ctx.provide('sidebarRightTabs', tabs as never)
   ctx.provide('slots', slots as never)
   ctx.provide('locale', locale as never)
-  ctx.provide('remote', { notes } as never)
+  ctx.provide('remote', { notes, directoryPicker } as never)
   ctx.provide('remote.notes', notes as never)
+  ctx.provide('remote.directoryPicker', directoryPicker as never)
   ctx.provide('sidebarRight', sidebarRight as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   onTestFinished(async () => { await fiber.dispose() })
@@ -108,12 +115,22 @@ describe('notes browser half', () => {
     expect(notes.sessionList).toHaveBeenCalledTimes(1)
   })
 
-  it('commands the bubble with the store instance its own seat declares', async () => {
+  it('collects through the bubble into the store the panel renders', async () => {
     const { registered, notes } = await boot()
-    const registration = registered.find(entry => entry.component === SelectionBubble)
-    if (registration === undefined) throw new Error('missing bubble registration')
-    const instance = (registration.store as NotesStore).create()
-    const face = (registration.inject as (
+    const panel = registered[0]
+    const bubble = registered.find(entry => entry.component === SelectionBubble)
+    if (panel === undefined || bubble === undefined) throw new Error('missing registrations')
+
+    // One handle for both seats: the bubble covers a conversation and the panel
+    // renders the right column, so a collection has to reach the list the reader
+    // is looking at instead of a second copy of the state.
+    expect(bubble.store).toBe(panel.store)
+
+    const note = noteId('n1')
+    const instance = (panel.store as NotesStore).create()
+    notes.sessionList.mockResolvedValue(sessions([sessionSummary({ id: note })], [], note))
+    notes.materialList.mockResolvedValue(materials([materialSummary({ noteId: note, text: 'a passage' })]))
+    const collected = (bubble.inject as (
       session: string,
       actions: unknown,
     ) => { collect: (text: string, action: null, source: unknown) => Promise<unknown> })(
@@ -121,16 +138,11 @@ describe('notes browser half', () => {
       instance.actions,
     )
 
-    await face.collect('a passage', null, {
-      sessionId: 's-1',
-      view: 'chat',
-      seq: null,
-      messageId: null,
-      callId: null,
-      label: 'passage',
-    })
+    await collected.collect('a passage', null, source())
 
     expect(notes.materialAddText).toHaveBeenCalledTimes(1)
+    // The material the collection stored is what the panel's own state now holds.
+    expect(instance.getSnapshot().materials.map(row => row.text)).toEqual(['a passage'])
   })
 
   it('opens the notes tab from the header control', async () => {

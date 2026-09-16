@@ -31,9 +31,10 @@ describe('notes failure lines', () => {
     expect(line({ code: 'image-unsupported', id: 'm1' as never })).toBe('error.imageUnsupported')
   })
 
-  it('names the two image refusals the panel makes on its own', () => {
+  it('names each refusal the panel makes on its own', () => {
     expect(line({ code: 'image-format' })).toBe('error.imageFormat')
     expect(line({ code: 'image-unreadable' })).toBe('error.imageUnreadable')
+    expect(line({ code: 'directory-unavailable' })).toBe('error.directoryUnavailable')
   })
 
   it('carries the transport message a carrier failure brings', () => {
