@@ -1,17 +1,21 @@
 /**
  * Thread attribution and projection. A material's thread is each of its own user
- * messages plus everything up to the next user message, so a follow-up asked
- * long after the first analysis still lands in the right thread; the projection
- * turns that into the rows the panel draws.
+ * messages plus everything up to the next prompt, so a follow-up asked long
+ * after the first analysis still lands in the right thread; the context the
+ * harness injects inside that turn is carried by the segment and draws no row;
+ * the projection turns the rest into the rows the panel draws.
  */
 import { describe, expect, it } from 'vitest'
 import { attributeThread, projectThread } from '../src/thread.ts'
 
-/** Minimal event shape the attribution reads; `data.id` mirrors `UserMessage.id`. */
+/**
+ * Minimal event shape the attribution reads; `data.id` mirrors `UserMessage.id`
+ * and `data.source` carries the form a context contribution declares.
+ */
 interface Row {
   readonly seq: number
   readonly type: string
-  readonly data?: { readonly id?: string }
+  readonly data?: { readonly id?: string; readonly source?: unknown }
 }
 
 const rows: Row[] = [
@@ -70,6 +74,32 @@ describe('thread attribution', () => {
     expect(attributeThread([...rows, ...blank], ['a1']).map(row => row.seq)).toEqual([10, 11])
   })
 
+  it('carries the harness\'s own context through to the answer', () => {
+    const withContext: Row[] = [
+      { seq: 60, type: 'user/message', data: { id: 'a1', source: { kind: 'plugin', plugin: 'notes' } } },
+      { seq: 61, type: 'user/message', data: { id: 'c1', source: { kind: 'agent-instructions', form: 'instructions' } } },
+      { seq: 62, type: 'user/message', data: { id: 'c2', source: { kind: 'plugin', plugin: 'system-prompt', form: 'snapshot' } } },
+      { seq: 63, type: 'assistant/message' },
+      { seq: 70, type: 'user/message', data: { id: 'b1', source: { kind: 'plugin', plugin: 'notes' } } },
+      { seq: 71, type: 'assistant/message' },
+    ]
+
+    // Context lands inside the turn it belongs to: it neither opens a segment
+    // nor ends the material's, so the answer stays in the thread.
+    expect(attributeThread(withContext, ['a1']).map(row => row.seq)).toEqual([60, 61, 62, 63])
+    expect(attributeThread(withContext, ['b1']).map(row => row.seq)).toEqual([70, 71])
+  })
+
+  it('still ends the segment at a human prompt', () => {
+    const typed: Row[] = [
+      { seq: 80, type: 'user/message', data: { id: 'a1' } },
+      { seq: 81, type: 'user/message', data: { id: 'h1', source: { kind: 'user' } } },
+      { seq: 82, type: 'assistant/message' },
+    ]
+
+    expect(attributeThread(typed, ['a1']).map(row => row.seq)).toEqual([80])
+  })
+
   it('sorts an out-of-order log before attributing it', () => {
     const shuffled: Row[] = [
       { seq: 11, type: 'assistant/message' },
@@ -90,6 +120,30 @@ describe('thread projection', () => {
     expect(projectThread(log, ['a1'])).toEqual([
       { role: 'user', text: 'body', hasImage: false, seq: 10 },
       { role: 'assistant', text: 'answer', hasImage: false, seq: 11 },
+    ])
+  })
+
+  it('draws no row for context the harness injected', () => {
+    const log = [
+      submitted(10, 'a1', text('body')),
+      {
+        seq: 11,
+        type: 'user/message',
+        data: {
+          id: 'c1',
+          role: 'user',
+          content: [text('workspace instructions')],
+          source: { kind: 'agent-instructions', form: 'instructions' },
+        },
+      },
+      answered(12, text('answer')),
+    ]
+
+    // The injected text is context, not something the conversation received;
+    // it neither draws a row nor hides the answer that follows it.
+    expect(projectThread(log, ['a1'])).toEqual([
+      { role: 'user', text: 'body', hasImage: false, seq: 10 },
+      { role: 'assistant', text: 'answer', hasImage: false, seq: 12 },
     ])
   })
 

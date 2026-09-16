@@ -94,7 +94,7 @@ A submission's outcome is settled by the turn that carried it. `src/turns.ts` re
 
 ### Thread attribution
 
-`src/thread.ts` answers which session events belong to one material. Attribution is explicit, never positional: the material records the ids of its own user messages, and each of those takes the events up to the next user message. A follow-up asked long after the first analysis, and after other materials were analysed, still lands in the right thread.
+`src/thread.ts` answers which session events belong to one material. Attribution is explicit, never positional: the material records the ids of its own user messages, and each of those takes the events up to the next prompt the conversation received. A follow-up asked long after the first analysis, and after other materials were analysed, still lands in the right thread. The harness's own context — workspace instructions, the system-prompt snapshot, the skill catalog — lands in the log as user messages inside the same turn, so it is carried by the segment and drawn as no row; a prompt is the user message that declares no context form, whether a person or a plugin sent it.
 
 </details>
 

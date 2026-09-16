@@ -20,7 +20,9 @@ Analysis and follow-ups call `Agent.followup()` on a real dsh Session. `docs/arc
 
 ### Thread attribution records user-message ids
 
-A material records the ids of every user message it submitted. Attribution resolves those ids to sequences and takes, for each, the events up to the next user message. A follow-up can arrive long after the first analysis and after other materials were analysed, so a contiguous range would attribute a neighbour's events to the wrong material.
+A material records the ids of every user message it submitted. Attribution resolves those ids to sequences and takes, for each, the events up to the next prompt the conversation received. A follow-up can arrive long after the first analysis and after other materials were analysed, so a contiguous range would attribute a neighbour's events to the wrong material.
+
+What counts as that next prompt is the message's declared context form: a person's message and a plugin's submission declare none, while the context the harness itself injects — workspace instructions, the system-prompt snapshot, the skill catalog — lands in the same turn as a user message that declares the form its text was rendered in. Treating those as boundaries ended a material's segment inside its own turn, before the answer arrived, so the panel showed the submission and never the reply; the segment now carries them and the projection draws no row for them, because they are the harness talking to the model rather than a prompt anyone sent.
 
 Identity is matched rather than sequence because `Agent.followup(message)` returns `void`: the sequence a message lands on is not knowable at the call site, while `createUserMessage()` mints its id before the send. Recording a sequence would require racing the submission against `session/event`.
 
