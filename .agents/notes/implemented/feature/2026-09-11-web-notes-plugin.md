@@ -64,6 +64,10 @@ The `notes` Remote namespace answers every call with the vocabulary in `src/type
 
 A send the inbox refuses is reported the same way (`submit-refused`, carrying the reason), after the recorded id is rolled back and the material is marked `failed`. Reporting it as a thrown error would leave the vocabulary and reach the panel as an unreachable Host rather than as a refused send. The two collection operations report the refusal their own auto-submission produced too, so a deployment that submits on collection never answers "stored" for a material that was refused.
 
+### The Remote namespace declares the services it reaches
+
+`NotesRemote` names every service it reads through `ctx.<name>` in its `static inject`. A declared injection resolves through the fiber's own dependency; an undeclared one is resolved by walking the accessing fiber's parent chain, and the loaded runtime throws `cannot get property "<name>" without inject` when that walk ends first — which reaches the panel as an unreachable Host rather than as a missing declaration. A hand-built context instead falls back to the global store, so the unit suite cannot see the omission: `tests/injections.host.spec.ts` pins the declaration for every plugin body in the package, host and browser halves alike, and `notes-composition.host.spec.ts` answers the namespace's operations through a real Loader composition.
+
 ### The panel is a tab type that reads only through the Remote namespace
 
 The browser half registers one page type with `ctx.sidebarRightTabs` — kind `notes` at the `builtin` band, recognizing no resource address — and draws it from the keyed `sidebar.right.pane.tab` seat under the definition's own `id`, so an extension may take the kind over without taking the body. A control in the conversation header's `conversation.session.header.corner` seat opens the tab by kind; `openTab` deduplicates a page within its pane, so pressing it again reveals the panel rather than adding a second one, and the control needs no state of its own.

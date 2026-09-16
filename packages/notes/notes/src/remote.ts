@@ -54,7 +54,7 @@ const APPLIED: NotesApplied = Object.freeze({ applied: true as const })
  * `notes/sessionList`, `notes/materialAnalyze`, and so on.
  */
 export class NotesRemote extends TypertRemoteService {
-  static inject = ['notesStore', 'notesMaterials', 'notesSessions', 'notesAnalysis']
+  static inject = ['notesStore', 'notesMaterials', 'notesSessions', 'notesAnalysis', 'notesSettings']
 
   /** @param ctx - host context carrying the notes services. */
   constructor(ctx: Context) {
