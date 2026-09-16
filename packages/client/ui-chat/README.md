@@ -54,7 +54,7 @@ Chat restores semantic anchors across history prepend and renderer remounts. Pin
 <a id="row-identities"></a>
 ## Row identities in the DOM
 
-Every Chat row publishes the identities its Node was built from, for surfaces that read a text selection out of the transcript: `data-chat-seq` carries the durable event `seq` the row renders and `data-chat-message-id` the message it renders, each absent when that row names none. A row assembled without a durable event sequence — a Turn-process disclosure, an interruption-frozen prefix — publishes no `data-chat-seq`, and a Tool row's own wrapper adds `data-chat-call-id` for the call it addresses. The values come from the Node payload, never from `anchorSeq`: that coordinate orders rows, may be fractional for a row synthesized between events, and is therefore not an identity.
+Chat rows publish the identities their own payload carries, for surfaces that read a text selection out of the transcript: `data-chat-seq` holds the durable event `seq` a row renders — read from the payload's `seq`, or from `finalNode.seq` and `root.seq` where the kind nests it — and `data-chat-message-id` the message it renders. A row publishes neither when its payload names neither: the System-prompt card, a manual compaction, and a retry row keep their sequence outside those fields, a Turn-process disclosure has none, and an interruption-frozen prefix carries a synthetic coordinate rather than an event. A Tool row's own wrapper adds `data-chat-call-id` for the call it addresses. The values come from the Node payload, never from `anchorSeq`: that coordinate orders rows, may be fractional for a row synthesized between events, and is therefore not an identity.
 
 -----
 

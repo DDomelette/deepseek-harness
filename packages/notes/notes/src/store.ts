@@ -36,8 +36,8 @@ export class NotesStore extends Service {
 
   /**
    * Open the domain for this plugin's lifetime. The close effect runs when this
-   * service's fiber disposes, which is after every consumer that injected it
-   * has already disposed.
+   * service's fiber disposes; cordis unloads sibling fibers concurrently, so no
+   * consumer may rely on having finished its own teardown by then.
    */
   protected async [Service.init](): Promise<void> {
     this.domain = await openNotesDomain(this.ctx)
