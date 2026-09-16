@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
-import { payloadOf } from '../src/client/image.ts'
+import { IMAGE_TYPES, payloadOf } from '../src/client/image.ts'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
   harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
@@ -439,6 +439,17 @@ describe('notes panel', () => {
     await waitFor(() => {
       expect(document.querySelector('[data-notes-notice="attachments-unavailable"]')).not.toBeNull()
     })
+  })
+
+  it('accepts exactly the image formats a collection takes', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-image-input]')).not.toBeNull() })
+
+    // One list decides both what the picker offers and what a paste is read as.
+    expect(document.querySelector('[data-notes-image-input]')?.getAttribute('accept'))
+      .toBe(IMAGE_TYPES.join(','))
   })
 
   it('opens the image picker from the navigation bar', async () => {    const note = noteId('n1')

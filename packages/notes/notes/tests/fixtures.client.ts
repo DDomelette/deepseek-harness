@@ -123,7 +123,6 @@ export function settings(
     }],
     workspace: '/work/notes',
     model: null,
-    writable: true,
     ...overrides,
   } } }
 }

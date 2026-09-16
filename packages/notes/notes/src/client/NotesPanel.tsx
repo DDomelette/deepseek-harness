@@ -21,7 +21,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { NotesSessionSummary, NoteSessionId, MaterialSource } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
-import { readImage } from './image.ts'
+import { IMAGE_TYPES, readImage } from './image.ts'
 import { MaterialDetail } from './MaterialDetail.tsx'
 import { MaterialList } from './MaterialList.tsx'
 import { NotesSettingsCard } from './NotesSettingsCard.tsx'
@@ -341,7 +341,7 @@ export function NotesPanel({
         <input
           ref={fileRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
+          accept={IMAGE_TYPES.join(',')}
           hidden
           data-notes-image-input
           onChange={(event) => {

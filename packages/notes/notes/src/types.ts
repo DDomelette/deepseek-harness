@@ -275,8 +275,6 @@ export interface NotesSettingsView {
   readonly workspace: string | null
   /** Model override for notes conversations, or null to follow the session default. */
   readonly model: { readonly provider: string; readonly model: string } | null
-  /** Whether this deployment persists a write, so the card can offer editing. */
-  readonly writable: boolean
 }
 
 /**
@@ -404,6 +402,19 @@ export type NotesFailure =
   | NotesSettingsUnavailable
   | NotesInvalidActions
   | NotesAttachmentsUnavailable
+  | NotesSubmitRefused
+
+/**
+ * The inbox refused the message the notes built for one material, so nothing
+ * was sent. The material keeps the refusal as its `error` and stays analysable.
+ */
+export interface NotesSubmitRefused {
+  readonly code: 'submit-refused'
+  /** The material whose submission was refused. */
+  readonly id: MaterialId
+  /** The reason the send reported. */
+  readonly message: string
+}
 
 /**
  * Failures submitting one material for analysis can report. `Analysis.analyse`
@@ -415,6 +426,7 @@ export type NotesAnalyzeFailure =
   | NotesSessionNotLive
   | NotesUnknownAction
   | NotesImageUnsupported
+  | NotesSubmitRefused
 
 /** Failures asking a follow-up inside one material's thread can report. */
 export type NotesAskFailure =
@@ -422,6 +434,7 @@ export type NotesAskFailure =
   | NotesMaterialNotSubmitted
   | NotesSessionNotFound
   | NotesSessionNotLive
+  | NotesSubmitRefused
 
 /** Failures reading one material's thread can report. */
 export type NotesThreadFailure =
@@ -472,12 +485,12 @@ export type NotesMaterialListResult =
 /** Result of `notes/materialAddText`. */
 export type NotesMaterialAddResult =
   | NotesSuccess<NotesMaterialAddValue>
-  | NotesRejected<NotesSessionNotFound>
+  | NotesRejected<NotesSessionNotFound | NotesAnalyzeFailure>
 
 /** Result of `notes/materialAddImage`. */
 export type NotesMaterialAddImageResult =
   | NotesSuccess<NotesMaterialAddValue>
-  | NotesRejected<NotesSessionNotFound | NotesAttachmentsUnavailable>
+  | NotesRejected<NotesSessionNotFound | NotesAttachmentsUnavailable | NotesAnalyzeFailure>
 
 /** Result of `notes/materialUpdate`. */
 export type NotesMaterialUpdateResult =

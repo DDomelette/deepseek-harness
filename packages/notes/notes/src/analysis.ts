@@ -34,6 +34,7 @@ import type { NotesSettings } from './settings.ts'
 import type { Materials } from './materials.ts'
 import type {
   MaterialId, NoteSessionId, NotesAnalyzeFailure, NotesAskFailure, NotesSessionNotFound,
+  NotesSubmitRefused,
   NotesSessionNotLive, NotesThreadFailure,
 } from './types.ts'
 
@@ -99,7 +100,11 @@ export class Analysis extends Service {
     for (const noteId of noteIds) {
       for (const stored of [...this.materials.list(noteId), ...this.materials.archived(noteId)]) {
         if (stored.status !== 'analyzing') continue
-        if (!stored.messageIds.some(id => ids.includes(id))) continue
+        // Only the turn that carried the material's newest message settles it:
+        // a question submitted while the first turn was open would otherwise be
+        // settled by that earlier turn, and its own turn skipped.
+        const newest = stored.messageIds.at(-1)
+        if (newest === undefined || !ids.includes(newest)) continue
         await this.materials.update(stored.id, record => record.status === 'analyzing'
           ? { ...record, status: outcome.answered ? 'analyzed' : 'failed', error: outcome.reason }
           : record)
@@ -139,8 +144,7 @@ export class Analysis extends Service {
     if (content.some(block => block.type === 'image') && await this.imagesUnsupported(target.agent)) {
       return { code: 'image-unsupported', id }
     }
-    await this.submit(id, target.agent, content, true)
-    return null
+    return await this.submit(id, target.agent, content, true)
   }
 
   /**
@@ -157,8 +161,7 @@ export class Analysis extends Service {
     if (current.messageIds.length === 0) return { code: 'material-not-submitted', id }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
-    await this.submit(id, target.agent, [{ type: 'text', text: question }], false)
-    return null
+    return await this.submit(id, target.agent, [{ type: 'text', text: question }], false)
   }
 
   /**
@@ -259,14 +262,15 @@ export class Analysis extends Service {
    * @param content - the blocks to submit.
    * @param claim - whether this call may only send if it is the first to record
    *   an id, which makes the first analysis idempotent under concurrency.
-   * @throws the send failure, after the material is marked `failed`.
+   * @returns the refusal, after the material is marked `failed` and the id is
+   *   rolled back, or null when the send was taken.
    */
   private async submit(
     id: MaterialId,
     agent: Agent,
     content: ContentBlock[],
     claim: boolean,
-  ): Promise<void> {
+  ): Promise<NotesSubmitRefused | null> {
     const message = createUserMessage({
       content,
       source: { kind: 'plugin', plugin: 'notes' },
@@ -284,7 +288,7 @@ export class Analysis extends Service {
           messageIds: [...record.messageIds, message.id],
           error: null,
         })
-      if (!next.messageIds.includes(message.id)) return
+      if (!next.messageIds.includes(message.id)) return null
     } else {
       await this.materials.update(id, record => ({
         ...record,
@@ -295,6 +299,7 @@ export class Analysis extends Service {
     }
     try {
       agent.followup(message)
+      return null
     } catch (error: unknown) {
       const reason = error instanceof Error ? error.message : String(error)
       await this.materials.update(id, record => ({
@@ -303,7 +308,9 @@ export class Analysis extends Service {
         messageIds: record.messageIds.filter(candidate => candidate !== message.id),
         error: reason,
       }))
-      throw error
+      // The refusal is a value: a throw here would leave the wire vocabulary and
+      // reach the panel as an unreachable Host rather than a refused send.
+      return { code: 'submit-refused', id, message: reason }
     }
   }
 }

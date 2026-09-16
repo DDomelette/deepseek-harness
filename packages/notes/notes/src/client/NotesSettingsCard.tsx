@@ -161,9 +161,6 @@ function SettingsForm({ settings, commands, t }: {
           ))}
         </ul>
       </section>
-      {!settings.writable && (
-        <p className={css.line} data-notes-settings-readonly>{t('settings.readOnly')}</p>
-      )}
     </>
   )
 }

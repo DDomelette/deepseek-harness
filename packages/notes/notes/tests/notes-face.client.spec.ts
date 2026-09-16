@@ -166,6 +166,58 @@ describe('notes panel detail commands', () => {
       .toEqual([{ role: 'user', text: 'body', hasImage: false, seq: 0 }])
   })
 
+  it('re-reads the open detail along with everything else on a refresh', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([materialSummary({ noteId: note })]),
+      thread: () => thread([{ role: 'user', text: 'body', hasImage: false, seq: 0 }]),
+    })
+    bench.face.load()
+    await settle()
+    bench.face.select(materialId('m1'))
+    await settle()
+    expect(bench.remote.materialThread).toHaveBeenCalledTimes(1)
+
+    // The control promises to re-read everything the panel shows, and the open
+    // detail is part of that: an answer that arrived since it was drawn is only
+    // visible through this read.
+    bench.face.refresh()
+    await settle()
+
+    expect(bench.remote.materialThread).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a late thread answer out of the detail the reader moved to', async () => {
+    const note = noteId('n1')
+    const bench = harness({
+      sessions: () => sessions([sessionSummary({ id: note })], [], note),
+      materials: () => materials([
+        materialSummary({ noteId: note, text: 'first' }),
+        materialSummary({ noteId: note, id: materialId('m2'), text: 'second' }),
+      ]),
+    })
+    const answers: Array<(result: ReturnType<typeof thread>) => void> = []
+    bench.remote.materialThread.mockImplementation(() => new Promise((resolve) => {
+      answers.push(resolve)
+    }))
+
+    bench.face.select(materialId('m1'))
+    await settle()
+    bench.face.select(materialId('m2'))
+    await settle()
+
+    // The first material's answer arrives after the reader moved on: it belongs
+    // to a detail that is no longer open.
+    answers[1]?.(thread([{ role: 'assistant', text: 'second answer', hasImage: false, seq: 1 }]))
+    await settle()
+    answers[0]?.(thread([{ role: 'assistant', text: 'first answer', hasImage: false, seq: 0 }]))
+    await settle()
+
+    expect(bench.instance.getSnapshot().thread)
+      .toEqual([{ role: 'assistant', text: 'second answer', hasImage: false, seq: 1 }])
+  })
+
   it('closes the detail without reading a thread', async () => {
     const bench = harness()
 

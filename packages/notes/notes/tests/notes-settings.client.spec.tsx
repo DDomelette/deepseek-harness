@@ -183,14 +183,6 @@ describe('notes settings card', () => {
     expect(screen.getByText('error.settingsUnavailable')).toBeDefined()
   })
 
-  it('says a section is read-only when the deployment cannot persist a write', async () => {
-    const bench = harness({ settings: () => settings({ writable: false }) })
-    await opened(bench)
-
-    expect(document.querySelector('[data-notes-settings-readonly]')).not.toBeNull()
-    expect(screen.getByText('settings.readOnly')).toBeDefined()
-  })
-
   it('closes the card', async () => {
     const bench = harness()
     const close = vi.fn()

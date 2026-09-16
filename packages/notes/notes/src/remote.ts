@@ -34,6 +34,7 @@ import type {
   NotesSessionListResult, NotesSessionRestoreRequest, NotesSessionRestoreResult,
   NotesSessionSelectRequest, NotesSessionSelectResult, NotesSettingsReadResult,
   NotesSettingsUpdateRequest, NotesSettingsUpdateResult, NotesSessionSummary,
+  NotesAnalyzeFailure,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -159,7 +160,8 @@ export class NotesRemote extends TypertRemoteService {
       return rejected({ code: 'session-not-found', id: request.noteId })
     }
     const record = this.draft(request, { kind: 'text', text: request.text, image: null })
-    return success({ id: await this.collect(record, request.action) })
+    const outcome = await this.collect(record, request.action)
+    return outcome.ok ? success({ id: outcome.id }) : rejected(outcome.failure)
   }
 
   /**
@@ -181,7 +183,8 @@ export class NotesRemote extends TypertRemoteService {
       mediaType: request.mediaType,
     })
     const record = this.draft(request, { kind: 'image', text: null, image: stored })
-    return success({ id: await this.collect(record, request.action) })
+    const outcome = await this.collect(record, request.action)
+    return outcome.ok ? success({ id: outcome.id }) : rejected(outcome.failure)
   }
 
   /**
@@ -283,7 +286,6 @@ export class NotesRemote extends TypertRemoteService {
       actions: this.ctx.notesSettings.actions().map(action => ({ ...action })),
       workspace: this.ctx.notesSettings.workspace(),
       model: this.ctx.notesSettings.model(),
-      writable: true,
     })
   }
 
@@ -364,14 +366,17 @@ export class NotesRemote extends TypertRemoteService {
    * or the action it names, asks for that.
    * @param record - the complete record to store.
    * @param action - the collection action the material names, or null for none.
-   * @returns the new material id.
+   * @returns the stored id, or the refusal the submission produced. A refused
+   *   submission leaves the material stored and marked `failed`.
    */
-  private async collect(record: MaterialRecord, action: string | null): Promise<MaterialId> {
+  private async collect(
+    record: MaterialRecord,
+    action: string | null,
+  ): Promise<{ readonly ok: true; readonly id: MaterialId } | { readonly ok: false; readonly failure: NotesAnalyzeFailure }> {
     const id = await this.ctx.notesMaterials.create(record)
-    if (this.ctx.notesAnalysis.submitsOnCollection(action)) {
-      await this.ctx.notesAnalysis.analyse(id)
-    }
-    return id
+    if (!this.ctx.notesAnalysis.submitsOnCollection(action)) return { ok: true, id }
+    const refused = await this.ctx.notesAnalysis.analyse(id)
+    return refused === null ? { ok: true, id } : { ok: false, failure: refused }
   }
 }
 
