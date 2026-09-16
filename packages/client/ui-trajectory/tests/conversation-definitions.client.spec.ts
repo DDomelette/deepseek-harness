@@ -172,6 +172,23 @@ function systemMessage(text: string) {
 }
 
 describe('Trajectory conversation Definitions', () => {
+  it('names the message an ordinary user row came from, as the Chat target does', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'user/message', {
+        id: 'message-1',
+        role: 'user',
+        content: [{ type: 'text', text: 'hello' }],
+        source: { kind: 'user' },
+      }),
+    ])
+
+    // The record's `messageId` is absent only when the surface was assembled
+    // without a durable user message; this row has one.
+    expect(snapshot(value).eventNodes.find(node => node.seq === 2))
+      .toMatchObject({ kind: 'user', messageId: 'message-1' })
+  })
+
   it('assembles streaming usage, preserves retry facts, and materializes interruption', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
