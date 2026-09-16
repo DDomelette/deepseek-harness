@@ -470,6 +470,41 @@ describe('turn settlement', () => {
     expect(bench.materials.get(id)?.error).toBeNull()
   })
 
+  it('reports the material a closed turn settled to whoever is watching', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const submitted = await bench.materials.create(material({ noteId: note, text: 'submitted' }))
+    const draft = await bench.materials.create(material({ noteId: note, text: 'draft' }))
+    const reported: MaterialId[][] = []
+    bench.ctx.on('notes/material-settled', (_note, ids) => { reported.push([...ids]) })
+    await bench.analysis.analyse(submitted)
+    const sent = sentMessage(bench)
+
+    closeTurn(bench, 'dsh-notes-1', sent.id)
+
+    // The event is the only word a panel gets: no call it made returns the
+    // answer, so a settlement it is not told about is a thread it keeps
+    // showing without it. One event carries every material of that turn.
+    await vi.waitFor(() => { expect(reported).toEqual([[submitted]]) })
+    expect(bench.materials.get(draft)?.status).toBe('draft')
+  })
+
+  it('reports nothing when the closed turn settled no material', async () => {
+    const bench = await mount()
+    const note = await liveConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    await bench.analysis.analyse(id)
+    const reported: unknown[] = []
+    bench.ctx.on('notes/material-settled', (...args) => { reported.push(args) })
+
+    // The turn carried a message no material holds, so the walk settles nothing
+    // and the panel is not asked to read a conversation that did not move.
+    closeTurn(bench, 'dsh-notes-1', messageId('somebody-elses'))
+
+    expect(reported).toEqual([])
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
   it('marks a material failed with the reason its turn reports', async () => {
     const bench = await mount()
     const note = await liveConversation(bench)
@@ -504,7 +539,8 @@ describe('turn settlement', () => {
     expect(bench.materials.get(id)?.error).toBe('socket closed')
   })
 
-  it('settles only the material the closed turn carried', async () => {    const bench = await mount()
+  it('settles only the material the closed turn carried', async () => {
+    const bench = await mount()
     const note = await liveConversation(bench)
     const first = await bench.materials.create(material({ noteId: note, text: 'first' }))
     const second = await bench.materials.create(material({ noteId: note, text: 'second' }))

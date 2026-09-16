@@ -20,7 +20,7 @@ import type {
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { NotesSessionSummary, NoteSessionId, MaterialSource } from '../types.ts'
 import { failureLine } from './failure-line.ts'
-import type { NotesInjected } from './face.ts'
+import type { NotesInjected, NotesPanelInjected } from './face.ts'
 import { IMAGE_TYPES, readImage } from './image.ts'
 import { MaterialDetail } from './MaterialDetail.tsx'
 import { MaterialList } from './MaterialList.tsx'
@@ -63,7 +63,7 @@ export function sessionIntent(
 export type NotesPanelProps =
   & PropsRuntime<'sidebar.right.pane.tab'>
   & PropsStore<NotesStore>
-  & InjectFace<NotesInjected>
+  & InjectFace<NotesPanelInjected>
   & PropsLocale<'notes'>
 
 /**
@@ -74,11 +74,14 @@ export type NotesPanelProps =
 export function NotesPanel({
   sessionId, useStore, useTabInfo, actions, load, refresh, createConversation, openSession,
   archiveSession, restoreSession, select, saveText, analyze, ask, archive, restore, reorder,
-  present, readSettings, saveSettings, pickDirectory, listDirectories, loadModels, collect, addImage, remove, t,
+  present, readSettings, saveSettings, pickDirectory, listDirectories, loadModels, collect, addImage,
+  remove, useNotesSettled, t,
 }: NotesPanelProps): ReactNode {
   const state = useStore(value => value)
   const { tab, panel } = useTabInfo()
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const settled = useNotesSettled(value => value)
+  const settledRead = useRef(settled)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   useEffect(() => {
@@ -88,6 +91,14 @@ export function NotesPanel({
     // the settings card does. The face reads it once per instance either way.
     readSettings()
   }, [load, readSettings])
+  useEffect(() => {
+    // A settlement the Host forwarded since the last look: the material's answer
+    // is in the log now, and only a fresh read of the conversations, their
+    // materials, and the open thread brings it into what the panel shows.
+    if (settled === settledRead.current) return
+    settledRead.current = settled
+    refresh()
+  }, [refresh, settled])
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
     select, saveText, analyze, ask, archive, restore, reorder, present,

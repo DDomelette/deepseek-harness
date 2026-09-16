@@ -6,7 +6,7 @@
  * runs the same read path the browser runs.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
 import { IMAGE_TYPES, payloadOf } from '../src/client/image.ts'
 import { NotesButton } from '../src/client/NotesButton.tsx'
@@ -134,6 +134,19 @@ describe('notes panel', () => {
     await waitFor(() => { expect(bench.remote.sessionList).toHaveBeenCalledTimes(1) })
 
     fireEvent.click(screen.getByLabelText('panel.refresh'))
+
+    await waitFor(() => { expect(bench.remote.sessionList).toHaveBeenCalledTimes(2) })
+  })
+
+  it('reads again when the Host reports a settlement', async () => {
+    const bench = harness({ sessions: () => sessions([], [], null) })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(bench.remote.sessionList).toHaveBeenCalledTimes(1) })
+
+    // The Host settles on its own clock, so the answer arrives as the tab
+    // registration's revision rather than in any answer to a call: the panel
+    // reads again instead of waiting for the reader to ask.
+    await act(async () => { bench.settled.set(1) })
 
     await waitFor(() => { expect(bench.remote.sessionList).toHaveBeenCalledTimes(2) })
   })

@@ -7,6 +7,8 @@
  */
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/remote-events'
+import type {} from '@deepseek-ai/dsh-notes/remote-events'
+import type {} from '@deepseek-ai/dsh-notes/types'
 import type {} from '@deepseek-ai/dsh-skill/types'
 import type {} from '@deepseek-ai/dsh-mcp-manager/types'
 import type { TypertForwardableEventEntry } from '@deepseek-ai/dsh-typert-protocol'
@@ -35,6 +37,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   { event: 'llm/adapters-updated', mode: 'emit' },
   { event: 'skills/change', mode: 'emit' },
   { event: 'mcp-servers/change', mode: 'emit' },
+  { event: 'notes/material-settled', mode: 'emit' },
   { event: 'settings/document-updated', mode: 'emit' },
   { event: 'user-questions/request', mode: 'waterfall' },
 ] as const satisfies readonly TypertForwardableEventEntry[]

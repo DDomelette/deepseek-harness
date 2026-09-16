@@ -10,7 +10,8 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
 import { configuredAction } from './actions.ts'
@@ -35,6 +36,19 @@ const STATUS_LINES: Readonly<Record<NotesMaterialSummary['status'], NotesKey>> =
   analyzing: 'status.analyzing',
   analyzed: 'status.analyzed',
   failed: 'status.failed',
+}
+
+/**
+ * The localized chrome the shared Markdown renderer needs; it owns no copy of
+ * its own, so each surface names the words in its own language.
+ * @param t - namespace-bound translate.
+ * @returns the labels for one rendered answer.
+ */
+function markdownLabels(t: PropsLocale<'notes'>['t']): MarkdownLabels {
+  return {
+    code: { copyLabel: t('detail.codeCopy'), copiedLabel: t('detail.codeCopied') },
+    footnotes: t('detail.footnotes'),
+  }
 }
 
 /**
@@ -209,6 +223,7 @@ function Thread({ id, thread, loading, failure, askable, commands, t }: {
 }): ReactNode {
   const [question, setQuestion] = useState('')
   const asked = question.trim() !== ''
+  const labels = markdownLabels(t)
   return (
     <div className={css.thread} data-notes-thread>
       {loading && <p className={css.pending}>{t('detail.threadLoading')}</p>}
@@ -216,10 +231,15 @@ function Thread({ id, thread, loading, failure, askable, commands, t }: {
         <p className={css.failure} data-notes-thread-failure={failure.code}>{failureLine(t, failure)}</p>
       )}
       {thread.map(row => (
-        <p key={row.seq} className={css[row.role]} data-notes-row={row.role}>
-          {row.text}
+        <div key={row.seq} className={css[row.role]} data-notes-row={row.role}>
+          {/* A model writes Markdown, so its row renders as Markdown; the
+              material's own text is data the reader collected, and stays as it
+              was written. */}
+          {row.role === 'assistant'
+            ? <MarkdownText text={row.text} labels={labels} />
+            : row.text}
           {row.hasImage && <span className={css.rowImage} data-notes-row-image>{t('source.image')}</span>}
-        </p>
+        </div>
       ))}
       {!loading && failure === undefined && thread.length === 0 && (
         <p className={css.pending} data-notes-thread-empty>{t('detail.threadEmpty')}</p>

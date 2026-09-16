@@ -12,6 +12,7 @@
     "src/index.ts",
     "src/materials.ts",
     "src/note-sessions.ts",
+    "src/remote-events.ts",
     "src/remote.ts",
     "src/settings.ts",
     "src/store.ts",

@@ -13,6 +13,8 @@ import type { Mock } from 'vitest'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
@@ -214,6 +216,8 @@ export interface HarnessRemote {
 export interface Harness {
   /** The live store instance the panel reads. */
   readonly instance: ReturnType<ReturnType<typeof createNotesStore>['create']>
+  /** The settlement revision the tab registration publishes, as the panel reads it. */
+  readonly settled: SnapshotStore<number>
   /** The command face bound to this instance and the scripted Remote. */
   readonly face: NotesInjected
   /** The scripted Remote face, for assertions and re-scripting. */
@@ -256,6 +260,8 @@ export function harness(script: {
   readonly floating?: boolean
 } = {}): Harness {
   const instance = createNotesStore().create()
+  // The registration's own reactive fact, standing in for the plugin's counter.
+  const settled = createSnapshotStore(0)
   const remote = {
     sessionList: vi.fn<NotesRemoteFace['sessionList']>(
       async () => script.sessions?.() ?? sessions(),
@@ -328,6 +334,7 @@ export function harness(script: {
   let controlProps: NotesButtonProps | undefined
   return {
     instance,
+    settled,
     face,
     remote,
     frame,
@@ -360,6 +367,7 @@ export function harness(script: {
       collect: face.collect,
       addImage: face.addImage,
       remove: face.remove,
+      useNotesSettled: hookOf(settled),
       t,
     }) as unknown as NotesPanelProps,
     buttonProps: () => controlProps ??= ({

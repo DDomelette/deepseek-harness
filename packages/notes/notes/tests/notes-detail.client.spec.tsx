@@ -193,6 +193,26 @@ describe('material detail', () => {
     expect(screen.getByText('answer')).toBeDefined()
   })
 
+  it('renders the model\'s answer as Markdown and the collected text as written', () => {
+    const bench = harness()
+    show(bench.props(), draft, {
+      thread: [
+        { role: 'user', text: 'a **passage**', hasImage: false, seq: 0 },
+        { role: 'assistant', text: '**Windows 通道**\n\n- 第一条\n- 第二条', hasImage: false, seq: 1 },
+      ],
+    })
+
+    const answer = document.querySelector('[data-notes-row="assistant"]')
+    // A model writes Markdown: emphasis and lists become elements.
+    expect(answer?.querySelector('strong')?.textContent).toBe('Windows 通道')
+    expect([...(answer?.querySelectorAll('li') ?? [])].map(item => item.textContent))
+      .toEqual(['第一条', '第二条'])
+    // The material's own text is the reader's data, so the asterisks stay.
+    const own = document.querySelector('[data-notes-row="user"]')
+    expect(own?.querySelector('strong')).toBeNull()
+    expect(own?.textContent).toBe('a **passage**')
+  })
+
   it('names the screenshot a submitted row carried', () => {
     const bench = harness()
     show(bench.props(), submitted, {
