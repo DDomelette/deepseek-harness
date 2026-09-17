@@ -16,6 +16,7 @@ import { NotesButton } from '../src/client/NotesButton.tsx'
 import { NotesPanel } from '../src/client/NotesPanel.tsx'
 import { SelectionBubble } from '../src/client/SelectionBubble.tsx'
 import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
+import type { NotesPanelInjected } from '../src/client/face.ts'
 import { en, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
 import {
@@ -65,10 +66,21 @@ async function boot() {
     list: vi.fn(async () => ({ ok: true, value: directoryListing() })),
   }
   const session = { modelCatalog: vi.fn(async () => modelCatalog()) }
+  // Forwarded Host events this plugin follows, with the disposer each returns.
+  const listeners = new Map<string, () => void>()
+  const remote = {
+    notes,
+    directoryPicker,
+    session,
+    $on: vi.fn((event: string, listener: () => void) => {
+      listeners.set(event, listener)
+      return () => { listeners.delete(event) }
+    }),
+  }
   ctx.provide('sidebarRightTabs', tabs as never)
   ctx.provide('slots', slots as never)
   ctx.provide('locale', locale as never)
-  ctx.provide('remote', { notes, directoryPicker, session } as never)
+  ctx.provide('remote', remote as never)
   ctx.provide('remote.notes', notes as never)
   ctx.provide('remote.directoryPicker', directoryPicker as never)
   ctx.provide('remote.session', session as never)
@@ -76,7 +88,7 @@ async function boot() {
   const fiber = ctx.plugin({ inject: [...inject], apply })
   onTestFinished(async () => { await fiber.dispose() })
   await fiber.await()
-  return { tabs, registered, dictionaries, fiber, notes, sidebarRight }
+  return { tabs, registered, dictionaries, fiber, notes, sidebarRight, listeners }
 }
 
 describe('notes browser half', () => {
@@ -145,6 +157,36 @@ describe('notes browser half', () => {
     expect(notes.materialAddText).toHaveBeenCalledTimes(1)
     // The material the collection stored is what the panel's own state now holds.
     expect(instance.getSnapshot().materials.map(row => row.text)).toEqual(['a passage'])
+  })
+
+  it('follows a settlement the Host forwarded into the revision the panel reads', async () => {
+    const { registered, listeners } = await boot()
+    const panel = registered[0]
+    if (panel === undefined) throw new Error('missing panel registration')
+    const instance = (panel.store as NotesStore).create()
+    const face = (panel.inject as (session: string, actions: unknown) => NotesPanelInjected)(
+      's-1',
+      instance.actions,
+    )
+    const settled = listeners.get('notes/material-settled')
+    if (settled === undefined) throw new Error('the plugin does not follow settlements')
+
+    expect(face.hooks.notesSettled.getSnapshot()).toBe(0)
+
+    settled()
+
+    // The revision is what the panel watches: a settlement means the answer it
+    // may be showing has been replaced, so it reads the conversations again.
+    expect(face.hooks.notesSettled.getSnapshot()).toBe(1)
+  })
+
+  it('stops following settlements when the plugin unloads', async () => {
+    const { listeners, fiber } = await boot()
+    expect(listeners.has('notes/material-settled')).toBe(true)
+
+    await fiber.dispose()
+
+    expect(listeners.has('notes/material-settled')).toBe(false)
   })
 
   it('opens the notes tab from the header control', async () => {

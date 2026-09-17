@@ -70,6 +70,7 @@
     },
     { "path": "../../session/session-pins" },
     { "path": "../../mcp/mcp-manager" },
+    { "path": "../../notes/notes/tsconfig.host.json" },
     { "path": "../../skill/skill" }
   ]
 }

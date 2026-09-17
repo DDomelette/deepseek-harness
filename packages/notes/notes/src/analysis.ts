@@ -98,6 +98,7 @@ export class Analysis extends Service {
     if (ids.length === 0) return
     const outcome = turnOutcome(event.data)
     for (const noteId of noteIds) {
+      const settled: MaterialId[] = []
       for (const stored of [...this.materials.list(noteId), ...this.materials.archived(noteId)]) {
         if (stored.status !== 'analyzing') continue
         // Only the turn that carried the material's newest message settles it:
@@ -105,10 +106,18 @@ export class Analysis extends Service {
         // settled by that earlier turn, and its own turn skipped.
         const newest = stored.messageIds.at(-1)
         if (newest === undefined || !ids.includes(newest)) continue
+        // The transform re-checks the status, so a settle that lost a race
+        // leaves the winner's outcome in place; either way the material is
+        // settled now, and the answer it may be showing has been replaced.
         await this.materials.update(stored.id, record => record.status === 'analyzing'
           ? { ...record, status: outcome.answered ? 'analyzed' : 'failed', error: outcome.reason }
           : record)
+        settled.push(stored.id)
       }
+      // A settlement happens on the Host's own clock: no browser call is
+      // waiting for it, so this is the only moment a panel still showing the
+      // material can learn that its answer arrived.
+      if (settled.length > 0) this.ctx.emit('notes/material-settled', noteId, settled)
     }
   }
 

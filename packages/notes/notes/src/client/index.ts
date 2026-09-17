@@ -10,6 +10,7 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -29,7 +30,7 @@ export type { NotesPanelProps } from './NotesPanel.tsx'
 export type { NotesButtonProps, NotesButtonInjected } from './NotesButton.tsx'
 export type { NotesSettingsCardProps } from './NotesSettingsCard.tsx'
 export type { SelectionBubbleProps } from './SelectionBubble.tsx'
-export type { NotesInjected, NotesRemoteFace } from './face.ts'
+export type { NotesInjected, NotesPanelInjected, NotesRemoteFace } from './face.ts'
 export type { NotesState, NotesStore } from './store.ts'
 export type { NotesPanelFailure } from './failure-line.ts'
 export type { NotesKey } from './locales.ts'
@@ -62,18 +63,30 @@ export function apply(ctx: ClientContext): void {
   // the reader is looking at. Two instances left the panel showing whatever it
   // read when it opened, which reads as a collection that did nothing.
   const store = createNotesStore()
+  // A material settles on the Host's own clock, so no call the panel made
+  // returns its answer. The forwarded event is its arrival: this revision is
+  // the panel's own reactive fact, published to the tab registration below and
+  // read again by whichever panel is rendering.
+  const settled = createSnapshotStore(0)
+  ctx.effect(
+    () => ctx.remote.$on('notes/material-settled', () => { settled.set(settled.getSnapshot() + 1) }),
+    'notes: settled follow',
+  )
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab',
     key: NOTES_ID,
     locale: NS,
     store,
-    inject: (_sessionId, actions) => notesFace(
-      ctx.remote.notes,
-      ctx.remote.directoryPicker,
-      ctx.remote.session,
-      ctx.sidebarRight,
-      actions,
-    ),
+    inject: (_sessionId, actions) => ({
+      ...notesFace(
+        ctx.remote.notes,
+        ctx.remote.directoryPicker,
+        ctx.remote.session,
+        ctx.sidebarRight,
+        actions,
+      ),
+      hooks: { notesSettled: settled },
+    }),
   }, NotesPanel)), 'notes: panel body')
 
   ctx.effect(() => ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({

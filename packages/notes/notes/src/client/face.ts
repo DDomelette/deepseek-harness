@@ -8,6 +8,7 @@
  */
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
@@ -232,6 +233,21 @@ export interface NotesInjected {
   ) => Promise<NotesPanelFailure | null>
   /** Delete one material record and close its detail. */
   readonly remove: (id: MaterialId) => void
+}
+
+/**
+ * The panel's commands plus its own reactive facts.
+ *
+ * The Host settles a material on its own clock, so no command the panel calls
+ * returns its answer: the tab registration publishes the settlement count as an
+ * observable the renderer binds to `useNotesSettled`, and the panel reads the
+ * conversations again whenever it moves.
+ */
+export interface NotesPanelInjected extends NotesInjected {
+  hooks: {
+    /** Settlements the Host has forwarded to this page. */
+    notesSettled: SnapshotStore<number>
+  }
 }
 
 /** One carrier failure as the panel reports it. */

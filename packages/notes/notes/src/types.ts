@@ -19,6 +19,23 @@ export type MaterialId = Branded<'material-id'>
 /** Opaque id of one notes conversation. */
 export type NoteSessionId = Branded<'note-session-id'>
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * One or more materials left `analyzing` because the turn that carried them
+     * closed. The Host settles them on its own clock, so a browser that is
+     * still showing the material has no call to learn it from; this event is
+     * the answer's arrival, and a reader follows it by reading the material and
+     * its thread again. Emitted once per conversation per settled turn, after
+     * every settlement of that turn was written.
+     * @param noteId - the conversation whose materials settled.
+     * @param materialIds - the materials this turn settled, in settle order.
+     * @mode emit
+     */
+    'notes/material-settled'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void
+  }
+}
+
 /** How a material entered the notes. */
 export type MaterialKind = 'text' | 'image'
 
