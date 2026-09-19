@@ -44,3 +44,13 @@ worktrees/
 .agents/worktrees/
 .typert-*/
 native/system/test/bin/
+# Compiled output must never live in a package's source tree, but one file
+# escapes there: the api/remotes client face resolves @deepseek-ai/dsh-notes/types
+# to that package's source — its own client half references this assembly, so the
+# two projects cannot reference each other — and tsc then writes the compiled pair
+# beside the source. Runtime output is ignored everywhere under src/; the
+# declaration that escapes today is named, so a new escape stays visible.
+packages/*/*/src/**/*.js
+packages/*/*/src/**/*.js.map
+packages/*/*/src/**/*.d.ts.map
+packages/notes/notes/src/types.d.ts
