@@ -156,7 +156,7 @@ describe('BashTerminalBackend startup rollback', () => {
     } satisfies Partial<TerminalBackendCleanupError>))
   })
 
-  it('starts startup rollback when cancellation wins a stalled initialization', async () => {
+  it.each(['bash', 'pwsh'] as const)('starts %s startup rollback when cancellation wins a stalled initialization', async (shellDialect) => {
     const ctx = new Context()
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/tmp' })
@@ -170,7 +170,7 @@ describe('BashTerminalBackend startup rollback', () => {
       },
       close,
     } as unknown as LocalPtySession
-    const backend = new BashTerminalBackend(ctx, config(), async () => terminalHandle(), () => session)
+    const backend = new BashTerminalBackend(ctx, { ...config(), shellDialect }, async () => terminalHandle(), () => session)
     const controller = new AbortController()
     const reason = new Error('cancel stalled startup')
 
@@ -363,6 +363,7 @@ describe('BashTerminalBackend startup rollback', () => {
     let sent: TerminalSendRequest | undefined
     const session = {
       motd: '',
+      initialize: () => Promise.resolve(),
       controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sent = request
@@ -402,6 +403,7 @@ describe('BashTerminalBackend startup rollback', () => {
     const initial = { empty: '', default: 'PS /home/test> ', echo: "function prompt { 'dsh> ' }\n", unmarked: 'dsh> ' }[firstOutput]
     const session = {
       motd: '',
+      initialize: () => Promise.resolve(),
       get controlledPromptReady() { return sends.length > 1 },
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
@@ -430,7 +432,8 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(session.motd).toBe('dsh> ')
   })
 
-  it.each([1, 4, 50])('accepts a verified pwsh prompt with maxReadBytes %i', async (maxReadBytes) => {
+  it.each([1, 4, 50])('waits for initial pwsh input before setup with maxReadBytes %i', async (maxReadBytes) => {
+    vi.useFakeTimers()
     const ctx = new Context()
     const output = new PassThrough()
     const exit = Promise.withResolvers<{ exitCode: number; signal: null }>()
@@ -448,13 +451,21 @@ describe('BashTerminalBackend startup rollback', () => {
       const backend = new BashTerminalBackend(ctx, {
         ...config(), shellDialect: 'pwsh', maxReadBytes, timeoutMs: 5_000,
       })
-      session = await backend.spawn(spec(agent(ctx)))
+      const spawning = backend.spawn(spec(agent(ctx)))
+      await vi.advanceTimersByTimeAsync(100)
+      expect(write).not.toHaveBeenCalled()
+      output.write('PS /workspace> ')
+      await vi.advanceTimersByTimeAsync(100)
+      session = await spawning
       expect(session.controlledPromptReady).toBe(true)
       expect(session.motd).toBe('dsh> '.slice(-maxReadBytes))
       expect(write).toHaveBeenCalledOnce()
     } finally {
       await session?.close('test complete')
+      output.end()
+      exit.resolve({ exitCode: 0, signal: null })
       await ctx.fiber.dispose()
+      vi.useRealTimers()
     }
   })
 
@@ -464,6 +475,7 @@ describe('BashTerminalBackend startup rollback', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
     const sessionFor = (waitReason: TerminalWaitReason): LocalPtySession => ({
+      initialize: () => Promise.resolve(),
       startSend: () => ({
         done: Promise.resolve({
           viewport: 'no-prompt', waitReason,
@@ -481,7 +493,7 @@ describe('BashTerminalBackend startup rollback', () => {
     await expect(timedOut.spawn(spec(agent(ctx)))).rejects.toThrow('did not reach readiness before startup timeout')
   })
 
-  it('bounds all pwsh startup retries with one deadline', async () => {
+  it('bounds initial pwsh readiness and setup retries with one deadline', async () => {
     vi.useFakeTimers()
     try {
       const ctx = new Context()
@@ -499,6 +511,7 @@ describe('BashTerminalBackend startup rollback', () => {
       let closes = 0
       const session = {
         motd: '',
+        initialize: () => new Promise<void>((resolve) => { setTimeout(resolve, 60) }),
         startSend: () => {
           sends += 1
           return {
@@ -523,10 +536,10 @@ describe('BashTerminalBackend startup rollback', () => {
       )
 
       const spawning = backend.spawn(spec(agent(ctx)))
-      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(60)
       expect(sends).toBe(2)
       const rejected = expect(spawning).rejects.toThrow('did not reach readiness before startup timeout')
-      await vi.advanceTimersByTimeAsync(100)
+      await vi.advanceTimersByTimeAsync(40)
 
       await rejected
       expect(cancellations).toBe(1)
@@ -542,8 +555,10 @@ describe('BashTerminalBackend startup rollback', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
     const sends: TerminalSendRequest[] = []
+    const initialize = vi.fn<LocalPtySession['initialize']>().mockResolvedValue(undefined)
     const session = {
       motd: '',
+      initialize,
       controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
@@ -569,6 +584,7 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(spawned.motd).toBe('dsh> ')
     expect(sends).toHaveLength(1)
     expect(sends[0]?.signal).toBe(signal)
+    expect(initialize).toHaveBeenCalledWith(signal)
   })
 })
 

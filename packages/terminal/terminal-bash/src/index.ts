@@ -119,10 +119,10 @@ async function startupSession(
 ): Promise<void> {
   let startupOperation: TerminalSendOperation | undefined
   const start = async (): Promise<void> => {
-    if (dialect === 'bash') {
-      await session.initialize(signal)
-      return
-    }
+    // Before pwsh initializes terminal input, POSIX ICRNL turns submitted Enter
+    // into Ctrl+Enter, leaving the bootstrap in PSReadLine's edit buffer.
+    await session.initialize(signal)
+    if (dialect === 'bash') return
     // pwsh cannot install its prompt from the environment. Write the prompt
     // function through the session, pin UTF-8 output before user input, and
     // require backend stdin_read evidence and the rendered prompt; an empty
