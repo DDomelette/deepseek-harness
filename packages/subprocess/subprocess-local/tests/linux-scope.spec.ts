@@ -205,7 +205,7 @@ describe('Linux scope establishment and quiescence', () => {
     expect(spawnSync).toHaveBeenCalledWith('/bin/systemctl', expect.arrayContaining([
       'kill', '--kill-whom=all', '--signal=SIGTERM',
     ]), expect.anything())
-    const direct = expect(result.direct).rejects.toThrow('before its bootstrap consumed')
+    const direct = expect(result.direct).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' })
     child.exit(null, 'SIGTERM')
     await direct
     await expect(waiting).resolves.toBeUndefined()
@@ -355,6 +355,31 @@ describe('Linux scope establishment and quiescence', () => {
     })
     child.exit(127, null)
     await expect(result.direct).rejects.toMatchObject({ code: 'ENOENT' })
+    result.owner.cleanup?.()
+  })
+
+  it.each(['SIGTERM', 'SIGKILL'] as const)('preserves a requested %s before bootstrap consumption', async (signal) => {
+    vi.spyOn(process, 'kill').mockReturnValue(true)
+    const { child, result, requestPath } = launch(async () => missingUnit())
+    result.owner.signal(signal)
+    expect(existsSync(requestPath)).toBe(true)
+    child.exit(null, signal)
+    await expect(result.direct).resolves.toEqual({ exitCode: null, signal })
+    await expect(result.owner.waitForExit()).resolves.toBeUndefined()
+    result.owner.cleanup?.()
+    expect(existsSync(requestPath)).toBe(false)
+  })
+
+  it('retains a recorded startup failure when termination races with bootstrap failure', async () => {
+    vi.spyOn(process, 'kill').mockReturnValue(true)
+    const { child, result, requestPath } = launch(async () => missingUnit())
+    result.owner.signal('SIGTERM')
+    writeLinuxStartupError(linuxLaunchFilesFromLocator(requestPath), {
+      type: 'error', error: { name: 'Error', message: 'spawn tool ENOENT', code: 'ENOENT' },
+    })
+    child.exit(127, null)
+    await expect(result.direct).rejects.toMatchObject({ code: 'ENOENT' })
+    await result.owner.waitForExit()
     result.owner.cleanup?.()
   })
 
@@ -582,6 +607,27 @@ describe('Linux PTY bootstrap reuse', () => {
       'before its bootstrap consumed',
     )
     scope.cleanup()
+  })
+
+  it('preserves a requested PTY termination before bootstrap consumption', async () => {
+    const scope = prepareLinuxTerminalScope(terminalSpec, { TARGET: 'yes' }, {
+      runnerInvocation: ['/usr/bin/node', '/runner.js'],
+      spawnSync: vi.fn(() => ({ status: 0 })) as never,
+      systemctlQuery: async () => missingUnit(),
+    })
+    const requestPath = scope.env[SUBPROCESS_RUNNER_ENV]
+    if (requestPath === undefined) throw new Error('missing PTY request')
+    directories.push(linuxLaunchFilesFromLocator(requestPath).directory)
+    let running = true
+    const signal = vi.fn(() => { running = false })
+    const owner = scope.bindOwner({ running: () => running, signal })
+    owner.signal('SIGTERM')
+    expect(signal).toHaveBeenCalledWith('SIGTERM')
+    expect(existsSync(requestPath)).toBe(true)
+    expect(scope.resolveOutcome({ exitCode: null, signal: 'SIGTERM' })).toEqual({ exitCode: null, signal: 'SIGTERM' })
+    await owner.waitForExit()
+    scope.cleanup()
+    expect(existsSync(requestPath)).toBe(false)
   })
 })
 

@@ -393,6 +393,7 @@ describe('LocalSubprocessRuntime', () => {
       const ctx = new Context()
       const fiber = await ctx.plugin(IsolatedLocalSubprocessRuntime)
       const service = ctx.subprocess as InstanceType<typeof IsolatedLocalSubprocessRuntime>
+      service.internals = { platform: 'darwin' }
       const handle = await ctx.subprocess.spawnTerminal({
         argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, graceMs: 1,
       })
@@ -600,7 +601,9 @@ describe('LocalSubprocessRuntime', () => {
       ctx.logger.error = ((error: unknown) => { disposalErrors.push(error) }) as typeof ctx.logger.error
       const fiber = await ctx.plugin(IsolatedLocalSubprocessRuntime)
       const alive = new Set([124])
-      ;(ctx.subprocess as InstanceType<typeof IsolatedLocalSubprocessRuntime>).terminalInspector = {
+      const service = ctx.subprocess as InstanceType<typeof IsolatedLocalSubprocessRuntime>
+      service.internals = { platform: 'darwin' }
+      service.terminalInspector = {
         foregroundPgid: () => 123,
         isStdinWaiting: () => false,
         snapshot: () => ({

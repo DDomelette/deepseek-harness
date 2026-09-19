@@ -363,6 +363,7 @@ describe('BashTerminalBackend startup rollback', () => {
     let sent: TerminalSendRequest | undefined
     const session = {
       motd: '',
+      controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sent = request
         return {
@@ -392,21 +393,23 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(spawned?.env?.PROMPT_COMMAND).toBeUndefined()
   })
 
-  it('keeps waiting for stdin_read when the first settled output only echoes the prompt literal', async () => {
+  it.each(['empty', 'default', 'echo', 'unmarked'] as const)('keeps waiting when the first settled output is %s', async (firstOutput) => {
     const ctx = new Context()
     await ctx.plugin(EmptySandbox)
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
     const sends: TerminalSendRequest[] = []
+    const initial = { empty: '', default: 'PS /home/test> ', echo: "function prompt { 'dsh> ' }\n", unmarked: 'dsh> ' }[firstOutput]
     const session = {
       motd: '',
+      get controlledPromptReady() { return sends.length > 1 },
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
         const second = sends.length > 1
         return {
           done: Promise.resolve({
-            viewport: second ? 'dsh> ' : "function prompt { 'dsh> ' }\n",
-            waitReason: second ? 'stdin_read' as const : 'inferred_idle' as const,
+            viewport: second ? 'dsh> ' : initial,
+            waitReason: second || firstOutput !== 'echo' ? 'stdin_read' as const : 'inferred_idle' as const,
             sessionStatus: { kind: 'running' as const }, truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
@@ -425,6 +428,34 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(sends).toHaveLength(2)
     expect(sends[1]).toMatchObject({ text: '', submit: false })
     expect(session.motd).toBe('dsh> ')
+  })
+
+  it.each([1, 4, 50])('accepts a verified pwsh prompt with maxReadBytes %i', async (maxReadBytes) => {
+    const ctx = new Context()
+    const output = new PassThrough()
+    const exit = Promise.withResolvers<{ exitCode: number; signal: null }>()
+    const write = vi.fn(async () => { output.write('\x1b]133;D;0\x07dsh> ') })
+    let session: LocalPtySession | undefined
+    try {
+      await ctx.plugin(EmptySandbox)
+      await ctx.plugin(SessionProjectionRegistry)
+      await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
+      await ctx.plugin(StubSubprocessRuntime)
+      vi.spyOn(ctx.subprocess, 'spawnTerminal').mockImplementation(async () => ({
+        ...terminalHandle(), output, done: exit.promise, write,
+        terminate: async () => { output.end(); exit.resolve({ exitCode: 0, signal: null }) },
+      }))
+      const backend = new BashTerminalBackend(ctx, {
+        ...config(), shellDialect: 'pwsh', maxReadBytes, timeoutMs: 5_000,
+      })
+      session = await backend.spawn(spec(agent(ctx)))
+      expect(session.controlledPromptReady).toBe(true)
+      expect(session.motd).toBe('dsh> '.slice(-maxReadBytes))
+      expect(write).toHaveBeenCalledOnce()
+    } finally {
+      await session?.close('test complete')
+      await ctx.fiber.dispose()
+    }
   })
 
   it('rejects a pwsh bootstrap whose shell exits or times out', async () => {
@@ -513,6 +544,7 @@ describe('BashTerminalBackend startup rollback', () => {
     const sends: TerminalSendRequest[] = []
     const session = {
       motd: '',
+      controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
         return {

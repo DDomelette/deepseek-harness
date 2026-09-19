@@ -160,6 +160,7 @@ interface DirectRange {
 }
 
 class SystemdScopeOwner implements BoundProcessOwner {
+  terminationRequested = false
   private establishment: 'pending' | 'established' = 'pending'
   private stopped = false
   private observation: Promise<void> | undefined
@@ -179,6 +180,7 @@ class SystemdScopeOwner implements BoundProcessOwner {
 
   signal(signal: 'SIGTERM' | 'SIGKILL'): void {
     if (this.stopped) return
+    this.terminationRequested = true
     this.observeRequestConsumption()
     const directFallbackRequired = this.establishment === 'pending'
     if (directFallbackRequired && this.direct.running()) this.direct.signal(signal)
@@ -207,6 +209,7 @@ class SystemdScopeOwner implements BoundProcessOwner {
 
   terminateForHostExit(): void {
     if (this.stopped) return
+    this.terminationRequested = true
     try {
       if (this.direct.running()) this.direct.signal('SIGKILL')
     } catch { /* Continue with the native owner. */ }
@@ -359,6 +362,7 @@ function scopeArgs(unitBase: string, invocation: RunnerInvocation, argv: readonl
 function directOutcome(
   child: ReturnType<typeof spawn>,
   files: LinuxLaunchFiles,
+  owner: SystemdScopeOwner,
 ): Promise<SubprocessOutcome> {
   return new Promise((resolveOutcome, rejectOutcome) => {
     let settled = false
@@ -376,7 +380,7 @@ function directOutcome(
           rejectOutcome(deserializeRunnerError(startup.error))
           return
         }
-        if (existsSync(files.requestPath)) {
+        if (existsSync(files.requestPath) && !owner.terminationRequested) {
           rejectOutcome(new Error('subprocess scope exited before its bootstrap consumed the launch request'))
           return
         }
@@ -424,12 +428,13 @@ export function prepareLinuxTerminalScope(
   const invocation = internals.runnerInvocation ?? spawnRunnerInvocation()
   const files = createLinuxLaunchFiles({ cwd: spec.cwd, env: targetEnv })
   const unitBase = unitStem('dsh-terminal')
+  let owner: SystemdScopeOwner | undefined
   return {
     command: internals.systemdRun ?? 'systemd-run',
     args: scopeArgs(unitBase, invocation, spec.argv),
     cwd: process.cwd(),
     env: runnerEnvironment(files.requestPath, invocation),
-    bindOwner: direct => new SystemdScopeOwner(
+    bindOwner: direct => (owner = new SystemdScopeOwner(
       `${unitBase}.scope`,
       files,
       direct,
@@ -437,11 +442,11 @@ export function prepareLinuxTerminalScope(
       internals.spawnSync ?? spawnSync,
       internals.systemctlQuery ?? querySystemctl,
       internals.sleep ?? sleepWithAbort,
-    ),
+    )),
     resolveOutcome: (outcome) => {
       const startup = readLinuxStartupError(files.startupErrorPath)
       if (startup !== undefined) throw deserializeRunnerError(startup.error)
-      if (existsSync(files.requestPath)) {
+      if (existsSync(files.requestPath) && owner?.terminationRequested !== true) {
         throw new Error('terminal scope exited before its bootstrap consumed the launch request')
       }
       return outcome
@@ -497,7 +502,7 @@ export function launchLinuxScope(
     stdin: child.stdin,
     stdout: child.stdout,
     stderr: child.stderr,
-    direct: directOutcome(child, files),
+    direct: directOutcome(child, files, owner),
     owner,
   }
 }

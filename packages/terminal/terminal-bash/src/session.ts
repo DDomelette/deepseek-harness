@@ -227,6 +227,11 @@ export class LocalPtySession implements TerminalBackendSession {
     )
   }
 
+  /** Whether the current send observed a prompt marker with the complete controlled text, before output truncation. */
+  get controlledPromptReady(): boolean {
+    return this.promptTextSeen
+  }
+
   /**
    * Capture startup output through the same readiness contract as later sends.
    * @param signal - optional cancellation while the shell reaches its first prompt.

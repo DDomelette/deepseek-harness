@@ -22,9 +22,11 @@ detached POSIX 进程组、Windows direct-parent 遍历与 PTY 后代扫描只�
 
 parent 创建一个 0700 目录，其中的完整 0600 `launch-request.json` 保存最终 target cwd 与环境。私有 `DSH_SUBPROCESS_RUNNER` 值负责定位该 request，runner 则从 provider cwd 与 bootstrap-safe 环境启动。`systemd-run --user --scope --quiet --collect --expand-environment=no` 先把自身进程注册到 scope，再由 one-shot bootstrap 删除并校验 request、切换到 target cwd、恢复完整 target 环境、按 target PATH 规则解析裸可执行文件、清除 fd 0 至 fd 2 的 `FD_CLOEXEC`，并使用原始 argv 调用 libc `execve()`。bootstrap 会原地成为 target 并保留继承的 stdio，不作为常驻 supervisor。
 
-request 被消费或 manager 已观察到 loaded unit 都能建立 scope ownership。在这两项事实出现前，只要 direct launcher 仍在运行，unit absence 就保持未决。如果 launcher 退出时 request 仍未消费，direct result 会以 startup failure reject，而 range observation 会记录 scope 从未存在，并成功结算 empty-range wait。parent 每 50 毫秒检查一次这段未决区间；建立后，状态查询按指数增长间隔退避，最多达到既有的 5 秒 systemctl 上限。每次查询同时读取 `LoadState` 与 `ActiveState`：loaded `inactive` 或 `failed`，以及已经建立的 unit 变为 `not-found`/`inactive` 或被 collect 卸载，都能证明 range 为空。`active`、`activating`、`reloading` 与 `deactivating` 仍是非终态。未知或 malformed 组合以及不可读的 manager 结果会使 `waitForExit()` reject，而不是宣称完全停稳。`terminate()` 会唤醒正在休眠的 observer 立即复查，结算时会取消未胜出的退避 sleep。严格的同目录 `startup-error.json` 只承载 request／bootstrap 或 target pre-exec failure，parent 会在可观察生命周期完成时移除本次 spawn 的私有路径。
+request 被消费或 manager 已观察到 loaded unit 都能建立 scope ownership。在这两项事实出现前，只要 direct launcher 仍在运行，unit absence 就保持未决。如果 launcher 退出时 request 仍未消费，direct result 会 reject；但 owner 已明确请求终止时保留观察到的退出码和信号。已记录的 bootstrap error 始终优先。range observation 独立判断 range 是否为空。parent 每 50 毫秒检查一次这段未决区间；建立后，状态查询按指数增长间隔退避，最多达到既有的 5 秒 systemctl 上限。每次查询同时读取 `LoadState` 与 `ActiveState`：loaded `inactive` 或 `failed`，以及已经建立的 unit 变为 `not-found`/`inactive` 或被 collect 卸载，都能证明 range 为空。`active`、`activating`、`reloading` 与 `deactivating` 仍是非终态。未知或 malformed 组合以及不可读的 manager 结果会使 `waitForExit()` reject，而不是宣称完全停稳。`terminate()` 会唤醒正在休眠的 observer 立即复查，结算时会取消未胜出的退避 sleep。严格的同目录 `startup-error.json` 只承载 request／bootstrap 或 target pre-exec failure，parent 会在可观察生命周期完成时移除本次 spawn 的私有路径。
 
 普通 target result 仍来自同一个 child process。PTY 路径复用同一 request 与 bootstrap，但不增加常驻 runner，因此 `node-pty` PID、进程组、session leader、控制终端、前台 `inputWaiting`、`/dev/tty`、readiness 与 direct terminal outcome 保留既有含义，同时 scope membership 覆盖 `setsid` 与 reparent 后代。
+
+[终端后端](../../../../packages/terminal/terminal-bash/README.zh.md) 独立于原生启动判断输入就绪。pwsh 设置只提交一次；启动同时等待写入后的 `stdin_read` 证据和标记后的完整受控提示符，且不受输出字节上限影响。空读取或初始 PowerShell 提示符都可能发生在设置执行之前。
 
 ### Windows runner 与 Job
 
