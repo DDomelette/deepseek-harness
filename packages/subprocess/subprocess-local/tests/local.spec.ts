@@ -1,4 +1,5 @@
 import { PassThrough } from 'node:stream'
+import { ChildProcess } from 'node:child_process'
 import { describe, expect, it, vi } from 'vitest'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
@@ -876,12 +877,32 @@ describe('LocalSubprocessRuntime', () => {
 
   it('disposal contains a spawn-failure rejection that races teardown', async () => {
     const ctx = new Context()
+    const reported = vi.spyOn(ctx.logger, 'error').mockImplementation(() => {})
     const fiber = await ctx.plugin(LocalSubprocessRuntime)
-    // Dispose before the rejection continuation removes the handle from the
-    // live set, so teardown itself must swallow the rejected done.
-    const handle = ctx.subprocess.spawn(spec('true', { cwd: '/nonexistent-dir-dsh-subprocess-test' }))
-    await fiber.dispose()
-    await expect(handle.done).rejects.toThrow()
+    const child = new ChildProcess()
+    child.stdin = null
+    child.stdout = null
+    child.stderr = null
+    const runtime = ctx.subprocess as LocalSubprocessRuntime
+    runtime.internals = { platform: 'darwin', spawn: () => child }
+    try {
+      const handle = runtime.spawn(spec('true'))
+      const failure = new Error('spawn failed before assigning a PID')
+      const terminate = handle.terminate.bind(handle)
+      const termination = vi.spyOn(handle, 'terminate').mockImplementation(() => {
+        child.emit('error', failure)
+        terminate()
+      })
+      const rejected = expect(handle.done).rejects.toBe(failure)
+
+      await fiber.dispose()
+      await rejected
+      expect(termination).toHaveBeenCalledOnce()
+      expect(reported).not.toHaveBeenCalled()
+    } finally {
+      await fiber.dispose()
+      reported.mockRestore()
+    }
   })
 
   it('loading a second implementation throws (one processes service per context — cordis standard)', async () => {

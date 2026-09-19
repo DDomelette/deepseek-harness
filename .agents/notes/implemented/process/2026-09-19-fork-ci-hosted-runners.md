@@ -14,6 +14,10 @@ The [pull-request workflow](../../../../.github/workflows/ci.yml) selects standa
 
 Fork jobs use smaller gate, coverage, browser, and snapshot concurrency budgets. They execute the same commands, test inventory, coverage thresholds, and aggregate dependencies as upstream jobs. Fork Linux coverage uses the same 90-second test and cleanup budget as Windows coverage: cold TypeScript generation and native process-range teardown share the smaller runner. Product deadlines and assertions remain unchanged. The existing non-blocking Windows lanes retain their status.
 
+Each inline Vitest project receives the configured test, polling, and cleanup budget directly. Vitest's command-line overrides do not propagate hook and polling timeouts into inline projects.
+
+Windows retains an exited parent's PID in child process records; PID reuse can therefore make a process-table snapshot cyclic. The [gate runner](../../../../scripts/run-gates.ts) visits each descendant once and excludes the root from its descendant list, so enumeration terminates even when parent records form a cycle or repeat.
+
 ## Alternatives considered
 
 **Require every fork to provision enterprise runners.** Repository copies do not carry access to those pools; standard hosted runners allow contributors to execute the checks without that infrastructure.

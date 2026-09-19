@@ -77,22 +77,27 @@ export function parseCoveragePartitionCount(raw: string | undefined): number | u
 }
 
 /**
- * Resolve the paired Vitest timeout arguments used by coverage partitions.
- * `--hookTimeout` travels with the test budget because setup and teardown pay
- * the same host contention the raised test budget accounts for: fixtures that
- * await child exit or retry Windows handle release spend that cost in
- * `afterEach`, where Vitest's separate 10 s default would otherwise fail a
- * suite whose cases all passed.
+ * Validate the shared test, polling, and cleanup budget for coverage.
  * @param raw - the configured millisecond budget, or undefined to keep Vitest's defaults.
- * @returns the Vitest arguments applying that budget, empty when unset.
+ * @returns the configured budget, or undefined when unset.
  */
-export function coverageTestTimeoutArgs(raw: string | undefined): string[] {
-  if (raw === undefined || raw === '') return []
+export function coverageTestTimeout(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw === '') return undefined
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1 || String(parsed) !== raw) {
     throw new Error(`${COVERAGE_TEST_TIMEOUT_ENV} must be a positive integer, got ${JSON.stringify(raw)}.`)
   }
-  return [`--testTimeout=${raw}`, `--expect.poll.timeout=${raw}`, `--hookTimeout=${raw}`]
+  return parsed
+}
+
+/**
+ * Apply the coverage budget to standalone Vitest invocations.
+ * @param raw - the configured millisecond budget, or undefined to keep Vitest's defaults.
+ * @returns paired test, polling, and hook arguments, empty when unset.
+ */
+export function coverageTestTimeoutArgs(raw: string | undefined): string[] {
+  const timeout = coverageTestTimeout(raw)
+  return timeout === undefined ? [] : [`--testTimeout=${timeout}`, `--expect.poll.timeout=${timeout}`, `--hookTimeout=${timeout}`]
 }
 
 /** Remove pnpm's package-script separator before forwarding Vitest arguments. */
