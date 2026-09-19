@@ -23,16 +23,14 @@
       "default": "./lib/client.js"
     },
     "./types": {
-      "types": "./lib/types/types.d.ts",
-      "default": "./lib/types/types.js"
+      "types": "./lib/types/types.d.ts"
     },
     "./typert": {
       "types": "./lib/typert.host.d.ts",
       "default": "./lib/typert.host.js"
     },
     "./remote-events": {
-      "types": "./lib/types/remote-events.d.ts",
-      "default": "./lib/types/remote-events.js"
+      "types": "./lib/types/remote-events.d.ts"
     },
     "./remote": {
       "types": "./lib/typert.remote-client.d.ts",
@@ -44,7 +42,6 @@
   "files": [
     "lib/index.js",
     "lib/client.js",
-    "lib/types/**/*.js",
     "lib/types/**/*.d.ts",
     "lib/typert.host.js",
     "lib/typert.host.d.ts",

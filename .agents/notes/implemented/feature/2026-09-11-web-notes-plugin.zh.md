@@ -14,6 +14,8 @@ dsh 会话会产生用户想回看的素材：一段值得翻译的文字、一�
 
 `@deepseek-ai/dsh-notes` 是一个树内包，同时承载 Web 笔记面板的两个半边。宿主半边在 `ctx.storageDomain` 上拥有 `notes` 存储域、`notes` 设置命名空间，以及每个笔记会话对应的一条真实 dsh Session；浏览器半边拥有面板。收集来的文字与截图先作为素材存储，之后再提交给模型。
 
+共享类型和 Remote 事件选择仅导出声明。若为这些空模块设置指向编译器输出树的运行时默认入口，就需要发布整个输出树，包括未打包的浏览器模块，而其样式属于客户端 bundle。仅类型导入保留声明，同时避免将这些中间构建文件作为运行时产物暴露。
+
 ### 笔记问答走真实 Session
 
 分析与追问都对一条真实的 dsh Session 调用 `Agent.followup()`。`docs/architecture.md` 把 Model-visible ⟺ logged 定为运行时不变式：凡进入模型请求的内容必须能从会话日志重建。旁路直调 `ctx.llm.stream` 要满足该不变式就得新增 `SessionEventMap` 事件，还要一条把浏览器字节变成 `ImageAttachmentRef` 的宿主 RPC，外加自写的流式转发与渲染。走 Session 则免费得到截图链路、流式输出、模型与权限选择以及日志合规。

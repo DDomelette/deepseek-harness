@@ -82,6 +82,8 @@ A material is stored first and submitted later, so collecting never blocks on a 
 
 This section explains how the Host half is wired; the observable behavior is covered in [Use this package](#use-this-package).
 
+The `./types` and `./remote-events` subpaths expose declarations for type-only imports. Runtime consumers use the root Host entry, the `./client` browser bundle, or the generated `./typert` and `./remote` entries; browser styles are included in the client bundle.
+
 ### Storage
 
 The session log stays the content truth. The plugin's own domain stores only what the log cannot answer: which materials exist, their manual order, which of their user messages were submitted, and which conversation the panel is showing. A material's text and a model's answer are read back from session events, never copied here. `ctx.storageDomain.open` admits one open per domain name, so a single owner (`ctx.notesStore`) opens the domain and hands its tables to every other consumer.

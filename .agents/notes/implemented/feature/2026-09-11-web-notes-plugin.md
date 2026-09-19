@@ -14,6 +14,8 @@ The feature also had two properties that had to be decided before any code: what
 
 `@deepseek-ai/dsh-notes` is one tree package carrying both halves of a Web notes panel. The Host half owns a `notes` storage domain over `ctx.storageDomain`, the `notes` settings namespace, and one real dsh Session per notes conversation; the browser half owns the panel. Collected text and screenshots are stored as materials first and submitted to the model later.
 
+The shared types and Remote event selection are declaration-only exports. Giving these empty modules runtime defaults inside the compiler output tree would require publishing that tree, including unbundled browser modules whose styles belong to the client bundle. Type-only imports preserve the declarations without exposing those build intermediates as runtime artifacts.
+
 ### Notes question-and-answer runs through a real Session
 
 Analysis and follow-ups call `Agent.followup()` on a real dsh Session. `docs/architecture.md` makes Model-visible ⟺ logged a runtime invariant: anything reaching a model request must be reconstructable from the session log. A bypass through `ctx.llm.stream` would need a new `SessionEventMap` event to satisfy that invariant, plus a Host RPC that turns browser bytes into an `ImageAttachmentRef`, plus hand-written stream forwarding and rendering. Routing through a Session gives the screenshot path, streaming, model and permission selection, and log compliance for free.
