@@ -12,11 +12,15 @@ Status: implemented
 
 框架获得一个手机区间。`packages/client/ui-layout/src/client/columns.ts` 中的 `SIDEBAR_OVERLAY = 768` 把窄屏范围一分为二：768px 与 1024px 的 `SIDEBAR_AUTO_COLLAPSE` 之间挤压行为不变，而低于 768px 时展开的侧边栏脱离栏网格——求解保留 56px 控制栏，侧栏以抽屉（`data-drawer`）形式浮于中栏之上，背后是一层 aria-hidden 遮罩（`data-drawer-scrim`）。点击遮罩或按 Escape 通过同一个 `toggleSidebar` 动作关闭抽屉；控制栏仍是抽屉的触发入口，侧边栏拖拽手柄在抽屉态下不渲染。布局存储在 1024px 以下翻转 `narrowExpanded` 而非宽度偏好，并在视口沿任一方向跨过 768px 或 1024px 断点时丢弃该覆盖，因此每个区间都以收起状态打开。
 
+中栏和右侧栏显式占据网格第 2 列和第 3 列。固定定位的抽屉不占据网格单元；自动排布会把中栏放进 56px 控制栏，使长对话重新排版，并在关闭抽屉时截断滚动位置。显式列位置让内容宽度在抽屉开合前后保持不变。
+
 ui-conversation 让内容宽度轴适配列宽。内容宽度 clamp 的下限从固定 680px 改为 `min(680px, 列宽)`，因此低于 680px 时下限退化为列宽本身，手机宽度的列不会溢出；64% 的自适应项与 920px 的行长上限不变。宽度手柄是鼠标设施，在 `(max-width: 767px), (pointer: coarse)` 下隐藏。吸附底部的输入区座位增加 `env(safe-area-inset-bottom)` 内边距，以避开手机的主屏指示条；在粗指针设备上，输入栏按钮的最小触控目标为 44px（WCAG 2.5.5）。
 
 `apps/web` 在 viewport meta 中声明 `viewport-fit=cover` 与 `interactive-widget=resizes-content`，外壳高度链（`html`、`body`、`#root`）使用 `100dvh`，因此布局跟随移动浏览器动态视口在地址栏收起时的变化，以及键盘对内容区的挤压。挂载根还承载顶部与左右安全区 inset（`env(safe-area-inset-top)` 与 `env(safe-area-inset-left/right)`），并设置 `box-sizing: border-box`，因此已安装 PWA 的状态栏与横屏刘海都不会遮挡头部或侧栏开关；底部 inset 仍由贴合主屏指示条的输入区座位承担。
 
-覆盖：e2e 通道新增 `newMobilePage` 辅助函数（390×844、触摸）与 `mobile-drawer.e2e.ts` 三个用例——无横向溢出、抽屉开合、输入区可见且可聚焦；桌面黄金场景回放不变。
+在根 ref 发布首次列宽测量之前，宽度轴以 680px 为上限，各内容元素仍受 `width: 100%` 约束。子组件的布局 effect 可能在父 ref 执行之前恢复保存的滚动锚点；零宽度兜底会让恢复针对压缩的对话正文计算，并在测量结果将其展开时丢失阅读位置。
+
+浏览器覆盖使用 `newMobilePage`（390×844、触摸）。[抽屉场景](../../../../apps/web/tests/mobile-drawer.e2e.ts) 检查横向溢出、抽屉关闭、中栏宽度稳定、测量前后的输入区可见性和安全区内边距。[Chat 滚动场景](../../../../apps/web/tests/chat-scroll-contract.e2e.ts) 通过抽屉切换会话，并在关闭后保留阅读锚点和贴底跟随状态。
 
 ## 曾考虑的替代方案
 
