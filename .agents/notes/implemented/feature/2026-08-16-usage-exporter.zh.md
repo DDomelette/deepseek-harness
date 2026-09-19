@@ -14,6 +14,8 @@ Status: implemented
 
 batch 使用同一个 `batchId` 最多重试 `maxAttempts` 次，随后判定为 abandoned 并推进游标；本地文件仍是回填来源。游标持久化在 `$DSH_HOME/storages/usage-exporter.json`，仅在确认、重复、永久拒绝或放弃后才推进。
 
+游标只计算文件中实际存在的字节，包括批次在行数或字节上限结束时的实际换行符。轮询失败会记录日志并保留可重试的本地状态；心跳结果独立分类，同一时刻最多有一个在途心跳。卸载先停止两个定时器，再等待批次和心跳请求。
+
 ## 备选方案
 
 **从 usage-telemetry 派发进程内事件流。** 否决：本地 JSONL 已经是有序且持久的事实来源，tail reader 不增加与捕获核心的耦合。
