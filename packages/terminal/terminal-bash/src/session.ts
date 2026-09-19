@@ -227,7 +227,7 @@ export class LocalPtySession implements TerminalBackendSession {
     )
   }
 
-  /** Whether the current send observed a prompt marker with the complete controlled text, before output truncation. */
+  /** Whether a prompt marker and complete controlled text have arrived since the latest input write, before output truncation. */
   get controlledPromptReady(): boolean {
     return this.promptTextSeen
   }
@@ -272,7 +272,6 @@ export class LocalPtySession implements TerminalBackendSession {
       () => { this.interrupt(operation) },
     )
     this.active = operation
-    this.resetReadinessEvidence()
 
     if (request.signal !== undefined) {
       const onAbort = (): void => { operation.cancel() }
