@@ -3,7 +3,7 @@
  * the computer makes. `/pair` and `/pair/state` are reachable without a session
  * cookie — the phone has none yet — but they still pass the Host fence and the
  * per-source throttling of {@link PairingSessions}. Every other route requires
- * the browser session *and* a loopback authority, so only the computer itself
+ * a launch-token cookie and a loopback authority and TCP peer, so only the computer itself
  * can open a request, approve or deny it, or list and revoke devices.
  * @module @deepseek-ai/dsh-mob/src/routes
  */
@@ -14,6 +14,7 @@ import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import type { PairingSessions } from './pairing.ts'
+import { isPairingCode } from './pairing.ts'
 
 /** Service name of the shell renderer, provided by `@deepseek-ai/dsh-host-frontend-static`. */
 const FRONTEND_SERVICE = 'frontend'
@@ -94,7 +95,9 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
 function codeOf(req: IncomingMessage): string | undefined {
   /* v8 ignore next -- node:http always supplies url on server requests. */
   const url = new URL(req.url ?? '/', 'http://dsh.invalid')
-  return url.searchParams.get(CODE_QUERY) ?? undefined
+  const codes = url.searchParams.getAll(CODE_QUERY)
+  const [code] = codes
+  return codes.length === 1 && code !== undefined && isPairingCode(code) ? code : undefined
 }
 
 /**
@@ -117,7 +120,7 @@ function refused(
     res.end(rejection === 403 ? 'forbidden' : 'unauthorized')
     return true
   }
-  if (access === 'loopback' && !ctx.connection.isLoopbackRequest(req)) {
+  if (access === 'loopback' && !ctx.connection.isLocalOperatorRequest(req)) {
     res.writeHead(403, { 'cache-control': 'no-store' })
     res.end('forbidden')
     return true
@@ -127,7 +130,8 @@ function refused(
 
 /** The phone screen shell: the boot fact the pairing component reads, nothing else. */
 function bootFact(code: string): string {
-  return `<script>globalThis.__DSH_PAIR__ = ${JSON.stringify({ code })}</script>`
+  const json = JSON.stringify({ code }).replaceAll('<', '\\u003c')
+  return `<script>globalThis.__DSH_PAIR__ = ${json}</script>`
 }
 
 /**
@@ -163,7 +167,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         if (refused(req, res, ctx, 'public')) return
         const code = codeOf(req)
         if (code === undefined) {
-          sendJson(res, 400, { error: 'missing pairing code' })
+          sendJson(res, 400, { error: 'expected one eight-character pairing code' })
           return
         }
         const agent = req.headers['user-agent']
@@ -187,7 +191,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         if (refused(req, res, ctx, 'public')) return
         const code = codeOf(req)
         if (code === undefined) {
-          sendJson(res, 400, { error: 'missing pairing code' })
+          sendJson(res, 400, { error: 'expected one eight-character pairing code' })
           return
         }
         const state = pairing.stateOf(code, req.socket.remoteAddress ?? UNKNOWN_SOURCE)
@@ -245,7 +249,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         if (refused(req, res, ctx, 'loopback')) return
         const body = await readJsonBody(req)
         const { code, label, allowed } = body ?? {}
-        if (typeof code !== 'string' || typeof label !== 'string' || typeof allowed !== 'boolean') {
+        if (typeof code !== 'string' || !isPairingCode(code) || typeof label !== 'string' || typeof allowed !== 'boolean') {
           sendJson(res, 400, { error: 'expected a pairing code, a device label, and a decision' })
           return
         }

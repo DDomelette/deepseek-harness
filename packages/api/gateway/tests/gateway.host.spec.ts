@@ -179,6 +179,7 @@ function browserCookie(connection: HostConnectionHandle, origin: string): string
   const target = new URL(connection.authenticatedUrl(origin))
   let setCookie: string | undefined
   connection.authorizeIndex({
+    socket: { remoteAddress: '127.0.0.1' },
     method: 'GET',
     url: `${target.pathname}${target.search}`,
     headers: { host: target.host },

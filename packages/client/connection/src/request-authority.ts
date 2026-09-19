@@ -4,7 +4,24 @@
  * @module @deepseek-ai/dsh-client-connection/src/request-authority
  */
 
+import { BlockList, isIP } from 'node:net'
 import type { ConnectionTrustRequest } from './rpc.ts'
+
+const LOOPBACK_PEERS = new BlockList()
+LOOPBACK_PEERS.addSubnet('127.0.0.0', 8, 'ipv4')
+LOOPBACK_PEERS.addAddress('::1', 'ipv6')
+
+/**
+ * Check the server-observed TCP peer without trusting forwarding headers.
+ * @param request - HTTP request carrying the socket's remote address.
+ * @returns true for IPv4, IPv6, or IPv4-mapped loopback; false when the peer is absent.
+ */
+export function isLoopbackPeer(request: ConnectionTrustRequest): boolean {
+  const address = request.socket?.remoteAddress
+  if (address === undefined) return false
+  const family = isIP(address)
+  return family !== 0 && LOOPBACK_PEERS.check(address, family === 4 ? 'ipv4' : 'ipv6')
+}
 
 /**
  * Read one request header from either a Node-style bag or a `Headers` instance.

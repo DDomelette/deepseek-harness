@@ -54,6 +54,7 @@ interface Bench {
   call(path: string, init?: {
     method?: string
     code?: string
+    query?: string
     cookie?: string
     body?: unknown
     rawBody?: string
@@ -81,7 +82,7 @@ function bench(options: ConnectionOptions = {}): Bench {
   } as unknown as WebServer)
   ctx.provide('connection', {
     requestRejection: () => options.rejection,
-    isLoopbackRequest: () => options.loopback ?? true,
+    isLocalOperatorRequest: () => options.loopback ?? true,
     devices: {
       list: async () => registered.map((request, index) => {
         const id = `device-${String(index + 1)}`
@@ -130,7 +131,7 @@ function bench(options: ConnectionOptions = {}): Bench {
     async call(path, init = {}) {
       const route = routes.get(path)
       if (route === undefined) throw new Error(`no route registered for ${path}`)
-      const query = init.code === undefined ? '' : `?c=${encodeURIComponent(init.code)}`
+      const query = init.query ?? (init.code === undefined ? '' : `?c=${encodeURIComponent(init.code)}`)
       const body = init.rawBody ?? (init.body === undefined ? undefined : JSON.stringify(init.body))
       const request = Readable.from(
         body === undefined ? [] : [init.bufferChunks === true ? Buffer.from(body) : body],
@@ -185,6 +186,38 @@ async function approve(
 }
 
 describe('pairing routes', () => {
+  it.each([
+    '</script><script>globalThis.compromised=true</script>',
+    'ABCDEFG',
+    'ABCDEFGHJ',
+    '00000000',
+    'IIIIIIII',
+    'OOOOOOOO',
+    'abcdefgh',
+    '',
+  ])('refuses a malformed pairing code before rendering HTML: %s', async (code) => {
+    const subject = bench({ rejection: 401 })
+    for (const path of [PAIR_PATHS.screen, PAIR_PATHS.state]) {
+      const response = await subject.call(path, { code })
+      expect(response.status).toBe(400)
+      expect(response.headers['content-type']).toContain('application/json')
+      expect(response.body).not.toContain('<script>')
+    }
+  })
+
+  it('refuses repeated pairing-code parameters', async () => {
+    const subject = bench({ rejection: 401 })
+    for (const path of [PAIR_PATHS.screen, PAIR_PATHS.state]) {
+      expect((await subject.call(path, { query: '?c=ABCDEFGH&c=JKLMNPQR' })).status).toBe(400)
+    }
+  })
+
+  it('refuses a malformed code on the approval route', async () => {
+    const subject = bench()
+    expect((await approve(subject, '</script>')).status).toBe(400)
+    expect(subject.registered).toEqual([])
+  })
+
   it('registers one route per handshake step and withdraws them with the fiber', async () => {
     const ctx = new Context()
     contexts.push(ctx)
@@ -197,7 +230,7 @@ describe('pairing routes', () => {
     } as unknown as WebServer)
     ctx.provide('connection', {
       requestRejection: () => undefined,
-      isLoopbackRequest: () => true,
+      isLocalOperatorRequest: () => true,
       devices: {
         list: async () => [],
         register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),

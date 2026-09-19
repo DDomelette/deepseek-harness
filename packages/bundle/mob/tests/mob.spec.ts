@@ -21,7 +21,7 @@ function provideInjected(ctx: Context): void {
       return url.href
     },
     requestRejection: () => undefined,
-    isLoopbackRequest: () => true,
+    isLocalOperatorRequest: () => true,
     devices: {
       list: async () => [],
       register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
