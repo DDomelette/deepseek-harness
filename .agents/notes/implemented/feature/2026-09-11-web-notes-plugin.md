@@ -14,7 +14,7 @@ The feature also had two properties that had to be decided before any code: what
 
 `@deepseek-ai/dsh-notes` is one tree package carrying both halves of a Web notes panel. The Host half owns a `notes` storage domain over `ctx.storageDomain`, the `notes` settings namespace, and one real dsh Session per notes conversation; the browser half owns the panel. Collected text and screenshots are stored as materials first and submitted to the model later.
 
-The shared types and Remote event selection are declaration-only exports. Giving these empty modules runtime defaults inside the compiler output tree would require publishing that tree, including unbundled browser modules whose styles belong to the client bundle. Type-only imports preserve the declarations without exposing those build intermediates as runtime artifacts.
+The shared types and Remote event selection are declaration-only exports. Giving these empty modules runtime defaults inside the compiler output tree would require publishing that tree, including unbundled browser modules whose styles belong to the client bundle. Type-only imports preserve the declarations without exposing those build intermediates as runtime artifacts. The [preview packer](../../../../packages/experimental/webworker-packer/README.md) excludes declaration-only exports from its runtime roots because declarations add no executable dependency.
 
 ### Notes question-and-answer runs through a real Session
 

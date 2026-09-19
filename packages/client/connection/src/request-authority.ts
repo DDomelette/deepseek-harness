@@ -7,9 +7,7 @@
 import { BlockList, isIP } from 'node:net'
 import type { ConnectionTrustRequest } from './rpc.ts'
 
-const LOOPBACK_PEERS = new BlockList()
-LOOPBACK_PEERS.addSubnet('127.0.0.0', 8, 'ipv4')
-LOOPBACK_PEERS.addAddress('::1', 'ipv6')
+let loopbackPeers: BlockList | undefined
 
 /**
  * Check the server-observed TCP peer without trusting forwarding headers.
@@ -19,8 +17,13 @@ LOOPBACK_PEERS.addAddress('::1', 'ipv6')
 export function isLoopbackPeer(request: ConnectionTrustRequest): boolean {
   const address = request.socket?.remoteAddress
   if (address === undefined) return false
+  if (loopbackPeers === undefined) {
+    loopbackPeers = new BlockList()
+    loopbackPeers.addSubnet('127.0.0.0', 8, 'ipv4')
+    loopbackPeers.addAddress('::1', 'ipv6')
+  }
   const family = isIP(address)
-  return family !== 0 && LOOPBACK_PEERS.check(address, family === 4 ? 'ipv4' : 'ipv6')
+  return family !== 0 && loopbackPeers.check(address, family === 4 ? 'ipv4' : 'ipv6')
 }
 
 /**

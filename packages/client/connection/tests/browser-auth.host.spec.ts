@@ -148,7 +148,10 @@ describe('BrowserAuth', () => {
     const auth = await createAuth(store)
     const host = '127.0.0.1:3080'
     const { cookie } = exchange(auth)
-    for (const remoteAddress of ['127.0.0.1', '127.0.0.2', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1']) {
+    for (const remoteAddress of [
+      '127.0.0.1', '127.0.0.2', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1',
+      '0:0:0:0:0:0:0:1', '0:0:0:0:0:ffff:7fff:ffff',
+    ]) {
       expect(auth.isLocalOperator({ ...request('/', host, { cookie }), socket: { remoteAddress } })).toBe(true)
     }
     expect(auth.isLocalOperator(request('/', host))).toBe(false)

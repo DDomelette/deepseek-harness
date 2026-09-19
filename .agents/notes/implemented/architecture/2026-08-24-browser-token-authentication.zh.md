@@ -18,7 +18,7 @@ cookie 是签名且绑定 authority 的 bearer。确定性名称与签名 payloa
 
 HMAC 密钥是 `ctx.credentials` 中位于 `client-connection/browser-session` 的版本化 `grant` 记录；本地提供方将其存入 `$DSH_HOME/.credentials.yaml`。Connection 在激活期间加载或创建该记录，并保留密钥以同步校验请求。持久记录发生变化后，当前 Connection 继续使用已加载的密钥；下一次激活会加载替换记录或创建缺失记录，因此删除记录并重启进程会撤销全部既有 cookie。无效 owner payload 会明确失败，而不是被覆盖。启动令牌本身绝不持久化并在每次进程启动时变化；未过期 cookie 则能在相同 authority 上跨重启继续有效。
 
-页内 Web Worker preview 不暴露网络 socket。其由页面持有的 `postMessage` tunnel 先进入真实 route，收到 401 或 403 后再经 worker 本地 fetch handler 重试。这样既保留 Connection interceptor，又把认证绕过限制在创建 Host worker 的页面内。
+页内 Web Worker preview 不暴露网络 socket。其由页面持有的 `postMessage` tunnel 先进入真实 route，收到 401 或 403 后再经 worker 本地 fetch handler 重试。这样既保留 Connection interceptor，又把认证绕过限制在创建 Host worker 的页面内。Connection 只在请求携带 TCP 对端时初始化 Node 的回环地址规则，因此导入共享载体不要求运行时提供不可用的 socket 原语。
 
 随附 CLI 默认绑定所有网卡，并接受 `--host 127.0.0.1` 以仅服务本机（参见[默认绑定](2026-09-13-lan-bind-by-default.zh.md)与 [LAN Web 服务](2026-09-11-lan-web-serving.zh.md)）。认证仍不代表 TLS、转发 header 解释或代理配置。
 
