@@ -63,7 +63,7 @@ export const apply = ctx => ctx.provide('webRuntime', globalThis.__dshMobWebRunt
 export const inject = ['webServer']
 export const apply = ctx => ctx.provide('connection', {
   requestRejection: () => undefined,
-  isLoopbackRequest: () => true,
+  isLocalOperatorRequest: () => true,
   devices: {
     list: async () => [],
     register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),

@@ -22,6 +22,8 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 `ui-workspace` filters `pinned: true` sessions from grouped and flat trees, keeps all-pinned project group headers with the new-session affordance, and ranks pinned search matches first. Pinned order defaults to the project account order (grouped) or recency (flat) and can be overridden by drag; the project account order is never rewritten, so unpinning restores the original position.
 
+During a drag, every row in the source group accepts insertion, while other groups reject it. The insertion index addresses the list after the source is removed, so downward movement preserves the requested before/after relationship. The Client serializes mutations and reconnect refreshes; a failed refresh retains the committed pin snapshot and records the error in the shared store.
+
 ## Alternatives considered
 
 - **Settings namespace persistence** — a `pinnedSessions` settings namespace would reuse the settings wire and file, but the settings revision/conflict machinery is built for configuration, not for high-frequency bookmark mutations, and it would leave the session list without a host-authoritative projection.
@@ -33,8 +35,8 @@ The sidebar workspace browser had no way to keep important conversations visible
 - Core gained one generic flag seam and three workspace slots; the pinned capability remains independently mountable.
 - Search results and project trees now read the flag projection; a failed provider keeps the last good complete snapshot or degrades to an empty projection.
 - Cross-process live pin sync is deferred: clients converge through `list()` after reconnect or restart.
-- Pinned rows render the unpin action only; rename/fork/archive remain on the session's project row.
+- Non-blank pinned rows offer unpin, rename, fork, and archive actions.
 
 ## Testing
 
-Host domain and Remote behavior are covered by `packages/session/session-pins/tests`; flag merging by `packages/session/session-flags/tests`; UI registration, filtering and ordering by the pinned-session and Workspace client package tests.
+Host domain and Remote behavior are covered by [session-pins tests](../../../../packages/session/session-pins/tests); flag merging by [session-flags tests](../../../../packages/session/session-flags/tests); UI registration, filtering, ordering, and failed-refresh recovery by the pinned-session and Workspace client package tests. The [workspace browser scenario](../../../../apps/web/tests/workspace-management.e2e.ts) checks grouped and flat drag ordering against the durable Host snapshot and the visible order after reload.

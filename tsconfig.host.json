@@ -9,6 +9,7 @@
   },
   "include": [
     "apps/web/tests/scaffold.ts",
+    "apps/web/tests/notes-refresh.e2e.ts",
     "apps/web/tests/archived-sessions-settings.e2e.ts",
     "apps/web/tests/skills-settings.e2e.ts",
     "apps/web/tests/mcp-config.e2e.ts",

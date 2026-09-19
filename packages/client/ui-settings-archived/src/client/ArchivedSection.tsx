@@ -117,17 +117,16 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
     setTarget({ sessionId: row.id, title: row.title, descendantCount: descendantCounts(row.id) })
   }
 
-  const onDelete = async (): Promise<void> => {
-    if (target === undefined || busy.has(target.sessionId)) return
+  const onDelete = async (sessionId: SessionId): Promise<void> => {
     setDeleteError(null)
-    markBusy(target.sessionId, true)
+    markBusy(sessionId, true)
     try {
-      await deleteSession(target.sessionId)
+      await deleteSession(sessionId)
       setTarget(undefined)
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : String(error))
     } finally {
-      markBusy(target.sessionId, false)
+      markBusy(sessionId, false)
     }
   }
 
@@ -287,7 +286,8 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
             <Button variant="outline" disabled={confirmBusy} onClick={() => { setTarget(undefined) }}>
               {t('confirm.cancel')}
             </Button>
-            <Button variant="primary" className={css.dangerButton} disabled={confirmBusy} onClick={() => { void onDelete() }}>
+            <Button variant="primary" className={css.dangerButton} disabled={confirmBusy}
+              onClick={target === undefined ? undefined : () => { void onDelete(target.sessionId) }}>
               {t('confirm.delete')}
             </Button>
           </>

@@ -44,6 +44,34 @@ async function context(): Promise<Context> {
 }
 
 describe('SessionSkillCatalog', () => {
+  it('includes invocation restrictions and disabled settings in the full catalog', async () => {
+    const ctx = await context()
+    try {
+      const sessionId = SessionId('settings-skills')
+      ctx.provide('sessionQuery', {
+        observeSession: () => Promise.resolve(observation(sessionId, { cwd: '/project' })),
+      } as never)
+      const skills = [
+        { name: 'review', description: 'Review', source: 'local', whenToUse: 'Before publishing', group: 'Project',
+          invocation: { modelInvocable: true, userInvocable: true } },
+        { name: 'hidden', description: 'Hidden', source: 'local', invocation: { modelInvocable: false, userInvocable: false } },
+      ]
+      ctx.provide('skills', { list: async () => skills } as never)
+      const catalog = new SessionSkillCatalog(ctx)
+      const request = { sessionId }
+      const signal = new AbortController().signal
+      expect((await catalog.catalog(request, signal)).skills).toEqual([
+        { name: 'review', description: 'Review', source: 'local', whenToUse: 'Before publishing', group: 'Project',
+          modelInvocable: true, userInvocable: true, disabled: false },
+        { name: 'hidden', description: 'Hidden', source: 'local', modelInvocable: false, userInvocable: false, disabled: false },
+      ])
+      ctx.provide('settings', { get: () => ({ disabled: ['review'] }) } as never)
+      expect((await catalog.catalog(request, signal)).skills.map(skill => skill.disabled)).toEqual([true, false])
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('reads a cold Session catalog without resuming an Agent', async () => {
     const ctx = await context()
     const sessionId = SessionId('cold-skills')

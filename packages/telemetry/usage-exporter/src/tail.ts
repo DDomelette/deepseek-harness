@@ -97,12 +97,11 @@ export class UsageTailReader {
         const rawLines = text.split('\n')
         // A trailing newline produces one final empty element; an EOF line
         // without a newline is complete only when this read reached EOF.
-        const lineCount = rawLines.at(-1) === '' ? rawLines.length - 1 : rawLines.length
-        for (let index = 0; index < lineCount; index += 1) {
-          const raw = rawLines[index]
-          if (raw === undefined) continue
+        const trailingNewline = rawLines.at(-1) === ''
+        if (trailingNewline) rawLines.pop()
+        for (const [index, raw] of rawLines.entries()) {
           const line = raw.trim()
-          const hasNewline = index < lineCount - 1 || endOffset === info.size
+          const hasNewline = index < rawLines.length - 1 || trailingNewline
           lineOffset += Buffer.byteLength(raw, 'utf8') + (hasNewline ? 1 : 0)
           if (line.length === 0) continue
           try {

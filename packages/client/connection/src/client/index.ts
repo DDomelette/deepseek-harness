@@ -372,7 +372,6 @@ export function apply(ctx: Context): void {
           sinks.onStateChange?.(state)
         },
         onFailure: (error) => {
-          if (!ownsGeneration()) return
           publishFailure(classifyConnectionFailure(error, refusedStatus))
           sinks.onFailure?.(error)
         },

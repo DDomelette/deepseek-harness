@@ -3462,6 +3462,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'notes/material-settled',
+    mode: 'emit',
+    signature: '\'notes/material-settled\'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void',
+    summary: 'One or more materials left `analyzing` because the turn that carried them closed.',
+    description: 'One or more materials left `analyzing` because the turn that carried them closed. The Host settles them on its own clock, so a browser that is still showing the material has no call to learn it from; this event is the answer\'s arrival, and a reader follows it by reading the material and its thread again. Emitted once per conversation per settled turn, after every settlement of that turn was written.',
+    parameters: [{ name: 'noteId', description: 'the conversation whose materials settled.' }, { name: 'materialIds', description: 'the materials this turn settled, in settle order.' }],
+  },
+  {
     name: 'session-telemetry/record',
     mode: 'waterfall',
     signature: '\'session-telemetry/record\'(record: SessionTelemetryRecord, next: () => SessionTelemetryRecord): SessionTelemetryRecord',
@@ -4211,7 +4219,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryListing',
-    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
+    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n    drives?: readonly DirectoryEntry[];\n}',
   },
   {
     name: 'DirectoryPickerBrowseCapability',
@@ -4730,6 +4738,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
   },
   {
+    name: 'MaterialId',
+    declaration: 'export type MaterialId = Branded<\'material-id\'>;',
+  },
+  {
     name: 'Message',
     declaration: 'export interface Message {\n    readonly id: MessageId;\n    readonly role: \'system\' | \'user\' | \'assistant\';\n    readonly content: ContentBlock[];\n    readonly source: MessageSource;\n}',
   },
@@ -4856,6 +4868,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelReasoningEffort',
     declaration: 'export interface ModelReasoningEffort {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n}',
+  },
+  {
+    name: 'NoteSessionId',
+    declaration: 'export type NoteSessionId = Branded<\'note-session-id\'>;',
   },
   {
     name: 'ObjectJsonSchema',

@@ -29,7 +29,7 @@
      adaptive term wholesale. */
   --dsh-chat-content-width: var(
     --dsh-chat-user-width,
-    clamp(min(680px, var(--dsh-conversation-column-width, 0px)), calc(var(--dsh-conversation-column-width, 0px) * 0.64), 920px)
+    clamp(min(680px, var(--dsh-conversation-column-width, 680px)), calc(var(--dsh-conversation-column-width, 680px) * 0.64), 920px)
   );
   --dsh-composer-card-max-width: calc(var(--dsh-chat-content-width) + 32px);
   --dsh-composer-side-clearance: 16px;

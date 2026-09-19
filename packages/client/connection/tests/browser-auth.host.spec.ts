@@ -100,6 +100,7 @@ function request(url: string, authority = '127.0.0.1:3080', init?: {
 }): ConnectionIndexRequest {
   return {
     method: init?.method ?? 'GET',
+    socket: { remoteAddress: '127.0.0.1' },
     url,
     headers: {
       host: authority,
@@ -126,6 +127,53 @@ afterEach(() => {
 })
 
 describe('BrowserAuth', () => {
+  it('refuses launch-token exchange and launch cookies from a non-loopback peer', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const { cookie, launchUrl } = exchange(auth)
+    for (const remoteAddress of ['192.168.0.122', '::ffff:192.168.0.122', 'invalid', undefined]) {
+      const candidate = { ...request(launchUrl), socket: { remoteAddress } }
+      const denied = response()
+      expect(auth.authorizeIndex(candidate, denied.value)).toBe('answered')
+      expect(denied.state.status).toBe(401)
+      expect(denied.state.headers?.['set-cookie']).toBeUndefined()
+      expect(auth.isAuthenticated({
+        ...request('/', '127.0.0.1:3080', { cookie }), socket: { remoteAddress },
+      })).toBe(false)
+    }
+  })
+
+  it('recognizes only loopback peers with a valid launch cookie as local operators', async () => {
+    const store = new RecordCredentials()
+    store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+    const auth = await createAuth(store)
+    const host = '127.0.0.1:3080'
+    const { cookie } = exchange(auth)
+    for (const remoteAddress of [
+      '127.0.0.1', '127.0.0.2', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1',
+      '0:0:0:0:0:0:0:1', '0:0:0:0:0:ffff:7fff:ffff',
+    ]) {
+      expect(auth.isLocalOperator({ ...request('/', host, { cookie }), socket: { remoteAddress } })).toBe(true)
+    }
+    expect(auth.isLocalOperator(request('/', host))).toBe(false)
+    expect(auth.isLocalOperator({
+      headers: { host, cookie, 'x-forwarded-for': '127.0.0.1' },
+      socket: { remoteAddress: '192.168.0.122' },
+    })).toBe(false)
+    expect(auth.isLocalOperator({ headers: { host, cookie } })).toBe(false)
+    const deviceCookie = cookiePair(auth.issueDeviceCookie(host, PHONE))
+    expect(auth.isAuthenticated(request('/', host, { cookie: deviceCookie }))).toBe(true)
+    expect(auth.isLocalOperator(request('/', host, { cookie: deviceCookie }))).toBe(false)
+  })
+
+  it('refuses index requests without a usable Host header', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    for (const headers of [{}, { host: 'bad host' }]) {
+      const denied = response()
+      expect(auth.authorizeIndex({ method: 'GET', url: '/', headers }, denied.value)).toBe('answered')
+      expect(denied.state.status).toBe(401)
+    }
+  })
+
   it('mints one process token and a persistent authority-bound cookie', async () => {
     const store = new RecordCredentials()
     const processOwner = {}
@@ -144,6 +192,7 @@ describe('BrowserAuth', () => {
     expect(login.state.headers?.['set-cookie']).not.toContain('Secure')
     expect(first.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
     expect(first.isAuthenticated({
+      socket: { remoteAddress: '127.0.0.1' },
       headers: new Headers({ host: '127.0.0.1:3080', cookie: login.cookie }),
     })).toBe(true)
     expect(first.isAuthenticated({ headers: new Headers() })).toBe(false)

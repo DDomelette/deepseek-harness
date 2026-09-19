@@ -12,8 +12,7 @@ import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import { listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
-import { isLoopbackHostname } from './loopback-hostname.ts'
-import { requestAuthority, requestHostname } from './request-authority.ts'
+import { requestAuthority } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
   ConnectionIndexAccess,
@@ -159,10 +158,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return this.browserAuth.authenticatedUrl(baseUrl)
   }
 
-  /** Whether the request's canonical Host names loopback. */
-  isLoopbackRequest(request: ConnectionTrustRequest): boolean {
-    const hostname = requestHostname(request.headers)
-    return hostname !== undefined && isLoopbackHostname(hostname)
+  /** Whether the local operator's launch-token cookie authorizes device management. */
+  isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
+    return this.browserAuth.isLocalOperator(request)
   }
 
   /**

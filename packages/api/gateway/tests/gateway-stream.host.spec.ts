@@ -55,6 +55,7 @@ function browserCookie(ctx: Context): string {
   const target = new URL(ctx.connection.authenticatedUrl(origin))
   let setCookie: string | undefined
   ctx.connection.authorizeIndex({
+    socket: { remoteAddress: '127.0.0.1' },
     method: 'GET',
     url: `${target.pathname}${target.search}`,
     headers: { host: target.host },

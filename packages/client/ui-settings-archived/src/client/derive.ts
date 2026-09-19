@@ -75,8 +75,7 @@ export function deriveArchivedGroups(
     .filter(id => !accounted.has(id) && archived.has(id))
     .map(rowFor)
     .filter((row): row is ArchivedRow => row !== undefined)
-    .sort((left, right) =>
-      (sessions.byId[right.id]?.updatedAt ?? 0) - (sessions.byId[left.id]?.updatedAt ?? 0))
+    .sort((left, right) => right.updatedAt - left.updatedAt)
   if (loose.length > 0) groups.push({ key: UNGROUPED_KEY, title: '', rows: loose })
   return groups
 }

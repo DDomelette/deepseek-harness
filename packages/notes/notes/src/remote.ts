@@ -232,7 +232,10 @@ export class NotesRemote extends TypertRemoteService {
     if (material === undefined) return rejected({ code: 'material-not-found', id: request.id })
     if (material.kind === 'image') return rejected({ code: 'material-not-text', id: request.id })
     if (material.messageIds.length > 0) return rejected({ code: 'material-submitted', id: request.id })
-    await this.ctx.notesMaterials.update(request.id, record => ({ ...record, text: request.text }))
+    const updated = await this.ctx.notesMaterials.update(request.id, record => record.messageIds.length > 0
+      ? record
+      : { ...record, text: request.text })
+    if (updated.messageIds.length > 0) return rejected({ code: 'material-submitted', id: request.id })
     return success(APPLIED)
   }
 

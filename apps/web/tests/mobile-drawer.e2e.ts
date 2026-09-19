@@ -40,9 +40,12 @@ describe('mobile viewport (390×844, touch)', () => {
   it('opens and closes the sidebar as a drawer', async () => {
     const frame = page.locator('[class*="frame"]').first()
     const scrim = page.locator('[data-drawer-scrim]')
+    const center = page.locator('[class*="centerCol"]').first()
     // Resting state: the rail form, no scrim.
     await page.getByRole('button', { name: 'Open sidebar' }).waitFor({ state: 'visible' })
     expect(await scrim.count()).toBe(0)
+    await expect.poll(async () => await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns.startsWith('56px'))).toBe(true)
+    const centerWidth = await center.evaluate(el => el.getBoundingClientRect().width)
     await page.getByRole('button', { name: 'Open sidebar' }).click()
     // Drawer open: the sidebar floats over the center, the track keeps the 56px
     // rail, and the scrim appears.
@@ -53,6 +56,7 @@ describe('mobile viewport (390×844, touch)', () => {
       const columns = await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns)
       return columns.startsWith('56px')
     }).toBe(true)
+    await expect.poll(() => center.evaluate(el => el.getBoundingClientRect().width)).toBe(centerWidth)
     // No horizontal overflow with the drawer open.
     const metrics = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -64,6 +68,7 @@ describe('mobile viewport (390×844, touch)', () => {
     // right edge like a user would.
     await scrim.tap({ position: { x: 370, y: 422 } })
     await scrim.waitFor({ state: 'detached' })
+    expect(await center.evaluate(el => el.getBoundingClientRect().width)).toBe(centerWidth)
     // Reopen; Escape closes it.
     await page.getByRole('button', { name: 'Open sidebar' }).click()
     await scrim.waitFor({ state: 'attached' })
@@ -79,6 +84,29 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(box).not.toBeNull()
     expect(box!.y + box!.height).toBeLessThanOrEqual(844)
     expect(box!.width).toBeLessThanOrEqual(390)
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('keeps unmeasured handset content usable without horizontal overflow', async () => {
+    const metrics = await page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>('[data-phase]')
+      const input = document.querySelector<HTMLElement>('[data-composer-input]')
+      if (root === null || input === null) throw new Error('conversation or composer is unavailable')
+      const property = '--dsh-conversation-column-width'
+      const measured = root.style.getPropertyValue(property)
+      try {
+        root.style.removeProperty(property)
+        return {
+          inputWidth: input.getBoundingClientRect().width,
+          scroll: document.documentElement.scrollWidth,
+          inner: window.innerWidth,
+        }
+      } finally {
+        root.style.setProperty(property, measured)
+      }
+    })
+    expect(metrics.inputWidth).toBeGreaterThan(0)
+    expect(metrics.scroll).toBeLessThanOrEqual(metrics.inner)
     expect(tripwire.pageErrors).toEqual([])
   })
 

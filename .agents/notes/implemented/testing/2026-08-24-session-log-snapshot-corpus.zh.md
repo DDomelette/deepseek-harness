@@ -20,6 +20,8 @@ Status: implemented
 
 Fixture 解码与比较只取决于选定 JSONL 内容；文件名标识 inventory role，但不是 parser 输入。replay、seed、record、refresh 与规范化比较路径都使用同一个严格静态 catalog 校验。
 
+快照工具包从自身声明的依赖解析回放提供方，再将其链接到隔离的 profile。语料没有包安装目录，生产 dsh 依赖图也不拥有测试提供方。其他裸包名插件继续从所编写 patch 或 dsh 解析，因此回放支持不会扩大应用的依赖查找范围。
+
 Headless stderr 重建会同时展开 `assistant/message` 与仅写入日志的 `assistant/attempt` settlement 中嵌入的 reasoning，因此失败或重试尝试的 reasoning 仍属于进程输出投影。
 
 每个 parent 或 child 角色都使用 `session[.<ordinal>][.vN].jsonl`；v0 省略版本，且每个文件名都与其 header 一致。回放、录制与刷新按角色选择数值最高的 generation。大多数 owner 省略 `sessionFormat` 并跟随当前 writer；受限的历史 owner 会声明精确版本与封闭 coverage 名称。语料保留选定 v0 角色，覆盖多跳、打包行、重试／失败与随附 profile，并保留选定 v1 角色覆盖完整迁移链中的 v1→v2 结构 edge。录制与刷新绝不改写显式保留的历史 fixture、重命名已提交 generation 或通过自动清理删除 generation。保留 Session generation 不会冻结非 Session 预期输出：refresh 仍会根据当前 run 写入 owner 持有的 system-prompt 与 tool-schema sidecar。受审阅的源树整理只有在同角色存在已验证的当前后继后才移除前代。语料策略要求选定当前角色始终占多数，并将选定历史角色上限设为十个；更低的前代 generation 可以保留在选定当前后继旁。

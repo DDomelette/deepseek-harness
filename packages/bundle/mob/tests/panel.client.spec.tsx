@@ -23,7 +23,7 @@ import { zh, type MobileSettingsKey } from '../src/client/locales.ts'
 
 const JOIN_URL = 'http://192.168.1.5:3080/'
 const CODE = 'ABCD2345'
-const START = Date.parse('2026-09-12T12:00:00.000Z')
+const START = new Date(2026, 8, 12, 20, 0).getTime()
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 /** A windowed device row: 30 days from `START`. */

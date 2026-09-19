@@ -14,6 +14,8 @@ English | [中文](2026-08-16-usage-exporter.zh.md)
 
 A batch retries with the same `batchId` up to `maxAttempts`, then is abandoned and the cursor advances; the local file remains the backfill source. The cursor persists under `$DSH_HOME/storages/usage-exporter.json` and advances only after accepted, duplicate, permanent-rejection, or abandoned outcomes.
 
+Offsets count only bytes present in the file, including an actual newline when a batch ends at a row or byte limit. Poll failures retain retryable local state and are logged; heartbeat outcomes are classified independently, with one heartbeat in flight. Disposal stops both timers before waiting for batch and heartbeat requests.
+
 ## Alternatives considered
 
 **In-process event stream from usage-telemetry.** Rejected: the local JSONL is already the durable ordered source of truth, and a tail reader adds no coupling to the capture core.

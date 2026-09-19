@@ -35,6 +35,8 @@ kind: "package-reference"
 
 插件以 offset 游标 tail `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl`，游标位于 `$DSH_HOME/storages/usage-exporter.json`。batch 使用确定性 `batchId`，重试复用同一 id；只有确认、重复、永久拒绝或放弃后才会推进游标。
 
+游标按已读取的文件字节计数，只计入实际存在的换行字节。末行完整但没有换行时仍可导出；行数和字节上限会把后续行留给下一批。文件读取失败会记录日志，并在后续轮询中重试。心跳失败根据端点响应分类记录日志。卸载会停止两个定时器，并等待在途批次和心跳按配置的重试及请求超时限制完成。
+
 <a id="model-experience"></a>
 ## 模型体验
 

@@ -24,7 +24,7 @@ export class CursorStore {
       if (parsed.version !== 1 || typeof parsed.files !== 'object' || parsed.files === null) return
       const files: Record<string, FileCursor> = {}
       for (const [file, value] of Object.entries(parsed.files as Record<string, unknown>)) {
-        if (typeof file !== 'string' || file.length === 0) continue
+        if (file.length === 0) continue
         if (typeof value !== 'object' || value === null) continue
         const offset = (value as { offset?: unknown }).offset
         if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) continue

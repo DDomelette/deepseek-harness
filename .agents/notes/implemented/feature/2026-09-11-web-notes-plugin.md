@@ -14,6 +14,8 @@ The feature also had two properties that had to be decided before any code: what
 
 `@deepseek-ai/dsh-notes` is one tree package carrying both halves of a Web notes panel. The Host half owns a `notes` storage domain over `ctx.storageDomain`, the `notes` settings namespace, and one real dsh Session per notes conversation; the browser half owns the panel. Collected text and screenshots are stored as materials first and submitted to the model later.
 
+The shared types and Remote event selection are declaration-only exports. Giving these empty modules runtime defaults inside the compiler output tree would require publishing that tree, including unbundled browser modules whose styles belong to the client bundle. Type-only imports preserve the declarations without exposing those build intermediates as runtime artifacts. The [preview packer](../../../../packages/experimental/webworker-packer/README.md) excludes declaration-only exports from its runtime roots because declarations add no executable dependency.
+
 ### Notes question-and-answer runs through a real Session
 
 Analysis and follow-ups call `Agent.followup()` on a real dsh Session. `docs/architecture.md` makes Model-visible ⟺ logged a runtime invariant: anything reaching a model request must be reconstructable from the session log. A bypass through `ctx.llm.stream` would need a new `SessionEventMap` event to satisfy that invariant, plus a Host RPC that turns browser bytes into an `ImageAttachmentRef`, plus hand-written stream forwarding and rendering. Routing through a Session gives the screenshot path, streaming, model and permission selection, and log compliance for free.
@@ -44,13 +46,17 @@ Settling happens on the Host's clock, so no browser operation is waiting for it:
 
 The browser half follows it in `apply` and publishes it as a count on a plugin-owned `createSnapshotStore`, handed to the tab registration's `inject` face in the reserved `hooks` compartment, which the renderer binds to a `useNotesSettled` prop. That route matters: the shared store instance belongs to the slot runtime, so `apply` calling `create()` for it would mint a second instance that nothing renders — the panel would keep reading a snapshot no settlement ever touches. The count is not filtered by conversation, because a settlement anywhere means the notes may have moved and one re-read costs less than a subscription per conversation; the panel compares it against the value it last read, so a re-render cannot turn one settlement into a second read.
 
+The reader retains a forced invalidation that arrives during an in-flight listing and drains it before refresh callers continue. Dropping that invalidation can leave the material `analyzing` after its final settlement, with no later event to repair it. Thread reads also carry a revision so an older response for the same material cannot overwrite its newer answer.
+
 ### The thread draws both sides as Markdown
 
 The detail drew every thread row as plain text, so a list, a table, and emphasis reached the reader as punctuation. Both sides render through `ui-primitives`' `MarkdownText` now: a collected passage is as likely to be a Markdown document as the answer it produced, so rendering only the model's half left the reader comparing two vocabularies in one thread. The submitted body above the thread renders the same way, being the material's own text shown outside its row. The draft editor stays a `textarea` — editing needs the source, and a rendered projection of a document being typed is not editable. The labels the primitive needs come from the panel's own dictionary, memoized on `t` because the primitive memoizes on that object, the way `ui-trajectory` supplies them for its surface.
 
 ### A concurrent analysis claims its material on the domain write chain
 
-Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first records its id, and the loser sees that id in the returned record and submits nothing. A plain check-then-send would let a double click send the same material twice.
+Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first creates a message and records its id. The later transform observes that id and creates no message to submit. A plain check-then-send would let a double click send the same material twice.
+
+Draft edits re-check `messageIds` inside that same write queue, and analysis composes from the record that accepted its claim. Checking only before enqueueing permits a submitted record to change; composing only before claiming permits an earlier queued edit to persist without reaching the model. The two operation orders therefore produce either the saved body or `material-submitted`, never different stored and submitted bodies.
 
 The operations that mint a material's order value (`create`, `restore`, `reorder`) are serialized behind one settled tail for the same reason. The order value comes from a synchronous read of the in-memory table, which a sibling write that has not landed yet does not reflect, so two concurrent creates would otherwise mint the same order and lose the newest-on-top rule. The tail settles on rejection, so a refused `reorder` does not stall the operations behind it.
 

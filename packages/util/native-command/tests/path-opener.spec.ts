@@ -454,6 +454,17 @@ it('uses the native runner for a file-manager handoff when none is injected', as
   expect(execFileMock).toHaveBeenCalled()
 })
 
+it('reveals a path using the current host platform', async () => {
+  const run = vi.fn<PathOpenerRunner>().mockResolvedValue({ stdout: 'C:\\report.txt\n', stderr: '' })
+  await revealNativePath(process.platform === 'win32' ? 'C:\\report.txt' : '/tmp/report.txt', signal(), {
+    env: {}, osRelease: 'generic', run,
+  })
+  expect(run).toHaveBeenCalledWith(
+    process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open',
+    expect.any(Array), expect.any(AbortSignal),
+  )
+})
+
 
 it.each(['win32', 'linux'] as const)('accepts Explorer delegate exit 1 through the native runner on %s', async (platform) => {
   execFileMock.mockImplementation((command, _args, _options, callback) => {

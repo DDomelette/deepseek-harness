@@ -6,7 +6,7 @@
  * carrier failure, a business refusal on the material listing, a start that
  * fails — is reachable without a gateway.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   created, harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions,
   source, thread, unavailable,
@@ -18,6 +18,22 @@ async function settle(): Promise<void> {
 }
 
 describe('notes panel commands', () => {
+  it('re-reads after a settlement invalidates a pending material listing', async () => {
+    const note = noteId('n1')
+    const bench = harness({ sessions: () => sessions([sessionSummary({ id: note })], [], note) })
+    let complete!: (value: ReturnType<typeof materials>) => void
+    const pending = new Promise<ReturnType<typeof materials>>((resolve) => { complete = resolve })
+    bench.remote.materialList.mockImplementationOnce(() => pending)
+    bench.remote.materialList.mockResolvedValue(materials([materialSummary({ noteId: note, status: 'analyzed' })]))
+    bench.face.load()
+    await vi.waitFor(() => { expect(bench.remote.materialList).toHaveBeenCalledTimes(1) })
+    bench.face.refresh()
+    bench.face.refresh()
+    complete(materials([materialSummary({ noteId: note, status: 'analyzing' })]))
+    await vi.waitFor(() => { expect(bench.instance.getSnapshot().materials[0]?.status).toBe('analyzed') })
+    expect(bench.remote.materialList).toHaveBeenCalledTimes(2)
+  })
+
   it('reads the conversations and then the shown conversation\'s materials', async () => {
     const note = noteId('n1')
     const bench = harness({
@@ -67,11 +83,11 @@ describe('notes panel commands', () => {
     expect(bench.remote.sessionList).toHaveBeenCalledTimes(2)
   })
 
-  it('ignores a second read while one is in flight', async () => {
+  it('shares an initial read while one is in flight', async () => {
     const bench = harness()
 
     bench.face.load()
-    bench.face.refresh()
+    bench.face.load()
     await settle()
 
     expect(bench.remote.sessionList).toHaveBeenCalledTimes(1)
@@ -185,7 +201,7 @@ describe('notes panel detail commands', () => {
     bench.face.refresh()
     await settle()
 
-    expect(bench.remote.materialThread).toHaveBeenCalledTimes(2)
+    await vi.waitFor(() => { expect(bench.remote.materialThread).toHaveBeenCalledTimes(2) })
   })
 
   it('keeps a late thread answer out of the detail the reader moved to', async () => {
@@ -216,6 +232,20 @@ describe('notes panel detail commands', () => {
 
     expect(bench.instance.getSnapshot().thread)
       .toEqual([{ role: 'assistant', text: 'second answer', hasImage: false, seq: 1 }])
+  })
+
+  it('keeps an older answer from replacing a newer read of the same detail', async () => {
+    const bench = harness()
+    let complete!: (value: ReturnType<typeof thread>) => void
+    bench.remote.materialThread.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve }))
+    const latest = [{ role: 'assistant' as const, text: 'latest answer', hasImage: false, seq: 1 }]
+    bench.remote.materialThread.mockResolvedValue(thread(latest))
+    bench.face.select(materialId('m1'))
+    bench.face.select(materialId('m1'))
+    await vi.waitFor(() => { expect(bench.instance.getSnapshot().thread).toEqual(latest) })
+    complete(thread([{ role: 'user', text: 'pending question', hasImage: false, seq: 0 }]))
+    await settle()
+    expect(bench.instance.getSnapshot().thread).toEqual(latest)
   })
 
   it('closes the detail without reading a thread', async () => {
@@ -260,7 +290,7 @@ describe('notes panel detail commands', () => {
     await settle()
 
     expect(bench.remote.materialAnalyze).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1') })
-    expect(bench.remote.materialThread).toHaveBeenCalledTimes(2)
+    await vi.waitFor(() => { expect(bench.remote.materialThread).toHaveBeenCalledTimes(2) })
     expect(bench.instance.getSnapshot().notice).toBeUndefined()
   })
 

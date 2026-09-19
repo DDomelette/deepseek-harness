@@ -254,7 +254,7 @@ describe('LocalPtySession readiness and output', () => {
     const inspector = new FakeInspector()
     const session = makeSession(terminal, inspector, config())
     await initialize(session, terminal)
-    const operation = session.startSend({ text: '', submit: false })
+    const operation = session.startSend({ text: 'readiness probe', submit: true })
     await Promise.resolve()
     await Promise.resolve()
     const internal = session as unknown as {
@@ -1119,6 +1119,30 @@ describe('LocalPtySession readiness and output', () => {
     await vi.advanceTimersByTimeAsync(10)
     await initializing
     expect(session.motd).toBe('dsh> ')
+  })
+
+  it('retains a split prompt across an empty follow-up read', async () => {
+    vi.useFakeTimers()
+    const terminal = new FakeTerminal()
+    const session = new LocalPtySession(terminal, config())
+    try {
+      const setup = session.startSend({ text: 'setup prompt', submit: true })
+      await vi.advanceTimersByTimeAsync(0)
+      terminal.emitData('setup echo\r\n\x1b]133;D;0\x07')
+      terminal.inspector.waiting = true
+      await vi.advanceTimersByTimeAsync(20)
+      expect(await setup.done).toMatchObject({ waitReason: 'stdin_read' })
+      expect(session.controlledPromptReady).toBe(false)
+
+      const followup = session.startSend({ text: '', submit: false })
+      terminal.emitData('dsh> ')
+      expect(session.controlledPromptReady).toBe(true)
+      await vi.advanceTimersByTimeAsync(10)
+      expect(await followup.done).toMatchObject({ waitReason: 'stdin_read', viewport: 'dsh> ' })
+      expect(terminal.writes).toEqual(['setup prompt\r'])
+    } finally {
+      await session.close('test complete')
+    }
   })
 
   it('does not attribute a delayed prior prompt to the current send', async () => {
