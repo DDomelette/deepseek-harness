@@ -24,6 +24,8 @@ parent 创建一个 0700 目录，其中的完整 0600 `launch-request.json` 保
 
 request 被消费或 manager 已观察到 loaded unit 都能建立 scope ownership。在这两项事实出现前，只要 direct launcher 仍在运行，unit absence 就保持未决。如果 launcher 退出时 request 仍未消费，direct result 会 reject；但 owner 已明确请求终止时保留观察到的退出码和信号。已记录的 bootstrap error 始终优先。range observation 独立判断 range 是否为空。parent 每 50 毫秒检查一次这段未决区间；建立后，状态查询按指数增长间隔退避，最多达到既有的 5 秒 systemctl 上限。每次查询同时读取 `LoadState` 与 `ActiveState`：loaded `inactive` 或 `failed`，以及已经建立的 unit 变为 `not-found`/`inactive` 或被 collect 卸载，都能证明 range 为空。`active`、`activating`、`reloading` 与 `deactivating` 仍是非终态。未知或 malformed 组合以及不可读的 manager 结果会使 `waitForExit()` reject，而不是宣称完全停稳。`terminate()` 会唤醒正在休眠的 observer 立即复查，结算时会取消未胜出的退避 sleep。严格的同目录 `startup-error.json` 只承载 request／bootstrap 或 target pre-exec failure，parent 会在可观察生命周期完成时移除本次 spawn 的私有路径。
 
+取消可能与 scope 创建发生竞态，使空 unit 在 launcher 退出后仍保持 active。终止已请求、launcher 已退出且 request 仍未消费时，observer 请求 `systemctl stop --no-block`。该请求或任务数为零都不能证明完全停稳；manager 随后报告的 unit 状态仍是判断依据。
+
 普通 target result 仍来自同一个 child process。PTY 路径复用同一 request 与 bootstrap，但不增加常驻 runner，因此 `node-pty` PID、进程组、session leader、控制终端、前台 `inputWaiting`、`/dev/tty`、readiness 与 direct terminal outcome 保留既有含义，同时 scope membership 覆盖 `setsid` 与 reparent 后代。
 
 [终端后端](../../../../packages/terminal/terminal-bash/README.zh.md) 独立于原生启动判断输入就绪。pwsh 设置只提交一次；启动同时等待写入后的 `stdin_read` 证据和标记后的完整受控提示符，且不受输出字节上限影响。空读取或初始 PowerShell 提示符都可能发生在设置执行之前。

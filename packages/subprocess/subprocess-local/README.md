@@ -70,7 +70,7 @@ This section explains the design decisions behind the provider and points at the
 
 Each spawn selects one owner for both signalling and quiescence. Supported Linux ordinary and terminal launches use transient user-systemd scopes, while supported Windows ordinary launches use a helper-owned kill-on-close Job. macOS, older or unavailable user-systemd, and unavailable Windows native support use the existing detached process-group, `taskkill`, or terminal-session observations with one warning. The provider never replays a command through fallback after a native path may have started it.
 
-Linux cancellation before bootstrap request consumption preserves the observed exit result when the owner requested termination. Unexpected launcher exits still reject, and recorded pre-exec errors always take precedence. Range cleanup remains a separate quiescence check.
+Linux cancellation before bootstrap request consumption preserves the observed exit result when the owner requested termination. Unexpected launcher exits still reject, and recorded pre-exec errors always take precedence. After an early-cancelled launcher exits with its request unconsumed, the owner stops any remaining active scope; cleanup still waits for the manager to confirm quiescence.
 
 ### Source map
 

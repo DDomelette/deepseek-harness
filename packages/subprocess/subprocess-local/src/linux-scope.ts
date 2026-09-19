@@ -288,6 +288,14 @@ class SystemdScopeOwner implements BoundProcessOwner {
         throw new Error(`systemctl returned unknown ActiveState for ${this.unit}: ${JSON.stringify(activeState)}`)
       }
       if (this.killFailure !== undefined) throw this.killFailure
+      if (this.terminationRequested && !this.direct.running() && existsSync(this.files.requestPath)) {
+        // A launcher killed before bootstrap can leave an empty scope active.
+        const stop = await this.query(this.systemctl, ['--user', 'stop', '--no-block', this.unit])
+        if (stop.status !== 0 && !MISSING_UNIT.test(`${stop.stdout}\n${stop.stderr}`)) {
+          if (stop.error !== undefined) throw stop.error
+          throw new Error(`systemctl could not stop ${this.unit}: ${stop.stderr.trim() || `exit ${String(stop.status)}`}`)
+        }
+      }
       return true
     }
     if (!MISSING_UNIT.test(output)) {

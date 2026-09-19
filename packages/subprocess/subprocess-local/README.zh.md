@@ -70,7 +70,7 @@ kind: "package-reference"
 
 每次 spawn 都为信号发送与完全停稳选择同一个 owner。受支持的 Linux 普通命令与终端启动使用临时 user-systemd scope，受支持的 Windows 普通命令使用由 helper 持有、关闭时终止成员的 Job。macOS、旧版或不可用的 user-systemd，以及不可用的 Windows 原生支持使用既有 detached 进程组、`taskkill` 或终端会话观察，并只告警一次。native 路径可能已经启动命令后，本提供方绝不会通过 fallback 重放该命令。
 
-Linux owner 已请求终止时，在 bootstrap 消费请求前发生的取消会保留观察到的退出结果。意外的 launcher 退出仍会拒绝，已记录的 pre-exec 错误始终优先。进程范围清理仍独立检查完全停稳状态。
+Linux owner 已请求终止时，在 bootstrap 消费请求前发生的取消会保留观察到的退出结果。意外的 launcher 退出仍会拒绝，已记录的 pre-exec 错误始终优先。提前取消的 launcher 退出且请求仍未消费时，owner 会停止剩余的 active scope；清理仍等待 manager 确认完全停稳。
 
 ### 源码地图
 
