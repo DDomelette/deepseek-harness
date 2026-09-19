@@ -24,13 +24,13 @@ Generic per-session presentation flags for the DeepSeek Harness. Providers regis
 ## Service API
 
 - `registerProvider(provider)` — registers one `SessionFlagProvider` (`id` plus a synchronous `list()`); returns a disposer that removes it. Duplicate ids throw.
-- `snapshot()` — merges providers in registration order. Later providers win per session and flag key. Returns `{ flags, complete }`; `complete` is `false` after any provider failure.
+- `snapshot()` — merges providers in registration order. Later providers win per session and flag key. Returns `{ flags, complete }`; a partial result has `complete: false`, while fallback retains the previous complete snapshot.
 
 <a id="failure-semantics"></a>
 ## Failure semantics
 
 - A failing provider is logged and skipped; successful providers still contribute.
-- When every provider fails and a previous complete snapshot exists, the previous complete snapshot is returned.
+- When failures leave no flags, the previous complete snapshot is returned; its initial value is empty.
 - A complete snapshot becomes the last-good snapshot.
 
 <a id="model-experience"></a>

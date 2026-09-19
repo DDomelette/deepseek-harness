@@ -222,14 +222,6 @@ export default class SessionDeletionService extends Service {
       let latest = plan
       for (const member of latest.members) {
         if (member.persistence === 'pending') {
-          const stillLive = this.ctx.sessions.get(member.sessionId) !== undefined
-          if (stillLive) {
-            throw new SessionDeletionError(
-              'session-running',
-              `session "${member.sessionId}" became attached during deletion`,
-              [member.sessionId],
-            )
-          }
           try {
             await this.ctx.sessionPersistence.delete(member.sessionId)
             latest = await this.advance(latest, member.sessionId, {

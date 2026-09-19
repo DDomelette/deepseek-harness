@@ -117,6 +117,9 @@ jobs:
       DSH_COVERAGE_MAX_WORKERS: ${{ github.event.repository.fork && '3' || '6' }}
       DSH_COVERAGE_PARTITIONS: ${{ github.event.repository.fork && '2' || '4' }}
       DSH_GATE_CONCURRENCY: ${{ github.event.repository.fork && '2' || '3' }}
+      # Instrumented compiler fixtures and native process-range teardown share
+      # the smaller fork runner; keep their test and cleanup budgets paired.
+      DSH_COVERAGE_TEST_TIMEOUT_MS: ${{ github.event.repository.fork && '90000' || '' }}
       # A gate failure aborts the sibling gate instead of waiting out its
       # multi-minute instrumented run.
       DSH_GATE_FAIL_FAST: '1'

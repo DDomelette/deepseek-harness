@@ -33,6 +33,7 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/workspace-man
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
 const BROWSER_EXPECTED = join(SNAPSHOT_DIR, 'directory-browser.expected.md')
+const PIN_ORDER_EXPECTED = fileURLToPath(new URL('./expected/workspace-management/pinned-order.expected.md', import.meta.url))
 const SEED_ID = 'workspace-management-web-e2e'
 // Both waits exceed ui-primitives' 200ms POINTER_GRACE_MS. Keep them above
 // that value if the shared setting changes.
@@ -677,6 +678,55 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     ).toBe(2)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
+
+  it('persists pinned reordering in grouped and flat views across reload', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-pinned-order'))
+    const ids = ['pinned-order-one', 'pinned-order-two', 'pinned-order-three'].map(SessionId)
+    const titles = ['Pinned One', 'Pinned Two', 'Pinned Three']
+    const seed = await readFile(SEED, 'utf8')
+    for (const [index, id] of ids.entries()) {
+      await seedSession(scaffold, seed, id)
+      await scaffold.ctx.sessionController.rename({ sessionId: id, title: titles[index]! })
+      await scaffold.ctx.sessionPins.setPinned({ sessionId: id, pinned: true })
+    }
+    await scaffold.ctx.sessionPins.reorderGroup({ groupKey: '', orderedIds: ids })
+    await scaffold.ctx.sessionPins.reorderFlat({ orderedIds: ids })
+    const reload = async (): Promise<void> => {
+      const warningStart = tripwire.warnings.length
+      await page.reload({ waitUntil: 'load' })
+      await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      acknowledgeReloadConnectionLoss(tripwire, warningStart)
+    }
+    await reload()
+    await page.getByRole('button', { name: 'View options' }).click()
+    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    const pinned = page.locator('[class*="pinnedRoot"]')
+    const visibleTitles = (): Promise<string[]> => pinned.getByText(/^Pinned (One|Two|Three)$/).allTextContents()
+    const pinRow = (title: string): Locator => pinned.getByRole('treeitem').filter({ hasText: title })
+    await expect.poll(visibleTitles).toEqual(titles)
+    await pinRow('Pinned One').dragTo(pinRow('Pinned Three'), { targetPosition: { x: 20, y: 4 } })
+    const grouped = ['Pinned Two', 'Pinned One', 'Pinned Three']
+    await expect.poll(() => scaffold.ctx.sessionPins.list().groupOrder['']).toEqual([ids[1], ids[0], ids[2]])
+    await expect.poll(visibleTitles).toEqual(grouped)
+    await reload()
+    await expect.poll(visibleTitles).toEqual(grouped)
+    const output = [`Grouped after reload: ${(await visibleTitles()).join(' → ')}`]
+
+    await page.getByRole('button', { name: 'View options' }).click()
+    await page.getByRole('menuitem', { name: 'In one list' }).click()
+    await expect.poll(visibleTitles).toEqual(titles)
+    await pinRow('Pinned Three').dragTo(pinRow('Pinned One'), { targetPosition: { x: 20, y: 28 } })
+    const flat = ['Pinned One', 'Pinned Three', 'Pinned Two']
+    await expect.poll(() => scaffold.ctx.sessionPins.list().flatOrder).toEqual([ids[0], ids[2], ids[1]])
+    await expect.poll(visibleTitles).toEqual(flat)
+    await reload()
+    await expect.poll(visibleTitles).toEqual(flat)
+    output.push(`Flat after reload: ${(await visibleTitles()).join(' → ')}`)
+    await compareOrRefreshGolden(PIN_ORDER_EXPECTED, output.join('\n'), MODE)
+    await page.getByRole('button', { name: 'View options' }).click()
+    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    expect(tripwire.pageErrors).toEqual([])
+  })
 
   // WSL owns the Windows-to-Linux mapping; ordinary Linux cannot exercise it.
   it.skipIf(process.platform !== 'linux' || !release().toLowerCase().includes('microsoft'))(

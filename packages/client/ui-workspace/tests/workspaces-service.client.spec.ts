@@ -12,7 +12,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { LayoutController } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
-import { DirectoryBrowseError, UiWorkspaceService } from '../src/client/navigation.ts'
+import { DirectoryBrowseError, UiWorkspaceService, type WorkspaceSessionFlags } from '../src/client/navigation.ts'
 
 const sid = (id: string): SessionId => SessionId(id)
 const wid = (id: string): WorkspaceId => id as WorkspaceId
@@ -220,6 +220,44 @@ async function flush(): Promise<void> {
 }
 
 describe('UiWorkspaceService', () => {
+  it('leaves an empty initial workspace baseline unselected when a workspace arrives later', async () => {
+    const b = bench({ sessions: sessionState(), workspaces: workspaceState() })
+    try {
+      b.workspaces.list.set(workspaceState([workspace('later')]))
+      await flush()
+      expect(b.sessions.create).not.toHaveBeenCalled()
+      expect(b.sessions.open).not.toHaveBeenCalled()
+    } finally {
+      await b.ctx.fiber.dispose()
+    }
+  })
+
+  it('merges feature flags, refreshes invalidations, and withdraws disposed contributions', async () => {
+    const b = bench()
+    try {
+      const first = new MutableSource<WorkspaceSessionFlags>({ [sid('one')]: { pinned: true } })
+      const second = new MutableSource<WorkspaceSessionFlags>({
+        [sid('one')]: { pinned: false }, [sid('two')]: { pinned: true },
+      })
+      const removeFirst = b.uiWorkspace.registerSessionFlags(first)
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({ one: { pinned: true } })
+      const removeSecond = b.uiWorkspace.registerSessionFlags(second)
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({ one: { pinned: false }, two: { pinned: true } })
+      second.set({ [sid('two')]: { pinned: true } })
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({ one: { pinned: true }, two: { pinned: true } })
+      removeFirst()
+      expect(first.listenersSnapshot()).toHaveLength(0)
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({ two: { pinned: true } })
+      removeSecond()
+      expect(second.listenersSnapshot()).toHaveLength(0)
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({})
+      first.set({ [sid('one')]: { pinned: true } })
+      expect(b.uiWorkspace.sessionFlags.getSnapshot()).toEqual({})
+    } finally {
+      await b.ctx.fiber.dispose()
+    }
+  })
+
   it('selects a Session before revealing its Conversation, including the current Session', () => {
     const current = sid('current')
     const b = bench({ sessions: sessionState([summary('current')], current) })

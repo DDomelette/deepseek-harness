@@ -222,6 +222,9 @@ describe('WorkspaceController commands', () => {
 
     await expect(controller.archiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string } })
+    expect(controller.list()).toMatchObject({
+      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+    })
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
     await expect(controller.unarchiveSession({ sessionId: session.id }))

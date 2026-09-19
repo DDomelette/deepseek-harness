@@ -467,12 +467,18 @@ describe('WorkspaceController', () => {
       sessionIds: ['session'],
     })
     await expect(controller.archiveSession(sid('session'))).resolves.toBeUndefined()
+    await expect(controller.unarchiveSession(sid('session'))).resolves.toBeUndefined()
+    await expect(controller.refresh()).resolves.toBeUndefined()
     await expect(controller.delete(wid('one'))).resolves.toBeUndefined()
   })
 
   it('maps generated business failures to the command facade errors', async () => {
     const remote = new CommandWorkspaceRemote()
     const controller = new WorkspaceController(new Context(), new ClientWorkspaceModel(remote))
+    vi.spyOn(remote, 'unarchiveSession').mockResolvedValueOnce(remoteFailure(
+      new RemoteError('gateway/internal', 'storage failed', {}),
+    ))
+    await expect(controller.unarchiveSession(sid('session'))).rejects.toThrow('session restore failed')
     const missingWorkspace = new RemoteError('workspace/not-found', 'gone', { workspaceId: wid('missing') })
     const missingSession = new RemoteError('session/not-found', 'missing session', { sessionId: sid('session') })
 

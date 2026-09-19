@@ -31,10 +31,12 @@ Pinned-sessions browser plugin for the DeepSeek Harness sidebar. It registers th
 
 Non-blank pinned rows expose Rename, Fork, and Archive alongside Unpin. Pinned and project rows share the UI primitives' accessible status marker and relative-time bucketing; each plugin owns its row layout, menu actions, and drag interactions.
 
+Dragging inserts the source before or after another row in the same group; cross-group drops are ignored. Grouped and flat order overrides persist independently and survive reload.
+
 <a id="store-contract"></a>
 ## Store contract
 
-The plugin owns a root-scoped `defineStore` handle: `snapshot`, `ready`, and `error`. Actions are `commit`, `optimistic`, `rollback`, and `fail`. Remote results replace the snapshot after durability; failed mutations roll back the previous snapshot.
+The plugin owns a root-scoped `defineStore` handle: `snapshot`, `ready`, and `error`. Actions are `commit`, `optimistic`, `rollback`, and `fail`. Remote results replace the snapshot after durability; failed mutations roll back the previous snapshot. A failed refresh records `error` while retaining the last snapshot; the next successful refresh clears it.
 
 <a id="remote-methods-used"></a>
 ## Remote methods used

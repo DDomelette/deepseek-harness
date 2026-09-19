@@ -114,8 +114,8 @@ describe('pinned session row', () => {
 
   it('starts and ends a move while rejecting hover and drop outside an active drag', () => {
     const drag = {
-      active: false, marker: null,
-      start: vi.fn(), hover: vi.fn(), drop: vi.fn(), end: vi.fn(),
+      active: false as const, marker: null,
+      start: vi.fn(), end: vi.fn(),
     }
     const { props } = renderRow({}, { drag })
     const row = screen.getByRole('treeitem')
@@ -127,8 +127,6 @@ describe('pinned session row', () => {
     expect(drag.start).toHaveBeenCalledOnce()
     expect(dragEvent(row, 'dragOver', 0).defaultPrevented).toBe(false)
     expect(dragEvent(row, 'drop', 0).defaultPrevented).toBe(false)
-    expect(drag.hover).not.toHaveBeenCalled()
-    expect(drag.drop).not.toHaveBeenCalled()
     fireEvent.dragEnd(row)
     expect(drag.end).toHaveBeenCalledOnce()
   })
@@ -140,7 +138,7 @@ describe('pinned session row', () => {
     vi.useFakeTimers()
     try {
       const drag = {
-        active: true, marker: half,
+        active: true as const, marker: half,
         start: vi.fn(), hover: vi.fn(), drop: vi.fn(), end: vi.fn(),
       }
       renderRow({}, { drag })

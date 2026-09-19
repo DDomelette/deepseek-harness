@@ -43,9 +43,26 @@ describe('session flags registry', () => {
       complete: false,
     })
     dispose()
+    dispose()
     expect(registry.snapshot()).toEqual({
       flags: { [SessionId('s1')]: { pinned: true } },
       complete: true,
     })
+  })
+
+  it('rejects duplicate providers and retains the complete snapshot during an outage', async () => {
+    let failing = false
+    const provider: SessionFlagProvider = {
+      id: 'pins',
+      list: () => {
+        if (failing) throw new Error('pins unavailable')
+        return { [SessionId('s1')]: { pinned: true } }
+      },
+    }
+    const registry = await harness([provider])
+    expect(() => registry.registerProvider(provider)).toThrow(/duplicate session flag provider/)
+    const snapshot = registry.snapshot()
+    failing = true
+    expect(registry.snapshot()).toEqual(snapshot)
   })
 })

@@ -12,7 +12,7 @@ A fork inherits workflow files without inheriting access to the upstream enterpr
 
 The [pull-request workflow](../../../../.github/workflows/ci.yml) selects standard GitHub-hosted Linux and Windows runners when the repository receiving the event is a fork. The base repository's fork flag owns this choice; a contribution from a fork to the upstream repository retains upstream routing. The explicit repository-controlled [failover switches](2026-07-26-ci-failover-runbook.md) retain precedence and their Dependabot exclusion.
 
-Fork jobs use smaller gate, coverage, browser, and snapshot concurrency budgets. They execute the same commands, test inventory, coverage thresholds, and aggregate dependencies as upstream jobs. The existing non-blocking Windows lanes retain their status.
+Fork jobs use smaller gate, coverage, browser, and snapshot concurrency budgets. They execute the same commands, test inventory, coverage thresholds, and aggregate dependencies as upstream jobs. Fork Linux coverage uses the same 90-second test and cleanup budget as Windows coverage: cold TypeScript generation and native process-range teardown share the smaller runner. Product deadlines and assertions remain unchanged. The existing non-blocking Windows lanes retain their status.
 
 ## Alternatives considered
 

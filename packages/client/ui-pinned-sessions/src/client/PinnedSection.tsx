@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
@@ -25,23 +25,20 @@ const nodeOf = (session: SessionSummary, pending: string | undefined): PinnedRow
   updatedAt: session.updatedAt,
 })
 
-function knownIds(
-  ids: readonly SessionId[],
-  sessions: Readonly<Record<SessionId, SessionSummary>>,
-  archived: ReadonlySet<SessionId>,
-): SessionId[] {
-  return [...new Set(ids)].filter(id => sessions[id] !== undefined && !archived.has(id))
-}
-
 function orderedByIds(
-  ids: readonly SessionId[],
+  nodes: readonly PinnedRowNode[],
   override: readonly SessionId[] | undefined,
-  sessions: Readonly<Record<SessionId, SessionSummary>>,
-): SessionId[] {
+): PinnedRowNode[] {
   if (override !== undefined && override.length > 0) {
-    return [...new Set([...override, ...ids].filter(id => ids.includes(id)))]
+    const remaining = new Map(nodes.map(node => [node.id, node]))
+    const ordered = override.flatMap((id) => {
+      const node = remaining.get(id)
+      remaining.delete(id)
+      return node === undefined ? [] : [node]
+    })
+    return [...ordered, ...remaining.values()]
   }
-  return [...ids].sort((a, b) => (sessions[b]?.updatedAt ?? 0) - (sessions[a]?.updatedAt ?? 0))
+  return [...nodes].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 export function PinnedSection({
@@ -64,49 +61,34 @@ export function PinnedSection({
     if (!ready || snapshot.pinnedSessionIds.length === 0) return []
     const byId = sessions.byId
     const archived = new Set(archivedSessionIds)
-    const pinned = knownIds(snapshot.pinnedSessionIds, byId, archived)
+    const pinned = [...new Set(snapshot.pinnedSessionIds)].flatMap((id) => {
+      const session = byId[id]
+      return session === undefined || archived.has(id)
+        ? []
+        : [nodeOf(session, pendingInteractions.get(id)?.kind)]
+    })
     if (pinned.length === 0) return []
     if (view === 'flat') {
-      const nodes = orderedByIds(pinned, snapshot.flatOrder, byId)
-        .flatMap((id) => {
-          const session = byId[id]
-          return session === undefined ? [] : [nodeOf(session, pendingInteractions.get(session.id)?.kind)]
-        })
+      const nodes = orderedByIds(pinned, snapshot.flatOrder)
       return [{ key: '', label: t('pinned'), nodes }]
     }
-    const owner = new Map<SessionId, string>()
-    for (const workspace of workspaces) {
-      for (const id of workspace.sessionIds) owner.set(id, workspace.workspaceId)
+    const owner = new Map(workspaces.flatMap(workspace => workspace.sessionIds.map(id => [id, workspace] as const)))
+    const byGroup = new Map<string, PinnedGroup & { accountOrder: readonly SessionId[] | undefined }>()
+    for (const node of pinned) {
+      const workspace = owner.get(node.id)
+      const key = workspace?.workspaceId ?? ''
+      const group = byGroup.get(key)
+      if (group === undefined) {
+        byGroup.set(key, {
+          key, label: workspace?.title ?? t('ungrouped'), nodes: [node], accountOrder: workspace?.sessionIds,
+        })
+      } else group.nodes.push(node)
     }
-    const labels = new Map(workspaces.map(workspace => [workspace.workspaceId as string, workspace.title]))
-    const byGroup = new Map<string, SessionId[]>()
-    for (const id of pinned) {
-      const key = owner.get(id) ?? ''
-      const list = byGroup.get(key)
-      if (list === undefined) byGroup.set(key, [id])
-      else list.push(id)
-    }
-    return [...byGroup.entries()].map(([key, ids]) => {
-      const override = snapshot.groupOrder[key]
-      const accountOrder = key === ''
-        ? undefined
-        : workspaces.find(workspace => workspace.workspaceId === key)?.sessionIds
-      let ordered: SessionId[]
-      if (override !== undefined && override.length > 0) {
-        ordered = orderedByIds(ids, override, byId)
-      } else if (accountOrder !== undefined) {
-        const rank = new Map(accountOrder.map((id, index) => [id, index]))
-        ordered = [...ids].sort((a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b) ?? Number.MAX_SAFE_INTEGER))
-      } else {
-        ordered = orderedByIds(ids, undefined, byId)
-      }
+    return [...byGroup.values()].map(({ key, label, nodes, accountOrder }) => {
+      const manualOrder = snapshot.groupOrder[key]
+      const order = manualOrder !== undefined && manualOrder.length > 0 ? manualOrder : accountOrder
       return {
-        key,
-        label: key === '' ? t('ungrouped') : labels.get(key) ?? key,
-        nodes: ordered.flatMap((id) => {
-          const session = byId[id]
-          return session === undefined ? [] : [nodeOf(session, pendingInteractions.get(session.id)?.kind)]
-        }),
+        key, label, nodes: orderedByIds(nodes, order),
       }
     })
   }, [pendingInteractions, ready, snapshot, sessions.byId, archivedSessionIds, view, workspaces, t])
@@ -127,32 +109,28 @@ export function PinnedSection({
     />
   )
 
-  const makeDrag = (group: PinnedGroup, node: PinnedRowNode): {
-    start: () => void
-    active: boolean
-    marker: 'before' | 'after' | null
-    hover: (half: 'before' | 'after') => void
-    drop: (half: 'before' | 'after') => void
-    end: () => void
-  } | undefined => {
-    const commit = (over: PinnedRowNode, half: 'before' | 'after'): void => {
-      if (drag === null || drag.sourceId === over.id) return
-      const ids = group.nodes.map(item => item.id)
-      const from = ids.indexOf(drag.sourceId)
-      const to = ids.indexOf(over.id)
-      if (from === -1 || to === -1) return
-      ids.splice(from, 1)
-      ids.splice(half === 'before' ? to : to + 1, 0, drag.sourceId)
-      if (view === 'flat') void reorderFlat(ids, snapshot)
-      else void reorderGroup(group.key, ids, snapshot)
-    }
-    return {
+  const makeDrag = (group: PinnedGroup, node: PinnedRowNode): NonNullable<ComponentProps<typeof PinnedSessionRow>['drag']> => {
+    const common = {
       start: () => { setDrag({ sourceId: node.id, overId: null, overHalf: 'before' }) },
-      active: drag?.sourceId === node.id,
-      marker: drag?.sourceId === node.id && drag.overId === node.id ? drag.overHalf : null,
-      hover: (half) => { setDrag(current => current === null ? current : { ...current, overId: node.id, overHalf: half }) },
-      drop: (half) => { commit(node, half); setDrag(null) },
+      marker: drag?.overId === node.id ? drag.overHalf : null,
       end: () => { setDrag(null) },
+    }
+    if (drag === null || !group.nodes.some(item => item.id === drag.sourceId)) return { ...common, active: false }
+    const { sourceId } = drag
+    return {
+      ...common,
+      active: true,
+      hover: (half) => { setDrag({ sourceId, overId: node.id, overHalf: half }) },
+      drop: (half) => {
+        if (sourceId !== node.id) {
+          const ids = group.nodes.map(item => item.id).filter(id => id !== sourceId)
+          const to = ids.indexOf(node.id)
+          ids.splice(half === 'before' ? to : to + 1, 0, sourceId)
+          if (view === 'flat') void reorderFlat(ids, snapshot)
+          else void reorderGroup(group.key, ids, snapshot)
+        }
+        setDrag(null)
+      },
     }
   }
 

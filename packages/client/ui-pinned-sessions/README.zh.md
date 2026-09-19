@@ -31,10 +31,12 @@ DeepSeek Harness 侧栏的会话置顶浏览器插件。它把置顶栏、行内
 
 非空置顶行在取消置顶之外，还提供重命名、分叉和归档操作。置顶行与项目行共享 UI 基础组件的无障碍状态标记和相对时间分段；各插件分别拥有行布局、菜单操作和拖拽交互。
 
+拖拽把源行插入同组另一行的前方或后方；跨组放置会被忽略。分组视图与单列表视图的顺序覆盖分别持久化，重载后仍保留。
+
 <a id="store-contract"></a>
 ## Store 契约
 
-插件拥有一个 root-scope 的 `defineStore` handle：`snapshot`、`ready` 和 `error`。写操作为 `commit`、`optimistic`、`rollback` 和 `fail`。Remote 落盘后用结果替换快照；失败的变更回滚到先前快照。
+插件拥有一个 root-scope 的 `defineStore` handle：`snapshot`、`ready` 和 `error`。写操作为 `commit`、`optimistic`、`rollback` 和 `fail`。Remote 落盘后用结果替换快照；失败的变更回滚到先前快照。刷新失败会记录 `error` 并保留最后一份快照；下一次成功刷新会清除错误。
 
 <a id="remote-methods-used"></a>
 ## 使用的 Remote 方法

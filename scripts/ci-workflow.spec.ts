@@ -49,6 +49,9 @@ describe('CI workflow', () => {
         expect(runnerExpression(env[key], false)).toBe(upstreamBudget)
       }
     }
+    const coverageEnv = workflowJob(workflow, 'node-24-coverage').env as Record<string, unknown>
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, true)).toBe('90000')
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, false)).toBe('')
     const env = workflowJob(workflow, 'node-24-consumers').env as Record<string, unknown>
     expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, true)).toBe('4')
     expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, false)).toBe('32')

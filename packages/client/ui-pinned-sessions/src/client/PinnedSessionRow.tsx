@@ -62,12 +62,13 @@ export function PinnedSessionRow({
   pinAction: ReactNode
   drag?: {
     start: () => void
-    active: boolean
     marker: 'before' | 'after' | null
+    end: () => void
+  } & ({ active: false } | {
+    active: true
     hover: (half: 'before' | 'after') => void
     drop: (half: 'before' | 'after') => void
-    end: () => void
-  } | undefined
+  }) | undefined
   flat: boolean
   t: TranslateNS<'workspace'>
 }) {

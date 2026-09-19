@@ -298,6 +298,51 @@ describe('ApiSession model selection', () => {
 })
 
 describe('ApiSession create or adoption', () => {
+  it('checks the whole deletion plan before closing idle owned Agents', async () => {
+    const { ctx, agents } = await harness()
+    const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-delete-'))
+    tempDirs.push(cwd)
+    const meta = header('owned-delete', cwd)
+    const dispose = vi.fn<() => Promise<void>>()
+    vi.spyOn(ctx.agents, 'create').mockImplementation(async () => {
+      const live = agent(ctx, meta)
+      const unregister = ctx.agents.register(live)
+      dispose.mockImplementation(async () => { unregister() })
+      return { agent: live, dispose }
+    })
+    const owned = await agents.ensureSession(meta.id, cwd, false)
+    const foreign = agent(ctx, header('foreign-delete', cwd))
+    ctx.agents.register(foreign)
+    await expect(agents.detachForDeletion([owned.id, foreign.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
+    expect(dispose).not.toHaveBeenCalled()
+    Object.assign(owned, { status: 'running' })
+    await expect(agents.detachForDeletion([owned.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
+    Object.assign(owned, { status: 'idle' })
+    await agents.detachForDeletion([SessionId('cold-delete'), owned.id])
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(ctx.agents.get(owned.id)).toBeUndefined()
+    await agents.detachForDeletion([owned.id])
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
+  it('refuses deletion while an Agent is being created or resumed', async () => {
+    const { ctx, agents } = await harness()
+    const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-delete-busy-'))
+    tempDirs.push(cwd)
+    const created = unpublishedAgent(ctx, header('creating-delete', cwd))
+    vi.spyOn(ctx.agents, 'create').mockResolvedValue({ agent: created, dispose: async () => {} })
+    const creation = agents.ensureSession(created.id, cwd, false)
+    await expect(agents.detachForDeletion([created.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
+    await creation
+
+    const meta = header('resuming-delete', cwd)
+    providePersistence(ctx, { list: async () => [meta], inspect: async () => ({ meta, events: [] }) })
+    vi.spyOn(ctx.agents, 'resume').mockResolvedValue({ agent: unpublishedAgent(ctx, meta), dispose: async () => {} })
+    const resume = agents.resolveAgent(meta.id)
+    await expect(agents.detachForDeletion([meta.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
+    await expect(resume).resolves.toHaveProperty('agent')
+  })
+
   it('shares one in-flight creation between concurrent callers', async () => {
     const { ctx, agents } = await harness()
     const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-concurrent-'))
