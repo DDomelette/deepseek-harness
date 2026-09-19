@@ -16,7 +16,7 @@ Status: implemented
 
 旧条目绝不会被回写。读取记录不会迁移它，对没有窗口的条目，面板显示 `—`，而该行的寿命控件就是操作者把这台设备迁到登记表模型的途径；在那之前，该设备按载荷里的到期时间运行，因此升级 Host 绝不会让已配对的手机掉线。
 
-面板拥有操作者界面：每台设备一列寿命，`1`/`7`/`30`/`90` 天档位加一个可重新开始倒计时的任意天数输入框，还有一行提示文案说明：不再使用的设备应立即吊销，在不受信任的网络上用过之后也建议吊销。它的第三条仅电脑可用的路由 `POST /pair/devices/lifetime`（携带 `{deviceId, days}`）把这次写入放在与 `/pair/approve`、`/pair/revoke` 和 `GET /pair/devices` 相同的回环 authority 加浏览器会话守护之后，因此手机无法给自己或另一台设备重新排期。`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays` 与 `expiresAt`；旧条目两者都不返回。
+面板拥有操作者界面：每台设备一列寿命，`1`/`7`/`30`/`90` 天档位加一个可重新开始倒计时的任意天数输入框，还有一行提示文案说明：不再使用的设备应立即吊销，在不受信任的网络上用过之后也建议吊销。它的第三条仅电脑可用的路由 `POST /pair/devices/lifetime`（携带 `{deviceId, days}`）把这次写入放在与 `/pair/approve`、`/pair/revoke` 和 `GET /pair/devices` 相同的本机操作者守护（回环 authority、回环 TCP 对端及启动令牌 cookie）之后，因此手机无法给自己或另一台设备重新排期。`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays` 与 `expiresAt`；旧条目两者都不返回。
 
 针对 all-interfaces 绑定的启动警告保留原有措辞，并指明两种收窄方式：只让已配对的那台手机通过防火墙，或传 `--host 127.0.0.1`。
 

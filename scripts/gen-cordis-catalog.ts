@@ -213,6 +213,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'fs': 'filesystem.md',
   'goal': 'goal.md',
   'llm': 'llm-streaming.md',
+  'notes': 'session.md',
   'session': 'session.md',
   'settings': 'settings.md',
   'skills': 'skills.md',
@@ -697,6 +698,8 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
+  MaterialId: 'notes material identity is owned by packages/notes/notes/src/types.ts',
+  NoteSessionId: 'notes conversation identity is owned by packages/notes/notes/src/types.ts',
   SkillCatalogValue: 'Service-local type documented in packages/api/session-controller/README.md',
   WorkspaceBaseline: 'Service-local type documented in packages/api/workspace-controller/README.md',
   SessionFlagProvider: 'Service-local type documented in packages/session/session-flags/README.md',

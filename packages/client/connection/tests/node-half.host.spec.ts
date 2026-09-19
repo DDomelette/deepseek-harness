@@ -39,21 +39,21 @@ function fakeHttpServer(
 /** Bodyless GET carrying the given headers (enough for the trust fence + bridge). */
 function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session.list`): IncomingMessage {
   const request = Readable.from([]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'GET', headers })
+  Object.assign(request, { url, method: 'GET', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** JSON POST carrying a complete client-request envelope. */
 function fakePost(headers: Record<string, string>, url: string, body: unknown): IncomingMessage {
   const request = Readable.from([Buffer.from(JSON.stringify(body))]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers } })
+  Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers }, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** Raw POST for malformed-body and media-type boundary cases. */
 function fakeRawPost(headers: Record<string, string>, url: string, body: string): IncomingMessage {
   const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'POST', headers })
+  Object.assign(request, { url, method: 'POST', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
@@ -640,14 +640,38 @@ describe('connection device registry handle', () => {
     }
   })
 
-  it('classifies the authority a request arrived on', async () => {
+  it('serves the unauthenticated shell only for a trusted LAN authority', async () => {
+    const { connection, dispose } = await mounted({ trustedHosts: ['192.168.0.122:3080'] })
+    try {
+      const trusted = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: '192.168.0.122:3080' }, '/'), trusted.response)).toBe('auth-required')
+      expect(trusted.state).toEqual({})
+      const untrusted = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: 'evil.example:3080' }, '/'), untrusted.response)).toBe('answered')
+      expect(untrusted.state.status).toBe(401)
+      expect(untrusted.state.headers?.['content-type']).toBe('text/plain; charset=utf-8')
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('requires a loopback peer and a launch cookie for operator requests', async () => {
     const { connection, dispose } = await mounted()
     try {
-      expect(connection.isLoopbackRequest(fakeRequest({ host: '127.0.0.1:3080' }))).toBe(true)
-      expect(connection.isLoopbackRequest(fakeRequest({ host: 'localhost:3080' }))).toBe(true)
-      expect(connection.isLoopbackRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
-      expect(connection.isLoopbackRequest(fakeRequest({}))).toBe(false)
-      expect(connection.isLoopbackRequest({ headers: { host: 'bad host' } })).toBe(false)
+      for (const host of ['127.0.0.1:3080', 'localhost:3080', '[::1]:3080']) {
+        const cookie = browserCookie(connection, host)
+        const local = fakeRequest({ host, cookie })
+        expect(connection.isLocalOperatorRequest(local)).toBe(true)
+        Object.assign(local.socket, { remoteAddress: '192.168.0.122' })
+        expect(connection.isLocalOperatorRequest(local)).toBe(false)
+        expect(connection.isLocalOperatorRequest(fakeRequest({ host }))).toBe(false)
+        const device = await connection.devices.register({ label: 'phone' })
+        const deviceCookie = connection.devices.issueCookie(fakeRequest({ host }), device.id)!.split(';', 1)[0]!
+        expect(connection.isLocalOperatorRequest(fakeRequest({ host, cookie: deviceCookie }))).toBe(false)
+      }
+      expect(connection.isLocalOperatorRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
+      expect(connection.isLocalOperatorRequest(fakeRequest({}))).toBe(false)
+      expect(connection.isLocalOperatorRequest({ headers: { host: 'bad host' } })).toBe(false)
     } finally {
       await dispose()
     }

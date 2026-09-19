@@ -22,7 +22,7 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { actionFor, composeContent } from './compose.ts'
@@ -32,6 +32,7 @@ import { turnMessages, turnOutcome } from './turns.ts'
 import type { NoteSessions } from './note-sessions.ts'
 import type { NotesSettings } from './settings.ts'
 import type { Materials } from './materials.ts'
+import type { MaterialRecord } from './domain.ts'
 import type {
   MaterialId, NoteSessionId, NotesAnalyzeFailure, NotesAskFailure, NotesSessionNotFound,
   NotesSubmitRefused,
@@ -153,7 +154,7 @@ export class Analysis extends Service {
     if (content.some(block => block.type === 'image') && await this.imagesUnsupported(target.agent)) {
       return { code: 'image-unsupported', id }
     }
-    return await this.submit(id, target.agent, content, true)
+    return await this.submit(id, target.agent, content, record => composeContent(record, action))
   }
 
   /**
@@ -170,7 +171,7 @@ export class Analysis extends Service {
     if (current.messageIds.length === 0) return { code: 'material-not-submitted', id }
     const target = this.targetFor(current.noteId)
     if (!target.live) return target.failure
-    return await this.submit(id, target.agent, [{ type: 'text', text: question }], false)
+    return await this.submit(id, target.agent, [{ type: 'text', text: question }])
   }
 
   /**
@@ -269,8 +270,8 @@ export class Analysis extends Service {
    * @param id - material id.
    * @param agent - the live notes agent.
    * @param content - the blocks to submit.
-   * @param claim - whether this call may only send if it is the first to record
-   *   an id, which makes the first analysis idempotent under concurrency.
+   * @param claim - compose the first analysis from the record that atomically
+   *   accepted its message id; absent for a follow-up question.
    * @returns the refusal, after the material is marked `failed` and the id is
    *   rolled back, or null when the send was taken.
    */
@@ -278,34 +279,24 @@ export class Analysis extends Service {
     id: MaterialId,
     agent: Agent,
     content: ContentBlock[],
-    claim: boolean,
+    claim?: (record: MaterialRecord) => ContentBlock[],
   ): Promise<NotesSubmitRefused | null> {
-    const message = createUserMessage({
-      content,
-      source: { kind: 'plugin', plugin: 'notes' },
-    })
-    if (claim) {
-      // The domain's write chain is the claim. Two concurrent analyses both
-      // pass `analyse`'s synchronous check, so the loser must observe the
-      // winner's id inside the same atomic read-modify-write and submit
-      // nothing.
-      const next = await this.materials.update(id, record => record.messageIds.length > 0
-        ? record
-        : {
-          ...record,
-          status: 'analyzing',
-          messageIds: [...record.messageIds, message.id],
-          error: null,
-        })
-      if (!next.messageIds.includes(message.id)) return null
-    } else {
-      await this.materials.update(id, record => ({
+    let message: UserMessage | undefined
+    await this.materials.update(id, (record) => {
+      if (claim !== undefined && record.messageIds.length > 0) return record
+      message = createUserMessage({
+        content: claim === undefined ? content : claim(record),
+        source: { kind: 'plugin', plugin: 'notes' },
+      })
+      return {
         ...record,
         status: 'analyzing',
         messageIds: [...record.messageIds, message.id],
         error: null,
-      }))
-    }
+      }
+    })
+    if (message === undefined) return null
+    const submittedId = message.id
     try {
       agent.followup(message)
       return null
@@ -314,7 +305,7 @@ export class Analysis extends Service {
       await this.materials.update(id, record => ({
         ...record,
         status: 'failed',
-        messageIds: record.messageIds.filter(candidate => candidate !== message.id),
+        messageIds: record.messageIds.filter(candidate => candidate !== submittedId),
         error: reason,
       }))
       // The refusal is a value: a throw here would leave the wire vocabulary and

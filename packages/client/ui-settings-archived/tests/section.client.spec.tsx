@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 /** Archived settings section: grouping, restore action, delete confirmation. */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-api-remotes/client'
 import { type SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import { type WorkspaceSnapshot as WorkspaceListState } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import { ArchivedSection, type ArchivedSectionInjected } from '../src/client/ArchivedSection.tsx'
+import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+import { ArchivedSection, type ArchivedSectionInjected, type ArchivedSectionProps } from '../src/client/ArchivedSection.tsx'
 import { zh, type ArchivedSettingsKey } from '../src/client/locales.ts'
 
 const sid = (id: string): SessionId => id as SessionId
@@ -83,6 +84,7 @@ function mount(
     deleteSession: vi.fn(async () => {}),
     refresh: vi.fn(async () => {}),
   },
+  overrides: Partial<ArchivedSectionProps> = {},
 ): ArchivedSectionInjected {
   render(<ArchivedSection
     usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
@@ -95,6 +97,7 @@ function mount(
     restore={id => injected.restore(id)}
     deleteSession={id => injected.deleteSession(id)}
     refresh={() => injected.refresh()}
+    {...overrides}
   />)
   return injected
 }
@@ -102,6 +105,87 @@ function mount(
 afterEach(cleanup)
 
 describe('ArchivedSection', () => {
+  it('shows loading until both baselines arrive and an empty message with no archived sessions', () => {
+    mount(undefined, { useSessions: selector => selector({ ...sessionsState(), phase: 'pending' }) })
+    expect(screen.getByText(zh.loading)).toBeTruthy()
+    cleanup()
+    mount(undefined, { useWorkspaces: selector => selector({ ...workspacesState(), archivedSessionIds: [] }) })
+    expect(screen.getByText(zh.empty)).toBeTruthy()
+  })
+
+  it.each([null, new RemoteError('gateway/internal', 'Offline', {})])('retries a failed workspace baseline with error %j', async (error) => {
+    const refresh = vi.fn(async () => {})
+    mount({ restore: vi.fn(), deleteSession: vi.fn(), refresh }, {
+      useWorkspaces: selector => selector({ ...workspacesState(), state: 'error', error }),
+    })
+    expect(screen.getByRole('alert').textContent).toContain(zh.loadFailed)
+    if (error !== null) expect(screen.getByRole('alert').textContent).toContain(error.message)
+    fireEvent.click(screen.getByRole('button', { name: zh.retry }))
+    await waitFor(() => { expect(refresh).toHaveBeenCalledOnce() })
+  })
+
+  it('keeps restore failures on their rows and clears only the recovered row after retry', async () => {
+    const restore = vi.fn<ArchivedSectionInjected['restore']>()
+      .mockRejectedValueOnce(new Error('First restore failed'))
+      .mockRejectedValueOnce('Second restore failed')
+      .mockResolvedValueOnce(false)
+    const close = vi.fn()
+    mount({ restore, deleteSession: vi.fn(), refresh: vi.fn() }, { close })
+    fireEvent.click(screen.getByRole('button', { name: '恢复对话 alpha-1' }))
+    await screen.findByText('First restore failed')
+    fireEvent.click(screen.getByRole('button', { name: '恢复对话 alpha-2' }))
+    await screen.findByText('Second restore failed')
+    fireEvent.click(screen.getByRole('button', { name: '恢复对话 alpha-1' }))
+    await waitFor(() => { expect(screen.queryByText('First restore failed')).toBeNull() })
+    expect(screen.getByText('Second restore failed')).toBeTruthy()
+    expect(close).not.toHaveBeenCalled()
+  })
+
+  it.each([new Error('Delete failed'), 'Delete failed'])('keeps a failed deletion open for retry (%s)', async (error) => {
+    const deleteSession = vi.fn<ArchivedSectionInjected['deleteSession']>()
+      .mockRejectedValueOnce(error).mockResolvedValueOnce(undefined)
+    mount({ restore: vi.fn(), deleteSession, refresh: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-1' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Delete failed')
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
+    expect(deleteSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps deletion busy through dismissal attempts and names descendants in confirmation', async () => {
+    const state = sessionsState()
+    state.byId[sid('a2')] = { ...state.byId[sid('a2')]!, parentId: sid('a1') }
+    const deleted = Promise.withResolvers<undefined>()
+    const deleteSession = vi.fn(() => deleted.promise)
+    mount({ restore: vi.fn(), deleteSession, refresh: vi.fn() }, {
+      useSessions: selector => selector(state),
+    })
+    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-1' }))
+    expect(screen.getByRole('dialog').textContent).toContain('1')
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    expect(screen.getByRole('button', { name: '删除' })).toHaveProperty('disabled', true)
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    expect(deleteSession).toHaveBeenCalledOnce()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    await act(async () => { deleted.resolve(undefined); await deleted.promise })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('cancels deletion from both the footer and dialog dismissal without deleting', () => {
+    const deleteSession = vi.fn()
+    mount({ restore: vi.fn(), deleteSession, refresh: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-1' }))
+    const cancelButtons = within(screen.getByRole('dialog')).getAllByRole('button', { name: '取消' })
+    fireEvent.click(cancelButtons[cancelButtons.length - 1]!)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-1' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(deleteSession).not.toHaveBeenCalled()
+  })
+
   it('renders workspace groups and the Ungrouped group last', () => {
     mount()
     const headings = screen.getAllByRole('heading', { level: 3 })

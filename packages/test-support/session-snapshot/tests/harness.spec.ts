@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, describe, expect, it, vi, type TestContext } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { runScenario, snapshotSpillRoot, type AgentUnderTest, type InputStep } from '../src/harness.ts'
-import { launchAcpTestAgent } from '../src/launcher.ts'
+import { launchAcpTestAgent, materializeProfilePatch } from '../src/launcher.ts'
 
 const fsControl = vi.hoisted(() => ({
   cleanupFailure: undefined as Error | undefined,
@@ -175,6 +175,20 @@ describe('runScenario', () => {
     await expect(minimal.close('SIGTERM')).rejects.toBe(childFailure)
     // close rejects only after the fallback SIGKILL has produced an exit edge.
     expect(exited).toBe(true)
+  })
+
+  it('links the snapshot support replay provider for an out-of-tree patch', async () => {
+    const { dir } = await scenario({})
+    const source = join(dir, 'replay.cordis.yml')
+    const patchRoot = join(dir, 'patches')
+    await mkdir(patchRoot)
+    await writeFile(source, "- insert:\n    - id: llm-replay\n      name: '@deepseek-ai/dsh-llm-replay'\n")
+
+    const patch = materializeProfilePatch(source, dir, patchRoot, 0)
+
+    expect(await readFile(patch, 'utf8')).toContain('@deepseek-ai/dsh-llm-replay')
+    const linked = join(dir, '.dsh', 'profiles', 'node_modules', '@deepseek-ai', 'dsh-llm-replay')
+    expect(await realpath(linked)).toBe(await realpath(fileURLToPath(new URL('../../llm-replay', import.meta.url))))
   })
 
   it('builds dsh profile argv and rebases relative modules in live and replay patches', async () => {

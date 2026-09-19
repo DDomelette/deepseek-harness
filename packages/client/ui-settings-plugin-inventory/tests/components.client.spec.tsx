@@ -90,6 +90,44 @@ const globalToggle = (): HTMLElement =>
   screen.getByRole('button', { name: (name: string) => name.startsWith(en.globalTitle) })
 
 describe('PluginInventorySettingsTab', () => {
+  it('remeasures overflowing titles on resize and disconnects observers on unmount', async () => {
+    const observers: Observer[] = []
+    class Observer implements ResizeObserver {
+      constructor(readonly callback: ResizeObserverCallback) {
+        observers.push(this)
+      }
+      observe = vi.fn()
+      disconnect = vi.fn()
+      unobserve = vi.fn()
+    }
+    vi.stubGlobal('ResizeObserver', Observer)
+    const textWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(300)
+    const viewportWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100)
+    try {
+      const view = await renderReady({
+        agentPresets: [],
+        entries: [{ entryId: 'long' as Snapshot['entries'][number]['entryId'], moduleName: '@fixture/long-title', enabled: true, fiberPhase: null }],
+      })
+      const title = screen.getByTitle('@fixture/long-title')
+      expect(title.getAttribute('data-marquee')).toBe('true')
+      expect(title.style.getPropertyValue('--marquee-shift')).toBe('200px')
+      expect(title.style.animationDuration).toBe('11s')
+      expect(observers).toHaveLength(1)
+      const observer = observers[0]!
+      expect(observer.observe).toHaveBeenCalledWith(title.parentElement)
+      viewportWidth.mockReturnValue(400)
+      act(() => { observer.callback([], observer) })
+      expect(title.getAttribute('data-marquee')).toBeNull()
+      view.unmount()
+      expect(observer.disconnect).toHaveBeenCalledOnce()
+    } finally {
+      cleanup()
+      textWidth.mockRestore()
+      viewportWidth.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('shows the default preset first and keeps the global plane collapsed', async () => {
     const view = await renderReady()
 

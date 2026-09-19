@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId, SessionStore } from '@deepseek-ai/dsh-session'
 import type { SessionHeader } from '@deepseek-ai/dsh-session'
@@ -7,6 +7,11 @@ import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import SessionDeletionService from '@deepseek-ai/dsh-session-deletion'
+
+const roots: Context[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map(ctx => ctx.fiber.dispose()))
+})
 
 function header(id: string, parent?: string): SessionHeader {
   return {
@@ -25,10 +30,12 @@ interface HarnessOptions {
   live?: string[]
   persistenceDelete?: (id: SessionId) => Promise<void>
   forgetSession?: (id: SessionId) => Promise<void>
+  workspaceRegistry?: false
 }
 
 async function harness(options: HarnessOptions = {}) {
   const ctx = new Context()
+  roots.push(ctx)
   const pool = options.pool ?? new MemoryMediaPool()
   await ctx.plugin(Storage)
   ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
@@ -51,12 +58,83 @@ async function harness(options: HarnessOptions = {}) {
     }),
   } as never)
   const forget = vi.fn(options.forgetSession ?? (async (_id: SessionId) => {}))
-  ctx.provide('workspaceRegistry', { forgetSession: forget } as never)
+  if (options.workspaceRegistry !== false) ctx.provide('workspaceRegistry', { forgetSession: forget } as never)
   const fiber = await ctx.plugin(SessionDeletionService)
   return { ctx, pool, deleted, forget, stored, fiber }
 }
 
 describe('SessionDeletionService', () => {
+  it('refuses deletion before its storage domain is open', async () => {
+    const ctx = new Context()
+    roots.push(ctx)
+    const deletion = new SessionDeletionService(ctx)
+    await expect(deletion.delete({ sessionId: SessionId('root'), recursive: true })).rejects.toThrow('not started yet')
+  })
+
+  it('rejects cyclic persisted lineage before deleting any member', async () => {
+    const { ctx, deleted } = await harness({ headers: [header('root', 'child'), header('child', 'root')] })
+    await expect(ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })).rejects.toThrow('lineage contains a cycle')
+    expect(deleted).toEqual([])
+  })
+
+  it('detaches the complete plan and permits cleanup without Workspace registration', async () => {
+    const live = ['root']
+    const { ctx, deleted, pool } = await harness({ headers: [header('root')], live, workspaceRegistry: false })
+    const detach = vi.fn(async () => { live.splice(0) })
+    await ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true }, detach)
+    expect(detach).toHaveBeenCalledWith(['root'])
+    expect(deleted).toEqual(['root'])
+    expect(pool.media.get('session_deletion')?.tables.get('plans')?.size).toBe(0)
+  })
+
+  it('recognizes a duplicate persistence error class but preserves unrelated failures', async () => {
+    const gone = Object.assign(new Error('already gone'), { name: 'SessionPersistenceNotFoundError' })
+    const remove = vi.fn<(id: SessionId) => Promise<void>>().mockRejectedValueOnce('backend unavailable').mockRejectedValueOnce(gone)
+    const { ctx, forget } = await harness({ headers: [header('root')], persistenceDelete: remove })
+    const request = { sessionId: SessionId('root'), recursive: true }
+    await expect(ctx.sessionDeletion.delete(request)).rejects.toBe('backend unavailable')
+    await expect(ctx.sessionDeletion.delete(request)).resolves.toEqual({ deletedSessionIds: ['root'] })
+    expect(forget).toHaveBeenCalledOnce()
+  })
+
+  it('serializes repeated roots and refuses overlapping descendant plans', async () => {
+    let release!: () => void
+    let entered!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const started = new Promise<void>((resolve) => { entered = resolve })
+    const { ctx, stored } = await harness({
+      headers: [header('root'), header('child', 'root')],
+      persistenceDelete: async (id) => { entered(); await gate; stored.delete(id) },
+    })
+    const request = { sessionId: SessionId('root'), recursive: true }
+    const first = ctx.sessionDeletion.delete(request)
+    await started
+    const repeat = expect(ctx.sessionDeletion.delete(request)).rejects.toMatchObject({ code: 'session-not-found' })
+    try {
+      await expect(ctx.sessionDeletion.delete({ sessionId: SessionId('child'), recursive: true }))
+        .rejects.toMatchObject({ code: 'session-running', runningSessionIds: ['child'] })
+    } finally {
+      release()
+    }
+    await first
+    await repeat
+  })
+
+  it('keeps completed Workspace cleanup when a later persistence delete needs retry', async () => {
+    let fail = true
+    const { ctx, stored, forget } = await harness({
+      headers: [header('root'), header('child', 'root')],
+      persistenceDelete: async (id) => {
+        if (id === SessionId('root') && fail) { fail = false; throw new Error('storage unavailable') }
+        stored.delete(id)
+      },
+    })
+    const request = { sessionId: SessionId('root'), recursive: true }
+    await expect(ctx.sessionDeletion.delete(request)).rejects.toThrow('storage unavailable')
+    await ctx.sessionDeletion.delete(request)
+    expect(forget.mock.calls.map(([id]) => id)).toEqual(['child', 'root'])
+  })
+
   it('deletes leaves before roots and reports the bottom-up order', async () => {
     const { ctx, deleted } = await harness({
       headers: [header('root'), header('child', 'root'), header('leaf', 'child')],
@@ -138,6 +216,7 @@ describe('SessionDeletionService', () => {
 
   it('rolls back a session/created while its id is in an active deletion plan', async () => {
     const ctx = new Context()
+    roots.push(ctx)
     const pool = new MemoryMediaPool()
     await ctx.plugin(Storage)
     ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
@@ -163,8 +242,15 @@ describe('SessionDeletionService', () => {
 
     const pending = ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })
     await started
-    expect(() => ctx.sessions.create(SessionId('root'))).toThrow(/while it is being deleted/)
-    releaseDelete?.()
+    try {
+      expect(() => ctx.sessions.create(SessionId('root'))).toThrow(/while it is being deleted/)
+      expect(() => ctx.sessions.create(SessionId('new-child'), { meta: { parentSession: SessionId('root') } }))
+        .toThrow(/while it is being deleted/)
+      ctx.sessions.create(SessionId('unrelated'))
+      ctx.sessions.create(SessionId('unrelated-child'), { meta: { parentSession: SessionId('unrelated') } })
+    } finally {
+      releaseDelete?.()
+    }
     await expect(pending).resolves.toEqual({ deletedSessionIds: ['root'] })
   })
 })

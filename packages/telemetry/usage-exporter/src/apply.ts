@@ -57,18 +57,28 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
       }
       cursor.set(batch.file, { offset: batch.endOffset })
       await cursor.save()
-    })().finally(() => { inFlight = undefined })
+    })().catch((error: unknown) => {
+      ctx.logger.warn(`usage-exporter: poll failed: ${String(error)}`)
+    }).finally(() => { inFlight = undefined })
   }
 
   const timer = setInterval(() => { tick() }, config.pollIntervalMs)
   timer.unref()
+  let heartbeatInFlight: Promise<void> | undefined
   const heartbeat = setInterval(() => {
-    void sender.sendHeartbeat().catch((error: unknown) => { ctx.logger.warn(`usage-exporter: heartbeat failed: ${String(error)}`) })
+    if (heartbeatInFlight !== undefined) return
+    heartbeatInFlight = sender.sendHeartbeat().then((outcome) => {
+      if (outcome.kind === 'retryable' || outcome.kind === 'permanent') {
+        ctx.logger.warn(`usage-exporter: heartbeat failed: ${outcome.message}`)
+      }
+    }).finally(() => { heartbeatInFlight = undefined })
   }, config.heartbeatIntervalMs)
   heartbeat.unref()
-  ctx.effect(() => () => { clearInterval(timer) }, 'usage-exporter: poll timer')
-  ctx.effect(() => () => { clearInterval(heartbeat) }, 'usage-exporter: heartbeat timer')
-  ctx.effect(() => async () => { await inFlight }, 'usage-exporter: drain in-flight send')
+  ctx.effect(() => async () => {
+    clearInterval(timer)
+    clearInterval(heartbeat)
+    await Promise.all([inFlight, heartbeatInFlight])
+  }, 'usage-exporter: timers and in-flight requests')
   tick()
 }
 

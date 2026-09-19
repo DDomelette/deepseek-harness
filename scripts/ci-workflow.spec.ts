@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 
@@ -7,7 +8,56 @@ const root = resolve(import.meta.dirname, '..')
 const runnerPrivatePnpmDestination = /^\$\{\{ runner\.temp \}\}\/setup-pnpm-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}$/
 const nativeWindowsPnpmDestination = '${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}'
 
+function runnerExpression(value: unknown, fork: boolean, mode = '', author = 'maintainer'): unknown {
+  if (typeof value !== 'string' || !value.startsWith('${{')) return value
+  // These fixtures use canonical-case strings; Actions string coercion is not under test.
+  return runInNewContext(value.trim().slice(3, -2), {
+    vars: { DSH_CI_FAILOVER_LINUX: mode, DSH_CI_FAILOVER_WINDOWS: mode },
+    github: { event: { repository: { fork }, pull_request: { user: { login: author } } } },
+    fromJSON: JSON.parse,
+  }, { timeout: 1000 }) as unknown
+}
+
 describe('CI workflow', () => {
+  it.each([
+    'node-24', 'node-24-coverage', 'node-24-consumers',
+    'windows-build', 'windows-coverage', 'windows-native-tests', 'windows-observational',
+  ])('%s runs inside forks without access to upstream enterprise pools', (name) => {
+    const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), name)
+    const windows = name.startsWith('windows-')
+    const hosted = windows ? 'windows-2025' : 'ubuntu-24.04'
+    const enterprise = windows ? 'dsh-windows-2025-16core' : 'dsh-ubuntu-24-04-16core'
+    const selfHosted = windows ? ['self-hosted', 'dsh-win-ci', 'windows'] : ['self-hosted', 'linux', 'x64', 'vm-backup']
+    expect(runnerExpression(job['runs-on'], true)).toBe(hosted)
+    expect(runnerExpression(job['runs-on'], false)).toBe(enterprise)
+    for (const fork of [true, false]) {
+      expect(runnerExpression(job['runs-on'], fork, 'selfhosted')).toEqual(selfHosted)
+      expect(runnerExpression(job['runs-on'], fork, 'selfhosted', 'dependabot[bot]')).toBe(fork ? hosted : enterprise)
+    }
+  })
+
+  it('bounds fork worker budgets while keeping the upstream capacity settings', () => {
+    const workflow = loadWorkflow('.github/workflows/ci.yml')
+    for (const name of ['node-24-coverage', 'windows-coverage']) {
+      const env = workflowJob(workflow, name).env as Record<string, unknown>
+      for (const [key, forkBudget, upstreamBudget] of [
+        ['DSH_COVERAGE_MAX_WORKERS', '3', '6'],
+        ['DSH_COVERAGE_PARTITIONS', '2', '4'],
+        ['DSH_GATE_CONCURRENCY', '2', '3'],
+      ] as const) {
+        expect(runnerExpression(env[key], true)).toBe(forkBudget)
+        expect(runnerExpression(env[key], false)).toBe(upstreamBudget)
+      }
+    }
+    const coverageEnv = workflowJob(workflow, 'node-24-coverage').env as Record<string, unknown>
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, true)).toBe('90000')
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, false)).toBe('')
+    const env = workflowJob(workflow, 'node-24-consumers').env as Record<string, unknown>
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, true)).toBe('4')
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, false)).toBe('32')
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, false, 'selfhosted')).toBe('12')
+  })
+
   it.each(['ci.yml', 'ci-master.yml', 'e2e.yml', 'release.yml', 'release-vendor.yml'])(
     '%s cancels superseded validation runs without crossing workflow or ref boundaries', (name) => {
       const workflow = loadWorkflow('.github/workflows/' + name)
@@ -214,7 +264,7 @@ describe('CI workflow', () => {
 
     // windows-coverage uses the lower 4-partition profile.
     expect(windowsCoverage.name).toBe('windows node 24 / coverage')
-    expect(windowsCoverage.env).toMatchObject({ DSH_COVERAGE_PARTITIONS: '4' })
+    expect(runnerExpression((windowsCoverage.env as Record<string, unknown>).DSH_COVERAGE_PARTITIONS, false)).toBe('4')
     const coverageSteps = windowsCoverage.steps as unknown[]
     const coverageCommands = coverageSteps.filter((step): step is Record<string, unknown> & { run: string } => (
       isRecord(step) && typeof step.run === 'string'

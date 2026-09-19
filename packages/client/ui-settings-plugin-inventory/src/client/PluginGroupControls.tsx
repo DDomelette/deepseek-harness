@@ -66,11 +66,10 @@ export function PluginGroupControls({ groups, selected, entries, actions, t }: {
             placeholder={t('search')} onChange={(event) => { setQuery(event.currentTarget.value) }} />
           <div className={css.members}>
             {available.length === 0 && <p>{t('pickerNoMatch')}</p>}
-            {available.map(entry => <label key={entry.key} className={css.member}>
-              <input type="checkbox" checked={group?.entryIds.includes(entry.key)
-                || (entry.legacy !== undefined && group?.entryIds.includes(entry.legacy)) || false}
+            {group !== undefined && available.map(entry => <label key={entry.key} className={css.member}>
+              <input type="checkbox" checked={group.entryIds.includes(entry.key)
+                || (entry.legacy !== undefined && group.entryIds.includes(entry.legacy))}
               onChange={(event) => {
-                if (group === undefined) return
                 if (event.currentTarget.checked) actions.addEntries(group.id, [entry.key])
                 else {
                   actions.removeEntry(group.id, entry.key)

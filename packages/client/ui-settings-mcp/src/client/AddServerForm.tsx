@@ -6,13 +6,14 @@ import clsx from 'clsx'
  */
 
 import { useMemo, useState } from 'react'
-import type { ChangeEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpLocaleKey } from './locales.ts'
 import {
-  DEFAULT_RECONNECT_FORM, parseReconnect, ReconnectFields,
-  type ReconnectDraft, type ReconnectFormState,
+  DEFAULT_RECONNECT_FORM, parseReconnect,
+  type ReconnectDraft,
 } from './ReconnectFields.tsx'
+import { ServerFormFields, type ServerFormState } from './ServerFormFields.tsx'
 import css from './AddServerForm.module.css'
 
 /** Commit draft for one new MCP server entry, mirroring the settings schema. */
@@ -50,7 +51,6 @@ export function parseKeyValues(text: string): { values: Record<string, string> }
     if (separators.length === 0) return { error: 'invalidKeyValue' }
     const split = Math.min(...separators)
     const key = line.slice(0, split).trim()
-    if (key.length === 0) return { error: 'invalidKeyValue' }
     values[key] = line.slice(split + 1).trim()
   }
   return { values }
@@ -73,18 +73,10 @@ export function validateDraft(draft: NewServerDraft, existingNames: readonly str
   return null
 }
 
-/** Raw field text this form stages; transport is the only non-text field. */
-interface FormState {
+/** Editable connection fields plus the new server's identity and transport. */
+interface FormState extends ServerFormState {
   name: string
   transport: 'stdio' | 'streamable-http'
-  command: string
-  args: string
-  env: string
-  cwd: string
-  url: string
-  headers: string
-  timeout: string
-  reconnect: ReconnectFormState
 }
 
 const EMPTY: FormState = {
@@ -159,13 +151,6 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
   const ready = useMemo(() => readyDraft(state, existingNames), [state, existingNames])
   const blocked = 'error' in ready ? ready.error : null
 
-  const edit = (field: keyof FormState) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    // Captured before the functional update runs: React nulls currentTarget
-    // once the dispatch settles, while the updater executes on the next render.
-    const value = event.currentTarget.value
-    setState(prev => ({ ...prev, [field]: value }))
-  }
-
   const submit = (): void => {
     // The save button is disabled while busy or blocked; this guards a racing
     // click that lands before the next render paints the disabled state.
@@ -208,51 +193,18 @@ export function AddServerForm({ existingNames, addServer, t, onDone, onCancel }:
       </div>
       <label className={clsx(css.field)} htmlFor="mcp-server-name">
         <span className={clsx(css.fieldLabel)}>{t('serverNameLabel')}</span>
-        <Input className={clsx(css.fieldInput)} id="mcp-server-name" value={state.name} onChange={edit('name')} placeholder={t('serverNamePlaceholder')} />
+        <Input className={clsx(css.fieldInput)} id="mcp-server-name" value={state.name} onChange={(event) => {
+          const name = event.currentTarget.value
+          setState(prev => ({ ...prev, name }))
+        }} placeholder={t('serverNamePlaceholder')} />
       </label>
-      {state.transport === 'stdio' ? (
-        <>
-          <label className={clsx(css.field)} htmlFor="mcp-command">
-            <span className={clsx(css.fieldLabel)}>{t('commandLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id="mcp-command" value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor="mcp-args">
-            <span className={clsx(css.fieldLabel)}>{t('argsLabel')}</span>
-            <textarea id="mcp-args" className={clsx(css.multiline)} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor="mcp-env">
-            <span className={clsx(css.fieldLabel)}>{t('envLabel')}</span>
-            <textarea id="mcp-env" className={clsx(css.multiline)} value={state.env} onChange={edit('env')} placeholder={t('envPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor="mcp-cwd">
-            <span className={clsx(css.fieldLabel)}>{t('cwdLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id="mcp-cwd" value={state.cwd} onChange={edit('cwd')} />
-          </label>
-        </>
-      ) : (
-        <>
-          <label className={clsx(css.field)} htmlFor="mcp-url">
-            <span className={clsx(css.fieldLabel)}>{t('urlLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id="mcp-url" value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor="mcp-headers">
-            <span className={clsx(css.fieldLabel)}>{t('headersLabel')}</span>
-            <textarea id="mcp-headers" className={clsx(css.multiline)} value={state.headers} onChange={edit('headers')} placeholder={t('headersPlaceholder')} />
-          </label>
-        </>
-      )}
-      <label className={clsx(css.field)} htmlFor="mcp-timeout">
-        <span className={clsx(css.fieldLabel)}>{t('timeoutLabel')}</span>
-        <Input className={clsx(css.fieldInput)} id="mcp-timeout" type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
-      </label>
-      <ReconnectFields
-        idPrefix="mcp-add"
-        state={state.reconnect}
-        setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
+      <ServerFormFields
+        transport={state.transport}
+        state={state}
+        setState={setState}
+        error={blocked ?? saveError}
         t={t}
       />
-      {blocked !== null ? <p role="alert" className={clsx(css.error)}>{t(blocked)}</p> : null}
-      {saveError !== null && blocked === null ? <p role="alert" className={clsx(css.error)}>{t(saveError)}</p> : null}
       <div className={clsx(css.actions)}>
         <Button variant="outline" size="sm" onClick={onCancel}>{t('cancel')}</Button>
         <Button variant="primary" size="sm" onClick={submit} disabled={busy || blocked !== null}>

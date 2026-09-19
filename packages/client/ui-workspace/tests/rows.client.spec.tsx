@@ -488,7 +488,7 @@ describe('workspace browser rows', () => {
     vi.useFakeTimers()
     try {
       const node: SessionNode = {
-        id: sid('s1'), title: 'Hovered', blank: false, running: true,
+        id: sid('s1'), title: 'Hovered', workspace: 'Workspace context', blank: false, running: true,
         runningSubagentCount: 0, completed: false, hasActiveSchedule: false, updatedAt: 0,
       }
       render(<SessionNodeItem node={node} currentId={undefined} now={60_000} onOpen={vi.fn()}
@@ -498,6 +498,7 @@ describe('workspace browser rows', () => {
       act(() => { vi.advanceTimersByTime(500) })
       // Card body: full title + relative time + running status.
       expect(screen.getAllByText('Hovered')).toHaveLength(2)
+      expect(screen.getByText('Workspace context')).toBeTruthy()
       expect(screen.getByText('1分钟前')).toBeTruthy()
       expect(screen.getAllByText('进行中')).toHaveLength(2)
       fireEvent.pointerLeave(wrapper)

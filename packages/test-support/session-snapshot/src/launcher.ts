@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlink
 import { createRequire } from 'node:module'
 import { basename, dirname, join, resolve } from 'node:path'
 import { Readable, Writable } from 'node:stream'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as yaml from 'js-yaml'
 import {
   client as createAcpClientApp,
@@ -375,8 +375,11 @@ function barePackageName(specifier: string): string | undefined {
   return first.startsWith('@') ? `${first}/${second}` : first
 }
 
-/** Find a bare package's directory from the authored patch's module-resolution anchor. */
+/** Resolve the kit-owned replay provider or an authored patch's bare package. */
 function packageDirFromPatch(source: string, packageName: string): string | undefined {
+  if (packageName === '@deepseek-ai/dsh-llm-replay') {
+    return dirname(fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-llm-replay/package.json')))
+  }
   for (const searchPath of createRequire(pathToFileURL(source)).resolve.paths(packageName) ?? []) {
     const candidate = join(searchPath, packageName)
     if (existsSync(join(candidate, 'package.json'))) return realpathSync(candidate)
@@ -407,6 +410,7 @@ function linkProfilePackage(source: string, cwd: string, packageName: string): v
 
 /**
  * Copy one authored patch into the launch cwd with relative plugin names made absolute.
+ * The replay provider resolves from this package; other bare plugins resolve from the authored patch or dsh installation.
  * @param source - authored profile patch path.
  * @param cwd - isolated process cwd whose profile fallback receives package links.
  * @param targetDir - existing directory that owns the materialized patch.

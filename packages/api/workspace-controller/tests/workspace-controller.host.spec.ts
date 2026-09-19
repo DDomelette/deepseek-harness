@@ -151,6 +151,9 @@ describe('WorkspaceController commands', () => {
     vi.spyOn(ctx.workspaceRegistry, 'archiveSession').mockRejectedValueOnce(archiveFailure)
     await expect(controller.archiveSession({ sessionId: SessionId('session') }))
       .rejects.toBe(archiveFailure)
+    vi.spyOn(ctx.workspaceRegistry, 'unarchiveSession').mockRejectedValueOnce(archiveFailure)
+    await expect(controller.unarchiveSession({ sessionId: SessionId('session') }))
+      .rejects.toBe(archiveFailure)
   })
 
   it('resolves queued Workspace identities when their operation starts', async () => {
@@ -219,8 +222,14 @@ describe('WorkspaceController commands', () => {
 
     await expect(controller.archiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string } })
+    expect(controller.list()).toMatchObject({
+      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+    })
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
+    await expect(controller.unarchiveSession({ sessionId: session.id }))
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
+    expect(workspace.sessionIds).toEqual([session.id])
   })
 })
 

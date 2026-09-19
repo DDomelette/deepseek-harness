@@ -1151,6 +1151,33 @@ Types: [SessionId](core.md)
 
 Source: [`packages/api/session-controller/src/types.ts`](../../packages/api/session-controller/src/types.ts)
 
+<a id="notes-events"></a>
+
+### `notes/*` events
+
+<a id="notesmaterial-settled--emit"></a>
+
+#### `notes/material-settled` — emit
+
+One or more materials left `analyzing` because the turn that carried them closed. The Host settles them on its own clock, so a browser that is still showing the material has no call to learn it from; this event is the answer's arrival, and a reader follows it by reading the material and its thread again. Emitted once per conversation per settled turn, after every settlement of that turn was written.
+
+```ts cordis-catalog
+/**
+ * One or more materials left `analyzing` because the turn that carried them
+ * closed. The Host settles them on its own clock, so a browser that is
+ * still showing the material has no call to learn it from; this event is
+ * the answer's arrival, and a reader follows it by reading the material and
+ * its thread again. Emitted once per conversation per settled turn, after
+ * every settlement of that turn was written.
+ * @param noteId - the conversation whose materials settled.
+ * @param materialIds - the materials this turn settled, in settle order.
+ * @mode emit
+ */
+'notes/material-settled'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void
+```
+
+Source: [`packages/notes/notes/src/types.ts`](../../packages/notes/notes/src/types.ts)
+
 <a id="session-events"></a>
 
 ### `session/*` events

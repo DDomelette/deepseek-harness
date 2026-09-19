@@ -91,7 +91,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
         "opening": true,
         "readyUrl": "http://127.0.0.1:{{port}}/?token={{token}}",
         "status": 200,
-        "stderr": "",
+        "stderr": "dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only",
       }
     `)
   })
@@ -185,7 +185,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
         "opened": false,
         "opening": false,
         "readyUrl": "http://127.0.0.1:{{port}}/?token={{token}}",
-        "stderr": "",
+        "stderr": "dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only",
       }
     `)
   })

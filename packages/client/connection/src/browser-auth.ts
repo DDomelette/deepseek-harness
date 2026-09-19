@@ -7,7 +7,7 @@ import { PairedDeviceId } from './device-brand.ts'
 import { listDevices } from './devices.ts'
 import type { PairedDevice } from './device-types.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
-import { header, requestAuthority, requestHostname } from './request-authority.ts'
+import { header, isLoopbackPeer, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
   ConnectionIndexAccess,
   ConnectionIndexRequest,
@@ -354,6 +354,7 @@ export class BrowserAuth {
       // token-bearing LAN URL a phone opens grants that phone nothing.
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
         && authority !== undefined && hostname !== undefined && isLoopbackHostname(hostname)
+        && isLoopbackPeer(req)
         && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
         const expiresAt = issuedAt + this.maxAgeMilliseconds
@@ -419,14 +420,23 @@ export class BrowserAuth {
    * must name a device the registry still holds, on the authority it was issued
    * for, and counts only until the earlier of the expiry its payload carries and
    * the `expiresAt` its registry entry records, when that entry records one; a
-   * launch-token cookie is the computer's own and counts only on a loopback
-   * authority, so revoking a device is the whole story for every phone.
-   * @param request - request headers carrying Host and Cookie.
+   * launch-token cookie requires a loopback authority and TCP peer.
+   * @param request - HTTP headers carrying Host and Cookie, and the TCP peer.
    * @returns true only for a cookie this activation still accepts.
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
     const payload = this.cookiePayload(request)
     return payload !== undefined && this.accepts(payload, request)
+  }
+
+  /**
+   * Authenticate the computer's operator, excluding paired-device credentials.
+   * @param request - HTTP headers and the server-observed TCP peer.
+   * @returns true for an accepted launch-token cookie on a loopback connection.
+   */
+  isLocalOperator(request: ConnectionTrustRequest): boolean {
+    const payload = this.cookiePayload(request)
+    return payload?.version === COOKIE_PAYLOAD_VERSION && this.accepts(payload, request)
   }
 
   /**
@@ -460,7 +470,7 @@ export class BrowserAuth {
       return device !== undefined && now < (device.expiresAt ?? payload.expiresAt)
     }
     const hostname = requestHostname(request.headers)
-    return hostname !== undefined && isLoopbackHostname(hostname)
+    return isLoopbackPeer(request) && hostname !== undefined && isLoopbackHostname(hostname)
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }
 

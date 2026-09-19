@@ -81,6 +81,8 @@ export type RpcMessage = ClientRequest | ServerResponse
 export interface ConnectionTrustRequest {
   /** Request headers supplied by either the Fetch or node:http representation. */
   readonly headers: Headers | Readonly<Record<string, string | readonly string[] | undefined>>
+  /** Actual TCP peer from node:http; missing peer information cannot authorize the local operator. */
+  readonly socket?: { readonly remoteAddress?: string | undefined } | undefined
 }
 
 /** HTTP status returned before dispatch, or undefined when the request may proceed. */
@@ -224,12 +226,12 @@ export interface HostConnectionHandle {
   authenticatedUrl(baseUrl: string): string
 
   /**
-   * Whether a request arrived on a loopback authority, the only origin allowed
-   * to approve a pairing request.
-   * @param request - request headers from the HTTP or upgrade request.
-   * @returns true when the request's canonical Host names loopback.
+   * Whether a request authenticates the local operator for device management.
+   * @param request - HTTP headers and the actual TCP peer supplied by the server.
+   * @returns true for a loopback peer and authority with a valid launch-token cookie;
+   *   paired-device cookies never authorize management.
    */
-  isLoopbackRequest(request: ConnectionTrustRequest): boolean
+  isLocalOperatorRequest(request: ConnectionTrustRequest): boolean
 
   /** Paired-device registry and the device cookies the pairing handshake issues. */
   readonly devices: HostConnectionDevices

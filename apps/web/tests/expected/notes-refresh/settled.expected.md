@@ -1,0 +1,24 @@
+- button "Back to the list": ←
+- text: Material
+- button "Float as a window":
+  - img
+  - text: Float as a window
+- button "Settings":
+  - img
+  - text: Settings
+- button "Refresh":
+  - img
+  - text: Refresh
+- list:
+  - listitem:
+    - 'button "Saved passage Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop. Chat"'
+- text: Saved passage Chat
+- paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
+- text: Analyzed
+- button "Copy"
+- button "Archive"
+- button "Delete"
+- paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
+- paragraph: DONE
+- textbox "Ask"
+- button "Ask" [disabled]

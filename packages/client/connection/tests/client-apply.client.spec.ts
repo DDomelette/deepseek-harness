@@ -71,6 +71,32 @@ async function mount(): Promise<ConnectionHandle> {
 }
 
 describe('connection client apply', () => {
+  it('does not publish a late source failure after its owner stops', async () => {
+    const handle = await mount()
+    let fail!: (error: Error) => void
+    let settled!: () => void
+    const finished = new Promise<void>((resolve) => { settled = resolve })
+    const source = vi.fn<ConnectionGenerationSource>(() => new Promise<void>((_resolve, reject) => {
+      fail = reject
+    }).finally(settled))
+    const unregister = handle.registerGenerationSource(source)
+    const changed = vi.fn()
+    const unsubscribe = handle.failure.subscribe(changed)
+    const loop = handle.start({})
+    try {
+      await vi.waitFor(() => { expect(source).toHaveBeenCalledOnce() })
+      loop.stop()
+      fail(new Error('late source failure'))
+      await finished
+      expect(handle.failure.getSnapshot()).toBeUndefined()
+      expect(changed).not.toHaveBeenCalled()
+    } finally {
+      unsubscribe()
+      unregister()
+      loop.stop()
+    }
+  })
+
   it('uses Host bootstrap timing when Gateway starts without overrides', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', {

@@ -119,28 +119,29 @@ async function startupSession(
 ): Promise<void> {
   let startupOperation: TerminalSendOperation | undefined
   const start = async (): Promise<void> => {
-    if (dialect === 'bash') {
-      await session.initialize(signal)
-      return
-    }
+    // Before pwsh initializes terminal input, POSIX ICRNL turns submitted Enter
+    // into Ctrl+Enter, leaving the bootstrap in PSReadLine's edit buffer.
+    await session.initialize(signal)
+    if (dialect === 'bash') return
     // pwsh cannot install its prompt from the environment. Write the prompt
     // function through the session, pin UTF-8 output before user input, and
-    // accept only backend stdin_read evidence; echoed setup source containing
-    // the printable prompt is not readiness. Follow-up sends bridge silence
+    // require backend stdin_read evidence and the rendered prompt; an empty
+    // read or echoed setup source is not readiness. Follow-up sends bridge silence
     // settlements during startup, while one absolute deadline bounds them.
     let viewport = ''
+    let first = true
     for (;;) {
-      const first = viewport.length === 0
       startupOperation = session.startSend({
         text: first ? ENCODING_PREAMBLE + PWSH_PROMPT_SETUP : '',
         submit: first,
         ...signal !== undefined ? { signal } : {},
       })
+      first = false
       const result = await startupOperation.done
       if (result.waitReason === 'session_exit') throw new Error('PTY shell exited during startup')
       if (result.waitReason === 'timeout') throw new Error('PTY shell did not reach readiness before startup timeout')
       viewport = result.viewport
-      if (result.waitReason === 'stdin_read') break
+      if (result.waitReason === 'stdin_read' && session.controlledPromptReady) break
     }
     session.motd = viewport
   }

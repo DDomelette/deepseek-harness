@@ -129,12 +129,12 @@ describe('SkillsSettingsStore', () => {
     })
   })
 
-  it('rejects a malformed disabled list in the skills settings descriptor', async () => {
+  it.each([null, 42, { disabled: 'solo-b' }])('rejects a malformed skills settings value: %j', async (value) => {
     const { face } = api({
       describeSettings: () => Promise.resolve(ok({
         writable: true,
         hasDocument: true,
-        namespaces: [{ ns: SKILLS_NAMESPACE, value: { disabled: 'solo-b' }, revision: 4 }],
+        namespaces: [{ ns: SKILLS_NAMESPACE, value, revision: 4 }],
       })),
     })
     const subject = store(face)

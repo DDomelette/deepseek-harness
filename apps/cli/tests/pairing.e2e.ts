@@ -313,6 +313,28 @@ describe('dsh web phone pairing through the real CLI', () => {
         cookie: computer,
       })).body)).toEqual({ devices: [] })
 
+      // A device cookie remains a phone credential even when claimed on the
+      // computer's authority; the TCP peer here is also genuinely loopback.
+      const localCode = JSON.parse((await call(port, {
+        path: '/pair/session', host: loopbackAuthority, method: 'POST', cookie: computer,
+      })).body) as { code: string }
+      await call(port, { path: `/pair?c=${localCode.code}`, host: loopbackAuthority })
+      expect((await call(port, {
+        path: '/pair/approve', host: loopbackAuthority, method: 'POST', cookie: computer,
+        body: JSON.stringify({ code: localCode.code, label: 'local phone', allowed: true }),
+      })).status).toBe(200)
+      const localClaim = await call(port, { path: `/pair/state?c=${localCode.code}`, host: loopbackAuthority })
+      const localCookie = localClaim.setCookie?.split(';', 1)[0]
+      if (localCookie === undefined) throw new Error('local approval did not issue a device cookie')
+      for (const path of ['/pair/session', '/pair/approve', '/pair/revoke', '/pair/devices/lifetime']) {
+        expect((await call(port, {
+          path, host: loopbackAuthority, method: 'POST', cookie: localCookie, body: '{}',
+        })).status).toBe(403)
+      }
+      for (const path of ['/pair/requests', '/pair/devices']) {
+        expect((await call(port, { path, host: loopbackAuthority, cookie: localCookie })).status).toBe(403)
+      }
+
       // A code that was never opened, from a source that keeps guessing, is
       // throttled rather than searchable.
       for (let attempt = 0; attempt < 5; attempt++) {

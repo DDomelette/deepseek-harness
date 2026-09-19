@@ -71,7 +71,7 @@ export interface ProcessShim {
 }
 
 /**
- * Publish `globalThis.process`.
+ * Publish `globalThis.process` and Node's `global` alias of `globalThis`.
  *
  * `versions.node` is `0.0.0` on purpose: it makes Cordis's
  * `ModuleLoader.fromInternal()` return undefined instead of reaching for Node
@@ -136,5 +136,6 @@ export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
     exit: (code?: number) => { console.warn(`webworker process: exit(${String(code ?? 0)}) requested; the worker keeps running`) },
   }
   ;(globalThis as { process?: unknown }).process = shim
+  globalThis.global = globalThis
   return shim
 }
