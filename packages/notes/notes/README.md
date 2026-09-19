@@ -92,9 +92,13 @@ The session log stays the content truth. The plugin's own domain stores only wha
 
 A submission's outcome is settled by the turn that carried it. `src/turns.ts` reads that turn back out of the session log — which of its user messages it carried, and whether the model answered it — when the log publishes `turn/end`, and `Analysis` moves each of its own materials that is still `analyzing` to `analyzed` or `failed`. The log is the source rather than memory, so a restored conversation settles the same way.
 
+A draft edit and the first analysis share the material table's write queue. An edit committed first supplies the submitted body; an analysis committed first makes the edit return `material-submitted`. Submission composes from the record that accepted its message id, keeping the stored body and model input aligned.
+
 ### Answer arrival
 
 A settlement is the one outcome no call returns: it happens when the log publishes `turn/end`, with no browser operation waiting for it. `Analysis` therefore emits `notes/material-settled` with the conversation and the materials that moved, and `src/remote-events.ts` declares that name into the Remote event selection while `packages/api/remotes/src/remote-events.ts` allows it through — without both, the pushed name never reaches the page. The browser half follows it into a revision published as a reactive fact on the tab registration, which the panel re-reads on; the revision is deliberately not store state, because the shared store instance belongs to the slot runtime and `apply` minting a second one would leave the panel rendering a different snapshot than the one being told.
+
+A forced refresh received during a listing schedules another read after it finishes; concurrent refreshes share that pending read. Callers wait for the refreshed listing before reading the open thread, and an older thread response cannot replace a newer one.
 
 ### Thread attribution
 

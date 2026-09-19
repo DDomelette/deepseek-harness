@@ -318,9 +318,11 @@ export function notesFace(
   frame: NotesPaneFace,
   actions: BoundActions<NotesStore>,
 ): NotesInjected {
-  let reading = false
+  let reading: Promise<void> | undefined
+  let refreshRevision = 0
   let answered = false
   let open: MaterialId | null = null
+  let threadRevision = 0
   let shown: NoteSessionId | null = null
   let settingsReading = false
   let settingsAnswered = false
@@ -329,36 +331,54 @@ export function notesFace(
    * Read the conversations, then the shown conversation's materials.
    * @param force - read again even though an earlier read already answered.
    */
-  async function read(force: boolean): Promise<void> {
-    if (reading || (answered && !force)) return
-    reading = true
-    actions.started()
+  function read(force: boolean): Promise<void> {
+    if (reading !== undefined) {
+      if (force) refreshRevision += 1
+      return reading
+    }
+    if (answered && !force) return Promise.resolve()
+    reading = drain()
+    return reading
+  }
+
+  /** Drain invalidations that arrive while the current listing is pending. */
+  async function drain(): Promise<void> {
     try {
-      const sessions = await remote.sessionList()
-      if (!sessions.ok) {
-        actions.failed(unavailable(sessions.error))
+      let revision: number
+      do {
+        revision = refreshRevision
+        await readOnce()
+      } while (revision !== refreshRevision)
+    } finally {
+      reading = undefined
+    }
+  }
+
+  /** Read one conversation listing and its active material buckets. */
+  async function readOnce(): Promise<void> {
+    actions.started()
+    const sessions = await remote.sessionList()
+    if (!sessions.ok) {
+      actions.failed(unavailable(sessions.error))
+      return
+    }
+    const list = sessions.value.value
+    let buckets: NotesMaterialListValue | null = null
+    if (list.activeId !== null) {
+      const answer = await remote.materialList({ noteId: list.activeId })
+      if (!answer.ok) {
+        actions.failed(unavailable(answer.error))
         return
       }
-      const list = sessions.value.value
-      let buckets: NotesMaterialListValue | null = null
-      if (list.activeId !== null) {
-        const answer = await remote.materialList({ noteId: list.activeId })
-        if (!answer.ok) {
-          actions.failed(unavailable(answer.error))
-          return
-        }
-        if (!answer.value.ok) {
-          actions.failed(answer.value.error)
-          return
-        }
-        buckets = answer.value.value
+      if (!answer.value.ok) {
+        actions.failed(answer.value.error)
+        return
       }
-      answered = true
-      shown = list.activeId
-      actions.loaded(list, buckets)
-    } finally {
-      reading = false
+      buckets = answer.value.value
     }
+    answered = true
+    shown = list.activeId
+    actions.loaded(list, buckets)
   }
 
   return {
@@ -535,11 +555,11 @@ export function notesFace(
 
   /** Read one material's thread, into the detail the panel has open for it. */
   async function readThread(id: MaterialId): Promise<void> {
+    const revision = ++threadRevision
     actions.threadStarted()
     const answer = await remote.materialThread({ id })
-    // The reader may have moved to another material while this read was in
-    // flight; its answer belongs to a detail that is no longer open.
-    if (open !== id) return
+    // A newer read owns the detail even when it asks for the same material.
+    if (open !== id || revision !== threadRevision) return
     if (!answer.ok) {
       actions.threadFailed(unavailable(answer.error))
       return
