@@ -24,6 +24,12 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+.field,
+.browser {
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
 .field {
   box-sizing: border-box;
   width: 100%;
