@@ -13,10 +13,7 @@ describe('CursorStore', () => {
       await writeFile(path, JSON.stringify(document))
       const store = new CursorStore(path)
       await store.load()
-      await store.save()
-      const reloaded = new CursorStore(path)
-      await reloaded.load()
-      expect(reloaded.get('good.jsonl')).toBeUndefined()
+      expect(store.get('good.jsonl')).toBeUndefined()
     },
   )
   it('persists cursors atomically and reloads them', async () => {

@@ -19,7 +19,7 @@ const ROW = { v: 1, time: 1, sessionId: 'test-session', inputTokens: 1, outputTo
 const endpoint = 'https://usage.example.invalid/ingest'
 type BatchPayload = { batchId: string; sourceId: string; rows: unknown[] }
 
-async function bench(overrides: Partial<Config> = {}, initial = JSON.stringify(ROW) + '\n') {
+async function bench(initial = JSON.stringify(ROW) + '\n') {
   const root = await mkdtemp(join(tmpdir(), 'usage-exporter-recovery-'))
   roots.push(root)
   const telemetryRoot = join(root, 'telemetry')
@@ -34,11 +34,11 @@ async function bench(overrides: Partial<Config> = {}, initial = JSON.stringify(R
     endpoint, telemetryRoot, cursorPath, sourceId: 'test-source', startFrom: 'beginning',
     token: '', maxBatchRows: 200, maxBatchBytes: 262_144,
     pollIntervalMs: 250, heartbeatIntervalMs: 5000, requestTimeoutMs: 30000,
-    maxAttempts: 3, baseRetryMs: 100, maxRetryMs: 200, ...overrides,
+    maxAttempts: 3, baseRetryMs: 100, maxRetryMs: 200,
   })
   const fiber = ctx.plugin({ name: 'usage-exporter', apply }, config)
   await fiber.await()
-  return { ctx, fiber, warn, file, telemetryRoot, cursorPath }
+  return { fiber, warn, file, telemetryRoot, cursorPath }
 }
 
 async function cursorOffset(path: string, file: string): Promise<number | undefined> {
@@ -58,7 +58,7 @@ describe('usage exporter recovery and disposal', () => {
       if (outcome === 'duplicate') return Response.json({ ok: true, duplicates: 1 })
       return new Response('unavailable', { status: outcome === 'permanent' ? 400 : 503 })
     })
-    const b = await bench({}, '{bad\n' + JSON.stringify(ROW) + '\n')
+    const b = await bench('{bad\n' + JSON.stringify(ROW) + '\n')
     await vi.waitFor(async () => { expect(await cursorOffset(b.cursorPath, b.file)).toBeGreaterThan(0) })
     expect(request).toHaveBeenCalledTimes(outcome === 'abandoned' ? 3 : 1)
     expect(new Set(payloads.map(payload => payload.batchId)).size).toBe(1)
@@ -105,7 +105,7 @@ describe('usage exporter recovery and disposal', () => {
       expect(payload).toMatchObject({ heartbeat: true, sourceId: 'test-source' })
       return reply.promise
     })
-    const b = await bench({}, '')
+    const b = await bench('')
     let disposal: Promise<void> | undefined
     try {
       await vi.advanceTimersByTimeAsync(5000)
@@ -130,7 +130,7 @@ describe('usage exporter recovery and disposal', () => {
   it('logs a missing telemetry directory and resumes polling after it is restored', async () => {
     vi.useFakeTimers()
     const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ ok: true, accepted: 1 }))
-    const b = await bench({}, '')
+    const b = await bench('')
     await vi.waitFor(async () => { expect(JSON.parse(await readFile(b.cursorPath, 'utf8'))).toEqual({ version: 1, files: {} }) })
     await rm(b.telemetryRoot, { recursive: true, force: true })
     await vi.advanceTimersByTimeAsync(250)

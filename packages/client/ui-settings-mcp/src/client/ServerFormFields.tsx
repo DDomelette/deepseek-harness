@@ -46,37 +46,37 @@ export function ServerFormFields<State extends ServerFormState>(
     <>
       {transport === 'stdio' ? (
         <>
-          <label className={clsx(css.field)} htmlFor={fieldId('command')}>
-            <span className={clsx(css.fieldLabel)}>{t('commandLabel')}</span>
+          <label className={css.field} htmlFor={fieldId('command')}>
+            <span className={css.fieldLabel}>{t('commandLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('command')} value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
           </label>
-          <label className={clsx(css.field)} htmlFor={fieldId('args')}>
-            <span className={clsx(css.fieldLabel)}>{t('argsLabel')}</span>
-            <textarea id={fieldId('args')} className={clsx(css.multiline)} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
+          <label className={css.field} htmlFor={fieldId('args')}>
+            <span className={css.fieldLabel}>{t('argsLabel')}</span>
+            <textarea id={fieldId('args')} className={css.multiline} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
           </label>
-          <label className={clsx(css.field)} htmlFor={fieldId('env')}>
-            <span className={clsx(css.fieldLabel)}>{t('envLabel')}</span>
-            <textarea id={fieldId('env')} className={clsx(css.multiline)} value={state.env} onChange={edit('env')} placeholder={t(serverName === undefined ? 'envPlaceholder' : 'keepSecretHint')} />
+          <label className={css.field} htmlFor={fieldId('env')}>
+            <span className={css.fieldLabel}>{t('envLabel')}</span>
+            <textarea id={fieldId('env')} className={css.multiline} value={state.env} onChange={edit('env')} placeholder={t(serverName === undefined ? 'envPlaceholder' : 'keepSecretHint')} />
           </label>
-          <label className={clsx(css.field)} htmlFor={fieldId('cwd')}>
-            <span className={clsx(css.fieldLabel)}>{t('cwdLabel')}</span>
+          <label className={css.field} htmlFor={fieldId('cwd')}>
+            <span className={css.fieldLabel}>{t('cwdLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('cwd')} value={state.cwd} onChange={edit('cwd')} />
           </label>
         </>
       ) : (
         <>
-          <label className={clsx(css.field)} htmlFor={fieldId('url')}>
-            <span className={clsx(css.fieldLabel)}>{t('urlLabel')}</span>
+          <label className={css.field} htmlFor={fieldId('url')}>
+            <span className={css.fieldLabel}>{t('urlLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('url')} value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
           </label>
-          <label className={clsx(css.field)} htmlFor={fieldId('headers')}>
-            <span className={clsx(css.fieldLabel)}>{t('headersLabel')}</span>
-            <textarea id={fieldId('headers')} className={clsx(css.multiline)} value={state.headers} onChange={edit('headers')} placeholder={t(serverName === undefined ? 'headersPlaceholder' : 'keepSecretHint')} />
+          <label className={css.field} htmlFor={fieldId('headers')}>
+            <span className={css.fieldLabel}>{t('headersLabel')}</span>
+            <textarea id={fieldId('headers')} className={css.multiline} value={state.headers} onChange={edit('headers')} placeholder={t(serverName === undefined ? 'headersPlaceholder' : 'keepSecretHint')} />
           </label>
         </>
       )}
-      <label className={clsx(css.field)} htmlFor={fieldId('timeout')}>
-        <span className={clsx(css.fieldLabel)}>{t('timeoutLabel')}</span>
+      <label className={css.field} htmlFor={fieldId('timeout')}>
+        <span className={css.fieldLabel}>{t('timeoutLabel')}</span>
         <Input className={clsx(css.fieldInput)} id={fieldId('timeout')} type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
       </label>
       <ReconnectFields
@@ -85,7 +85,7 @@ export function ServerFormFields<State extends ServerFormState>(
         setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
         t={t}
       />
-      {error !== null ? <p role="alert" className={clsx(css.error)}>{t(error)}</p> : null}
+      {error !== null ? <p role="alert" className={css.error}>{t(error)}</p> : null}
     </>
   )
 }
