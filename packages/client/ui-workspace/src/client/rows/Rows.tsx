@@ -11,7 +11,7 @@ import {
   HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
   IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
   IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
-  StateDot,
+  StateDot, StatusDots,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
@@ -268,18 +268,6 @@ function sessionStatuses(
   return [{ state: 'done', label: t('status.idle') }]
 }
 
-/** Primary status dot plus every status's screen-reader label, shared by the search and session rows. */
-function SessionStatusDots({ statuses }: { statuses: readonly [SessionStatus, ...SessionStatus[]] }) {
-  return (
-    <>
-      <StateDot state={statuses[0].state} />
-      {statuses.map(status => (
-        <span className={css.visuallyHidden} key={status.label}>{status.label}</span>
-      ))}
-    </>
-  )
-}
-
 /** Non-interactive active-Schedule marker; the enclosing row remains the only action. */
 function ActiveScheduleIndicator({ t, search = false }: { t: RowTranslate; search?: boolean }) {
   const label = t('schedule.active')
@@ -346,7 +334,7 @@ export function SearchResultItem({ result, currentId, onOpen, extra, t }: {
       <span className={css.searchResultHeading}>
         <span className={css.slot}>
           {(primaryStatus.state !== 'done' || result.completed) && (
-            <SessionStatusDots statuses={statuses} />
+            <StatusDots statuses={statuses} />
           )}
         </span>
         <span className={css.searchResultTitle}>{result.title}</span>
@@ -465,7 +453,7 @@ export function SessionNodeItem({
           and is cleared by opening the session. */}
       {(!flat || showStatus) && (
         <span className={css.slot}>
-          {showStatus && <SessionStatusDots statuses={statuses} />}
+          {showStatus && <StatusDots statuses={statuses} />}
         </span>
       )}
       <span className={css.title}>{title}</span>

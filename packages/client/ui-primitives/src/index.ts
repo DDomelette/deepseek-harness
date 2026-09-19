@@ -4,6 +4,8 @@
 
 export { StateDot } from './StateDot.tsx'
 export type { StateDotState } from './StateDot.tsx'
+export { StatusDots } from './StatusDots.tsx'
+export type { DotStatus } from './StatusDots.tsx'
 export { DisclosureRow } from './DisclosureRow.tsx'
 export type { DisclosureRowProps } from './DisclosureRow.tsx'
 export { Button } from './Button.tsx'

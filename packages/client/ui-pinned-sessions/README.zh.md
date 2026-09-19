@@ -29,6 +29,8 @@ DeepSeek Harness 侧栏的会话置顶浏览器插件。它把置顶栏、行内
 - `sidebar.workspaces.sessionActions` — 悬停时显示在行 ⋯ 左侧的置顶/取消置顶按钮。
 - `sidebar.workspaces.searchResultExtra` — 置顶搜索结果上的蓝色图钉徽标。
 
+非空置顶行在取消置顶之外，还提供重命名、分叉和归档操作。置顶行与项目行共享 UI 基础组件的无障碍状态标记和相对时间分段；各插件分别拥有行布局、菜单操作和拖拽交互。
+
 <a id="store-contract"></a>
 ## Store 契约
 
@@ -65,7 +67,6 @@ DeepSeek Harness 侧栏的会话置顶浏览器插件。它把置顶栏、行内
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **置顶行只渲染取消置顶操作** — v1 中重命名/分叉/归档仍通过该会话的项目行提供。
 - **没有键盘拖拽排序** — 置顶重排仅支持指针拖拽。
 
 <a id="dev-note"></a>

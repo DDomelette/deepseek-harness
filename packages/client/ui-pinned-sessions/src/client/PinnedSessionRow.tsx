@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   HoverCard, IconArchiveOutline20, IconBranchOutline16, IconEditOutline16,
-  IconEllipsisOutline16, Menu, StateDot,
+  IconEllipsisOutline16, Menu, relativeTime, StateDot, StatusDots,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
@@ -20,27 +20,14 @@ export interface PinnedRowNode {
   updatedAt: number
 }
 
-function relativeTime(updatedAt: number, now: number): { unit: string; n: number } {
-  const MIN = 60_000
-  const HOUR = 3_600_000
-  const DAY = 86_400_000
-  const diff = Math.max(0, now - updatedAt)
-  if (diff < MIN) return { unit: 'now', n: 0 }
-  if (diff < HOUR) return { unit: 'minutes', n: Math.floor(diff / MIN) }
-  if (diff < DAY) return { unit: 'hours', n: Math.floor(diff / HOUR) }
-  if (diff < 30 * DAY) return { unit: 'days', n: Math.floor(diff / DAY) }
-  if (diff < 365 * DAY) return { unit: 'months', n: Math.floor(diff / (30 * DAY)) }
-  return { unit: 'years', n: Math.floor(diff / (365 * DAY)) }
-}
-
 function timeLabel(updatedAt: number, now: number, t: TranslateNS<'workspace'>): string {
   const { unit, n } = relativeTime(updatedAt, now)
-  return unit === 'now' ? t('time.now') : t(`time.${unit}` as 'time.minutes', { n })
+  return unit === 'now' ? t('time.now') : t(`time.${unit}`, { n })
 }
 
 function hoverTimeLabel(updatedAt: number, now: number, t: TranslateNS<'workspace'>): string {
   const { unit, n } = relativeTime(updatedAt, now)
-  return unit === 'now' ? t('time.now') : t('time.ago', { t: t(`time.${unit}` as 'time.minutes', { n }) })
+  return unit === 'now' ? t('time.now') : t('time.ago', { t: t(`time.${unit}`, { n }) })
 }
 
 interface SessionStatus {
@@ -60,17 +47,6 @@ function sessionStatuses(node: PinnedRowNode, t: TranslateNS<'workspace'>): read
   if (node.running) return [{ state: 'ongoing', label: t('status.running') }]
   if (node.completed) return [{ state: 'done', label: t('status.completed') }]
   return [{ state: 'done', label: t('status.idle') }]
-}
-
-function StatusDots({ statuses }: { statuses: readonly [SessionStatus, ...SessionStatus[]] }) {
-  return (
-    <>
-      <StateDot state={statuses[0].state} />
-      {statuses.map(status => (
-        <span className={css.visuallyHidden} key={status.label}>{status.label}</span>
-      ))}
-    </>
-  )
 }
 
 export function PinnedSessionRow({
@@ -109,13 +85,15 @@ export function PinnedSessionRow({
     <div
       className={clsx(
         css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
+        // Each row plugin owns its selection styling and drag hit target.
+        /* jscpd:ignore-start */
         flat && !showStatus && css.flatWithoutStatus,
         drag?.marker === 'before' && css.dropBefore, drag?.marker === 'after' && css.dropAfter,
       )}
       role="treeitem"
       aria-selected={selected}
       onClick={() => { onOpen(node.id) }}
-      draggable={drag !== undefined}
+      draggable={drag !== undefined /* jscpd:ignore-end */}
       onDragStart={drag === undefined ? undefined : (event) => {
         event.dataTransfer.effectAllowed = 'move'
         event.dataTransfer.setData('text/plain', node.id)

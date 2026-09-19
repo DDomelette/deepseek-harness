@@ -43,6 +43,7 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `Pill` | Selectable capsule button for view switchers and filters; takes `active` and `onClick`. |
 | `Tag` | Read-only capsule badge; `tone` selects one of eight palettes. |
 | `StateDot` | Status mark: `done`, `warning`, `ongoing`, `error`, or `idle`. `aria-hidden`, so the render site owns the name. |
+| `StatusDots` | Displays the first supplied status as a dot and exposes all localized status labels to screen readers; the caller owns their order. |
 | `ConnectionIndicator` | Inline connection-recovery control across outage, retry, and recovered states. |
 | `DisclosureRow` | 24px compact disclosure that lays title and content side by side. |
 | `Modal` | Centered dialog over a page mask. |

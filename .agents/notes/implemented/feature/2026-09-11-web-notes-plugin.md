@@ -52,7 +52,7 @@ The detail drew every thread row as plain text, so a list, a table, and emphasis
 
 ### A concurrent analysis claims its material on the domain write chain
 
-Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first records its id, and the loser sees that id in the returned record and submits nothing. A plain check-then-send would let a double click send the same material twice.
+Analysis is idempotent, and the check that enforces it is the domain's atomic read-modify-write rather than a synchronous `get` before the send. Two callers can both observe an empty `messageIds`; only the one whose transform runs first creates a message and records its id. The later transform observes that id and creates no message to submit. A plain check-then-send would let a double click send the same material twice.
 
 Draft edits re-check `messageIds` inside that same write queue, and analysis composes from the record that accepted its claim. Checking only before enqueueing permits a submitted record to change; composing only before claiming permits an earlier queued edit to persist without reaching the model. The two operation orders therefore produce either the saved body or `material-submitted`, never different stored and submitted bodies.
 

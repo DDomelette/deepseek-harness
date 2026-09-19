@@ -29,6 +29,8 @@ Pinned-sessions browser plugin for the DeepSeek Harness sidebar. It registers th
 - `sidebar.workspaces.sessionActions` — the hover-revealed pin/unpin button rendered left of the row ellipsis.
 - `sidebar.workspaces.searchResultExtra` — the blue pin badge on pinned search results.
 
+Non-blank pinned rows expose Rename, Fork, and Archive alongside Unpin. Pinned and project rows share the UI primitives' accessible status marker and relative-time bucketing; each plugin owns its row layout, menu actions, and drag interactions.
+
 <a id="store-contract"></a>
 ## Store contract
 
@@ -65,7 +67,6 @@ Independent of live requests.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **Pinned rows render only the unpin action** — rename/fork/archive remain available through the session's project row in v1.
 - **No keyboard drag ordering** — pinned reordering is pointer-drag only.
 
 <a id="dev-note"></a>
