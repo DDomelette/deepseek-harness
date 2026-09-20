@@ -71,6 +71,16 @@
   }
 }
 
+/* Touch gets no hover to reveal a collapsed trigger's title, so coarse
+   pointers keep the label: it ellipsizes inside the existing caps, and the
+   row wraps before the send button is ever at risk. Placed after the
+   container query so equal specificity resolves here. */
+@media (pointer: coarse) {
+  .trigger:has(.triggerIcon) .triggerLabel {
+    display: block;
+  }
+}
+
 .chevronOpen {
   transform: rotate(180deg);
 }

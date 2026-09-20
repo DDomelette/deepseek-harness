@@ -49,7 +49,7 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `Modal` | Centered dialog over a page mask. |
 | `RiskConfirmation` | Sensitive action gated behind an explicit checkbox. |
 | `OnboardingSurface` | First-run stage that holds the application root inert. |
-| `Tooltip` | Hover text on a cloned anchor, placed right, bottom, or top. |
+| `Tooltip` | Hover text on a cloned anchor, placed right, bottom, or top; fires only on hover-capable fine pointers, so a tap never sticks a bubble. |
 | `HoverCard` | Hover preview the pointer can rest on and select from; optional copy button. |
 | `Toast` | Transient top-center banner held for the owner's `holdMs`. |
 | `JsonTree`, `JsonBlock` | Read-only JSON inspection. |

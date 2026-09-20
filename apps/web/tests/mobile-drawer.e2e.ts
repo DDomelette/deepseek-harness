@@ -4,7 +4,7 @@
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
-import { newMobilePage, requireDist } from './support.ts'
+import { connectFreshWorkspace, newMobilePage, requireDist } from './support.ts'
 
 describe('mobile viewport (390×844, touch)', () => {
   let browser: Browser
@@ -51,6 +51,9 @@ describe('mobile viewport (390×844, touch)', () => {
     // rail, and the scrim appears.
     await scrim.waitFor({ state: 'attached' })
     expect(await scrim.count()).toBe(1)
+    // Touch has no hover to raise or clear a tooltip with, so the tap must not
+    // leave one stuck over the session titles.
+    expect(await page.getByRole('tooltip').count()).toBe(0)
     await expect.poll(async () => await frame.getAttribute('data-drawer')).toBe('true')
     await expect.poll(async () => {
       const columns = await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns)
@@ -84,6 +87,33 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(box).not.toBeNull()
     expect(box!.y + box!.height).toBeLessThanOrEqual(844)
     expect(box!.width).toBeLessThanOrEqual(390)
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('keeps the composer selectors labeled and the send action tappable on touch', async () => {
+    await connectFreshWorkspace(page, scaffold.workspaceCwd, 'workspace-selectors')
+    // The narrow-row icon-only collapse relies on hover (title) to stay
+    // meaningful; on a coarse pointer the labels must stay rendered instead.
+    const permission = page.getByRole('button', { name: /Access mode, current: / })
+    await permission.waitFor({ timeout: 15_000 })
+    expect((await permission.innerText()).trim()).toMatch(/Read Only|Workspace Write|Full access/)
+    const model = page.getByRole('button', { name: /Select model/ })
+    expect((await model.innerText()).trim()).not.toBe('')
+    // Keeping the labels costs row width: the send action must still land
+    // inside the viewport and answer a tap at its own center.
+    const send = page.getByRole('button', { name: 'Send message' })
+    const hitTest = await send.evaluate((el) => {
+      const box = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+      return {
+        right: box.x + box.width,
+        bottom: box.y + box.height,
+        hit: hit !== null && (hit === el || el.contains(hit)),
+      }
+    })
+    expect(hitTest.right).toBeLessThanOrEqual(390)
+    expect(hitTest.bottom).toBeLessThanOrEqual(844)
+    expect(hitTest.hit).toBe(true)
     expect(tripwire.pageErrors).toEqual([])
   })
 

@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-touch-pointer-affordances.md
+2026-09-20-touch-pointer-affordances.md: 9bb7a84481044d4e8b455828c1eb778168ccbfdc
+2026-09-20-touch-pointer-affordances.zh.md: eb7610e60f9feb7141dfc52659c0aebdb9967495
