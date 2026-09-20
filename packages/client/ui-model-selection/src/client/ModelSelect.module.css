@@ -73,7 +73,8 @@
    the name), a 360px composer row leaves the 45cqw cap too little for a
    legible name, so the text yields to the Models glyph. Same anonymous
    container as PermissionSelect's 460px cut (InputBar .row); the full name
-   stays reachable through the trigger's title and aria-label. */
+   stays reachable through the trigger's title and aria-label — hover
+   affordances, so coarse pointers keep the text instead (see below). */
 @container (max-width: 360px) {
   .triggerIcon {
     display: block;
@@ -82,6 +83,21 @@
   .triggerLabel,
   .triggerEffort {
     display: none;
+  }
+}
+
+/* Touch gets no hover to reveal the glyph-only trigger's title, so coarse
+   pointers keep the text: the name ellipsizes inside the 45cqw cap, which
+   still beats an anonymous icon. Placed after the container query so equal
+   specificity resolves here. */
+@media (pointer: coarse) {
+  .triggerIcon {
+    display: none;
+  }
+
+  .triggerLabel,
+  .triggerEffort {
+    display: block;
   }
 }
 
