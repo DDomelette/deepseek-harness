@@ -315,7 +315,10 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
               {question.detail !== undefined && (
                 <div className={css.detail}><MarkdownText text={question.detail} labels={markdownLabels} /></div>
               )}
-              <div className={css.options} role={question.multiSelect === true ? 'group' : 'radiogroup'}>
+              <div
+                className={clsx(css.options, hasOptions && css.optionsPinned)}
+                role={question.multiSelect === true ? 'group' : 'radiogroup'}
+              >
                 {(question.options ?? []).map((option, optionIndex) => {
                   const selected = draft.selected.includes(option.label)
                   const display = parseRecommendedLabel(option.label)
@@ -356,66 +359,72 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
                   )
                 })}
 
-                {hasOptions
-                  ? (
-                    <div className={clsx(css.customRow, draft.custom !== '' && css.customRowActive)}>
-                      {question.multiSelect === true
-                        ? (
-                          <span
-                            className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)}
-                            aria-hidden="true"
-                          >
-                            {draft.custom !== '' && <IconCheckOutline14 size={12} />}
-                          </span>
-                        )
-                        : (
-                          <span className={css.number} aria-hidden="true">
-                            <IconEditOutline16 size={12} />
-                          </span>
-                        )}
-                      <AnswerField
-                        variant="inline"
-                        value={draft.custom}
-                        disabled={busy !== null}
-                        placeholder={t('custom.placeholder')}
-                        onChange={draftCustom}
-                        onKeyDown={continueFromCustom}
-                      />
-                    </div>
-                  )
-                  : (
-                    <AnswerField
-                      autoFocus={!focusedQuestions.current.has(index)}
-                      variant="block"
-                      value={draft.custom}
-                      disabled={busy !== null}
-                      placeholder={t('custom.placeholder')}
-                      onFocus={() => { focusedQuestions.current.add(index) }}
-                      onChange={draftCustom}
-                      onKeyDown={continueFromCustom}
-                    />
-                  )}
+                {!hasOptions && (
+                  <AnswerField
+                    autoFocus={!focusedQuestions.current.has(index)}
+                    variant="block"
+                    value={draft.custom}
+                    disabled={busy !== null}
+                    placeholder={t('custom.placeholder')}
+                    onFocus={() => { focusedQuestions.current.add(index) }}
+                    onChange={draftCustom}
+                    onKeyDown={continueFromCustom}
+                  />
+                )}
               </div>
             </div>
 
-            <footer className={css.footer}>
-              <div className={css.pager}>
-                <button
-                  type="button" className={css.iconButton} aria-label={t('nav.prev')}
-                  disabled={index === 0 || busy !== null}
-                  onClick={() => { replaceProgress(index - 1, drafts); setError(null) }}
-                >
-                  <IconChevronLeftOutline14 />
-                </button>
-                <span className={css.progress}>{index + 1} / {questions.length}</span>
-                <button
-                  type="button" className={css.iconButton} aria-label={t('nav.next')}
-                  disabled={index === questions.length - 1 || busy !== null}
-                  onClick={() => { replaceProgress(index + 1, drafts); setError(null) }}
-                >
-                  <IconChevronRightOutline14 />
-                </button>
+            {/* Pinned below the scroll region (see .customPinned): the custom
+                answer must stay reachable however short the capped card gets. */}
+            {hasOptions && (
+              <div className={css.customPinned}>
+                <div className={clsx(css.customRow, draft.custom !== '' && css.customRowActive)}>
+                  {question.multiSelect === true
+                    ? (
+                      <span
+                        className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)}
+                        aria-hidden="true"
+                      >
+                        {draft.custom !== '' && <IconCheckOutline14 size={12} />}
+                      </span>
+                    )
+                    : (
+                      <span className={css.number} aria-hidden="true">
+                        <IconEditOutline16 size={12} />
+                      </span>
+                    )}
+                  <AnswerField
+                    variant="inline"
+                    value={draft.custom}
+                    disabled={busy !== null}
+                    placeholder={t('custom.placeholder')}
+                    onChange={draftCustom}
+                    onKeyDown={continueFromCustom}
+                  />
+                </div>
               </div>
+            )}
+
+            <footer className={css.footer}>
+              {questions.length > 1 && (
+                <div className={css.pager}>
+                  <button
+                    type="button" className={css.iconButton} aria-label={t('nav.prev')}
+                    disabled={index === 0 || busy !== null}
+                    onClick={() => { replaceProgress(index - 1, drafts); setError(null) }}
+                  >
+                    <IconChevronLeftOutline14 />
+                  </button>
+                  <span className={css.progress}>{index + 1} / {questions.length}</span>
+                  <button
+                    type="button" className={css.iconButton} aria-label={t('nav.next')}
+                    disabled={index === questions.length - 1 || busy !== null}
+                    onClick={() => { replaceProgress(index + 1, drafts); setError(null) }}
+                  >
+                    <IconChevronRightOutline14 />
+                  </button>
+                </div>
+              )}
               <div className={css.feedback} role="status">
                 {error === null ? null : 'key' in error ? t(error.key) : error.text}
               </div>

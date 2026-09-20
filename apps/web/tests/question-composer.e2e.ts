@@ -20,7 +20,7 @@ import {
   launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot,
+  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot, settleViewport,
 } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/question-composer', import.meta.url))
@@ -211,6 +211,38 @@ describe('web e2e: resident question composer round trip', () => {
         // Sub-pixel tolerance: every row's copy stays inside its border box.
         expect(squeeze.spill).toBeLessThan(0.6)
       }
+
+      // Handset seat (360×740, the width the card used to overflow): under the
+      // 720px breakpoint the card hugs the frame, so the footer fits without
+      // clipping — the submit action must be hit-testable at its own center —
+      // and the pinned custom row stays visible outside the scroll region.
+      // The fixture asks one question, so no pager renders at any width.
+      await settleViewport(page, { width: 360, height: 740 })
+      expect(await composer.getByLabel('Previous question').count()).toBe(0)
+      expect(await composer.getByLabel('Next question').count()).toBe(0)
+      const submit = composer.getByRole('button', { name: 'Submit' })
+      const hitTest = await submit.evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+        return {
+          right: box.x + box.width,
+          hit: hit !== null && (hit === el || el.contains(hit)),
+        }
+      })
+      expect(hitTest.right).toBeLessThanOrEqual(360)
+      expect(hitTest.hit).toBe(true)
+      const pinned = await composer.getByRole('textbox').evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const card = el.closest('section')?.getBoundingClientRect()
+        return {
+          inScrollRegion: el.closest('[data-question-scroll]') !== null,
+          bottom: box.bottom,
+          cardBottom: card?.bottom ?? 0,
+        }
+      })
+      expect(pinned.inScrollRegion).toBe(false)
+      expect(pinned.bottom).toBeLessThanOrEqual(pinned.cardBottom + 0.5)
+
       await page.setViewportSize(original)
     }
 
