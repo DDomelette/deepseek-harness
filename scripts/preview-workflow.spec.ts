@@ -44,6 +44,7 @@ describe('PR preview workflow', () => {
       'cancel-in-progress': true,
     })
     expect(workflow.env.CF_PROJECT).toBe('dsh-build-preview')
+    expect(workflow.env.CF_PAGES_HOST).toBe('dsh-build-preview-1t6.pages.dev')
     const shape = preview.steps.find(step => step.name === 'Shape the upload')!
     expect(shape.run).toContain("find apps/web/dist -name '*.map' -delete")
     expect(shape.run).toContain('cp apps/web/dist/preview.html apps/web/dist/index.html')
