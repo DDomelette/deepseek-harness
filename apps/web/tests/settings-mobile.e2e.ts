@@ -93,6 +93,34 @@ describe('web e2e: settings at a handset viewport', () => {
     expect((await options.boundingBox())?.width ?? 0).toBeGreaterThan(HANDSET.width * 0.7)
     await expect.poll(async () => await options.getByText('语言', { exact: true }).isVisible()).toBe(true)
 
+    // Detail header on one bar: back + title + document action + close. The
+    // action trades its label for a glyph (accessible name unchanged) so the
+    // pill no longer squeezes the section title.
+    const docAction = dialog.getByRole('button', { name: '打开配置文件' })
+    expect((await docAction.boundingBox())?.width ?? 999).toBeLessThan(60)
+    expect((await docAction.innerText()).trim()).toBe('')
+
+    // Appearance: three compact segments on ONE row, not a stack of
+    // full-width cards.
+    const cubeBoxes = (await Promise.all(
+      ['浅色', '深色', '跟随系统'].map(async name => await dialog.getByRole('button', { name }).boundingBox()),
+    )).map((box) => {
+      if (box === null) throw new Error('appearance cube is unavailable')
+      return box
+    })
+    expect(cubeBoxes).toHaveLength(3)
+    const cubeYs = cubeBoxes.map(box => box.y)
+    expect(Math.max(...cubeYs) - Math.min(...cubeYs)).toBeLessThan(1)
+    for (const box of cubeBoxes) expect(box.height).toBeLessThan(80)
+
+    // Permission: the description keeps the full row and the selector drops
+    // to its own line below it.
+    const description = await dialog.getByText('选择新会话的默认权限模式').boundingBox()
+    const selector = await dialog.getByRole('button', { name: /仅可查看|工作区内修改|完全权限/ }).boundingBox()
+    expect(description).not.toBeNull()
+    expect(selector).not.toBeNull()
+    expect(selector!.y).toBeGreaterThanOrEqual(description!.y + description!.height - 0.5)
+
     // Back returns to the list without closing the dialog; the close control
     // then leaves both.
     await back.click()
@@ -115,6 +143,8 @@ describe('web e2e: settings at a handset viewport', () => {
     expect((await row.boundingBox())?.width ?? 0).toBeLessThan(200)
     await expect.poll(async () => await dialog.getByText('语言', { exact: true }).isVisible()).toBe(true)
     expect(await dialog.getByRole('button', { name: '返回' }).isVisible()).toBe(false)
+    // The two-column header keeps the document action's full label.
+    expect((await dialog.getByRole('button', { name: '打开配置文件' }).innerText()).trim()).toBe('打开配置文件')
 
     await dialog.getByRole('button', { name: '模型' }).click()
     await expect.poll(async () => await dialog.getByRole('button', { name: '模型' }).isVisible()).toBe(true)
