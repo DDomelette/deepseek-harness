@@ -5,6 +5,26 @@
   gap: 8px;
 }
 
+/* The glyph seat stays out of the two-column layout, which keeps the labeled
+   pill exactly as drawn. */
+.actionIcon {
+  display: none;
+}
+
+/* Handset single-pane header (back + section title + this action + close in
+   one bar): the pill trades its label for the glyph; the accessible name
+   stays on the button's aria-label. The breakpoint stays in step with
+   SETTINGS_PANE_BREAKPOINT. */
+@media (max-width: 767px) {
+  .actionIcon {
+    display: inline-flex;
+  }
+
+  .actionLabel {
+    display: none;
+  }
+}
+
 .error {
   max-width: 180px;
   overflow: hidden;
