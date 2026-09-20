@@ -20,7 +20,7 @@ import {
   launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot,
+  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot, settleViewport,
 } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/question-composer', import.meta.url))
@@ -123,6 +123,10 @@ describe('web e2e: resident question composer round trip', () => {
   let tripwire: ReturnType<typeof watchConsole>
   const sessionEvents: SessionEvent[] = []
   let answeredSession: SessionId | undefined
+  // The input card's settled width at 360×740, measured before the first
+  // takeover: the takeover cards share its seat and its bare-clearance
+  // handset gutter, so this is their target width on a phone.
+  let handsetInputCardWidth = 0
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15, compareReplaySession: true })
@@ -148,6 +152,16 @@ describe('web e2e: resident question composer round trip', () => {
     }
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
+    if (MODE !== 'record') {
+      const desktopViewport = page.viewportSize() ?? { width: 1680, height: 1000 }
+      await settleViewport(page, { width: 360, height: 740 })
+      handsetInputCardWidth = await input.evaluate((el) => {
+        const card = el.closest('[class*="card"]')
+        if (card === null) throw new Error('composer card is unavailable')
+        return card.getBoundingClientRect().width
+      })
+      await settleViewport(page, desktopViewport, { sidebarCollapsed: false })
+    }
     const settled = scaffold.whenTurnSettled(MODE === 'record' ? 180_000 : 30_000)
     await input.fill(PROMPT)
     await input.press('Enter')
@@ -211,7 +225,42 @@ describe('web e2e: resident question composer round trip', () => {
         // Sub-pixel tolerance: every row's copy stays inside its border box.
         expect(squeeze.spill).toBeLessThan(0.6)
       }
-      await page.setViewportSize(original)
+
+      // Handset seat (360×740, the width the card used to overflow): under the
+      // 720px breakpoint the card drops the desktop 16px inset and takes the
+      // input card's own bare-clearance gutter, so the footer fits without
+      // clipping — the submit action must be hit-testable at its own center —
+      // and the pinned custom row stays visible outside the scroll region.
+      // The fixture asks one question, so no pager renders at any width.
+      await settleViewport(page, { width: 360, height: 740 })
+      const cardWidth = await composer.locator('css=section').evaluate(el => el.getBoundingClientRect().width)
+      expect(Math.abs(cardWidth - handsetInputCardWidth)).toBeLessThan(1.5)
+      expect(await composer.getByLabel('Previous question').count()).toBe(0)
+      expect(await composer.getByLabel('Next question').count()).toBe(0)
+      const submit = composer.getByRole('button', { name: 'Submit' })
+      const hitTest = await submit.evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+        return {
+          right: box.x + box.width,
+          hit: hit !== null && (hit === el || el.contains(hit)),
+        }
+      })
+      expect(hitTest.right).toBeLessThanOrEqual(360)
+      expect(hitTest.hit).toBe(true)
+      const pinned = await composer.getByRole('textbox').evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const card = el.closest('section')?.getBoundingClientRect()
+        return {
+          inScrollRegion: el.closest('[data-question-scroll]') !== null,
+          bottom: box.bottom,
+          cardBottom: card?.bottom ?? 0,
+        }
+      })
+      expect(pinned.inScrollRegion).toBe(false)
+      expect(pinned.bottom).toBeLessThanOrEqual(pinned.cardBottom + 0.5)
+
+      await settleViewport(page, original, { sidebarCollapsed: false })
     }
 
     // Multi-line custom answer: the field is a textarea whose hidden mirror
@@ -348,6 +397,56 @@ describe('web e2e: resident question composer round trip', () => {
     await composer.getByRole('button', { name: 'Skip this question' }).click()
     expect(await asked).toEqual({ answers: [{ id: 'free', selected: [] }] })
     await expect.poll(() => page.locator('[data-question-key]').count(), { timeout: 10_000 }).toBe(0)
+  }, 60_000)
+
+  // No fixture drives a plan review, so the intent is asked straight through
+  // the user-questions seam like the optionless shape above: the plan-review
+  // card shares the takeover seat, and at 360×740 it must take the input
+  // card's bare-clearance gutter with its decision row hit-testable.
+  it.skipIf(MODE === 'record')('lays out the plan-review card on the handset viewport', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-review-handset'))
+    const sessionId = answeredSession
+    expect(sessionId).toBeDefined()
+    const agent = scaffold.ctx.agents.get(sessionId as SessionId)
+    expect(agent).toBeDefined()
+    const original = page.viewportSize() ?? { width: 1680, height: 1000 }
+    await settleViewport(page, { width: 360, height: 740 })
+    try {
+      const asked = scaffold.ctx.userQuestions.ask({
+        agent: agent as NonNullable<typeof agent>,
+        questions: [{
+          id: 'plan',
+          question: 'Ship this plan?',
+          detail: '# Plan\n\n1. Land the handset layout fix.',
+          intent: { kind: 'plan-review', approve: 'Approve' },
+          options: [{ label: 'Approve' }, { label: 'Refuse' }],
+        }],
+      })
+
+      // The plan-review surface carries its own root key (PlanReviewPanel).
+      const composer = page.locator('[data-plan-review-key]')
+      await composer.waitFor({ timeout: 30_000 })
+      const cardWidth = await composer.locator('css=section').evaluate(el => el.getBoundingClientRect().width)
+      expect(Math.abs(cardWidth - handsetInputCardWidth)).toBeLessThan(1.5)
+      const approve = composer.getByRole('button', { name: 'Approve' })
+      const hitTest = await approve.evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+        return {
+          right: box.x + box.width,
+          hit: hit !== null && (hit === el || el.contains(hit)),
+        }
+      })
+      expect(hitTest.right).toBeLessThanOrEqual(360)
+      expect(hitTest.hit).toBe(true)
+
+      // Settle the wait so teardown is not racing a pending question.
+      await approve.click()
+      expect(await asked).toEqual({ answers: [{ id: 'plan', selected: ['Approve'] }] })
+      await expect.poll(() => page.locator('[data-plan-review-key]').count(), { timeout: 10_000 }).toBe(0)
+    } finally {
+      await settleViewport(page, original, { sidebarCollapsed: false })
+    }
   }, 60_000)
 
 })

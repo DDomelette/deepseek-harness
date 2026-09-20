@@ -42,12 +42,7 @@
   - radiogroup:
     - radio "Yes": 1 Yes
     - radio "No": 2 No
-    - textbox "Type your answer"
-  - button "Previous question" [disabled]:
-    - img
-  - text: 1 / 1
-  - button "Next question" [disabled]:
-    - img
+  - textbox "Type your answer"
   - status
   - button "Skip this question"
   - button "Submit" [disabled]
