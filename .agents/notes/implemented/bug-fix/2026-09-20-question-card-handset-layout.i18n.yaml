@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-question-card-handset-layout.md
-2026-09-20-question-card-handset-layout.md: 99bf0967b3bd633d6e46702419f9d83dc00a5be1
-2026-09-20-question-card-handset-layout.zh.md: ac0a8fea2da45f2ddfec1208199247ed344765a5
+2026-09-20-question-card-handset-layout.md: 9e9164d0eddad0e940b5849a20690a1b8a3d8b23
+2026-09-20-question-card-handset-layout.zh.md: 7813cae9e8d956e87e7affa8c3d14ccfbea6101b
