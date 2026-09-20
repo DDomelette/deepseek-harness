@@ -26,6 +26,11 @@ env:
   # the surface the Access application protects; the project's production branch
   # is deliberately a name no deployment uses, so no unprotected URL exists.
   CF_PROJECT: dsh-build-preview
+  # The project's pages.dev host: the unsuffixed subdomain belongs to the
+  # upstream account's project of the same name, so this fork's branch aliases
+  # resolve under the suffixed host Cloudflare assigned at project creation.
+  # Deployments target CF_PROJECT; every served URL lives under this host.
+  CF_PAGES_HOST: dsh-build-preview-1t6.pages.dev
   # CI runs must never report to the production telemetry endpoint baked into
   # apps/cli/cordis.yml (AppCLIEntry disables the row when set).
   DSH_TELEMETRY_DISABLED: '1'
@@ -116,7 +121,7 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          url="https://pr-${{ github.event.pull_request.number }}.${CF_PROJECT}.pages.dev"
+          url="https://pr-${{ github.event.pull_request.number }}.${CF_PAGES_HOST}"
           image="$url/preview/vfs-image.tar.gz"
           code=000
           for attempt in 1 2 3 4 5; do
@@ -166,5 +171,5 @@ jobs:
           # line that opens with a raw HTML comment.
           printf '%s\n\n%s\n' \
             "$marker" \
-            "[Preview for #$PR](https://pr-$PR.${CF_PROJECT}.pages.dev) (requires Cloudflare Access sign-in)" \
+            "[Preview for #$PR](https://pr-$PR.${CF_PAGES_HOST}) (requires Cloudflare Access sign-in)" \
             | gh pr comment "$PR" --body-file -
