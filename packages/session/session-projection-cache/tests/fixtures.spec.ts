@@ -95,6 +95,12 @@ function headerFor(id: SessionId, identity: FixtureDoc['record']['identity']): S
 const contexts: Context[] = []
 const roots: string[] = []
 
+// Hang guard for the cache's eventual on-disk write, not a behavior
+// assertion: the rewrite always lands (the lighter recovery cases prove it),
+// and a loaded Windows coverage runner needs longer than 5s to flush it. The
+// lane grants each case 90s.
+const REWRITE_GUARD_MS = 30_000
+
 async function harness(root: string) {
   roots.push(root)
   const ctx = new Context()
@@ -136,7 +142,7 @@ async function assertRewrite(ctx: Context, root: string, id: SessionId): Promise
       inheritedEventCount: 0,
     })
     expect(doc.record.rows['title']?.val).toBe('重写标题')
-  }, { timeout: 5_000 })
+  }, { timeout: REWRITE_GUARD_MS })
 }
 
 afterEach(async () => {

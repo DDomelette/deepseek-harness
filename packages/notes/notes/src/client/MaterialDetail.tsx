@@ -2,7 +2,10 @@
  * One material's detail: where it came from, what its action will submit, its
  * own text, what the model answered, and the actions a reader takes on it.
  *
- * The text is editable until the material entered its conversation and
+ * The pane reads as titled sections — source, action template, body, thread —
+ * so its kinds of content never blend into one column of undifferentiated
+ * text. The template card collapses to its first line until the reader opens
+ * it. The text is editable until the material entered its conversation and
  * read-only afterwards, because the session log carries the submitted body and
  * the Host refuses to rewrite the record. The draft lives here rather than in
  * the store: leaving the detail discards an unsaved edit, which is what a
@@ -10,7 +13,7 @@
  */
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MarkdownText, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
@@ -89,6 +92,7 @@ export function MaterialDetail({
   const [draft, setDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [templateOpen, setTemplateOpen] = useState(false)
   // Stable per locale revision: a fresh labels object per render would rebuild
   // MarkdownText's component table on every keystroke of the editor below.
   const labels = useMemo(() => markdownLabels(t), [t])
@@ -105,114 +109,142 @@ export function MaterialDetail({
   }
   return (
     <section className={css.detail} data-notes-detail={material.id}>
-      <div className={css.source} data-notes-source>
-        <span className={css.sourceLabel}>{material.source.label}</span>
-        <span className={css.sourceView}>
-          {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
-        </span>
-        {/* A material collected from the panel records no row, so it offers no
-            entry that could never point anywhere. */}
-        {locatable(material.source) && (
-          <button
-            type="button"
-            className={css.locate}
-            data-notes-locate
-            onClick={() => { setLocating(true) }}
-          >
-            {t('detail.locate')}
-          </button>
-        )}
-      </div>
-      {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
-      {action !== undefined && (
-        <div className={css.template} data-notes-action-template={action.id}>
-          <span className={css.templateLabel}>{t('detail.actionTemplate')}</span>
-          <p className={css.templateText}>{action.prompt}</p>
-        </div>
-      )}
-      {material.kind === 'image'
-        // A screenshot's body is the reference it was stored as, so the pane
-        // names it rather than offering an editor the Host would refuse.
-        ? <p className={css.body} data-notes-body>{t('source.image')}</p>
-        : material.submitted
-          // A submitted body is what entered the conversation, and a collected
-          // passage is as likely to be Markdown as the answer it produced, so
-          // the read-only body renders like the thread row it appears in.
-          ? <div className={css.body} data-notes-body><MarkdownText text={text} labels={labels} /></div>
-          : (
-            <textarea
-              className={css.editor}
-              aria-label={t('detail.body')}
-              data-notes-editor
-              value={shown}
-              onChange={(event) => { setDraft(event.target.value) }}
-            />
+      <section className={css.section}>
+        <h3 className={css.sectionTitle}>{t('detail.section.source')}</h3>
+        <div className={css.source} data-notes-source>
+          <span className={css.sourceLabel}>{material.source.label}</span>
+          <span className={css.sourceView}>
+            {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
+          </span>
+          {/* A material collected from the panel records no row, so it offers no
+              entry that could never point anywhere. */}
+          {locatable(material.source) && (
+            <button
+              type="button"
+              className={css.locate}
+              data-notes-locate
+              onClick={() => { setLocating(true) }}
+            >
+              {t('detail.locate')}
+            </button>
           )}
+        </div>
+        {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
+      </section>
+      {action !== undefined && (
+        <section className={css.section}>
+          <h3 className={css.sectionTitle}>{t('detail.actionTemplate')}</h3>
+          {/* The template is a fixed deployment string, so the card shows its
+              first line until the reader asks for the whole prompt. */}
+          <button
+            type="button"
+            className={css.template}
+            aria-expanded={templateOpen}
+            data-notes-action-template={action.id}
+            onClick={() => { setTemplateOpen(open => !open) }}
+          >
+            <span className={css.templateText}>{action.prompt}</span>
+            <span className={css.templateToggle}>
+              {templateOpen ? t('detail.templateCollapse') : t('detail.templateExpand')}
+            </span>
+          </button>
+        </section>
+      )}
+      <section className={css.section}>
+        <h3 className={css.sectionTitle}>{t('detail.body')}</h3>
+        {material.kind === 'image'
+          // A screenshot's body is the reference it was stored as, so the pane
+          // names it rather than offering an editor the Host would refuse.
+          ? <p className={css.body} data-notes-body>{t('source.image')}</p>
+          : material.submitted
+            // A submitted body is what entered the conversation, and a collected
+            // passage is as likely to be Markdown as the answer it produced, so
+            // the read-only body renders like the thread row it appears in.
+            ? (
+              <div className={css.bodyCard} data-notes-body>
+                <MarkdownText text={text} labels={labels} />
+              </div>
+            )
+            : (
+              <textarea
+                className={css.editor}
+                aria-label={t('detail.body')}
+                data-notes-editor
+                value={shown}
+                onChange={(event) => { setDraft(event.target.value) }}
+              />
+            )}
+      </section>
       <div className={css.actions}>
-        <span className={css.status} data-notes-status={material.status}>
-          {t(STATUS_LINES[material.status])}
+        <span data-notes-status={material.status}>
+          <Tag tone="quiet">{t(STATUS_LINES[material.status])}</Tag>
         </span>
-        {draft !== null && draft !== text && (
+        <span className={css.actionGroup}>
+          {draft !== null && draft !== text && (
+            <button
+              type="button"
+              className={css.action}
+              data-notes-save
+              onClick={() => { commands.saveText(material.id, draft) }}
+            >
+              {t('detail.save')}
+            </button>
+          )}
+          {/* Nothing to copy would replace the clipboard with an empty string. */}
+          {shown !== '' && (
+            <button
+              type="button"
+              className={css.action}
+              data-notes-copy
+              onClick={copy}
+            >
+              {copied ? t('detail.copied') : t('detail.copy')}
+            </button>
+          )}
+          {/* The Host submits a material once, so a submitted one offers no
+              analysis: the control would report success while sending nothing. */}
+          {!material.submitted && (
+            <button
+              type="button"
+              className={css.action}
+              data-notes-analyze
+              onClick={() => { commands.analyze(material.id) }}
+            >
+              {t('detail.analyze')}
+            </button>
+          )}
           <button
             type="button"
             className={css.action}
-            data-notes-save
-            onClick={() => { commands.saveText(material.id, draft) }}
+            data-notes-archive
+            onClick={() => { commands.archive(material.id) }}
           >
-            {t('detail.save')}
+            {t('detail.archive')}
           </button>
-        )}
-        {/* Nothing to copy would replace the clipboard with an empty string. */}
-        {shown !== '' && (
           <button
             type="button"
             className={css.action}
-            data-notes-copy
-            onClick={copy}
+            data-notes-remove
+            onClick={() => { commands.remove(material.id) }}
           >
-            {copied ? t('detail.copied') : t('detail.copy')}
+            {t('detail.remove')}
           </button>
-        )}
-        {/* The Host submits a material once, so a submitted one offers no
-            analysis: the control would report success while sending nothing. */}
-        {!material.submitted && (
-          <button
-            type="button"
-            className={css.action}
-            data-notes-analyze
-            onClick={() => { commands.analyze(material.id) }}
-          >
-            {t('detail.analyze')}
-          </button>
-        )}
-        <button
-          type="button"
-          className={css.action}
-          data-notes-archive
-          onClick={() => { commands.archive(material.id) }}
-        >
-          {t('detail.archive')}
-        </button>
-        <button
-          type="button"
-          className={css.action}
-          data-notes-remove
-          onClick={() => { commands.remove(material.id) }}
-        >
-          {t('detail.remove')}
-        </button>
+        </span>
       </div>
       {material.error !== null && <p className={css.failure} data-notes-material-error>{material.error}</p>}
-      <Thread
-        id={material.id}
-        thread={thread}
-        loading={threadLoading}
-        failure={threadFailure}
-        askable={material.submitted}
-        commands={commands}
-        labels={labels}
-        t={t}
-      />
+      <section className={css.section}>
+        <h3 className={css.sectionTitle}>{t('detail.section.thread')}</h3>
+        <Thread
+          id={material.id}
+          thread={thread}
+          loading={threadLoading}
+          failure={threadFailure}
+          askable={material.submitted}
+          commands={commands}
+          labels={labels}
+          t={t}
+        />
+      </section>
     </section>
   )
 }

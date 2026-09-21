@@ -1,15 +1,18 @@
 /*
- * One material's detail: a source strip, what its action will submit, its body,
- * its actions, and its thread. It fills the pane's second column and scrolls on
- * its own, so the list keeps its place while the reader moves down an answer.
- * The sheet paints elevated surfaces (the editor and the action template), so
- * its scroll container rebinds the bar to the l2 pair.
+ * One material's detail: titled sections for the source strip, the action
+ * template, the body, and the thread. It fills the pane's second column and
+ * scrolls on its own, so the list keeps its place while the reader moves down
+ * an answer. The sheet paints elevated surfaces (the editor and the action
+ * template), so its scroll container rebinds the bar to the l2 pair.
+ *
+ * Type follows the theme ladder (`--dsw-font-*`, which pairs every size with
+ * its line height); the ladder has no 10px step.
  */
 .detail {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   min-width: 0;
   min-height: 0;
   padding: 10px;
@@ -18,11 +21,24 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .source {
   display: flex;
   gap: 8px;
   align-items: baseline;
-  font-size: 11px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -40,7 +56,7 @@
 .locate {
   flex: none;
   padding: 1px 6px;
-  font-size: 11px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-secondary);
   background: var(--dsw-alias-button-tool-bar-fill);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -54,36 +70,67 @@
 
 .locateHint {
   margin: 0;
-  font-size: 11px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The template card is one button: collapsed it shows the prompt's first
+   line, and a press anywhere on it toggles the full text. */
 .template {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: 4px;
+  padding: 8px 10px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   background: var(--dsw-alias-bg-layer-2);
-  border-radius: 6px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
-.templateLabel {
-  font-size: 10px;
-  color: var(--dsw-alias-label-tertiary);
+.template:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.template:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
 }
 
 .templateText {
-  margin: 0;
-  font-size: 12px;
+  overflow: hidden;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-secondary);
   white-space: pre-wrap;
+}
+
+.template[aria-expanded='false'] .templateText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.templateToggle {
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .body {
   margin: 0;
-  font-size: 13px;
+  font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-secondary);
   white-space: pre-wrap;
+}
+
+/* A submitted body is read-only record, so it sits on a hairline card. */
+.bodyCard {
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
 }
 
 .editor {
@@ -91,8 +138,7 @@
   width: 100%;
   min-height: 96px;
   padding: 8px;
-  font: inherit;
-  font-size: 13px;
+  font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -102,21 +148,23 @@
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
 
-.status {
-  font-size: 11px;
-  color: var(--dsw-alias-label-tertiary);
+.actionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
 }
 
 /* The marker a submission that carried an image draws beside its text. */
 .rowImage {
   margin-left: 6px;
   padding: 0 4px;
-  font-size: 10px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 4px;
@@ -124,7 +172,7 @@
 
 .action {
   padding: 4px 10px;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-button-tool-bar-fill);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -138,41 +186,41 @@
 
 .failure {
   margin: 0;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-state-error-primary);
 }
 
 .thread {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 8px;
 }
 
 .pending {
   margin: 0;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Thread rows follow the conversation's convention: the reader's own rows
+   are bubbles, the model's rows are flat prose. */
 .user,
 .assistant {
   margin: 0;
-  padding: 8px 10px;
-  font-size: 13px;
+  font: var(--dsw-font-xs-13);
   white-space: pre-wrap;
-  border-radius: 8px;
 }
 
 .user {
-  color: var(--dsw-alias-label-secondary);
-  background: var(--dsw-alias-bg-layer-3);
+  padding: 10px 16px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-specific-bubble);
+  border-radius: 22px;
 }
 
 .assistant {
+  padding: 2px 0;
   color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-bg-layer-2);
-  border: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .ask {
@@ -185,8 +233,7 @@
   flex: 1;
   min-width: 0;
   padding: 6px 8px;
-  font: inherit;
-  font-size: 13px;
+  font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -196,7 +243,7 @@
 .send {
   flex: none;
   padding: 6px 12px;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-primary-foreground);
   background: var(--dsw-alias-button-primary-fill);
   border: none;

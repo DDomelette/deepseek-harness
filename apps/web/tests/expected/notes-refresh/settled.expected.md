@@ -12,12 +12,15 @@
 - list:
   - listitem:
     - 'button "Saved passage Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop. Chat"'
+- heading "Source" [level=3]
 - text: Saved passage Chat
+- heading "Material text" [level=3]
 - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
 - text: Analyzed
 - button "Copy"
 - button "Archive"
 - button "Delete"
+- heading "Conversation" [level=3]
 - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
 - paragraph: DONE
 - textbox "Ask"
