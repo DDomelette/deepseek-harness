@@ -168,6 +168,9 @@ describe('notes panel', () => {
     render(<NotesPanel {...bench.props()} />)
     await waitFor(() => { expect(screen.getByText('row body')).toBeDefined() })
 
+    // Nothing opened yet: the detail side says what it is for.
+    expect(document.querySelector('[data-notes-detail-empty]')?.textContent).toContain('detail.empty')
+
     fireEvent.click(screen.getByText('source.chat'))
 
     await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).not.toBeNull() })
@@ -176,6 +179,7 @@ describe('notes panel', () => {
     fireEvent.click(screen.getByLabelText('detail.back'))
 
     await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).toBeNull() })
+    expect(document.querySelector('[data-notes-detail-empty]')).not.toBeNull()
   })
 
   it('keeps an unsaved draft with the material it was typed in', async () => {
