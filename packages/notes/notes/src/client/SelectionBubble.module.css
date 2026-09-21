@@ -1,11 +1,18 @@
 /*
  * The bubble over a selection: a dark row of actions anchored above the text
- * the reader selected. It is positioned in viewport coordinates, so the layer
- * it lives in needs no positioning of its own.
+ * the reader selected, flipping below when the space above is too short. It is
+ * positioned in viewport coordinates, so the layer it lives in needs no
+ * positioning of its own.
+ *
+ * Layering: the bubble is conversation chrome, so it sits above the frame's
+ * overlay layer (z-index 20, ui-layout AppFrame) and the docked right panel
+ * (10), and below floating windows (60, ui-dockkit FloatLayer) and tooltip
+ * chrome (100, ui-primitives) — a window the reader placed must not have the
+ * conversation's transient chrome paint over it.
  */
 .bubble {
   position: fixed;
-  z-index: 70;
+  z-index: 30;
   display: flex;
   gap: 2px;
   align-items: center;
@@ -15,6 +22,10 @@
   border-radius: 8px;
   box-shadow: var(--dsw-shadow-lv2);
   transform: translate(-50%, calc(-100% - 8px));
+}
+
+.bubble[data-notes-bubble-side='below'] {
+  transform: translate(-50%, 0);
 }
 
 .action {
