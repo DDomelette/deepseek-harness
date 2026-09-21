@@ -4,7 +4,7 @@
  *
  * A row carries its state, where it came from, its own text, and the
  * collection action that produced it; the handles that archive it and drag it
- * appear while the row is under the pointer. The drop line marks where a
+ * appear while the row is hovered or focused. The drop line marks where a
  * dragged row would land, and the order it produces is the complete list the
  * Host's reorder takes — never a pair of neighbours, so a drop cannot depend on
  * what the list looked like when the drag began.
