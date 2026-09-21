@@ -281,7 +281,9 @@ describe('notes panel', () => {
     const docked = harness()
     render(<NotesPanel {...docked.props()} />)
     fireEvent.click(screen.getByLabelText('panel.float'))
-    expect(docked.frame.float).toHaveBeenCalledExactlyOnceWith('tab-1')
+    expect(docked.frame.float).toHaveBeenCalledExactlyOnceWith('tab-1', {
+      x: 360, y: 144, width: 640, height: 480,
+    })
     cleanup()
 
     const floating = harness({ floating: true })

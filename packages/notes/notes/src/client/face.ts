@@ -9,7 +9,7 @@
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+import type { FloatRect, PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import type {
@@ -144,13 +144,36 @@ export interface NotesPaneFace {
   /**
    * Take the tab out into a floating panel.
    * @param tabId - the tab to float.
+   * @param rect - the panel's rectangle in viewport coordinates; defaults to the frame's cascade.
    */
-  float(tabId: TabId): void
+  float(tabId: TabId, rect?: FloatRect): void
   /**
    * Return a floating panel's tab to the docked column.
    * @param paneId - the floating pane.
    */
   dock(paneId: PaneId): void
+}
+
+/** The size a floated notes window opens at, and its distance from the viewport's edges. */
+const FLOAT_OPEN = { width: 640, height: 480, margin: 24 } as const
+
+/**
+ * The rectangle a floated notes window opens at: its own size clamped to the
+ * viewport, against the right edge the docked column just left and centered
+ * vertically. The dockkit cascade default (380×300 at the top-left) is smaller
+ * than the panel's two-column layout and lands over the left sidebar.
+ * @param viewport - the browser viewport's size in CSS pixels.
+ * @returns the opening rectangle in viewport coordinates.
+ */
+export function notesFloatRect(viewport: { readonly width: number; readonly height: number }): FloatRect {
+  const width = Math.min(FLOAT_OPEN.width, viewport.width - FLOAT_OPEN.margin * 2)
+  const height = Math.min(FLOAT_OPEN.height, viewport.height - FLOAT_OPEN.margin * 2)
+  return {
+    x: viewport.width - width - FLOAT_OPEN.margin,
+    y: (viewport.height - height) / 2,
+    width,
+    height,
+  }
 }
 
 /** The commands the panel's body calls. */
@@ -181,7 +204,7 @@ export interface NotesInjected {
   readonly restore: (id: MaterialId) => void
   /** Apply a complete manual ordering to the shown conversation. */
   readonly reorder: (orderedIds: readonly MaterialId[]) => void
-  /** Move the panel between its docked and floating presentations. */
+  /** Move the panel between its docked and floating presentations; the window opens at `notesFloatRect`. */
   readonly present: (tab: TabId, pane: PaneId, floating: boolean) => void
   /** Read the notes settings section once, for the settings card. */
   readonly readSettings: () => void
@@ -443,7 +466,7 @@ export function notesFace(
     },
     present: (tab, pane, floating) => {
       if (floating) frame.dock(pane)
-      else frame.float(tab)
+      else frame.float(tab, notesFloatRect({ width: window.innerWidth, height: window.innerHeight }))
     },
     readSettings: () => {
       void readSettings(false)
