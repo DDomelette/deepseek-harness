@@ -301,6 +301,22 @@ describe('material detail', () => {
       .toContain('不改变语句结构，翻译下列内容：')
   })
 
+  it('folds the action template to one line until the reader expands it', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'translate' }), {
+      actions: [translate],
+    })
+
+    const card = document.querySelector('[data-notes-action-template="translate"]') as Element
+    expect(card.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByText('detail.templateExpand')).toBeDefined()
+
+    fireEvent.click(card)
+
+    expect(card.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('detail.templateCollapse')).toBeDefined()
+  })
+
   it('echoes nothing for an action the configuration dropped', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'gone' }), {
