@@ -1,19 +1,22 @@
 /**
- * One material's detail: where it came from, what its action will submit, its
+ * One material's detail: its title and state, what its action will submit, its
  * own text, what the model answered, and the actions a reader takes on it.
  *
- * The pane reads as titled sections — source, action template, body, thread —
- * so its kinds of content never blend into one column of undifferentiated
- * text. The template card collapses to its first line until the reader opens
- * it. The text is editable until the material entered its conversation and
- * read-only afterwards, because the session log carries the submitted body and
- * the Host refuses to rewrite the record. The draft lives here rather than in
- * the store: leaving the detail discards an unsaved edit, which is what a
+ * The pane's head names the material and holds its chrome: the status tag, the
+ * source disclosure, and the menu of row-level actions (copy, archive,
+ * delete). The body section keeps only the body — editable until the material
+ * entered its conversation, because the session log carries the submitted body
+ * and the Host refuses to rewrite the record; the draft's save and submit
+ * controls sit with the editor they act on. The draft lives here rather than
+ * in the store: leaving the detail discards an unsaved edit, which is what a
  * reader expects from a pane they navigated away from.
  */
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, MarkdownText, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconChevronDownOutline14, IconEllipsisOutline16, MarkdownText, Menu, RiskConfirmation, Tag,
+  writeClipboard,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
@@ -94,6 +97,10 @@ export function MaterialDetail({
   const [copied, setCopied] = useState(false)
   const [locating, setLocating] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
+  const [sourceOpen, setSourceOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [removeAcknowledged, setRemoveAcknowledged] = useState(false)
   // Stable per locale revision: a fresh labels object per render would rebuild
   // MarkdownText's component table on every keystroke of the editor below.
   const labels = useMemo(() => markdownLabels(t), [t])
@@ -108,13 +115,67 @@ export function MaterialDetail({
       window.setTimeout(() => { setCopied(false) }, COPIED_MS)
     })
   }
+  const menuItems = [
+    // Nothing to copy would replace the clipboard with an empty string.
+    ...shown === '' ? [] : [{ id: 'copy', label: t('detail.copy') }],
+    ...material.archivedAt === null
+      ? [{ id: 'archive', label: t('detail.archive') }]
+      : [{ id: 'restore', label: t('panel.restore') }],
+    { id: 'remove', label: t('detail.remove'), danger: true as const },
+  ]
+  const menuSelect = (id: string): void => {
+    setMenuOpen(false)
+    /* v8 ignore next 3 -- Menu can emit only the ids menuItems supplies. */
+    if (id !== 'copy' && id !== 'archive' && id !== 'restore' && id !== 'remove') return
+    if (id === 'copy') copy()
+    else if (id === 'archive') commands.archive(material.id)
+    else if (id === 'restore') commands.restore(material.id)
+    else setRemoving(true)
+  }
   return (
     <section className={css.detail} data-notes-detail={material.id}>
-      {/* The pane's head names the material the way its list row does. */}
-      <h2 className={css.detailTitle} data-notes-material-title>{materialTitle(material)}</h2>
-      <section className={css.section}>
-        <h3 className={css.sectionTitle}>{t('detail.section.source')}</h3>
-        <div className={css.source} data-notes-source>
+      <div className={css.head}>
+        {/* The pane's head names the material the way its list row does. */}
+        <h2 className={css.detailTitle} data-notes-material-title>{materialTitle(material)}</h2>
+        <span className={css.headStatus} data-notes-status={material.status}>
+          <Tag tone="quiet">{t(STATUS_LINES[material.status])}</Tag>
+        </span>
+        <span className={css.headActions}>
+          {copied && <span className={css.copiedNote} data-notes-copied>{t('detail.copied')}</span>}
+          <Button
+            size="sm"
+            variant="outline"
+            aria-expanded={sourceOpen}
+            data-notes-source-toggle
+            onClick={() => { setSourceOpen(open => !open) }}
+          >
+            {t('detail.sourceToggle')}
+            <IconChevronDownOutline14 />
+          </Button>
+          <Menu
+            open={menuOpen}
+            anchor={(
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={t('list.rowMenu')}
+                data-notes-detail-menu
+                onClick={() => { setMenuOpen(open => !open) }}
+              >
+                <IconEllipsisOutline16 />
+              </Button>
+            )}
+            items={menuItems}
+            onSelect={menuSelect}
+            onClose={() => { setMenuOpen(false) }}
+            align="end"
+            portal
+            dense
+          />
+        </span>
+      </div>
+      {sourceOpen && (
+        <div className={css.sourceCard} data-notes-source>
           <span className={css.sourceLabel}>{material.source.label}</span>
           <span className={css.sourceView}>
             {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
@@ -131,9 +192,9 @@ export function MaterialDetail({
               {t('detail.locate')}
             </Button>
           )}
+          {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
         </div>
-        {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
-      </section>
+      )}
       {action !== undefined && (
         <section className={css.section}>
           <h3 className={css.sectionTitle}>{t('detail.actionTemplate')}</h3>
@@ -177,65 +238,33 @@ export function MaterialDetail({
                 onChange={(event) => { setDraft(event.target.value) }}
               />
             )}
-      </section>
-      <div className={css.actions}>
-        <span data-notes-status={material.status}>
-          <Tag tone="quiet">{t(STATUS_LINES[material.status])}</Tag>
-        </span>
-        <span className={css.actionGroup}>
-          {draft !== null && draft !== text && (
+        {/* A draft's own lifecycle controls sit with the body they act on;
+            row-level actions live in the head's menu. */}
+        {!material.submitted && (
+          <div className={css.bodyFoot}>
+            {draft !== null && draft !== text && (
+              <Button
+                size="sm"
+                variant="outline"
+                data-notes-save
+                onClick={() => { commands.saveText(material.id, draft) }}
+              >
+                {t('detail.save')}
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="outline"
-              data-notes-save
-              onClick={() => { commands.saveText(material.id, draft) }}
-            >
-              {t('detail.save')}
-            </Button>
-          )}
-          {/* Nothing to copy would replace the clipboard with an empty string. */}
-          {shown !== '' && (
-            <Button
-              size="sm"
-              variant="outline"
-              data-notes-copy
-              onClick={copy}
-            >
-              {copied ? t('detail.copied') : t('detail.copy')}
-            </Button>
-          )}
-          {/* The Host submits a material once, so a submitted one offers no
-              analysis: the control would report success while sending nothing. */}
-          {!material.submitted && (
-            <Button
-              size="sm"
-              variant="outline"
+              variant="primary"
               data-notes-analyze
               onClick={() => { commands.analyze(material.id) }}
             >
               {t('detail.analyze')}
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            data-notes-archive
-            onClick={() => { commands.archive(material.id) }}
-          >
-            {t('detail.archive')}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            data-notes-remove
-            onClick={() => { commands.remove(material.id) }}
-          >
-            {t('detail.remove')}
-          </Button>
-        </span>
-      </div>
+          </div>
+        )}
+      </section>
       {material.error !== null && <p className={css.failure} data-notes-material-error>{material.error}</p>}
-      <section className={css.section}>
+      <section className={css.threadSection}>
         <h3 className={css.sectionTitle}>{t('detail.section.thread')}</h3>
         <Thread
           id={material.id}
@@ -248,6 +277,22 @@ export function MaterialDetail({
           t={t}
         />
       </section>
+      <RiskConfirmation
+        open={removing}
+        title={t('detail.removeTitle')}
+        description={t('detail.removeDescription')}
+        acknowledgeLabel={t('detail.removeAcknowledge')}
+        cancelLabel={t('list.cancel')}
+        closeLabel={t('list.cancel')}
+        confirmLabel={t('detail.remove')}
+        acknowledged={removeAcknowledged}
+        onAcknowledgedChange={setRemoveAcknowledged}
+        onCancel={() => {
+          setRemoving(false)
+          setRemoveAcknowledged(false)
+        }}
+        onConfirm={() => { commands.remove(material.id) }}
+      />
     </section>
   )
 }
@@ -268,22 +313,27 @@ function Thread({ id, thread, loading, failure, askable, commands, labels, t }: 
   const asked = question.trim() !== ''
   return (
     <div className={css.thread} data-notes-thread>
-      {loading && <p className={css.pending}>{t('detail.threadLoading')}</p>}
-      {failure !== undefined && (
-        <p className={css.failure} data-notes-thread-failure={failure.code}>{failureLine(t, failure)}</p>
-      )}
-      {thread.map(row => (
-        <div key={row.seq} className={css[row.role]} data-notes-row={row.role}>
-          {/* Both sides render as Markdown: a collected passage is as likely to
-              be Markdown as the answer it produced, and the thread reads as one
-              document rather than two vocabularies. */}
-          <MarkdownText text={row.text} labels={labels} />
-          {row.hasImage && <span className={css.rowImage} data-notes-row-image>{t('source.image')}</span>}
-        </div>
-      ))}
-      {!loading && failure === undefined && thread.length === 0 && (
-        <p className={css.pending} data-notes-thread-empty>{t('detail.threadEmpty')}</p>
-      )}
+      <div className={css.threadRows}>
+        {loading && <p className={css.pending}>{t('detail.threadLoading')}</p>}
+        {failure !== undefined && (
+          <p className={css.failure} data-notes-thread-failure={failure.code}>{failureLine(t, failure)}</p>
+        )}
+        {thread.map(row => (
+          <div key={row.seq} className={css[row.role]} data-notes-row={row.role}>
+            {/* The model's rows carry a role label: an answer quoting the body
+                must not read as part of it. */}
+            {row.role === 'assistant' && <span className={css.rowRole}>{t('detail.threadAnswer')}</span>}
+            {/* Both sides render as Markdown: a collected passage is as likely to
+                be Markdown as the answer it produced, and the thread reads as one
+                document rather than two vocabularies. */}
+            <MarkdownText text={row.text} labels={labels} />
+            {row.hasImage && <span className={css.rowImage} data-notes-row-image>{t('source.image')}</span>}
+          </div>
+        ))}
+        {!loading && failure === undefined && thread.length === 0 && (
+          <p className={css.pending} data-notes-thread-empty>{t('detail.threadEmpty')}</p>
+        )}
+      </div>
       {askable && (
         <form
           className={css.ask}
