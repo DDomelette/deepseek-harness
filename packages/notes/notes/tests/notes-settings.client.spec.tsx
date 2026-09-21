@@ -239,19 +239,47 @@ describe('notes settings card', () => {
     expect(screen.getByLabelText<HTMLTextAreaElement>('settings.actionPromptInput').value).toBe('保存：')
   })
 
-  it('saves the workspace, and clears it when the field is emptied', async () => {
+  it('saves the workspace when the field commits, and clears it when emptied', async () => {
     const bench = harness()
     const save = vi.spyOn(bench.props(), 'saveSettings')
     await opened(bench)
 
     const field = screen.getByLabelText('settings.workspace')
     fireEvent.change(field, { target: { value: '/work/other' } })
-    fireEvent.click(screen.getByText('settings.saveWorkspace'))
+    fireEvent.blur(field)
     expect(save).toHaveBeenCalledExactlyOnceWith({ workspace: '/work/other' })
 
     fireEvent.change(field, { target: { value: '' } })
-    fireEvent.click(screen.getByText('settings.saveWorkspace'))
+    fireEvent.blur(field)
     expect(save).toHaveBeenLastCalledWith({ workspace: null })
+  })
+
+  it('trims the workspace and commits on Enter, writing nothing while unchanged', async () => {
+    const bench = harness()
+    const save = vi.spyOn(bench.props(), 'saveSettings')
+    await opened(bench)
+
+    const field = screen.getByLabelText('settings.workspace')
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(save).not.toHaveBeenCalled()
+
+    fireEvent.change(field, { target: { value: '  /work/other  ' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(save).toHaveBeenCalledExactlyOnceWith({ workspace: '/work/other' })
+  })
+
+  it('writes only Enter, and commits against a section with no stored directory', async () => {
+    const bench = harness({ settings: () => settings({ workspace: null }) })
+    const save = vi.spyOn(bench.props(), 'saveSettings')
+    await opened(bench)
+
+    const field = screen.getByLabelText('settings.workspace')
+    fireEvent.keyDown(field, { key: 'a' })
+    expect(save).not.toHaveBeenCalled()
+
+    fireEvent.change(field, { target: { value: '/work/fresh' } })
+    fireEvent.blur(field)
+    expect(save).toHaveBeenCalledExactlyOnceWith({ workspace: '/work/fresh' })
   })
 
   it('offers the deployment\'s configured models, grouped by provider', async () => {
@@ -271,17 +299,21 @@ describe('notes settings card', () => {
     await opened(bench)
     await modelsRead(bench)
 
+    // A pick is a decision, so it writes without another control.
     fireEvent.change(screen.getByLabelText('settings.modelPick'), { target: { value: 'deepseek-official/deepseek-flash' } })
+    expect(save).toHaveBeenLastCalledWith({
+      model: { provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: null },
+    })
     // Only a model that declares efforts offers the second picker.
     const effort = screen.getByLabelText<HTMLSelectElement>('settings.effort')
     expect([...effort.options].map(option => option.textContent))
       .toEqual(['settings.effortDefault', 'High', 'Max'])
     fireEvent.change(effort, { target: { value: 'max' } })
-    fireEvent.click(document.querySelector('[data-notes-save-model]') as Element)
 
-    expect(save).toHaveBeenCalledExactlyOnceWith({
+    expect(save).toHaveBeenLastCalledWith({
       model: { provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'max' },
     })
+    expect(save).toHaveBeenCalledTimes(2)
   })
 
   it('offers no effort picker for a model that declares none', async () => {
@@ -307,10 +339,8 @@ describe('notes settings card', () => {
     expect(screen.getByLabelText<HTMLSelectElement>('settings.modelPick').value)
       .toBe('deepseek-official/deepseek-flash')
     expect(screen.getByLabelText<HTMLSelectElement>('settings.effort').value).toBe('high')
-    expect(document.querySelector('[data-notes-save-model]')?.hasAttribute('disabled')).toBe(true)
 
     fireEvent.change(screen.getByLabelText('settings.effort'), { target: { value: '' } })
-    fireEvent.click(document.querySelector('[data-notes-save-model]') as Element)
 
     expect(save).toHaveBeenCalledExactlyOnceWith({
       model: { provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: null },
@@ -326,7 +356,6 @@ describe('notes settings card', () => {
     await modelsRead(bench)
 
     fireEvent.change(screen.getByLabelText('settings.modelPick'), { target: { value: '' } })
-    fireEvent.click(document.querySelector('[data-notes-save-model]') as Element)
 
     expect(save).toHaveBeenCalledExactlyOnceWith({ model: null })
   })
@@ -360,6 +389,7 @@ describe('notes settings card', () => {
 
   it('fills the directory field from the host\'s chooser', async () => {
     const bench = harness()
+    const save = vi.spyOn(bench.props(), 'saveSettings')
     await opened(bench)
 
     fireEvent.click(screen.getByLabelText('settings.browse'))
@@ -368,6 +398,8 @@ describe('notes settings card', () => {
       expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work/chosen')
     })
     expect(bench.directoryPicker.pick).toHaveBeenCalledTimes(1)
+    // A picked directory is a deliberate value, so it saves on the pick.
+    expect(save).toHaveBeenCalledExactlyOnceWith({ workspace: '/work/chosen' })
   })
 
   it('keeps what the reader typed when the chooser is cancelled', async () => {
@@ -401,6 +433,7 @@ describe('notes settings card', () => {
 
   it('descends, goes back up, and takes the level it stands in', async () => {
     const bench = harness()
+    const save = vi.spyOn(bench.props(), 'saveSettings')
     bench.directoryPicker.pick.mockResolvedValue({ ok: false, error: unavailable('no chooser') })
     bench.directoryPicker.list.mockImplementation(async path => ({
       ok: true,
@@ -429,8 +462,9 @@ describe('notes settings card', () => {
 
     fireEvent.click(document.querySelector('[data-notes-browse-choose]') as Element)
 
-    // Taking a level fills the field and closes the browser.
+    // Taking a level fills the field, saves it, and closes the browser.
     expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work')
+    expect(save).toHaveBeenCalledWith({ workspace: '/work' })
     expect(document.querySelector('[data-notes-browser]')).toBeNull()
   })
 

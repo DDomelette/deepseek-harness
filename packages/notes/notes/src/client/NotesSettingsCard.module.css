@@ -1,7 +1,11 @@
 /*
  * The settings card's body: one section per editable field, then the read-only
  * list of collection actions. It sits inside ui-primitives' Modal, so it owns
- * no chrome of its own.
+ * no chrome of its own. Its buttons are the shared ui-primitives Button; what
+ * remains here is layout, fields, and the directory browser's row recipe.
+ *
+ * Type follows the theme ladder (`--dsw-font-*`, which pairs every size with
+ * its line height).
  */
 .card {
   display: flex;
@@ -19,8 +23,7 @@
 
 .heading {
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
+  font: var(--dsw-font-xxs-strong-12);
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -34,8 +37,7 @@
   box-sizing: border-box;
   width: 100%;
   padding: 6px 8px;
-  font: inherit;
-  font-size: 13px;
+  font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -46,22 +48,6 @@
   display: flex;
   gap: 6px;
   align-items: center;
-}
-
-.browse {
-  flex: none;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--dsw-alias-label-primary);
-  white-space: nowrap;
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.browse:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .browser {
@@ -76,7 +62,7 @@
 
 .browserPath {
   margin: 0;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-secondary);
   overflow-wrap: anywhere;
 }
@@ -92,11 +78,11 @@
   list-style: none;
 }
 
+/* Directory rows are a list, not buttons: full-width, left-aligned, quiet. */
 .browserEntry {
   width: 100%;
   padding: 4px 6px;
-  font: inherit;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-primary);
   text-align: left;
   background: none;
@@ -114,54 +100,14 @@
   gap: 6px;
 }
 
+/* The add control is one small seat in a column of full-width fields. */
 .addFeature {
   align-self: flex-start;
-  padding: 4px 10px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--dsw-alias-label-primary);
-  text-align: center;
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.addFeature:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.choice,
-.action {
-  align-self: flex-start;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.choice[aria-pressed='true'] {
-  color: var(--dsw-alias-label-primary-foreground);
-  background: var(--dsw-alias-button-primary-fill);
-}
-
-.choice:hover,
-.action:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.action:disabled {
-  cursor: default;
-  opacity: 0.5;
 }
 
 .actionPrompt {
   composes: field;
   min-height: 44px;
-  font-size: 12px;
   resize: vertical;
 }
 
@@ -179,12 +125,12 @@
 
 .line {
   margin: 0;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
 }
 
 .failure {
   margin: 0;
-  font-size: 12px;
+  font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-state-error-primary);
 }

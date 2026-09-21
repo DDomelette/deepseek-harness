@@ -4,6 +4,9 @@
  *
  * The card edits one field at a time and writes only what changed, so two
  * readers on the same document cannot overwrite each other's unrelated fields.
+ * A control saves the moment its value is decided — choices on the pick, the
+ * directory field on blur or Enter — except the feature editor, which writes a
+ * whole list entry from two fields and keeps an explicit save.
  * The selection-feature list is the exception: the editor holds one feature and
  * writes the complete list, because the list is one document value and an
  * index-addressed write would drift as soon as it changes shape. The model and
@@ -14,7 +17,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
-import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesSettingsView } from '../types.ts'
 import { failureLine } from './failure-line.ts'
@@ -109,22 +112,40 @@ function SettingsForm({ settings, commands, t }: {
     const chosen = await commands.pickDirectory()
     if (chosen.kind === 'picked') {
       setWorkspace(chosen.path)
+      // A picked directory is a deliberate value, so it saves on the pick.
+      commands.saveSettings({ workspace: chosen.path })
       return
     }
     if (chosen.kind === 'cancelled') return
     await readLevel(null)
   }
-  /** Write the model route and effort the pickers show. */
-  const saveModel = (): void => {
-    if (picked === undefined) {
+  /**
+   * Write the directory field. The field is free text, so it commits on blur
+   * or Enter rather than on every keystroke; a blank-after-trim value unsets
+   * the directory, matching the explicit clear the save button had.
+   */
+  const commitWorkspace = (): void => {
+    const trimmed = workspace.trim()
+    if (trimmed === (settings.workspace ?? '')) return
+    commands.saveSettings({ workspace: trimmed === '' ? null : trimmed })
+  }
+  /**
+   * Write the model route and effort the pickers show; the pickers are
+   * discrete choices, so a change saves immediately.
+   * @param key - the picker key (`provider/model`), or '' for the session default.
+   * @param effortValue - the effort pick, or '' for the route's own default.
+   */
+  const saveModel = (key: string, effortValue: string): void => {
+    const route = findModel(catalog, key)
+    if (route === undefined) {
       commands.saveSettings({ model: null })
       return
     }
     commands.saveSettings({
       model: {
-        provider: picked.group,
-        model: picked.id,
-        reasoningEffort: effort === '' ? null : effort,
+        provider: route.group,
+        model: route.id,
+        reasoningEffort: effortValue === '' ? null : effortValue,
       },
     })
   }
@@ -162,16 +183,16 @@ function SettingsForm({ settings, commands, t }: {
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.strategy')}</h3>
         {(['manual', 'auto'] as const).map(option => (
-          <button
+          <Button
             key={option}
-            type="button"
-            className={css.choice}
+            size="sm"
+            variant={settings.strategy === option ? 'primary' : 'outline'}
             aria-pressed={settings.strategy === option}
             data-notes-strategy={option}
             onClick={() => { commands.saveSettings({ strategy: option }) }}
           >
             {t(option === 'manual' ? 'settings.strategyManual' : 'settings.strategyAuto')}
-          </button>
+          </Button>
         ))}
       </section>
       <section className={css.section}>
@@ -183,16 +204,20 @@ function SettingsForm({ settings, commands, t }: {
             data-notes-workspace
             value={workspace}
             onChange={(event) => { setWorkspace(event.target.value) }}
+            onBlur={commitWorkspace}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitWorkspace()
+            }}
           />
-          <button
-            type="button"
-            className={css.browse}
+          <Button
+            size="sm"
+            variant="outline"
             aria-label={t('settings.browse')}
             data-notes-browse
             onClick={() => { void browse() }}
           >
             {t('settings.browse')}
-          </button>
+          </Button>
         </div>
         {browsing !== 'closed' && listed !== undefined && (
           <DirectoryBrowser
@@ -204,19 +229,13 @@ function SettingsForm({ settings, commands, t }: {
             showDrives={() => { setBrowsing('drives') }}
             choose={() => {
               setWorkspace(listed.path)
+              // A level chosen in the browser is deliberate, like a native pick.
+              commands.saveSettings({ workspace: listed.path })
               setBrowsing('closed')
             }}
             close={() => { setBrowsing('closed') }}
           />
         )}
-        <button
-          type="button"
-          className={css.action}
-          data-notes-save-workspace
-          onClick={() => { commands.saveSettings({ workspace: workspace === '' ? null : workspace }) }}
-        >
-          {t('settings.saveWorkspace')}
-        </button>
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.model')}</h3>
@@ -226,9 +245,11 @@ function SettingsForm({ settings, commands, t }: {
           data-notes-model-pick
           value={modelKey}
           onChange={(event) => {
-            setModelKey(event.target.value)
+            const key = event.target.value
+            setModelKey(key)
             // Each route declares its own efforts, so the effort follows the pick.
             setEffort('')
+            saveModel(key, '')
           }}
         >
           <option value="">{t('settings.modelFollow')}</option>
@@ -249,7 +270,10 @@ function SettingsForm({ settings, commands, t }: {
             aria-label={t('settings.effort')}
             data-notes-effort-pick
             value={effort}
-            onChange={(event) => { setEffort(event.target.value) }}
+            onChange={(event) => {
+              setEffort(event.target.value)
+              saveModel(modelKey, event.target.value)
+            }}
           >
             <option value="">{t('settings.effortDefault')}</option>
             {efforts.map(option => (
@@ -257,15 +281,6 @@ function SettingsForm({ settings, commands, t }: {
             ))}
           </select>
         )}
-        <button
-          type="button"
-          className={css.action}
-          data-notes-save-model
-          disabled={modelKey === modelKeyOf(settings.model) && effort === (settings.model?.reasoningEffort ?? '')}
-          onClick={saveModel}
-        >
-          {t('settings.saveModel')}
-        </button>
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.actions')}</h3>
@@ -281,15 +296,16 @@ function SettingsForm({ settings, commands, t }: {
             <option key={action.id} value={action.id}>{action.label}</option>
           ))}
         </select>
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="outline"
           className={css.addFeature}
           aria-label={t('settings.actionAdd')}
           data-notes-add-action
           onClick={addFeature}
         >
           +
-        </button>
+        </Button>
         <input
           className={css.field}
           aria-label={t('settings.actionLabelInput')}
@@ -307,18 +323,20 @@ function SettingsForm({ settings, commands, t }: {
           onChange={(event) => { setPrompt(event.target.value) }}
         />
         <div className={css.actionFoot}>
-          <button
-            type="button"
-            className={css.action}
+          {/* The feature editor writes a whole list entry from two fields, so
+              it keeps an explicit commit; the primary look marks it as one. */}
+          <Button
+            size="sm"
+            variant="primary"
             data-notes-save-action
             disabled={unchanged || blank}
             onClick={saveFeature}
           >
             {t('settings.saveAction')}
-          </button>
+          </Button>
           {current !== undefined && (
             <span className={css.actionFlags}>
-              {current.autoSend ? t('settings.autoSend') : t('settings.manualSend')}
+              <Tag tone="quiet">{current.autoSend ? t('settings.autoSend') : t('settings.manualSend')}</Tag>
             </span>
           )}
         </div>
@@ -370,8 +388,8 @@ function mintActionId(actions: NotesSettingsView['actions']): string {
 /**
  * The directory browser a deployment without a native chooser gets.
  *
- * It shows one level at a time 鈥?the host lists directories and their ancestry,
- * so the card never joins path segments itself 鈥?and the reader descends by
+ * It shows one level at a time — the host lists directories and their ancestry,
+ * so the card never joins path segments itself — and the reader descends by
  * opening a child and chooses by taking the level it is standing in. Hidden
  * entries stay out of the list: the host platform's convention decides which
  * they are, and a configuration field does not need them. A level that is
@@ -416,35 +434,35 @@ function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, clo
       <div className={css.browserActions}>
         {/* Up one level, or on to the volumes where this level is a root. */}
         {view === 'level' && parent !== undefined && (
-          <button
-            type="button"
-            className={css.action}
+          <Button
+            size="sm"
+            variant="outline"
             data-notes-browse-up
             disabled={reading}
             onClick={() => { open(parent.path) }}
           >
             {t('settings.browseUp')}
-          </button>
+          </Button>
         )}
         {view === 'level' && parent === undefined && drives.length > 0 && (
-          <button
-            type="button"
-            className={css.action}
+          <Button
+            size="sm"
+            variant="outline"
             data-notes-browse-drives
             disabled={reading}
             onClick={showDrives}
           >
             {t('settings.browseDrives')}
-          </button>
+          </Button>
         )}
         {view === 'level' && (
-          <button type="button" className={css.action} data-notes-browse-choose onClick={choose}>
+          <Button size="sm" variant="outline" data-notes-browse-choose onClick={choose}>
             {t('settings.browseChoose')}
-          </button>
+          </Button>
         )}
-        <button type="button" className={css.action} data-notes-browse-close onClick={close}>
+        <Button size="sm" variant="outline" data-notes-browse-close onClick={close}>
           {t('settings.browseClose')}
-        </button>
+        </Button>
       </div>
     </div>
   )
