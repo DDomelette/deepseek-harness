@@ -37,7 +37,7 @@
 .source {
   display: flex;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
   font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
 }
@@ -51,21 +51,6 @@
 .sourceView {
   flex: none;
   margin-left: auto;
-}
-
-.locate {
-  flex: none;
-  padding: 1px 6px;
-  font: var(--dsw-font-xxs-12);
-  color: var(--dsw-alias-label-secondary);
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.locate:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .locateHint {
@@ -170,20 +155,6 @@
   border-radius: 4px;
 }
 
-.action {
-  padding: 4px 10px;
-  font: var(--dsw-font-xxs-12);
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.action:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
 .failure {
   margin: 0;
   font: var(--dsw-font-xxs-12);
@@ -238,20 +209,4 @@
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-}
-
-.send {
-  flex: none;
-  padding: 6px 12px;
-  font: var(--dsw-font-xxs-12);
-  color: var(--dsw-alias-label-primary-foreground);
-  background: var(--dsw-alias-button-primary-fill);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.send:disabled {
-  cursor: default;
-  opacity: 0.5;
 }

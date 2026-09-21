@@ -11,8 +11,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, ReactNode } from 'react'
 import {
-  IconArchiveOutline20, IconFullscreenOutline16, IconPanelLeftOutline16, IconPaperclipOutline16,
-  IconPlusOutline16, IconRefreshOutline16, IconSettingsOutline16, Menu, Tooltip,
+  Button, IconArchiveOutline20, IconFullscreenOutline16, IconListPenOutline16,
+  IconPanelLeftOutline16, IconPaperclipOutline16, IconPlusOutline16, IconRefreshOutline16,
+  IconSettingsOutline16, Menu, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   InjectFace, PropsLocale, PropsRuntime, PropsStore,
@@ -304,9 +305,9 @@ export function NotesPanel({
         {state.failure === undefined && active === undefined && (
           <div className={css.empty} data-notes-empty>
             <p className={css.emptyLine}>{t('panel.empty')}</p>
-            <button type="button" className={css.create} data-notes-create onClick={createConversation}>
+            <Button variant="primary" data-notes-create onClick={createConversation}>
               {t('panel.create')}
-            </button>
+            </Button>
           </div>
         )}
         {state.failure === undefined && active !== undefined && (
@@ -333,6 +334,12 @@ export function NotesPanel({
                 commands={commands}
                 t={t}
               />
+            )}
+            {selected === undefined && (
+              <div className={css.detailEmpty} data-notes-detail-empty>
+                <IconListPenOutline16 size={24} />
+                <p className={css.detailEmptyLine}>{t('detail.empty')}</p>
+              </div>
             )}
           </div>
         )}

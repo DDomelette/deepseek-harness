@@ -4,14 +4,14 @@
  *
  * A row carries its state, where it came from, its own text, and the
  * collection action that produced it; the handles that archive it and drag it
- * appear while the row is under the pointer. The drop line marks where a
+ * appear while the row is hovered or focused. The drop line marks where a
  * dragged row would land, and the order it produces is the complete list the
  * Host's reorder takes — never a pair of neighbours, so a drop cannot depend on
  * what the list looked like when the drag began.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MaterialId, NotesActionView, NotesMaterialSummary } from '../types.ts'
 import { actionBadge } from './actions.ts'
@@ -126,15 +126,16 @@ export function MaterialList({
               {row.kind === 'image' ? t('source.image') : t(VIEW_LINES[row.source.view])}
             </span>
           </button>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="outline"
             className={css.handle}
             aria-label={t('panel.archive')}
             data-notes-archive-material={row.id}
             onClick={() => { commands.archive(row.id) }}
           >
             {t('panel.archive')}
-          </button>
+          </Button>
         </li>
       ))}
       {materials.length === 0 && (

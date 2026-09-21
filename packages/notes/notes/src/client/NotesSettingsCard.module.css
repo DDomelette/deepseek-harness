@@ -115,6 +115,7 @@
 }
 
 .addFeature {
+  align-self: flex-start;
   padding: 4px 10px;
   font-size: 14px;
   line-height: 1;
@@ -155,25 +156,6 @@
 .action:disabled {
   cursor: default;
   opacity: 0.5;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.actionRow {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px;
-  font-size: 12px;
-  background: var(--dsw-alias-bg-layer-2);
-  border-radius: 6px;
 }
 
 .actionPrompt {
