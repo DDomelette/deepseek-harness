@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MarkdownText, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, MarkdownText, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
@@ -119,14 +119,14 @@ export function MaterialDetail({
           {/* A material collected from the panel records no row, so it offers no
               entry that could never point anywhere. */}
           {locatable(material.source) && (
-            <button
-              type="button"
-              className={css.locate}
+            <Button
+              size="sm"
+              variant="outline"
               data-notes-locate
               onClick={() => { setLocating(true) }}
             >
               {t('detail.locate')}
-            </button>
+            </Button>
           )}
         </div>
         {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
@@ -181,54 +181,54 @@ export function MaterialDetail({
         </span>
         <span className={css.actionGroup}>
           {draft !== null && draft !== text && (
-            <button
-              type="button"
-              className={css.action}
+            <Button
+              size="sm"
+              variant="outline"
               data-notes-save
               onClick={() => { commands.saveText(material.id, draft) }}
             >
               {t('detail.save')}
-            </button>
+            </Button>
           )}
           {/* Nothing to copy would replace the clipboard with an empty string. */}
           {shown !== '' && (
-            <button
-              type="button"
-              className={css.action}
+            <Button
+              size="sm"
+              variant="outline"
               data-notes-copy
               onClick={copy}
             >
               {copied ? t('detail.copied') : t('detail.copy')}
-            </button>
+            </Button>
           )}
           {/* The Host submits a material once, so a submitted one offers no
               analysis: the control would report success while sending nothing. */}
           {!material.submitted && (
-            <button
-              type="button"
-              className={css.action}
+            <Button
+              size="sm"
+              variant="outline"
               data-notes-analyze
               onClick={() => { commands.analyze(material.id) }}
             >
               {t('detail.analyze')}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className={css.action}
+          <Button
+            size="sm"
+            variant="outline"
             data-notes-archive
             onClick={() => { commands.archive(material.id) }}
           >
             {t('detail.archive')}
-          </button>
-          <button
-            type="button"
-            className={css.action}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             data-notes-remove
             onClick={() => { commands.remove(material.id) }}
           >
             {t('detail.remove')}
-          </button>
+          </Button>
         </span>
       </div>
       {material.error !== null && <p className={css.failure} data-notes-material-error>{material.error}</p>}
@@ -299,9 +299,9 @@ function Thread({ id, thread, loading, failure, askable, commands, labels, t }: 
             value={question}
             onChange={(event) => { setQuestion(event.target.value) }}
           />
-          <button type="submit" className={css.send} data-notes-send disabled={!asked}>
+          <Button type="submit" size="sm" variant="primary" data-notes-send disabled={!asked}>
             {t('detail.ask')}
-          </button>
+          </Button>
         </form>
       )}
     </div>

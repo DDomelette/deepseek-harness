@@ -144,20 +144,6 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.create {
-  padding: 6px 12px;
-  font-size: 13px;
-  color: var(--dsw-alias-label-primary-foreground);
-  background: var(--dsw-alias-button-primary-fill);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.create:hover {
-  background: var(--dsw-alias-button-primary-hover);
-}
-
 .failure,
 .notice {
   margin: 0;
@@ -179,101 +165,30 @@
   min-height: 0;
 }
 
-.list {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 4px;
-  box-sizing: border-box;
-  width: 240px;
-  margin: 0;
-  padding: 8px;
-  overflow-y: auto;
-  list-style: none;
-  border-right: 0.5px solid var(--dsw-alias-border-l2);
-}
-
-.row {
-  display: block;
-}
-
-.rowButton {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  box-sizing: border-box;
-  width: 100%;
-  padding: 6px 8px;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.rowButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.rowButton[aria-current='true'] {
-  background: var(--dsw-alias-interactive-bg-active);
-  border-color: var(--dsw-alias-border-l2);
-}
-
-.dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  background: var(--dsw-alias-label-tertiary);
-  border-radius: 8px;
-}
-
-.dot[data-notes-dot='analyzing'] {
-  background: var(--dsw-alias-state-business-primary);
-}
-
-.dot[data-notes-dot='analyzed'] {
-  background: var(--dsw-alias-state-success-primary);
-}
-
-.dot[data-notes-dot='failed'] {
-  background: var(--dsw-alias-state-error-primary);
-}
-
-.rowText {
+/* Two columns with nothing opened: the detail side says what it is for. */
+.detailEmpty {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
-}
-
-.rowTitle {
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rowPreview {
-  overflow: hidden;
-  font-size: 12px;
-  color: var(--dsw-alias-label-tertiary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rowSource {
-  flex: none;
-  font-size: 11px;
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* One column: the list alone, or the open material alone with the way back. */
+.detailEmptyLine {
+  margin: 0;
+  font: var(--dsw-font-xs-13);
+}
+
+/*
+ * One column: the list alone, or the open material alone with the way back.
+ * The rows these rules hide carry data attributes rather than this module's
+ * classes, because the list's own classes belong to MaterialList's module.
+ */
 @container notes (max-width: 559px) {
-  .panel[data-notes-selected] .list {
+  .panel[data-notes-selected] [data-notes-materials] {
     display: none;
   }
 
@@ -281,9 +196,8 @@
     display: none;
   }
 
-  .list {
-    width: 100%;
-    border-right: none;
+  .detailEmpty {
+    display: none;
   }
 }
 

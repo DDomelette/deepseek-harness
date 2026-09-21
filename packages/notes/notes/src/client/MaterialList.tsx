@@ -11,7 +11,7 @@
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MaterialId, NotesActionView, NotesMaterialSummary } from '../types.ts'
 import { actionBadge } from './actions.ts'
@@ -126,15 +126,16 @@ export function MaterialList({
               {row.kind === 'image' ? t('source.image') : t(VIEW_LINES[row.source.view])}
             </span>
           </button>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="outline"
             className={css.handle}
             aria-label={t('panel.archive')}
             data-notes-archive-material={row.id}
             onClick={() => { commands.archive(row.id) }}
           >
             {t('panel.archive')}
-          </button>
+          </Button>
         </li>
       ))}
       {materials.length === 0 && (

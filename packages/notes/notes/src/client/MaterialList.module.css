@@ -2,6 +2,9 @@
  * The list column: one draggable row per material, and the archived bucket
  * folded under them. A row's archive control appears while the row is hovered
  * or focused, and the drop line marks where a dragged row would land.
+ *
+ * The column flexes with the panel between 220px and 340px instead of holding
+ * a fixed width; below the panel's two-column band it is the only column.
  */
 .list {
   display: flex;
@@ -9,12 +12,20 @@
   flex-direction: column;
   gap: 4px;
   box-sizing: border-box;
-  width: 240px;
+  width: clamp(220px, 32%, 340px);
   margin: 0;
   padding: 8px;
   overflow-y: auto;
   list-style: none;
   border-right: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* Below the panel's two-column band the list is the whole pane. */
+@container notes (max-width: 559px) {
+  .list {
+    width: 100%;
+    border-right: none;
+  }
 }
 
 .row {
@@ -55,19 +66,13 @@
 
 /*
  * The handle keeps its seat in the row's flex flow and only turns visible, so
- * showing it neither covers the row's source label nor moves the layout.
+ * showing it neither covers the row's source label nor moves the layout. Its
+ * look is the shared Button (sm outline); this class owns only the seat.
  */
 .handle {
   flex: none;
   margin-right: 4px;
-  padding: 2px 6px;
-  font-size: 11px;
-  color: var(--dsw-alias-label-secondary);
   visibility: hidden;
-  background: var(--dsw-alias-button-tool-bar-fill);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .row:hover .handle,
@@ -75,8 +80,9 @@
   visibility: visible;
 }
 
-.handle:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+.handle:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
 }
 
 .handle:focus-visible {
@@ -89,7 +95,8 @@
   width: 8px;
   height: 8px;
   background: var(--dsw-alias-label-tertiary);
-  border-radius: 8px;
+  border-radius: 50%;
+  corner-shape: round;
 }
 
 .dot[data-notes-dot='analyzing'] {
