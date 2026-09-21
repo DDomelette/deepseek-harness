@@ -76,7 +76,7 @@ export type NotesPanelProps =
  */
 export function NotesPanel({
   sessionId, useStore, useTabInfo, actions, load, refresh, createConversation, openSession,
-  archiveSession, restoreSession, select, saveText, analyze, ask, archive, restore, reorder,
+  archiveSession, restoreSession, select, saveText, rename, analyze, ask, archive, restore, reorder,
   present, readSettings, saveSettings, pickDirectory, listDirectories, loadModels, collect, addImage,
   remove, useNotesSettled, t,
 }: NotesPanelProps): ReactNode {
@@ -104,7 +104,7 @@ export function NotesPanel({
   }, [refresh, settled])
   const commands: NotesInjected = {
     load, refresh, createConversation, openSession, archiveSession, restoreSession,
-    select, saveText, analyze, ask, archive, restore, reorder, present,
+    select, saveText, rename, analyze, ask, archive, restore, reorder, present,
     readSettings, saveSettings, pickDirectory, listDirectories, loadModels, collect, addImage, remove,
   }
   const active = state.sessions.find(session => session.id === state.activeId)

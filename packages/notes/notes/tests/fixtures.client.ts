@@ -80,6 +80,7 @@ export const materialSummary = (overrides: Partial<NotesMaterialSummary> = {}): 
   error: null,
   createdAt: 0,
   archivedAt: null,
+  title: null,
   ...overrides,
 })
 
@@ -202,6 +203,7 @@ export interface HarnessRemote {
   readonly materialAddImage: Mock<NotesRemoteFace['materialAddImage']>
   readonly materialThread: Mock<NotesRemoteFace['materialThread']>
   readonly materialUpdate: Mock<NotesRemoteFace['materialUpdate']>
+  readonly materialRename: Mock<NotesRemoteFace['materialRename']>
   readonly materialAnalyze: Mock<NotesRemoteFace['materialAnalyze']>
   readonly materialAsk: Mock<NotesRemoteFace['materialAsk']>
   readonly materialArchive: Mock<NotesRemoteFace['materialArchive']>
@@ -285,6 +287,7 @@ export function harness(script: {
     sessionArchive: vi.fn<NotesRemoteFace['sessionArchive']>(async () => applied()),
     sessionRestore: vi.fn<NotesRemoteFace['sessionRestore']>(async () => applied()),
     materialUpdate: vi.fn<NotesRemoteFace['materialUpdate']>(async () => applied()),
+    materialRename: vi.fn<NotesRemoteFace['materialRename']>(async () => applied()),
     materialAnalyze: vi.fn<NotesRemoteFace['materialAnalyze']>(async () => applied()),
     materialAsk: vi.fn<NotesRemoteFace['materialAsk']>(async () => applied()),
     materialArchive: vi.fn<NotesRemoteFace['materialArchive']>(async () => applied()),
@@ -353,6 +356,7 @@ export function harness(script: {
       restoreSession: face.restoreSession,
       select: face.select,
       saveText: face.saveText,
+      rename: face.rename,
       analyze: face.analyze,
       ask: face.ask,
       archive: face.archive,

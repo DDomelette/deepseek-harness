@@ -26,7 +26,8 @@ import type {
   NotesMaterialAnalyzeRequest, NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest,
   NotesMaterialArchiveResult, NotesMaterialAskRequest, NotesMaterialAskResult,
   NotesMaterialListRequest, NotesMaterialListResult, NotesMaterialRemoveRequest,
-  NotesMaterialRemoveResult, NotesMaterialReorderRequest, NotesMaterialReorderResult,
+  NotesMaterialRemoveResult, NotesMaterialRenameRequest, NotesMaterialRenameResult,
+  NotesMaterialReorderRequest, NotesMaterialReorderResult,
   NotesMaterialRestoreRequest, NotesMaterialRestoreResult, NotesMaterialSummary,
   NotesMaterialThreadRequest, NotesMaterialThreadResult, NotesMaterialUpdateRequest,
   NotesMaterialUpdateResult, NotesRejected,
@@ -367,6 +368,23 @@ export class NotesRemote extends TypertRemoteService {
   }
 
   /**
+   * Set one material's reader-set title, or return it to the body-derived one
+   * on a blank title. The title is presentation metadata, so a submitted
+   * material accepts a rename too.
+   * @param request - the material and its new title.
+   * @returns the acknowledgment, or the unknown-material refusal.
+   */
+  @Remote
+  async materialRename(request: NotesMaterialRenameRequest): Promise<NotesMaterialRenameResult> {
+    if (this.ctx.notesMaterials.get(request.id) === undefined) {
+      return rejected({ code: 'material-not-found', id: request.id })
+    }
+    const title = request.title.trim()
+    await this.ctx.notesMaterials.rename(request.id, title === '' ? null : title)
+    return success(APPLIED)
+  }
+
+  /**
    * One new draft record over a collection request's own facts.
    * @param request - the conversation, source, and action the caller collected under.
    * @param body - the body this kind of material records.
@@ -391,6 +409,7 @@ export class NotesRemote extends TypertRemoteService {
       error: null,
       createdAt: Date.now(),
       archivedAt: null,
+      title: null,
     }
   }
 
@@ -434,6 +453,7 @@ function materialSummary(stored: StoredMaterial): NotesMaterialSummary {
     hasImage: stored.image !== null,
     submitted: stored.messageIds.length > 0,
     source: { ...stored.source },
+    title: stored.title,
     action: stored.action,
     order: stored.order,
     status: stored.status,

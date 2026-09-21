@@ -73,6 +73,24 @@ describe('notes domain', () => {
     await domain.close()
   })
 
+  it('reads a record written before the title field existed', async () => {
+    const created = await storageStack()
+    const domain = await created.storageDomain.open(notesDomainSpec)
+    const id = materialId('m1')
+    // Writes are not schema-checked, so this stores the bytes a pre-title
+    // build wrote: the record without the key.
+    const legacy = JSON.parse(JSON.stringify(material({ noteId: noteId('n1') }))) as Record<string, unknown>
+    delete legacy['title']
+    await domain.table('materials').put(id, legacy as never)
+    await domain.close()
+
+    const reopened = await created.storageDomain.open(notesDomainSpec)
+    const stored = reopened.table('materials').get(id)
+    expect(stored?.text).toBe('body')
+    expect(stored?.title).toBeNull()
+    await reopened.close()
+  })
+
   it('round-trips a screenshot reference and refuses a bare attachment id', async () => {
     const created = await storageStack()
     const domain = await created.storageDomain.open(notesDomainSpec)

@@ -93,6 +93,16 @@ describe('notes materials', () => {
     expect(mounted.materials.get(a)?.text).toBe('edited')
   })
 
+  it('renames a material, and clears the rename back to the derived title', async () => {
+    const a = await seed('a')
+
+    await mounted.materials.rename(a, 'custom title')
+    expect(mounted.materials.get(a)?.title).toBe('custom title')
+
+    await mounted.materials.rename(a, null)
+    expect(mounted.materials.get(a)?.title).toBeNull()
+  })
+
   it('deletes one material', async () => {
     const a = await seed('a')
     await mounted.materials.remove(a)
