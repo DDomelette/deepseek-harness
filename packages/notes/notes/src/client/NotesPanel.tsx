@@ -5,8 +5,10 @@
  * Two columns while the panel is wide enough for both, and one at a time below
  * that — the list, or the open material with a way back. The switch is a
  * container query over the panel's own width, so the panel follows its pane
- * rather than the window. The navigation bar keeps its labels until the pane is
- * too narrow for them, and then shows the same controls as icons alone.
+ * rather than the window. The navigation bar shows its tool labels only while
+ * both columns fit; below the switch the same controls carry icons alone, and
+ * the conversation trigger keeps a floor of readable title before it
+ * ellipsizes.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, ReactNode } from 'react'
@@ -179,7 +181,7 @@ export function NotesPanel({
                 data-notes-history
                 onClick={() => { setHistoryOpen(open => !open) }}
               >
-                {active.title}
+                <span className={css.conversationTitle}>{active.title}</span>
                 <span className={css.caret} aria-hidden>▾</span>
               </button>
             )}
