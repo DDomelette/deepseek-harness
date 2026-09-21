@@ -60,6 +60,17 @@ function show(
   )
 }
 
+/** Fold the source card open, the way the head's toggle does. */
+function openSource(): void {
+  fireEvent.click(document.querySelector('[data-notes-source-toggle]') as Element)
+}
+
+/** Pick the head menu's copy entry. */
+async function copyFromMenu(): Promise<void> {
+  fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+  fireEvent.click(await screen.findByText('detail.copy'))
+}
+
 describe('material detail', () => {
   it('heads the pane with the title the material\'s row shows', () => {
     const bench = harness()
@@ -104,9 +115,14 @@ describe('material detail', () => {
     expect(screen.getByText('status.analyzed')).toBeDefined()
   })
 
-  it('names where the material came from', () => {
+  it('names where the material came from, behind the head\'s disclosure', () => {
     const bench = harness()
     show(bench.props())
+
+    // The source card stays folded until the reader asks for it.
+    expect(document.querySelector('[data-notes-source]')).toBeNull()
+
+    openSource()
 
     expect(document.querySelector('[data-notes-source]')?.textContent).toContain('conversation «probe»')
     expect(screen.getByText('source.chat')).toBeDefined()
@@ -116,6 +132,8 @@ describe('material detail', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ source: { ...draft.source, view: 'trajectory' } }))
 
+    openSource()
+
     expect(screen.getByText('source.trajectory')).toBeDefined()
   })
 
@@ -123,22 +141,30 @@ describe('material detail', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), kind: 'image', text: null, hasImage: true }))
 
-    // Its source strip and its body both name it, and it offers no editor.
-    expect(screen.getAllByText('source.image')).toHaveLength(2)
+    // Its body names it, and its folded-open source card does too.
+    expect(screen.getAllByText('source.image')).toHaveLength(1)
     expect(screen.queryByLabelText('detail.body')).toBeNull()
     expect(document.querySelector('[data-notes-body]')?.textContent).toBe('source.image')
+
+    openSource()
+
+    expect(screen.getAllByText('source.image')).toHaveLength(2)
   })
 
-  it('offers the source row a locate entry for a position the material recorded', () => {
+  it('offers the source card a locate entry for a position the material recorded', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ seq: sessionSeq(42) }) }))
+
+    openSource()
 
     expect(document.querySelector('[data-notes-locate]')).not.toBeNull()
   })
 
-  it('offers the source row a locate entry for a recorded tool call too', () => {
+  it('offers the source card a locate entry for a recorded tool call too', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ callId: 'call-7' }) }))
+
+    openSource()
 
     expect(document.querySelector('[data-notes-locate]')).not.toBeNull()
   })
@@ -147,12 +173,16 @@ describe('material detail', () => {
     const bench = harness()
     show(bench.props())
 
+    openSource()
+
     expect(document.querySelector('[data-notes-locate]')).toBeNull()
   })
 
   it('explains that a recorded source cannot be opened yet', () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', source: source({ seq: sessionSeq(42) }) }))
+
+    openSource()
 
     expect(document.querySelector('[data-notes-locate-hint]')).toBeNull()
 
@@ -168,7 +198,7 @@ describe('material detail', () => {
     expect(screen.getByText('inbox rejected')).toBeDefined()
   })
 
-  it('asks the Host to analyse, archive, and delete the material', () => {
+  it('asks the Host to analyse, archive, and delete the material', async () => {
     const bench = harness()
     const props = bench.props()
     const analyze = vi.spyOn(props, 'analyze')
@@ -176,13 +206,61 @@ describe('material detail', () => {
     const remove = vi.spyOn(props, 'remove')
     show(props)
 
+    // Analysis is the draft body's own control; archive and delete are the
+    // head menu's row-level actions.
     fireEvent.click(screen.getByText('detail.analyze'))
-    fireEvent.click(screen.getByText('detail.archive'))
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    fireEvent.click(await screen.findByText('detail.archive'))
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    fireEvent.click(await screen.findByText('detail.remove'))
+
+    // Deleting confirms through the risk dialog.
+    fireEvent.click(screen.getByText('detail.removeAcknowledge'))
     fireEvent.click(screen.getByText('detail.remove'))
 
     expect(analyze).toHaveBeenCalledExactlyOnceWith(draft.id)
     expect(archive).toHaveBeenCalledExactlyOnceWith(draft.id)
     expect(remove).toHaveBeenCalledExactlyOnceWith(draft.id)
+  })
+
+  it('restores an archived material from the head menu', async () => {
+    const bench = harness()
+    const props = bench.props()
+    const restore = vi.spyOn(props, 'restore')
+    show(props, materialSummary({ archivedAt: 1 }))
+
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    fireEvent.click(await screen.findByText('panel.restore'))
+
+    expect(restore).toHaveBeenCalledExactlyOnceWith(materialSummary().id)
+  })
+
+  it('closes the head menu without acting', async () => {
+    const bench = harness()
+    show(bench.props())
+
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    expect(await screen.findByText('detail.archive')).toBeDefined()
+
+    fireEvent.pointerDown(document.body)
+
+    await vi.waitFor(() => { expect(screen.queryByText('detail.archive')).toBeNull() })
+  })
+
+  it('cancels a delete without writing', async () => {
+    const bench = harness()
+    const props = bench.props()
+    const remove = vi.spyOn(props, 'remove')
+    show(props)
+
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    fireEvent.click(await screen.findByText('detail.remove'))
+    expect(screen.getByText('detail.removeTitle')).toBeDefined()
+
+    fireEvent.click(screen.getByText('list.cancel'))
+
+    expect(remove).not.toHaveBeenCalled()
+    expect(screen.queryByText('detail.removeTitle')).toBeNull()
   })
 
   it('offers no analysis for a material that already entered its conversation', () => {
@@ -346,20 +424,20 @@ describe('material detail', () => {
     installClipboard(writeText)
     show(bench.props())
 
-    fireEvent.click(screen.getByText('detail.copy'))
+    await copyFromMenu()
 
     await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
     expect(writeText).toHaveBeenCalledExactlyOnceWith('body')
   })
 
-  it('copies what the reader typed, not the stored body', () => {
+  it('copies what the reader typed, not the stored body', async () => {
     const bench = harness()
     const writeText = vi.fn(async () => {})
     installClipboard(writeText)
     show(bench.props())
     fireEvent.change(screen.getByLabelText('detail.body'), { target: { value: 'edited' } })
 
-    fireEvent.click(screen.getByText('detail.copy'))
+    await copyFromMenu()
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith('edited')
   })
@@ -369,10 +447,12 @@ describe('material detail', () => {
     installClipboard(vi.fn(async () => { throw new Error('denied') }))
     show(bench.props())
 
-    fireEvent.click(screen.getByText('detail.copy'))
+    await copyFromMenu()
 
     await waitFor(() => { expect(screen.queryByText('detail.copied')).toBeNull() })
-    expect(screen.getByText('detail.copy')).toBeDefined()
+    // The menu still offers the copy: a refused write reports nothing.
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+    expect(await screen.findByText('detail.copy')).toBeDefined()
   })
 
   it('writes once while it is still reporting the first copy', async () => {
@@ -381,9 +461,9 @@ describe('material detail', () => {
     installClipboard(writeText)
     show(bench.props())
 
-    fireEvent.click(screen.getByText('detail.copy'))
+    await copyFromMenu()
     await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
-    fireEvent.click(screen.getByText('detail.copied'))
+    await copyFromMenu()
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith('body')
   })
@@ -394,18 +474,22 @@ describe('material detail', () => {
     installClipboard(vi.fn(async () => {}))
     show(bench.props())
 
-    fireEvent.click(screen.getByText('detail.copy'))
-    await waitFor(() => { expect(screen.getByText('detail.copied')).toBeDefined() })
+    await copyFromMenu()
+    await waitFor(() => { expect(document.querySelector('[data-notes-copied]')).not.toBeNull() })
 
     act(() => { vi.advanceTimersByTime(1000) })
 
-    expect(screen.getByText('detail.copy')).toBeDefined()
+    expect(document.querySelector('[data-notes-copied]')).toBeNull()
   })
 
-  it('offers no copy for a material with no text', () => {
+  it('offers no copy for a material with no text', async () => {
     const bench = harness()
     show(bench.props(), materialSummary({ noteId: noteId('n1'), kind: 'image', text: null, hasImage: true }))
 
+    fireEvent.click(document.querySelector('[data-notes-detail-menu]') as Element)
+
+    // The menu keeps its other entries; only the copy is absent.
+    expect(await screen.findByText('detail.archive')).toBeDefined()
     expect(screen.queryByText('detail.copy')).toBeNull()
   })
 })

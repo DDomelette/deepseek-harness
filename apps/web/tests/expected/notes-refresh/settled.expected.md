@@ -13,16 +13,17 @@
   - listitem:
     - 'button "Use the bash tool to run exactly: echo W… Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."'
 - 'heading "Use the bash tool to run exactly: echo W…" [level=2]'
-- heading "Source" [level=3]
-- text: Saved passage Chat
+- text: Analyzed
+- button "Details":
+  - text: Details
+  - img
+- button "Material actions":
+  - img
 - heading "Material text" [level=3]
 - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
-- text: Analyzed
-- button "Copy"
-- button "Archive"
-- button "Delete"
 - heading "Conversation" [level=3]
 - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
+- text: Answer
 - paragraph: DONE
 - textbox "Ask"
 - button "Ask" [disabled]
