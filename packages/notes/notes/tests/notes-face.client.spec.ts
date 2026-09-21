@@ -11,6 +11,7 @@ import {
   created, harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions,
   source, thread, unavailable,
 } from './fixtures.client.ts'
+import { notesFloatRect } from '../src/client/face.ts'
 
 /** Let the command's promise chain settle. */
 async function settle(): Promise<void> {
@@ -515,5 +516,25 @@ describe('notes directory picking', () => {
     await expect(bench.face.listDirectories(null)).resolves.toBeNull()
 
     expect(bench.instance.getSnapshot().settingsFailure).toEqual({ code: 'directory-unavailable' })
+  })
+})
+
+describe('notes float window', () => {
+  it('opens at its own size against the viewport’s right edge', () => {
+    expect(notesFloatRect({ width: 1440, height: 900 })).toEqual({
+      x: 776, y: 210, width: 640, height: 480,
+    })
+  })
+
+  it('shrinks to a viewport too narrow for its own width', () => {
+    expect(notesFloatRect({ width: 500, height: 800 })).toEqual({
+      x: 24, y: 160, width: 452, height: 480,
+    })
+  })
+
+  it('shrinks to a viewport too short for its own height', () => {
+    expect(notesFloatRect({ width: 1440, height: 400 })).toEqual({
+      x: 776, y: 24, width: 640, height: 352,
+    })
   })
 })
