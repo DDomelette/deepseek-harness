@@ -19,7 +19,8 @@ import type {
   NotesMaterialAnalyzeResult, NotesMaterialArchiveRequest, NotesMaterialArchiveResult,
   NotesMaterialAskRequest, NotesMaterialAskResult, NotesMaterialListRequest,
   NotesMaterialListResult, NotesMaterialListValue, NotesMaterialRemoveRequest,
-  NotesMaterialRemoveResult, NotesMaterialReorderRequest, NotesMaterialReorderResult,
+  NotesMaterialRemoveResult, NotesMaterialRenameRequest, NotesMaterialRenameResult,
+  NotesMaterialReorderRequest, NotesMaterialReorderResult,
   NotesMaterialRestoreRequest, NotesMaterialRestoreResult, NotesMaterialThreadRequest,
   NotesMaterialThreadResult, NotesMaterialUpdateRequest, NotesMaterialUpdateResult, NotesRejected,
   NotesSessionArchiveRequest, NotesSessionArchiveResult, NotesSessionCreateResult,
@@ -72,6 +73,12 @@ export interface NotesRemoteFace {
    * @returns the carrier result carrying the acknowledgment or the refusal.
    */
   materialUpdate(request: NotesMaterialUpdateRequest): Promise<RemoteResult<NotesMaterialUpdateResult>>
+  /**
+   * Set one material's reader-set title.
+   * @param request - the material and its new title; blank returns to the derived one.
+   * @returns the carrier result carrying the acknowledgment or the refusal.
+   */
+  materialRename(request: NotesMaterialRenameRequest): Promise<RemoteResult<NotesMaterialRenameResult>>
   /**
    * Submit one material to its conversation.
    * @param request - the material to analyse.
@@ -194,6 +201,8 @@ export interface NotesInjected {
   readonly select: (id: MaterialId | null) => void
   /** Replace one draft material's text. */
   readonly saveText: (id: MaterialId, text: string) => void
+  /** Set one material's reader-set title; blank returns to the derived one. */
+  readonly rename: (id: MaterialId, title: string) => void
   /** Submit one material to its conversation. */
   readonly analyze: (id: MaterialId) => void
   /** Ask a follow-up inside one material's thread. */
@@ -444,6 +453,9 @@ export function notesFace(
     },
     saveText: (id, text) => {
       void write(async () => await remote.materialUpdate({ id, text }))
+    },
+    rename: (id, title) => {
+      void write(async () => await remote.materialRename({ id, title }))
     },
     analyze: (id) => {
       void write(async () => await remote.materialAnalyze({ id }))

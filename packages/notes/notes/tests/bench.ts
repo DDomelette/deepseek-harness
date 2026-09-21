@@ -69,6 +69,7 @@ export const material = (
   error: null,
   createdAt: 0,
   archivedAt: null,
+  title: null,
   ...overrides,
 })
 

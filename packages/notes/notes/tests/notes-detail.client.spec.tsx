@@ -61,6 +61,20 @@ function show(
 }
 
 describe('material detail', () => {
+  it('heads the pane with the title the material\'s row shows', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ title: '我的标题' }))
+
+    expect(document.querySelector('[data-notes-material-title]')?.textContent).toBe('我的标题')
+  })
+
+  it('heads the pane with the body-derived title while no rename is stored', () => {
+    const bench = harness()
+    show(bench.props(), materialSummary({ text: 'the body' }))
+
+    expect(document.querySelector('[data-notes-material-title]')?.textContent).toBe('the body')
+  })
+
   it('edits a draft and saves it', async () => {
     const bench = harness()
     const props = bench.props()

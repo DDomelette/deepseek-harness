@@ -124,6 +124,17 @@ export class Materials extends Service {
   }
 
   /**
+   * Set one material's reader-set title, or null to return it to the
+   * body-derived one. The title is presentation metadata, so a submitted
+   * material accepts a rename too.
+   * @param id - material id.
+   * @param title - the new title, or null to derive it again.
+   */
+  async rename(id: MaterialId, title: string | null): Promise<void> {
+    await this.update(id, current => ({ ...current, title }))
+  }
+
+  /**
    * Return one archived material to the top of its conversation. An unknown id
    * is a no-op, so a restore racing a delete cannot fail the caller.
    * @param id - material id.

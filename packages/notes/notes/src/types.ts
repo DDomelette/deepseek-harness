@@ -101,6 +101,8 @@ export interface NotesMaterialSummary {
   readonly submitted: boolean
   /** Where the material was collected from. */
   readonly source: MaterialSource
+  /** Reader-set title, or null while the body-derived one shows. */
+  readonly title: string | null
   /** Collection action that produced it, or null for a plain collection. */
   readonly action: string | null
   /** Manual order value; lower sorts nearer the top. */
@@ -204,6 +206,14 @@ export interface NotesMaterialUpdateRequest {
   readonly id: MaterialId
   /** Replacement body. */
   readonly text: string
+}
+
+/** Set one material's reader-set title. */
+export interface NotesMaterialRenameRequest {
+  /** Material to rename. */
+  readonly id: MaterialId
+  /** The new title; blank returns the material to its body-derived title. */
+  readonly title: string
 }
 
 /** Submit one material to its conversation for analysis. */
@@ -528,6 +538,11 @@ export type NotesMaterialAddImageResult =
 export type NotesMaterialUpdateResult =
   | NotesSuccess<NotesApplied>
   | NotesRejected<NotesMaterialNotFound | NotesMaterialNotText | NotesMaterialSubmitted>
+
+/** Result of `notes/materialRename`. */
+export type NotesMaterialRenameResult =
+  | NotesSuccess<NotesApplied>
+  | NotesRejected<NotesMaterialNotFound>
 
 /** Result of `notes/materialAnalyze`. */
 export type NotesMaterialAnalyzeResult =

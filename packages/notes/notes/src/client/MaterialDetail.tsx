@@ -19,6 +19,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesActionView, NotesMaterialSummary, NotesThreadRow } from '../types.ts'
 import { configuredAction } from './actions.ts'
 import { failureLine } from './failure-line.ts'
+import { materialTitle } from './title.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
 import type { NotesKey } from './locales.ts'
@@ -109,6 +110,8 @@ export function MaterialDetail({
   }
   return (
     <section className={css.detail} data-notes-detail={material.id}>
+      {/* The pane's head names the material the way its list row does. */}
+      <h2 className={css.detailTitle} data-notes-material-title>{materialTitle(material)}</h2>
       <section className={css.section}>
         <h3 className={css.sectionTitle}>{t('detail.section.source')}</h3>
         <div className={css.source} data-notes-source>

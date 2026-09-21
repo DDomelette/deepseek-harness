@@ -91,10 +91,11 @@ describe('notes panel', () => {
 
     await waitFor(() => { expect(screen.getByText('Notes · probe')).toBeDefined() })
     expect(screen.getByText('panel.materials(count=2)')).toBeDefined()
-    expect(screen.getByText('first')).toBeDefined()
-    // An image material has no text, so its row says what it is twice: once
-    // where the text would be, and once as its source.
-    expect(screen.getAllByText('source.image')).toHaveLength(2)
+    // The row's title and its preview both come from the body.
+    expect(screen.getAllByText('first')).toHaveLength(2)
+    // An image material has no text, so its row names what it is where the
+    // text would be.
+    expect(screen.getAllByText('source.image')).toHaveLength(1)
     expect(document.querySelectorAll('[data-notes-material]')).toHaveLength(2)
   })
 
@@ -106,7 +107,7 @@ describe('notes panel', () => {
     await waitFor(() => { expect(screen.getByText('panel.noMaterials')).toBeDefined() })
   })
 
-  it('draws a trajectory material with its own source line', async () => {
+  it('draws a trajectory material without naming its source view on the row', async () => {
     const note = noteId('n1')
     const bench = harness({
       sessions: () => sessions([sessionSummary({ id: note })], [], note),
@@ -116,7 +117,8 @@ describe('notes panel', () => {
     })
     render(<NotesPanel {...bench.props()} />)
 
-    await waitFor(() => { expect(screen.getByText('source.trajectory')).toBeDefined() })
+    await waitFor(() => { expect(document.querySelector('[data-notes-material]')).not.toBeNull() })
+    expect(screen.queryByText('source.trajectory')).toBeNull()
   })
 
   it('draws a refusal instead of content', async () => {
@@ -166,12 +168,12 @@ describe('notes panel', () => {
       thread: () => thread([{ role: 'user', text: 'row body', hasImage: false, seq: 0 }]),
     })
     render(<NotesPanel {...bench.props()} />)
-    await waitFor(() => { expect(screen.getByText('row body')).toBeDefined() })
+    await waitFor(() => { expect(document.querySelector('[data-notes-material]')).not.toBeNull() })
 
     // Nothing opened yet: the detail side says what it is for.
     expect(document.querySelector('[data-notes-detail-empty]')?.textContent).toContain('detail.empty')
 
-    fireEvent.click(screen.getByText('source.chat'))
+    fireEvent.click(document.querySelector('[data-notes-select]') as Element)
 
     await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).not.toBeNull() })
     expect(bench.remote.materialThread).toHaveBeenCalledExactlyOnceWith({ id: materialSummary().id })
@@ -193,15 +195,15 @@ describe('notes panel', () => {
       thread: () => thread([]),
     })
     render(<NotesPanel {...bench.props()} />)
-    await waitFor(() => { expect(screen.getByText('first body')).toBeDefined() })
+    await waitFor(() => { expect(document.querySelectorAll('[data-notes-select]')).toHaveLength(2) })
 
-    fireEvent.click(screen.getAllByText('source.chat')[0] as HTMLElement)
+    fireEvent.click(document.querySelectorAll('[data-notes-select]')[0] as Element)
     await waitFor(() => { expect(document.querySelector('[data-notes-detail]')).not.toBeNull() })
     fireEvent.change(screen.getByLabelText('detail.body'), { target: { value: 'unsaved edit' } })
 
     // The list stays beside the open detail, so the second row is clicked with
     // the first material's draft still standing in the pane.
-    fireEvent.click(screen.getAllByText('source.chat')[1] as HTMLElement)
+    fireEvent.click(document.querySelectorAll('[data-notes-select]')[1] as Element)
 
     const editor = await screen.findByLabelText('detail.body')
     expect((editor as HTMLTextAreaElement).value).toBe('second body')
@@ -573,7 +575,7 @@ describe('notes panel', () => {
       materials: () => materials([materialSummary({ noteId: note })]),
     })
     render(<NotesPanel {...bench.props()} />)
-    await waitFor(() => { expect(screen.getByText('source.chat')).toBeDefined() })
+    await waitFor(() => { expect(document.querySelector('[data-notes-material]')).not.toBeNull() })
     bench.remote.materialUpdate.mockResolvedValueOnce({
       ok: true,
       value: { ok: false, error: { code: 'material-submitted', id: materialSummary().id } },
@@ -584,7 +586,7 @@ describe('notes panel', () => {
     await waitFor(() => { expect(document.querySelector('[data-notes-notice]')).not.toBeNull() })
     expect(screen.getByText('error.materialSubmitted')).toBeDefined()
     // The listing the refusal left standing stays: only a failed read replaces it.
-    expect(screen.getByText('source.chat')).toBeDefined()
+    expect(document.querySelector('[data-notes-material]')).not.toBeNull()
   })
 })
 

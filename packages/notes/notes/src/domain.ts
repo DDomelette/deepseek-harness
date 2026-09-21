@@ -27,6 +27,11 @@ export const NOTES_DOMAIN_NAME = 'notes'
 /**
  * Current domain format version. Version 2 stores the whole attachment
  * reference a screenshot was saved as; version 1 stored only its id.
+ *
+ * The material `title` is an additive field the record schema defaults to
+ * null, so version-2 documents still parse and the version stays 2: the
+ * single-document layout rejects a version stamp mismatch at open, with no
+ * compat ladder, and a bump would lock every existing notes unit out.
  */
 export const NOTES_DOMAIN_VERSION = 2
 
@@ -108,6 +113,8 @@ export const materialRecord = z.object({
   error: z.string().nullable(),
   createdAt: z.number(),
   archivedAt: z.number().nullable(),
+  // A reader-set title; absent in records written before the field existed.
+  title: z.string().nullable().default(null),
 })
 
 /** One stored material record. */

@@ -34,6 +34,16 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The pane's head: the material's own title, as its list row shows it. */
+.detailTitle {
+  margin: 0;
+  overflow: hidden;
+  font: var(--dsw-font-s-strong-14);
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .source {
   display: flex;
   gap: 8px;

@@ -473,6 +473,47 @@ describe('notes remote materials', () => {
     })
   })
 
+  it('renames a material, trims the title, and clears it on a blank one', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+
+    await expect(host.remote.materialRename({ id, title: '  我的标题  ' }))
+      .resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.materials.get(id)?.title).toBe('我的标题')
+
+    // The listing the panel reads carries the title.
+    const listed = host.remote.materialList({ noteId: note })
+    expect(listed).toMatchObject({
+      ok: true,
+      value: { materials: [{ id, title: '我的标题' }] },
+    })
+
+    await expect(host.remote.materialRename({ id, title: '   ' }))
+      .resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.materials.get(id)?.title).toBeNull()
+  })
+
+  it('renames a material that already entered its conversation', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+    await host.remote.materialAnalyze({ id })
+
+    // The title is presentation metadata, not the submitted body.
+    await expect(host.remote.materialRename({ id, title: 'after' })).resolves.toEqual({ ok: true, value: applied })
+    expect(host.base.materials.get(id)?.title).toBe('after')
+  })
+
+  it('refuses to rename a material that is not stored', async () => {
+    const host = await mount()
+
+    await expect(host.remote.materialRename({ id: materialId('absent'), title: 'x' })).resolves.toEqual({
+      ok: false,
+      error: { code: 'material-not-found', id: 'absent' },
+    })
+  })
+
   it('refuses to edit a screenshot, which has no text body', async () => {
     const host = await mount()
     await host.attach()

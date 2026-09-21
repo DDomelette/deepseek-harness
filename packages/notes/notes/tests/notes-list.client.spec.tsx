@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 /**
- * The material list: its rows, the order a drop produces, and the archived
- * bucket under them.
+ * The material list: its rows and their titles, the rename dialog, the order a
+ * drop produces, and the archived bucket under them.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MaterialList, orderAfter } from '../src/client/MaterialList.tsx'
+import { materialTitle } from '../src/client/title.ts'
 import type { NotesPanelProps } from '../src/client/NotesPanel.tsx'
 import type { NotesActionView } from '../src/types.ts'
 import { harness, materialId, materialSummary, noteId } from './fixtures.client.ts'
@@ -45,14 +46,16 @@ function show(
 }
 
 describe('material list', () => {
-  it('draws one row per material with its state and source', () => {
+  it('draws one row per material with its state, its title, and its preview', () => {
     const bench = harness()
     show(bench.props(), [row('m1', 'first'), row('m2', 'second')])
 
     expect(document.querySelectorAll('[data-notes-material]')).toHaveLength(2)
-    expect(screen.getByText('first')).toBeDefined()
+    // The title is the body's first line and the preview repeats the body.
+    expect(screen.getAllByText('first')).toHaveLength(2)
     expect(document.querySelector('[data-notes-dot="draft"]')).not.toBeNull()
-    expect(screen.getAllByText('source.chat')).toHaveLength(2)
+    // The row no longer names its source view.
+    expect(screen.queryByText('source.chat')).toBeNull()
   })
 
   it('says the conversation has no materials yet', () => {
@@ -69,7 +72,7 @@ describe('material list', () => {
     const archive = vi.spyOn(props, 'archive')
     show(props)
 
-    fireEvent.click(screen.getByText('m1'))
+    fireEvent.click(document.querySelector('[data-notes-select="m1"]') as Element)
     fireEvent.click(screen.getByLabelText('panel.archive'))
 
     expect(select).toHaveBeenCalledExactlyOnceWith(materialId('m1'))
@@ -224,5 +227,112 @@ describe('drop order', () => {
 
   it('asks for nothing for a material that is not listed', () => {
     expect(orderAfter(rows, materialId('absent'), 0)).toBeNull()
+  })
+})
+
+describe('material title', () => {
+  it('derives the title from the body: first non-blank line, trimmed, capped', () => {
+    expect(materialTitle({ title: null, text: 'first line\nsecond', source: { label: 'src' } }))
+      .toBe('first line')
+    expect(materialTitle({ title: null, text: '\n  \n  padded  ', source: { label: 'src' } })).toBe('padded')
+    expect(materialTitle({ title: null, text: 'x'.repeat(45), source: { label: 'src' } }))
+      .toBe(`${'x'.repeat(40)}…`)
+    expect(materialTitle({ title: null, text: 'x'.repeat(40), source: { label: 'src' } })).toBe('x'.repeat(40))
+  })
+
+  it('prefers the stored title and falls back to the source label without text', () => {
+    expect(materialTitle({ title: 'mine', text: 'body', source: { label: 'src' } })).toBe('mine')
+    expect(materialTitle({ title: null, text: null, source: { label: 'src' } })).toBe('src')
+  })
+
+  it('renames a material from the row menu', async () => {
+    const bench = harness()
+    show(bench.props(), [row('m1', 'first')])
+
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    fireEvent.click(await screen.findByText('list.rename'))
+    const input = screen.getByLabelText<HTMLInputElement>('list.renameField')
+    // The dialog opens with the title the row shows.
+    expect(input.value).toBe('first')
+    fireEvent.change(input, { target: { value: '  新标题 ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // The command's write chain settles asynchronously.
+    await vi.waitFor(() => {
+      expect(bench.remote.materialRename).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1'), title: '新标题' })
+    })
+    expect(screen.queryByLabelText('list.renameField')).toBeNull()
+  })
+
+  it('confirms a rename from the dialog button and refuses a blank title', async () => {
+    const bench = harness()
+    show(bench.props(), [row('m1', 'first')])
+
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    fireEvent.click(await screen.findByText('list.rename'))
+    const input = screen.getByLabelText<HTMLInputElement>('list.renameField')
+    fireEvent.change(input, { target: { value: '   ' } })
+    expect(screen.getByText('list.save').closest('button')?.disabled).toBe(true)
+    // A blank draft commits nothing from the keyboard either.
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(bench.remote.materialRename).not.toHaveBeenCalled()
+
+    fireEvent.change(input, { target: { value: 'renamed' } })
+    fireEvent.click(screen.getByText('list.save'))
+
+    await vi.waitFor(() => {
+      expect(bench.remote.materialRename).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1'), title: 'renamed' })
+    })
+  })
+
+  it('lets an IME candidate window own Enter', async () => {
+    const bench = harness()
+    show(bench.props(), [row('m1', 'first')])
+
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    fireEvent.click(await screen.findByText('list.rename'))
+    const input = screen.getByLabelText('list.renameField')
+    fireEvent.compositionStart(input)
+    fireEvent.change(input, { target: { value: '拼音' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(bench.remote.materialRename).not.toHaveBeenCalled()
+
+    fireEvent.compositionEnd(input)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await vi.waitFor(() => {
+      expect(bench.remote.materialRename).toHaveBeenCalledExactlyOnceWith({ id: materialId('m1'), title: '拼音' })
+    })
+  })
+
+  it('closes the row menu without renaming', async () => {
+    const bench = harness()
+    show(bench.props(), [row('m1', 'first')])
+
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    expect(await screen.findByText('list.rename')).toBeDefined()
+
+    // The anchor toggles its menu off again…
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    await vi.waitFor(() => { expect(screen.queryByText('list.rename')).toBeNull() })
+
+    // …and a pointer outside closes an open menu.
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    expect(await screen.findByText('list.rename')).toBeDefined()
+    fireEvent.pointerDown(document.body)
+    await vi.waitFor(() => { expect(screen.queryByText('list.rename')).toBeNull() })
+    expect(bench.remote.materialRename).not.toHaveBeenCalled()
+  })
+
+  it('cancels a rename without writing', async () => {
+    const bench = harness()
+    show(bench.props(), [row('m1', 'first')])
+
+    fireEvent.click(document.querySelector('[data-notes-row-menu="m1"]') as Element)
+    fireEvent.click(await screen.findByText('list.rename'))
+    fireEvent.change(screen.getByLabelText('list.renameField'), { target: { value: 'typed' } })
+    fireEvent.click(screen.getByText('list.cancel'))
+
+    expect(screen.queryByLabelText('list.renameField')).toBeNull()
+    expect(bench.remote.materialRename).not.toHaveBeenCalled()
   })
 })
