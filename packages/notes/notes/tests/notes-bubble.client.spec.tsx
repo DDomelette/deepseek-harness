@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { SelectionBubble } from '../src/client/SelectionBubble.tsx'
+import { SelectionBubble, placeBubble } from '../src/client/SelectionBubble.tsx'
 import { harness, materialId, sessions, unavailable } from './fixtures.client.ts'
 
 // jsdom lays nothing out and its Range has no client rectangle at all, so the
@@ -13,10 +13,13 @@ import { harness, materialId, sessions, unavailable } from './fixtures.client.ts
 // selection sits, and this is where it sits.
 const originalRect = Object.getOwnPropertyDescriptor(Range.prototype, 'getBoundingClientRect')
 
+/** The selection rectangle the current test reports. */
+let currentRect = { left: 10, top: 20, width: 30, height: 8, right: 40, bottom: 28 }
+
 beforeAll(() => {
   Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
     configurable: true,
-    value: () => ({ left: 10, top: 20, width: 30, height: 8 }) as DOMRect,
+    value: () => currentRect as DOMRect,
   })
 })
 
@@ -28,6 +31,7 @@ afterAll(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  currentRect = { left: 10, top: 20, width: 30, height: 8, right: 40, bottom: 28 }
   window.getSelection()?.removeAllRanges()
 })
 
@@ -283,5 +287,123 @@ describe('selection bubble', () => {
 
     await waitFor(() => { expect(bench.remote.materialAddText).toHaveBeenCalledTimes(1) })
     expect(bench.remote.materialAddText.mock.calls[0]?.[0]).toMatchObject({ source: { view: 'trajectory' } })
+  })
+})
+
+describe('selection bubble placement', () => {
+  const viewport = { width: 1024, height: 768 }
+  const size = { width: 200, height: 40 }
+
+  it('centers on the selection above it', () => {
+    expect(placeBubble(viewport, { midX: 500, top: 100, bottom: 120 }, size)).toEqual({
+      left: 500, top: 100, side: 'above',
+    })
+  })
+
+  it('clamps into the viewport at the left and right edges', () => {
+    expect(placeBubble(viewport, { midX: 5, top: 100, bottom: 120 }, size).left).toBe(108)
+    expect(placeBubble(viewport, { midX: 1020, top: 100, bottom: 120 }, size).left).toBe(916)
+  })
+
+  it('centers a bubble wider than the viewport instead of clamping', () => {
+    expect(placeBubble({ width: 120, height: 768 }, { midX: 60, top: 100, bottom: 120 }, size).left).toBe(60)
+  })
+
+  it('flips below the selection when the space above is too short', () => {
+    expect(placeBubble(viewport, { midX: 500, top: 30, bottom: 50 }, size)).toEqual({
+      left: 500, top: 58, side: 'below',
+    })
+  })
+
+  it('flips the rendered bubble below a selection at the top edge', async () => {
+    const bench = harness()
+    const content = contentWith()
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    currentRect = { left: 10, top: 2, width: 30, height: 8, right: 40, bottom: 10 }
+
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+
+    // jsdom measures the bubble itself as zero-sized, so only the flip shows.
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-bubble-side="below"]')).not.toBeNull()
+    })
+  })
+})
+
+describe('selection bubble dismissal', () => {
+  it('closes on Escape and consumes the key', async () => {
+    const bench = harness()
+    const content = contentWith()
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-bubble]')).not.toBeNull() })
+
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+
+    expect(document.querySelector('[data-notes-bubble]')).toBeNull()
+    expect(escape.defaultPrevented).toBe(true)
+  })
+
+  it('leaves an Escape a surface above it already consumed', async () => {
+    const above = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') event.preventDefault()
+    }
+    document.addEventListener('keydown', above)
+    const bench = harness()
+    const content = contentWith()
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-bubble]')).not.toBeNull() })
+
+    fireEvent(document, new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
+
+    expect(document.querySelector('[data-notes-bubble]')).not.toBeNull()
+    document.removeEventListener('keydown', above)
+  })
+
+  it('ignores a key that is not Escape', async () => {
+    const bench = harness()
+    const content = contentWith()
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-bubble]')).not.toBeNull() })
+
+    fireEvent.keyDown(document, { key: 'Enter' })
+
+    expect(document.querySelector('[data-notes-bubble]')).not.toBeNull()
+  })
+
+  it('closes when the conversation scrolls under it', async () => {
+    const bench = harness()
+    const content = contentWith()
+    const scroller = document.createElement('div')
+    document.body.append(scroller)
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-bubble]')).not.toBeNull() })
+
+    // Scroll does not bubble; the capture listener still sees an inner scroller.
+    fireEvent(scroller, new Event('scroll'))
+
+    expect(document.querySelector('[data-notes-bubble]')).toBeNull()
+  })
+
+  it('stays and re-measures when the window resizes', async () => {
+    const bench = harness()
+    const content = contentWith()
+    render(<SelectionBubble {...bench.bubbleProps({ content })} />)
+    select(content.firstChild as Node)
+    fireEvent(document, new Event('selectionchange'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-bubble]')).not.toBeNull() })
+
+    fireEvent(window, new Event('resize'))
+
+    expect(document.querySelector('[data-notes-bubble]')).not.toBeNull()
   })
 })
