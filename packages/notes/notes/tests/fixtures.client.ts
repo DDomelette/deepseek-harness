@@ -228,6 +228,7 @@ export interface Harness {
   readonly directoryPicker: {
     pick: Mock<NotesDirectoryFace['pick']>
     list: Mock<NotesDirectoryFace['list']>
+    createDirectory: Mock<NotesDirectoryFace['createDirectory']>
   }
   /** The session namespace, recorded. */
   readonly session: { modelCatalog: Mock<NotesSessionFace['modelCatalog']> }
@@ -308,6 +309,10 @@ export function harness(script: {
       ok: true,
       value: directoryListing(path === undefined ? { path: '/work' } : { path }),
     })),
+    // A create succeeds and answers the child's path under the level it was made in.
+    createDirectory: vi.fn<NotesDirectoryFace['createDirectory']>(
+      async (path, name) => ({ ok: true, value: `${path}/${name}` }),
+    ),
   }
   const session = {
     modelCatalog: vi.fn<NotesSessionFace['modelCatalog']>(
@@ -367,6 +372,7 @@ export function harness(script: {
       saveSettings: face.saveSettings,
       pickDirectory: face.pickDirectory,
       listDirectories: face.listDirectories,
+      createDirectory: face.createDirectory,
       loadModels: face.loadModels,
       collect: face.collect,
       addImage: face.addImage,

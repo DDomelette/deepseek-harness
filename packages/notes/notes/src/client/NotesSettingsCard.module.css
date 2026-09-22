@@ -1,18 +1,37 @@
 /*
  * The settings card's body: one section per editable field, then the read-only
- * list of collection actions. It sits inside ui-primitives' Modal, so it owns
- * no chrome of its own. Its buttons are the shared ui-primitives Button; what
- * remains here is layout and the feature editor's row recipe. The workspace
- * directory field and its browser live in WorkspaceField's module, which the
- * text-like controls here compose their field recipe from.
+ * list of collection actions. It sits inside ui-primitives' Modal, whose card
+ * clips its content; the dialog here is therefore height-capped and the scroll
+ * region the Modal's contentClassName names is what moves — a tall card
+ * scrolls instead of losing its lower sections. What remains here is layout
+ * and the feature editor's row recipe. The workspace directory field and its
+ * browser live in WorkspaceField's module, which the text-like controls here
+ * compose their field recipe from.
  *
  * Type follows the theme ladder (`--dsw-font-*`, which pairs every size with
  * its line height).
  */
+
+/* The Modal clips overflow, so the cap must live on the dialog it draws. */
+.dialog {
+  max-height: calc(100vh - 48px);
+}
+
+@supports (height: 100dvh) {
+  .dialog {
+    max-height: calc(100dvh - 48px);
+  }
+}
+
+.scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
   min-width: 320px;
   color: var(--dsw-alias-label-primary);
 }
@@ -21,6 +40,16 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 14px 0;
+}
+
+.section:first-child {
+  padding-top: 0;
+}
+
+/* One hairline per boundary: sections read as a list, not as cards. */
+.section + .section {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .heading {
@@ -33,9 +62,29 @@
   composes: field from './WorkspaceField.module.css';
 }
 
-/* The add control is one small seat in a column of full-width fields. */
+/* The strategy pair is one choice, so it sits on one row of equal seats. */
+.strategyRow {
+  display: flex;
+  gap: 6px;
+}
+
+.strategyOption {
+  flex: 1;
+}
+
+.actionHead {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.actionHead .field {
+  flex: 1;
+  min-width: 0;
+}
+
 .addFeature {
-  align-self: flex-start;
+  flex: none;
 }
 
 .actionPrompt {

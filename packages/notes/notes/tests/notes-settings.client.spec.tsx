@@ -9,7 +9,7 @@
  * needs the panel's subscription to the store lives in the panel spec instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotesSettingsCard } from '../src/client/NotesSettingsCard.tsx'
 import type { NotesActionView } from '../src/types.ts'
 import {
@@ -466,6 +466,106 @@ describe('notes settings card', () => {
     expect(screen.getByLabelText<HTMLInputElement>('settings.workspace').value).toBe('/work')
     expect(save).toHaveBeenCalledWith({ workspace: '/work' })
     expect(document.querySelector('[data-notes-browser]')).toBeNull()
+  })
+
+  it('creates a folder inside the listed level and steps into it', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse-new-folder]')).not.toBeNull() })
+
+    fireEvent.click(document.querySelector('[data-notes-browse-new-folder]') as Element)
+
+    // A blank name has nothing to create.
+    expect(document.querySelector('[data-notes-new-folder-create]')).toHaveProperty('disabled', true)
+    fireEvent.change(screen.getByLabelText('settings.folderName'), { target: { value: ' 剪藏 ' } })
+    fireEvent.click(document.querySelector('[data-notes-new-folder-create]') as Element)
+
+    // The name is trimmed, and the browser stands in the folder it just made.
+    await waitFor(() => { expect(screen.getByText('/work/剪藏')).toBeDefined() })
+    expect(bench.directoryPicker.createDirectory).toHaveBeenCalledExactlyOnceWith('/work', '剪藏')
+    expect(bench.directoryPicker.list).toHaveBeenLastCalledWith('/work/剪藏')
+  })
+
+  it('says when the folder already exists and keeps the create row open', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    bench.directoryPicker.createDirectory.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'directory-picker/exists',
+        details: { path: '/work/notes' },
+        message: 'already there',
+        name: 'RemoteError',
+      } as unknown as ReturnType<typeof unavailable>,
+    })
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse-new-folder]')).not.toBeNull() })
+    fireEvent.click(document.querySelector('[data-notes-browse-new-folder]') as Element)
+    fireEvent.change(screen.getByLabelText('settings.folderName'), { target: { value: 'notes' } })
+    fireEvent.click(document.querySelector('[data-notes-new-folder-create]') as Element)
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-new-folder-failure="exists"]')).not.toBeNull()
+    })
+    expect(screen.getByText('error.directoryExists')).toBeDefined()
+    // The refusal is inline: the browser keeps its level and the row stays for a retry.
+    expect(document.querySelector('[data-notes-browser-create]')).not.toBeNull()
+    expect(screen.getByText('/work')).toBeDefined()
+  })
+
+  it('creates on Enter, ignores a repeat while busy, and folds the row on Escape', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    let release: ((result: { ok: true; value: string }) => void) | undefined
+    bench.directoryPicker.createDirectory.mockImplementationOnce(async () => await new Promise((resolve) => {
+      release = resolve
+    }))
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse-new-folder]')).not.toBeNull() })
+    fireEvent.click(document.querySelector('[data-notes-browse-new-folder]') as Element)
+
+    // Enter with a blank name creates nothing.
+    fireEvent.keyDown(screen.getByLabelText('settings.folderName'), { key: 'Enter' })
+    expect(bench.directoryPicker.createDirectory).not.toHaveBeenCalled()
+
+    // Enter creates; a second Enter while the write is in flight asks for nothing more.
+    fireEvent.change(screen.getByLabelText('settings.folderName'), { target: { value: 'fresh' } })
+    fireEvent.keyDown(screen.getByLabelText('settings.folderName'), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByLabelText('settings.folderName'), { key: 'Enter' })
+    expect(bench.directoryPicker.createDirectory).toHaveBeenCalledTimes(1)
+
+    await act(async () => { release?.({ ok: true, value: '/work/fresh' }) })
+    await waitFor(() => { expect(screen.getByText('/work/fresh')).toBeDefined() })
+  })
+
+  it('reports a plain create failure and folds the row on Escape', async () => {
+    const bench = harness()
+    bench.directoryPicker.pick.mockResolvedValueOnce({ ok: false, error: unavailable('no chooser') })
+    bench.directoryPicker.createDirectory.mockResolvedValueOnce({ ok: false, error: unavailable('disk full') })
+    await opened(bench)
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+    await waitFor(() => { expect(document.querySelector('[data-notes-browse-new-folder]')).not.toBeNull() })
+    fireEvent.click(document.querySelector('[data-notes-browse-new-folder]') as Element)
+    fireEvent.change(screen.getByLabelText('settings.folderName'), { target: { value: 'fresh' } })
+    fireEvent.click(document.querySelector('[data-notes-new-folder-create]') as Element)
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-notes-new-folder-failure="failed"]')).not.toBeNull()
+    })
+    expect(screen.getByText('error.directoryCreateFailed')).toBeDefined()
+
+    fireEvent.keyDown(screen.getByLabelText('settings.folderName'), { key: 'Escape' })
+
+    expect(document.querySelector('[data-notes-browser-create]')).toBeNull()
+    expect(document.querySelector('[data-notes-browse-new-folder]')).not.toBeNull()
   })
 
   it('reaches the other volumes from a drive root', async () => {

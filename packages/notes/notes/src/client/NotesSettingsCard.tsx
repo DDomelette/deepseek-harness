@@ -25,6 +25,11 @@ import type { NotesInjected } from './face.ts'
 import { WorkspaceField } from './WorkspaceField.tsx'
 import css from './NotesSettingsCard.module.css'
 
+/* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
+const dialogClass = css.dialog ?? ''
+/* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
+const scrollClass = css.scroll ?? ''
+
 /** The card's props: the section, its read state, and the panel's commands. */
 export interface NotesSettingsCardProps {
   /** The settings section, once a read answered. */
@@ -50,7 +55,14 @@ export function NotesSettingsCard({
   settings, loading, failure, commands, t, close,
 }: NotesSettingsCardProps): ReactNode {
   return (
-    <Modal open onClose={close} title={t('settings.title')} closeLabel={t('settings.close')}>
+    <Modal
+      open
+      onClose={close}
+      title={t('settings.title')}
+      closeLabel={t('settings.close')}
+      className={dialogClass}
+      contentClassName={scrollClass}
+    >
       <div className={css.card} data-notes-settings>
         {loading && <p className={css.line}>{t('settings.loading')}</p>}
         {failure !== undefined && (
@@ -142,18 +154,21 @@ function SettingsForm({ settings, commands, t }: {
     <>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.strategy')}</h3>
-        {(['manual', 'auto'] as const).map(option => (
-          <Button
-            key={option}
-            size="sm"
-            variant={settings.strategy === option ? 'primary' : 'outline'}
-            aria-pressed={settings.strategy === option}
-            data-notes-strategy={option}
-            onClick={() => { commands.saveSettings({ strategy: option }) }}
-          >
-            {t(option === 'manual' ? 'settings.strategyManual' : 'settings.strategyAuto')}
-          </Button>
-        ))}
+        <div className={css.strategyRow}>
+          {(['manual', 'auto'] as const).map(option => (
+            <Button
+              key={option}
+              size="sm"
+              className={css.strategyOption}
+              variant={settings.strategy === option ? 'primary' : 'outline'}
+              aria-pressed={settings.strategy === option}
+              data-notes-strategy={option}
+              onClick={() => { commands.saveSettings({ strategy: option }) }}
+            >
+              {t(option === 'manual' ? 'settings.strategyManual' : 'settings.strategyAuto')}
+            </Button>
+          ))}
+        </div>
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.workspace')}</h3>
@@ -206,28 +221,30 @@ function SettingsForm({ settings, commands, t }: {
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.actions')}</h3>
-        <select
-          className={css.field}
-          aria-label={t('settings.actionPick')}
-          data-notes-action-pick
-          value={feature}
-          onChange={(event) => { openFeature(event.target.value) }}
-        >
-          {current === undefined && <option value="">{t('settings.actionNew')}</option>}
-          {settings.actions.map(action => (
-            <option key={action.id} value={action.id}>{action.label}</option>
-          ))}
-        </select>
-        <Button
-          size="sm"
-          variant="outline"
-          className={css.addFeature}
-          aria-label={t('settings.actionAdd')}
-          data-notes-add-action
-          onClick={addFeature}
-        >
-          +
-        </Button>
+        <div className={css.actionHead}>
+          <select
+            className={css.field}
+            aria-label={t('settings.actionPick')}
+            data-notes-action-pick
+            value={feature}
+            onChange={(event) => { openFeature(event.target.value) }}
+          >
+            {current === undefined && <option value="">{t('settings.actionNew')}</option>}
+            {settings.actions.map(action => (
+              <option key={action.id} value={action.id}>{action.label}</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="outline"
+            className={css.addFeature}
+            aria-label={t('settings.actionAdd')}
+            data-notes-add-action
+            onClick={addFeature}
+          >
+            +
+          </Button>
+        </div>
         <input
           className={css.field}
           aria-label={t('settings.actionLabelInput')}

@@ -89,6 +89,7 @@ export function WorkspaceField({ workspace: resolved, commands, t }: WorkspaceFi
         <Button
           size="sm"
           variant="outline"
+          className={css.browse}
           aria-label={t('settings.browse')}
           data-notes-browse
           onClick={() => { void browse() }}
@@ -104,6 +105,7 @@ export function WorkspaceField({ workspace: resolved, commands, t }: WorkspaceFi
           t={t}
           open={(path) => { void readLevel(path) }}
           showDrives={() => { setBrowsing('drives') }}
+          createDirectory={commands.createDirectory}
           choose={() => {
             setWorkspace(listed.path)
             // A level chosen in the browser is deliberate, like a native pick.
@@ -126,11 +128,13 @@ export function WorkspaceField({ workspace: resolved, commands, t }: WorkspaceFi
  * entries stay out of the list: the host platform's convention decides which
  * they are, and a configuration field does not need them. A level that is
  * itself a volume root has no parent to step up into, so the control that
- * leads on from it opens the volume list the host reported instead.
+ * leads on from it opens the volume list the host reported instead. "New
+ * folder" creates a child of the level in view and steps into it, so choosing
+ * it is one click away.
  * @param props - the view, its level, the read state, navigations, and copy.
  * @returns the browser.
  */
-function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, close, t }: {
+function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, close, createDirectory, t }: {
   readonly view: 'level' | 'drives'
   readonly listed: DirectoryListing
   readonly reading: boolean
@@ -138,17 +142,70 @@ function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, clo
   readonly showDrives: () => void
   readonly choose: () => void
   readonly close: () => void
+  readonly createDirectory: NotesInjected['createDirectory']
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
   const parent = listed.crumbs.at(-2)
   const drives = listed.drives ?? []
   const rows = view === 'drives' ? drives : listed.entries.filter(entry => !entry.hidden)
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
+  const [createError, setCreateError] = useState<'exists' | 'failed' | null>(null)
+  const [busy, setBusy] = useState(false)
+  /** Create the named child under the level in view and step into it. */
+  const create = async (): Promise<void> => {
+    const trimmed = name.trim()
+    if (trimmed === '' || busy) return
+    setBusy(true)
+    setCreateError(null)
+    const created = await createDirectory(listed.path, trimmed)
+    setBusy(false)
+    if (!created.ok) {
+      setCreateError(created.code)
+      return
+    }
+    setCreating(false)
+    setName('')
+    open(created.path)
+  }
   return (
     <div className={css.browser} data-notes-browser>
       <p className={css.browserPath} data-notes-browser-path>
         {view === 'drives' ? t('settings.browseDrives') : listed.path}
       </p>
       {reading && <p className={css.line}>{t('settings.browseReading')}</p>}
+      {creating && view === 'level' && (
+        <div className={css.createRow} data-notes-browser-create>
+          <input
+            className={css.field}
+            aria-label={t('settings.folderName')}
+            placeholder={t('settings.folderNamePlaceholder')}
+            data-notes-new-folder-name
+            value={name}
+            autoFocus
+            onChange={(event) => { setName(event.target.value) }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void create()
+              if (event.key === 'Escape') setCreating(false)
+            }}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            className={css.browse}
+            data-notes-new-folder-create
+            disabled={name.trim() === '' || busy}
+            onClick={() => { void create() }}
+          >
+            {t('settings.folderCreate')}
+          </Button>
+        </div>
+      )}
+      {createError !== null && (
+        <p className={css.createFailure} data-notes-new-folder-failure={createError}>
+          {t(createError === 'exists' ? 'error.directoryExists' : 'error.directoryCreateFailed')}
+        </p>
+      )}
       <ul className={css.browserList}>
         {rows.map(row => (
           <li key={row.path}>
@@ -185,6 +242,19 @@ function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, clo
             onClick={showDrives}
           >
             {t('settings.browseDrives')}
+          </Button>
+        )}
+        {view === 'level' && !creating && (
+          <Button
+            size="sm"
+            variant="outline"
+            data-notes-browse-new-folder
+            onClick={() => {
+              setCreateError(null)
+              setCreating(true)
+            }}
+          >
+            {t('settings.browseNewFolder')}
           </Button>
         )}
         {view === 'level' && (

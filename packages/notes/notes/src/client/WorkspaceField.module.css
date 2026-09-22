@@ -13,21 +13,46 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* Text controls follow the shared Input recipe: layer-1 fill on a layer-2
+ * surface, a visible hairline, and the Input's radius. */
 .field {
   box-sizing: border-box;
   width: 100%;
   padding: 6px 8px;
   font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-bg-layer-2);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 8px;
+}
+
+.field:focus-visible {
+  border-color: var(--dsw-alias-brand-primary);
+  outline: none;
 }
 
 .directory {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+/* The field takes what it needs; the button keeps its label on one line. */
+.browse {
+  flex: none;
+  white-space: nowrap;
+}
+
+.createRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.createFailure {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .browser {
