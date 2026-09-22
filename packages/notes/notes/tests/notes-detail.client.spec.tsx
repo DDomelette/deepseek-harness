@@ -389,6 +389,10 @@ describe('material detail', () => {
       actions: [translate],
     })
 
+    // The template lives in the source card, folded with it.
+    expect(document.querySelector('[data-notes-action-template]')).toBeNull()
+    openSource()
+
     expect(document.querySelector('[data-notes-action-template="translate"]')?.textContent)
       .toContain('不改变语句结构，翻译下列内容：')
   })
@@ -398,6 +402,8 @@ describe('material detail', () => {
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'translate' }), {
       actions: [translate],
     })
+
+    openSource()
 
     const card = document.querySelector('[data-notes-action-template="translate"]') as Element
     expect(card.getAttribute('aria-expanded')).toBe('false')
@@ -414,6 +420,8 @@ describe('material detail', () => {
     show(bench.props(), materialSummary({ noteId: noteId('n1'), text: 'body', action: 'gone' }), {
       actions: [translate],
     })
+
+    openSource()
 
     expect(document.querySelector('[data-notes-action-template]')).toBeNull()
   })

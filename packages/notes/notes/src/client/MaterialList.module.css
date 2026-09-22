@@ -1,10 +1,12 @@
 /*
  * The list column: one draggable row per material, and the archived bucket
- * folded under them. A row's archive control appears while the row is hovered
- * or focused, and the drop line marks where a dragged row would land.
+ * folded under them. A row's tail controls appear while the row is hovered or
+ * focused, and the drop line marks where a dragged row would land.
  *
- * The column flexes with the panel between 220px and 340px instead of holding
- * a fixed width; below the panel's two-column band it is the only column.
+ * The row itself is the card, so the tail controls' seats sit inside its
+ * boundary; the select button is its chromeless content region. The column
+ * flexes with the panel between 220px and 340px instead of holding a fixed
+ * width; below the panel's two-column band it is the only column.
  */
 .list {
   display: flex;
@@ -30,7 +32,22 @@
 
 .row {
   display: flex;
+  gap: 4px;
   align-items: center;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.row:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* The open material's card. */
+.row[data-notes-open] {
+  background: var(--dsw-alias-interactive-bg-active);
+  border-color: var(--dsw-alias-border-l2);
 }
 
 /* The drop line sits on the row a dragged material would land on. */
@@ -43,35 +60,23 @@
   flex: 1;
   gap: 8px;
   align-items: center;
-  box-sizing: border-box;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 0;
   font: inherit;
   color: inherit;
   text-align: left;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: none;
   cursor: pointer;
 }
 
-.rowButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.rowButton[aria-current='true'] {
-  background: var(--dsw-alias-interactive-bg-active);
-  border-color: var(--dsw-alias-border-l2);
-}
-
 /*
- * The handle keeps its seat in the row's flex flow and only turns visible, so
- * showing it neither covers the row's source label nor moves the layout. Its
- * look is the shared Button (sm outline); this class owns only the seat.
+ * A handle keeps its seat in the card's flex flow and only turns visible, so
+ * showing it neither covers the row's text nor moves the layout. Its look is
+ * the shared Button (sm outline); this class owns only the seat.
  */
 .handle {
   flex: none;
-  margin-right: 4px;
   visibility: hidden;
 }
 
@@ -138,8 +143,11 @@
   min-width: 0;
 }
 
+/* The title takes whatever the chip leaves, and ellipsizes past it. */
 .rowTitle {
+  flex: 1;
   overflow: hidden;
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -148,6 +156,15 @@
 
 .rowAction {
   flex: none;
+}
+
+/* The two-column band's narrowest columns clamp the list to 220px: the action
+   chip folds away there so the title keeps ~6 characters. One-column panes
+   give the list the whole width and keep the chip. */
+@container notes (min-width: 560px) and (max-width: 640px) {
+  .rowAction {
+    display: none;
+  }
 }
 
 .rowPreview {
