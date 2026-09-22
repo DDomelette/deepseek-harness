@@ -28,3 +28,4 @@ Status: implemented
 - 手柄不再遮挡行内容，键盘聚焦与悬停都会显现，并有可见的焦点框；每一行永久预留手柄宽度，因此标题会略早一点 ellipsis。
 - 会话标题在任意面板宽度下至少保留约 8 个字符，超出后正确 ellipsis；500–559px 区间显示纯图标工具按钮，导航栏不再溢出。
 - `packages/notes/notes/tests/notes-list.client.spec.tsx` 与 `notes-panel.client.spec.tsx`（63 个测试）原样通过——它们断言 `data-notes-*` 钩子与本地化文案而非 CSS 类——因此无需更新选择器或黄金文件。
+- 流内座位部分被[悬浮控件](2026-09-22-notes-row-overlay-controls.zh.md)取代：行尾控件现在悬浮覆盖在卡片右缘、静止时不占位；本 note 的悬停/聚焦显现与焦点框决策不变。

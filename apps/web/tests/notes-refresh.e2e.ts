@@ -56,7 +56,9 @@ it.skipIf(MODE === 'record')('refreshes a note settled during an older listing w
   if (!added.ok) throw new Error(added.error.code)
   await page.getByRole('button', { name: 'Open the notes panel', exact: true }).click()
   const panel = page.locator('[data-notes-panel]')
-  await panel.locator('[data-notes-select]').click()
+  // Click the row's text end: its tail controls float over the right edge on
+  // hover, and a centre click at this pane width lands on them.
+  await panel.locator('[data-notes-select]').click({ position: { x: 20, y: 10 } })
   const [prompt] = fixtureUserPrompts(recorded)
   if (prompt === undefined) throw new Error('shared recording contains no prompt')
   await panel.locator('[data-notes-editor]').fill(prompt)

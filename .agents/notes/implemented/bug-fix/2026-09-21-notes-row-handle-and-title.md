@@ -28,3 +28,4 @@ Two measured defects in the notes panel (`packages/notes/notes/src/client/`):
 - The handle never overlaps row content, appears on keyboard focus as well as hover, and shows a visible focus ring; every row permanently reserves the handle's width, so titles ellipsize slightly earlier.
 - The conversation title keeps at least ~8 characters at any pane width, ellipsizes correctly beyond that, and the 500–559px band shows icon-only tools instead of an overflowing bar.
 - `packages/notes/notes/tests/notes-list.client.spec.tsx` and `notes-panel.client.spec.tsx` (63 tests) pass unchanged — they assert `data-notes-*` hooks and locale text, not CSS classes — so no selector or golden-file update was needed.
+- Superseded in part by [the overlay controls](2026-09-22-notes-row-overlay-controls.md): the tail controls now float over the card's right edge and reserve nothing at rest; this note's hover/focus reveal and focus ring are unchanged.
