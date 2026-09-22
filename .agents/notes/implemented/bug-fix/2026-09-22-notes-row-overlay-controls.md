@@ -23,4 +23,5 @@ The e2e surfaced one real collision the seats had hidden: at the narrowest cards
 
 - A real-browser probe measured the rest state (content region spans the full card minus padding; the title is ~191px where the seats left ~40px), the hover state (identical geometry — zero jitter — with the controls visible on an opaque backing inside the card's right edge), and keyboard focus revealing the controls without the pointer; a second probe verified backdrop click-through selects the row while the Archive button still archives.
 - [The row-handle note](2026-09-21-notes-row-handle-and-title.md)'s in-flow-seat decision is superseded by this one; its keyboard-reveal and focus-ring decisions stand unchanged.
+- Superseded in part by [the hover-yield follow-up](2026-09-22-notes-row-hover-yield.md): the backdrop and its click-through rule are gone — the controls open in flow at the card's right end and the text yields to them.
 - All 433 notes package tests pass unchanged; the `notes-refresh` golden is unchanged (the overlay is hidden at rest, so ARIA never sees it).

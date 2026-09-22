@@ -4,11 +4,11 @@
  *
  * A row's title is the reader's own rename or the body's first line, with the
  * text below it as the preview. A row's tail handles — archive it, or open the
- * menu that renames it — float over the card's right edge while the row is
- * hovered or focused. The drop line marks where a dragged row would land, and
- * the order it produces is the complete list the Host's reorder takes — never
- * a pair of neighbours, so a drop cannot depend on what the list looked like
- * when the drag began.
+ * menu that renames it — open at the card's right end while the row is hovered
+ * or focused, the text yielding to them. The drop line marks where a dragged
+ * row would land, and the order it produces is the complete list the Host's
+ * reorder takes — never a pair of neighbours, so a drop cannot depend on what
+ * the list looked like when the drag began.
  */
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
