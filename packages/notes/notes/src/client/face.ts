@@ -233,6 +233,13 @@ export interface NotesInjected {
    */
   readonly listDirectories: (path: string | null) => Promise<DirectoryListing | null>
   /**
+   * Create one child directory under the level the in-card browser stands in.
+   * @param path - the absolute parent directory.
+   * @param name - the new folder's name, as typed.
+   * @returns the created directory's path, or the refusal the host reported.
+   */
+  readonly createDirectory: (path: string, name: string) => Promise<NotesCreateDirectoryResult>
+  /**
    * Read the deployment's model catalog for the settings card's pickers.
    * @returns the catalog, or null when the host refused the read.
    */
@@ -311,6 +318,13 @@ export interface NotesDirectoryFace {
    * @returns the level's child directories and its ancestry.
    */
   list(path: string | undefined): Promise<RemoteResult<DirectoryListing>>
+  /**
+   * Create one child directory under an existing parent.
+   * @param path - the absolute parent directory.
+   * @param name - a single path segment.
+   * @returns the created directory's absolute path.
+   */
+  createDirectory(path: string, name: string): Promise<RemoteResult<string>>
 }
 
 /** What one directory-chooser request answered. */
@@ -318,6 +332,15 @@ export type NotesPickResult =
   | { readonly kind: 'picked'; readonly path: string }
   | { readonly kind: 'cancelled' }
   | { readonly kind: 'unavailable' }
+
+/**
+ * What one new-folder request answered: the created directory's path, or the
+ * refusal the host reported, narrowed to the two outcomes the browser draws —
+ * a name that already exists, and everything else.
+ */
+export type NotesCreateDirectoryResult =
+  | { readonly ok: true; readonly path: string }
+  | { readonly ok: false; readonly code: 'exists' | 'failed' }
 
 /**
  * The session namespace, as this panel reads one deployment fact from it.
@@ -511,6 +534,18 @@ export function notesFace(
         return null
       }
       return listed.value
+    },
+    createDirectory: async (path, name) => {
+      const created = await directoryPicker.createDirectory(path, name)
+      if (!created.ok) {
+        return {
+          ok: false,
+          // The wire vocabulary is the controller's; only a name conflict gets
+          // its own line in the browser, everything else is one failure.
+          code: created.error.code === 'directory-picker/exists' ? 'exists' : 'failed',
+        }
+      }
+      return { ok: true, path: created.value }
     },
     loadModels: async () => {
       const catalog = await session.modelCatalog()
