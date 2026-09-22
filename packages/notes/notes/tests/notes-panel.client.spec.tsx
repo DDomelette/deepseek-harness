@@ -11,8 +11,8 @@ import { NotesPanel, sessionIntent } from '../src/client/NotesPanel.tsx'
 import { IMAGE_TYPES, payloadOf } from '../src/client/image.ts'
 import { NotesButton } from '../src/client/NotesButton.tsx'
 import {
-  harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions, thread,
-  unavailable,
+  applied, harness, materialId, materialSummary, materials, noteId, sessionSummary, sessions,
+  settings, thread, unavailable,
 } from './fixtures.client.ts'
 
 afterEach(() => {
@@ -587,6 +587,64 @@ describe('notes panel', () => {
     expect(screen.getByText('error.materialSubmitted')).toBeDefined()
     // The listing the refusal left standing stays: only a failed read replaces it.
     expect(document.querySelector('[data-notes-material]')).not.toBeNull()
+  })
+})
+
+describe('first-run workspace gate', () => {
+  it('offers only the workspace picker while no workspace is configured', async () => {
+    const bench = harness({ settings: () => settings({ workspace: null }) })
+    render(<NotesPanel {...bench.props()} />)
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-gate]')).not.toBeNull() })
+    // Every other control stays out of the tree until the workspace is set:
+    // neither the bar's tools nor the empty state's create button.
+    expect(document.querySelector('[data-notes-new]')).toBeNull()
+    expect(document.querySelector('[data-notes-create]')).toBeNull()
+    expect(document.querySelector('[data-notes-history]')).toBeNull()
+    expect(document.querySelector('[data-notes-settings-open]')).toBeNull()
+    expect(document.querySelector('[data-notes-refresh]')).toBeNull()
+    expect(document.querySelector('[data-notes-present]')).toBeNull()
+    expect(document.querySelector('[data-notes-image-input]')).toBeNull()
+    expect(screen.queryByText('panel.empty')).toBeNull()
+    // And no conversation is started from behind the gate.
+    expect(bench.remote.sessionCreate).not.toHaveBeenCalled()
+  })
+
+  it('opens the panel once the gate saves a picked directory', async () => {
+    let configured: string | null = null
+    const bench = harness({ settings: () => settings({ workspace: configured }) })
+    bench.remote.settingsUpdate.mockImplementation(async (request) => {
+      configured = request.workspace ?? null
+      return applied()
+    })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-gate]')).not.toBeNull() })
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-gate]')).toBeNull() })
+    expect(bench.remote.settingsUpdate).toHaveBeenCalledExactlyOnceWith({ workspace: '/work/chosen' })
+    expect(screen.getByText('panel.empty')).toBeDefined()
+  })
+
+  it('browses the host\'s directories when no native chooser answers', async () => {
+    let configured: string | null = null
+    const bench = harness({ settings: () => settings({ workspace: configured }) })
+    bench.remote.settingsUpdate.mockImplementation(async (request) => {
+      configured = request.workspace ?? null
+      return applied()
+    })
+    bench.directoryPicker.pick.mockResolvedValue({ ok: false, error: unavailable() })
+    render(<NotesPanel {...bench.props()} />)
+    await waitFor(() => { expect(document.querySelector('[data-notes-gate]')).not.toBeNull() })
+
+    fireEvent.click(screen.getByLabelText('settings.browse'))
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-browser]')).not.toBeNull() })
+    fireEvent.click(document.querySelector('[data-notes-browse-choose]') as Element)
+
+    await waitFor(() => { expect(document.querySelector('[data-notes-gate]')).toBeNull() })
+    expect(bench.remote.settingsUpdate).toHaveBeenCalledExactlyOnceWith({ workspace: '/work' })
   })
 })
 
