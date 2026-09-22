@@ -29,6 +29,7 @@ import { MaterialDetail } from './MaterialDetail.tsx'
 import { MaterialList } from './MaterialList.tsx'
 import { NotesSettingsCard } from './NotesSettingsCard.tsx'
 import type { NotesStore } from './store.ts'
+import { WorkspaceGate } from './WorkspaceGate.tsx'
 import css from './NotesPanel.module.css'
 
 /** Which command one entry of the conversation menu asks for. */
@@ -149,6 +150,17 @@ export function NotesPanel({
     if (file === null) return
     event.preventDefault()
     void collectImage(file)
+  }
+  // No workspace, no panel: a conversation cannot start without one, so until
+  // the section names a directory the gate is the whole panel. An unread or
+  // refused settings read is not the gate — the usual content wears its own
+  // loading and failure lines.
+  if (state.settings?.workspace === null) {
+    return (
+      <div className={css.panel} data-notes-panel>
+        <WorkspaceGate commands={commands} t={t} />
+      </div>
+    )
   }
   return (
     <div

@@ -16,13 +16,13 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
-import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import { Button, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesSettingsView } from '../types.ts'
 import { failureLine } from './failure-line.ts'
 import type { NotesPanelFailure } from './failure-line.ts'
 import type { NotesInjected } from './face.ts'
+import { WorkspaceField } from './WorkspaceField.tsx'
 import css from './NotesSettingsCard.module.css'
 
 /** The card's props: the section, its read state, and the panel's commands. */
@@ -70,10 +70,6 @@ function SettingsForm({ settings, commands, t }: {
   readonly commands: NotesInjected
   readonly t: PropsLocale<'notes'>['t']
 }): ReactNode {
-  const [workspace, setWorkspace] = useState(settings.workspace ?? '')
-  const [browsing, setBrowsing] = useState<'closed' | 'level' | 'drives'>('closed')
-  const [listed, setListed] = useState<DirectoryListing | undefined>(undefined)
-  const [reading, setReading] = useState(false)
   const [catalog, setCatalog] = useState<ModelCatalog | undefined>(undefined)
   const [modelKey, setModelKey] = useState(modelKeyOf(settings.model))
   const [effort, setEffort] = useState(settings.model?.reasoningEffort ?? '')
@@ -93,42 +89,6 @@ function SettingsForm({ settings, commands, t }: {
   // Host refuses too.
   const unchanged = current !== undefined && label === current.label && prompt === current.prompt
   const blank = label.trim() === '' || prompt.trim() === ''
-  /**
-   * Read one directory level into the card's browser.
-   * @param path - the level to show, or null for the host's home directory.
-   */
-  const readLevel = async (path: string | null): Promise<void> => {
-    setReading(true)
-    const level = await commands.listDirectories(path)
-    setReading(false)
-    // A refused level leaves the browser where it was; the face reports the
-    // refusal on the card's failure line.
-    if (level === null) return
-    setListed(level)
-    setBrowsing('level')
-  }
-  /** Fill the directory field from the host's own chooser, or browse when it serves none. */
-  const browse = async (): Promise<void> => {
-    const chosen = await commands.pickDirectory()
-    if (chosen.kind === 'picked') {
-      setWorkspace(chosen.path)
-      // A picked directory is a deliberate value, so it saves on the pick.
-      commands.saveSettings({ workspace: chosen.path })
-      return
-    }
-    if (chosen.kind === 'cancelled') return
-    await readLevel(null)
-  }
-  /**
-   * Write the directory field. The field is free text, so it commits on blur
-   * or Enter rather than on every keystroke; a blank-after-trim value unsets
-   * the directory, matching the explicit clear the save button had.
-   */
-  const commitWorkspace = (): void => {
-    const trimmed = workspace.trim()
-    if (trimmed === (settings.workspace ?? '')) return
-    commands.saveSettings({ workspace: trimmed === '' ? null : trimmed })
-  }
   /**
    * Write the model route and effort the pickers show; the pickers are
    * discrete choices, so a change saves immediately.
@@ -197,45 +157,7 @@ function SettingsForm({ settings, commands, t }: {
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.workspace')}</h3>
-        <div className={css.directory}>
-          <input
-            className={css.field}
-            aria-label={t('settings.workspace')}
-            data-notes-workspace
-            value={workspace}
-            onChange={(event) => { setWorkspace(event.target.value) }}
-            onBlur={commitWorkspace}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commitWorkspace()
-            }}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label={t('settings.browse')}
-            data-notes-browse
-            onClick={() => { void browse() }}
-          >
-            {t('settings.browse')}
-          </Button>
-        </div>
-        {browsing !== 'closed' && listed !== undefined && (
-          <DirectoryBrowser
-            view={browsing}
-            listed={listed}
-            reading={reading}
-            t={t}
-            open={(path) => { void readLevel(path) }}
-            showDrives={() => { setBrowsing('drives') }}
-            choose={() => {
-              setWorkspace(listed.path)
-              // A level chosen in the browser is deliberate, like a native pick.
-              commands.saveSettings({ workspace: listed.path })
-              setBrowsing('closed')
-            }}
-            close={() => { setBrowsing('closed') }}
-          />
-        )}
+        <WorkspaceField workspace={settings.workspace} commands={commands} t={t} />
       </section>
       <section className={css.section}>
         <h3 className={css.heading}>{t('settings.model')}</h3>
@@ -383,87 +305,4 @@ function mintActionId(actions: NotesSettingsView['actions']): string {
     const id = `custom-${String(index)}`
     if (!actions.some(action => action.id === id)) return id
   }
-}
-
-/**
- * The directory browser a deployment without a native chooser gets.
- *
- * It shows one level at a time — the host lists directories and their ancestry,
- * so the card never joins path segments itself — and the reader descends by
- * opening a child and chooses by taking the level it is standing in. Hidden
- * entries stay out of the list: the host platform's convention decides which
- * they are, and a configuration field does not need them. A level that is
- * itself a volume root has no parent to step up into, so the control that
- * leads on from it opens the volume list the host reported instead.
- * @param props - the view, its level, the read state, navigations, and copy.
- * @returns the browser.
- */
-function DirectoryBrowser({ view, listed, reading, open, showDrives, choose, close, t }: {
-  readonly view: 'level' | 'drives'
-  readonly listed: DirectoryListing
-  readonly reading: boolean
-  readonly open: (path: string) => void
-  readonly showDrives: () => void
-  readonly choose: () => void
-  readonly close: () => void
-  readonly t: PropsLocale<'notes'>['t']
-}): ReactNode {
-  const parent = listed.crumbs.at(-2)
-  const drives = listed.drives ?? []
-  const rows = view === 'drives' ? drives : listed.entries.filter(entry => !entry.hidden)
-  return (
-    <div className={css.browser} data-notes-browser>
-      <p className={css.browserPath} data-notes-browser-path>
-        {view === 'drives' ? t('settings.browseDrives') : listed.path}
-      </p>
-      {reading && <p className={css.line}>{t('settings.browseReading')}</p>}
-      <ul className={css.browserList}>
-        {rows.map(row => (
-          <li key={row.path}>
-            <button
-              type="button"
-              className={css.browserEntry}
-              data-notes-browse-entry={row.path}
-              onClick={() => { open(row.path) }}
-            >
-              {row.name}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className={css.browserActions}>
-        {/* Up one level, or on to the volumes where this level is a root. */}
-        {view === 'level' && parent !== undefined && (
-          <Button
-            size="sm"
-            variant="outline"
-            data-notes-browse-up
-            disabled={reading}
-            onClick={() => { open(parent.path) }}
-          >
-            {t('settings.browseUp')}
-          </Button>
-        )}
-        {view === 'level' && parent === undefined && drives.length > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            data-notes-browse-drives
-            disabled={reading}
-            onClick={showDrives}
-          >
-            {t('settings.browseDrives')}
-          </Button>
-        )}
-        {view === 'level' && (
-          <Button size="sm" variant="outline" data-notes-browse-choose onClick={choose}>
-            {t('settings.browseChoose')}
-          </Button>
-        )}
-        <Button size="sm" variant="outline" data-notes-browse-close onClick={close}>
-          {t('settings.browseClose')}
-        </Button>
-      </div>
-    </div>
-  )
 }

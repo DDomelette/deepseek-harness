@@ -1,0 +1,87 @@
+/*
+ * The workspace directory field: the free-text input and its browse control,
+ * then the directory browser a deployment without a native chooser gets.
+ *
+ * The settings card composes `field` from here for its other controls, so one
+ * recipe styles every text-like control the notes feature shows. Type follows
+ * the theme ladder (`--dsw-font-*`, which pairs every size with its line
+ * height).
+ */
+.field,
+.browser {
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+}
+
+.directory {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.browser {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+}
+
+.browserPath {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+  overflow-wrap: anywhere;
+}
+
+.browserList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* Directory rows are a list, not buttons: full-width, left-aligned, quiet. */
+.browserEntry {
+  width: 100%;
+  padding: 4px 6px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.browserEntry:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.browserActions {
+  display: flex;
+  gap: 6px;
+}
+
+.line {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}

@@ -1,0 +1,34 @@
+/*
+ * The first-run workspace gate: one centered column over the panel's body.
+ * It is the only content the panel mounts while no workspace is configured,
+ * so it centers in the full panel rather than sharing a bar with anything.
+ */
+.gate {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 24px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font: var(--dsw-font-xs-strong-13);
+  color: var(--dsw-alias-label-primary);
+}
+
+.hint {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+}
+
+.field {
+  width: min(320px, 100%);
+  margin-top: 6px;
+  text-align: left;
+}

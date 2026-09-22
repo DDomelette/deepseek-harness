@@ -21,6 +21,8 @@
     "src/client/NotesSettingsCard.tsx",
     "src/client/SelectionBubble.tsx",
     "src/client/store.ts",
+    "src/client/WorkspaceField.tsx",
+    "src/client/WorkspaceGate.tsx",
     "src/css-modules.d.ts",
     "src/client/title.ts",
     "src/types.ts"
