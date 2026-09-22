@@ -4,10 +4,11 @@
  *
  * A row's title is the reader's own rename or the body's first line, with the
  * text below it as the preview. A row's tail handles — archive it, or open the
- * menu that renames it — appear while the row is hovered or focused. The drop
- * line marks where a dragged row would land, and the order it produces is the
- * complete list the Host's reorder takes — never a pair of neighbours, so a
- * drop cannot depend on what the list looked like when the drag began.
+ * menu that renames it — float over the card's right edge while the row is
+ * hovered or focused. The drop line marks where a dragged row would land, and
+ * the order it produces is the complete list the Host's reorder takes — never
+ * a pair of neighbours, so a drop cannot depend on what the list looked like
+ * when the drag began.
  */
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -130,41 +131,43 @@ export function MaterialList({
                 <span className={css.rowPreview}>{row.text ?? t('source.image')}</span>
               </span>
             </button>
-            <Button
-              size="sm"
-              variant="outline"
-              className={css.handle}
-              aria-label={t('panel.archive')}
-              data-notes-archive-material={row.id}
-              onClick={() => { commands.archive(row.id) }}
-            >
-              {t('panel.archive')}
-            </Button>
-            <Menu
-              open={menuFor === row.id}
-              anchor={(
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={css.handle}
-                  aria-label={t('list.rowMenu')}
-                  data-notes-row-menu={row.id}
-                  onClick={() => { setMenuFor(open => (open === row.id ? null : row.id)) }}
-                >
-                  <IconEllipsisOutline16 />
-                </Button>
-              )}
-              items={[{ id: 'rename', label: t('list.rename') }]}
-              onSelect={() => {
-                setMenuFor(null)
-                setDraft(materialTitle(row))
-                setRenaming(row.id)
-              }}
-              onClose={() => { setMenuFor(null) }}
-              align="end"
-              portal
-              dense
-            />
+            <span className={css.handles}>
+              <Button
+                size="sm"
+                variant="outline"
+                className={css.handle}
+                aria-label={t('panel.archive')}
+                data-notes-archive-material={row.id}
+                onClick={() => { commands.archive(row.id) }}
+              >
+                {t('panel.archive')}
+              </Button>
+              <Menu
+                open={menuFor === row.id}
+                anchor={(
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={css.handle}
+                    aria-label={t('list.rowMenu')}
+                    data-notes-row-menu={row.id}
+                    onClick={() => { setMenuFor(open => (open === row.id ? null : row.id)) }}
+                  >
+                    <IconEllipsisOutline16 />
+                  </Button>
+                )}
+                items={[{ id: 'rename', label: t('list.rename') }]}
+                onSelect={() => {
+                  setMenuFor(null)
+                  setDraft(materialTitle(row))
+                  setRenaming(row.id)
+                }}
+                onClose={() => { setMenuFor(null) }}
+                align="end"
+                portal
+                dense
+              />
+            </span>
           </li>
         ))}
         {materials.length === 0 && (

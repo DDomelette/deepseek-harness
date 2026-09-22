@@ -1,7 +1,8 @@
 /*
  * The list column: one draggable row per material, and the archived bucket
- * folded under them. A row's tail controls appear while the row is hovered or
- * focused, and the drop line marks where a dragged row would land.
+ * folded under them. A row's tail controls float over the card's right edge
+ * while the row is hovered or focused, and the drop line marks where a
+ * dragged row would land.
  *
  * The row itself is the card, so the tail controls' seats sit inside its
  * boundary; the select button is its chromeless content region. The column
@@ -31,6 +32,7 @@
 }
 
 .row {
+  position: relative;
   display: flex;
   gap: 4px;
   align-items: center;
@@ -71,23 +73,34 @@
 }
 
 /*
- * A handle keeps its seat in the card's flex flow and only turns visible, so
- * showing it neither covers the row's text nor moves the layout. Its look is
- * the shared Button (sm outline); this class owns only the seat.
+ * The tail controls reserve nothing while the row is at rest: they float over
+ * the card's right edge on hover or keyboard focus, on the card's own
+ * background so they stay readable over the text they cover. Absolute
+ * positioning moves no layout when they appear. Only the buttons take
+ * pointer events — the backdrop clicks through to the card beneath.
  */
-.handle {
-  flex: none;
+.handles {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 2px 2px 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  border-radius: 6px;
+  transform: translateY(-50%);
   visibility: hidden;
+  pointer-events: none;
 }
 
-.row:hover .handle,
-.row:focus-within .handle {
+.handles button {
+  pointer-events: auto;
+}
+
+.row:hover .handles,
+.row:focus-within .handles {
   visibility: visible;
-}
-
-.handle:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
-  outline-offset: 2px;
 }
 
 .handle:focus-visible {
