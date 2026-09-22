@@ -3,10 +3,11 @@
  * own text, what the model answered, and the actions a reader takes on it.
  *
  * The pane's head names the material and holds its chrome: the status tag, the
- * source disclosure, and the menu of row-level actions (copy, archive,
- * delete). The body section keeps only the body — editable until the material
- * entered its conversation, because the session log carries the submitted body
- * and the Host refuses to rewrite the record; the draft's save and submit
+ * disclosure folding the source record and the action's prompt template open
+ * on demand, and the menu of row-level actions (copy, archive, delete). The
+ * body section keeps only the body — editable until the material entered its
+ * conversation, because the session log carries the submitted body and the
+ * Host refuses to rewrite the record; the draft's save and submit
  * controls sit with the editor they act on. The draft lives here rather than
  * in the store: leaving the detail discards an unsaved edit, which is what a
  * reader expects from a pane they navigated away from.
@@ -176,43 +177,45 @@ export function MaterialDetail({
       </div>
       {sourceOpen && (
         <div className={css.sourceCard} data-notes-source>
-          <span className={css.sourceLabel}>{material.source.label}</span>
-          <span className={css.sourceView}>
-            {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
-          </span>
-          {/* A material collected from the panel records no row, so it offers no
-              entry that could never point anywhere. */}
-          {locatable(material.source) && (
-            <Button
-              size="sm"
-              variant="outline"
-              data-notes-locate
-              onClick={() => { setLocating(true) }}
-            >
-              {t('detail.locate')}
-            </Button>
-          )}
-          {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
-        </div>
-      )}
-      {action !== undefined && (
-        <section className={css.section}>
-          <h3 className={css.sectionTitle}>{t('detail.actionTemplate')}</h3>
-          {/* The template is a fixed deployment string, so the card shows its
-              first line until the reader asks for the whole prompt. */}
-          <button
-            type="button"
-            className={css.template}
-            aria-expanded={templateOpen}
-            data-notes-action-template={action.id}
-            onClick={() => { setTemplateOpen(open => !open) }}
-          >
-            <span className={css.templateText}>{action.prompt}</span>
-            <span className={css.templateToggle}>
-              {templateOpen ? t('detail.templateCollapse') : t('detail.templateExpand')}
+          <div className={css.sourceRow}>
+            <span className={css.sourceLabel}>{material.source.label}</span>
+            <span className={css.sourceView}>
+              {material.kind === 'image' ? t('source.image') : t(VIEW_LINES[material.source.view])}
             </span>
-          </button>
-        </section>
+            {/* A material collected from the panel records no row, so it offers no
+                entry that could never point anywhere. */}
+            {locatable(material.source) && (
+              <Button
+                size="sm"
+                variant="outline"
+                data-notes-locate
+                onClick={() => { setLocating(true) }}
+              >
+                {t('detail.locate')}
+              </Button>
+            )}
+          </div>
+          {locating && <p className={css.locateHint} data-notes-locate-hint>{t('detail.locateHint')}</p>}
+          {action !== undefined && (
+            <div className={css.sourceTemplate}>
+              <h3 className={css.sectionTitle}>{t('detail.actionTemplate')}</h3>
+              {/* The template is a fixed deployment string, so the card shows its
+                  first line until the reader asks for the whole prompt. */}
+              <button
+                type="button"
+                className={css.template}
+                aria-expanded={templateOpen}
+                data-notes-action-template={action.id}
+                onClick={() => { setTemplateOpen(open => !open) }}
+              >
+                <span className={css.templateText}>{action.prompt}</span>
+                <span className={css.templateToggle}>
+                  {templateOpen ? t('detail.templateCollapse') : t('detail.templateExpand')}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
       )}
       <section className={css.section}>
         <h3 className={css.sectionTitle}>{t('detail.body')}</h3>

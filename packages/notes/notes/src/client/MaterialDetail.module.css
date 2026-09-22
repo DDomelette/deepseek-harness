@@ -76,17 +76,31 @@
   transform: rotate(180deg);
 }
 
-/* The source card: where the material came from, folded behind the head toggle. */
+/* The source card: where the material came from and what its action will
+   submit, folded behind the head toggle. */
 .sourceCard {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
-  align-items: center;
   padding: 8px 10px;
   font: var(--dsw-font-xxs-12);
   color: var(--dsw-alias-label-tertiary);
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
+}
+
+.sourceRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sourceTemplate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .sourceLabel {
