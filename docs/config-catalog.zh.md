@@ -368,7 +368,7 @@ export interface ConnectionConfig {
    * device's own window is set in the Connect-phone panel and stored in the
    * `client-connection/paired-devices` record; this value only decides what a
    * device starts with. Integer 1–365; there is no never-expires option.
-   * Default: 30.
+   * Default: 1.
    */
   deviceLifetimeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */

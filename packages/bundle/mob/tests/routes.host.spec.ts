@@ -39,6 +39,8 @@ interface ConnectionOptions {
   readonly touchFails?: boolean
   /** Runs inside device registration, for a code that expires while the row is written. */
   readonly duringRegister?: () => void
+  /** Raw output the injected ARP lookup answers; absent means no entry. */
+  readonly arp?: string
 }
 
 interface Bench {
@@ -47,6 +49,8 @@ interface Bench {
   readonly pairing: PairingSessions
   readonly registered: RegisterDeviceRequest[]
   readonly revoked: string[]
+  readonly restored: string[]
+  readonly purged: string[]
   readonly touched: string[]
   /** Per-device windows the route tests set through `/pair/devices/lifetime`. */
   readonly windows: ReadonlyMap<string, { readonly lifetimeDays: number; readonly expiresAt: number }>
@@ -72,8 +76,12 @@ function bench(options: ConnectionOptions = {}): Bench {
   const routes = new Map<string, WebRoute>()
   const registered: RegisterDeviceRequest[] = []
   const revoked: string[] = []
+  const restored: string[] = []
+  const purged: string[] = []
   const touched: string[] = []
+  const binned = new Set<string>()
   const windows = new Map<string, { lifetimeDays: number; expiresAt: number }>()
+  const idAt = (position: number): string => `device-${String(position + 1)}`
   ctx.provide('webServer', {
     register(route: WebRoute) {
       routes.set(route.path, route)
@@ -85,11 +93,18 @@ function bench(options: ConnectionOptions = {}): Bench {
     isLocalOperatorRequest: () => options.loopback ?? true,
     devices: {
       list: async () => registered.map((request, index) => {
-        const id = `device-${String(index + 1)}`
-        return { id, label: request.label, registeredAt: 1, lastSeenAt: 1, ...windows.get(id) ?? {} }
+        const id = idAt(index)
+        return {
+          id,
+          label: request.label,
+          registeredAt: 1,
+          lastSeenAt: 1,
+          ...windows.get(id) ?? {},
+          ...binned.has(id) ? { revokedAt: 2 } : {},
+        }
       }),
       setLifetime: async (deviceId: string, days: number) => {
-        const known = registered.some((_request, index) => `device-${String(index + 1)}` === deviceId)
+        const known = registered.some((_request, index) => idAt(index) === deviceId)
         if (!known) return false
         windows.set(deviceId, { lifetimeDays: days, expiresAt: days * 86_400_000 })
         return true
@@ -97,14 +112,32 @@ function bench(options: ConnectionOptions = {}): Bench {
       register: async (request: RegisterDeviceRequest) => {
         options.duringRegister?.()
         registered.push(request)
-        return { id: `device-${String(registered.length)}`, label: request.label, registeredAt: 1, lastSeenAt: 1 }
+        return { id: idAt(registered.length - 1), label: request.label, registeredAt: 1, lastSeenAt: 1 }
       },
       revoke: async (deviceId: string) => {
         revoked.push(deviceId)
-        // The real registry drops the row; the list route must observe that.
-        const index = registered.findIndex((_request, position) => `device-${String(position + 1)}` === deviceId)
-        if (index < 0) return false
+        // The real registry bins the row; the list route must observe that.
+        if (!registered.some((_request, index) => idAt(index) === deviceId) || binned.has(deviceId)) return false
+        binned.add(deviceId)
+        return true
+      },
+      restore: async (deviceId: string) => {
+        restored.push(deviceId)
+        return binned.delete(deviceId)
+      },
+      purge: async (deviceId: string) => {
+        // The real registry deletes from the bin only.
+        if (!binned.delete(deviceId)) return false
+        purged.push(deviceId)
+        const index = registered.findIndex((_request, position) => idAt(position) === deviceId)
         registered.splice(index, 1)
+        return true
+      },
+      rename: async (deviceId: string, label: string) => {
+        const index = registered.findIndex((_request, position) => idAt(position) === deviceId)
+        const target = registered[index]
+        if (target === undefined) return false
+        registered[index] = { ...target, label }
         return true
       },
       touch: async (deviceId: string) => {
@@ -118,7 +151,7 @@ function bench(options: ConnectionOptions = {}): Bench {
 
   const pairing = new PairingSessions()
   if (options.noShell !== true) ctx.provide('frontend', { renderIndex: async () => SHELL } as never)
-  registerPairingRoutes(ctx, pairing)
+  registerPairingRoutes(ctx, pairing, async () => options.arp ?? '')
 
   return {
     ctx,
@@ -126,6 +159,8 @@ function bench(options: ConnectionOptions = {}): Bench {
     pairing,
     registered,
     revoked,
+    restored,
+    purged,
     touched,
     windows,
     async call(path, init = {}) {
@@ -235,6 +270,8 @@ describe('pairing routes', () => {
         list: async () => [],
         register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
         revoke: async () => true,
+        restore: async () => true,
+        purge: async () => true,
         setLifetime: async () => true,
         touch: async () => true,
         issueCookie: () => COOKIE,
@@ -310,7 +347,7 @@ describe('pairing routes', () => {
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'unknown' })
   })
 
-  it('revokes a device row whose code expired while the row was being written', async () => {
+  it('purges a device row whose code expired while the row was being written', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
     const subject = bench({
@@ -319,9 +356,11 @@ describe('pairing routes', () => {
     const { code } = subject.pairing.openSession()
 
     // The approval is not published: the phone keeps polling and finds the code
-    // expired, and the operator's device list keeps no row no phone holds.
+    // expired, and the operator's device list keeps no row no phone holds —
+    // deletion is bin-only, so the route bins the row and then purges it.
     expect((await approve(subject, code)).status).toBe(410)
     expect(subject.revoked).toEqual(['device-1'])
+    expect(subject.purged).toEqual(['device-1'])
     expect(subject.registered).toEqual([])
     expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({ devices: [] })
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'expired' })
@@ -369,11 +408,23 @@ describe('pairing routes', () => {
     expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/u)
     expect(expiresAt).toBeGreaterThan(Date.now())
 
+    // A minted code is not a request yet: the list stays empty until a phone
+    // claims the code on the pairing screen.
+    expect(JSON.parse((await subject.call(PAIR_PATHS.requests)).body)).toEqual({ requests: [] })
+    expect((await subject.call(PAIR_PATHS.screen, {
+      code,
+      userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)',
+    })).status).toBe(200)
+
     const listed = JSON.parse((await subject.call(PAIR_PATHS.requests)).body) as {
       requests: { code: string; openedAt: number; expiresAt: number; userAgent?: string }[]
     }
     expect(listed.requests).toHaveLength(1)
-    expect(listed.requests[0]).toMatchObject({ code, expiresAt })
+    expect(listed.requests[0]).toMatchObject({
+      code,
+      expiresAt,
+      userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)',
+    })
     expect(typeof listed.requests[0]?.openedAt).toBe('number')
 
     const decided = await approve(subject, code, { label: '客厅的手机' })
@@ -382,11 +433,89 @@ describe('pairing routes', () => {
     expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
       devices: [{ id: 'device-1', label: '客厅的手机', registeredAt: 1, lastSeenAt: 1 }],
     })
+
+    // Revocation bins the row, restore re-activates it, and purge deletes it
+    // from the bin — an active row answers purge with { ok: false }.
+    expect(JSON.parse((await subject.call(PAIR_PATHS.purge, {
+      method: 'POST',
+      body: { deviceId: 'device-1' },
+    })).body)).toEqual({ ok: false })
     expect(JSON.parse((await subject.call(PAIR_PATHS.revoke, {
       method: 'POST',
       body: { deviceId: 'device-1' },
     })).body)).toEqual({ ok: true })
     expect(subject.revoked).toEqual(['device-1'])
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{ id: 'device-1', label: '客厅的手机', registeredAt: 1, lastSeenAt: 1, revokedAt: 2 }],
+    })
+    expect(JSON.parse((await subject.call(PAIR_PATHS.restore, {
+      method: 'POST',
+      body: { deviceId: 'device-1' },
+    })).body)).toEqual({ ok: true })
+    expect(subject.restored).toEqual(['device-1'])
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{ id: 'device-1', label: '客厅的手机', registeredAt: 1, lastSeenAt: 1 }],
+    })
+    await subject.call(PAIR_PATHS.revoke, { method: 'POST', body: { deviceId: 'device-1' } })
+    expect(JSON.parse((await subject.call(PAIR_PATHS.purge, {
+      method: 'POST',
+      body: { deviceId: 'device-1' },
+    })).body)).toEqual({ ok: true })
+    expect(subject.purged).toEqual(['device-1'])
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({ devices: [] })
+  })
+
+  it('registers the approved phone with the MAC its ARP row still records', async () => {
+    const subject = bench({ arp: 'Interface: 192.168.0.1\n  192.168.0.122  48-A7-3C-F1-87-18  dynamic' })
+    const { code } = subject.pairing.openSession()
+    await subject.call(PAIR_PATHS.screen, { code, userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)' })
+
+    expect((await approve(subject, code)).status).toBe(200)
+    expect(subject.registered).toEqual([{ label: 'HUAWEI JAD-AL50', macAddress: '48:a7:3c:f1:87:18' }])
+  })
+
+  it('renames a device through its own guarded route', async () => {
+    const subject = bench()
+    const { code } = subject.pairing.openSession()
+    await approve(subject, code)
+
+    expect(JSON.parse((await subject.call(PAIR_PATHS.label, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { deviceId: 'device-1', label: '  书房的平板  ' },
+    })).body)).toEqual({ ok: true })
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{ id: 'device-1', label: '书房的平板', registeredAt: 1, lastSeenAt: 1 }],
+    })
+
+    expect(JSON.parse((await subject.call(PAIR_PATHS.label, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { deviceId: 'ghost', label: 'no such device' },
+    })).body)).toEqual({ ok: false })
+
+    for (const body of [
+      { deviceId: 'device-1' },
+      { label: 'phone' },
+      { deviceId: 'device-1', label: '   ' },
+      { deviceId: 'device-1', label: 'x'.repeat(65) },
+      { deviceId: 'device-1', label: 7 },
+    ]) {
+      expect((await subject.call(PAIR_PATHS.label, {
+        method: 'POST',
+        cookie: 'dsh-auth-test=session',
+        body,
+      })).status).toBe(400)
+    }
+    expect((await subject.call(PAIR_PATHS.label, { method: 'GET' })).status).toBe(405)
+    expect((await subject.call(PAIR_PATHS.label, { method: 'POST', cookie: 'dsh-auth-test=session' })).status).toBe(400)
+    const remote = bench({ rejection: 401 })
+    expect((await remote.call(PAIR_PATHS.label, { method: 'POST' })).status).toBe(401)
+    const lan = bench({ loopback: false })
+    expect((await lan.call(PAIR_PATHS.label, {
+      method: 'POST',
+      body: { deviceId: 'device-1', label: 'phone' },
+    })).status).toBe(403)
   })
 
   it('denies without registering, and refuses unknown, expired, or repeated decisions', async () => {
@@ -435,6 +564,12 @@ describe('pairing routes', () => {
 
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code: 'ZZZZZZZZ', noSocket: true })).body))
       .toEqual({ status: 'unknown' })
+    // An in-process screen read carries no remote address: the claim is still
+    // recorded under the unknown-source fallback.
+    const socketLess = subject.pairing.openSession()
+    expect((await subject.call(PAIR_PATHS.screen, {
+      code: socketLess.code, userAgent: 'agent', noSocket: true,
+    })).status).toBe(200)
     expect((await subject.call(PAIR_PATHS.session, { method: 'GET' })).status).toBe(405)
     expect((await subject.call(PAIR_PATHS.requests, { method: 'POST' })).status).toBe(405)
     expect((await subject.call(PAIR_PATHS.devices, { method: 'POST' })).status).toBe(405)

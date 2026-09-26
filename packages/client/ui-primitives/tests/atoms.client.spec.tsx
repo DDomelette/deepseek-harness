@@ -427,7 +427,7 @@ describe('Modal', () => {
       <Modal open={false} onClose={onClose} title="Create new workspace" closeLabel="Close">body</Modal>)
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(
-      <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" footer={<button type="button">Create</button>}>
+      <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" bodyClassName="scrolling-body" footer={<button type="button">Create</button>}>
         <input aria-label="name" />
       </Modal>)
     const dialog = screen.getByRole('dialog', { name: 'Create new workspace' })
@@ -438,6 +438,9 @@ describe('Modal', () => {
     expect(screen.getByRole('button', { name: 'Configure later' })).toBeDefined()
     expect(screen.getByText('Name it.')).toBeDefined()
     expect(screen.getByText('Name it.').parentElement?.className).toContain('scrolling-content')
+    // A named body class lands on the body itself, so a caller can pin the
+    // header while only the body scrolls.
+    expect(screen.getByLabelText('name').parentElement?.className).toContain('scrolling-body')
     fireEvent.keyDown(document, { key: 'a' })
     expect(onClose).not.toHaveBeenCalled()
     const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })

@@ -9,6 +9,7 @@
     "src/controller.ts",
     "src/index.ts",
     "src/join-url.ts",
+    "src/mac.ts",
     "src/pairing.ts",
     "src/routes.ts",
     "src/types.ts"

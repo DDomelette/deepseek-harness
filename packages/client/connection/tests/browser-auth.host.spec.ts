@@ -485,6 +485,22 @@ describe('BrowserAuth', () => {
       expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(false)
     })
 
+    it('rejects a binned device cookie and re-admits it on restore', async () => {
+      const store = new RecordCredentials()
+      store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie('127.0.0.1:3080', PHONE))
+      expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(true)
+
+      store.setPairedDevices({ version: 1, devices: [{ ...deviceEntry('phone-1'), revokedAt: 1_700_100_000_000 }] })
+      await auth.refreshPairedDevices()
+      expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(false)
+
+      store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+      await auth.refreshPairedDevices()
+      expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(true)
+    })
+
     it('keeps the launch-token cookie valid while the device registry is empty', async () => {
       const store = new RecordCredentials()
       const auth = await createAuth(store)

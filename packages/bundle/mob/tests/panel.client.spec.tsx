@@ -51,6 +51,9 @@ interface Script {
   devices?: PairingResult<readonly PairedDeviceView[]>
   decide?: PairingResult<void>
   revoke?: PairingResult<void>
+  restore?: PairingResult<void>
+  purge?: PairingResult<void>
+  rename?: PairingResult<void>
   setLifetime?: PairingResult<void>
 }
 
@@ -62,6 +65,9 @@ interface FakeApi {
   readonly decide: ReturnType<typeof vi.fn>
   readonly devices: ReturnType<typeof vi.fn>
   readonly revoke: ReturnType<typeof vi.fn>
+  readonly restore: ReturnType<typeof vi.fn>
+  readonly purge: ReturnType<typeof vi.fn>
+  readonly rename: ReturnType<typeof vi.fn>
   readonly setLifetime: ReturnType<typeof vi.fn>
 }
 
@@ -74,8 +80,14 @@ function fakeApi(script: Script = {}): FakeApi {
   const devices = vi.fn(async (): Promise<PairingResult<readonly PairedDeviceView[]>> =>
     script.devices ?? { ok: true, value: [] })
   const revoke = vi.fn(async (): Promise<PairingResult<void>> => script.revoke ?? { ok: true, value: undefined })
+  const restore = vi.fn(async (): Promise<PairingResult<void>> => script.restore ?? { ok: true, value: undefined })
+  const purge = vi.fn(async (): Promise<PairingResult<void>> => script.purge ?? { ok: true, value: undefined })
+  const rename = vi.fn(async (): Promise<PairingResult<void>> => script.rename ?? { ok: true, value: undefined })
   const setLifetime = vi.fn(async (): Promise<PairingResult<void>> => script.setLifetime ?? { ok: true, value: undefined })
-  return { api: { open, requests, decide, devices, revoke, setLifetime }, open, requests, decide, devices, revoke, setLifetime }
+  return {
+    api: { open, requests, decide, devices, revoke, restore, purge, rename, setLifetime },
+    open, requests, decide, devices, revoke, restore, purge, rename, setLifetime,
+  }
 }
 
 const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
@@ -135,6 +147,43 @@ describe('PairingPanel', () => {
     expect(subject.requests).toHaveBeenCalled()
   })
 
+  it('copies the join link and confirms for two seconds, selecting the field without a clipboard', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    mount()
+
+    fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
+    await vi.advanceTimersByTimeAsync(0)
+
+    // jsdom has no Clipboard API: the fallback selects the URL field.
+    fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(screen.getByRole('button', { name: '已复制' })).toBeTruthy()
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
+  })
+
+  it('writes the join link to the clipboard when the browser offers one', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    try {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(START))
+      mount()
+
+      fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
+      await vi.advanceTimersByTimeAsync(0)
+      fireEvent.click(screen.getByRole('button', { name: '复制' }))
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(writeText).toHaveBeenCalledWith(`http://192.168.1.5:3080/pair?c=${CODE}`)
+      expect(screen.getByRole('button', { name: '已复制' })).toBeTruthy()
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
   it('decides a waiting request under a label prefilled from the phone agent and editable', async () => {
     const subject = fakeApi({ requests: { ok: true, value: [{
       code: CODE,
@@ -166,22 +215,84 @@ describe('PairingPanel', () => {
     await waitFor(() => { expect(subject.decide).toHaveBeenCalledWith(CODE, '手机', false) })
   })
 
-  it('lists paired devices with their times and removes a revoked one', async () => {
-    const subject = fakeApi({ devices: { ok: true, value: [
+  it('lists paired devices with their times and moves a revoked one to the recycle bin', async () => {
+    const active = [
       { id: 'device-1', label: '客厅的手机', registeredAt: START, lastSeenAt: START + 60_000 },
       { id: 'device-2', label: 'iPad', registeredAt: START, lastSeenAt: START },
-    ] } })
+    ]
+    const subject = fakeApi({ devices: { ok: true, value: active } })
     mount({ api: subject })
 
     const first = (await waitFor(() => screen.getAllByText('客厅的手机')))[0]!
     const row = first.closest('li')!
     expect(within(row).getByText(/添加于 09-12 20:00/u)).toBeTruthy()
     expect(within(row).getByText(/最近使用 09-12 20:01/u)).toBeTruthy()
+    expect(screen.queryByText('回收站')).toBeNull()
 
-    fireEvent.click(within(row).getByRole('button', { name: '吊销' }))
+    subject.devices.mockResolvedValue({ ok: true, value: [
+      { ...active[0]!, revokedAt: START + 120_000 },
+      active[1]!,
+    ] })
+    fireEvent.click(within(row).getByRole('button', { name: '吊销凭证' }))
     await waitFor(() => { expect(subject.revoke).toHaveBeenCalledWith('device-1') })
-    await waitFor(() => { expect(screen.queryByText('客厅的手机')).toBeNull() })
-    expect(screen.getByText('iPad')).toBeTruthy()
+
+    // The binned device leaves the paired list and appears in the recycle bin.
+    const binHeading = await waitFor(() => screen.getByText('回收站'))
+    const binItem = screen.getByText('客厅的手机').closest('li')!
+    expect(within(binItem).getByText('吊销于 09-12 20:02')).toBeTruthy()
+    expect(binHeading.closest('section')).toBe(binItem.closest('section'))
+    expect(screen.getByText('iPad').closest('li')).not.toBe(binItem)
+  })
+
+  it('restores a binned device and purges one only after a confirmation', async () => {
+    const binned = { id: 'device-1', label: '旧手机', registeredAt: START, lastSeenAt: START, revokedAt: START }
+    const subject = fakeApi({ devices: { ok: true, value: [binned] } })
+    mount({ api: subject })
+
+    const item = (await waitFor(() => screen.getByText('旧手机'))).closest('li')!
+    expect(screen.getByText('回收站中的设备无法访问；恢复后，其 cookie 在窗口未结束时重新生效。')).toBeTruthy()
+
+    // Restore returns the row to the paired list.
+    subject.devices.mockResolvedValue({ ok: true, value: [
+      { id: 'device-1', label: '旧手机', registeredAt: START, lastSeenAt: START },
+    ] })
+    fireEvent.click(within(item).getByRole('button', { name: '恢复' }))
+    await waitFor(() => { expect(subject.restore).toHaveBeenCalledWith('device-1') })
+    await waitFor(() => { expect(screen.queryByText('回收站')).toBeNull() })
+
+    // Purge asks for confirmation and forgets the device for good.
+    subject.devices.mockResolvedValue({ ok: true, value: [binned] })
+    fireEvent.click(screen.getByRole('button', { name: '吊销凭证' }))
+    await waitFor(() => screen.getByText('回收站'))
+    const binnedItem = screen.getByText('旧手机').closest('li')!
+    fireEvent.click(within(binnedItem).getByRole('button', { name: '彻底删除' }))
+    expect(subject.purge).not.toHaveBeenCalled()
+    fireEvent.click(within(binnedItem).getByRole('button', { name: '取消' }))
+    expect(within(binnedItem).getByRole('button', { name: '彻底删除' })).toBeTruthy()
+
+    fireEvent.click(within(binnedItem).getByRole('button', { name: '彻底删除' }))
+    fireEvent.click(within(binnedItem).getByRole('button', { name: '确认彻底删除' }))
+    await waitFor(() => { expect(subject.purge).toHaveBeenCalledWith('device-1') })
+  })
+
+  it('reports a failed restore or purge instead of pretending it worked', async () => {
+    const binned = { id: 'device-1', label: '旧手机', registeredAt: START, lastSeenAt: START, revokedAt: START }
+    const subject = fakeApi({
+      devices: { ok: true, value: [binned] },
+      restore: { ok: false, reason: 'failed' },
+      purge: { ok: false, reason: 'failed' },
+    })
+    mount({ api: subject })
+
+    const item = (await waitFor(() => screen.getByText('旧手机'))).closest('li')!
+    fireEvent.click(within(item).getByRole('button', { name: '恢复' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
+
+    fireEvent.click(within(item).getByRole('button', { name: '彻底删除' }))
+    fireEvent.click(within(item).getByRole('button', { name: '确认彻底删除' }))
+    await waitFor(() => { expect(subject.purge).toHaveBeenCalledWith('device-1') })
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
+    expect(screen.getByText('旧手机')).toBeTruthy()
   })
 
   it('reports a failed decision instead of pretending it worked', async () => {
@@ -244,7 +355,7 @@ describe('PairingPanel', () => {
     })
     mount({ api: subject })
 
-    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '吊销' })))
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '吊销凭证' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
     expect(screen.getByText('iPad')).toBeTruthy()
   })
@@ -256,12 +367,55 @@ describe('PairingPanel', () => {
       WINDOWED,
       { id: 'device-2', label: 'iPad', registeredAt: START, lastSeenAt: START, lifetimeDays: 7, expiresAt: START - 1 },
       { id: 'device-3', label: '旧手机', registeredAt: START, lastSeenAt: START },
+      { id: 'device-4', label: '旧平板', registeredAt: START, lastSeenAt: START, lifetimeDays: 45, expiresAt: START + 45 * 86_400_000 },
     ] } }) })
 
     const first = (await waitFor(() => screen.getAllByText('客厅的手机')))[0]!
     expect(within(first.closest('li')!).getByText(/30 天（剩余 30 天）/u)).toBeTruthy()
     await waitFor(() => { expect(within(screen.getByText('iPad').closest('li')!).getByText('已过期')).toBeTruthy() })
-    expect(within(screen.getByText('旧手机').closest('li')!).getByText('—')).toBeTruthy()
+    // A legacy entry shows the unknown marker twice: its chip and its selector.
+    expect(within(screen.getByText('旧手机').closest('li')!).getAllByText('—')).toHaveLength(2)
+    // A window no preset names still shows its day count on the selector.
+    expect(within(screen.getByText('旧平板').closest('li')!).getByRole('button', { name: '45 天' })).toBeTruthy()
+  })
+
+  it('shows the MAC address a device resolved at approval', async () => {
+    mount({ api: fakeApi({ devices: { ok: true, value: [
+      { ...WINDOWED, macAddress: '48:a7:3c:f1:87:18' },
+    ] } }) })
+
+    const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
+    expect(within(row).getByText(/48:a7:3c:f1:87:18/u)).toBeTruthy()
+  })
+
+  it('renames a device inline, committing on Enter and cancelling on Escape', async () => {
+    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
+
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    const input = within(row).getByLabelText('重命名')
+    fireEvent.change(input, { target: { value: '  书房的手机  ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => { expect(subject.rename).toHaveBeenCalledWith('device-1', '书房的手机') })
+
+    // Escape closes the input without a call; an unchanged draft commits nothing.
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    const reopened = within(row).getByLabelText('重命名')
+    fireEvent.change(reopened, { target: { value: '客厅的手机' } })
+    fireEvent.keyDown(reopened, { key: 'Escape' })
+    expect(within(row).queryByRole('textbox')).toBeNull()
+
+    // Losing focus commits the draft the same way Enter does.
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    const blurred = within(row).getByLabelText('重命名')
+    fireEvent.change(blurred, { target: { value: '卧室的手机' } })
+    fireEvent.blur(blurred)
+    await waitFor(() => { expect(subject.rename).toHaveBeenCalledWith('device-1', '卧室的手机') })
+
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    fireEvent.keyDown(within(row).getByLabelText('重命名'), { key: 'Enter' })
+    await waitFor(() => { expect(screen.getByText('客厅的手机')).toBeTruthy() })
+    expect(subject.rename).toHaveBeenCalledTimes(2)
   })
 
   it('re-schedules a device from a preset and from an arbitrary day count', async () => {
@@ -271,9 +425,14 @@ describe('PairingPanel', () => {
 
     const label = await waitFor(() => screen.getByText('客厅的手机'))
     const row = label.closest('li')!
-    fireEvent.click(within(row).getByRole('button', { name: '7 天' }))
+    // The lifetime selector opens a menu; a preset applies on selection.
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '7 天' }))
     await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 7) })
 
+    // The pinned custom entry opens the arbitrary-days row.
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '自定义…' }))
     const days = within(row).getByLabelText('天数') as HTMLInputElement
     fireEvent.change(days, { target: { value: '45' } })
     fireEvent.click(within(row).getByRole('button', { name: '设为' }))
@@ -284,6 +443,19 @@ describe('PairingPanel', () => {
     fireEvent.change(days, { target: { value: '0' } })
     expect(within(row).getByRole<HTMLButtonElement>('button', { name: '设为' }).disabled).toBe(true)
     expect(subject.setLifetime).toHaveBeenCalledTimes(2)
+
+    // The selector toggles its menu shut, and Escape closes it too.
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    expect(screen.queryByRole('menuitem')).toBeNull()
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => { expect(screen.queryByRole('menuitem')).toBeNull() })
+
+    // Picking a preset while the arbitrary-days row is open folds that row away.
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '7 天' }))
+    expect(within(row).queryByLabelText('天数')).toBeNull()
   })
 
   it('states the revoke guidance and reports a refused re-schedule', async () => {
@@ -294,11 +466,12 @@ describe('PairingPanel', () => {
       setLifetime: { ok: false, reason: 'failed' },
     }) })
 
-    expect(screen.getByText('不再使用的设备请立即吊销；在不受信任的网络上用过之后也建议吊销。')).toBeTruthy()
+    expect(screen.getByText('不再使用、或在不受信任的网络上用过的设备请吊销；吊销后设备进入回收站，可以恢复或彻底删除。')).toBeTruthy()
     expect(screen.getByText('延长后，手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效；窗口已经结束的设备必须重新配对。')).toBeTruthy()
 
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
-    fireEvent.click(within(row).getByRole('button', { name: '1 天' }))
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '1 天' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
     expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 1)
     expect(screen.getByText('客厅的手机')).toBeTruthy()
@@ -309,7 +482,8 @@ describe('PairingPanel', () => {
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
     subject.devices.mockResolvedValue({ ok: false, reason: 'failed' })
 
-    fireEvent.click(within(row).getByRole('button', { name: '7 天' }))
+    fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '7 天' }))
 
     await waitFor(() => { expect(subject.setLifetime).toHaveBeenCalledWith('device-1', 7) })
     expect(screen.getByText('客厅的手机')).toBeTruthy()

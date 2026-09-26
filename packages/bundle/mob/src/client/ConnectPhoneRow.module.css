@@ -1,5 +1,37 @@
 /* Connect-phone row (figma 'Setting-Cell': gap 8, pad 16/0, hairline separator). */
 
+/* The Modal clips overflow, so the height cap must live on the dialog it
+   draws; a tall panel (QR + requests + devices + recycle bin) then scrolls
+   inside its body while the title and the close button stay put. The dialog
+   card is an elevated (layer-2) surface, so the scrollbar thumb rebinds to
+   the elevated variants here — the custom properties inherit down to the
+   scrolling body (see ui-theme styles/scrollbar.css). */
+.dialog {
+  max-height: calc(100vh - 48px);
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+@supports (height: 100dvh) {
+  .dialog {
+    max-height: calc(100dvh - 48px);
+  }
+}
+
+/* The content column must be allowed to shrink below its content height, or
+   the dialog's height cap would clip instead of scrolling the body. */
+.contentFit {
+  min-height: 0;
+}
+
+/* The scroll region the Modal's bodyClassName names: only the panel body
+   moves; the header (title, description, close) stays visible at the top. */
+.scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .row {
   display: flex;
   align-items: center;

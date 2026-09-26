@@ -43,8 +43,8 @@ export interface PendingPairing {
   readonly openedAt: number
   /** Epoch milliseconds the code expires. */
   readonly expiresAt: number
-  /** Agent of the phone that claimed the code, when one did. */
-  readonly userAgent: string | undefined
+  /** Agent of the phone that claimed the code. */
+  readonly userAgent: string
 }
 
 /** What a phone learns when it reads its code, throttling included. */
@@ -67,6 +67,8 @@ interface Session {
   readonly openedAt: number
   readonly expiresAt: number
   userAgent: string | undefined
+  /** Remote address the claim arrived from, for resolving the phone's MAC at approval. */
+  source: string | undefined
   label: string | undefined
   /** Decision the computer recorded; undefined while the request still waits. */
   decision: 'allow' | 'deny' | undefined
@@ -109,6 +111,7 @@ export class PairingSessions {
       openedAt: now,
       expiresAt: now + SESSION_TTL_MILLISECONDS,
       userAgent: undefined,
+      source: undefined,
       label: undefined,
       decision: undefined,
       deviceId: undefined,
@@ -118,24 +121,41 @@ export class PairingSessions {
   }
 
   /**
-   * Remember which agent claimed a code, for the label the approve dialog prefills.
+   * Remember which agent claimed a code, for the label the approve dialog
+   * prefills, and where the claim arrived from, for resolving the phone's MAC
+   * at approval.
    * @param code - the claimed code.
    * @param userAgent - the claiming request's `User-Agent`.
+   * @param source - the claiming request's remote address.
    */
-  recordAgent(code: string, userAgent: string): void {
+  recordAgent(code: string, userAgent: string, source: string): void {
     const session = this.sessions.get(code)
     if (session === undefined || session.decision !== undefined) return
     session.userAgent ??= userAgent
+    session.source ??= source
   }
 
   /**
-   * List the requests still waiting for a decision.
-   * @returns the pending sessions in the order they opened.
+   * The remote address a claimed request arrived from.
+   * @param code - the code under decision.
+   * @returns the claiming phone's address, or undefined for an unknown,
+   * unclaimed, or already decided code.
+   */
+  sourceOf(code: string): string | undefined {
+    return this.sessions.get(code)?.source
+  }
+
+  /**
+   * List the requests still waiting for a decision. A session enters the list
+   * only when a phone claimed its code ({@link recordAgent}), so the computer
+   * never offers a decision for a code no device holds.
+   * @returns the claimed pending sessions in the order they opened.
    */
   pending(): readonly PendingPairing[] {
     this.sweep(Date.now())
     return [...this.sessions.values()]
-      .filter(session => session.decision === undefined)
+      .filter((session): session is Session & { readonly userAgent: string } =>
+        session.decision === undefined && session.userAgent !== undefined)
       .map(session => ({
         code: session.code,
         openedAt: session.openedAt,

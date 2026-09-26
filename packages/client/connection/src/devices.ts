@@ -1,9 +1,11 @@
 /**
  * Paired-device registry: the credential record naming the phones approved
  * through the pairing handshake. The record is the authority for device-cookie
- * validity, so a revoked device loses access on the next read, and every write
- * goes through {@link CredentialProvider.modifyRecord} so concurrent writers
- * cannot drop each other's devices.
+ * validity: revocation moves a device to the recycle bin, where its cookie
+ * loses access on the next read while the entry stays restorable; only a
+ * binned device can be purged for good. Every write goes through
+ * {@link CredentialProvider.modifyRecord} so concurrent writers cannot drop
+ * each other's devices.
  * @module @deepseek-ai/dsh-client-connection/src/devices
  */
 
@@ -31,9 +33,12 @@ function malformed(detail: string): Error {
   return new Error(`client-connection: paired-devices credential record ${detail}`)
 }
 
+/** Stored MAC shape: six colon-separated octets, lowercase. */
+const MAC_PATTERN = /^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$/u
+
 function deviceOf(value: unknown): PairedDevice {
   if (!isRecord(value)) throw malformed('has a non-object entry')
-  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt } = value
+  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt, revokedAt, macAddress } = value
   if (typeof id !== 'string' || id === '') throw malformed('has an entry without an id')
   if (typeof label !== 'string') throw malformed(`entry ${id} has a non-string label`)
   if (!Number.isSafeInteger(registeredAt)) throw malformed(`entry ${id} has an invalid registration time`)
@@ -46,17 +51,24 @@ function deviceOf(value: unknown): PairedDevice {
   if (expiresAt !== undefined && !Number.isSafeInteger(expiresAt)) {
     throw malformed(`entry ${id} has an invalid expiry`)
   }
+  if (revokedAt !== undefined && !Number.isSafeInteger(revokedAt)) {
+    throw malformed(`entry ${id} has an invalid revocation time`)
+  }
+  if (macAddress !== undefined && (typeof macAddress !== 'string' || !MAC_PATTERN.test(macAddress))) {
+    throw malformed(`entry ${id} has an invalid MAC address`)
+  }
   const device: PairedDevice = {
     id: PairedDeviceId(id),
     label,
     registeredAt: registeredAt as number,
     lastSeenAt: lastSeenAt as number,
   }
-  if (lifetimeDays === undefined && expiresAt === undefined) return device
   return {
     ...device,
     ...lifetimeDays === undefined ? {} : { lifetimeDays: lifetimeDays as number },
     ...expiresAt === undefined ? {} : { expiresAt: expiresAt as number },
+    ...revokedAt === undefined ? {} : { revokedAt: revokedAt as number },
+    ...macAddress === undefined ? {} : { macAddress },
   }
 }
 
@@ -105,7 +117,8 @@ export async function listDevices(credentials: CredentialProvider): Promise<read
 /**
  * Register a newly approved device and mint its opaque id.
  * @param credentials - persistent credential provider for the Web profile.
- * @param request - the label the operator approved the device under.
+ * @param request - the label the operator approved the device under, and the
+ * MAC address the ARP table resolved for the claiming phone, when it did.
  * @param lifetimeDays - delivery window in days this device starts with.
  * @returns the stored device entry.
  */
@@ -122,24 +135,109 @@ export async function registerDevice(
     lastSeenAt: now,
     lifetimeDays,
     expiresAt: now + lifetimeDays * DAY_MILLISECONDS,
+    ...request.macAddress === undefined ? {} : { macAddress: request.macAddress },
   }
   await writeDevices(credentials, devices => [...devices, device])
   return device
 }
 
 /**
- * Revoke one device; its cookie stops authenticating on the next read.
+ * Move one device to the recycle bin; its cookie stops authenticating on the
+ * next read, while the entry keeps its id and window so {@link restoreDevice}
+ * can re-admit it.
  * @param credentials - persistent credential provider for the Web profile.
- * @param deviceId - id of the device to remove.
- * @returns true when a registered device was removed.
+ * @param deviceId - id of the device to bin.
+ * @returns true when an active device was binned.
  */
 export async function revokeDevice(
   credentials: CredentialProvider,
   deviceId: PairedDeviceId,
 ): Promise<boolean> {
   const devices = await listDevices(credentials)
-  if (!devices.some(device => device.id === deviceId)) return false
+  const target = devices.find(device => device.id === deviceId)
+  if (target === undefined || target.revokedAt !== undefined) return false
+  const revokedAt = Date.now()
+  await writeDevices(credentials, current => current.map(device =>
+    (device.id === deviceId ? { ...device, revokedAt } : device)))
+  return true
+}
+
+/**
+ * Find the binned entry one bin-only mutation targets.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to look up.
+ * @returns the stored entry when it sits in the recycle bin, else undefined.
+ */
+async function binnedDevice(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+): Promise<PairedDevice | undefined> {
+  const target = (await listDevices(credentials)).find(device => device.id === deviceId)
+  return target?.revokedAt === undefined ? undefined : target
+}
+
+/**
+ * Restore one binned device; its cookie authenticates again while its window
+ * is still open.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to restore.
+ * @returns true when a binned device was restored.
+ */
+export async function restoreDevice(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+): Promise<boolean> {
+  const target = await binnedDevice(credentials, deviceId)
+  if (target === undefined) return false
+  await writeDevices(credentials, current => current.map((device) => {
+    if (device.id !== deviceId) return device
+    return {
+      id: device.id,
+      label: device.label,
+      registeredAt: device.registeredAt,
+      lastSeenAt: device.lastSeenAt,
+      ...device.lifetimeDays === undefined ? {} : { lifetimeDays: device.lifetimeDays },
+      ...device.expiresAt === undefined ? {} : { expiresAt: device.expiresAt },
+      ...device.macAddress === undefined ? {} : { macAddress: device.macAddress },
+    }
+  }))
+  return true
+}
+
+/**
+ * Delete one device for good. Deletion is bin-only by design: an active device
+ * must pass through {@link revokeDevice} before it can be purged.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to remove.
+ * @returns true when a binned device was removed.
+ */
+export async function purgeDevice(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+): Promise<boolean> {
+  const target = await binnedDevice(credentials, deviceId)
+  if (target === undefined) return false
   await writeDevices(credentials, current => current.filter(device => device.id !== deviceId))
+  return true
+}
+
+/**
+ * Rename one device; the label is operator-facing only, so an active or a
+ * binned entry both accept it.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device to rename.
+ * @param label - the new operator-visible label, already validated at the route.
+ * @returns true when a registered device was renamed.
+ */
+export async function renameDevice(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+  label: string,
+): Promise<boolean> {
+  const devices = await listDevices(credentials)
+  if (!devices.some(device => device.id === deviceId)) return false
+  await writeDevices(credentials, current => current.map(device =>
+    (device.id === deviceId ? { ...device, label } : device)))
   return true
 }
 

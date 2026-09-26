@@ -4,7 +4,8 @@
  * cookie — the phone has none yet — but they still pass the Host fence and the
  * per-source throttling of {@link PairingSessions}. Every other route requires
  * a launch-token cookie and a loopback authority and TCP peer, so only the computer itself
- * can open a request, approve or deny it, or list and revoke devices.
+ * can open a request, approve or deny it, or list, rename, reschedule, revoke,
+ * restore, and purge devices.
  * @module @deepseek-ai/dsh-mob/src/routes
  */
 
@@ -15,6 +16,8 @@ import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import type { PairingSessions } from './pairing.ts'
 import { isPairingCode } from './pairing.ts'
+import type { ArpLookup } from './mac.ts'
+import { resolveMacAddress } from './mac.ts'
 
 /** Service name of the shell renderer, provided by `@deepseek-ai/dsh-host-frontend-static`. */
 const FRONTEND_SERVICE = 'frontend'
@@ -26,6 +29,8 @@ const PAIR_BODY_LIMIT_BYTES = 8 * 1024
 /** Legal per-device lifetime in days, matching the Connection config schema. */
 const MIN_DEVICE_LIFETIME_DAYS = 1
 const MAX_DEVICE_LIFETIME_DAYS = 365
+/** Longest accepted device label; the panel's rename input enforces the same bound. */
+const MAX_DEVICE_LABEL_LENGTH = 64
 /** Source recorded when the socket exposes no remote address (in-process callers). */
 const UNKNOWN_SOURCE = 'unknown'
 
@@ -38,7 +43,10 @@ export const PAIR_PATHS = {
   approve: '/pair/approve',
   devices: '/pair/devices',
   lifetime: '/pair/devices/lifetime',
+  label: '/pair/devices/label',
   revoke: '/pair/revoke',
+  restore: '/pair/devices/restore',
+  purge: '/pair/devices/purge',
 } as const
 
 interface JsonHeaders {
@@ -149,12 +157,45 @@ async function pairingShell(ctx: Context, code: string): Promise<string | undefi
 }
 
 /**
- * Register the eight pairing routes on the Host web server.
+ * Register the eleven pairing routes on the Host web server.
  * @param ctx - plugin context carrying `webServer` and the Connection service.
  * @param pairing - the process's pairing sessions.
+ * @param lookup - ARP reader resolving an approved phone's MAC; tests inject
+ * their own, the composition root leaves the platform default.
  * @returns disposer withdrawing every route.
  */
-export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): () => void {
+export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lookup?: ArpLookup): () => void {
+  /**
+   * Register one loopback device-action route: a POST whose body carries the
+   * device id and whose answer is the registry's verdict.
+   * @param path - exact route path.
+   * @param act - registry mutation the route applies.
+   * @returns disposer withdrawing the route.
+   */
+  const deviceAction = (
+    path: string,
+    act: (devices: Context['connection']['devices'], deviceId: PairedDeviceId) => Promise<boolean>,
+  ) => ctx.webServer.register({
+    kind: 'exact',
+    path,
+    handler: async (req, res) => {
+      if (req.method !== 'POST') {
+        sendMethodNotAllowed(res, 'POST')
+        return
+      }
+      if (refused(req, res, ctx, 'loopback')) return
+      const body = await readJsonBody(req)
+      const { deviceId } = body ?? {}
+      if (typeof deviceId !== 'string') {
+        sendJson(res, 400, { error: 'expected a device id' })
+        return
+      }
+      // Wire boundary: the body carries the id as JSON text, and this is where
+      // the validated string earns the registry's brand.
+      sendJson(res, 200, { ok: await act(ctx.connection.devices, deviceId as PairedDeviceId) })
+    },
+  })
+
   const disposers = [
     ctx.webServer.register({
       kind: 'exact',
@@ -171,7 +212,9 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         const agent = req.headers['user-agent']
-        if (typeof agent === 'string') pairing.recordAgent(code, agent)
+        if (typeof agent === 'string') {
+          pairing.recordAgent(code, agent, req.socket.remoteAddress ?? UNKNOWN_SOURCE)
+        }
         const shell = await pairingShell(ctx, code)
         if (shell === undefined) {
           sendJson(res, 503, { error: 'this Host serves no application shell' })
@@ -264,12 +307,20 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
           return
         }
         // Register first, publish second: the phone collects an approval only
-        // once the device its cookie names exists.
-        const device = await ctx.connection.devices.register({ label })
+        // once the device its cookie names exists. The claiming phone just
+        // talked to us, so the ARP table can still name its hardware address;
+        // a failed lookup stores no MAC rather than failing the approval.
+        const source = pairing.sourceOf(code)
+        const macAddress = source === undefined ? undefined : await resolveMacAddress(source, lookup)
+        const device = await ctx.connection.devices.register(
+          macAddress === undefined ? { label } : { label, macAddress },
+        )
         if (!pairing.bindDevice(code, device.id)) {
           // The code expired, or another read settled it, while the row was
-          // being written: drop the row rather than list a device no phone holds.
+          // being written: bin and purge the row rather than list a device no
+          // phone holds; deletion is bin-only, so both steps are owed.
           await ctx.connection.devices.revoke(device.id)
+          await ctx.connection.devices.purge(device.id)
           sendJson(res, 410, { error: 'expired' })
           return
         }
@@ -312,7 +363,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
     }),
     ctx.webServer.register({
       kind: 'exact',
-      path: PAIR_PATHS.revoke,
+      path: PAIR_PATHS.label,
       handler: async (req, res) => {
         if (req.method !== 'POST') {
           sendMethodNotAllowed(res, 'POST')
@@ -320,17 +371,20 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions): (
         }
         if (refused(req, res, ctx, 'loopback')) return
         const body = await readJsonBody(req)
-        const { deviceId } = body ?? {}
-        if (typeof deviceId !== 'string') {
-          sendJson(res, 400, { error: 'expected a device id' })
+        const { deviceId, label } = body ?? {}
+        if (typeof deviceId !== 'string' || typeof label !== 'string'
+          || label.trim() === '' || label.length > MAX_DEVICE_LABEL_LENGTH) {
+          sendJson(res, 400, { error: 'expected a device id and a non-empty label of at most 64 characters' })
           return
         }
         // Wire boundary: the body carries the id as JSON text, and this is where
         // the validated string earns the registry's brand.
-        const target = deviceId as PairedDeviceId
-        sendJson(res, 200, { ok: await ctx.connection.devices.revoke(target) })
+        sendJson(res, 200, { ok: await ctx.connection.devices.rename(deviceId as PairedDeviceId, label.trim()) })
       },
     }),
+    deviceAction(PAIR_PATHS.revoke, (devices, deviceId) => devices.revoke(deviceId)),
+    deviceAction(PAIR_PATHS.restore, (devices, deviceId) => devices.restore(deviceId)),
+    deviceAction(PAIR_PATHS.purge, (devices, deviceId) => devices.purge(deviceId)),
   ]
   return () => {
     for (const dispose of disposers) dispose()
