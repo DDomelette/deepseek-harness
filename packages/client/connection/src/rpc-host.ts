@@ -11,7 +11,7 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
-import { listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
+import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
 import { requestAuthority } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
@@ -90,9 +90,24 @@ export class HostConnectionService extends Service implements HostConnectionHand
         return device
       },
       revoke: async (deviceId) => {
-        const removed = await revokeDevice(credentials, deviceId)
+        const binned = await revokeDevice(credentials, deviceId)
+        if (binned) await this.browserAuth.refreshPairedDevices()
+        return binned
+      },
+      restore: async (deviceId) => {
+        const restored = await restoreDevice(credentials, deviceId)
+        if (restored) await this.browserAuth.refreshPairedDevices()
+        return restored
+      },
+      purge: async (deviceId) => {
+        const removed = await purgeDevice(credentials, deviceId)
         if (removed) await this.browserAuth.refreshPairedDevices()
         return removed
+      },
+      rename: async (deviceId, label) => {
+        const renamed = await renameDevice(credentials, deviceId, label)
+        if (renamed) await this.browserAuth.refreshPairedDevices()
+        return renamed
       },
       setLifetime: async (deviceId, days) => {
         const updated = await setDeviceLifetime(credentials, deviceId, days)

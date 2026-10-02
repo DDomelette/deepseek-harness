@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import {
-  PAIRED_DEVICES_RECORD_KEY, listDevices, registerDevice, revokeDevice, setDeviceLifetime, touchDevice,
+  PAIRED_DEVICES_RECORD_KEY, listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice,
+  setDeviceLifetime, touchDevice,
 } from '../src/devices.ts'
 import { PAIRED_DEVICES_KEY, RecordCredentials } from './browser-credentials.ts'
 
@@ -42,6 +43,22 @@ describe('listDevices', () => {
     await expect(listDevices(credentials(store))).resolves.toEqual([device, windowed])
   })
 
+  it('round-trips a binned entry with its revocation time', async () => {
+    const store = new RecordCredentials()
+    const binned = { ...device, revokedAt: 1_700_100_000_000 }
+    store.setPairedDevices({ version: 1, devices: [binned] })
+
+    await expect(listDevices(credentials(store))).resolves.toEqual([binned])
+  })
+
+  it('round-trips the hardware fingerprint when the record carries one', async () => {
+    const store = new RecordCredentials()
+    const fingerprinted = { ...device, macAddress: '48:a7:3c:f1:87:18' }
+    store.setPairedDevices({ version: 1, devices: [fingerprinted] })
+
+    await expect(listDevices(credentials(store))).resolves.toEqual([fingerprinted])
+  })
+
   it('round-trips an entry that carries only one of the lifetime fields', async () => {
     const store = new RecordCredentials()
     const scheduled = { ...device, lifetimeDays: 7 }
@@ -69,6 +86,12 @@ describe('listDevices', () => {
       { version: 1, devices: [{ ...device, lifetimeDays: 1.5 }] },
       { version: 1, devices: [{ ...device, lifetimeDays: '30' }] },
       { version: 1, devices: [{ ...device, expiresAt: 'soon' }] },
+      { version: 1, devices: [{ ...device, revokedAt: 'then' }] },
+      { version: 1, devices: [{ ...device, revokedAt: 1.5 }] },
+      { version: 1, devices: [{ ...device, macAddress: 7 }] },
+      { version: 1, devices: [{ ...device, macAddress: '48-A7-3C-F1-87-18' }] },
+      { version: 1, devices: [{ ...device, macAddress: '48:a7:3c:f1:87' }] },
+      { version: 1, devices: [{ ...device, macAddress: 'zz:a7:3c:f1:87:18' }] },
       { version: 1 },
       null,
     ]
@@ -111,20 +134,89 @@ describe('paired-device registry writes', () => {
     expect(store).toMatchObject({ modifies: 2, reads: 1, writes: 2 })
   })
 
-  it('revokes a registered device and reports whether it removed one', async () => {
+  it('stores the resolved hardware fingerprint with a registered device', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-12T10:00:00.000Z'))
     const store = new RecordCredentials()
-    store.setPairedDevices({ version: 1, devices: [device] })
 
-    await expect(revokeDevice(credentials(store), PairedDeviceId('dev-1'))).resolves.toBe(true)
-    await expect(listDevices(credentials(store))).resolves.toEqual([])
+    const registered = await registerDevice(
+      credentials(store),
+      { label: 'HUAWEI JAD-AL50', macAddress: '48:a7:3c:f1:87:18' },
+      1,
+    )
+
+    expect(registered.macAddress).toBe('48:a7:3c:f1:87:18')
+    await expect(listDevices(credentials(store))).resolves.toEqual([registered])
+  })
+
+  it('renames an active and a binned device, keeping every other field', async () => {
+    const store = new RecordCredentials()
+    const second = {
+      ...device, id: 'dev-2', label: 'iPad', revokedAt: 1_700_100_000_000, macAddress: '48:a7:3c:f1:87:18' as const,
+    }
+    store.setPairedDevices({ version: 1, devices: [device, second] })
+    const provider = credentials(store)
+
+    await expect(renameDevice(provider, PairedDeviceId('dev-1'), '书房的平板')).resolves.toBe(true)
+    await expect(renameDevice(provider, PairedDeviceId('dev-2'), '客厅的iPad')).resolves.toBe(true)
+    await expect(listDevices(provider)).resolves.toEqual([
+      { ...device, label: '书房的平板' },
+      { ...second, label: '客厅的iPad' },
+    ])
+    expect(store).toMatchObject({ writes: 2 })
+
+    await expect(renameDevice(provider, PairedDeviceId('ghost'), 'no such device')).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 2 })
+
+    // Restoring the binned entry keeps the fingerprint and the new label.
+    await expect(restoreDevice(provider, PairedDeviceId('dev-2'))).resolves.toBe(true)
+    await expect(listDevices(provider)).resolves.toEqual([
+      { ...device, label: '书房的平板' },
+      { ...device, id: 'dev-2', label: '客厅的iPad', macAddress: '48:a7:3c:f1:87:18' },
+    ])
+  })
+
+  it('bins a registered device, restores it, and purges it from the bin only', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+    const store = new RecordCredentials()
+    const second = { ...device, id: 'dev-2', label: 'iPad' }
+    store.setPairedDevices({ version: 1, devices: [device, second] })
+    const provider = credentials(store)
+
+    // Deletion is bin-only: an active device cannot be purged.
+    await expect(purgeDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 0 })
+
+    await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
+    const binned = { ...device, revokedAt: Date.parse('2026-09-12T12:00:00.000Z') }
+    await expect(listDevices(provider)).resolves.toEqual([binned, second])
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',
-      payload: { version: 1, devices: [] },
+      payload: { version: 1, devices: [binned, second] },
     })
     expect(store).toMatchObject({ writes: 1 })
 
-    await expect(revokeDevice(credentials(store), PairedDeviceId('dev-1'))).resolves.toBe(false)
+    // A second revocation and a purge of a missing device are both no-ops.
+    await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(false)
+    await expect(purgeDevice(provider, PairedDeviceId('ghost'))).resolves.toBe(false)
     expect(store).toMatchObject({ writes: 1 })
+
+    await expect(restoreDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
+    await expect(listDevices(provider)).resolves.toEqual([device, second])
+    expect(store).toMatchObject({ writes: 2 })
+    await expect(restoreDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(false)
+    await expect(restoreDevice(provider, PairedDeviceId('ghost'))).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 2 })
+
+    await revokeDevice(provider, PairedDeviceId('dev-1'))
+    await expect(purgeDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
+    await expect(listDevices(provider)).resolves.toEqual([second])
+    expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
+      kind: 'grant',
+      payload: { version: 1, devices: [second] },
+    })
+    expect(store).toMatchObject({ writes: 4 })
   })
 
   it('re-schedules one device and restarts its countdown', async () => {
@@ -182,8 +274,11 @@ describe('paired-device registry writes', () => {
 
     await expect(registerDevice(provider, { label: 'phone' }, 30)).rejects.toThrow(/paired-devices/u)
     await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
+    await expect(restoreDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
+    await expect(purgeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(touchDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
+    await expect(renameDevice(provider, PairedDeviceId('dev-1'), 'phone')).rejects.toThrow(/paired-devices/u)
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',
       payload: { version: 9, devices: [] },

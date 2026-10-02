@@ -14,6 +14,7 @@ interface ModalBaseProps {
   footer?: ReactNode
   className?: string
   contentClassName?: string
+  bodyClassName?: string
 }
 
 type ModalProps = ModalBaseProps & (
@@ -31,12 +32,15 @@ type ModalProps = ModalBaseProps & (
  * @param props.children - body (inputs, etc.).
  * @param props.footer - action row (Cancel / Create).
  * @param props.contentClassName - optional class for a scrollable content region.
+ * @param props.bodyClassName - optional class for the body; name a scroll
+ * region here (and keep the content unscrollable) to pin the header and
+ * description while the body scrolls.
  * @param props.headless - render children directly in the card (no default
  * header/close/body chrome); mask, card, Escape, and aria-label remain.
  * @returns null when closed; otherwise the overlay tree.
  */
 export function Modal({
-  open, onClose, title, closeLabel, description, children, footer, className, contentClassName, headless = false,
+  open, onClose, title, closeLabel, description, children, footer, className, contentClassName, bodyClassName, headless = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return
@@ -77,7 +81,7 @@ export function Modal({
                 {description !== undefined && description !== '' && (
                   <p className={css.description}>{description}</p>
                 )}
-                {children !== undefined && <div className={css.body}>{children}</div>}
+                {children !== undefined && <div className={clsx(css.body, bodyClassName)}>{children}</div>}
               </div>
               {footer !== undefined && <div className={css.footer}>{footer}</div>}
             </>

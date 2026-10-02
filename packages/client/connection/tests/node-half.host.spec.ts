@@ -585,7 +585,7 @@ describe('connection node half over a real HTTP server', () => {
 })
 
 describe('connection device registry handle', () => {
-  it('registers a device and accepts its cookie without a restart, then refuses it after revocation', async () => {
+  it('registers a device and accepts its cookie without a restart, then bins, restores, and purges it', async () => {
     const { connection, dispose } = await mounted()
     const authority = '127.0.0.1:3080'
     try {
@@ -599,10 +599,29 @@ describe('connection device registry handle', () => {
       // A device registered moments ago is inside the one-hour touch window.
       expect(await connection.devices.touch(device.id)).toBe(false)
 
+      // Revocation bins the row: the cookie dies on the next request while the
+      // entry stays listed with its revocation time.
       expect(await connection.devices.revoke(device.id)).toBe(true)
-      expect(await connection.devices.list()).toEqual([])
+      const [binned] = await connection.devices.list()
+      expect(binned).toMatchObject({ id: device.id, label: 'HUAWEI JAD-AL50' })
+      expect(binned?.revokedAt).toBeDefined()
       expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
       expect(await connection.devices.revoke(device.id)).toBe(false)
+
+      // Deletion is bin-only; restore re-admits the same cookie.
+      expect(await connection.devices.purge(device.id)).toBe(true)
+      expect(await connection.devices.list()).toEqual([])
+      expect(await connection.devices.restore(device.id)).toBe(false)
+      expect(await connection.devices.purge(device.id)).toBe(false)
+
+      const reregistered = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      const revivedCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), reregistered.id)!
+        .split(';', 1)[0]!
+      expect(await connection.devices.purge(reregistered.id)).toBe(false)
+      expect(await connection.devices.revoke(reregistered.id)).toBe(true)
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie: revivedCookie }))).toBe(401)
+      expect(await connection.devices.restore(reregistered.id)).toBe(true)
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie: revivedCookie }))).toBeUndefined()
     } finally {
       await dispose()
     }
@@ -681,7 +700,7 @@ describe('connection device registry handle', () => {
     const fallback = await mounted()
     try {
       const device = await fallback.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
-      expect(device.lifetimeDays).toBe(30)
+      expect(device.lifetimeDays).toBe(1)
       expect(device.expiresAt).toBeGreaterThan(Date.now())
     } finally {
       await fallback.dispose()
@@ -708,23 +727,38 @@ describe('connection device registry handle', () => {
     try {
       const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
       expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
-        .toContain('Max-Age=2592000')
-
-      expect(await connection.devices.setLifetime(device.id, 1)).toBe(true)
-      const [listed] = await connection.devices.list()
-      expect(listed?.lifetimeDays).toBe(1)
-      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
         .toContain('Max-Age=86400')
 
-      expect(await connection.devices.setLifetime(PairedDeviceId('ghost'), 1)).toBe(false)
+      expect(await connection.devices.setLifetime(device.id, 30)).toBe(true)
+      const [listed] = await connection.devices.list()
+      expect(listed?.lifetimeDays).toBe(30)
+      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
+        .toContain('Max-Age=2592000')
+
+      expect(await connection.devices.setLifetime(PairedDeviceId('ghost'), 30)).toBe(false)
     } finally {
       vi.useRealTimers()
       await dispose()
     }
   })
 
-  it('resolves the 30-day device lifetime default and refuses a window outside 1–365 days', () => {
-    expect(Config({}).deviceLifetimeDays).toBe(30)
+  it('renames a device and refreshes the listed rows', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+
+      expect(await connection.devices.rename(device.id, '书房的平板')).toBe(true)
+      const [listed] = await connection.devices.list()
+      expect(listed?.label).toBe('书房的平板')
+
+      expect(await connection.devices.rename(PairedDeviceId('ghost'), 'no such device')).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('resolves the one-day device lifetime default and refuses a window outside 1–365 days', () => {
+    expect(Config({}).deviceLifetimeDays).toBe(1)
     expect(() => Config({ deviceLifetimeDays: 0 })).toThrow()
     expect(() => Config({ deviceLifetimeDays: 366 })).toThrow()
     expect(Config({ deviceLifetimeDays: 365 }).deviceLifetimeDays).toBe(365)

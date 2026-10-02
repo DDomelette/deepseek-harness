@@ -25,10 +25,25 @@ export interface PairedDevice {
    * running on the expiry its cookie payload carries.
    */
   readonly expiresAt?: number
+  /**
+   * Epoch milliseconds this device was moved to the recycle bin; absent while
+   * the device is active. A binned entry keeps its id and window but its cookie
+   * stops authenticating, so a restore re-admits that cookie without a new
+   * pairing handshake.
+   */
+  readonly revokedAt?: number
+  /**
+   * LAN MAC address resolved from the ARP table at approval, serving as the
+   * device's hardware fingerprint. Absent when the lookup failed or the entry
+   * predates MAC resolution.
+   */
+  readonly macAddress?: string
 }
 
 /** Fields the approve dialog supplies for a newly paired device. */
 export interface RegisterDeviceRequest {
   /** Operator-visible label, defaulted from the phone's user agent and editable before approval. */
   readonly label: string
+  /** MAC address resolved from the claiming phone's source address, when the ARP table knew it. */
+  readonly macAddress?: string
 }

@@ -1,29 +1,93 @@
-/* Pairing panel: the session block, the requests waiting for a decision, and
-   the devices already approved. */
+/* Pairing panel: the session card, the requests waiting for a decision, the
+   devices already approved, and the recycle bin holding the revoked ones. */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
-.session {
+/* The standalone generate button stretches; in-row primaries stay compact. */
+.panel > .primary {
+  justify-content: center;
+  width: 100%;
+  height: 36px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.sessionCard {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 16px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+}
+
+.qrBox {
+  padding: 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: #fff;
+  line-height: 0;
 }
 
 .qr {
-  width: 192px;
-  height: 192px;
+  width: 168px;
+  height: 168px;
 }
 
 .code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 20px;
   font-weight: 600;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.countRow {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.countTrack {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.countFill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--dsw-alias-brand-primary);
+  transition: width 1s linear;
+}
+
+.urlRow {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.url {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 4px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-module-platform);
+  font-size: 12px;
+  line-height: 18px;
   color: var(--dsw-alias-label-primary);
 }
 
@@ -33,11 +97,31 @@
   gap: 8px;
 }
 
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .heading {
   margin: 0;
   font-size: 12px;
   font-weight: 500;
   line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-module-platform);
+  font-size: 11px;
+  line-height: 16px;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -50,17 +134,17 @@
   list-style: none;
 }
 
-.item {
+.card {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
 }
 
 .field {
   display: flex;
-  flex: 1;
-  min-width: 0;
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
@@ -81,68 +165,261 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.actions {
+.cardActions {
   display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
-/* The custom-days label heads its input, so it needs room for its own text. */
-.actions .field {
-  min-width: 64px;
+.deviceHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.action {
+/* The device name doubles as its rename affordance: hover reveals the pencil. */
+.nameButton {
   display: inline-flex;
   align-items: center;
-  height: 32px;
-  padding: 0 14px;
+  min-width: 0;
+  gap: 6px;
+  padding: 2px 6px;
+  margin: -2px -6px;
   border: none;
-  border-radius: 16px;
-  background: var(--dsw-alias-bg-module-platform);
+  border-radius: 8px;
+  background: transparent;
   font: inherit;
-  font-size: 13px;
+  cursor: pointer;
+}
+
+.nameButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.nameButton .editIcon {
+  flex-shrink: 0;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+}
+
+.nameButton:hover .editIcon,
+.nameButton:focus-visible .editIcon {
+  opacity: 1;
+}
+
+.renameInput {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 4px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  font: inherit;
+  font-size: 14px;
   line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.deviceLabel {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The hardware fingerprint line: monospace, quiet. */
+.mac {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-module-platform);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+/* The credential-lifetime row: field label left, selector dropdown right. */
+.credentialRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
 }
 
-.action:hover {
+.selector:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-/* The device block owns a full line, so its label and stamps never collapse
-   against the action row that shares the next one. */
-.device {
+.selector svg {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.customRow {
   display: flex;
-  flex: 1 1 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.customField {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.daysInput {
+  box-sizing: border-box;
+  width: 64px;
+  height: 28px;
+  padding: 4px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.action,
+.primary,
+.danger,
+.dangerSolid {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.action {
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-primary);
+}
+
+.action:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.primary {
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+/* Revoke reads as a real button: a quiet error-tinted outline, not bare text. */
+.danger {
+  border: 0.5px solid var(--dsw-alias-state-error-primary);
+  background: transparent;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+}
+
+.dangerSolid {
+  background: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.action:disabled,
+.primary:disabled,
+.danger:disabled,
+.dangerSolid:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The revoke control trails the device card on its own row. */
+.cardFoot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.binItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+}
+
+.binText {
+  display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
 }
 
-.deviceLabel {
-  font-size: 14px;
-  line-height: 22px;
-  color: var(--dsw-alias-label-primary);
+.binText .deviceLabel {
+  color: var(--dsw-alias-label-secondary);
 }
 
-.status {
+.status,
+.hint {
   margin: 0;
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
 }
 
-.url {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-module-platform);
+.notice {
+  margin: 0;
   font-size: 12px;
   line-height: 18px;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-state-error-primary);
 }

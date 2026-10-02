@@ -68,6 +68,9 @@ export const apply = ctx => ctx.provide('connection', {
     list: async () => [],
     register: async () => ({ id: 'device-1', label: 'phone', registeredAt: 1, lastSeenAt: 1 }),
     revoke: async () => true,
+    restore: async () => true,
+    purge: async () => true,
+    rename: async () => true,
     touch: async () => true,
     issueCookie: () => 'dsh-auth-test=v2.body.signature',
   },
@@ -147,8 +150,8 @@ describe('mob join namespace over a Loader tree', () => {
     await bootTree({ host: '127.0.0.1', lanAddresses: [] })
     const globals = globalThis as unknown as { __dshMobRoutes: string[] }
     expect([...globals.__dshMobRoutes].sort()).toEqual([
-      '/pair', '/pair/approve', '/pair/devices', '/pair/devices/lifetime', '/pair/requests', '/pair/revoke',
-      '/pair/session', '/pair/state',
+      '/pair', '/pair/approve', '/pair/devices', '/pair/devices/label', '/pair/devices/lifetime', '/pair/devices/purge',
+      '/pair/devices/restore', '/pair/requests', '/pair/revoke', '/pair/session', '/pair/state',
     ])
   })
 })

@@ -240,11 +240,13 @@ export interface HostConnectionHandle {
 /**
  * Paired-device registry of one Host. Every mutation refreshes the cookie check
  * of the running Connection, so an approval or revocation takes effect on the
- * next request without a restart.
+ * next request without a restart. Revocation moves a device to the recycle
+ * bin: its cookie stops authenticating while the entry stays restorable, and
+ * only a binned device can be purged.
  */
 export interface HostConnectionDevices {
   /**
-   * List the approved devices.
+   * List the approved devices, binned ones included.
    * @returns the stored devices in stored order.
    */
   list(): Promise<readonly PairedDevice[]>
@@ -257,11 +259,35 @@ export interface HostConnectionDevices {
   register(request: RegisterDeviceRequest): Promise<PairedDevice>
 
   /**
-   * Revoke one device; its cookie stops authenticating on the next request.
-   * @param deviceId - id of the device to remove.
-   * @returns true when a stored device was removed.
+   * Move one device to the recycle bin; its cookie stops authenticating on the
+   * next request while the entry stays restorable.
+   * @param deviceId - id of the device to bin.
+   * @returns true when an active device was binned.
    */
   revoke(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Restore one binned device; its cookie authenticates again while its window
+   * is still open.
+   * @param deviceId - id of the device to restore.
+   * @returns true when a binned device was restored.
+   */
+  restore(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Delete one binned device for good; an active device must be revoked first.
+   * @param deviceId - id of the device to remove.
+   * @returns true when a binned device was removed.
+   */
+  purge(deviceId: PairedDeviceId): Promise<boolean>
+
+  /**
+   * Rename one device; the label is operator-facing only.
+   * @param deviceId - id of the device to rename.
+   * @param label - the new operator-visible label.
+   * @returns true when a stored device was renamed.
+   */
+  rename(deviceId: PairedDeviceId, label: string): Promise<boolean>
 
   /**
    * Set one device's delivery window, restarting its countdown.

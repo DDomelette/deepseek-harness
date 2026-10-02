@@ -12,7 +12,7 @@ export interface PendingPairingView {
   readonly openedAt: number
   /** Epoch milliseconds the code expires. */
   readonly expiresAt: number
-  /** Agent of the phone that claimed the code, when one did. */
+  /** Agent of the phone that claimed the code. */
   readonly userAgent?: string | undefined
 }
 
@@ -30,6 +30,10 @@ export interface PairedDeviceView {
   readonly lifetimeDays?: number | undefined
   /** Epoch milliseconds this device's window ends; absent on a legacy entry. */
   readonly expiresAt?: number | undefined
+  /** Epoch milliseconds the device was moved to the recycle bin; absent while it is active. */
+  readonly revokedAt?: number | undefined
+  /** MAC address resolved at approval, the device's hardware fingerprint; absent when unknown. */
+  readonly macAddress?: string | undefined
 }
 
 /** A pairing session the computer opened for one phone. */
@@ -52,14 +56,20 @@ export type PairingResult<T> =
 export interface PairingApi {
   /** Open a request for a phone to claim. */
   open(): Promise<PairingResult<PairingSessionView>>
-  /** List the requests still waiting. */
+  /** List the claimed requests still waiting. */
   requests(): Promise<PairingResult<readonly PendingPairingView[]>>
   /** Apply a decision, with the label the operator accepted. */
   decide(code: string, label: string, allowed: boolean): Promise<PairingResult<void>>
-  /** List the approved devices. */
+  /** List the approved devices, binned ones included. */
   devices(): Promise<PairingResult<readonly PairedDeviceView[]>>
-  /** Revoke one device. */
+  /** Move one device to the recycle bin. */
   revoke(deviceId: string): Promise<PairingResult<void>>
+  /** Restore one binned device. */
+  restore(deviceId: string): Promise<PairingResult<void>>
+  /** Delete one binned device for good. */
+  purge(deviceId: string): Promise<PairingResult<void>>
+  /** Rename one device. */
+  rename(deviceId: string, label: string): Promise<PairingResult<void>>
   /** Set one device's delivery window, in days. */
   setLifetime(deviceId: string, days: number): Promise<PairingResult<void>>
 }
@@ -141,6 +151,8 @@ function deviceOf(value: unknown): PairedDeviceView | undefined {
     lastSeenAt,
     lifetimeDays: numberField(value, 'lifetimeDays'),
     expiresAt: numberField(value, 'expiresAt'),
+    revokedAt: numberField(value, 'revokedAt'),
+    macAddress: stringField(value, 'macAddress'),
   }
 }
 
@@ -177,6 +189,13 @@ export function pairingUrlOf(joinUrl: string, code: string): string {
  * @returns the pairing routes behind a typed result.
  */
 export function createPairingApi(): PairingApi {
+  /** POST a device-action body and unfold the `{ ok }` answer the routes give. */
+  const postDeviceAction = async (path: string, body: unknown): Promise<PairingResult<void>> => {
+    const answer = await call(path, { method: 'POST', body })
+    if (!answer.ok) return answer
+    const ok = isRecord(answer.value) ? answer.value.ok : undefined
+    return ok === true ? { ok: true, value: undefined } : { ok: false, reason: 'failed' }
+  }
   return {
     async open() {
       const answer = await call('/pair/session', { method: 'POST' })
@@ -218,16 +237,19 @@ export function createPairingApi(): PairingApi {
       return { ok: true, value: devices }
     },
     async revoke(deviceId) {
-      const answer = await call('/pair/revoke', { method: 'POST', body: { deviceId } })
-      if (!answer.ok) return answer
-      const ok = isRecord(answer.value) ? answer.value.ok : undefined
-      return ok === true ? { ok: true, value: undefined } : { ok: false, reason: 'failed' }
+      return postDeviceAction('/pair/revoke', { deviceId })
+    },
+    async restore(deviceId) {
+      return postDeviceAction('/pair/devices/restore', { deviceId })
+    },
+    async purge(deviceId) {
+      return postDeviceAction('/pair/devices/purge', { deviceId })
+    },
+    async rename(deviceId, label) {
+      return postDeviceAction('/pair/devices/label', { deviceId, label })
     },
     async setLifetime(deviceId, days) {
-      const answer = await call('/pair/devices/lifetime', { method: 'POST', body: { deviceId, days } })
-      if (!answer.ok) return answer
-      const ok = isRecord(answer.value) ? answer.value.ok : undefined
-      return ok === true ? { ok: true, value: undefined } : { ok: false, reason: 'failed' }
+      return postDeviceAction('/pair/devices/lifetime', { deviceId, days })
     },
   }
 }

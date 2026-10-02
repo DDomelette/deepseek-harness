@@ -39,21 +39,29 @@ describe('PairingSessions', () => {
     const store = sessions()
     const { code } = store.openSession()
 
-    store.recordAgent(code, 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)')
+    // A code the computer minted is not a request: it enters the list only
+    // once a phone claims it.
+    expect(store.pending()).toEqual([])
+
+    store.recordAgent(code, 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)', '192.168.0.122')
     expect(store.pending()).toEqual([{
       code,
       openedAt: START,
       expiresAt: START + 120_000,
       userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)',
     }])
+    expect(store.sourceOf(code)).toBe('192.168.0.122')
 
-    store.recordAgent(code, 'another agent')
+    store.recordAgent(code, 'another agent', '192.168.0.200')
     expect(store.pending()[0]?.userAgent).toBe('Mozilla/5.0 (Linux; Android 10; JAD-AL50)')
+    expect(store.sourceOf(code)).toBe('192.168.0.122')
 
     const settled = store.openSession()
+    expect(store.sourceOf(settled.code)).toBeUndefined()
     expect(store.approve(settled.code, 'phone', false)).toEqual({ ok: true })
-    store.recordAgent(settled.code, 'too late')
-    store.recordAgent('ZZZZZZZZ', 'no such code')
+    store.recordAgent(settled.code, 'too late', '192.168.0.201')
+    store.recordAgent('ZZZZZZZZ', 'no such code', '192.168.0.202')
+    expect(store.sourceOf('ZZZZZZZZ')).toBeUndefined()
     expect(store.pending().map(entry => entry.code)).toEqual([code])
   })
 

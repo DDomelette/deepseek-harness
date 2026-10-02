@@ -104,12 +104,14 @@ describe('pairing route client', () => {
     stub(json({ devices: [
       { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3 },
       { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2 },
+      { id: 'device-3', label: '备用机', registeredAt: 1, lastSeenAt: 2, revokedAt: 4 },
     ] }))
     await expect(api.devices()).resolves.toEqual({
       ok: true,
       value: [
-        { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3 },
-        { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2, lifetimeDays: undefined, expiresAt: undefined },
+        { id: 'device-1', label: 'iPad', registeredAt: 1, lastSeenAt: 2, lifetimeDays: 7, expiresAt: 3, revokedAt: undefined },
+        { id: 'device-2', label: '旧手机', registeredAt: 1, lastSeenAt: 2, lifetimeDays: undefined, expiresAt: undefined, revokedAt: undefined },
+        { id: 'device-3', label: '备用机', registeredAt: 1, lastSeenAt: 2, lifetimeDays: undefined, expiresAt: undefined, revokedAt: 4 },
       ],
     })
 
@@ -142,6 +144,26 @@ describe('pairing route client', () => {
     await expect(createPairingApi().revoke('device-1')).resolves.toEqual({ ok: false, reason: 'expired' })
   })
 
+  it('restores and purges a binned device through the device-action routes', async () => {
+    const api = createPairingApi()
+    const fetchMock = stub(json({ ok: true }))
+    await expect(api.restore('device-1')).resolves.toEqual({ ok: true, value: undefined })
+    expect(fetchMock).toHaveBeenCalledWith('/pair/devices/restore', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'device-1' }),
+    })
+
+    stub(json({ ok: true }))
+    await expect(api.purge('device-1')).resolves.toEqual({ ok: true, value: undefined })
+
+    stub(json({ ok: false }))
+    await expect(api.restore('device-1')).resolves.toEqual({ ok: false, reason: 'failed' })
+    stub(json({ error: 'no' }, 403))
+    await expect(api.purge('device-1')).resolves.toEqual({ ok: false, reason: 'forbidden' })
+  })
+
   it('sets one device lifetime and reports the Host answer', async () => {
     const fetchMock = stub(json({ ok: true }))
     await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: true, value: undefined })
@@ -160,6 +182,23 @@ describe('pairing route client', () => {
 
     stub(json({ error: 'no' }, 403))
     await expect(createPairingApi().setLifetime('device-1', 7)).resolves.toEqual({ ok: false, reason: 'forbidden' })
+  })
+
+  it('renames a device and reports the Host answer', async () => {
+    const fetchMock = stub(json({ ok: true }))
+    await expect(createPairingApi().rename('device-1', '书房的平板')).resolves.toEqual({ ok: true, value: undefined })
+    expect(fetchMock).toHaveBeenCalledWith('/pair/devices/label', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'device-1', label: '书房的平板' }),
+    })
+
+    stub(json({ ok: false }))
+    await expect(createPairingApi().rename('device-1', 'ghost')).resolves.toEqual({ ok: false, reason: 'failed' })
+
+    stub(json({ error: 'no' }, 403))
+    await expect(createPairingApi().rename('device-1', 'phone')).resolves.toEqual({ ok: false, reason: 'forbidden' })
   })
 })
 

@@ -37,17 +37,17 @@ dsh web --host 127.0.0.1
 
 ### 从桌面会话交接
 
-浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以本机局域网 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，显示添加时间、最近一次通过认证的时间，以及一个「吊销」按钮，让该设备的下一次请求失效。不是电脑本机的页面看不到这些操作；仅绑定回环的部署会明确说明：加入 URL 以 `mob/loopback-only` 失败（去掉 `--host 127.0.0.1`），或当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败（需要修复本机网络）。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的 `1`/`7`/`30`/`90` 天档位与任意天数输入会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长则在手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效——窗口已经结束的设备必须重新配对。列表上方的一行文案提示：不再使用的设备立即吊销，在不受信任的网络上用过之后也建议吊销。
+浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以本机局域网 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——生成的短码只有在手机打开配对页面领取后才会进入列表，因此「允许」永远不会注册一台没有手机持有的设备；每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，每行带有可编辑的名称、批准时从 ARP 表解析到的 MAC 地址（解析得到时）、添加时间、最近一次通过认证的时间，以及一个「吊销凭证」按钮，把设备移入回收站：该设备的下一次请求即失效，而在操作者彻底删除之前，条目仍可恢复。不是电脑本机的页面看不到这些操作；仅绑定回环的部署会明确说明：加入 URL 以 `mob/loopback-only` 失败（去掉 `--host 127.0.0.1`），或当 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败（需要修复本机网络）。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的「凭证有效期」下拉菜单——`1`/`7`/`30`/`90` 天档位，以及用于任意天数的「自定义…」——会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长则在手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效——窗口已经结束的设备必须重新配对。列表上方的一行文案提示：不再使用或经过不受信任网络的设备请吊销，吊销的设备会留在回收站，可以恢复或彻底删除。
 
 ### 配对一台手机
 
-`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案。`POST /pair/approve` 携带决定与设备名称，`GET /pair/requests` 列出仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/revoke` 让某台设备的下一次请求失效。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求有效的启动令牌 cookie、回环 authority 和真实的回环 TCP 对端，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，是第三条仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays` 与 `expiresAt`，面板的寿命列据此渲染；旧条目两者都不返回。
+`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案。`POST /pair/approve` 携带决定与设备名称——批准时还会从 ARP 表解析领取手机的 MAC 地址，这是尽力而为的指纹，解析失败则不记录——`GET /pair/requests` 列出已被手机领取、仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/devices/label` 为一台设备改名，`POST /pair/revoke` 把某台设备移入回收站——它的下一次请求即失效——`POST /pair/devices/restore` 恢复一台回收站中的设备，`POST /pair/devices/purge` 把回收站中的设备彻底删除。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求有效的启动令牌 cookie、回环 authority 和真实的回环 TCP 对端，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，与吊销、恢复、彻底删除一样属于仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays`、`expiresAt`、`macAddress` 与 `revokedAt`，面板的寿命列与回收站据此渲染；旧条目两个窗口字段都不返回。
 
 短码必须恰好包含生成器字母表中的八个字符。`/pair` 与 `/pair/state` 要求查询参数 `c` 恰好出现一次；畸形或重复的短码返回 400。内嵌的启动 JSON 转义 `<`，使短码无法终止其 script 元素。
 
 ### 被吊销之后重新接入
 
-设备已被吊销——或 cookie 已过期——的手机到达 Host 时不带任何会话。此时 `frontend-static` 以 401 提供携带 `__DSH_AUTH_REQUIRED__` 启动事实的外壳，浏览器半层据此把「需要重新登录」界面注册到 `shell.overlay`：它指出电脑端用哪个设置项生成新配对码，并提供重新加载按钮，用来接上手机在另一个标签页里刚换到的设备 cookie。该界面只在 Host 拒绝文档的地方渲染；持有可用会话的手机不会看到它，而电脑自己的回环页面仍得到 Connection 的 401，提示重新打开打印出的 URL。
+设备已被吊销——或 cookie 已过期——的手机到达 Host 时不带任何会话，直到操作者从回收站恢复该设备或让它重新配对。此时 `frontend-static` 以 401 提供携带 `__DSH_AUTH_REQUIRED__` 启动事实的外壳，浏览器半层据此把「需要重新登录」界面注册到 `shell.overlay`：它指出电脑端用哪个设置项生成新配对码，并提供重新加载按钮，用来接上手机在另一个标签页里刚换到的设备 cookie。该界面只在 Host 拒绝文档的地方渲染；持有可用会话的手机不会看到它，而电脑自己的回环页面仍得到 Connection 的 401，提示重新打开打印出的 URL。
 
 ### 你会得到什么
 
@@ -80,7 +80,7 @@ dsh web --host 127.0.0.1
 | [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及电脑侧仅回环可用的决定 |
 | [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | 手机端配对界面：启动事实、状态轮询与按决定显示的文案 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、配对面板与 `settings.mobile` 字典 |
-| [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与吊销 |
+| [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | 面板调用 `/pair*` 路由的客户端半边，含设备名与配对 URL 两个 helper |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从栅栏快照推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
@@ -89,7 +89,7 @@ dsh web --host 127.0.0.1
 | [`tests/pairing.spec.ts`](tests/pairing.spec.ts) | 配对会话：短码、批准、过期、单次使用与限流 |
 | [`tests/routes.host.spec.ts`](tests/routes.host.spec.ts) | 配对路由：访问规则、短码流程、设备 cookie 与请求体边界 |
 | [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | 配对界面：轮询、批准后跳转与各决定对应的文案 |
-| [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | 配对面板：短码与倒计时、允许/拒绝、设备列表与吊销 |
+| [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | 配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`tests/pairing-api.client.spec.ts`](tests/pairing-api.client.spec.ts) | 配对路由的客户端半边：请求形状、应答解析与 helper |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
 | [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |

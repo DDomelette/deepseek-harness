@@ -11,6 +11,13 @@ import { PairingPanel } from './PairingPanel.tsx'
 import type { PairingApi } from './pairing-api.ts'
 import css from './ConnectPhoneRow.module.css'
 
+/* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
+const dialogClass = css.dialog ?? ''
+/* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
+const contentFitClass = css.contentFit ?? ''
+/* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
+const scrollClass = css.scroll ?? ''
+
 /** Injected business face: the join-URL read, the loopback gate, and the pairing routes. */
 export interface ConnectPhoneRowInjected {
   /** Ask the Host for the LAN origin a pairing link is built on. */
@@ -49,6 +56,9 @@ export function ConnectPhoneRow({ t, joinUrl, canDecide, api }: ConnectPhoneRowC
         title={t('dialog.title')}
         closeLabel={t('close')}
         description={t('dialog.description')}
+        className={dialogClass}
+        contentClassName={contentFitClass}
+        bodyClassName={scrollClass}
       >
         {open && <PairingPanel t={t} joinUrl={joinUrl} canDecide={canDecide} api={api} />}
       </Modal>

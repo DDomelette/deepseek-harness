@@ -417,10 +417,11 @@ export class BrowserAuth {
 
   /**
    * Verify the authority-bound browser cookie on a Host request. A device cookie
-   * must name a device the registry still holds, on the authority it was issued
-   * for, and counts only until the earlier of the expiry its payload carries and
-   * the `expiresAt` its registry entry records, when that entry records one; a
-   * launch-token cookie requires a loopback authority and TCP peer.
+   * must name a device the registry still holds outside the recycle bin, on the
+   * authority it was issued for, and counts only until the earlier of the expiry
+   * its payload carries and the `expiresAt` its registry entry records, when that
+   * entry records one; a launch-token cookie requires a loopback authority and
+   * TCP peer.
    * @param request - HTTP headers carrying Host and Cookie, and the TCP peer.
    * @returns true only for a cookie this activation still accepts.
    */
@@ -467,7 +468,7 @@ export class BrowserAuth {
       && payload.expiresAt > payload.issuedAt)) return false
     if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) {
       const device = this.pairedDevices.get(payload.deviceId)
-      return device !== undefined && now < (device.expiresAt ?? payload.expiresAt)
+      return device !== undefined && device.revokedAt === undefined && now < (device.expiresAt ?? payload.expiresAt)
     }
     const hostname = requestHostname(request.headers)
     return isLoopbackPeer(request) && hostname !== undefined && isLoopbackHostname(hostname)
