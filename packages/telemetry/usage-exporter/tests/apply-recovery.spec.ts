@@ -46,6 +46,15 @@ async function cursorOffset(path: string, file: string): Promise<number | undefi
   return state.files[file]?.offset
 }
 
+// Every wait here observes an effect that lands through the file system: the
+// cursor document being published, or a poll whose result it records. vi.waitFor
+// accepts only a call-site literal, and its one-second default sits far below
+// what the Windows coverage lane grants each case
+// (DSH_COVERAGE_TEST_TIMEOUT_MS = 90000 as --testTimeout), whose oversubscribed
+// write-through tail can exceed that default. The waits carry the lane's budget
+// so the test timeout, not a narrower poll, is what reports a real hang.
+const WAIT_BUDGET_MS = 90_000
+
 describe('usage exporter recovery and disposal', () => {
   it.each(['duplicate', 'permanent', 'abandoned'] as const)('settles a %s batch and preserves its file for backfill', async (outcome) => {
     vi.useFakeTimers()
@@ -59,7 +68,7 @@ describe('usage exporter recovery and disposal', () => {
       return new Response('unavailable', { status: outcome === 'permanent' ? 400 : 503 })
     })
     const b = await bench('{bad\n' + JSON.stringify(ROW) + '\n')
-    await vi.waitFor(async () => { expect(await cursorOffset(b.cursorPath, b.file)).toBeGreaterThan(0) })
+    await vi.waitFor(async () => { expect(await cursorOffset(b.cursorPath, b.file)).toBeGreaterThan(0) }, { timeout: WAIT_BUDGET_MS })
     expect(request).toHaveBeenCalledTimes(outcome === 'abandoned' ? 3 : 1)
     expect(new Set(payloads.map(payload => payload.batchId)).size).toBe(1)
     expect(payloads.every(payload => payload.sourceId === 'test-source')).toBe(true)
@@ -78,7 +87,7 @@ describe('usage exporter recovery and disposal', () => {
     const b = await bench()
     let disposal: Promise<void> | undefined
     try {
-      await vi.waitFor(() => { expect(request).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => { expect(request).toHaveBeenCalledOnce() }, { timeout: WAIT_BUDGET_MS })
       await vi.advanceTimersByTimeAsync(1000)
       expect(request).toHaveBeenCalledOnce()
       let disposed = false
@@ -131,14 +140,14 @@ describe('usage exporter recovery and disposal', () => {
     vi.useFakeTimers()
     const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ ok: true, accepted: 1 }))
     const b = await bench('')
-    await vi.waitFor(async () => { expect(JSON.parse(await readFile(b.cursorPath, 'utf8'))).toEqual({ version: 1, files: {} }) })
+    await vi.waitFor(async () => { expect(JSON.parse(await readFile(b.cursorPath, 'utf8'))).toEqual({ version: 1, files: {} }) }, { timeout: WAIT_BUDGET_MS })
     await rm(b.telemetryRoot, { recursive: true, force: true })
     await vi.advanceTimersByTimeAsync(250)
-    await vi.waitFor(() => { expect(b.warn).toHaveBeenCalledWith(expect.stringContaining('poll failed:')) })
+    await vi.waitFor(() => { expect(b.warn).toHaveBeenCalledWith(expect.stringContaining('poll failed:')) }, { timeout: WAIT_BUDGET_MS })
     await mkdir(b.telemetryRoot)
     await appendFile(b.file, JSON.stringify(ROW) + '\n')
-    await vi.waitFor(() => { expect(request).toHaveBeenCalledOnce() })
-    await vi.waitFor(async () => { expect(await cursorOffset(b.cursorPath, b.file)).toBeGreaterThan(0) })
+    await vi.waitFor(() => { expect(request).toHaveBeenCalledOnce() }, { timeout: WAIT_BUDGET_MS })
+    await vi.waitFor(async () => { expect(await cursorOffset(b.cursorPath, b.file)).toBeGreaterThan(0) }, { timeout: WAIT_BUDGET_MS })
   })
 
   it.each(['win32', 'linux'])('uses %s path spelling when deriving the root id', (value) => {
