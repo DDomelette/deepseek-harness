@@ -26,6 +26,15 @@ export interface PairedDevice {
    */
   readonly expiresAt?: number
   /**
+   * Epoch milliseconds the device cookie this Host last handed to that phone
+   * expires at, written when the cookie is minted and again whenever it is
+   * renewed. Absent on an entry whose credential predates this field. The
+   * Connect-phone panel reads it because the window above only records what the
+   * operator asked for: an extension reaches the phone later, so the two can
+   * differ until that phone makes its next request.
+   */
+  readonly credentialExpiresAt?: number
+  /**
    * Epoch milliseconds this device was moved to the recycle bin; absent while
    * the device is active. A binned entry keeps its id and window but its cookie
    * stops authenticating, so a restore re-admits that cookie without a new

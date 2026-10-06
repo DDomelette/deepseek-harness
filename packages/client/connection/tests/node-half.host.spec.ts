@@ -63,12 +63,18 @@ function fakeResponse(): {
   state: { status?: number; headers?: Record<string, string>; body?: unknown }
 } {
   const state: { status?: number; headers?: Record<string, string>; body?: unknown } = {}
+  const staged: Record<string, string> = {}
   const chunks: Buffer[] = []
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
+    setHeader(name: string, value: string) {
+      staged[name] = value
+      return this
+    },
     writeHead(value: number, headers?: Record<string, string>) {
       state.status = value
-      if (headers !== undefined) state.headers = headers
+      // node:http sends headers staged with setHeader unless writeHead names them.
+      state.headers = { ...staged, ...headers }
       return this
     },
     write(value: string | Uint8Array) { chunks.push(Buffer.from(value)); return true },
@@ -135,6 +141,16 @@ async function authorityCookie(connection: HostConnectionHandle, authority: stri
   const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
   if (issued === undefined) throw new Error('device cookie issuance produced no cookie')
   return issued.split(';', 1)[0]!
+}
+
+/** The paired-device entries the registry record currently holds. */
+function storedDevices(store: RecordCredentials): readonly Record<string, unknown>[] {
+  const record = store.keyed.get(String(PAIRED_DEVICES_RECORD_KEY))
+  if (record?.kind !== 'grant') return []
+  const payload: unknown = record.payload
+  if (typeof payload !== 'object' || payload === null) return []
+  const devices: unknown = Reflect.get(payload, 'devices')
+  return Array.isArray(devices) ? devices as readonly Record<string, unknown>[] : []
 }
 
 describe('connection node half', () => {
@@ -282,6 +298,49 @@ describe('connection node half', () => {
     }), declared.response)
     expect(declared.state.status).toBe(404)
     await dispose()
+  })
+
+  it('records the credential a phone holds and renews it on the next /api request', async () => {
+    const { routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'test device' })
+      const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = issued?.split(';', 1)[0]
+      expect(cookie).toBeDefined()
+
+      // The window the phone was handed is what the registry records, so the
+      // Connect-phone panel can report a lapsed credential instead of a window.
+      await vi.waitFor(() => {
+        expect(storedDevices(store)).toEqual([expect.objectContaining({ credentialExpiresAt: device.expiresAt })])
+      })
+
+      // Extending the window reaches a phone that is already in the application
+      // on its next carrier call, not only on a later document load.
+      await connection.devices.setLifetime(device.id, 90)
+      const extended = (await connection.devices.list())[0]!.expiresAt
+      const renewed = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: cookie! }, `${API_PATH}/session.list`),
+        renewed.response,
+      )
+      const setCookie = renewed.state.headers?.['set-cookie']
+      expect(setCookie).toMatch(/; Max-Age=777\d{4};/u)
+      await vi.waitFor(() => {
+        expect(storedDevices(store)).toEqual([expect.objectContaining({ credentialExpiresAt: extended })])
+      })
+
+      // The aligned credential is not re-issued on every later call.
+      const aligned = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: setCookie!.split(';', 1)[0]! }, `${API_PATH}/session.list`),
+        aligned.response,
+      )
+      expect(aligned.state).toMatchObject({ status: 404 })
+      expect(aligned.state.headers?.['set-cookie']).toBeUndefined()
+    } finally {
+      await dispose()
+    }
   })
 
   it('shares its configured trust and authentication policy with sibling routes', async () => {

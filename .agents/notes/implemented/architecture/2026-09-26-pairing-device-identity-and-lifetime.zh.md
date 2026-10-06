@@ -23,4 +23,4 @@ Status: implemented
 ## 影响
 
 - 只有当领取经 IPv4 到达本地链路时，设备行才能显示 MAC 行；回环的测试领取与跨子网的手机不显示。
-- [配对请求需有手机领取](2026-09-26-pairing-requests-require-claim.zh.md)仍是「短码何时进入待决列表」的权威；本笔记只拥有登记行记录什么。
+- [配对请求需有手机领取](2026-09-26-pairing-requests-require-claim.zh.md)仍是「短码何时进入待决列表」的权威；本笔记只拥有登记行记录什么，凭证到期时间除外，它由[续期与记录](../bug-fix/2026-10-06-device-credential-truth-and-renewal.zh.md)拥有。

@@ -51,12 +51,12 @@ describe('authRequiredBootFact', () => {
 })
 
 describe('AuthRequiredScreen', () => {
-  it('states that the device is not paired and where to create a code', () => {
+  it('names the lapsed credential and where to create a code', () => {
     mount()
 
     expect(screen.getByText('登录已失效')).toBeTruthy()
     expect(screen.getByRole('status').textContent)
-      .toBe('本设备已不再处于已配对状态。请在电脑端打开 设置 → 通用设置 → 连接手机，生成配对码后在本设备上打开该链接。')
+      .toBe('本设备的凭证已过期或被吊销。请在电脑端打开 设置 → 通用设置 → 连接手机，生成配对码后在本设备上打开该链接。')
   })
 
   it('reloads the page when the user asks for it', () => {

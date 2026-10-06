@@ -1,0 +1,58 @@
+# Agent Note: Phone-access and web-surface defect backlog
+
+Status: proposed
+
+English | [中文](2026-10-06-phone-access-and-web-surface-defect-backlog.zh.md)
+
+## Problem
+
+A paired phone lost access while the Connect-phone panel still reported `90 days (87 days left)`. The device cookie freezes its expiry when it is minted, so a window the operator extends reaches the phone only through a request made while that credential is still valid; when the credential lapses first, the panel keeps advertising the window and the phone can only pair again. Fixing that exposed the surface around it, and a read-only audit of `packages/bundle/mob`, `packages/client/connection`, `packages/host/frontend-static`, `packages/host/webserver`, `packages/bundle/web-app`, and `packages/client/ui-primitives` found twenty-nine defects that were reproducible from the code, several of them contradicting an invariant the repository already states. They are recorded here because each one is independently fixable, and because three of them — a cancelled stream download that parks forever, a case-aliased index path that skips browser authentication, and a VirtualBox host-only address that wins the pairing QR — are reachable on the platforms `dsh web` ships on.
+
+## Proposal
+
+Fix the backlog in three tiers, smallest-to-largest blast radius. Tier 1 first, because each either leaks a resource, defeats a stated invariant, or breaks the phone-join flow.
+
+### Tier 1 — resource leak, auth invariant, and the phone-join flow
+
+| Item | Evidence | Fix |
+|---|---|---|
+| A cancelled streaming response parks `bridge()` forever and never cancels the body stream | `packages/client/connection/src/http-bridge.ts:97-107` waits only for `'drain'`/`'close'`, and `'close'` fires once; reproduced against the real `bridge` (12.8 MiB queued stream, client destroys after the first chunk: still pending after 6 s, `cancel()` never called, while the same response resolves in 104 ms when read to the end) | stop waiting on a one-shot event: check `res.destroyed`/`writableEnded`, and `cancel()` the body on teardown |
+| A case-aliased index path (`/INDEX.html`) skips `authorizeIndex`, so the Host/Origin fence and browser authentication never run | `packages/host/frontend-static/src/index.ts:130` compares paths as case-sensitive strings while `readFile` resolves them case-insensitively on NTFS/APFS | compare canonical real paths (`realpathSync.native`) or fail closed for any case-insensitive match of the index path |
+| A VirtualBox host-only address can become the pairing QR's authority | `packages/bundle/web-app/src/index.ts:123` omits `virtualbox`/`vbox` (and macOS Docker's `bridge100`) although its JSDoc claims them, and `packages/bundle/mob/src/join-url.ts:17` builds the QR from `lanAddresses[0]` alone | extend the virtual-adapter pattern and cover it with a derivation test |
+| An approved device row whose phone never collects its cookie stays active with no reclaim path | `packages/bundle/mob/src/routes.ts:315-327` rolls back only when `bindDevice` fails, while `packages/bundle/mob/src/pairing.ts:178-181` deletes the expired session without touching the row; the invariant is pinned in `packages/bundle/mob/tests/routes.host.spec.ts:358-364` | on session expiry, revoke and purge a row whose credential was never collected |
+| The pairing end-to-end spec has failed since the recycle bin shipped | `apps/cli/tests/pairing.e2e.ts:314` expects `devices: []` after revoke; the route lists binned rows by design; three of three runs fail at that line | assert the binned row instead of an empty list |
+| A `GET`/`HEAD` route with a body throws a `TypeError` before its handler runs | `packages/client/connection/src/http-bridge.ts:68-81` attaches a body for every method, which Fetch forbids for `GET`/`HEAD`, while `ConnectionFetchMethod` and `assertFetchRoute` accept the combination | attach a body only for methods that allow one, and reject the combination at registration |
+| The readiness line and browser handoff run before the activation audit that aborts the boot | `packages/bundle/web-app/src/index.ts:334-345` announces on the Loader settle, which resolves for a permanently pending fiber (`vendor/loader/src/config/tree.ts:46-64`), while `packages/boot/app-boot/src/index.ts:812-814` audits afterwards | announce only after the boot completes, through the existing `appReady` facility |
+
+### Tier 2 — user-visible behavior
+
+- A phone whose credential lapses while the page is open gets no visible reason: the only surface rendering `connection.failure.auth` is the sidebar indicator, which `packages/client/ui-settings-general/src/client/SettingsRoot.tsx:235` suppresses in the collapsed rail that a phone always gets.
+- Two pairing pages on one phone exceed the ten-reads-per-ten-seconds budget and lock that source for a minute, while the screen tells the operator to create a code that cannot help until the lock expires (`packages/bundle/mob/src/pairing.ts:258-268` with `packages/bundle/mob/src/client/PairScreen.tsx:110-115`).
+- Escape inside the panel's rename input closes the whole dialog and discards the shown code and QR, because `packages/client/ui-primitives/src/Modal.tsx:47-53` acts on any Escape while the repository's lower-priority owners check `defaultPrevented` (`packages/client/ui-layout/src/client/AppFrame.tsx:203-209`).
+- The per-source throttle table grows without bound: `packages/bundle/mob/src/pairing.ts:97` has no deletion path and `sweep()` covers sessions only.
+- An approval whose device registration throws leaves the session decided but unbound, with no retry path (`packages/bundle/mob/src/pairing.ts:197-206`, `packages/bundle/mob/src/routes.ts:299-317`).
+- A double click on Allow, Revoke, Restore, or Delete sends a second request whose refusal is reported as a failure, and a failure notice is never cleared by a later success (`packages/bundle/mob/src/client/PairingPanel.tsx:163,185-205`).
+- A live patch reload rebinds the server without re-announcing the URL line (`packages/bundle/web-app/src/index.ts:302,313`).
+- A checkout with client bundles but no frontend dist boots, prints the URL line, and 404s `/` with no build hint (`packages/bundle/web-app/README.md:37,144` against `packages/host/frontend-static/src/index.ts:129-151`).
+
+### Tier 3 — validation, protocol, and documentation
+
+Device labels accept an empty or oversized string through approval while the rename route refuses both; the pairing panel's Name input has no bound (`packages/bundle/mob/src/routes.ts:293-298` against `:374-379`). Three locale keys (`dialog.loading`, `dialog.noLanAddress`, `dialog.loadFailed`) and the "generating the code failed" state they describe are unreachable. The request poll has no in-flight dedupe, so a slow answer can repaint an older list. An all-zero MAC can be stored as a hardware fingerprint. `packages/bundle/mob/README.md:64` says eight `/pair*` routes where eleven are registered, and `:44` claims both phone routes are throttled when only `/pair/state` counts. Four composition files explain `shell-env` through `apps/cli/src/web.ts` and `DSH_WEB_MODE`, both removed. `packages/client/connection/README.md:43` still says `--host 0.0.0.0` is unsupported when it is the default bind. The fallback seat answers 405 without `Allow`. The MIME table omits the fonts and images the shipped dist contains. `renderIndex()` rejects where an index response 404s. The three webserver registries delete by key rather than by registration identity. `connection.rpc.handle` routes ignore `maxRequestBodyBytes`. `[::ffff:7f00:1]` and `localhost.` are not classified as loopback. Multi-valued `Set-Cookie` responses collapse to their last value, and a route's own `set-cookie` would override a staged device-cookie renewal. `lastSeenAt` only ever moves during the pairing handshake, so the panel's "last used" is the registration time.
+
+## Alternatives considered
+
+- **Fix the whole backlog in one change.** Rejected: the tiers have different blast radii, the tier-1 items need behavior tests and snapshots of their own, and a single change would make the resource leak and the authentication bypass unreviewable next to twenty-seven smaller edits.
+- **Open one GitHub Issue per finding instead of an Agent Note.** Rejected as the primary record: the audit's value is the evidence and the fix order, which an Issue stream loses, and the repository's durable place for a reviewed proposal is this tree. Individual Issues remain the right home for work handed to someone else.
+- **Keep the findings in the pull request that fixed the credential lifetime.** Rejected: that pull request is a fix with its own decision note, and a twenty-nine-item backlog would bury its review.
+- **Fix only the three reachable-on-this-platform items and drop the rest.** Rejected: the documentation and validation items are one-line edits whose absence keeps misleading operators, and dropping them guarantees the same audit later.
+
+## Acceptance criteria
+
+Each fixed item lands with the test that fails before it: a cancelled download test that asserts the bridge settles and the body is cancelled; an index-alias request asserted to take the authenticated path; a LAN-derivation test covering a VirtualBox host-only adapter; a pairing test asserting no row survives a session that expires before the phone collects its cookie; a green `apps/cli/tests/pairing.e2e.ts`; a registration-time rejection for a `GET`/`HEAD` route with a request body; and a readiness test asserting no URL line for a tree with a pending row. Tier 2 items land with their component or host test, and tier 3 items with the documentation gate that owns the corpus they touch (`pnpm run test:docs`, `pnpm run doc-sync`). Each tier keeps `pnpm run test:gui`, `pnpm run typecheck`, and the owning package's coverage at their current state.
+
+## Risks
+
+- The tier-1 bridge fix touches the response path every route shares; a wrong termination condition turns a parked stream into a torn one, so it needs the cancelled-download case plus the existing streaming tests in the same change.
+- The index-alias fix must not turn a legitimate case-distinct file on a case-sensitive filesystem into a 404.
+- Cleaning up an uncollected device row on session expiry could revoke a row a phone is about to claim; the check has to read the same registry the issuance reads, and the existing bind-then-publish ordering must stay intact.
+- Recording a backlog as a proposal does not schedule it; if this note outlives the fixes it must be updated in the same change as each tier, or it becomes another piece of stale prose.

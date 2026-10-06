@@ -220,6 +220,7 @@ export class BrowserAuth {
     maxAgeDays: number,
     deviceLifetimeDays: number,
     pairedDevices: ReadonlyMap<PairedDeviceId, PairedDevice>,
+    private readonly reportDeviceCookie: (deviceId: PairedDeviceId, expiresAt: number) => void,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -239,6 +240,9 @@ export class BrowserAuth {
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute launch-token cookie lifetime in days.
    * @param deviceLifetimeDays - window in days a newly registered device receives.
+   * @param reportDeviceCookie - receives every device cookie this activation
+   *   mints, for the durable record of what the phone actually holds; the
+   *   default is to record nothing, which is what a store-less caller wants.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
@@ -246,6 +250,7 @@ export class BrowserAuth {
     credentials: CredentialProvider,
     maxAgeDays: number,
     deviceLifetimeDays: number,
+    reportDeviceCookie: (deviceId: PairedDeviceId, expiresAt: number) => void = () => {},
   ): Promise<BrowserAuth> {
     const secret = await initializeSecret(credentials)
     return new BrowserAuth(
@@ -255,6 +260,7 @@ export class BrowserAuth {
       maxAgeDays,
       deviceLifetimeDays,
       devicesById(await listDevices(credentials)),
+      reportDeviceCookie,
     )
   }
 
@@ -314,6 +320,7 @@ export class BrowserAuth {
       issuedAt,
       expiresAt,
     }, this.secret)
+    this.reportDeviceCookie(deviceId, expiresAt)
     return sessionCookie(
       cookieName(authority), value, expiresAt, Math.max(0, Math.floor((expiresAt - issuedAt) / 1000)),
     )
@@ -442,22 +449,43 @@ export class BrowserAuth {
 
   /**
    * Authenticate one index request and stage the aligned device cookie when the
-   * registry window outlives the payload's expiry. Only an index request
-   * refreshes, so ordinary `/api` calls never renew a device cookie.
+   * registry window outlives the payload's expiry.
    */
   private authorizeIndexCookie(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
     const payload = this.cookiePayload(req)
     if (payload === undefined || !this.accepts(payload, req)) return false
-    if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) this.refreshDeviceCookie(payload, res)
+    if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) {
+      const renewed = this.alignedCookie(payload)
+      if (renewed !== undefined) res.setHeader('set-cookie', renewed)
+    }
     return true
   }
 
-  /** Stage the replacement cookie for a device cookie whose payload lags its registry window. */
-  private refreshDeviceCookie(payload: DeviceCookiePayload, res: ConnectionIndexResponse): void {
-    const issuedAt = Date.now()
+  /**
+   * The aligned device cookie for one authenticated request whose credential
+   * lags its registry window. Every authenticated request may carry this, so a
+   * window the operator extends reaches a phone that is holding the application
+   * open on its next call instead of waiting for a document load. A credential
+   * whose own payload already lapsed is refused before this point, so nothing
+   * here revives one.
+   * @param request - headers and TCP peer of an authenticated request.
+   * @returns the `Set-Cookie` value this request is owed, or undefined when its
+   *   credential already matches the registry window.
+   */
+  renewedDeviceCookie(request: ConnectionTrustRequest): string | undefined {
+    const payload = this.cookiePayload(request)
+    if (payload?.version !== DEVICE_COOKIE_PAYLOAD_VERSION || !this.accepts(payload, request)) return undefined
+    return this.alignedCookie(payload)
+  }
+
+  /**
+   * Stage the replacement cookie for a device cookie whose payload lags its
+   * registry window.
+   */
+  private alignedCookie(payload: DeviceCookiePayload): string | undefined {
     const expiresAt = this.pairedDevices.get(payload.deviceId)?.expiresAt
-    if (expiresAt === undefined || expiresAt <= payload.expiresAt) return
-    res.setHeader('set-cookie', this.mintDeviceCookie(payload.authority, payload.deviceId, issuedAt, expiresAt))
+    if (expiresAt === undefined || expiresAt <= payload.expiresAt) return undefined
+    return this.mintDeviceCookie(payload.authority, payload.deviceId, Date.now(), expiresAt)
   }
 
   /** Whether one decoded cookie payload is still inside its lifetime for this request. */

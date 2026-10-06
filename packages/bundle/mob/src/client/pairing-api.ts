@@ -30,6 +30,13 @@ export interface PairedDeviceView {
   readonly lifetimeDays?: number | undefined
   /** Epoch milliseconds this device's window ends; absent on a legacy entry. */
   readonly expiresAt?: number | undefined
+  /**
+   * Epoch milliseconds the credential the phone actually holds expires at, as
+   * the Host recorded it when issuing; absent on an entry that predates the
+   * field. It lags {@link PairedDeviceView.expiresAt} until the phone makes its
+   * next request, and passing it means that phone must pair again.
+   */
+  readonly credentialExpiresAt?: number | undefined
   /** Epoch milliseconds the device was moved to the recycle bin; absent while it is active. */
   readonly revokedAt?: number | undefined
   /** MAC address resolved at approval, the device's hardware fingerprint; absent when unknown. */
@@ -151,6 +158,7 @@ function deviceOf(value: unknown): PairedDeviceView | undefined {
     lastSeenAt,
     lifetimeDays: numberField(value, 'lifetimeDays'),
     expiresAt: numberField(value, 'expiresAt'),
+    credentialExpiresAt: numberField(value, 'credentialExpiresAt'),
     revokedAt: numberField(value, 'revokedAt'),
     macAddress: stringField(value, 'macAddress'),
   }

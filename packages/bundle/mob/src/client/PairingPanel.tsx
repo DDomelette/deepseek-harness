@@ -204,11 +204,25 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
     await reloadDevices()
   }
 
-  /** Lifetime cell of one device row: its window, `expired`, or unknown for a legacy entry. */
+  /**
+   * Lifetime cell of one device row: the window the operator set, plus the
+   * credential the phone actually holds. A credential past its own expiry means
+   * that phone has no session left and must pair again, whatever the window
+   * still says; one that merely lags the window renews on the phone's next
+   * request. Unknown stays for an entry that records no window.
+   */
   const lifetimeOf = (device: PairedDeviceView): string => {
+    const credentialExpiresAt = device.credentialExpiresAt
+    if (credentialExpiresAt !== undefined && credentialExpiresAt <= now) return t('panel.lifetimeLapsed')
     if (device.lifetimeDays === undefined || device.expiresAt === undefined) return t('panel.lifetimeUnknown')
     if (device.expiresAt <= now) return t('panel.lifetimeExpired')
     const remaining = Math.max(0, Math.ceil((device.expiresAt - now) / DAY_MILLISECONDS))
+    if (credentialExpiresAt !== undefined && credentialExpiresAt < device.expiresAt) {
+      return t('panel.lifetimePending', {
+        days: device.lifetimeDays,
+        remaining: Math.max(0, Math.ceil((credentialExpiresAt - now) / DAY_MILLISECONDS)),
+      })
+    }
     return t('panel.lifetimeWindow', { days: device.lifetimeDays, remaining })
   }
 

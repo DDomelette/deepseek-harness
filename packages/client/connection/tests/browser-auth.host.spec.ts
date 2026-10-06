@@ -600,8 +600,9 @@ describe('BrowserAuth', () => {
       const refreshed = served.state.headers?.['set-cookie']
       expect(refreshed).toMatch(/; Max-Age=5184000; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
 
-      // Until the phone loads the page, /api stays bounded by the old payload;
-      // the refreshed cookie carries the extended window from then on.
+      // The cookie the phone holds stays bounded by its own payload until the
+      // replacement from this response reaches it; from then on it carries the
+      // extended window.
       vi.setSystemTime(Date.now() + 31 * DAY_MILLISECONDS)
       expect(auth.isAuthenticated(request('/', authority, { cookie }))).toBe(false)
       expect(auth.isAuthenticated(request('/', authority, { cookie: cookiePair(refreshed!) }))).toBe(true)
@@ -634,6 +635,76 @@ describe('BrowserAuth', () => {
       expect(auth.authorizeIndex(request('/', '127.0.0.1:3080', { cookie }), refused.value)).toBe('answered')
       expect(refused.state.status).toBe(401)
       expect(refused.state.headers?.['set-cookie']).toBeUndefined()
+    })
+
+    it('reports the expiry of every device cookie it mints, renewals included', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const expiresAt = Date.now() + 30 * DAY_MILLISECONDS
+      const store = new RecordCredentials()
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', { lifetimeDays: 30, expiresAt })],
+      })
+      const issued: { deviceId: string; expiresAt: number }[] = []
+      const auth = await BrowserAuth.create({}, credentials(store), 30, 30, (deviceId, expiry) => {
+        issued.push({ deviceId, expiresAt: expiry })
+      })
+
+      const cookie = cookiePair(auth.issueDeviceCookie(authority, PHONE))
+      expect(issued).toEqual([{ deviceId: 'phone-1', expiresAt }])
+
+      // The renewal tells the registry what the phone holds from then on.
+      const extended = Date.now() + 90 * DAY_MILLISECONDS
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', { lifetimeDays: 90, expiresAt: extended })],
+      })
+      await auth.refreshPairedDevices()
+      expect(auth.renewedDeviceCookie(request('/', authority, { cookie }))).toBeDefined()
+      expect(issued).toEqual([
+        { deviceId: 'phone-1', expiresAt },
+        { deviceId: 'phone-1', expiresAt: extended },
+      ])
+    })
+
+    it('renews an extended credential on any authenticated request, never reviving a lapsed one', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const store = new RecordCredentials()
+      const window = (lifetimeDays: number, expiresAt: number): Record<string, unknown> =>
+        deviceEntry('phone-1', 'phone-1', { lifetimeDays, expiresAt })
+      store.setPairedDevices({ version: 1, devices: [window(1, Date.now() + DAY_MILLISECONDS)] })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie(authority, PHONE))
+
+      // An aligned credential, a launch-token cookie, and no cookie stage nothing.
+      expect(auth.renewedDeviceCookie(request('/', authority, { cookie }))).toBeUndefined()
+      expect(auth.renewedDeviceCookie(request('/', authority))).toBeUndefined()
+      expect(auth.renewedDeviceCookie(request('/', '127.0.0.1:3080', {
+        cookie: cookiePair(exchange(auth).cookie),
+      }))).toBeUndefined()
+
+      // A window the operator shortened stages nothing either: the registry
+      // bounds that request, and the phone keeps what it was given.
+      store.setPairedDevices({ version: 1, devices: [window(1, Date.now() + 12 * 60 * 60 * 1000)] })
+      await auth.refreshPairedDevices()
+      expect(auth.renewedDeviceCookie(request('/', authority, { cookie }))).toBeUndefined()
+
+      // An extension reaches the phone here, on a request that is not a load.
+      const extended = Date.now() + 90 * DAY_MILLISECONDS
+      store.setPairedDevices({ version: 1, devices: [window(90, extended)] })
+      await auth.refreshPairedDevices()
+      const renewed = auth.renewedDeviceCookie(request('/', authority, { cookie }))
+      expect(renewed).toMatch(/; Max-Age=777\d{4};/u)
+      expect(auth.isAuthenticated(request('/', authority, { cookie: cookiePair(renewed!) }))).toBe(true)
+
+      // Extending a window whose credential already lapsed revives nothing.
+      vi.setSystemTime(Date.now() + 2 * DAY_MILLISECONDS)
+      expect(auth.renewedDeviceCookie(request('/', authority, { cookie }))).toBeUndefined()
+      expect(auth.isAuthenticated(request('/', authority, { cookie }))).toBe(false)
     })
   })
 })
