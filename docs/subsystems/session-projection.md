@@ -117,7 +117,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.sessionProjectionCache` — `SessionProjectionCache`
 
-The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write.
+The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write, and settled is the completion point those fire-and-forget writes report through.
 
 ```ts cordis-catalog
 /**
@@ -179,6 +179,20 @@ hydratePrepared( session: Session, events: readonly SessionEvent[], ): Projectio
 async write(session: Session): Promise<void>
 
 /**
+ * Resolve once every durable checkpoint this service has already started for
+ * `id` has settled, successful or failed. Every trigger — a mandatory point,
+ * a throttle, or a cold-read write-back — is fail-soft and
+ * fire-and-forget, so this is the completion point a caller awaits instead of
+ * polling the medium; a checkpoint that failed is already logged as a warning
+ * when the barrier resolves. A dirty session whose trigger has not fired is
+ * NOT awaited: mandatory points start their write synchronously, and only a
+ * started write has a durability moment to report.
+ * @param id - the session whose already-started checkpoints are awaited.
+ * @returns resolution after those checkpoints settled, immediately when none is in flight.
+ */
+async settled(id: SessionId): Promise<void>
+
+/**
  * Cold-read one session's projections from its complete log. Each unit is
  * seeded from the identity-checked cached rows — the registry skips `apply`
  * for the already-folded prefix (events at or below the row's `seq`) — and
@@ -194,7 +208,7 @@ async write(session: Session): Promise<void>
 coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot
 ```
 
-Types: [Session](session.md) · [SessionEvent](session.md) · [SessionHeader](persistence.md) · [SessionLogOffset](session.md)
+Types: [Session](session.md) · [SessionEvent](session.md) · [SessionHeader](persistence.md) · [SessionId](core.md) · [SessionLogOffset](session.md)
 
 Source: [`packages/session/session-projection-cache/src/index.ts`](../../packages/session/session-projection-cache/src/index.ts)
 

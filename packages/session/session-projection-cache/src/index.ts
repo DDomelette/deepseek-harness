@@ -87,7 +87,9 @@ interface DirtyState {
  * session creation, `turn/end`, and session disposal (the live-to-cold
  * moment) — and serves the
  * cached rows for a session header. Every durable write is fail-soft:
- * failures log a warning and the cache self-heals on the next write.
+ * failures log a warning and the cache self-heals on the next write, and
+ * {@link settled} is the completion point those fire-and-forget writes report
+ * through.
  */
 export class SessionProjectionCache extends Service {
   static inject = ['storageDomain', 'sessionProjections', 'sessions']
@@ -96,6 +98,7 @@ export class SessionProjectionCache extends Service {
 
   private table?: KvTable<SessionId, CheckpointRecord>
   private readonly dirty = new Map<Session, DirtyState>()
+  private readonly writeBarriers = new Map<SessionId, Promise<void>>()
 
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'sessionProjectionCache')
@@ -262,6 +265,26 @@ export class SessionProjectionCache extends Service {
   }
 
   /**
+   * Resolve once every durable checkpoint this service has already started for
+   * `id` has settled, successful or failed. Every trigger — a mandatory point,
+   * a throttle, or a cold-read write-back — is fail-soft and
+   * fire-and-forget, so this is the completion point a caller awaits instead of
+   * polling the medium; a checkpoint that failed is already logged as a warning
+   * when the barrier resolves. A dirty session whose trigger has not fired is
+   * NOT awaited: mandatory points start their write synchronously, and only a
+   * started write has a durability moment to report.
+   * @param id - the session whose already-started checkpoints are awaited.
+   * @returns resolution after those checkpoints settled, immediately when none is in flight.
+   */
+  async settled(id: SessionId): Promise<void> {
+    let barrier = this.writeBarriers.get(id)
+    while (barrier !== undefined) {
+      await barrier
+      barrier = this.writeBarriers.get(id)
+    }
+  }
+
+  /**
    * Cold-read one session's projections from its complete log. Each unit is
    * seeded from the identity-checked cached rows — the registry skips `apply`
    * for the already-folded prefix (events at or below the row's `seq`) — and
@@ -289,9 +312,9 @@ export class SessionProjectionCache extends Service {
     )
     // Refresh the row so the next cold read seeds from it; fail-soft and
     // fire-and-forget — a failed write-back only costs a longer tail replay.
-    void this.put(meta.id, identity, restored.checkpoint).catch((error: unknown) => {
+    this.track(meta.id, this.put(meta.id, identity, restored.checkpoint).catch((error: unknown) => {
       this.ctx.logger.warn(`session projection cache: cold-read write-back for "${meta.id}" failed (cache stays stale): ${String(error)}`)
-    })
+    }))
     return restored.snapshot
   }
 
@@ -304,18 +327,18 @@ export class SessionProjectionCache extends Service {
     // one), count/interval throttle the in-turn stream.
     this.ctx.on('session/event', (session: Session, event: SessionEvent) => {
       if (event.type === 'turn/end') {
-        void this.flushSoft(session, 'turn/end')
+        this.track(session.id, this.flushSoft(session, 'turn/end'))
         return
       }
       const state = this.dirty.get(session) ?? { pending: 0, timer: undefined }
       this.dirty.set(session, state)
       state.pending += 1
       if (state.pending >= this.config.writeEveryEvents) {
-        void this.flushSoft(session, 'count threshold')
+        this.track(session.id, this.flushSoft(session, 'count threshold'))
         return
       }
       state.timer ??= setTimeout(() => {
-        void this.flushSoft(session, 'interval')
+        this.track(session.id, this.flushSoft(session, 'interval'))
       }, this.config.writeIntervalMs)
     })
 
@@ -325,7 +348,7 @@ export class SessionProjectionCache extends Service {
     // the store, would leave the seed-derived values (the title) unreadable
     // on the cold list. The creation write captures the seed-derived cut.
     this.ctx.on('session/created', (session: Session) => {
-      void this.flushSoft(session, 'create')
+      this.track(session.id, this.flushSoft(session, 'create'))
     })
 
     // Detach (the live-to-cold moment): the final mandatory point. After
@@ -333,7 +356,7 @@ export class SessionProjectionCache extends Service {
     // flushSoft's synchronous prefix reads and resets the dirty state, so
     // dropping it (timer already cleared by markClean) right after is safe.
     this.ctx.on('session/disposed', (session: Session) => {
-      void this.flushSoft(session, 'detach')
+      this.track(session.id, this.flushSoft(session, 'detach'))
       this.markClean(session)
       this.dirty.delete(session)
     })
@@ -349,6 +372,24 @@ export class SessionProjectionCache extends Service {
       }
       this.dirty.clear()
     }, 'sessionProjectionCache.timers')
+  }
+
+  /**
+   * Join one fire-and-forget checkpoint onto its session's barrier chain so a
+   * later {@link settled} covers it. The write itself starts here (its
+   * synchronous prefix still runs at the trigger), while the barrier only
+   * reports completion; the barrier of the last started write is dropped once
+   * it settles. Tracked promises are total by construction — each call site
+   * wraps a fail-soft checkpoint that logs its own failure — so a barrier
+   * reports completion rather than an error.
+   */
+  private track(id: SessionId, written: Promise<void>): void {
+    const prior = this.writeBarriers.get(id) ?? Promise.resolve()
+    const barrier = Promise.all([prior, written]).then(() => undefined)
+    this.writeBarriers.set(id, barrier)
+    void barrier.then(() => {
+      if (this.writeBarriers.get(id) === barrier) this.writeBarriers.delete(id)
+    })
   }
 
   /**
