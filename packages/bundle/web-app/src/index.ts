@@ -24,6 +24,7 @@ import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import { launchedThroughSsh, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@deepseek-ai/dsh-cmdline'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-shell-env'
 
@@ -114,13 +115,17 @@ try {
 
 /**
  * Interface-name heuristic for virtual or tunnel adapters (VMware/VirtualBox
- * host-only nets, WSL/Hyper-V, Docker bridges, TUN/TAP VPNs, Clash-style TUN
- * stacks, WireGuard, Tailscale, ZeroTier). Their addresses are reachable from
- * this machine but usually NOT from a phone on the LAN, so they sort after
- * physical adapters. Case-insensitive; `^br-` and `^wg` anchor the Docker
- * bridge and WireGuard naming conventions.
+ * host-only nets, WSL/Hyper-V, Docker bridges — `docker*`, `br-*`, and the
+ * `bridge100` a Docker Desktop install creates on macOS — TUN/TAP VPNs,
+ * Clash-style TUN stacks, WireGuard, Tailscale, ZeroTier). Their addresses are
+ * reachable from this machine but usually NOT from a phone on the LAN, so they
+ * sort after physical adapters. Case-insensitive; `^br-`, `^bridge<digits>`, and
+ * `^wg` anchor the Docker and WireGuard naming conventions.
  */
-const VIRTUAL_INTERFACE = /vmware|vmnet|vethernet|hyper-v|wsl|docker|veth|^br-|tun|tap|clash|vpn|wireguard|^wg|tailscale|zerotier/i
+const VIRTUAL_INTERFACE = new RegExp([
+  'vmware', 'vmnet', 'vethernet', 'virtualbox', 'vbox', 'hyper-v', 'wsl', 'docker', 'veth',
+  '^br-', '^bridge\\d', 'tun', 'tap', 'clash', 'vpn', 'wireguard', '^wg', 'tailscale', 'zerotier',
+].join('|'), 'i')
 
 /**
  * Whether the address can never be a LAN authority a phone reaches: the RFC 2544
@@ -296,8 +301,10 @@ export function apply(ctx: Context, config: Config): void {
       // The URL line and browser handoff are readiness signals: supervisors RPC
       // as soon as they observe the line, while a browser requests the page as
       // soon as it opens. Neither may run while sibling rows such as the /api
-      // route owner are still mounting. Await Loader settlement first; a
-      // hand-built tree without a Loader is already the complete tree.
+      // route owner are still mounting, and a row that can never activate settles
+      // the Loader without failing it — the boot's activation audit is what
+      // rejects that tree — so the launcher's committed startup gates the
+      // announcement whenever it is available.
       const announceReady = (): void => {
         if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
         const webUrl = localWebUrl(connectionCtx)
@@ -328,9 +335,20 @@ export function apply(ctx: Context, config: Config): void {
           })
         }
       }
-      // This row's own activation can precede a sibling failure. The app owns
-      // readiness by waiting for its Loader tree, or announces at once in a
-      // hand-built tree without Loader.
+      // This row's own activation can precede a sibling failure, and the app owns
+      // readiness: when the launcher provides its startup signal, announce only
+      // once that commits. A row that can never activate still settles the Loader
+      // and is rejected only by the boot's own activation audit, so a URL line
+      // published on the settle advertises a tree that is about to abort — and
+      // supervisors act on that line. A composition without the signal (a
+      // hand-built tree) falls back to the Loader path below.
+      const appReady = connectionCtx.get('appReady')
+      if (appReady !== undefined) {
+        connectionCtx.effect(() => appReady.onReady(announceReady), 'web-app: readiness announcement')
+        return
+      }
+      // A tree without that signal announces on its Loader settle, or at once
+      // when a hand-built tree carries no Loader at all.
       const settled = connectionCtx.get('loader')?.await()
       if (settled === undefined) announceReady()
       else {
