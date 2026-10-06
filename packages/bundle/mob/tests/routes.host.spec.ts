@@ -37,6 +37,8 @@ interface ConnectionOptions {
   readonly noShell?: boolean
   /** Whether the last-seen bookkeeping write rejects. */
   readonly touchFails?: boolean
+  /** Whether revoking a device rejects, for a reclamation that cannot finish. */
+  readonly revokeFails?: boolean
   /** Runs inside device registration, for a code that expires while the row is written. */
   readonly duringRegister?: () => void
   /** Raw output the injected ARP lookup answers; absent means no entry. */
@@ -116,6 +118,7 @@ function bench(options: ConnectionOptions = {}): Bench {
       },
       revoke: async (deviceId: string) => {
         revoked.push(deviceId)
+        if (options.revokeFails === true) throw new Error('credential write failed')
         // The real registry bins the row; the list route must observe that.
         if (!registered.some((_request, index) => idAt(index) === deviceId) || binned.has(deviceId)) return false
         binned.add(deviceId)
@@ -366,6 +369,31 @@ describe('pairing routes', () => {
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'expired' })
   })
 
+  it('reclaims a device row whose phone never collected its cookie', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+    const subject = bench()
+    const { code } = subject.pairing.openSession()
+    await subject.call(PAIR_PATHS.screen, { code, userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)' })
+
+    expect((await approve(subject, code)).status).toBe(200)
+    expect(subject.registered).toEqual([{ label: 'HUAWEI JAD-AL50' }])
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{ id: 'device-1', label: 'HUAWEI JAD-AL50', registeredAt: 1, lastSeenAt: 1 }],
+    })
+
+    // The phone never read the code, so it expired while still holding the
+    // registration: reading the list reclaims that row within the same response
+    // instead of reporting a device the operator believes is paired.
+    vi.setSystemTime(new Date('2026-09-12T12:02:00.000Z'))
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({ devices: [] })
+    expect(subject.revoked).toEqual(['device-1'])
+    expect(subject.purged).toEqual(['device-1'])
+    // Reclamation consumes the code with it, so a phone still polling that code
+    // reads `unknown` — the same "code is no longer valid" copy as `expired`.
+    expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'unknown' })
+  })
+
   it('keeps a failed last-seen write from becoming an unhandled rejection', async () => {
     const subject = bench({ touchFails: true })
     const warn = vi.spyOn(subject.ctx.logger, 'warn')
@@ -385,6 +413,29 @@ describe('pairing routes', () => {
         expect.stringContaining('credential write failed'),
       )
     })
+  })
+
+  it('reports a reclamation that could not finish and leaves the row listed', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+    const subject = bench({ revokeFails: true })
+    const warn = vi.spyOn(subject.ctx.logger, 'warn')
+    const { code } = subject.pairing.openSession()
+    await subject.call(PAIR_PATHS.screen, { code, userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)' })
+    await approve(subject, code)
+
+    vi.setSystemTime(new Date('2026-09-12T12:02:00.000Z'))
+
+    // The row stays for the operator to revoke by hand, and the failure is
+    // reported instead of failing the list response.
+    expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({
+      devices: [{ id: 'device-1', label: 'HUAWEI JAD-AL50', registeredAt: 1, lastSeenAt: 1 }],
+    })
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('could not reclaim the uncollected device'),
+      'device-1',
+      expect.stringContaining('credential write failed'),
+    )
   })
 
   it('keeps session, request, device, and revoke routes on loopback with a session cookie', async () => {
