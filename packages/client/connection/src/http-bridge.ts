@@ -90,10 +90,13 @@ export async function bridge(
     return
   }
   for await (const chunk of response.body) {
+    // A client that goes away mid-stream never drains again and has already
+    // emitted its single 'close', so every exit from this loop reads the response
+    // state rather than waiting for another event — otherwise the loop parks and
+    // the body stream is never cancelled.
+    if (res.destroyed) break
     // Backpressure: a false return means the socket buffer is full — wait for drain
-    // instead of buffering unboundedly (slow or suspended consumers). 'close' also
-    // resolves so a mid-wait disconnect can't park this loop forever; the close
-    // handler above aborts the handler stream, which then ends the iteration.
+    // instead of buffering unboundedly (slow or suspended consumers).
     if (!res.write(chunk)) {
       await new Promise<void>((resolve) => {
         const done = (): void => {
@@ -103,9 +106,13 @@ export async function bridge(
         }
         res.once('drain', done)
         res.once('close', done)
+        // The disconnect may have landed before these listeners existed: 'close'
+        // is one-shot, so re-read the state instead of waiting for a new event.
+        if (res.destroyed) done()
       })
+      if (res.destroyed) break
     }
   }
-  res.end()
+  if (!res.destroyed) res.end()
   if (requestUnread) req.destroy()
 }
