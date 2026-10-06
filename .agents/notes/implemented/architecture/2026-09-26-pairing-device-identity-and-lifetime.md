@@ -23,4 +23,4 @@ The pairing panel registered every approved phone under the label derived from i
 ## Consequences
 
 - A device row can show a `MAC` line only when the claim arrived over IPv4 on the local link; loopback test claims and cross-subnet phones show none.
-- [Pairing requests require a claim](2026-09-26-pairing-requests-require-claim.md) remains the authority for when a code enters the decision list; this note owns what the registered row records.
+- [Pairing requests require a claim](2026-09-26-pairing-requests-require-claim.md) remains the authority for when a code enters the decision list; this note owns what the registered row records, except the credential expiry [the renewal record](../bug-fix/2026-10-06-device-credential-truth-and-renewal.md) owns.

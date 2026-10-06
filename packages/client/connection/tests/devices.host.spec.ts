@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import {
-  PAIRED_DEVICES_RECORD_KEY, listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice,
-  setDeviceLifetime, touchDevice,
+  PAIRED_DEVICES_RECORD_KEY, listDevices, purgeDevice, recordCredentialExpiry, registerDevice, renameDevice,
+  restoreDevice, revokeDevice, setDeviceLifetime, touchDevice,
 } from '../src/devices.ts'
 import { PAIRED_DEVICES_KEY, RecordCredentials } from './browser-credentials.ts'
 
@@ -51,6 +51,14 @@ describe('listDevices', () => {
     await expect(listDevices(credentials(store))).resolves.toEqual([binned])
   })
 
+  it('round-trips the credential expiry the phone actually holds', async () => {
+    const store = new RecordCredentials()
+    const issued = { ...device, lifetimeDays: 90, expiresAt: 1_702_592_000_000, credentialExpiresAt: 1_700_086_400_000 }
+    store.setPairedDevices({ version: 1, devices: [issued] })
+
+    await expect(listDevices(credentials(store))).resolves.toEqual([issued])
+  })
+
   it('round-trips the hardware fingerprint when the record carries one', async () => {
     const store = new RecordCredentials()
     const fingerprinted = { ...device, macAddress: '48:a7:3c:f1:87:18' }
@@ -86,6 +94,8 @@ describe('listDevices', () => {
       { version: 1, devices: [{ ...device, lifetimeDays: 1.5 }] },
       { version: 1, devices: [{ ...device, lifetimeDays: '30' }] },
       { version: 1, devices: [{ ...device, expiresAt: 'soon' }] },
+      { version: 1, devices: [{ ...device, credentialExpiresAt: 'soon' }] },
+      { version: 1, devices: [{ ...device, credentialExpiresAt: 1.5 }] },
       { version: 1, devices: [{ ...device, revokedAt: 'then' }] },
       { version: 1, devices: [{ ...device, revokedAt: 1.5 }] },
       { version: 1, devices: [{ ...device, macAddress: 7 }] },
@@ -243,6 +253,43 @@ describe('paired-device registry writes', () => {
     expect(store).toMatchObject({ writes: 2 })
   })
 
+  it('records the credential expiry one device holds, leaving the rest alone', async () => {
+    const store = new RecordCredentials()
+    const windowed = { ...device, lifetimeDays: 90, expiresAt: 1_702_592_000_000 }
+    store.setPairedDevices({ version: 1, devices: [windowed, { ...device, id: 'dev-2', label: 'iPad' }] })
+    const provider = credentials(store)
+
+    await expect(recordCredentialExpiry(provider, PairedDeviceId('dev-1'), 1_700_086_400_000)).resolves.toBe(true)
+    expect(await listDevices(provider)).toEqual([
+      { ...windowed, credentialExpiresAt: 1_700_086_400_000 },
+      { ...device, id: 'dev-2', label: 'iPad' },
+    ])
+    expect(store).toMatchObject({ writes: 1 })
+
+    // The expiry a device already carries is not rewritten request after request.
+    await expect(recordCredentialExpiry(provider, PairedDeviceId('dev-1'), 1_700_086_400_000)).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 1 })
+
+    // A renewal moves it onto the window the operator set.
+    await expect(recordCredentialExpiry(provider, PairedDeviceId('dev-1'), windowed.expiresAt)).resolves.toBe(true)
+    expect((await listDevices(provider))[0]?.credentialExpiresAt).toBe(windowed.expiresAt)
+
+    await expect(recordCredentialExpiry(provider, PairedDeviceId('ghost'), windowed.expiresAt)).resolves.toBe(false)
+    expect(store).toMatchObject({ writes: 2 })
+  })
+
+  it('keeps the recorded credential expiry through a bin-and-restore cycle', async () => {
+    const store = new RecordCredentials()
+    const issued = { ...device, lifetimeDays: 90, expiresAt: 1_702_592_000_000, credentialExpiresAt: 1_700_086_400_000 }
+    store.setPairedDevices({ version: 1, devices: [issued] })
+    const provider = credentials(store)
+
+    await expect(revokeDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
+    await expect(restoreDevice(provider, PairedDeviceId('dev-1'))).resolves.toBe(true)
+
+    await expect(listDevices(provider)).resolves.toEqual([issued])
+  })
+
   it('writes the last-seen time only outside the one-hour throttle window', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
@@ -278,6 +325,7 @@ describe('paired-device registry writes', () => {
     await expect(purgeDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(touchDevice(provider, PairedDeviceId('dev-1'))).rejects.toThrow(/paired-devices/u)
     await expect(setDeviceLifetime(provider, PairedDeviceId('dev-1'), 30)).rejects.toThrow(/paired-devices/u)
+    await expect(recordCredentialExpiry(provider, PairedDeviceId('dev-1'), 1_700_086_400_000)).rejects.toThrow(/paired-devices/u)
     await expect(renameDevice(provider, PairedDeviceId('dev-1'), 'phone')).rejects.toThrow(/paired-devices/u)
     expect(store.keyed.get(String(PAIRED_DEVICES_KEY))).toEqual({
       kind: 'grant',

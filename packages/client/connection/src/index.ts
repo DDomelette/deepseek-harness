@@ -9,7 +9,8 @@ import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
-import { PAIRED_DEVICES_RECORD_KEY } from './devices.ts'
+import { PAIRED_DEVICES_RECORD_KEY, recordCredentialExpiry } from './devices.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -126,10 +127,24 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
+  /**
+   * Record the expiry of every device cookie this activation hands out, so the
+   * Connect-phone panel reports the credential the phone holds. A failed write
+   * costs it one stale reading, so it is reported rather than failing a request.
+   */
+  const recordIssuedCookie = (deviceId: PairedDeviceId, expiresAt: number): void => {
+    void recordCredentialExpiry(ctx.credentials, deviceId, expiresAt).catch((error: unknown) => {
+      ctx.logger.warn(
+        'client-connection: could not record the credential expiry of device "%s": %s',
+        deviceId,
+        String(error),
+      )
+    })
+  }
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays, recordIssuedCookie),
   )
   // The credential record is the authority for device access, and it changes
   // under this process too: the credentials owner reports every write, including
@@ -159,6 +174,9 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
+        // An open phone calls this carrier continuously, so an extended window
+        // reaches its credential here rather than on some later document load.
+        connection.renewDeviceCookie(req, res)
         await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }

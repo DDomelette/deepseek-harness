@@ -38,7 +38,7 @@ const MAC_PATTERN = /^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$/u
 
 function deviceOf(value: unknown): PairedDevice {
   if (!isRecord(value)) throw malformed('has a non-object entry')
-  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt, revokedAt, macAddress } = value
+  const { id, label, registeredAt, lastSeenAt, lifetimeDays, expiresAt, credentialExpiresAt, revokedAt, macAddress } = value
   if (typeof id !== 'string' || id === '') throw malformed('has an entry without an id')
   if (typeof label !== 'string') throw malformed(`entry ${id} has a non-string label`)
   if (!Number.isSafeInteger(registeredAt)) throw malformed(`entry ${id} has an invalid registration time`)
@@ -50,6 +50,9 @@ function deviceOf(value: unknown): PairedDevice {
   }
   if (expiresAt !== undefined && !Number.isSafeInteger(expiresAt)) {
     throw malformed(`entry ${id} has an invalid expiry`)
+  }
+  if (credentialExpiresAt !== undefined && !Number.isSafeInteger(credentialExpiresAt)) {
+    throw malformed(`entry ${id} has an invalid credential expiry`)
   }
   if (revokedAt !== undefined && !Number.isSafeInteger(revokedAt)) {
     throw malformed(`entry ${id} has an invalid revocation time`)
@@ -67,6 +70,7 @@ function deviceOf(value: unknown): PairedDevice {
     ...device,
     ...lifetimeDays === undefined ? {} : { lifetimeDays: lifetimeDays as number },
     ...expiresAt === undefined ? {} : { expiresAt: expiresAt as number },
+    ...credentialExpiresAt === undefined ? {} : { credentialExpiresAt: credentialExpiresAt as number },
     ...revokedAt === undefined ? {} : { revokedAt: revokedAt as number },
     ...macAddress === undefined ? {} : { macAddress },
   }
@@ -198,6 +202,7 @@ export async function restoreDevice(
       lastSeenAt: device.lastSeenAt,
       ...device.lifetimeDays === undefined ? {} : { lifetimeDays: device.lifetimeDays },
       ...device.expiresAt === undefined ? {} : { expiresAt: device.expiresAt },
+      ...device.credentialExpiresAt === undefined ? {} : { credentialExpiresAt: device.credentialExpiresAt },
       ...device.macAddress === undefined ? {} : { macAddress: device.macAddress },
     }
   }))
@@ -243,7 +248,8 @@ export async function renameDevice(
 
 /**
  * Set one device's delivery window, restarting its countdown: a shorter window
- * applies to that device's next request, a longer one on its next index request.
+ * applies to that device's next request, a longer one renews the credential the
+ * phone holds on that device's next request, whichever carrier it arrives on.
  * @param credentials - persistent credential provider for the Web profile.
  * @param deviceId - id of the device to re-schedule.
  * @param days - window in days, written together with the expiry it implies.
@@ -260,6 +266,32 @@ export async function setDeviceLifetime(
   await writeDevices(credentials, current => current.map(device =>
     (device.id === deviceId ? { ...device, lifetimeDays: days, expiresAt } : device)))
   return true
+}
+
+/**
+ * Record the expiry of the device cookie this Host just issued to one phone.
+ * The registry's own `expiresAt` is the window the operator set, which an
+ * extension reaches a phone only on a later request; this field is what the
+ * phone actually holds, so the panel can report a lapsed credential instead of
+ * the window it can no longer use.
+ * @param credentials - persistent credential provider for the Web profile.
+ * @param deviceId - id of the device the cookie was issued for.
+ * @param expiresAt - epoch milliseconds that cookie payload expires at.
+ * @returns true when a stored device recorded a new credential expiry.
+ */
+export async function recordCredentialExpiry(
+  credentials: CredentialProvider,
+  deviceId: PairedDeviceId,
+  expiresAt: number,
+): Promise<boolean> {
+  let recorded = false
+  await writeDevices(credentials, (devices) => {
+    const target = devices.find(device => device.id === deviceId)
+    if (target === undefined || target.credentialExpiresAt === expiresAt) return undefined
+    recorded = true
+    return devices.map(device => (device.id === deviceId ? { ...device, credentialExpiresAt: expiresAt } : device))
+  })
+  return recorded
 }
 
 /**

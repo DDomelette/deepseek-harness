@@ -173,6 +173,19 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return this.browserAuth.authenticatedUrl(baseUrl)
   }
 
+  /**
+   * Stage the aligned device cookie on an authenticated request whose credential
+   * lags its registry window, so a window the operator extended reaches a phone
+   * that is already holding the application open.
+   * @param request - headers and TCP peer of an authenticated request.
+   * @param response - response that will carry the replacement cookie.
+   * @returns nothing; a fully aligned request receives no header.
+   */
+  renewDeviceCookie(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
+    const renewed = this.browserAuth.renewedDeviceCookie(request)
+    if (renewed !== undefined) response.setHeader('set-cookie', renewed)
+  }
+
   /** Whether the local operator's launch-token cookie authorizes device management. */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
     return this.browserAuth.isLocalOperator(request)
@@ -241,6 +254,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
+        this.renewDeviceCookie(req, res)
         await bridge(req, res, fetchHandler)
       },
     }

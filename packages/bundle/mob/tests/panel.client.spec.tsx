@@ -379,6 +379,23 @@ describe('PairingPanel', () => {
     expect(within(screen.getByText('旧平板').closest('li')!).getByRole('button', { name: '45 天' })).toBeTruthy()
   })
 
+  it('reports the credential the phone holds, not only the window the operator set', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(START))
+    mount({ api: fakeApi({ devices: { ok: true, value: [
+      { ...WINDOWED, credentialExpiresAt: START + 30 * DAY_MILLISECONDS },
+      { ...WINDOWED, id: 'device-2', label: '新手机', credentialExpiresAt: START + 2 * DAY_MILLISECONDS },
+      { ...WINDOWED, id: 'device-3', label: '掉线的手机', credentialExpiresAt: START - 1 },
+    ] } }) })
+
+    const aligned = (await waitFor(() => screen.getAllByText('客厅的手机')))[0]!.closest('li')!
+    expect(within(aligned).getByText(/30 天（剩余 30 天）/u)).toBeTruthy()
+    // An extended window the phone has not picked up yet names the shorter credential.
+    expect(within(screen.getByText('新手机').closest('li')!).getByText(/30 天（手机凭证剩余 2 天）/u)).toBeTruthy()
+    // A credential past its own expiry is dead whatever window the row still carries.
+    expect(within(screen.getByText('掉线的手机').closest('li')!).getByText('凭证已失效，需重新配对')).toBeTruthy()
+  })
+
   it('shows the MAC address a device resolved at approval', async () => {
     mount({ api: fakeApi({ devices: { ok: true, value: [
       { ...WINDOWED, macAddress: '48:a7:3c:f1:87:18' },
@@ -467,7 +484,7 @@ describe('PairingPanel', () => {
     }) })
 
     expect(screen.getByText('不再使用、或在不受信任的网络上用过的设备请吊销；吊销后设备进入回收站，可以恢复或彻底删除。')).toBeTruthy()
-    expect(screen.getByText('延长后，手机下一次打开页面时生效，前提是它当前的 cookie 仍然有效；窗口已经结束的设备必须重新配对。')).toBeTruthy()
+    expect(screen.getByText('延长后，手机下一次请求时即续期；已经失效的凭证必须重新配对。')).toBeTruthy()
 
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
     fireEvent.click(within(row).getByRole('button', { name: '30 天' }))
