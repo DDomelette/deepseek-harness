@@ -16,7 +16,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY } from '@deepseek-ai/dsh-launch-environment'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
-import { apply, Config, internals } from '../src/index.ts'
+import { apply, Config, internals, resolveLanTrust } from '../src/index.ts'
 
 vi.mock('node:child_process', async importOriginal => ({
   ...await importOriginal<typeof import('node:child_process')>(),
@@ -112,6 +112,29 @@ function provideLoader(ctx: Context, settle: () => Promise<void> = async () => {
   ctx.provide('loader', { await: settle } as never)
 }
 
+/** Launcher readiness double: listeners run only when the test commits startup. */
+function provideAppReady(ctx: Context): { commit: () => void } {
+  let ready = false
+  const listeners = new Set<() => void>()
+  ctx.provide('appReady', {
+    onReady(listener: () => void) {
+      if (ready) {
+        listener()
+        return () => {}
+      }
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+  } as never)
+  return {
+    commit: () => {
+      ready = true
+      for (const listener of [...listeners]) listener()
+      listeners.clear()
+    },
+  }
+}
+
 interface BashContribution {
   name: string
   variables: Record<string, { description: string }>
@@ -171,6 +194,30 @@ describe('web-app runtime glue', () => {
     const webRuntime = contributions.find(contribution => contribution.name === 'web-runtime')
     expect(webRuntime?.resolve()).toEqual({ DSH_WEB_URL: 'http://127.0.0.1:4567' })
     await ctx.fiber.dispose()
+  })
+
+  it('sorts a VirtualBox host-only adapter and a Docker Desktop bridge behind the physical one', () => {
+    // Both are host-only: reachable from this machine, never from a phone. The
+    // pairing QR and the readiness line read lanAddresses[0], so either of them
+    // winning the sort makes the printed and scanned address unusable.
+    osInterfaces.current = {
+      lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      'VirtualBox Host-Only Network': [{ family: 'IPv4', internal: false, address: '192.168.56.1' }],
+      bridge100: [{ family: 'IPv4', internal: false, address: '192.168.64.1' }],
+      en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+    }
+
+    expect(resolveLanTrust('0.0.0.0', [])).toEqual({
+      lanAddresses: ['192.168.1.5', '192.168.56.1', '192.168.64.1'],
+      trustedHosts: ['192.168.1.5', '192.168.56.1', '192.168.64.1'],
+    })
+    // The same host-only network on Linux and macOS is named vboxnet0.
+    osInterfaces.current = {
+      lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+      vboxnet0: [{ family: 'IPv4', internal: false, address: '192.168.56.1' }],
+      en0: [{ family: 'IPv4', internal: false, address: '192.168.1.5' }],
+    }
+    expect(resolveLanTrust('0.0.0.0', []).lanAddresses).toEqual(['192.168.1.5', '192.168.56.1'])
   })
 
   it('prints the remaining LAN candidates so an unreachable first pick stays recoverable', async () => {
@@ -364,6 +411,31 @@ describe('web-app runtime glue', () => {
     expect(log).not.toHaveBeenCalled()
     expect(openBrowser).not.toHaveBeenCalled()
     await torn.fiber.dispose()
+  })
+
+  it('publishes readiness when startup commits, not when the Loader settles', async () => {
+    stageDist()
+    const ctx = new Context()
+    const { server } = fakeHttpServer('127.0.0.1')
+    ctx.provide('webServer', server)
+    provideConnection(ctx)
+    provideLoader(ctx)
+    const appReady = provideAppReady(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const openBrowser = vi.fn(async () => {})
+    internals.openBrowser = openBrowser
+    apply(ctx, new Config({ openBrowser: true, printUrl: true, surfaceContext: false, trustedHosts: [] }))
+
+    // The Loader settles even for a row that can never activate; only the boot's
+    // own audit rejects that tree, so nothing may announce on the settle.
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).not.toHaveBeenCalled()
+    expect(openBrowser).not.toHaveBeenCalled()
+
+    appReady.commit()
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token')
+    expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:4567/?token=test-token')
+    await ctx.fiber.dispose()
   })
 
   it('fails loud when the prompt section resolves against a portless webserver', async () => {

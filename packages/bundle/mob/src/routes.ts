@@ -14,8 +14,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
-import type { PairingSessions } from './pairing.ts'
-import { isPairingCode } from './pairing.ts'
+import { isPairingCode, PairingSessions } from './pairing.ts'
+import type {} from './pairing.ts'
 import type { ArpLookup } from './mac.ts'
 import { resolveMacAddress } from './mac.ts'
 
@@ -166,6 +166,27 @@ async function pairingShell(ctx: Context, code: string): Promise<string | undefi
  */
 export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lookup?: ArpLookup): () => void {
   /**
+   * Reclaim the registrations whose phones never collected a cookie: the code
+   * expired while it still held one, and no device ever read it. The rows are
+   * revoked and purged through the same rollback the approval's binding race
+   * uses, so this layer's list never shows a device the operator believes is
+   * paired.
+   * @returns nothing; a failed reclamation is reported, never thrown at a route.
+   */
+  const reclaimUncollected = async (): Promise<void> => {
+    for (const deviceId of pairing.sweepExpired()) {
+      try {
+        await ctx.connection.devices.revoke(deviceId)
+        await ctx.connection.devices.purge(deviceId)
+      } catch (error) {
+        // The two device writes are the only statements that can throw here, and a
+        // failed reclamation only leaves the row for the operator to revoke.
+        ctx.logger.warn('mob: could not reclaim the uncollected device "%s": %s', deviceId, String(error))
+      }
+    }
+  }
+
+  /**
    * Register one loopback device-action route: a POST whose body carries the
    * device id and whose answer is the registry's verdict.
    * @param path - exact route path.
@@ -260,12 +281,15 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
     ctx.webServer.register({
       kind: 'exact',
       path: PAIR_PATHS.session,
-      handler: (req, res) => {
+      handler: async (req, res) => {
         if (req.method !== 'POST') {
           sendMethodNotAllowed(res, 'POST')
           return
         }
         if (refused(req, res, ctx, 'loopback')) return
+        // Opening a code is the operator's signal that pairing is in use again,
+        // which is when a row no phone collected must stop being listed.
+        await reclaimUncollected()
         sendJson(res, 200, pairing.openSession())
       },
     }),
@@ -336,6 +360,9 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           return
         }
         if (refused(req, res, ctx, 'loopback')) return
+        // A code that expired with its registration uncollected is reclaimed
+        // before the list is read, so this response never shows that row.
+        await reclaimUncollected()
         sendJson(res, 200, { devices: await ctx.connection.devices.list() })
       },
     }),

@@ -187,4 +187,24 @@ describe('PairingSessions', () => {
     vi.setSystemTime(new Date(START + 60_001))
     expect(store.stateOf(code, 'flooder')).toEqual({ status: 'pending' })
   })
+
+  it('reports a bound code that expired uncollected and keeps an unbound one for its own read', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const claimed = store.openSession()
+    const plain = store.openSession()
+    expect(store.approve(claimed.code, 'phone', true)).toEqual({ ok: true })
+    expect(store.bindDevice(claimed.code, DEVICE_1)).toBe(true)
+
+    vi.setSystemTime(new Date(START + 120_000))
+    // A code that expired with no registration keeps answering through its own read.
+    expect(store.stateOf(plain.code, 'source')).toEqual({ status: 'expired' })
+    // The bound one survives that same read: deleting it there would lose the
+    // registration its phone never collected.
+    expect(store.stateOf(claimed.code, 'source')).toEqual({ status: 'expired' })
+    expect(store.sweepExpired()).toEqual([DEVICE_1])
+    expect(store.sweepExpired()).toEqual([])
+    expect(store.stateOf(claimed.code, 'source')).toEqual({ status: 'unknown' })
+  })
 })

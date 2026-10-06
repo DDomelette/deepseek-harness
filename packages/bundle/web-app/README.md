@@ -77,7 +77,7 @@ A patch replaces the targeted row's whole `config`, so each web row restates eve
 
 ### Readiness
 
-The URL line and browser handoff are readiness signals: supervisors RPC as soon as they observe the line, and a browser requests the page as soon as it opens, so both run only after the Loader tree settles and Connection authentication is available — or immediately in a hand-built tree without a Loader. A tree disposed mid-boot announces nothing.
+The URL line and browser handoff are readiness signals: supervisors RPC as soon as they observe the line, and a browser requests the page as soon as it opens, so both run only after startup commits — the launcher's signal follows its own activation audit, which a row that never activates fails after the Loader has already settled — and Connection authentication is available. A composition without that signal announces on the Loader settle instead, a hand-built tree without a Loader announces at once, and a tree disposed mid-boot announces nothing.
 
 ### LAN trust sampling
 

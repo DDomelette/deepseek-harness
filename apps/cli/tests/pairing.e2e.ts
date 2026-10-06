@@ -307,11 +307,16 @@ describe('dsh web phone pairing through the real CLI', () => {
       expect(revoked.status).toBe(200)
       expect(JSON.parse(revoked.body)).toEqual({ ok: true })
       expect((await phoneCall()).status).toBe(401)
-      expect(JSON.parse((await call(port, {
+      // Revocation moves the row to the recycle bin instead of deleting it, so
+      // the list still reports that device with its revocation time until the
+      // operator purges it.
+      const binned = JSON.parse((await call(port, {
         path: '/pair/devices',
         host: loopbackAuthority,
         cookie: computer,
-      })).body)).toEqual({ devices: [] })
+      })).body) as { devices: { label: string; revokedAt?: number }[] }
+      expect(binned.devices.map(device => device.label)).toEqual(['study phone'])
+      expect(typeof binned.devices[0]?.revokedAt).toBe('number')
 
       // A device cookie remains a phone credential even when claimed on the
       // computer's authority; the TCP peer here is also genuinely loopback.

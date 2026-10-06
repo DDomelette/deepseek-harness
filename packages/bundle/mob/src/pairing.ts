@@ -176,7 +176,9 @@ export class PairingSessions {
     const session = this.sessions.get(code)
     if (session === undefined) return this.failure(source, now, 'unknown')
     if (session.expiresAt <= now) {
-      this.sessions.delete(code)
+      // A session that still holds a registration waits for sweepExpired: deleting
+      // it here would lose the device row no phone collected.
+      if (session.deviceId === undefined) this.sessions.delete(code)
       return this.failure(source, now, 'expired')
     }
     this.attempts(source, now).failures = 0
@@ -228,10 +230,35 @@ export class PairingSessions {
     this.sessions.delete(code)
   }
 
-  /** Drop sessions whose codes expired. */
+  /**
+   * Drop the codes that expired while still holding a registered device, which
+   * means their phones never collected the cookie, and report those
+   * registrations so the owner can reclaim them. A phone consumes its code when
+   * it takes the cookie, so a session that expires with a device id still
+   * attached belongs to a row no device holds. Codes that expired without a
+   * registration are left to their own read.
+   * @returns device ids of the registrations no phone collected.
+   */
+  sweepExpired(): readonly PairedDeviceId[] {
+    const now = Date.now()
+    const uncollected: PairedDeviceId[] = []
+    for (const [code, session] of this.sessions) {
+      if (session.expiresAt > now || session.deviceId === undefined) continue
+      uncollected.push(session.deviceId)
+      this.sessions.delete(code)
+    }
+    return uncollected
+  }
+
+  /**
+   * Drop sessions whose codes expired without a registration; a bound session
+   * waits for {@link PairingSessions.sweepExpired}, because deleting it here
+   * would lose the device its phone never collected.
+   * @param now - current epoch milliseconds.
+   */
   private sweep(now: number): void {
     for (const [code, session] of this.sessions) {
-      if (session.expiresAt <= now) this.sessions.delete(code)
+      if (session.expiresAt <= now && session.deviceId === undefined) this.sessions.delete(code)
     }
   }
 
