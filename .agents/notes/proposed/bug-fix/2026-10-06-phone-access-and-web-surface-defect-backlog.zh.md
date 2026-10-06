@@ -10,19 +10,19 @@ Status: proposed
 
 ## 提案
 
-按爆炸半径从小到大分三批修。先修第一梯队：每一项要么泄漏资源、要么击穿已写明的不变量、要么直接弄坏手机接入流程。
+按爆炸半径从小到大分三批修。先修第一梯队：每一项要么泄漏资源、要么击穿已写明的不变量、要么直接弄坏手机接入流程。第一梯队除 `GET`/`HEAD` 请求体那一条（归入第二梯队）外已完成；已修的条目会点名拥有其决策的笔记。
 
 ### 第一梯队 — 资源泄漏、认证不变量与手机接入流程
 
 | 项 | 证据 | 修法 |
 |---|---|---|
 | 被取消的流式响应让 `bridge()` 永久挂起，且从不取消响应体流 | `packages/client/connection/src/http-bridge.ts:97-107` 只等 `'drain'`/`'close'`，而 `'close'` 只触发一次；对真实 `bridge` 复现：12.8 MiB 队列流、客户端收到首块后断开 → 6 秒后仍 pending、`cancel()` 从未调用，而同一条响应在读完时 104 ms 就 resolved | 不再等一次性事件：检查 `res.destroyed`/`writableEnded`，并在拆解时 `cancel()` 响应体 —— **已修**于[桥接笔记](../../implemented/bug-fix/2026-10-06-http-bridge-settles-on-client-disconnect.zh.md) |
-| 大小写别名的索引路径（`/INDEX.html`）跳过 `authorizeIndex`，Host/Origin 栅栏与浏览器认证都不执行 | `packages/host/frontend-static/src/index.ts:130` 用大小写敏感的字符串比较，而 `readFile` 在 NTFS/APFS 上按大小写不敏感解析 | 比较规范化后的真实路径（`realpathSync.native`），或对任何「大小写不敏感地等于索引路径」的请求 fail closed |
-| VirtualBox host-only 地址可能成为配对二维码的 authority | `packages/bundle/web-app/src/index.ts:123` 的模式漏了 `virtualbox`/`vbox`（以及 macOS Docker 的 `bridge100`），而它的 JSDoc 声称覆盖；`packages/bundle/mob/src/join-url.ts:17` 只用 `lanAddresses[0]` 拼二维码 | 扩充虚拟网卡模式，并用一条推导测试固定 |
-| 已批准、但手机从未取走 cookie 的设备行会一直是活跃行且无回收路径 | `packages/bundle/mob/src/routes.ts:315-327` 只在 `bindDevice` 失败时回滚，而 `packages/bundle/mob/src/pairing.ts:178-181` 删除过期会话时不触碰设备行；该不变量固定在 `packages/bundle/mob/tests/routes.host.spec.ts:358-364` | 会话过期时，对从未被领取的设备行执行吊销并彻底删除 |
-| 配对端到端用例自回收站上线起一直失败 | `apps/cli/tests/pairing.e2e.ts:314` 期望吊销后 `devices: []`，而该路由按设计列出回收站条目；三次运行全部在该行失败 | 改为断言那条已入回收站的行，而不是空列表 |
+| 大小写别名的索引路径（`/INDEX.html`）跳过 `authorizeIndex`，Host/Origin 栅栏与浏览器认证都不执行 | `packages/host/frontend-static/src/index.ts:130` 用大小写敏感的字符串比较，而 `readFile` 在 NTFS/APFS 上按大小写不敏感解析 | 比较规范化后的真实路径（`realpathSync.native`），或对任何「大小写不敏感地等于索引路径」的请求 fail closed —— **已修**于[索引入口笔记](../../implemented/bug-fix/2026-10-06-index-entry-resolved-identity.zh.md) |
+| VirtualBox host-only 地址可能成为配对二维码的 authority | `packages/bundle/web-app/src/index.ts:123` 的模式漏了 `virtualbox`/`vbox`（以及 macOS Docker 的 `bridge100`），而它的 JSDoc 声称覆盖；`packages/bundle/mob/src/join-url.ts:17` 只用 `lanAddresses[0]` 拼二维码 | 扩充虚拟网卡模式，并用一条推导测试固定 —— **已修**于[虚拟网卡笔记](../../implemented/bug-fix/2026-10-06-virtual-adapter-derivation-covers-virtualbox.zh.md) |
+| 已批准、但手机从未取走 cookie 的设备行会一直是活跃行且无回收路径 | `packages/bundle/mob/src/routes.ts:315-327` 只在 `bindDevice` 失败时回滚，而 `packages/bundle/mob/src/pairing.ts:178-181` 删除过期会话时不触碰设备行；该不变量固定在 `packages/bundle/mob/tests/routes.host.spec.ts:358-364` | 会话过期时，对从未被领取的设备行执行吊销并彻底删除 —— **已修**于[回收笔记](../../implemented/bug-fix/2026-10-06-reclaim-uncollected-device-registrations.zh.md) |
+| 配对端到端用例自回收站上线起一直失败 | `apps/cli/tests/pairing.e2e.ts:314` 期望吊销后 `devices: []`，而该路由按设计列出回收站条目；三次运行全部在该行失败 | 改为断言那条已入回收站的行，而不是空列表 —— **已修**，与回收笔记同一改动 |
 | 带请求体的 `GET`/`HEAD` 路由在处理器运行前就抛 `TypeError` | `packages/client/connection/src/http-bridge.ts:68-81` 对任何方法都挂 body，而 Fetch 禁止 `GET`/`HEAD` 带 body；`ConnectionFetchMethod` 与 `assertFetchRoute` 却接受该组合 | 只对允许带 body 的方法挂 body，并在注册期拒绝该组合 |
-| 就绪行与开浏览器发生在会中止启动的激活审计之前 | `packages/bundle/web-app/src/index.ts:334-345` 在 Loader 结算时公告，而永久 pending 的 fiber 也会结算（`vendor/loader/src/config/tree.ts:46-64`），审计在其后（`packages/boot/app-boot/src/index.ts:812-814`） | 只在启动真正完成后公告，走现成的 `appReady` |
+| 就绪行与开浏览器发生在会中止启动的激活审计之前 | `packages/bundle/web-app/src/index.ts:334-345` 在 Loader 结算时公告，而永久 pending 的 fiber 也会结算（`vendor/loader/src/config/tree.ts:46-64`），审计在其后（`packages/boot/app-boot/src/index.ts:812-814`） | 只在启动真正完成后公告，走现成的 `appReady` —— **已修**于[就绪笔记](../../implemented/bug-fix/2026-10-06-readiness-follows-committed-startup.zh.md) |
 
 ### 第二梯队 — 用户可见行为
 
