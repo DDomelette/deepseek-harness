@@ -1,9 +1,11 @@
 /**
  * @deepseek-ai/dsh-host-frontend-static — SPA dist server over the webserver
  * fallback seat: serves the built frontend directory with explicit index
- * entry points. A readable index renders at the dist root and configured index
- * path; missing paths return 404, traversal outside the dist root is 403,
- * unknown extensions ship as octet-stream, and non-GET/HEAD is 405. Every
+ * entry points. A readable index renders at the dist root and at every path that
+ * resolves to the index file — the configured index path, and a case-only
+ * difference from it on a case-insensitive volume; missing paths return 404,
+ * traversal outside the dist root is 403, unknown extensions ship as
+ * octet-stream, and non-GET/HEAD is 405. Every
  * index response first passes Connection's browser authentication, then the
  * webserver's index render (structured injection rows, then raw taps); a client
  * refused on a non-loopback authority receives that shell as a 401 carrying the
@@ -16,6 +18,7 @@
  */
 
 import type { ServerResponse } from 'node:http'
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -99,6 +102,30 @@ function markAuthRequired(html: string): string {
 }
 
 /**
+ * Whether a resolved request path names the index entry itself. Path text alone
+ * cannot decide: on a case-insensitive volume (NTFS, APFS) `/INDEX.html` names
+ * the same file as `/index.html` while comparing unequal, and treating it as an
+ * asset would serve the shell without Connection's authentication. Resolving
+ * both sides also covers a symlink pointing at the index; a path that cannot be
+ * resolved is not the entry, and the caller's read reports the same 404 either
+ * way.
+ * @param target - resolved absolute request path under the dist root.
+ * @param distRoot - the dist directory the path was resolved under.
+ * @param distIndex - configured absolute path of the index file.
+ * @returns true when the request names the index entry itself.
+ */
+function isIndexEntry(target: string, distRoot: string, distIndex: string): boolean {
+  if (target === distRoot || target === distIndex) return true
+  try {
+    return realpathSync.native(target) === realpathSync.native(distIndex)
+  } catch {
+    // The two resolutions are the only statements here; an absent target or an
+    // unbuilt dist is the caller's static miss, never an index response.
+    return false
+  }
+}
+
+/**
  * Serve one GET/HEAD static request from the dist root.
  * @param pathname - decoded URL pathname of the request.
  * @param res - the node:http response to write.
@@ -127,7 +154,7 @@ export async function serveStatic(
   let status = 200
   let headers: Record<string, string> = {}
   try {
-    if (target === distRoot || target === distIndex) {
+    if (isIndexEntry(target, distRoot, distIndex)) {
       const access = authorizeIndex()
       if (access === 'answered') return
       body = await renderIndex()
