@@ -6,6 +6,7 @@
  * GET/HEAD, and seat release on fiber disposal (HMR safety).
  */
 
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -215,6 +216,23 @@ describe('real Loader composition', () => {
       type: 'text/html; charset=utf-8',
       body: '',
     })
+
+    // A path that differs only in case names the same file on a case-insensitive
+    // volume (NTFS, APFS). Comparing path text would serve it as a static asset
+    // and skip the index's authentication, so this probe picks the expectation
+    // and both branches pin correct behavior — the Windows job runs the first.
+    const caseInsensitiveVolume = existsSync(join(root!, 'dist', 'INDEX.HTML'))
+    for (const alias of ['/INDEX.html', '/Index.HTML']) {
+      const anonymous = await request(port, alias)
+      const paired = await request(port, alias, authenticated())
+      if (caseInsensitiveVolume) {
+        expect([alias, anonymous.status, anonymous.type])
+          .toEqual([alias, 401, 'text/plain; charset=utf-8'])
+        expect([alias, paired.status, paired.body.includes('__T__')]).toEqual([alias, 200, true])
+      } else {
+        expect([alias, anonymous.status, paired.status]).toEqual([alias, 404, 404])
+      }
+    }
     untap()
     expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
 
