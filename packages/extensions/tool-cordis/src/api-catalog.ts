@@ -1708,7 +1708,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   {
     key: 'sessionProjectionCache',
     summary: 'The persisted projection cache service.',
-    description: 'The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write.',
+    description: 'The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write, and settled is the completion point those fire-and-forget writes report through.',
     methods: [
       {
         signature: 'cachedSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, keys?: readonly Extract<keyof SessionProjectionMap, string>[], ): ProjectionSnapshot | undefined',
@@ -1733,6 +1733,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Durably checkpoint one live session NOW (all mandatory points call this; tests and carriers may too). The registry cut is snapshotted at this boundary (states are live references), then the session\'s record is replaced on the domain\'s write chain. NOT fail-soft — callers on the fail-soft paths contain it.',
         parameters: [{ name: 'session', description: 'the live session to checkpoint.' }],
         returns: 'resolution after durability and event emission.',
+      },
+      {
+        signature: 'async settled(id: SessionId): Promise<void>',
+        description: 'Resolve once every durable checkpoint this service has already started for `id` has settled, successful or failed. Every trigger — a mandatory point, a throttle, or a cold-read write-back — is fail-soft and fire-and-forget, so this is the completion point a caller awaits instead of polling the medium; a checkpoint that failed is already logged as a warning when the barrier resolves. A dirty session whose trigger has not fired is NOT awaited: mandatory points start their write synchronously, and only a started write has a durability moment to report.',
+        parameters: [{ name: 'id', description: 'the session whose already-started checkpoints are awaited.' }],
+        returns: 'resolution after those checkpoints settled, immediately when none is in flight.',
       },
       {
         signature: 'coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot',

@@ -95,12 +95,6 @@ function headerFor(id: SessionId, identity: FixtureDoc['record']['identity']): S
 const contexts: Context[] = []
 const roots: string[] = []
 
-// Hang guard for the cache's eventual on-disk write, not a behavior
-// assertion: the rewrite always lands (the lighter recovery cases prove it),
-// and a loaded Windows coverage runner needs longer than 5s to flush it. The
-// lane grants each case 90s.
-const REWRITE_GUARD_MS = 30_000
-
 async function harness(root: string) {
   roots.push(root)
   const ctx = new Context()
@@ -126,23 +120,24 @@ async function placeDoc(root: string, id: string, name: string): Promise<Fixture
 /**
  * Drive a live write over a recovered session id and assert the archived
  * document is replaced by a current-version one: current domain and Session
- * format stamps, lineage, and the freshly folded title.
+ * format stamps, lineage, and the freshly folded title. The turn/end mandatory
+ * point is the rewrite's completion point, so the document is read once after
+ * `settled()` instead of being polled for.
  */
 async function assertRewrite(ctx: Context, root: string, id: SessionId): Promise<void> {
   const session = ctx.sessions.create(id)
   session.append('fixtures-test/set-title', { title: '重写标题' })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   const path = join(root, projectionCacheDomainSpec.name, 'sessions', `${id}.json`)
-  await vi.waitFor(async () => {
-    const doc = JSON.parse(await readFile(path, 'utf8')) as FixtureDoc
-    expect(doc.version).toBe(projectionCacheDomainSpec.version)
-    expect(doc.record.identity).toMatchObject({
-      formatVersion: SESSION_FORMAT_VERSION,
-      isSeeded: false,
-      inheritedEventCount: 0,
-    })
-    expect(doc.record.rows['title']?.val).toBe('重写标题')
-  }, { timeout: REWRITE_GUARD_MS })
+  await ctx.sessionProjectionCache.settled(id)
+  const doc = JSON.parse(await readFile(path, 'utf8')) as FixtureDoc
+  expect(doc.version).toBe(projectionCacheDomainSpec.version)
+  expect(doc.record.identity).toMatchObject({
+    formatVersion: SESSION_FORMAT_VERSION,
+    isSeeded: false,
+    inheritedEventCount: 0,
+  })
+  expect(doc.record.rows['title']?.val).toBe('重写标题')
 }
 
 afterEach(async () => {
