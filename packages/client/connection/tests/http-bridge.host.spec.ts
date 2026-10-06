@@ -144,4 +144,86 @@ describe('HTTP bridge abort', () => {
     expect(headers).toMatchObject({ connection: 'close' })
     expect(destroyed).toEqual([true])
   })
+
+  /** A response body that records its own cancellation, with one chunk queued. */
+  function streamedResponseBody(): { body: ReadableStream<Uint8Array>; cancelled: () => boolean } {
+    let cancelled = false
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(64 * 1024))
+        controller.enqueue(new Uint8Array(64 * 1024))
+      },
+      cancel() { cancelled = true },
+    })
+    return { body, cancelled: () => cancelled }
+  }
+
+  /** A response double whose socket buffer is full for every write. */
+  function backpressuredResponse(): { response: ServerResponse; ended: () => boolean } {
+    let ended = false
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writeHead() { return this },
+      write() { return false },
+      end(this: { writableEnded: boolean }) { ended = true; this.writableEnded = true; return this },
+    }) as unknown as ServerResponse
+    return { response, ended: () => ended }
+  }
+
+  /** Wait for the bridge to settle, so a parked loop fails instead of hanging the suite. */
+  async function settledOrParked(pending: Promise<void>): Promise<string> {
+    return await Promise.race([
+      pending.then(() => 'settled'),
+      new Promise<string>((resolve) => { setTimeout(() => { resolve('parked') }, 2_000) }),
+    ])
+  }
+
+  it('stops reading a body whose client vanished while the loop waited for drain', async () => {
+    const request = Readable.from([]) as unknown as IncomingMessage
+    Object.assign(request, {
+      url: '/api/session.export',
+      method: 'GET',
+      headers: { accept: 'application/octet-stream' },
+    })
+    const streamed = streamedResponseBody()
+    const backpressured = backpressuredResponse()
+
+    const pending = bridge(request, backpressured.response, {
+      requestBodyMode: () => 'buffered',
+      fetch: async () => new Response(streamed.body, { status: 200 }),
+    })
+    // The disconnect a real socket reports mid-wait: one 'close', then a write
+    // that reports backpressure nothing will ever drain.
+    await new Promise((resolve) => { setTimeout(resolve, 20) })
+    Object.assign(backpressured.response, { destroyed: true })
+    backpressured.response.emit('close')
+
+    expect(await settledOrParked(pending)).toBe('settled')
+    expect(streamed.cancelled()).toBe(true)
+    expect(backpressured.ended()).toBe(false)
+  })
+
+  it('stops reading a body whose client was already gone before the first write', async () => {
+    const request = Readable.from([]) as unknown as IncomingMessage
+    Object.assign(request, {
+      url: '/api/session.export',
+      method: 'GET',
+      headers: { accept: 'application/octet-stream' },
+    })
+    const streamed = streamedResponseBody()
+    const backpressured = backpressuredResponse()
+    // 'close' already fired: the loop must read the response state instead of
+    // subscribing to an event that will never arrive again.
+    Object.assign(backpressured.response, { destroyed: true })
+
+    const pending = bridge(request, backpressured.response, {
+      requestBodyMode: () => 'buffered',
+      fetch: async () => new Response(streamed.body, { status: 200 }),
+    })
+
+    expect(await settledOrParked(pending)).toBe('settled')
+    expect(streamed.cancelled()).toBe(true)
+    expect(backpressured.ended()).toBe(false)
+  })
 })

@@ -6,7 +6,7 @@ Status: proposed
 
 ## 问题
 
-一台已配对手机失去访问权时，「连接手机」面板仍在报告 `90 天（剩余 87 天）`。设备 cookie 在签发的那一刻就冻结了自己的到期时间，因此操作者延长的窗口只有在手机当前凭证仍然有效时、经由一次请求才能送达；一旦凭证先失效，面板继续宣传那个窗口，而那台手机只能重新配对。修好这一条暴露出它周边的整个表层：对 `packages/bundle/mob`、`packages/client/connection`、`packages/host/frontend-static`、`packages/host/webserver`、`packages/bundle/web-app` 与 `packages/client/ui-primitives` 的只读审计找到二十九项可从代码复现的缺陷，其中若干项直接违反仓库自己已经写明的不变量。把它们记在这里，是因为每一项都可独立修复，也因为其中三项——被取消的流式下载会永久挂起、大小写别名的索引路径跳过浏览器认证、VirtualBox host-only 地址会赢下配对二维码——在 `dsh web` 实际发布的平台上都可达。
+一台已配对手机失去访问权时，「连接手机」面板仍在报告 `90 天（剩余 87 天）`。设备 cookie 在签发的那一刻就冻结了自己的到期时间，因此操作者延长的窗口只有在手机当前凭证仍然有效时、经由一次请求才能送达；一旦凭证先失效，面板继续宣传那个窗口，而那台手机只能重新配对。修好这一条暴露出它周边的整个表层：对 `packages/bundle/mob`、`packages/client/connection`、`packages/host/frontend-static`、`packages/host/webserver`、`packages/bundle/web-app` 与 `packages/client/ui-primitives` 的只读审计找到三十项可从代码复现的缺陷，其中若干项直接违反仓库自己已经写明的不变量。把它们记在这里，是因为每一项都可独立修复，也因为其中三项——被取消的流式下载会永久挂起、大小写别名的索引路径跳过浏览器认证、VirtualBox host-only 地址会赢下配对二维码——在 `dsh web` 实际发布的平台上都可达。
 
 ## 提案
 
@@ -16,7 +16,7 @@ Status: proposed
 
 | 项 | 证据 | 修法 |
 |---|---|---|
-| 被取消的流式响应让 `bridge()` 永久挂起，且从不取消响应体流 | `packages/client/connection/src/http-bridge.ts:97-107` 只等 `'drain'`/`'close'`，而 `'close'` 只触发一次；对真实 `bridge` 复现：12.8 MiB 队列流、客户端收到首块后断开 → 6 秒后仍 pending、`cancel()` 从未调用，而同一条响应在读完时 104 ms 就 resolved | 不再等一次性事件：检查 `res.destroyed`/`writableEnded`，并在拆解时 `cancel()` 响应体 |
+| 被取消的流式响应让 `bridge()` 永久挂起，且从不取消响应体流 | `packages/client/connection/src/http-bridge.ts:97-107` 只等 `'drain'`/`'close'`，而 `'close'` 只触发一次；对真实 `bridge` 复现：12.8 MiB 队列流、客户端收到首块后断开 → 6 秒后仍 pending、`cancel()` 从未调用，而同一条响应在读完时 104 ms 就 resolved | 不再等一次性事件：检查 `res.destroyed`/`writableEnded`，并在拆解时 `cancel()` 响应体 —— **已修**于[桥接笔记](../../implemented/bug-fix/2026-10-06-http-bridge-settles-on-client-disconnect.zh.md) |
 | 大小写别名的索引路径（`/INDEX.html`）跳过 `authorizeIndex`，Host/Origin 栅栏与浏览器认证都不执行 | `packages/host/frontend-static/src/index.ts:130` 用大小写敏感的字符串比较，而 `readFile` 在 NTFS/APFS 上按大小写不敏感解析 | 比较规范化后的真实路径（`realpathSync.native`），或对任何「大小写不敏感地等于索引路径」的请求 fail closed |
 | VirtualBox host-only 地址可能成为配对二维码的 authority | `packages/bundle/web-app/src/index.ts:123` 的模式漏了 `virtualbox`/`vbox`（以及 macOS Docker 的 `bridge100`），而它的 JSDoc 声称覆盖；`packages/bundle/mob/src/join-url.ts:17` 只用 `lanAddresses[0]` 拼二维码 | 扩充虚拟网卡模式，并用一条推导测试固定 |
 | 已批准、但手机从未取走 cookie 的设备行会一直是活跃行且无回收路径 | `packages/bundle/mob/src/routes.ts:315-327` 只在 `bindDevice` 失败时回滚，而 `packages/bundle/mob/src/pairing.ts:178-181` 删除过期会话时不触碰设备行；该不变量固定在 `packages/bundle/mob/tests/routes.host.spec.ts:358-364` | 会话过期时，对从未被领取的设备行执行吊销并彻底删除 |
