@@ -49,6 +49,16 @@
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
+/* Handset band: ui-layout's AppFrame replaces the sidebar rail with a floating
+   36px brand button 10px from the frame's left edge and marks the frame
+   data-sidebar-fab (attribute selectors are not CSS-module localized, so this
+   descendant selector reaches across the package boundary; the frame side
+   carries the matching contract comment). The header steps aside by 10px edge
+   offset + 36px button + 14px clearance. */
+[data-sidebar-fab] .header {
+  padding-left: 60px;
+}
+
 /* Blank hero/settling: keep the strict Session header mounted without taking
    column space; the root-owned scrollport and composer remain below it. */
 .headerHidden {
