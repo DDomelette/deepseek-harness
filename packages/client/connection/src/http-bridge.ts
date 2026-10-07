@@ -43,8 +43,19 @@ export async function bridge(
     Object.entries(req.headers).filter(([, value]) => typeof value === 'string') as [string, string][],
   )
   const bodyMode = apiHandler.requestBodyMode({ method, url })
+  // Fetch forbids a body on GET and HEAD: a route that owns only those methods
+  // declares `none`, and a client that frames one anyway is refused here rather
+  // than reaching `new Request` as a TypeError before any handler runs.
+  if (bodyMode === 'none' && requestDeclaresBody(req)) {
+    res.writeHead(400, { connection: 'close' })
+    res.end()
+    req.destroy()
+    return
+  }
   let request: Request
-  if (bodyMode === 'buffered') {
+  if (bodyMode === 'none') {
+    request = new Request(url, { method, headers, signal: abort.signal })
+  } else if (bodyMode === 'buffered') {
     const declaredLength = req.headers['content-length']
     if (declaredLength !== undefined && Number(declaredLength) > maxRequestBodyBytes) {
       res.writeHead(413, { connection: 'close' })
@@ -116,4 +127,17 @@ export async function bridge(
   }
   if (writable()) res.end()
   if (requestUnread) req.destroy()
+}
+
+/**
+ * Whether the wire frame declares a request body on a method Fetch forbids one
+ * for. Node rejects a malformed `content-length` before a handler sees it, so
+ * the length here is either absent, a byte count, or a chunked stream.
+ * @param req - incoming node:http request.
+ * @returns true when the client framed a body.
+ */
+function requestDeclaresBody(req: IncomingMessage): boolean {
+  if (req.headers['transfer-encoding'] !== undefined) return true
+  const declaredLength = req.headers['content-length']
+  return declaredLength !== undefined && Number(declaredLength) > 0
 }

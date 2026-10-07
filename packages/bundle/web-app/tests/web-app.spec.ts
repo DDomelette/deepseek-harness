@@ -334,6 +334,28 @@ describe('web-app runtime glue', () => {
     await ctx.fiber.dispose()
   })
 
+  it('prints the URL line again when the row itself reloads onto a new server', async () => {
+    stageDist()
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer().server)
+    provideConnection(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const config = new Config({ openBrowser: false, printUrl: true, surfaceContext: true, trustedHosts: [] })
+    const fiber = ctx.plugin((pluginCtx: Context) => { apply(pluginCtx, config) })
+    await fiber.await()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledTimes(1)
+
+    // A live patch reloads this row: the activation is new, so the operator
+    // sees the URL of the server this activation bound.
+    await fiber.dispose()
+    const reloaded = ctx.plugin((pluginCtx: Context) => { apply(pluginCtx, config) })
+    await reloaded.await()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledTimes(2)
+    await ctx.fiber.dispose()
+  })
+
   it.each([
     ['SSH_CONNECTION', '10.0.0.2 55000 10.0.0.9 22'],
     ['SSH_TTY', '/dev/pts/3'],

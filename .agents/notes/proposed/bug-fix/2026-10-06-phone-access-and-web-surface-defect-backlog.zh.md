@@ -10,7 +10,7 @@ Status: proposed
 
 ## 提案
 
-按爆炸半径从小到大分三批修。先修第一梯队：每一项要么泄漏资源、要么击穿已写明的不变量、要么直接弄坏手机接入流程。第一梯队除 `GET`/`HEAD` 请求体那一条（归入第二梯队）外已完成；已修的条目会点名拥有其决策的笔记。
+按爆炸半径从小到大分三批修。先修第一梯队：每一项要么泄漏资源、要么击穿已写明的不变量、要么直接弄坏手机接入流程。第一梯队与第二梯队已完成；已修的条目会点名拥有其决策的笔记。
 
 ### 第一梯队 — 资源泄漏、认证不变量与手机接入流程
 
@@ -21,19 +21,19 @@ Status: proposed
 | VirtualBox host-only 地址可能成为配对二维码的 authority | `packages/bundle/web-app/src/index.ts:123` 的模式漏了 `virtualbox`/`vbox`（以及 macOS Docker 的 `bridge100`），而它的 JSDoc 声称覆盖；`packages/bundle/mob/src/join-url.ts:17` 只用 `lanAddresses[0]` 拼二维码 | 扩充虚拟网卡模式，并用一条推导测试固定 —— **已修**于[虚拟网卡笔记](../../implemented/bug-fix/2026-10-06-virtual-adapter-derivation-covers-virtualbox.zh.md) |
 | 已批准、但手机从未取走 cookie 的设备行会一直是活跃行且无回收路径 | `packages/bundle/mob/src/routes.ts:315-327` 只在 `bindDevice` 失败时回滚，而 `packages/bundle/mob/src/pairing.ts:178-181` 删除过期会话时不触碰设备行；该不变量固定在 `packages/bundle/mob/tests/routes.host.spec.ts:358-364` | 会话过期时，对从未被领取的设备行执行吊销并彻底删除 —— **已修**于[回收笔记](../../implemented/bug-fix/2026-10-06-reclaim-uncollected-device-registrations.zh.md) |
 | 配对端到端用例自回收站上线起一直失败 | `apps/cli/tests/pairing.e2e.ts:314` 期望吊销后 `devices: []`，而该路由按设计列出回收站条目；三次运行全部在该行失败 | 改为断言那条已入回收站的行，而不是空列表 —— **已修**，与回收笔记同一改动 |
-| 带请求体的 `GET`/`HEAD` 路由在处理器运行前就抛 `TypeError` | `packages/client/connection/src/http-bridge.ts:68-81` 对任何方法都挂 body，而 Fetch 禁止 `GET`/`HEAD` 带 body；`ConnectionFetchMethod` 与 `assertFetchRoute` 却接受该组合 | 只对允许带 body 的方法挂 body，并在注册期拒绝该组合 |
+| 带请求体的 `GET`/`HEAD` 路由在处理器运行前就抛 `TypeError` | `packages/client/connection/src/http-bridge.ts:68-81` 对任何方法都挂 body，而 Fetch 禁止 `GET`/`HEAD` 带 body；`ConnectionFetchMethod` 与 `assertFetchRoute` 却接受该组合 | 只对允许带 body 的方法挂 body，并在注册期拒绝该组合——**已修**，见 [Web 表面笔记](../../implemented/bug-fix/2026-10-07-web-surface-visible-failures.zh.md) |
 | 就绪行与开浏览器发生在会中止启动的激活审计之前 | `packages/bundle/web-app/src/index.ts:334-345` 在 Loader 结算时公告，而永久 pending 的 fiber 也会结算（`vendor/loader/src/config/tree.ts:46-64`），审计在其后（`packages/boot/app-boot/src/index.ts:812-814`） | 只在启动真正完成后公告，走现成的 `appReady` —— **已修**于[就绪笔记](../../implemented/bug-fix/2026-10-06-readiness-follows-committed-startup.zh.md) |
 
 ### 第二梯队 — 用户可见行为
 
-- 凭证在页面开着时失效的手机看不到任何原因：唯一渲染 `connection.failure.auth` 的界面是侧栏指示器，而 `packages/client/ui-settings-general/src/client/SettingsRoot.tsx:235` 在手机必然处于的折叠 rail 上把它抑制掉。
+- 凭证在页面开着时失效的手机看不到任何原因：唯一渲染 `connection.failure.auth` 的界面是侧栏指示器，而 `packages/client/ui-settings-general/src/client/SettingsRoot.tsx:235` 在手机必然处于的折叠 rail 上把它抑制掉——**已修**，见 [Web 表面笔记](../../implemented/bug-fix/2026-10-07-web-surface-visible-failures.zh.md)。
 - 同一台手机开两个配对页面就会超过「每十秒十次」的预算，把该来源锁一分钟，而界面让操作者去生成一个在锁过期前毫无用处的短码（`packages/bundle/mob/src/pairing.ts:258-268` 与 `packages/bundle/mob/src/client/PairScreen.tsx:110-115`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
-- 在面板的改名输入里按 Escape 会关掉整个对话框并丢掉已显示的短码与二维码，因为 `packages/client/ui-primitives/src/Modal.tsx:47-53` 对任何 Escape 都动作，而仓库里更低优先级的所有者会检查 `defaultPrevented`（`packages/client/ui-layout/src/client/AppFrame.tsx:203-209`）。
+- 在面板的改名输入里按 Escape 会关掉整个对话框并丢掉已显示的短码与二维码，因为 `packages/client/ui-primitives/src/Modal.tsx:47-53` 对任何 Escape 都动作，而仓库里更低优先级的所有者会检查 `defaultPrevented`（`packages/client/ui-layout/src/client/AppFrame.tsx:203-209`）——**已修**，见 [Web 表面笔记](../../implemented/bug-fix/2026-10-07-web-surface-visible-failures.zh.md)。
 - 按来源的限流表无界增长：`packages/bundle/mob/src/pairing.ts:97` 没有任何删除路径，`sweep()` 只覆盖会话——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
 - 设备登记抛错时，批准会留下「已决定但未绑定」的会话，且没有重试路径（`packages/bundle/mob/src/pairing.ts:197-206`、`packages/bundle/mob/src/routes.ts:299-317`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
 - 双击「允许/吊销/恢复/彻底删除」会发出第二个请求，其拒绝被报成失败；而失败提示也不会被后续成功清除（`packages/bundle/mob/src/client/PairingPanel.tsx:163,185-205`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
-- live patch 重载会重新绑定服务端却不重新公告 URL 行（`packages/bundle/web-app/src/index.ts:302,313`）。
-- 只有客户端 bundle、没有前端 dist 的检出会正常启动、打印 URL 行，然后 `/` 永远 404 且没有构建提示（`packages/bundle/web-app/README.md:37,144` 对 `packages/host/frontend-static/src/index.ts:129-151`）。
+- live patch 重载会重新绑定服务端却不重新公告 URL 行（`packages/bundle/web-app/src/index.ts:302,313`）——**已修**，见 [Web 表面笔记](../../implemented/bug-fix/2026-10-07-web-surface-visible-failures.zh.md)。
+- 只有客户端 bundle、没有前端 dist 的检出会正常启动、打印 URL 行，然后 `/` 永远 404 且没有构建提示（`packages/bundle/web-app/README.md:37,144` 对 `packages/host/frontend-static/src/index.ts:129-151`）——**已修**，见 [Web 表面笔记](../../implemented/bug-fix/2026-10-07-web-surface-visible-failures.zh.md)。
 
 ### 第三梯队 — 校验、协议与文档
 

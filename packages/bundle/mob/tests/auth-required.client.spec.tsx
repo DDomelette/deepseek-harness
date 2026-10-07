@@ -8,6 +8,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ConnectionFailure } from '@deepseek-ai/dsh-client-connection/client'
 import { AuthRequiredScreen, authRequiredBootFact } from '../src/client/AuthRequiredScreen.tsx'
 import { zh, type PairScreenKey } from '../src/client/pair-locales.ts'
 
@@ -21,7 +22,16 @@ const t: TranslateNS<'pair.mobile'> = (key, params): string => {
 
 const unused = (): never => { throw new Error('unused by AuthRequiredScreen') }
 
-function mount(reload: () => void = vi.fn()): { reload: () => void } {
+function mount(options: {
+  refused?: boolean
+  failure?: ConnectionFailure
+  reload?: () => void
+} = {}): { reload: () => void } {
+  const reload = options.reload ?? vi.fn()
+  // The renderer binds this hook to the injected source; the spec selects from
+  // the failure it was handed, exactly as the binding does.
+  const useConnectionFailure = ((select: (failure: ConnectionFailure | undefined) => unknown) =>
+    select(options.failure)) as never
   render(<AuthRequiredScreen
     usePanelInfo={unused as never}
     useResource={unused as never}
@@ -30,6 +40,8 @@ function mount(reload: () => void = vi.fn()): { reload: () => void } {
     useWorkspaces={unused as never}
     t={t}
     reload={reload}
+    refused={options.refused ?? true}
+    useConnectionFailure={useConnectionFailure}
   />)
   return { reload }
 }
@@ -65,5 +77,21 @@ describe('AuthRequiredScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: '重新加载' }))
 
     expect(mounted.reload).toHaveBeenCalledOnce()
+  })
+
+  it('states a credential that lapses while the page is open, and stays silent otherwise', () => {
+    // An accepted document whose device cookie lapses later: the phone's rail
+    // hides the sidebar indicator, so this screen is where the reason appears.
+    mount({ refused: false, failure: { reason: 'auth', detail: 'unauthorized' } })
+    expect(screen.getByText('登录已失效')).toBeTruthy()
+    cleanup()
+
+    // Any other failure leaves the working page alone, as does no failure.
+    mount({ refused: false, failure: { reason: 'unreachable', detail: 'connection refused' } })
+    expect(screen.queryByText('登录已失效')).toBeNull()
+    cleanup()
+
+    mount({ refused: false })
+    expect(screen.queryByText('登录已失效')).toBeNull()
   })
 })

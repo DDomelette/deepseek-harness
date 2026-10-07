@@ -46,11 +46,12 @@ export function Modal({
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
       // Consume the key: the frame drawer, the lowest-priority Escape owner,
-      // acts only on an Escape no surface closed itself with.
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      }
+      // acts only on an Escape no surface closed itself with. An inner surface
+      // that already handled this Escape keeps the dialog open, so cancelling an
+      // inline edit never discards the content behind it.
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      e.preventDefault()
+      onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => { document.removeEventListener('keydown', onKeyDown) }

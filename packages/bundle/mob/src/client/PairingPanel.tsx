@@ -378,7 +378,12 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
                             onBlur={() => { void commitRename(device) }}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') void commitRename(device)
-                              if (event.key === 'Escape') setRenaming(undefined)
+                              if (event.key === 'Escape') {
+                                // Consume the Escape: cancelling the edit must not
+                                // close the dialog holding the code and QR.
+                                event.preventDefault()
+                                setRenaming(undefined)
+                              }
                             }}
                           />
                         )

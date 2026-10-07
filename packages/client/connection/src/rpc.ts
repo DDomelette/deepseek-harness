@@ -134,8 +134,14 @@ export type ConnectionRpcEndpointMatcher = (endpoint: string) => boolean
 /** HTTP methods supported by exact Fetch routes on the shared API channel. */
 export type ConnectionFetchMethod = 'GET' | 'HEAD' | 'POST'
 
-/** How the node:http bridge presents one request body to its Fetch route. */
-export type ConnectionRequestBodyMode = 'buffered' | 'streaming'
+/**
+ * How the node:http bridge presents one request body to its Fetch route.
+ * `'none'` is the only legal mode for a route that owns no body-carrying
+ * method: Fetch forbids a body on `GET` and `HEAD`, so such a route always
+ * receives a bodyless `Request`, and a client that frames one is refused by
+ * the bridge rather than reaching the route.
+ */
+export type ConnectionRequestBodyMode = 'none' | 'buffered' | 'streaming'
 
 /** One exact, transport-independent Fetch route owned by a Host feature. */
 export interface ConnectionFetchRoute {
@@ -143,7 +149,11 @@ export interface ConnectionFetchRoute {
   readonly path: string
   /** Methods this route owns. Other methods continue through normal shared-channel dispatch. */
   readonly methods: readonly ConnectionFetchMethod[]
-  /** Buffered requests obey the configured JSON cap; streaming requests arrive with backpressure and no aggregate cap. */
+  /**
+   * Buffered requests obey the configured JSON cap; streaming requests arrive
+   * with backpressure and no aggregate cap; `none` belongs to a route that owns
+   * only `GET`/`HEAD`.
+   */
   readonly requestBody: ConnectionRequestBodyMode
   /** Handle one request after the physical carrier has applied its trust and authentication policy. */
   readonly fetch: (request: Request) => Promise<Response>

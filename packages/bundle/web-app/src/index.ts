@@ -33,7 +33,6 @@ export const name = 'web-app'
 
 /** This dsh installation's root, from either this package's source or built entry. */
 const SOURCE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
-const ANNOUNCED_ROOTS = new WeakSet<Context>()
 
 /** Runtime service that releases Web rows after bind-dependent values resolve. */
 const WEB_RUNTIME_SERVICE = 'webRuntime'
@@ -297,6 +296,10 @@ export function apply(ctx: Context, config: Config): void {
     })
   }
   if (config.printUrl || handoffBrowser) {
+    // One announcement per activation: a Connection reload inside this
+    // activation re-enters the callback for the same server, while a live patch
+    // that reloads this row binds a new server and must print its URL again.
+    let announced = false
     ctx.inject(['connection'], (connectionCtx) => {
       // The URL line and browser handoff are readiness signals: supervisors RPC
       // as soon as they observe the line, while a browser requests the page as
@@ -306,7 +309,7 @@ export function apply(ctx: Context, config: Config): void {
       // rejects that tree — so the launcher's committed startup gates the
       // announcement whenever it is available.
       const announceReady = (): void => {
-        if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
+        if (announced) return
         const webUrl = localWebUrl(connectionCtx)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
         // Reuse the exact LAN snapshot provided to the /api trust fence. The LAN
@@ -317,7 +320,7 @@ export function apply(ctx: Context, config: Config): void {
         const lanUrls = runtime.lanAddresses
           .map(address => `http://${address}:${String(port)}/`)
         const [lanUrl] = lanUrls
-        ANNOUNCED_ROOTS.add(connectionCtx.root)
+        announced = true
         if (config.printUrl) {
           console.log(`dsh web: ${authenticatedUrl}${lanUrl === undefined ? '' : ` (LAN: ${lanUrl})`}`)
           // The phone-join QR encodes the first candidate only, and the

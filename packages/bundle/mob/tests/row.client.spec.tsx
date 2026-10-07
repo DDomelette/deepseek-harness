@@ -103,4 +103,34 @@ describe('ConnectPhoneRow', () => {
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
   })
+
+  it('keeps the dialog, code, and QR when an inline rename cancels on Escape', async () => {
+    const rename = vi.fn(async () => ({ ok: true as const, value: undefined }))
+    const now = Date.now()
+    mount({
+      api: {
+        ...api,
+        devices: async () => ({ ok: true, value: [
+          { id: 'device-1', label: '客厅的手机', registeredAt: now, lastSeenAt: now },
+        ] }),
+        rename,
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '生成配对码' }))
+    await waitFor(() => { expect(within(dialog).getByText('客厅的手机')).toBeTruthy() })
+
+    const row = within(dialog).getByText('客厅的手机').closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    fireEvent.keyDown(within(row).getByLabelText('重命名'), { key: 'Escape' })
+
+    // The edit cancels, and the dialog it sits in survives with the code and QR
+    // the operator would otherwise have to create again.
+    await waitFor(() => { expect(within(row).queryByRole('textbox')).toBeNull() })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(within(dialog).getByText('ABCD2345')).toBeTruthy()
+    expect(within(dialog).getByRole('img')).toBeTruthy()
+    expect(rename).not.toHaveBeenCalled()
+  })
 })

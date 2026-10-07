@@ -101,9 +101,13 @@ export function apply(ctx: ClientContext): void {
     return
   }
 
-  if (!authRequiredBootFact()) return
+  // Registered for both paths: a document the Host refused, and a credential
+  // that lapses while the page is open. The phone's collapsed rail hides the
+  // sidebar's connection indicator, so this screen is its only visible reason.
   const authInjected: AuthRequiredScreenInjected = {
     reload: () => { location.reload() },
+    refused: authRequiredBootFact(),
+    hooks: { connectionFailure: connection.failure },
   }
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay',
