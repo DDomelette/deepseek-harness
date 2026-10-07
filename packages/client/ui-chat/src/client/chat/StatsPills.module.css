@@ -15,6 +15,15 @@
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
+/* Handset (frame data-sidebar-fab): the strip joins the shared 16px centered
+   column — left-aligned at the column edge instead of centered inside the
+   desktop's wider inset. */
+[data-sidebar-fab] .root {
+  justify-content: flex-start;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* Dialog anchor: shrink-wraps its pill so the panel clamp measures the pill. */
 .anchor {
   display: inline-flex;

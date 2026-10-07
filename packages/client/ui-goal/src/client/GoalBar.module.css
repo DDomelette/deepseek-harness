@@ -16,6 +16,18 @@
   margin: 0 auto;
 }
 
+/* Handset (frame data-sidebar-fab, ui-layout's overlay-band contract — attribute
+   selectors are not CSS-module localized): the dock drops the four insets and
+   spans the shared clearance-wide centered column, so the bar's left edge
+   matches the input card and the transcript. */
+[data-sidebar-fab] .dock {
+  width: calc(
+    100% -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-side-clearance)
+  );
+}
+
 .bar {
   box-sizing: border-box;
   display: flex;

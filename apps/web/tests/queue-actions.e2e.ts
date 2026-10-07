@@ -172,14 +172,15 @@ describe('web e2e: queue row actions', () => {
         return {
           leftInset: queueBox.left - composerBox.left,
           rightInset: composerBox.right - queueBox.right,
-          dockInset: Number.parseFloat(getComputedStyle(composer).getPropertyValue('--dsh-composer-dock-inset')),
         }
       })
       expect(metrics).toBeDefined()
-      expect(metrics!.leftInset).toBeGreaterThanOrEqual(0)
-      expect(metrics!.rightInset).toBeGreaterThanOrEqual(0)
-      expect(metrics!.leftInset).toBeCloseTo(metrics!.dockInset, 1)
-      expect(metrics!.rightInset).toBeCloseTo(metrics!.dockInset, 1)
+      // Below the overlay breakpoint (640 < 768, the frame's data-sidebar-fab
+      // band) the dock wrapper drops the two insets and spans the shared
+      // clearance-wide column, flush with the card it tucks under; the panel
+      // inside keeps the inset look.
+      expect(metrics!.leftInset).toBeCloseTo(0, 1)
+      expect(metrics!.rightInset).toBeCloseTo(0, 1)
     }, { timeout: 10_000 })
     await page.setViewportSize({ width: 1680, height: 1000 })
 
