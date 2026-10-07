@@ -25,4 +25,23 @@ describe('composer handset band', () => {
       + String.raw`${docked} \.trigger:has\(\.triggerIcon\) \.chevron\s*\{\s*display: none;\s*}`
     expect(css).toMatch(new RegExp(hidden))
   })
+
+  it('pins the tools and modes groups against shrinking so triggers cannot overlap the next group', () => {
+    // The coarse pointer's 44px minimums already consume the width budget; a
+    // shrunken group let its unshrunk content overflow into the model chip.
+    expect(read('InputBar.module.css')).toMatch(
+      new RegExp(String.raw`\[data-sidebar-fab] \.root\[data-composer-variant='composer'] \.tools,\s*`
+        + String.raw`\[data-sidebar-fab] \.root\[data-composer-variant='composer'] \.modes\s*\{\s*flex: none;\s*}`),
+    )
+  })
+
+  it('spans the shared centered column for the todo and queue docks', () => {
+    for (const name of ['skeleton/TodoPanel.module.css', 'queue/QueueDock.module.css']) {
+      const css = readFileSync(fileURLToPath(new URL(`../src/client/${name}`, import.meta.url)), 'utf8')
+      expect(css).toMatch(
+        new RegExp(String.raw`\[data-sidebar-fab] \.(root|dock) \{[^}]*`
+          + String.raw`100% -[\s\S]*?var\(--dsh-composer-side-clearance\)[^}]*\}`, 'm'),
+      )
+    }
+  })
 })

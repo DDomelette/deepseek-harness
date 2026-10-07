@@ -15,3 +15,12 @@ describe('ChatView.module.css handset band', () => {
     expect(css).toMatch(new RegExp(rule))
   })
 })
+
+describe('StatsPills.module.css handset band', () => {
+  it('left-aligns the stats strip at the shared column edge', () => {
+    const stats = readFileSync(fileURLToPath(new URL('../src/client/chat/StatsPills.module.css', import.meta.url)), 'utf8')
+    const rule = String.raw`\[data-sidebar-fab] \.root\s*\{\s*justify-content: flex-start;\s*`
+      + String.raw`padding-left: 0;\s*padding-right: 0;\s*}`
+    expect(stats).toMatch(new RegExp(rule))
+  })
+})
