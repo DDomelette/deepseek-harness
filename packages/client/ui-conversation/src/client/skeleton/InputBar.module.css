@@ -255,6 +255,14 @@
   container-type: inline-size;
 }
 
+/* Handset (frame data-sidebar-fab, scoped to the docked composer — the hero
+   card keeps the wrap): the permission trigger is a 28px icon there
+   (PermissionSelect.module.css), so attach + permission + model + send hold
+   one line; the groups' min-width: 0 absorbs the slack instead of wrapping. */
+[data-sidebar-fab] .root[data-composer-variant='composer'] .row {
+  flex-wrap: nowrap;
+}
+
 .tools,
 .modes,
 .trailing {

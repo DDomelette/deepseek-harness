@@ -20,6 +20,15 @@
   container-type: inline-size;
 }
 
+/* Handset band (frame data-sidebar-fab, ui-layout's overlay-band contract —
+   attribute selectors are not CSS-module localized): the transcript drops the
+   extra 16px so the message column and the input card share one symmetric
+   clearance-wide centered column — left edges aligned, even margins. */
+[data-sidebar-fab] .scroll {
+  padding-left: var(--dsh-composer-side-clearance);
+  padding-right: var(--dsh-composer-side-clearance);
+}
+
 :global([data-conversation-scroll]) .root {
   flex: 0 0 auto;
   min-height: auto;

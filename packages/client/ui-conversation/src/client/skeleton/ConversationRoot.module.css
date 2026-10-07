@@ -26,7 +26,13 @@
      is never overflowed — takes 64% of wider columns, and caps at 920px for
      line-length readability. A dragged user preference
      (--dsh-chat-user-width, published by the width handles) replaces the
-     adaptive term wholesale. */
+     adaptive term wholesale.
+
+     Handset exception (frame data-sidebar-fab): the clamp floor already makes
+     W equal the column there, so the transcript's extra 16px would only split
+     the shared axis — ui-chat's scroller drops it in that band, and the
+     message column and the input card share one symmetric clearance-wide
+     centered column. */
   --dsh-chat-content-width: var(
     --dsh-chat-user-width,
     clamp(min(680px, var(--dsh-conversation-column-width, 680px)), calc(var(--dsh-conversation-column-width, 680px) * 0.64), 920px)
