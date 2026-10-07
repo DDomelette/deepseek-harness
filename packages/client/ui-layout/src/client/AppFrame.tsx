@@ -11,7 +11,10 @@
  * leaves the grid: the closed sidebar owns no track — the floating brand button
  * (the sidebar slot's fab flag) replaces the rail — and the column floats over
  * the center as a drawer behind a scrim. A scrim tap, Escape, or a tracked edge
- * swipe closes it; a right swipe from the frame's left edge opens it.
+ * swipe closes it; a right swipe from the frame's left edge opens it. Enter
+ * rides a mount keyframe and exit a delayed unmount (DRAWER_SLIDE_MS), both on
+ * the track transition's duration and curve; a swipe-driven mount skips the
+ * keyframe because the gesture's inline tracking already owns the position.
  *
  * The right column is a track, not a box: its occupant draws its panel anchored
  * to the frame's right edge at the resolved normal width, and the
@@ -37,6 +40,10 @@ const EDGE_SWIPE_PX = 40
 const GESTURE_SLOP_PX = 8
 /** Drawer-width fraction of the full travel past which a release snaps to the gesture's target. */
 const GESTURE_SNAP_RATIO = 0.35
+/** Slide-out window in ms the closing drawer stays mounted under data-closing
+ * for; matches the drawer transitions' --ds-transition-duration-slow
+ * (AppFrame.module.css). */
+const DRAWER_SLIDE_MS = 300
 
 /** One in-flight drawer swipe: a candidate until the slop check engages it. */
 interface SidebarGesture {
@@ -249,7 +256,44 @@ export function AppFrame({
   // A desktop-dragged preference can exceed a handset viewport; the floating
   // drawer caps at the frame so the scrim and the brand button stay reachable.
   const drawerWidth = Math.min(layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : layoutInfo.sidebar, viewport)
-  const sidebarWidth = drawerOpen ? drawerWidth : cols.sidebar
+
+  // Drawer slide-out: after the store closes, the column and scrim stay
+  // mounted under data-closing until the transition ends, so every close path
+  // (scrim tap, Escape, the sidebar's collapse control, an edge swipe) slides
+  // out instead of vanishing. A reopen inside the window cancels the unmount;
+  // leaving the overlay band ends the window immediately.
+  const [drawerClosing, setDrawerClosing] = useState(false)
+  const closingTimer = useRef<number | null>(null)
+  const drawerWasOpen = useRef(false)
+  // An edge-swipe-opened mount skips the enter keyframe (data-gesture-driven):
+  // the gesture's own inline tracking owns the column's position from the
+  // first frame. The flag resets when the drawer presentation unmounts.
+  const [gestureDriven, setGestureDriven] = useState(false)
+  useEffect(() => {
+    if (drawerOpen || !overlay) {
+      drawerWasOpen.current = drawerOpen
+      if (closingTimer.current !== null) {
+        clearTimeout(closingTimer.current)
+        closingTimer.current = null
+      }
+      setDrawerClosing(false)
+      if (!drawerOpen) setGestureDriven(false)
+      return
+    }
+    if (!drawerWasOpen.current) return
+    drawerWasOpen.current = false
+    setDrawerClosing(true)
+    closingTimer.current = window.setTimeout(() => {
+      closingTimer.current = null
+      setDrawerClosing(false)
+      setGestureDriven(false)
+    }, DRAWER_SLIDE_MS)
+  }, [drawerOpen, overlay])
+  useEffect(() => () => {
+    if (closingTimer.current !== null) clearTimeout(closingTimer.current)
+  }, [])
+  const drawerShown = drawerOpen || drawerClosing
+  const sidebarWidth = drawerShown ? drawerWidth : cols.sidebar
 
   // Drawer edge swipe (overlay band only): a right swipe from the frame's left
   // edge opens the drawer under the pointer, and a left swipe while it is open
@@ -285,6 +329,13 @@ export function AppFrame({
       scrim.style.opacity = String(Math.min(1, Math.max(0, 1 + dx / g.width)))
     }
   }, [])
+  const clearGestureWrites = useCallback(() => {
+    const col = sidebarColRef.current
+    /* v8 ignore next -- the sidebar column renders unconditionally. */
+    if (col !== null) col.style.transform = ''
+    const scrim = scrimRef.current
+    if (scrim !== null) scrim.style.opacity = ''
+  }, [])
   const endGesture = useCallback((pointerId: number, clientX: number, commit: boolean) => {
     const g = gestureRef.current
     if (g === null || g.pointerId !== pointerId) return
@@ -296,17 +347,22 @@ export function AppFrame({
     if (frame.hasPointerCapture(pointerId)) frame.releasePointerCapture(pointerId)
     frame.removeAttribute('data-sidebar-gesture')
     if (!g.active) return
-    const col = sidebarColRef.current
-    /* v8 ignore next -- the sidebar column renders unconditionally. */
-    if (col !== null) col.style.transform = ''
-    const scrim = scrimRef.current
-    if (scrim !== null) scrim.style.opacity = ''
     // Settle on the side the travel vote chose, comparing against live state so
     // an external close mid-gesture (Escape) is not toggled back open.
     const travel = Math.min(1, Math.max(0, (g.direction === 'open' ? clientX - g.startX : g.startX - clientX) / g.width))
     const wantOpen = g.direction === 'open' ? commit && travel > GESTURE_SNAP_RATIO : !(commit && travel > GESTURE_SNAP_RATIO)
-    if (wantOpen !== gestureEnv.current.drawerOpen) actions.toggleSidebar()
-  }, [actions])
+    if (wantOpen === gestureEnv.current.drawerOpen) {
+      // Staying on the gesture's own side: the base transition animates the
+      // snap back to the natural position from wherever the finger left it.
+      clearGestureWrites()
+      return
+    }
+    actions.toggleSidebar()
+    // The closing/opening styles land with the toggle's commit; only then may
+    // the tracked inline position go, so the slide starts where the finger
+    // left it.
+    requestAnimationFrame(() => { clearGestureWrites() })
+  }, [actions, clearGestureWrites])
   const onGestureDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const env = gestureEnv.current
     if (!env.overlay || e.button !== 0 || gestureRef.current !== null) return
@@ -347,7 +403,12 @@ export function AppFrame({
       e.currentTarget.setAttribute('data-sidebar-gesture', '')
       // An open gesture mounts the drawer now so the next animation frame can
       // track it from its hidden offset; a close gesture settles at release.
-      if (g.direction === 'open') actions.toggleSidebar()
+      // The mount skips its enter keyframe (data-gesture-driven): the gesture
+      // owns the position from the first frame.
+      if (g.direction === 'open') {
+        setGestureDriven(true)
+        actions.toggleSidebar()
+      }
     }
     g.frame ??= requestAnimationFrame(() => {
       g.frame = null
@@ -367,18 +428,22 @@ export function AppFrame({
   }, [])
 
   const sidebar = useMemo(() => renderSlot('sidebar', {
-    collapsed: sidebarCollapsed,
+    // The slide-out keeps the wide parameters: the column must not swap to
+    // the floating brand button mid-slide.
+    collapsed: drawerShown ? false : sidebarCollapsed,
     width: sidebarWidth,
     fab: overlay,
-  }), [renderSlot, sidebarCollapsed, sidebarWidth, overlay])
+  }), [renderSlot, drawerShown, sidebarCollapsed, sidebarWidth, overlay])
   const main = useMemo(() => (
     <MainPanel usePanelInfo={usePanelInfo} renderSlot={renderSlot} />
   ), [usePanelInfo, renderSlot])
   const overlays = useMemo(() => renderSlot('shell.overlay', {}), [renderSlot])
 
-  // data-sidebar-fab is a cross-package contract: ui-conversation's
-  // ConversationRoot.module.css pads its header clear of the floating brand
-  // button through it (attribute selectors are not CSS-module localized).
+  // data-sidebar-fab is a cross-package contract (attribute selectors are not
+  // CSS-module localized): ui-conversation pads its session header clear of
+  // the floating brand button through it and scopes the docked composer's
+  // handset rules with it; ui-chat aligns the transcript inset with the input
+  // card through it.
   return (
     <div
       ref={frameRef}
@@ -405,7 +470,13 @@ export function AppFrame({
         useSessions={useSessions}
         usePanelInfo={usePanelInfo}
       />
-      <div ref={sidebarColRef} className={css.sidebarCol} data-drawer={drawerOpen || undefined}>
+      <div
+        ref={sidebarColRef}
+        className={css.sidebarCol}
+        data-drawer={drawerShown || undefined}
+        data-closing={drawerClosing || undefined}
+        data-gesture-driven={gestureDriven || undefined}
+      >
         {sidebar}
       </div>
       <>
@@ -414,12 +485,14 @@ export function AppFrame({
           {renderSlot('rightbar', { width: normal.rightbar, viewportWidth: viewport, canShow: normal.rightbar > 0 })}
         </RightbarColumn>
       </>
-      {drawerOpen && (
+      {drawerShown && (
         <div
           ref={scrimRef}
           className={css.scrim}
           aria-hidden="true"
           data-drawer-scrim
+          data-closing={drawerClosing || undefined}
+          data-gesture-driven={gestureDriven || undefined}
           onClick={() => { actions.toggleSidebar() }}
         />
       )}

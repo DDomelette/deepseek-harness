@@ -61,6 +61,10 @@ describe('mobile viewport (390×844, touch)', () => {
       return columns.startsWith('0px')
     }).toBe(true)
     await expect.poll(() => center.evaluate(el => el.getBoundingClientRect().width)).toBe(centerWidth)
+    // Enter slides in on the mount keyframe (0.3s, the track curve; CSS
+    // Modules hashes the keyframe name, so match the semantic suffix).
+    const drawerCol = page.locator('[class*="sidebarCol"][data-drawer]').first()
+    await expect.poll(() => drawerCol.evaluate(el => getComputedStyle(el).animationName)).toContain('drawer-in')
     // No horizontal overflow with the drawer open.
     const metrics = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -71,6 +75,10 @@ describe('mobile viewport (390×844, touch)', () => {
     // z-order) covers the scrim's centre, so tap the exposed strip at the
     // right edge like a user would.
     await scrim.tap({ position: { x: 370, y: 422 } })
+    // Exit is a delayed unmount: the column slides out under data-closing
+    // (mid-flight transform goes negative) before the scrim detaches.
+    await expect.poll(() => drawerCol.getAttribute('data-closing')).toBe('true')
+    await expect.poll(() => drawerCol.evaluate(el => new DOMMatrixReadOnly(getComputedStyle(el).transform).e)).toBeLessThan(0)
     await scrim.waitFor({ state: 'detached' })
     expect(await center.evaluate(el => el.getBoundingClientRect().width)).toBe(centerWidth)
     // Reopen; Escape closes it.
@@ -91,10 +99,10 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  it('keeps the composer selectors labeled and the send action tappable on touch', async () => {
+  it('keeps the hero composer selectors labeled and the send action tappable on touch', async () => {
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'workspace-selectors')
-    // The narrow-row icon-only collapse relies on hover (title) to stay
-    // meaningful; on a coarse pointer the labels must stay rendered instead.
+    // The hero card is exempt from the docked composer's handset icon row:
+    // both selectors keep their labels on a coarse pointer.
     const permission = page.getByRole('button', { name: /Access mode, current: / })
     await permission.waitFor({ timeout: 15_000 })
     expect((await permission.innerText()).trim()).toMatch(/Read Only|Workspace Write|Full access/)

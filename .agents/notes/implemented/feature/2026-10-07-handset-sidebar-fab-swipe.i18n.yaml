@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-07-handset-sidebar-fab-swipe.md
-2026-10-07-handset-sidebar-fab-swipe.md: 9a975a70cb00a5aa966316e26894f9691dc47c17
-2026-10-07-handset-sidebar-fab-swipe.zh.md: 063b54b5f273fc0122afaa47e7217630a892bf29
+2026-10-07-handset-sidebar-fab-swipe.md: 9e5ba70f00f07923c824eebc02a4f522b691bd1d
+2026-10-07-handset-sidebar-fab-swipe.zh.md: 38091debcc059432d188751497eb5e0e9f38571a
