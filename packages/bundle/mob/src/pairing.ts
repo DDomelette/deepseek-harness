@@ -165,26 +165,30 @@ export class PairingSessions {
   }
 
   /**
-   * Read one code for a phone, consuming one attempt for that source.
+   * Read one code for a phone. Only a read that names no live code consumes the
+   * source's attempt budget, because searching the code space is what the
+   * throttle defends: a read of a live session is the flow its screen is already
+   * in, so two pages holding one code cannot spend each other's budget and lock
+   * the phone out of the pairing it is waiting on.
    * @param code - the code the phone holds.
    * @param source - the requesting source, used for throttling.
    * @returns the session state, or `locked` while this source is throttled.
    */
   stateOf(code: string, source: string): PairingState {
     const now = Date.now()
-    if (this.rateLimited(source, now)) return { status: 'locked' }
     const session = this.sessions.get(code)
-    if (session === undefined) return this.failure(source, now, 'unknown')
-    if (session.expiresAt <= now) {
-      // A session that still holds a registration waits for sweepExpired: deleting
-      // it here would lose the device row no phone collected.
-      if (session.deviceId === undefined) this.sessions.delete(code)
-      return this.failure(source, now, 'expired')
+    if (session !== undefined && session.expiresAt > now) {
+      this.attempts(source, now).failures = 0
+      if (session.deviceId !== undefined) return { status: 'approved', deviceId: session.deviceId }
+      if (session.decision === 'deny') return { status: 'denied' }
+      return { status: 'pending' }
     }
-    this.attempts(source, now).failures = 0
-    if (session.deviceId !== undefined) return { status: 'approved', deviceId: session.deviceId }
-    if (session.decision === 'deny') return { status: 'denied' }
-    return { status: 'pending' }
+    if (this.rateLimited(source, now)) return { status: 'locked' }
+    if (session === undefined) return this.failure(source, now, 'unknown')
+    // A session that still holds a registration waits for sweepExpired: deleting
+    // it here would lose the device row no phone collected.
+    if (session.deviceId === undefined) this.sessions.delete(code)
+    return this.failure(source, now, 'expired')
   }
 
   /**
@@ -223,6 +227,23 @@ export class PairingSessions {
   }
 
   /**
+   * Undo an allowed decision whose device registration failed, so the operator
+   * can decide again instead of leaving the phone polling a decision it can
+   * never collect.
+   * @param code - the code whose registration failed.
+   * @returns whether the session is claimable again; false for an unknown,
+   * expired, denied, or already-bound session.
+   */
+  reopen(code: string): boolean {
+    const session = this.sessions.get(code)
+    if (session === undefined || session.decision !== 'allow' || session.deviceId !== undefined) return false
+    if (session.expiresAt <= Date.now()) return false
+    session.decision = undefined
+    session.label = undefined
+    return true
+  }
+
+  /**
    * Drop a session after its phone collected the decision.
    * @param code - the collected code.
    */
@@ -251,14 +272,24 @@ export class PairingSessions {
   }
 
   /**
-   * Drop sessions whose codes expired without a registration; a bound session
-   * waits for {@link PairingSessions.sweepExpired}, because deleting it here
-   * would lose the device its phone never collected.
+   * Drop sessions whose codes expired without a registration, and the throttle
+   * records that can only be rebuilt identically; a bound session waits for
+   * {@link PairingSessions.sweepExpired}, because deleting it here would lose
+   * the device its phone never collected.
    * @param now - current epoch milliseconds.
    */
   private sweep(now: number): void {
     for (const [code, session] of this.sessions) {
       if (session.expiresAt <= now && session.deviceId === undefined) this.sessions.delete(code)
+    }
+    // Idle throttle records would otherwise accumulate one entry per peer that
+    // ever read a code. A record whose window rolled over and whose lockout has
+    // ended is only ever rebuilt as a fresh one, so dropping it changes no
+    // answer; a running lockout keeps its record until it lifts.
+    for (const [source, state] of this.sources) {
+      if (now - state.windowStart >= ATTEMPT_WINDOW_MILLISECONDS && now >= state.lockedUntil) {
+        this.sources.delete(source)
+      }
     }
   }
 

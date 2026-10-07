@@ -55,6 +55,10 @@ interface Script {
   purge?: PairingResult<void>
   rename?: PairingResult<void>
   setLifetime?: PairingResult<void>
+  /** Holds the decision answer open, for a click that lands while one is in flight. */
+  decideGate?: Promise<void>
+  /** Holds the revoke answer open, for a click that lands while one is in flight. */
+  revokeGate?: Promise<void>
 }
 
 /** The panel's client half as spies, so assertions never re-reference a method. */
@@ -76,10 +80,16 @@ function fakeApi(script: Script = {}): FakeApi {
     script.open ?? { ok: true, value: { code: CODE, expiresAt: START + 120_000 } })
   const requests = vi.fn(async (): Promise<PairingResult<readonly PendingPairingView[]>> =>
     script.requests ?? { ok: true, value: [] })
-  const decide = vi.fn(async (): Promise<PairingResult<void>> => script.decide ?? { ok: true, value: undefined })
+  const decide = vi.fn(async (): Promise<PairingResult<void>> => {
+    await script.decideGate
+    return script.decide ?? { ok: true, value: undefined }
+  })
   const devices = vi.fn(async (): Promise<PairingResult<readonly PairedDeviceView[]>> =>
     script.devices ?? { ok: true, value: [] })
-  const revoke = vi.fn(async (): Promise<PairingResult<void>> => script.revoke ?? { ok: true, value: undefined })
+  const revoke = vi.fn(async (): Promise<PairingResult<void>> => {
+    await script.revokeGate
+    return script.revoke ?? { ok: true, value: undefined }
+  })
   const restore = vi.fn(async (): Promise<PairingResult<void>> => script.restore ?? { ok: true, value: undefined })
   const purge = vi.fn(async (): Promise<PairingResult<void>> => script.purge ?? { ok: true, value: undefined })
   const rename = vi.fn(async (): Promise<PairingResult<void>> => script.rename ?? { ok: true, value: undefined })
@@ -275,6 +285,24 @@ describe('PairingPanel', () => {
     await waitFor(() => { expect(subject.purge).toHaveBeenCalledWith('device-1') })
   })
 
+  it('drops a second click on a device action while the first one is in flight', async () => {
+    const active = [{ id: 'device-1', label: '客厅的手机', registeredAt: START, lastSeenAt: START }]
+    const gate: PromiseWithResolvers<void> = Promise.withResolvers()
+    const subject = fakeApi({ devices: { ok: true, value: active }, revokeGate: gate.promise })
+    mount({ api: subject })
+
+    const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
+    const revoke = within(row).getByRole('button', { name: '吊销凭证' })
+    fireEvent.click(revoke)
+    fireEvent.click(revoke)
+    await waitFor(() => { expect(subject.revoke).toHaveBeenCalledTimes(1) })
+
+    gate.resolve()
+    await waitFor(() => { expect(subject.devices).toHaveBeenCalledTimes(2) })
+    expect(subject.revoke).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('reports a failed restore or purge instead of pretending it worked', async () => {
     const binned = { id: 'device-1', label: '旧手机', registeredAt: START, lastSeenAt: START, revokedAt: START }
     const subject = fakeApi({
@@ -303,6 +331,44 @@ describe('PairingPanel', () => {
 
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '允许' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
+  })
+
+  it('drops a second click while one decision is still in flight', async () => {
+    const gate: PromiseWithResolvers<void> = Promise.withResolvers()
+    const subject = fakeApi({
+      decideGate: gate.promise,
+      requests: { ok: true, value: [
+        { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
+      ] },
+    })
+    mount({ api: subject })
+
+    // A double click sends one decision: the Host refuses the second one, and
+    // reporting that refusal would read as a failure the operator never caused.
+    const allow = await waitFor(() => screen.getByRole('button', { name: '允许' }))
+    fireEvent.click(allow)
+    fireEvent.click(allow)
+    await waitFor(() => { expect(subject.decide).toHaveBeenCalledTimes(1) })
+
+    gate.resolve()
+    await waitFor(() => { expect(subject.requests).toHaveBeenCalledTimes(2) })
+    expect(subject.decide).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('clears a failure notice once a later action succeeds', async () => {
+    const subject = fakeApi({ decide: { ok: false, reason: 'failed' }, requests: { ok: true, value: [
+      { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
+    ] } })
+    mount({ api: subject })
+
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '允许' })))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
+
+    subject.decide.mockResolvedValue({ ok: true, value: undefined })
+    fireEvent.click(screen.getByRole('button', { name: '允许' }))
+    await waitFor(() => { expect(subject.decide).toHaveBeenCalledTimes(2) })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('reports a refused or failed code creation, and a join URL refused for another reason', async () => {

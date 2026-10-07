@@ -27,11 +27,11 @@ Status: proposed
 ### 第二梯队 — 用户可见行为
 
 - 凭证在页面开着时失效的手机看不到任何原因：唯一渲染 `connection.failure.auth` 的界面是侧栏指示器，而 `packages/client/ui-settings-general/src/client/SettingsRoot.tsx:235` 在手机必然处于的折叠 rail 上把它抑制掉。
-- 同一台手机开两个配对页面就会超过「每十秒十次」的预算，把该来源锁一分钟，而界面让操作者去生成一个在锁过期前毫无用处的短码（`packages/bundle/mob/src/pairing.ts:258-268` 与 `packages/bundle/mob/src/client/PairScreen.tsx:110-115`）。
+- 同一台手机开两个配对页面就会超过「每十秒十次」的预算，把该来源锁一分钟，而界面让操作者去生成一个在锁过期前毫无用处的短码（`packages/bundle/mob/src/pairing.ts:258-268` 与 `packages/bundle/mob/src/client/PairScreen.tsx:110-115`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
 - 在面板的改名输入里按 Escape 会关掉整个对话框并丢掉已显示的短码与二维码，因为 `packages/client/ui-primitives/src/Modal.tsx:47-53` 对任何 Escape 都动作，而仓库里更低优先级的所有者会检查 `defaultPrevented`（`packages/client/ui-layout/src/client/AppFrame.tsx:203-209`）。
-- 按来源的限流表无界增长：`packages/bundle/mob/src/pairing.ts:97` 没有任何删除路径，`sweep()` 只覆盖会话。
-- 设备登记抛错时，批准会留下「已决定但未绑定」的会话，且没有重试路径（`packages/bundle/mob/src/pairing.ts:197-206`、`packages/bundle/mob/src/routes.ts:299-317`）。
-- 双击「允许/吊销/恢复/彻底删除」会发出第二个请求，其拒绝被报成失败；而失败提示也不会被后续成功清除（`packages/bundle/mob/src/client/PairingPanel.tsx:163,185-205`）。
+- 按来源的限流表无界增长：`packages/bundle/mob/src/pairing.ts:97` 没有任何删除路径，`sweep()` 只覆盖会话——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
+- 设备登记抛错时，批准会留下「已决定但未绑定」的会话，且没有重试路径（`packages/bundle/mob/src/pairing.ts:197-206`、`packages/bundle/mob/src/routes.ts:299-317`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
+- 双击「允许/吊销/恢复/彻底删除」会发出第二个请求，其拒绝被报成失败；而失败提示也不会被后续成功清除（`packages/bundle/mob/src/client/PairingPanel.tsx:163,185-205`）——**已修**，见[配对加固笔记](../../implemented/bug-fix/2026-10-07-pairing-session-hardening.zh.md)。
 - live patch 重载会重新绑定服务端却不重新公告 URL 行（`packages/bundle/web-app/src/index.ts:302,313`）。
 - 只有客户端 bundle、没有前端 dist 的检出会正常启动、打印 URL 行，然后 `/` 永远 404 且没有构建提示（`packages/bundle/web-app/README.md:37,144` 对 `packages/host/frontend-static/src/index.ts:129-151`）。
 

@@ -11,7 +11,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import type { PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
+import type { PairedDevice, PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
 import { isPairingCode, PairingSessions } from './pairing.ts'
@@ -336,9 +336,20 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         // a failed lookup stores no MAC rather than failing the approval.
         const source = pairing.sourceOf(code)
         const macAddress = source === undefined ? undefined : await resolveMacAddress(source, lookup)
-        const device = await ctx.connection.devices.register(
-          macAddress === undefined ? { label } : { label, macAddress },
-        )
+        let device: PairedDevice
+        try {
+          device = await ctx.connection.devices.register(
+            macAddress === undefined ? { label } : { label, macAddress },
+          )
+        } catch (error) {
+          // The registration is the only statement that can fail here. A session
+          // left decided would strand its phone on a decision it can never
+          // collect, so the decision is withdrawn for the operator to retry.
+          pairing.reopen(code)
+          ctx.logger.warn('mob: could not register the device "%s": %s', label, String(error))
+          sendJson(res, 500, { error: 'registration-failed' })
+          return
+        }
         if (!pairing.bindDevice(code, device.id)) {
           // The code expired, or another read settled it, while the row was
           // being written: bin and purge the row rather than list a device no

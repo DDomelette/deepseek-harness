@@ -39,6 +39,8 @@ interface ConnectionOptions {
   readonly touchFails?: boolean
   /** Whether revoking a device rejects, for a reclamation that cannot finish. */
   readonly revokeFails?: boolean
+  /** Whether registering a device rejects, for an approval that cannot finish. */
+  readonly registerFails?: boolean
   /** Runs inside device registration, for a code that expires while the row is written. */
   readonly duringRegister?: () => void
   /** Raw output the injected ARP lookup answers; absent means no entry. */
@@ -112,6 +114,7 @@ function bench(options: ConnectionOptions = {}): Bench {
         return true
       },
       register: async (request: RegisterDeviceRequest) => {
+        if (options.registerFails === true) throw new Error('credential write failed')
         options.duringRegister?.()
         registered.push(request)
         return { id: idAt(registered.length - 1), label: request.label, registeredAt: 1, lastSeenAt: 1 }
@@ -367,6 +370,26 @@ describe('pairing routes', () => {
     expect(subject.registered).toEqual([])
     expect(JSON.parse((await subject.call(PAIR_PATHS.devices)).body)).toEqual({ devices: [] })
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'expired' })
+  })
+
+  it('reopens an approval whose device registration failed so the operator can retry', async () => {
+    const subject = bench({ registerFails: true })
+    const warn = vi.spyOn(subject.ctx.logger, 'warn')
+    const { code } = subject.pairing.openSession()
+
+    // The row never landed. Reporting the failure and withdrawing the decision
+    // keeps the phone polling a code the operator can decide again, instead of
+    // waiting out a decision it can never collect.
+    const failed = await approve(subject, code)
+    expect(failed.status).toBe(500)
+    expect(JSON.parse(failed.body)).toEqual({ error: 'registration-failed' })
+    expect(subject.registered).toEqual([])
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('could not register the device'),
+      'HUAWEI JAD-AL50',
+      expect.stringContaining('credential write failed'),
+    )
+    expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'pending' })
   })
 
   it('reclaims a device row whose phone never collected its cookie', async () => {
