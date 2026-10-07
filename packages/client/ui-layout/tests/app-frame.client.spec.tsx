@@ -177,6 +177,7 @@ afterEach(() => {
   } finally {
     for (const restore of restoreProperties.splice(0).reverse()) restore()
     document.title = originalTitle
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
@@ -228,6 +229,7 @@ describe('AppFrame', () => {
 
   it('renders the expanded sidebar as a drawer with a scrim below the overlay breakpoint', () => {
     frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { frame, instance, sidebarOwner } = mountFrame()
     // The closed sidebar owns no track below the breakpoint: the floating
     // brand button (fab) replaces the rail, and the frame carries the
@@ -250,11 +252,23 @@ describe('AppFrame', () => {
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
     expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     expect(frame.dataset.drawer).toBeUndefined()
+    // The store is closed but the slide-out window keeps both mounted under
+    // data-closing, still on the wide owner parameters; the window's end
+    // unmounts them.
+    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
+    expect(frame.querySelector('[data-drawer-scrim][data-closing]')).toBeTruthy()
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(frame.dataset.drawer).toBeUndefined()
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
     act(() => { instance.actions.toggleSidebar() })
     const scrim = frame.querySelector('[data-drawer-scrim]')!
     act(() => { scrim.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim][data-closing]')).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(300) })
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
     // A desktop-dragged preference (up to the 420px maximum) stays stored into
     // the handset band; the drawer caps the rendered width at the viewport.
@@ -262,6 +276,32 @@ describe('AppFrame', () => {
     act(() => { instance.actions.toggleSidebar() })
     expect(frame.dataset.drawer).toBe('true')
     expect(sidebarOwner().width).toBeLessThanOrEqual(390)
+  })
+
+  it('lets a reopen cancel the slide-out unmount and ends the window on a band exit', () => {
+    frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
+    // A reopen inside the window clears the closing marker and the drawer
+    // stays mounted past the would-be unmount.
+    act(() => { vi.advanceTimersByTime(150) })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-closing]')).toBeNull()
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(frame.dataset.drawer).toBe('true')
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
+    // Closing again, then leaving the overlay band: the window ends at once.
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
+    resize(800)
+    expect(frame.querySelector('[data-closing]')).toBeNull()
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
+    expect(tracks(frame)).toEqual([56, 0])
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
   })
 
   it('ignores an Escape a higher surface already consumed', () => {
@@ -673,14 +713,20 @@ describe('AppFrame drawer edge swipe', () => {
 
   it('snaps a short open swipe back closed', () => {
     frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { frame, instance } = mountFrame()
     swipe(frame, 'pointerdown', 30)
     swipe(frame, 'pointermove', 80)
     act(flushFrames)
     expect(drawerCol(frame).style.transform).toBe('translateX(-230px)')
     swipe(frame, 'pointerup', 80)
-    // 50/280 ≈ 18%: the drawer snaps back closed.
+    // 50/280 ≈ 18%: the drawer slides back out under data-closing; the
+    // cleanup frame then drops the tracked inline position.
     expect(expanded(instance)).toBe(false)
+    expect(frame.querySelector('[data-drawer][data-closing][data-gesture-driven]')).toBeTruthy()
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('')
+    act(() => { vi.advanceTimersByTime(300) })
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
   })
 
@@ -691,8 +737,11 @@ describe('AppFrame drawer edge swipe', () => {
     swipe(frame, 'pointermove', 100)
     expect(animationFrames.size).toBe(1)
     swipe(frame, 'pointerup', 100)
-    expect(animationFrames.size).toBe(0)
+    // The tracking frame is canceled; the settling toggle queues only the
+    // cleanup frame that drops the inline position.
+    expect(animationFrames.size).toBe(1)
     act(flushFrames)
+    expect(animationFrames.size).toBe(0)
     // 70/280 = 25%: the short swipe snaps back.
     expect(expanded(instance)).toBe(false)
   })
@@ -743,6 +792,7 @@ describe('AppFrame drawer edge swipe', () => {
 
   it('closes the drawer on a left swipe that travels past 35%', () => {
     frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     swipe(frame, 'pointerdown', 300)
@@ -754,10 +804,16 @@ describe('AppFrame drawer edge swipe', () => {
     expect(drawerCol(frame).style.transform).toBe('translateX(-50px)')
     expect(scrimOf(frame).style.opacity).toBe(String(1 - 50 / 280))
     swipe(frame, 'pointerup', 150)
-    // 150/280 ≈ 54% of the closing travel: the drawer closes.
+    // 150/280 ≈ 54% of the closing travel: the drawer slides out under
+    // data-closing; the cleanup frame drops the tracked inline position.
     expect(expanded(instance)).toBe(false)
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
     expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('')
+    expect(scrimOf(frame).style.opacity).toBe('')
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
   })
 
   it('keeps the drawer open when a close swipe falls short', () => {

@@ -212,7 +212,11 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     await writeComposerDraft(page, input, PROMPT)
     const observeTurn = async () => {
       const originalViewport = page.viewportSize() ?? { width: 1680, height: 1000 }
-      if (MODE !== 'record') await page.setViewportSize({ width: 480, height: 1000 })
+      // 448px gives the live think preview the 416px lane the 480px viewport
+      // provided before the handset transcript inset dropped 32px; the
+      // overflow the end-follow assertion needs only exists while the lane
+      // stays narrower than the fixture's reasoning line.
+      if (MODE !== 'record') await page.setViewportSize({ width: 448, height: 1000 })
       const observedReasoning = Promise.withResolvers<undefined>()
       const releaseStream = MODE === 'record' ? undefined : scaffold.ctx.on('llm/stream', async function* (_options, next) {
         let reasoning = false
