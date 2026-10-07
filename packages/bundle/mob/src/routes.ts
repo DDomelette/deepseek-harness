@@ -316,11 +316,15 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         if (refused(req, res, ctx, 'loopback')) return
         const body = await readJsonBody(req)
         const { code, label, allowed } = body ?? {}
-        if (typeof code !== 'string' || !isPairingCode(code) || typeof label !== 'string' || typeof allowed !== 'boolean') {
-          sendJson(res, 400, { error: 'expected a pairing code, a device label, and a decision' })
+        if (typeof code !== 'string' || !isPairingCode(code) || typeof label !== 'string' || typeof allowed !== 'boolean'
+          || label.trim() === '' || label.trim().length > MAX_DEVICE_LABEL_LENGTH) {
+          sendJson(res, 400, { error: 'expected a pairing code, a non-empty device label of at most 64 characters, and a decision' })
           return
         }
-        const decision = pairing.approve(code, label, allowed)
+        // The wire boundary is also where the operator's spacing is dropped:
+        // the approval, the registration, and the log all name the same label.
+        const deviceLabel = label.trim()
+        const decision = pairing.approve(code, deviceLabel, allowed)
         if (!decision.ok) {
           const status = decision.reason === 'unknown' ? 404 : decision.reason === 'expired' ? 410 : 409
           sendJson(res, status, { error: decision.reason })
@@ -339,14 +343,14 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         let device: PairedDevice
         try {
           device = await ctx.connection.devices.register(
-            macAddress === undefined ? { label } : { label, macAddress },
+            macAddress === undefined ? { label: deviceLabel } : { label: deviceLabel, macAddress },
           )
         } catch (error) {
           // The registration is the only statement that can fail here. A session
           // left decided would strand its phone on a decision it can never
           // collect, so the decision is withdrawn for the operator to retry.
           pairing.reopen(code)
-          ctx.logger.warn('mob: could not register the device "%s": %s', label, String(error))
+          ctx.logger.warn('mob: could not register the device "%s": %s', deviceLabel, String(error))
           sendJson(res, 500, { error: 'registration-failed' })
           return
         }

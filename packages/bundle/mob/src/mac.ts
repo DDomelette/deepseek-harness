@@ -10,8 +10,8 @@ import { execFile } from 'node:child_process'
 
 /** MAC as `arp` prints it: six octets joined by colons or hyphens. */
 const ARP_MAC_PATTERN = /(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}/iu
-/** Rows that are never a phone: broadcast and IPv4 multicast. */
-const UNUSABLE_MAC_PATTERN = /^(?:ff[:-]){5}ff$|^01[:-]00[:-]5e/iu
+/** Rows that are never a phone: broadcast, IPv4 multicast, and the all-zero address an unresolved row carries. */
+const UNUSABLE_MAC_PATTERN = /^(?:ff[:-]){5}ff$|^01[:-]00[:-]5e|^(?:00[:-]){5}00$/iu
 /** An IPv4 literal, the only sources an ARP table indexes. */
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/u
 /** Longest an ARP read may take before the approval proceeds without it. */
