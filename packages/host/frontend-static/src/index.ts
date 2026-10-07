@@ -60,6 +60,7 @@ export const Config: z<Config> = z.object({
 })
 
 const HTML_MIME = 'text/html; charset=utf-8'
+const TEXT_MIME = 'text/plain; charset=utf-8'
 
 /**
  * Boot fact marking a shell that was served to a client holding no accepted
@@ -153,8 +154,12 @@ export async function serveStatic(
   let type: string
   let status = 200
   let headers: Record<string, string> = {}
+  // Whether the request named the shell entry, which decides what an absent
+  // target means: a missing dist is the one 404 an operator can act on.
+  let indexEntry = false
   try {
-    if (isIndexEntry(target, distRoot, distIndex)) {
+    indexEntry = isIndexEntry(target, distRoot, distIndex)
+    if (indexEntry) {
       const access = authorizeIndex()
       if (access === 'answered') return
       body = await renderIndex()
@@ -172,6 +177,13 @@ export async function serveStatic(
     // Only absent or non-file targets are 404; other filesystem failures reach
     // the webserver's request-failure handling.
     if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
+    if (indexEntry) {
+      // The readiness line already printed a URL, so a shell that cannot be
+      // rendered names the step that produces it instead of a bare 404.
+      res.writeHead(404, { 'content-type': TEXT_MIME })
+      res.end('the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n')
+      return
+    }
     res.writeHead(404)
     res.end()
     return

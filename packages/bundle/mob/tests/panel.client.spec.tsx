@@ -435,6 +435,26 @@ describe('PairingPanel', () => {
     expect(subject.rename).toHaveBeenCalledTimes(2)
   })
 
+  it('consumes the Escape that cancels an inline rename', async () => {
+    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+
+    const label = await waitFor(() => screen.getByText('客厅的手机'))
+    const row = label.closest('li')!
+    fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
+    const input = within(row).getByLabelText('重命名')
+    fireEvent.change(input, { target: { value: '卧室的手机' } })
+
+    // The dialog behind the edit owns the code and QR, so cancelling the edit
+    // consumes the key instead of letting the modal close on it.
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(input, escape)
+    await waitFor(() => { expect(within(row).queryByRole('textbox')).toBeNull() })
+
+    expect(escape.defaultPrevented).toBe(true)
+    expect(screen.getByText('客厅的手机')).toBeTruthy()
+    expect(subject.rename).not.toHaveBeenCalled()
+  })
+
   it('re-schedules a device from a preset and from an arbitrary day count', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(START))

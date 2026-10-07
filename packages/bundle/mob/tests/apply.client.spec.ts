@@ -36,10 +36,11 @@ async function bench() {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  ctx.provide('connection', { isLoopback: true } as never)
+  const connectionFailure = { getSnapshot: () => undefined, subscribe: () => () => {} }
+  ctx.provide('connection', { isLoopback: true, failure: connectionFailure } as never)
   const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/' }))
   new TestRemote(ctx, { mob: { joinUrl } })
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl }
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl, connectionFailure }
 }
 
 describe('dsh-mob client apply', () => {
@@ -83,7 +84,9 @@ describe('dsh-mob client apply', () => {
     const ordinary = await bench()
     declare(ordinary.slots)
     await ordinary.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(ordinary.slots.entries('shell.overlay')).toHaveLength(0)
+    // An ordinary page holds no pairing screen; the session-required screen is
+    // the one standing overlay, and it renders nothing while the session works.
+    expect(ordinary.slots.entries('shell.overlay').map(entry => entry.component)).toEqual([AuthRequiredScreen])
 
     Reflect.set(globalThis, '__DSH_PAIR__', { code: 'ABCD2345' })
     const pairing = await bench()
@@ -115,7 +118,14 @@ describe('dsh-mob client apply', () => {
     expect(pairing.slots.entries('shell.overlay')).toHaveLength(0)
   })
 
-  it('registers the session-required screen only when the page carries its boot fact', async () => {
+  it('registers the session-required screen on every page and reports whether this document was refused', async () => {
+    const ordinary = await bench()
+    declare(ordinary.slots)
+    await ordinary.ctx.plugin({ inject: [...inject], apply }).await()
+    const standing = ordinary.slots.entries('shell.overlay')[0]!
+    expect(standing.component).toBe(AuthRequiredScreen)
+    expect((standing.inject as unknown as () => AuthRequiredScreenInjected)().refused).toBe(false)
+
     Reflect.set(globalThis, '__DSH_AUTH_REQUIRED__', true)
     const refused = await bench()
     declare(refused.slots)
@@ -126,6 +136,10 @@ describe('dsh-mob client apply', () => {
     expect(entry.component).toBe(AuthRequiredScreen)
     expect(entry.options).toMatchObject({ id: 'auth-required-screen', order: 90 })
     const injected = entry.inject as unknown as () => AuthRequiredScreenInjected
+    expect(injected().refused).toBe(true)
+    // The live failure rides the connection's own source, so a credential that
+    // lapses after this page loaded states its reason on the same screen.
+    expect(injected().hooks.connectionFailure).toBe(refused.connectionFailure)
     const reload = vi.fn()
     vi.stubGlobal('location', { reload })
     injected().reload()

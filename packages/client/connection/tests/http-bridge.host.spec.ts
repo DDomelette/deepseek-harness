@@ -34,6 +34,58 @@ describe('HTTP bridge abort', () => {
     expect(destroyed).toHaveLength(1)
   })
 
+  it('refuses a client-framed body on a GET before the handler runs', async () => {
+    const destroyed: true[] = []
+    const request = Readable.from([Buffer.from('{"unexpected":true}')]) as unknown as IncomingMessage
+    Object.assign(request, {
+      url: '/api/file',
+      method: 'GET',
+      headers: { 'content-type': 'application/json', 'content-length': '18' },
+      destroy: () => { destroyed.push(true) },
+    })
+    let status: number | undefined
+    const response = Object.assign(new EventEmitter(), {
+      writableEnded: false,
+      writeHead(code: number, values?: unknown) { status = code; headers = values; return this },
+      write() { return true },
+      end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
+    }) as unknown as ServerResponse
+    let headers: unknown
+
+    await bridge(request, response, {
+      requestBodyMode: () => 'none',
+      fetch: () => { throw new Error('a bodyless route must never receive a framed body') },
+    })
+
+    // Fetch forbids constructing a body-carrying GET, so the client's frame is
+    // answered instead of turning into a TypeError no handler can see.
+    expect(status).toBe(400)
+    expect(headers).toMatchObject({ connection: 'close' })
+    expect(destroyed).toHaveLength(1)
+  })
+
+  it('dispatches a bodyless route with a bodyless Request', async () => {
+    const request = Readable.from([]) as unknown as IncomingMessage
+    Object.assign(request, { url: '/api/file', method: 'HEAD', headers: {} })
+    let status: number | undefined
+    const response = Object.assign(new EventEmitter(), {
+      writableEnded: false,
+      writeHead(code: number) { status = code; return this },
+      write() { return true },
+      end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
+    }) as unknown as ServerResponse
+
+    await bridge(request, response, {
+      requestBodyMode: () => 'none',
+      fetch: input => Promise.resolve(Response.json({
+        method: input.method,
+        body: input.body === null,
+      })),
+    })
+
+    expect(status).toBe(200)
+  })
+
   it('aborts a pending native picker request when the browser disconnects', async () => {
     const body = JSON.stringify({
       type: 'client-request', rpcId: 'picker-1', method: 'directoryPicker/pick', payload: { args: {} },

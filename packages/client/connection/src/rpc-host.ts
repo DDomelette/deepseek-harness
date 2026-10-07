@@ -383,4 +383,13 @@ function assertFetchRoute(route: ConnectionFetchRoute): void {
   if (methods.size !== route.methods.length) {
     throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} repeats a method`)
   }
+  // Fetch forbids a body on GET and HEAD, so a route's declared mode must agree
+  // with the methods it owns: the bridge can attach a body only for the others.
+  const bodyCarrier = route.methods.find(method => method !== 'GET' && method !== 'HEAD')
+  if (bodyCarrier === undefined && route.requestBody !== 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns only GET and HEAD and must declare requestBody 'none'`)
+  }
+  if (bodyCarrier !== undefined && route.requestBody === 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns ${bodyCarrier} and cannot declare requestBody 'none'`)
+  }
 }

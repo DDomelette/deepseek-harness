@@ -1,25 +1,35 @@
 /**
  * The screen a non-loopback browser sees when the Host served it the shell
  * without accepting a session — a device that was revoked, or one that never
- * paired. Its own cookie is the only LAN credential, so the screen states that
+ * paired — and the same screen when the credential lapses while the page is
+ * open. Its own cookie is the only LAN credential, so the screen states that
  * the computer has to create a new pairing code.
  */
 // Type-only: pulls the frame's slot declarations (shell.overlay).
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: the client Connection merge and its failure vocabulary.
+import type { ConnectionFailure } from '@deepseek-ai/dsh-client-connection/client'
+import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './AuthRequiredScreen.module.css'
 
 /** Injected face: the reload that picks up a device cookie earned meanwhile. */
 export interface AuthRequiredScreenInjected {
   /** Reload this page, so a device cookie obtained since it was served authenticates it. */
   reload: () => void
+  /** Whether this document was served without an accepted session. */
+  refused: boolean
+  hooks: {
+    /** The live connection failure, so a credential that lapses later states its reason here. */
+    connectionFailure: ObservableSnapshot<ConnectionFailure | undefined>
+  }
 }
 
 /** Composed props: the overlay seat's runtime share, the pairing dictionary, and the injected face. */
 export type AuthRequiredScreenProps =
   & PropsRuntime<'shell.overlay'>
   & PropsLocale<'pair.mobile'>
-  & AuthRequiredScreenInjected
+  & InjectFace<AuthRequiredScreenInjected>
 
 /**
  * Read the auth-required boot fact, written by `@deepseek-ai/dsh-host-frontend-static`.
@@ -31,10 +41,14 @@ export function authRequiredBootFact(): boolean {
 
 /**
  * Render the session-required screen.
- * @param props - composed slot props and the injected reload.
- * @returns the screen element tree.
+ * @param props - composed slot props, the injected reload, and the live failure hook.
+ * @returns the screen element tree, or null while this session still works.
  */
-export function AuthRequiredScreen({ t, reload }: AuthRequiredScreenProps) {
+export function AuthRequiredScreen({ t, reload, refused, useConnectionFailure }: AuthRequiredScreenProps) {
+  // The phone's collapsed rail hides the sidebar's connection indicator, so a
+  // credential that lapses after the page loaded is stated here instead.
+  const reason = useConnectionFailure(failure => failure?.reason)
+  if (!refused && reason !== 'auth') return null
   return (
     <div className={css.screen} data-auth-required-screen>
       <div className={css.card}>

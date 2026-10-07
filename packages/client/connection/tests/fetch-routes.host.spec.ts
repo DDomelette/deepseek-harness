@@ -53,30 +53,40 @@ describe('Connection exact Fetch routes', () => {
     await disposeFiber()
   })
 
-  it('rejects invalid and duplicate registrations', async () => {
+  it('rejects invalid and duplicate registrations, and a mode that contradicts the methods', async () => {
     const { connection, dispose: disposeFiber } = await mounted()
     const fetch = async (): Promise<Response> => new Response()
 
-    expect(() => connection.fetch.register({ path: '/outside', methods: ['GET'], requestBody: 'buffered', fetch }))
+    expect(() => connection.fetch.register({ path: '/outside', methods: ['GET'], requestBody: 'none', fetch }))
       .toThrow('invalid exact Fetch route')
-    expect(() => connection.fetch.register({ path: '/api/session.export', methods: [], requestBody: 'buffered', fetch }))
+    expect(() => connection.fetch.register({ path: '/api/session.export', methods: [], requestBody: 'none', fetch }))
       .toThrow('declares no methods')
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['GET', 'GET'], fetch,
-      requestBody: 'buffered',
+      requestBody: 'none',
     })).toThrow('repeats a method')
+    // Fetch forbids a body on GET and HEAD, so a body mode there could only
+    // reach the bridge as a TypeError; the reverse pairing is equally invalid.
+    expect(() => connection.fetch.register({
+      path: '/api/session.export', methods: ['GET', 'HEAD'], fetch,
+      requestBody: 'buffered',
+    })).toThrow("owns only GET and HEAD and must declare requestBody 'none'")
+    expect(() => connection.fetch.register({
+      path: '/api/session.export', methods: ['POST'], fetch,
+      requestBody: 'none',
+    })).toThrow("owns POST and cannot declare requestBody 'none'")
     const dispose = connection.fetch.register({
       path: '/api/session.export', methods: ['GET'], fetch,
-      requestBody: 'buffered',
+      requestBody: 'none',
     })
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['HEAD'], fetch,
-      requestBody: 'buffered',
+      requestBody: 'none',
     })).toThrow('already registered')
     await dispose()
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['HEAD'], fetch,
-      requestBody: 'buffered',
+      requestBody: 'none',
     })).not.toThrow()
     await disposeFiber()
   })

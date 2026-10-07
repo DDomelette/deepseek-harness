@@ -244,14 +244,19 @@ describe('real Loader composition', () => {
     expect(headless.body.startsWith('<script>globalThis.__DSH_AUTH_REQUIRED__ = true</script>')).toBe(true)
     expect(headless.body).toContain('shell')
 
-    // A missing configured index follows the same empty-404 contract for both
-    // of its public entry paths and for both supported methods.
+    // A missing configured index answers 404 with the build hint for both of its
+    // public entry paths: the readiness line already advertised a URL, so the
+    // operator learns which step produces the shell instead of a bare 404.
     await rm(join(root!, 'dist', 'index.html'))
     for (const path of ['/', '/index.html']) {
       const get = await request(port, path, authenticated())
       const head = await request(port, path, authenticated({ method: 'HEAD' }))
-      expect(get).toEqual({ status: 404, type: null, body: '' })
-      expect(head).toEqual(get)
+      expect(get).toEqual({
+        status: 404,
+        type: 'text/plain; charset=utf-8',
+        body: 'the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n',
+      })
+      expect(head).toEqual({ status: 404, type: get.type, body: '' })
     }
 
     // Ordinary unknown paths and static-resource misses are empty 404s for
