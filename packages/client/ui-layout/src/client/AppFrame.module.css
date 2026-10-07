@@ -22,6 +22,14 @@
   .frame {
     transition: none;
   }
+
+  /* data-closing still applies its end state instantly (no transition), so
+     the drawer and scrim are visually gone from the first frame. */
+  .sidebarCol[data-drawer],
+  .scrim {
+    transition: none;
+    animation: none;
+  }
 }
 
 .sidebarCol {
@@ -40,7 +48,14 @@
 }
 
 /* Drawer presentation (viewport < 768px): the sidebar leaves the grid and
-   floats over the center; the scrim freezes the center and closes on tap. */
+   floats over the center; the scrim freezes the center and closes on tap.
+   Enter rides a mount keyframe and the scrim fades with it (a mounting
+   element cannot transition); exit is a delayed unmount under data-closing
+   (AppFrame DRAWER_SLIDE_MS) so the base transition slides the column out.
+   An edge-swipe-driven mount (data-gesture-driven) skips the keyframe, and an
+   active swipe (frame data-sidebar-gesture) drops both animated properties:
+   the gesture's inline transform/opacity already owns the position, and a
+   running animation would override it. */
 .sidebarCol[data-drawer] {
   position: fixed;
   inset-block: 0;
@@ -48,6 +63,25 @@
   z-index: 13;
   background: var(--dsw-alias-bg-base);
   box-shadow: 8px 0 24px rgb(0 0 0 / 24%);
+  transition: transform var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  animation: drawer-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.sidebarCol[data-drawer][data-closing] {
+  transform: translateX(-100%);
+}
+
+.sidebarCol[data-drawer][data-gesture-driven] {
+  animation: none;
+}
+
+.frame[data-sidebar-gesture] .sidebarCol[data-drawer] {
+  animation: none;
+  transition: none;
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
 }
 
 .scrim {
@@ -55,6 +89,26 @@
   inset: 0;
   z-index: 12;
   background: rgb(0 0 0 / 32%);
+  transition: opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  animation: scrim-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.scrim[data-closing] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scrim[data-gesture-driven] {
+  animation: none;
+}
+
+.frame[data-sidebar-gesture] .scrim {
+  animation: none;
+  transition: none;
+}
+
+@keyframes scrim-in {
+  from { opacity: 0; }
 }
 
 /* Drag handles are frame children (columns clip overflow): an 8px hit strip

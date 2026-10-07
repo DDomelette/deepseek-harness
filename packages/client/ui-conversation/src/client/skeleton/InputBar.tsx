@@ -402,8 +402,14 @@ export const InputBar = memo(function InputBar({
         ? t('placeholder.steerQueue')
         : planActive ? t('placeholder.plan') : t('placeholder.default'))
 
+  // data-composer-variant lets sibling sheets (PermissionSelect) scope their
+  // handset rules to the docked composer; attribute selectors are not
+  // CSS-module localized.
   return (
-    <div className={clsx(css.root, variant === 'hero' && css.hero)}>
+    <div
+      className={clsx(css.root, variant === 'hero' && css.hero)}
+      data-composer-variant={variant}
+    >
       {toast !== null && (
         <Toast
           key={toast.seq}
