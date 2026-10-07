@@ -402,7 +402,8 @@ export const InputBar = memo(function InputBar({
         ? t('placeholder.steerQueue')
         : planActive ? t('placeholder.plan') : t('placeholder.default'))
 
-  // data-composer-variant lets sibling sheets (PermissionSelect) scope their
+  // data-composer-variant lets sibling sheets (PermissionSelect here,
+  // ui-model-selection's ModelSelect across the slot boundary) scope their
   // handset rules to the docked composer; attribute selectors are not
   // CSS-module localized.
   return (
