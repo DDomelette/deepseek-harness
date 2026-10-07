@@ -60,10 +60,10 @@ function fakeRawPost(headers: Record<string, string>, url: string, body: string)
 /** Response recorder compatible with both the fence's short-circuit and the bridge. */
 function fakeResponse(): {
   response: ServerResponse
-  state: { status?: number; headers?: Record<string, string>; body?: unknown }
+  state: { status?: number; headers?: Record<string, string | string[]>; body?: unknown }
 } {
-  const state: { status?: number; headers?: Record<string, string>; body?: unknown } = {}
-  const staged: Record<string, string> = {}
+  const state: { status?: number; headers?: Record<string, string | string[]>; body?: unknown } = {}
+  const staged: Record<string, string | string[]> = {}
   const chunks: Buffer[] = []
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
@@ -71,7 +71,10 @@ function fakeResponse(): {
       staged[name] = value
       return this
     },
-    writeHead(value: number, headers?: Record<string, string>) {
+    // The bridge forwards a staged renewal alongside the route's own cookies,
+    // so the double answers the same read the real response does.
+    getHeader(name: string) { return staged[name] },
+    writeHead(value: number, headers?: Record<string, string | string[]>) {
       state.status = value
       // node:http sends headers staged with setHeader unless writeHead names them.
       state.headers = { ...staged, ...headers }
@@ -124,7 +127,7 @@ function browserCookie(connection: HostConnectionHandle, authority: string): str
   )
   const setCookie = exchanged.state.headers?.['set-cookie']
   if (setCookie === undefined) throw new Error('browser token exchange did not set a cookie')
-  return setCookie.split(';', 1)[0]!
+  return (Array.isArray(setCookie) ? setCookie[0]! : setCookie).split(';', 1)[0]!
 }
 
 /**
@@ -325,7 +328,9 @@ describe('connection node half', () => {
         renewed.response,
       )
       const setCookie = renewed.state.headers?.['set-cookie']
-      expect(setCookie).toMatch(/; Max-Age=777\d{4};/u)
+      // A repeated header travels as a list; one cookie arrives as one entry.
+      expect(setCookie).toEqual([expect.stringMatching(/; Max-Age=777\d{4};/u)])
+      const cookiePair = (Array.isArray(setCookie) ? setCookie[0]! : setCookie!).split(';', 1)[0]!
       await vi.waitFor(() => {
         expect(storedDevices(store)).toEqual([expect.objectContaining({ credentialExpiresAt: extended })])
       })
@@ -333,7 +338,7 @@ describe('connection node half', () => {
       // The aligned credential is not re-issued on every later call.
       const aligned = fakeResponse()
       await routes[0]!.handler(
-        fakeRequest({ host: authority, cookie: setCookie!.split(';', 1)[0]! }, `${API_PATH}/session.list`),
+        fakeRequest({ host: authority, cookie: cookiePair }, `${API_PATH}/session.list`),
         aligned.response,
       )
       expect(aligned.state).toMatchObject({ status: 404 })

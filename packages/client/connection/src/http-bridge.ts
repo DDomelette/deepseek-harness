@@ -93,7 +93,18 @@ export async function bridge(
   }
   const response = await apiHandler.fetch(request)
   const requestUnread = bodyMode === 'streaming' && !req.readableEnded
-  const responseHeaders = Object.fromEntries(response.headers.entries())
+  // `set-cookie` is the one response header that may repeat, and a renewal the
+  // request path staged before dispatch is a cookie the response must not
+  // replace: every value is forwarded, staged ones first and in order.
+  const responseHeaders: Record<string, string | string[]> = {}
+  const cookies: string[] = []
+  for (const [name, value] of response.headers) {
+    if (name === 'set-cookie') cookies.push(value)
+    else responseHeaders[name] = value
+  }
+  const staged = res.getHeader('set-cookie')
+  if (staged !== undefined) cookies.unshift(...Array.isArray(staged) ? staged.map(String) : [String(staged)])
+  if (cookies.length > 0) responseHeaders['set-cookie'] = cookies
   res.writeHead(response.status, requestUnread ? { ...responseHeaders, connection: 'close' } : responseHeaders)
   if (response.body === null) {
     res.end()
