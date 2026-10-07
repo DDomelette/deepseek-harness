@@ -21,6 +21,8 @@ export function isLoopbackPeer(request: ConnectionTrustRequest): boolean {
     loopbackPeers = new BlockList()
     loopbackPeers.addSubnet('127.0.0.0', 8, 'ipv4')
     loopbackPeers.addAddress('::1', 'ipv6')
+    // A dual-stack listener reports a v4 loopback peer in its mapped form.
+    loopbackPeers.addSubnet('::ffff:127.0.0.0', 104, 'ipv6')
   }
   const family = isIP(address)
   return family !== 0 && loopbackPeers.check(address, family === 4 ? 'ipv4' : 'ipv6')

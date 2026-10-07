@@ -18,6 +18,7 @@ describe('HTTP bridge abort', () => {
     let headers: unknown
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead(code: number, values?: unknown) { status = code; headers = values; return this },
       write() { return true },
       end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
@@ -46,6 +47,7 @@ describe('HTTP bridge abort', () => {
     let status: number | undefined
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead(code: number, values?: unknown) { status = code; headers = values; return this },
       write() { return true },
       end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
@@ -70,6 +72,7 @@ describe('HTTP bridge abort', () => {
     let status: number | undefined
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead(code: number) { status = code; return this },
       write() { return true },
       end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
@@ -86,6 +89,62 @@ describe('HTTP bridge abort', () => {
     expect(status).toBe(200)
   })
 
+  it('forwards every Set-Cookie, keeping a renewal staged before dispatch', async () => {
+    const request = Readable.from([]) as unknown as IncomingMessage
+    Object.assign(request, {
+      url: '/api/remote.mux',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+    let status: number | undefined
+    let headers: Record<string, unknown> | undefined
+    const response = Object.assign(new EventEmitter(), {
+      writableEnded: false,
+      getHeader(name: string) { return name === 'set-cookie' ? ['staged=renewal; Path=/'] : undefined },
+      writeHead(code: number, values?: Record<string, unknown>) { status = code; headers = values; return this },
+      write() { return true },
+      end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
+    }) as unknown as ServerResponse
+
+    await bridge(request, response, {
+      requestBodyMode: () => 'buffered',
+      fetch: () => Promise.resolve(new Response(null, {
+        status: 200,
+        headers: [['set-cookie', 'first=1; Path=/'], ['set-cookie', 'second=2; Path=/']],
+      })),
+    })
+
+    expect(status).toBe(200)
+    // A repeated header cannot ride an object of single values: the staged
+    // renewal and both response cookies reach the client, in that order.
+    expect(headers?.['set-cookie']).toEqual([
+      'staged=renewal; Path=/',
+      'first=1; Path=/',
+      'second=2; Path=/',
+    ])
+  })
+
+  it('omits the cookie header when neither side sets one', async () => {
+    const request = Readable.from([]) as unknown as IncomingMessage
+    Object.assign(request, { url: '/api/remote.mux', method: 'POST', headers: {} })
+    let headers: Record<string, unknown> | undefined
+    const response = Object.assign(new EventEmitter(), {
+      writableEnded: false,
+      getHeader() { return undefined },
+      writeHead(_code: number, values?: Record<string, unknown>) { headers = values; return this },
+      write() { return true },
+      end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
+    }) as unknown as ServerResponse
+
+    await bridge(request, response, {
+      requestBodyMode: () => 'buffered',
+      fetch: () => Promise.resolve(Response.json({ ok: true })),
+    })
+
+    expect(headers?.['set-cookie']).toBeUndefined()
+    expect(headers?.['content-type']).toBe('application/json')
+  })
+
   it('aborts a pending native picker request when the browser disconnects', async () => {
     const body = JSON.stringify({
       type: 'client-request', rpcId: 'picker-1', method: 'directoryPicker/pick', payload: { args: {} },
@@ -99,6 +158,7 @@ describe('HTTP bridge abort', () => {
 
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead() { return this },
       write() { return true },
       end() { this.writableEnded = true; return this },
@@ -141,6 +201,7 @@ describe('HTTP bridge abort', () => {
     const responseBytes: Uint8Array[] = []
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead(code: number) { status = code; return this },
       write(chunk: Uint8Array) { responseBytes.push(chunk); return true },
       end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
@@ -183,6 +244,7 @@ describe('HTTP bridge abort', () => {
     let headers: unknown
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead(code: number, values?: unknown) { status = code; headers = values; return this },
       write() { return true },
       end(this: { writableEnded: boolean }) { this.writableEnded = true; return this },
@@ -216,6 +278,7 @@ describe('HTTP bridge abort', () => {
     const response = Object.assign(new EventEmitter(), {
       destroyed: false,
       writableEnded: false,
+      getHeader() { return undefined },
       writeHead() { return this },
       write() { return false },
       end(this: { writableEnded: boolean }) { ended = true; this.writableEnded = true; return this },

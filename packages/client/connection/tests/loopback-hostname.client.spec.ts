@@ -10,8 +10,34 @@ describe('isLoopbackHostname', () => {
     }
   })
 
+  it('accepts the absolute form of localhost and IPv4-mapped literals', () => {
+    for (const hostname of [
+      'localhost.',
+      '127.0.0.1.',
+      '[::ffff:7f00:1]',
+      '[::ffff:127.0.0.1]',
+      '[::FFFF:7F00:0001]',
+      '[::ffff:7f01:1]',
+      '[::ffff:127.0.1.2]',
+    ]) {
+      expect(isLoopbackHostname(hostname)).toBe(true)
+    }
+  })
+
   it('refuses malformed and non-loopback hostnames', () => {
-    for (const hostname of ['remote.localhost', '::1', '128.0.0.1', '127.0.0', '127.0.0.256', '127.0.0.-1']) {
+    for (const hostname of [
+      'remote.localhost',
+      '::1',
+      '128.0.0.1',
+      '127.0.0',
+      '127.0.0.256',
+      '127.0.0.-1',
+      '[::ffff:8000:1]',
+      '[::ffff:zzzz:1]',
+      '[::ffff:7f00]',
+      '[fe80::1]',
+      '[::ffff:7f00:1',
+    ]) {
       expect(isLoopbackHostname(hostname)).toBe(false)
     }
   })
