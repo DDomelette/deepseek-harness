@@ -37,6 +37,13 @@ describe('macFromArpOutput', () => {
     expect(macFromArpOutput(multicast, '224.0.0.22')).toBeUndefined()
   })
 
+  it('skips the all-zero address an unresolved row carries', () => {
+    const windows = '  192.168.0.122         00-00-00-00-00-00     dynamic'
+    const linux = '192.168.0.122            ether   00:00:00:00:00:00   C                     wlan0'
+    expect(macFromArpOutput(windows, '192.168.0.122')).toBeUndefined()
+    expect(macFromArpOutput(linux, '192.168.0.122')).toBeUndefined()
+  })
+
   it('answers undefined when no row names the address or the row carries no MAC', () => {
     expect(macFromArpOutput(WINDOWS_LISTING, '192.168.0.200')).toBeUndefined()
     expect(macFromArpOutput('', '192.168.0.122')).toBeUndefined()

@@ -41,7 +41,7 @@ dsh web --host 127.0.0.1
 
 ### 配对一台手机
 
-`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。只有**没有命中活动短码**的读取才计入该来源的限流——界面正在轮询的那次配对不是"搜码"——因此同一台手机上开两个页面不会互相把对方锁在配对流程之外，而被搜码预算锁住的来源仍然可以取走它持有的那个短码的决定。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案，其中被限流的文案提示等待一分钟，因为在锁定解除前新建短码对该来源没有帮助。`POST /pair/approve` 携带决定与设备名称——批准时还会从 ARP 表解析领取手机的 MAC 地址，这是尽力而为的指纹，解析失败则不记录，手机始终没有取走 cookie 的设备行会在其短码过期后被吊销并彻底删除，因此没有设备领取的批准不会留下任何东西，而登记失败会报告错误并撤回该决定，让操作员可以重新决定，而不是把手机留在一个它永远取不到的决定上——`GET /pair/requests` 列出已被手机领取、仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/devices/label` 为一台设备改名，`POST /pair/revoke` 把某台设备移入回收站——它的下一次请求即失效——`POST /pair/devices/restore` 恢复一台回收站中的设备，`POST /pair/devices/purge` 把回收站中的设备彻底删除。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏与按来源限流——其余每条路由都要求有效的启动令牌 cookie、回环 authority 和真实的回环 TCP 对端，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，与吊销、恢复、彻底删除一样属于仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays`、`expiresAt`、`credentialExpiresAt`、`macAddress` 与 `revokedAt`，面板的寿命列与回收站据此渲染；旧条目两个窗口字段都不返回。
+`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。只有**没有命中活动短码**的读取才计入该来源的限流——界面正在轮询的那次配对不是"搜码"——因此同一台手机上开两个页面不会互相把对方锁在配对流程之外，而被搜码预算锁住的来源仍然可以取走它持有的那个短码的决定。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案，其中被限流的文案提示等待一分钟，因为在锁定解除前新建短码对该来源没有帮助。`POST /pair/approve` 携带决定与设备名称——批准时还会从 ARP 表解析领取手机的 MAC 地址，这是尽力而为的指纹，解析失败则不记录，手机始终没有取走 cookie 的设备行会在其短码过期后被吊销并彻底删除，因此没有设备领取的批准不会留下任何东西，而登记失败会报告错误并撤回该决定，让操作员可以重新决定，而不是把手机留在一个它永远取不到的决定上——`GET /pair/requests` 列出已被手机领取、仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/devices/label` 为一台设备改名，`POST /pair/revoke` 把某台设备移入回收站——它的下一次请求即失效——`POST /pair/devices/restore` 恢复一台回收站中的设备，`POST /pair/devices/purge` 把回收站中的设备彻底删除。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏，而按来源限流只挂在 `/pair/state` 上——其余每条路由都要求有效的启动令牌 cookie、回环 authority 和真实的回环 TCP 对端，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，与吊销、恢复、彻底删除一样属于仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays`、`expiresAt`、`credentialExpiresAt`、`macAddress` 与 `revokedAt`，面板的寿命列与回收站据此渲染；旧条目两个窗口字段都不返回。
 
 短码必须恰好包含生成器字母表中的八个字符。`/pair` 与 `/pair/state` 要求查询参数 `c` 恰好出现一次；畸形或重复的短码返回 400。内嵌的启动 JSON 转义 `<`，使短码无法终止其 script 元素。
 
@@ -61,7 +61,7 @@ dsh web --host 127.0.0.1
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务——以及承载配对握手的八条 `/pair*` 具名路由。
+本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webRuntime` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务——以及承载配对握手的十一条 `/pair*` 具名路由。
 
 ### 栅栏局域网快照
 
