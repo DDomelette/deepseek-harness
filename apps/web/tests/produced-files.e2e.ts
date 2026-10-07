@@ -146,14 +146,18 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     await expect.poll(() => chips.count()).toBe(6)
     await expect.poll(() => row.getByText('+ 4 files', { exact: true }).isVisible()).toBe(true)
 
-    await page.setViewportSize({ width: 750, height: 900 })
+    // 694px leaves the conversation exactly the column the pre-FAB layout had
+    // at 750px (750 - the removed 56px rail), so the chip adaptation below
+    // keeps exercising the same container-query lane as before.
+    await page.setViewportSize({ width: 694, height: 900 })
     await page.evaluate(async () => { await document.fonts.ready })
     await page.waitForFunction(() => {
       const frame = document.querySelector('[data-sidebar-collapsed][data-rightbar-collapsed]')
       if (frame === null) return false
       const tracks = getComputedStyle(frame).gridTemplateColumns.split(' ').map(Number.parseFloat)
-      // The responsive sidebar's settled collapsed track is 56px.
-      return tracks[0] === 56 && tracks.at(-1) === 0
+      // Below the 768px overlay breakpoint the closed sidebar owns no track:
+      // the floating brand button replaced the rail.
+      return tracks[0] === 0 && tracks.at(-1) === 0
         && frame.getAnimations().every(animation =>
           animation.playState === 'finished' || animation.playState === 'idle')
     }, undefined, { timeout: 10_000 })
