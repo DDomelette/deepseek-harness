@@ -11,8 +11,10 @@
 }
 
 /* Dragging writes widths at pointer cadence; easing them would detach the
-   column from the handle. */
-.frame[data-dragging] {
+   column from the handle. The drawer edge swipe sets its own marker for the
+   same reason: it mounts and tracks the drawer imperatively. */
+.frame[data-dragging],
+.frame[data-sidebar-gesture] {
   transition: none;
 }
 

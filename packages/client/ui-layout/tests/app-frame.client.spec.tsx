@@ -137,6 +137,11 @@ function drag(handle: Element, fromX: number, toX: number): void {
   pointer(handle, 'pointerup', toX)
 }
 
+/** Dispatch one drawer-swipe pointer event on the frame with both coordinates. */
+function swipe(frame: Element, type: string, clientX: number, clientY = 0, pointerId = 1, button = 0): void {
+  act(() => { frame.dispatchEvent(new PointerEvent(type, { pointerId, clientX, clientY, button, bubbles: true })) })
+}
+
 beforeEach(() => {
   originalTitle = document.title
   frameWidth = 1920
@@ -200,7 +205,7 @@ describe('AppFrame', () => {
   it('renders owner props for the default sidebar and prospective right panel', () => {
     const { frame, rightOwner, sidebarOwner, slotCalls } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: false })
     expect(rightOwner()).toEqual({ width: 864, viewportWidth: 1920, canShow: true })
     expect(slotCalls.find(c => c.key === 'main')).toEqual({ key: 'main', props: {}, options: { entryKey: 'conversation' } })
   })
@@ -224,14 +229,20 @@ describe('AppFrame', () => {
   it('renders the expanded sidebar as a drawer with a scrim below the overlay breakpoint', () => {
     frameWidth = 390
     const { frame, instance, sidebarOwner } = mountFrame()
+    // The closed sidebar owns no track below the breakpoint: the floating
+    // brand button (fab) replaces the rail, and the frame carries the
+    // cross-package attribute the conversation header pads against.
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
+    expect(frame.dataset.sidebarFab).toBe('true')
     expect(frame.dataset.drawer).toBeUndefined()
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
     act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([56, 0])
+    expect(tracks(frame)).toEqual([0, 0])
     expect(frame.dataset.drawer).toBe('true')
     const drawerCol = frame.querySelector('[data-drawer]')
     expect(drawerCol?.querySelector('[data-testid="sidebar-content"]')).toBeTruthy()
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
     expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) })
@@ -283,7 +294,7 @@ describe('AppFrame', () => {
     act(() => { instance.actions.openRightbar(true, false) })
     act(() => { instance.actions.toggleSidebar() })
     expect(frame.dataset.drawer).toBe('true')
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
     expect(rightOwner().canShow).toBe(false)
     expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
   })
@@ -302,7 +313,8 @@ describe('AppFrame', () => {
     const { frame, instance, sidebarOwner, getByTestId } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([56, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 56 })
+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 56, fab: false })
+    expect(frame.dataset.sidebarFab).toBeUndefined()
     expect(getByTestId('sidebar-content')).toBeTruthy()
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
   })
@@ -353,7 +365,7 @@ describe('AppFrame normal width concessions', () => {
     expect(instance.getSnapshot().layoutInfo).toMatchObject({ rightbarShown: true, rightbar: 864 })
     act(() => { instance.actions.closeRightbar() })
     resize(455)
-    expect(tracks(frame)).toEqual([56, 0])
+    expect(tracks(frame)).toEqual([0, 0])
     resize(1920)
     expect(tracks(frame)).toEqual([420, 0])
   })
@@ -497,7 +509,7 @@ describe('AppFrame right panel presentation', () => {
     frameWidth = 700
     const { frame, instance, rightOwner } = mountFrame()
     act(() => { instance.actions.openRightbar(false, true) })
-    expect(tracks(frame)).toEqual([56, 0])
+    expect(tracks(frame)).toEqual([0, 0])
     expect(rightOwner()).toEqual({ width: 0, viewportWidth: 700, canShow: false })
     expect(instance.getSnapshot().layoutInfo.rightbarShown).toBe(true)
     expect(frame.querySelector('[data-side="rightbar"]')).toBeNull()
@@ -625,6 +637,216 @@ describe('AppFrame pointer resizing', () => {
     expect(animationFrames.size).toBe(0)
     expect(handle.hasPointerCapture(1)).toBe(false)
     if (change !== 'unmount') expect(frame.dataset.dragging).toBeUndefined()
+  })
+})
+
+describe('AppFrame drawer edge swipe', () => {
+  const drawerCol = (frame: HTMLElement) => frame.querySelector<HTMLElement>('[data-drawer]')!
+  const scrimOf = (frame: HTMLElement) => frame.querySelector<HTMLElement>('[data-drawer-scrim]')!
+  const expanded = (instance: ReturnType<typeof mountFrame>['instance']) =>
+    instance.getSnapshot().layoutInfo.narrowExpanded
+
+  it('opens the drawer from a left-edge swipe, tracks the pointer, and stays open past 35%', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30, 100)
+    // Sub-slop travel schedules nothing; a diagonal move with horizontal
+    // dominance engages the gesture and mounts the drawer.
+    swipe(frame, 'pointermove', 38, 104)
+    expect(animationFrames.size).toBe(0)
+    swipe(frame, 'pointermove', 60, 120)
+    expect(expanded(instance)).toBe(true)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(true)
+    swipe(frame, 'pointermove', 120, 130)
+    expect(animationFrames.size).toBe(1)
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('translateX(-190px)')
+    expect(scrimOf(frame).style.opacity).toBe(String(90 / 280))
+    swipe(frame, 'pointerup', 160, 140)
+    // 130/280 ≈ 46% of the travel: the drawer stays open, inline styles clear.
+    expect(expanded(instance)).toBe(true)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+    expect(drawerCol(frame).style.transform).toBe('')
+    expect(scrimOf(frame).style.opacity).toBe('')
+    expect(frame.hasPointerCapture(1)).toBe(false)
+  })
+
+  it('snaps a short open swipe back closed', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 80)
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('translateX(-230px)')
+    swipe(frame, 'pointerup', 80)
+    // 50/280 ≈ 18%: the drawer snaps back closed.
+    expect(expanded(instance)).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+  })
+
+  it('cancels the pending tracking frame when the swipe releases', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 100)
+    expect(animationFrames.size).toBe(1)
+    swipe(frame, 'pointerup', 100)
+    expect(animationFrames.size).toBe(0)
+    act(flushFrames)
+    // 70/280 = 25%: the short swipe snaps back.
+    expect(expanded(instance)).toBe(false)
+  })
+
+  it('ignores a swipe that starts outside the left-edge strip', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 100)
+    swipe(frame, 'pointermove', 300)
+    act(flushFrames)
+    swipe(frame, 'pointerup', 300)
+    expect(expanded(instance)).toBe(false)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+    expect(frame.hasPointerCapture(1)).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+  })
+
+  it('ignores a secondary button and a second pointer', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30, 0, 1, 2)
+    swipe(frame, 'pointermove', 200)
+    expect(expanded(instance)).toBe(false)
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointerdown', 50, 0, 9)
+    swipe(frame, 'pointermove', 300, 0, 9)
+    swipe(frame, 'pointerup', 300, 0, 9)
+    expect(expanded(instance)).toBe(false)
+    swipe(frame, 'pointermove', 100)
+    act(flushFrames)
+    expect(expanded(instance)).toBe(true)
+    swipe(frame, 'pointerup', 100)
+    // 70/280 = 25%: the first pointer's short swipe snaps back.
+    expect(expanded(instance)).toBe(false)
+  })
+
+  it('cedes vertical-dominant travel to scrolling', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30, 100)
+    swipe(frame, 'pointermove', 34, 200)
+    swipe(frame, 'pointermove', 200, 210)
+    act(flushFrames)
+    swipe(frame, 'pointerup', 200, 210)
+    expect(expanded(instance)).toBe(false)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+  })
+
+  it('closes the drawer on a left swipe that travels past 35%', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    swipe(frame, 'pointerdown', 300)
+    swipe(frame, 'pointermove', 250)
+    // A close swipe keeps the drawer mounted and settles only at release.
+    expect(expanded(instance)).toBe(true)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(true)
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('translateX(-50px)')
+    expect(scrimOf(frame).style.opacity).toBe(String(1 - 50 / 280))
+    swipe(frame, 'pointerup', 150)
+    // 150/280 ≈ 54% of the closing travel: the drawer closes.
+    expect(expanded(instance)).toBe(false)
+    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+  })
+
+  it('keeps the drawer open when a close swipe falls short', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    swipe(frame, 'pointerdown', 300)
+    swipe(frame, 'pointermove', 260)
+    act(flushFrames)
+    expect(drawerCol(frame).style.transform).toBe('translateX(-40px)')
+    swipe(frame, 'pointerup', 260)
+    // 40/280 ≈ 14%: the drawer swings back and stays open.
+    expect(expanded(instance)).toBe(true)
+    expect(drawerCol(frame).style.transform).toBe('')
+    expect(scrimOf(frame).style.opacity).toBe('')
+  })
+
+  it('restores the drawer when the pointer cancels mid-swipe', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    swipe(frame, 'pointerdown', 300)
+    swipe(frame, 'pointermove', 200)
+    act(flushFrames)
+    swipe(frame, 'pointercancel', 200)
+    expect(expanded(instance)).toBe(true)
+    expect(drawerCol(frame).style.transform).toBe('')
+    expect(frame.hasPointerCapture(1)).toBe(false)
+  })
+
+  it('closes the drawer again when an open swipe loses pointer capture', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 100)
+    act(flushFrames)
+    expect(expanded(instance)).toBe(true)
+    swipe(frame, 'lostpointercapture', 100)
+    expect(expanded(instance)).toBe(false)
+  })
+
+  it('settles a cancelled swipe without reopening a drawer Escape already closed', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 100)
+    expect(expanded(instance)).toBe(true)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })) })
+    expect(expanded(instance)).toBe(false)
+    // The queued tracking frame runs against the unmounted scrim and no-ops.
+    act(flushFrames)
+    swipe(frame, 'pointercancel', 100)
+    expect(expanded(instance)).toBe(false)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+  })
+
+  it('stays inert above the overlay breakpoint', () => {
+    frameWidth = 800
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 200)
+    act(flushFrames)
+    swipe(frame, 'pointerup', 200)
+    expect(expanded(instance)).toBe(false)
+    expect(tracks(frame)).toEqual([56, 0])
+  })
+
+  it('leaves an edge tap to the click handlers', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointerup', 32)
+    expect(expanded(instance)).toBe(false)
+    expect(frame.hasPointerCapture(1)).toBe(false)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+  })
+
+  it('drops a queued swipe frame on unmount', () => {
+    frameWidth = 390
+    const { frame, unmount } = mountFrame()
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 100)
+    expect(animationFrames.size).toBe(1)
+    unmount()
+    expect(animationFrames.size).toBe(0)
+    // A candidate that never moved carries no frame either.
+    const second = mountFrame()
+    swipe(second.frame, 'pointerdown', 30)
+    second.unmount()
   })
 })
 

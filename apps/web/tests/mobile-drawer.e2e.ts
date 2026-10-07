@@ -41,14 +41,15 @@ describe('mobile viewport (390×844, touch)', () => {
     const frame = page.locator('[class*="frame"]').first()
     const scrim = page.locator('[data-drawer-scrim]')
     const center = page.locator('[class*="centerCol"]').first()
-    // Resting state: the rail form, no scrim.
+    // Resting state: the floating brand button, no scrim, no sidebar track.
     await page.getByRole('button', { name: 'Open sidebar' }).waitFor({ state: 'visible' })
     expect(await scrim.count()).toBe(0)
-    await expect.poll(async () => await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns.startsWith('56px'))).toBe(true)
+    await expect.poll(async () => await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns.startsWith('0px'))).toBe(true)
     const centerWidth = await center.evaluate(el => el.getBoundingClientRect().width)
     await page.getByRole('button', { name: 'Open sidebar' }).click()
-    // Drawer open: the sidebar floats over the center, the track keeps the 56px
-    // rail, and the scrim appears.
+    // Drawer open: the sidebar floats over the center, the center keeps its
+    // full-width track (the rail is gone below this breakpoint), and the scrim
+    // appears.
     await scrim.waitFor({ state: 'attached' })
     expect(await scrim.count()).toBe(1)
     // Touch has no hover to raise or clear a tooltip with, so the tap must not
@@ -57,7 +58,7 @@ describe('mobile viewport (390×844, touch)', () => {
     await expect.poll(async () => await frame.getAttribute('data-drawer')).toBe('true')
     await expect.poll(async () => {
       const columns = await frame.evaluate(el => getComputedStyle(el).gridTemplateColumns)
-      return columns.startsWith('56px')
+      return columns.startsWith('0px')
     }).toBe(true)
     await expect.poll(() => center.evaluate(el => el.getBoundingClientRect().width)).toBe(centerWidth)
     // No horizontal overflow with the drawer open.

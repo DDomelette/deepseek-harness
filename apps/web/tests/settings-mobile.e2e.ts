@@ -19,6 +19,17 @@ const HANDSET = { width: 390, height: 844 }
 const DESKTOP = { width: 1680, height: 1000 }
 
 /**
+ * Open the settings dialog at a handset viewport. Below the 768px overlay
+ * breakpoint the rail is gone: the Settings trigger lives in the drawer,
+ * which the floating brand button opens.
+ * @param page - the scenario page.
+ */
+async function openHandsetSettings(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '打开侧边栏' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+}
+
+/**
  * Assert that every native select the open settings dialog renders clears the
  * 44px touch-target floor. A pane that renders none fails here rather than
  * passing without measuring anything.
@@ -64,7 +75,7 @@ describe('web e2e: settings at a handset viewport', () => {
 
   it('lists the sections, opens one on its own pane, and returns to the list', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-handset'))
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await openHandsetSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
 
@@ -157,7 +168,7 @@ describe('web e2e: settings at a handset viewport', () => {
   it('gives every select the settings pages render a 44px touch target', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-touch-targets'))
     await page.setViewportSize(HANDSET)
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await openHandsetSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
 

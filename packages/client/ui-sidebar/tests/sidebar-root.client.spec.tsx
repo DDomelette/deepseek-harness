@@ -33,7 +33,7 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: SidebarRootComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
 
-function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; width?: number } = {}) {
+function mountShell({ collapsed = false, width = 300, fab = false }: { collapsed?: boolean; width?: number; fab?: boolean } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
   let regionOwner: SidebarSectionOwnerProps | undefined
@@ -41,10 +41,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
   const brandMark = <span data-testid="custom-brand-mark">M</span>
   const brandName = <span data-testid="custom-brand-name">Custom Brand</span>
-  let current = { collapsed, width }
+  let current = { collapsed, width, fab }
   const root = () => (
     <SidebarRoot
-      collapsed={current.collapsed} width={current.width}
+      collapsed={current.collapsed} width={current.width} fab={current.fab}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
       useResource={useResource} useWorkspaces={neverHook}
@@ -110,7 +110,7 @@ describe('SidebarRoot shell', () => {
     vi.stubEnv('DSH_CLIENT_GIT_DIRTY', 'true')
     vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
     const { container } = render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} fab={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
       useResource={useResource} useWorkspaces={neverHook}
@@ -130,7 +130,7 @@ describe('SidebarRoot shell', () => {
   ])('omits unavailable build-version suffixes from %j', (environment, expected) => {
     for (const [name, value] of Object.entries(environment)) vi.stubEnv(name, value)
     render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} fab={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
       useResource={useResource} useWorkspaces={neverHook}
@@ -145,7 +145,7 @@ describe('SidebarRoot shell', () => {
 
   it('retains the local-build fallback without complete build metadata', () => {
     render(<SidebarRoot
-      collapsed={false} width={300}
+      collapsed={false} width={300} fab={false}
       useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
       useResource={useResource} useWorkspaces={neverHook}
@@ -187,5 +187,37 @@ describe('SidebarRoot shell', () => {
     const b = mountShell({ collapsed: true })
     expect(b.regionOwner().wide).toBe(false)
     expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
+  })
+
+  it('replaces the rail with the floating brand button below the overlay breakpoint', () => {
+    const b = mountShell({ collapsed: true, width: 0, fab: true })
+    // The button is the whole collapsed tree: the rail's controls and seats
+    // (New session, the browsing region, settings) stay out of it.
+    const fab = screen.getByRole('button', { name: 'Open sidebar' })
+    expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
+    expect(screen.queryByTestId('region')).toBeNull()
+    expect(screen.queryByTestId('settings-seat')).toBeNull()
+    fireEvent.click(fab)
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+    // The drawer flip clears collapsed; the wide shell returns unchanged.
+    b.rerender({ collapsed: false, width: 280 })
+    expect(screen.getAllByRole('button', { name: 'New session' })).toHaveLength(2)
+    expect(b.regionOwner().wide).toBe(true)
+  })
+
+  it('renders the fish fallback on the floating button without a brand occupant', () => {
+    const { container } = render(<SidebarRoot
+      collapsed width={0} fab
+      useSessions={neverHook} useSessionPendingInteraction={useSessionPendingInteraction}
+      usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])}
+      useResource={useResource} useWorkspaces={neverHook}
+      startSession={vi.fn()} toggleSidebar={vi.fn()} t={t}
+      renderSlot={((_key: string, _owner: unknown, options?: { fallback?: ReactNode }) =>
+        options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
+    />)
+
+    expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
+    expect(container.querySelector('svg')).not.toBeNull()
   })
 })
