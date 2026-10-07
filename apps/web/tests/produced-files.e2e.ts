@@ -146,10 +146,11 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     await expect.poll(() => chips.count()).toBe(6)
     await expect.poll(() => row.getByText('+ 4 files', { exact: true }).isVisible()).toBe(true)
 
-    // 694px leaves the conversation exactly the column the pre-FAB layout had
-    // at 750px (750 - the removed 56px rail), so the chip adaptation below
-    // keeps exercising the same container-query lane as before.
-    await page.setViewportSize({ width: 694, height: 900 })
+    // 662px leaves the conversation exactly the lane the pre-FAB layout had at
+    // 750px (750 - the removed 56px rail - the 32px the handset transcript
+    // inset dropped), so the chip adaptation below keeps exercising the same
+    // container-query lane as before.
+    await page.setViewportSize({ width: 662, height: 900 })
     await page.evaluate(async () => { await document.fonts.ready })
     await page.waitForFunction(() => {
       const frame = document.querySelector('[data-sidebar-collapsed][data-rightbar-collapsed]')

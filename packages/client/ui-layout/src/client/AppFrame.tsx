@@ -260,39 +260,35 @@ export function AppFrame({
   // Drawer slide-out: after the store closes, the column and scrim stay
   // mounted under data-closing until the transition ends, so every close path
   // (scrim tap, Escape, the sidebar's collapse control, an edge swipe) slides
-  // out instead of vanishing. A reopen inside the window cancels the unmount;
-  // leaving the overlay band ends the window immediately.
+  // out instead of vanishing. The closing flag is derived DURING RENDER (the
+  // sanctioned adjust-state-on-prop-change pattern): an effect would commit
+  // one fully-unmounted frame first — a visible flash, and a barrier waiting
+  // for the scrim to detach would release into the slide-out window. A reopen
+  // inside the window cancels it in the same commit; leaving the overlay band
+  // ends the window at once.
   const [drawerClosing, setDrawerClosing] = useState(false)
-  const closingTimer = useRef<number | null>(null)
-  const drawerWasOpen = useRef(false)
+  const [drawerWasOpen, setDrawerWasOpen] = useState(drawerOpen)
   // An edge-swipe-opened mount skips the enter keyframe (data-gesture-driven):
   // the gesture's own inline tracking owns the column's position from the
   // first frame. The flag resets when the drawer presentation unmounts.
   const [gestureDriven, setGestureDriven] = useState(false)
+  if (drawerWasOpen !== drawerOpen) {
+    setDrawerWasOpen(drawerOpen)
+    setDrawerClosing(!drawerOpen && drawerWasOpen && overlay)
+  }
+  if (!overlay && (drawerClosing || gestureDriven)) {
+    setDrawerClosing(false)
+    setGestureDriven(false)
+  }
   useEffect(() => {
-    if (drawerOpen || !overlay) {
-      drawerWasOpen.current = drawerOpen
-      if (closingTimer.current !== null) {
-        clearTimeout(closingTimer.current)
-        closingTimer.current = null
-      }
-      setDrawerClosing(false)
-      if (!drawerOpen) setGestureDriven(false)
-      return
-    }
-    if (!drawerWasOpen.current) return
-    drawerWasOpen.current = false
-    setDrawerClosing(true)
-    closingTimer.current = window.setTimeout(() => {
-      closingTimer.current = null
+    if (!drawerClosing) return
+    const timer = window.setTimeout(() => {
       setDrawerClosing(false)
       setGestureDriven(false)
     }, DRAWER_SLIDE_MS)
-  }, [drawerOpen, overlay])
-  useEffect(() => () => {
-    if (closingTimer.current !== null) clearTimeout(closingTimer.current)
-  }, [])
-  const drawerShown = drawerOpen || drawerClosing
+    return () => { clearTimeout(timer) }
+  }, [drawerClosing])
+  const drawerShown = drawerOpen || (overlay && drawerClosing)
   const sidebarWidth = drawerShown ? drawerWidth : cols.sidebar
 
   // Drawer edge swipe (overlay band only): a right swipe from the frame's left
