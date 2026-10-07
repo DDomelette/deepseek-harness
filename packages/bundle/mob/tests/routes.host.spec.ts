@@ -372,6 +372,24 @@ describe('pairing routes', () => {
     expect(JSON.parse((await subject.call(PAIR_PATHS.state, { code })).body)).toEqual({ status: 'expired' })
   })
 
+  it('refuses an empty or oversized device label without deciding the request', async () => {
+    const subject = bench()
+    const { code } = subject.pairing.openSession()
+
+    // The rename route refuses both, and an approval that accepted them would
+    // store a row the operator could no longer name.
+    for (const label of ['', '   ', 'x'.repeat(65)]) {
+      const refused = await approve(subject, code, { label })
+      expect(refused.status).toBe(400)
+      expect((JSON.parse(refused.body) as { error: string }).error).toContain('non-empty device label')
+    }
+    expect(subject.registered).toEqual([])
+    // The decision is untouched, so a good label still registers the row.
+    const accepted = await approve(subject, code, { label: ' 客厅的手机 ' })
+    expect(accepted.status).toBe(200)
+    expect(subject.registered).toEqual([{ label: '客厅的手机' }])
+  })
+
   it('reopens an approval whose device registration failed so the operator can retry', async () => {
     const subject = bench({ registerFails: true })
     const warn = vi.spyOn(subject.ctx.logger, 'warn')
