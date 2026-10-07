@@ -165,7 +165,7 @@ describe('PairingSessions', () => {
     expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'unknown' })
   })
 
-  it('clears the failure count once a code resolves and rate-limits attempts per source', () => {
+  it('clears the failure count once a code resolves', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(START))
     const store = sessions()
@@ -175,17 +175,107 @@ describe('PairingSessions', () => {
       expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'unknown' })
     }
     expect(store.stateOf(code, 'source')).toEqual({ status: 'pending' })
+    // The live read cleared the four failures, so five more are needed to lock.
     for (let attempt = 1; attempt <= 4; attempt++) {
       expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'unknown' })
     }
+    expect(store.stateOf('ZZZZZZZZ', 'source')).toEqual({ status: 'locked' })
+  })
 
-    for (let attempt = 1; attempt <= 10; attempt++) {
+  it('keeps a live code readable however often its pages poll, while a code search still locks', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const { code } = store.openSession()
+
+    // Two pages holding one code poll it far past the ten-read window: the
+    // session in flight is not the code space being searched.
+    for (let attempt = 1; attempt <= 40; attempt++) {
+      expect(store.stateOf(code, 'phone-a')).toEqual({ status: 'pending' })
+      expect(store.stateOf(code, 'phone-b')).toEqual({ status: 'pending' })
+    }
+
+    // Reads that name no live code are the search the throttle exists for: the
+    // fifth consecutive failure locks that source.
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      expect(store.stateOf('ZZZZZZZZ', 'searcher')).toEqual({ status: 'unknown' })
+    }
+    expect(store.stateOf('ZZZZZZZZ', 'searcher')).toEqual({ status: 'locked' })
+
+    // The lock defends the code space, not a session already in flight: the
+    // phone it locked can still collect the decision for the code it holds.
+    expect(store.stateOf(code, 'searcher')).toEqual({ status: 'pending' })
+  })
+
+  it('locks a source that floods past the attempt budget without failing five in a row', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const { code } = store.openSession()
+
+    // A live read clears the failure count, so alternating it with guesses keeps
+    // this source under the consecutive-failure limit; the per-window attempt
+    // budget is what stops the search.
+    for (let round = 1; round <= 2; round++) {
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        expect(store.stateOf('ZZZZZZZZ', 'flooder')).toEqual({ status: 'unknown' })
+      }
       expect(store.stateOf(code, 'flooder')).toEqual({ status: 'pending' })
     }
-    expect(store.stateOf(code, 'flooder')).toEqual({ status: 'locked' })
+    expect(store.stateOf('ZZZZZZZZ', 'flooder')).toEqual({ status: 'unknown' })
+    expect(store.stateOf('ZZZZZZZZ', 'flooder')).toEqual({ status: 'unknown' })
+    expect(store.stateOf('ZZZZZZZZ', 'flooder')).toEqual({ status: 'locked' })
+  })
 
-    vi.setSystemTime(new Date(START + 60_001))
-    expect(store.stateOf(code, 'flooder')).toEqual({ status: 'pending' })
+  it('reopens an allowed session whose registration failed, leaving denied and bound ones alone', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const { code } = store.openSession()
+
+    expect(store.reopen(code)).toBe(false)
+
+    expect(store.approve(code, 'phone', false)).toEqual({ ok: true })
+    expect(store.reopen(code)).toBe(false)
+    expect(store.stateOf(code, 'source')).toEqual({ status: 'denied' })
+
+    const allowed = store.openSession()
+    expect(store.approve(allowed.code, 'phone', true)).toEqual({ ok: true })
+    expect(store.reopen(allowed.code)).toBe(true)
+    // The phone reads the retry as pending, and the operator may decide again.
+    expect(store.stateOf(allowed.code, 'source')).toEqual({ status: 'pending' })
+    expect(store.approve(allowed.code, 'phone', true)).toEqual({ ok: true })
+    expect(store.bindDevice(allowed.code, DEVICE_1)).toBe(true)
+    expect(store.reopen(allowed.code)).toBe(false)
+
+    const late = store.openSession()
+    expect(store.approve(late.code, 'phone', true)).toEqual({ ok: true })
+    vi.setSystemTime(new Date(START + 120_000))
+    expect(store.reopen(late.code)).toBe(false)
+  })
+
+  it('forgets an idle throttle record and keeps one whose lockout is still running', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const store = sessions()
+    const sources = (store as unknown as { sources: Map<string, unknown> }).sources
+
+    for (let attempt = 1; attempt <= 4; attempt++) store.stateOf('ZZZZZZZZ', `192.168.0.${attempt}`)
+    for (let attempt = 1; attempt <= 5; attempt++) store.stateOf('ZZZZZZZZ', 'locked-peer')
+    expect(sources.size).toBe(5)
+
+    // The attempt window rolls over: the four idle records can only be rebuilt
+    // identically, so the next sweep drops them, while the lockout outlives the
+    // window that produced it.
+    vi.setSystemTime(new Date(START + 10_001))
+    store.pending()
+    expect(sources.size).toBe(1)
+    expect(store.stateOf('ZZZZZZZZ', 'locked-peer')).toEqual({ status: 'locked' })
+
+    // Once the lockout ends that record is idle too, and the sweep drops it.
+    vi.setSystemTime(new Date(START + 70_002))
+    store.pending()
+    expect(sources.size).toBe(0)
   })
 
   it('reports a bound code that expired uncollected and keeps an unbound one for its own read', () => {

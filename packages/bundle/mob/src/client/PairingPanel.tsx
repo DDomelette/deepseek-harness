@@ -95,6 +95,8 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   /** Device whose lifetime menu or custom-days row is open. */
   const [lifetimeMenu, setLifetimeMenu] = useState<string | undefined>(undefined)
   const [customOpen, setCustomOpen] = useState<string | undefined>(undefined)
+  /** One decision or device mutation in flight; a second click waits for it to settle. */
+  const busy = useRef(false)
   const urlField = useRef<HTMLInputElement | null>(null)
 
   const remaining = useMemo(
@@ -183,25 +185,41 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   }
 
   const decide = async (request: PendingPairingView, allowed: boolean): Promise<void> => {
-    const label = labels[request.code] ?? deviceLabelFrom(request.userAgent) ?? t('panel.deviceFallback')
-    const answer = await api.decide(request.code, label, allowed)
-    if (!answer.ok) {
-      setNotice('failed')
-      return
+    // A second click on the same decision would be refused by the Host and read
+    // as a failure, so clicks that land while one is in flight are dropped.
+    if (busy.current) return
+    busy.current = true
+    try {
+      const label = labels[request.code] ?? deviceLabelFrom(request.userAgent) ?? t('panel.deviceFallback')
+      const answer = await api.decide(request.code, label, allowed)
+      if (!answer.ok) {
+        setNotice('failed')
+        return
+      }
+      setNotice(undefined)
+      const listed = await api.requests()
+      if (listed.ok) setRequests(listed.value)
+      await reloadDevices()
+    } finally {
+      busy.current = false
     }
-    const listed = await api.requests()
-    if (listed.ok) setRequests(listed.value)
-    await reloadDevices()
   }
 
   /** Run one device mutation and refresh the list, or surface the failure. */
   const mutateDevice = async (act: () => Promise<{ readonly ok: boolean }>): Promise<void> => {
-    const answer = await act()
-    if (!answer.ok) {
-      setNotice('failed')
-      return
+    if (busy.current) return
+    busy.current = true
+    try {
+      const answer = await act()
+      if (!answer.ok) {
+        setNotice('failed')
+        return
+      }
+      setNotice(undefined)
+      await reloadDevices()
+    } finally {
+      busy.current = false
     }
-    await reloadDevices()
   }
 
   /**

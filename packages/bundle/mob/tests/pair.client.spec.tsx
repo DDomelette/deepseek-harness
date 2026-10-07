@@ -82,7 +82,7 @@ describe('PairScreen', () => {
       [{ status: 'denied' }, '电脑端拒绝了这次配对请求。'],
       [{ status: 'expired' }, '该配对码已失效，请在电脑端重新生成。'],
       [{ status: 'unknown' }, '该配对码已失效，请在电脑端重新生成。'],
-      [{ status: 'locked' }, '尝试次数过多，请在电脑端重新生成配对码后再试。'],
+      [{ status: 'locked' }, '这台手机的尝试次数过多。请等待一分钟后重试。'],
     ] as const) {
       cleanup()
       const mounted = mount(scripted(state))
