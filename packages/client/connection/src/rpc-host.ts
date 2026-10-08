@@ -70,11 +70,14 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param ctx - owning Connection plugin context, which also carries the credential provider.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
+   * @param maxRequestBodyBytes - carrier cap every buffered route of this
+   *   activation buffers under, `/api` and registered channels alike.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly maxRequestBodyBytes: number,
   ) {
     super(ctx, 'connection')
   }
@@ -254,6 +257,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
   ): () => Promise<void> {
     assertChannel(channel)
     const fetchHandler = rpcFetchHandler(channel, handler)
+    // Read the cap once, at registration: the request handler must not depend on
+    // a Context-resolved `this` for a limit the activation already fixed.
+    const maxRequestBodyBytes = this.maxRequestBodyBytes
     const route: WebRoute = {
       kind: 'prefix',
       path: channel,
@@ -265,7 +271,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
           return
         }
         this.noteDeviceRequest(req, res)
-        await bridge(req, res, fetchHandler)
+        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }
     return owner.effect(

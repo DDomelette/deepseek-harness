@@ -419,6 +419,45 @@ describe('connection node half', () => {
     await dispose()
   })
 
+  it('applies the configured carrier cap to a dedicated RPC channel', async () => {
+    const { routes, connection, dispose } = await mounted({ maxRequestBodyBytes: 512 })
+    try {
+      const calls: unknown[] = []
+      connection.rpc.handle('/rpc', async (endpoint, payload) => {
+        calls.push({ endpoint, payload })
+        return { ok: true, value: null }
+      })
+      const route = routes.find(candidate => candidate.path === '/rpc')!
+      const cookie = await authorityCookie(connection, '127.0.0.1:3080')
+      const envelope = (padding: number): ClientRequest => ({
+        type: 'client-request',
+        rpcId: RpcId('rpc-cap'),
+        method: 'goals/create',
+        payload: { args: { pad: 'x'.repeat(padding) } },
+      })
+
+      // The cap a deployment configures is the one that bounds every buffered
+      // carrier of this activation, not only the shared /api route.
+      const over = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(4096)), over.response)
+      expect(over.state.status).toBe(413)
+      expect(calls).toEqual([])
+
+      const within = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(16)), within.response)
+      expect(within.state.status).toBe(200)
+      expect(calls).toHaveLength(1)
+    } finally {
+      await dispose()
+    }
+  })
+
   it('provides a disposable dedicated RPC channel', async () => {
     const ctx = new Context()
     const routes: WebRoute[] = []
