@@ -41,9 +41,12 @@ export const FRONTEND_SERVICE = 'frontend'
 export interface FrontendService {
   /**
    * Render the shell from this deployment's dist.
-   * @returns index.html with the structured injections, the raw taps, and the site-root base.
+   * @returns index.html with the structured injections, the raw taps, and the
+   *   site-root base, or undefined when the dist has no readable index.html
+   *   (the dist is unbuilt), which each caller answers where it owns the
+   *   response.
    */
-  renderIndex(): Promise<string>
+  renderIndex(): Promise<string | undefined>
 }
 
 /** Services required before the authenticated fallback seat can be claimed. */
@@ -74,9 +77,14 @@ const MIME: Record<string, string> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
   '.json': 'application/json',
   '.map': 'application/json',
   '.webmanifest': 'application/manifest+json',
+  // The shell bundles its icon fonts, so the dist carries these three.
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
   // The packed VFS image. Served as its own bytes, never as a Content-Encoding:
   // the worker inflates the body itself, and a transport-level encoding would
   // leave it inflating an already-decoded archive.
@@ -127,6 +135,17 @@ function isIndexEntry(target: string, distRoot: string, distIndex: string): bool
 }
 
 /**
+ * Answer a request for the shell that this dist cannot render. The readiness
+ * line already printed a URL, so the missing step is named instead of a bare
+ * 404 — the one 404 an operator can act on.
+ * @param res - the node:http response to write.
+ */
+function sendIndexMiss(res: ServerResponse): void {
+  res.writeHead(404, { 'content-type': TEXT_MIME })
+  res.end('the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n')
+}
+
+/**
  * Serve one GET/HEAD static request from the dist root.
  * @param pathname - decoded URL pathname of the request.
  * @param res - the node:http response to write.
@@ -134,12 +153,13 @@ function isIndexEntry(target: string, distRoot: string, distIndex: string): bool
  * @param distIndex - absolute path of index.html inside distRoot.
  * @param authorizeIndex - Connection's verdict for an index response, before its bytes are read.
  * @param renderIndex - produces the index.html body (structured injection
- * rendering) for the dist root and configured index path.
+ *   rendering) for the dist root and configured index path, or undefined when
+ *   the dist has no index.html.
  */
 export async function serveStatic(
   pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
   authorizeIndex: () => ConnectionIndexAccess,
-  renderIndex: () => Promise<string>,
+  renderIndex: () => Promise<string | undefined>,
 ): Promise<void> {
   const target = resolve(normalize(join(distRoot, pathname)))
   // Traversal rejection: the target must be distRoot itself (`/`) or stay under
@@ -154,15 +174,16 @@ export async function serveStatic(
   let type: string
   let status = 200
   let headers: Record<string, string> = {}
-  // Whether the request named the shell entry, which decides what an absent
-  // target means: a missing dist is the one 404 an operator can act on.
-  let indexEntry = false
   try {
-    indexEntry = isIndexEntry(target, distRoot, distIndex)
-    if (indexEntry) {
+    if (isIndexEntry(target, distRoot, distIndex)) {
       const access = authorizeIndex()
       if (access === 'answered') return
-      body = await renderIndex()
+      const rendered = await renderIndex()
+      if (rendered === undefined) {
+        sendIndexMiss(res)
+        return
+      }
+      body = rendered
       if (access === 'auth-required') {
         body = markAuthRequired(body)
         status = 401
@@ -174,16 +195,10 @@ export async function serveStatic(
       type = MIME[extname(target)] ?? 'application/octet-stream'
     }
   } catch (error) {
-    // Only absent or non-file targets are 404; other filesystem failures reach
-    // the webserver's request-failure handling.
+    // Only an absent or non-file asset target is 404 here: an index response
+    // answered above, and other filesystem failures reach the webserver's
+    // request-failure handling.
     if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
-    if (indexEntry) {
-      // The readiness line already printed a URL, so a shell that cannot be
-      // rendered names the step that produces it instead of a bare 404.
-      res.writeHead(404, { 'content-type': TEXT_MIME })
-      res.end('the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n')
-      return
-    }
     res.writeHead(404)
     res.end()
     return
@@ -204,16 +219,26 @@ export function apply(ctx: Context, config: Config): void {
   // static directory; served pages also answer deep SPA-fallback paths, where
   // relative asset URLs would resolve under the request directory, so the
   // served form anchors them at the site root ahead of every URL-bearing tag.
-  const renderIndex = async (): Promise<string> => {
-    const body = ctx.webServer.renderIndex(await readFile(distIndex, 'utf8'))
+  const renderIndex = async (): Promise<string | undefined> => {
+    let raw: string
+    try {
+      raw = await readFile(distIndex, 'utf8')
+    } catch (error) {
+      // An absent index is the unbuilt dist, which every caller answers in its
+      // own response; any other filesystem failure still reaches the caller.
+      if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
+      return undefined
+    }
+    const body = ctx.webServer.renderIndex(raw)
     return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="/">`)
   }
   ctx.provide(FRONTEND_SERVICE, { renderIndex })
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
     // Non-GET/HEAD without a matching named route is 405 (fallback-only
-    // semantics: named routes own their method handling).
+    // semantics: named routes own their method handling), and the answer names
+    // the methods this seat does answer.
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405)
+      res.writeHead(405, { allow: 'GET, HEAD' })
       res.end()
       return
     }

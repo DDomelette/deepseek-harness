@@ -147,12 +147,14 @@ function bootFact(code: string): string {
  * pairing component renders over the shell it already knows.
  * @param ctx - plugin context carrying the frontend service.
  * @param code - the code the phone claimed.
- * @returns the shell HTML, or undefined when this Host serves no application shell.
+ * @returns the shell HTML, or undefined when this Host serves no application
+ *   shell — no `frontend` service, or a dist without an index.html.
  */
 async function pairingShell(ctx: Context, code: string): Promise<string | undefined> {
   const frontend = ctx.get(FRONTEND_SERVICE) as FrontendService | undefined
   if (frontend === undefined) return undefined
   const html = await frontend.renderIndex()
+  if (html === undefined) return undefined
   return html.replace(/<head(?:\s[^>]*)?>/i, open => `${open}${bootFact(code)}`)
 }
 
