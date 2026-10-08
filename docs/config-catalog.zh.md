@@ -929,7 +929,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/host/frontend-static/src/index.ts:53`](../packages/host/frontend-static/src/index.ts)
+来源：[`packages/host/frontend-static/src/index.ts:56`](../packages/host/frontend-static/src/index.ts)
 
 <a id="deepseek-aidsh-host-open-in-app"></a>
 

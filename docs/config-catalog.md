@@ -927,7 +927,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/frontend-static/src/index.ts:53`](../packages/host/frontend-static/src/index.ts)
+Source: [`packages/host/frontend-static/src/index.ts:56`](../packages/host/frontend-static/src/index.ts)
 
 <a id="deepseek-aidsh-host-open-in-app"></a>
 
