@@ -369,7 +369,11 @@ export interface ConnectionConfig {
    * Default: 1.
    */
   deviceLifetimeDays?: number
-  /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
+  /**
+   * Maximum bytes buffered for one request body on any buffered carrier route of
+   * this activation: the shared `/api` route and every channel registered through
+   * `connection.rpc.handle`. Default: 300 MiB.
+   */
   maxRequestBodyBytes?: number
 }
 
