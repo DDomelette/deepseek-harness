@@ -39,6 +39,8 @@ export interface ILayout {
   beginNavigation(): AbortSignal
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
+  /** Close the handset drawer presentation; no-op outside that band or when already closed. */
+  closeSidebarDrawer(): void
   /**
    * Report the right panel's presentation without changing its expanded state.
    * @param track - whether the normal panel width reserves a grid track,
@@ -88,6 +90,11 @@ export class LayoutController implements ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void {
     this.panels.toggleSidebar()
+  }
+
+  /** Close the handset drawer presentation without changing wider layouts. */
+  closeSidebarDrawer(): void {
+    this.panels.closeSidebarDrawer()
   }
 
   /** Report the right panel's track and fullscreen presentation. */

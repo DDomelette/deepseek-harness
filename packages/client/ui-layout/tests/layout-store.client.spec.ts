@@ -94,6 +94,24 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(500)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
+
+  it('closes only an expanded handset drawer', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    actions.closeSidebarDrawer()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: false })
+
+    actions.setViewportWidth(800)
+    actions.toggleSidebar()
+    actions.closeSidebarDrawer()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: true })
+
+    actions.setViewportWidth(1200)
+    actions.setSidebar(400)
+    actions.closeSidebarDrawer()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
+  })
 })
 
 describe('main panel selection', () => {
@@ -138,15 +156,20 @@ describe('main panel selection', () => {
     expect(store.getSnapshot().layoutInfo).toBe(selected.layoutInfo)
   })
 
-  it.each(['setSidebar', 'toggleSidebar', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
+  it.each(['setSidebar', 'toggleSidebar', 'closeSidebarDrawer', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
     'preserves panelInfo identity when %s changes layoutInfo', (action) => {
       const { store, actions } = createLayoutStore().create()
       actions.selectPanel(panelA)
       if (action === 'closeRightbar') actions.openRightbar(true, true)
+      if (action === 'closeSidebarDrawer') {
+        actions.setViewportWidth(390)
+        actions.toggleSidebar()
+      }
       const previous = store.getSnapshot()
       switch (action) {
         case 'setSidebar': actions.setSidebar(400); break
         case 'toggleSidebar': actions.toggleSidebar(); break
+        case 'closeSidebarDrawer': actions.closeSidebarDrawer(); break
         case 'setViewportWidth': actions.setViewportWidth(980); break
         case 'setRightbar': actions.setRightbar(500); break
         case 'openRightbar': actions.openRightbar(true, true); break

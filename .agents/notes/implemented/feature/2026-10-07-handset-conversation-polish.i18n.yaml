@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-07-handset-conversation-polish.md
-2026-10-07-handset-conversation-polish.md: 8c227a33cd8ff96ff1f04546d9736854fe3b2acf
-2026-10-07-handset-conversation-polish.zh.md: 2ca14af27b804b6836a07d9acfb099ce2888e2c3
+2026-10-07-handset-conversation-polish.md: 1b643a944b8129b0e31776c17c74bf0517f6cbad
+2026-10-07-handset-conversation-polish.zh.md: b5aa29e0aa762cb3ef6fe769fabf31aefb31a70b

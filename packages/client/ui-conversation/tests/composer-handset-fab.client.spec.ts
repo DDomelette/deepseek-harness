@@ -16,14 +16,24 @@ describe('composer handset band', () => {
     )
   })
 
-  it('collapses the permission trigger to the attach-style icon circle in the docked composer', () => {
+  it('collapses the permission trigger to a bare icon in the docked composer', () => {
+    // No selector-fill circle: at handset widths the circle chrome reads as
+    // clutter next to the attach controls and steals row width.
     const css = read('PermissionSelect.module.css')
     expect(css).toMatch(
-      new RegExp(String.raw`${docked} \.trigger:has\(\.triggerIcon\) \{[^}]*width: 28px;[^}]*background: var\(--dsw-specific-selector\);`),
+      new RegExp(String.raw`${docked} \.trigger:has\(\.triggerIcon\) \{[^}]*width: 28px;[^}]*background: transparent;`),
     )
     const hidden = String.raw`${docked} \.trigger:has\(\.triggerIcon\) \.triggerLabel,\s*`
       + String.raw`${docked} \.trigger:has\(\.triggerIcon\) \.chevron\s*\{\s*display: none;\s*}`
     expect(css).toMatch(new RegExp(hidden))
+  })
+
+  it('keeps the docked row controls at their drawn sizes against the coarse-pointer floor', () => {
+    // The 44px coarse floor would inflate six controls past the narrow card's
+    // width and push the send action out of it.
+    expect(read('InputBar.module.css')).toMatch(
+      new RegExp(String.raw`\[data-sidebar-fab] \.root\[data-composer-variant='composer'] \.row button\s*\{\s*min-height: 28px;\s*min-width: 28px;\s*}`),
+    )
   })
 
   it('pins the tools and modes groups against shrinking so triggers cannot overlap the next group', () => {

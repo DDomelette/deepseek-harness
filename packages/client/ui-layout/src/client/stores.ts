@@ -60,6 +60,7 @@ type LayoutActions = {
   retainMainPanels: (draft: LayoutState, panelIds: readonly string[]) => void
   setSidebar: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
+  closeSidebarDrawer: (draft: LayoutState) => void
   setViewportWidth: (draft: LayoutState, width: number) => void
   setRightbar: (draft: LayoutState, px: number) => void
   openRightbar: (draft: LayoutState, track: boolean, fullscreen: boolean) => void
@@ -109,6 +110,13 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
+      },
+      // Session navigation closes only the handset drawer: squeeze-band and
+      // desktop sidebar presentations belong to the user's layout preference.
+      closeSidebarDrawer: (d) => {
+        if (d.layoutInfo.viewportWidth >= SIDEBAR_OVERLAY || !d.layoutInfo.narrowExpanded) return
+        d.layoutInfo.rightbarInstant = false
+        d.layoutInfo.narrowExpanded = false
       },
       // Crossing either breakpoint (768 overlay, 1024 auto-collapse) in either
       // direction drops the override: each band's default is auto-collapsed,

@@ -12,9 +12,11 @@
  * (the sidebar slot's fab flag) replaces the rail — and the column floats over
  * the center as a drawer behind a scrim. A scrim tap, Escape, or a tracked edge
  * swipe closes it; a right swipe from the frame's left edge opens it. Enter
- * rides a mount keyframe and exit a delayed unmount (DRAWER_SLIDE_MS), both on
- * the track transition's duration and curve; a swipe-driven mount skips the
- * keyframe because the gesture's inline tracking already owns the position.
+ * rides a mount-scoped keyframe (data-entering, cleared on the keyframe's own
+ * duration — re-arming it mid-life would flash the column back to its hidden
+ * start) and exit a delayed unmount (DRAWER_SLIDE_MS), both on the track
+ * transition's duration and curve; a swipe-driven mount never sets the flag
+ * because the gesture's inline tracking already owns the position.
  *
  * The right column is a track, not a box: its occupant draws its panel anchored
  * to the frame's right edge at the resolved normal width, and the
@@ -272,9 +274,16 @@ export function AppFrame({
   // the gesture's own inline tracking owns the column's position from the
   // first frame. The flag resets when the drawer presentation unmounts.
   const [gestureDriven, setGestureDriven] = useState(false)
+  // The enter keyframe is mount-scoped (data-entering): it arms only on a
+  // fresh, non-gesture mount — a reopen inside the slide-out window
+  // transitions back from its mid-slide position instead — and clears on the
+  // keyframe's duration (below) or when a swipe engages, so no later attribute
+  // change can restart it and flash the column back to its hidden start.
+  const [drawerEntering, setDrawerEntering] = useState(false)
   if (drawerWasOpen !== drawerOpen) {
     setDrawerWasOpen(drawerOpen)
     setDrawerClosing(!drawerOpen && drawerWasOpen && overlay)
+    setDrawerEntering(drawerOpen && !gestureDriven && !drawerClosing)
   }
   if (!overlay && (drawerClosing || gestureDriven)) {
     setDrawerClosing(false)
@@ -288,6 +297,14 @@ export function AppFrame({
     }, DRAWER_SLIDE_MS)
     return () => { clearTimeout(timer) }
   }, [drawerClosing])
+  // The entering flag's backstop: animationend is unreliable (reduced motion
+  // drops the animation entirely), so the flag clears on the keyframe's own
+  // duration whether or not the animation ran.
+  useEffect(() => {
+    if (!drawerEntering) return
+    const timer = window.setTimeout(() => { setDrawerEntering(false) }, DRAWER_SLIDE_MS)
+    return () => { clearTimeout(timer) }
+  }, [drawerEntering])
   const drawerShown = drawerOpen || (overlay && drawerClosing)
   const sidebarWidth = drawerShown ? drawerWidth : cols.sidebar
 
@@ -397,6 +414,9 @@ export function AppFrame({
       g.active = true
       e.currentTarget.setPointerCapture(e.pointerId)
       e.currentTarget.setAttribute('data-sidebar-gesture', '')
+      // A swipe engaging mid-enter ends the keyframe at once so the gesture's
+      // inline tracking owns the position from the first frame.
+      setDrawerEntering(false)
       // An open gesture mounts the drawer now so the next animation frame can
       // track it from its hidden offset; a close gesture settles at release.
       // The mount skips its enter keyframe (data-gesture-driven): the gesture
@@ -471,6 +491,7 @@ export function AppFrame({
         className={css.sidebarCol}
         data-drawer={drawerShown || undefined}
         data-closing={drawerClosing || undefined}
+        data-entering={drawerEntering || undefined}
         data-gesture-driven={gestureDriven || undefined}
       >
         {sidebar}
@@ -488,6 +509,7 @@ export function AppFrame({
           aria-hidden="true"
           data-drawer-scrim
           data-closing={drawerClosing || undefined}
+          data-entering={drawerEntering || undefined}
           data-gesture-driven={gestureDriven || undefined}
           onClick={() => { actions.toggleSidebar() }}
         />

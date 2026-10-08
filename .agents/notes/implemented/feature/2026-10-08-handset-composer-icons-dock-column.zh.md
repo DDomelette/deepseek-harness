@@ -14,13 +14,13 @@ Status: implemented
 
 遮挡的修复是结构性的，而不是 z-index 补丁：`[data-sidebar-fab] … .tools, … .modes { flex: none }` 固定分组盒，触发器从此不可能渗入下一分组；单行在 390px 下诚实排布（探针实测：tools 24–180，trailing 256–356，无交集）。
 
-模型触发器与权限触发器同款：在两个数据属性下同样收成 28px selector 填充圆形图标钮（隐藏文字、effort 与 chevron，显示 `IconDataOutline16`），刻意覆盖桌面触屏上保留文字的粗指针规则；模型名保留在触发器的 `title`/aria-label 与菜单行上。ui-conversation 的 InputBar 注释把 `data-composer-variant` 记录为 ui-model-selection 跨 slot 边界消费的契约。
+模型触发器与权限触发器同款：在两个数据属性下同样收成纯图标 28px 触发器（隐藏文字、effort 与 chevron，显示 `IconDataOutline16`），刻意覆盖桌面触屏上保留文字的粗指针规则；模型名保留在触发器的 `title`/aria-label 与菜单行上。selector 填充圆底随后在真机检查中按用户指示去掉（手机端密度下纯图标更干净），按钮行同时相对撑破卡片的 44px 粗指针下限恢复绘制尺寸：[手机端真机修复](../bug-fix/2026-10-08-handset-device-layout-fixes.zh.md)。ui-conversation 的 InputBar 注释把 `data-composer-variant` 记录为 ui-model-selection 跨 slot 边界消费的契约。
 
 目标、待办、队列三个 dock 在此区间去掉额外的 `--dsh-composer-dock-inset` 扣减，横跨共享的 clearance 宽度列，于是所有组合面（消息列、输入卡片、dock）共享同一左缘；统计条改为 `justify-content: flex-start` 并清零两侧内边距，对齐同一边缘。桌面的内边距约定（dock = 卡片上限减去内边距）刻意保持为非手机端规则，与打磨改动中的消息列内边距同理。
 
 ## 否决的方案
 
-- **通过收缩触发器而不是固定分组来修复遮挡。** 否决：44px 最小值是粗指针的无障碍目标；布局 bug 在于分组盒谎报内容宽度，而不是目标本身。
+- **通过收缩触发器而不是固定分组来修复遮挡。** 否决：44px 最小值是粗指针的无障碍目标；布局 bug 在于分组盒谎报内容宽度，而不是目标本身。此后的真机检查发现六个 44px 控件根本放不进卡片——发送按钮离开了视口——遂在这一行恢复绘制尺寸：[手机端真机修复](../bug-fix/2026-10-08-handset-device-layout-fixes.zh.md)。
 - **保留模型文字、只修遮挡。** 被用户否决：文字 chip 正是显得拥挤的元素，图标化处理与权限触发器对称；模型名在菜单与触发器无障碍名称上一次点击可达。
 - **发布共享的 `--dsh-composer-dock-width` 自定义属性，而不是逐模块覆写。** 否决：三个 dock 分布在三个包里、各有 calc 表达式，新增轴线变量反而带来第四种约定，不如每文件两条属性作用域规则直接。
 

@@ -304,6 +304,54 @@ describe('AppFrame', () => {
     expect(frame.querySelector('[data-drawer]')).toBeNull()
   })
 
+  it('arms the enter keyframe only on fresh non-gesture mounts', () => {
+    frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { frame, instance } = mountFrame()
+    // A tap-open is a fresh mount: the column and the scrim ride the enter
+    // keyframe until its own duration clears the flag.
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
+    expect(frame.querySelector('[data-drawer-scrim][data-entering]')).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(frame.querySelector('[data-entering]')).toBeNull()
+    // A reopen inside the slide-out window does not re-arm the keyframe: the
+    // column transitions back from its mid-slide position instead.
+    act(() => { instance.actions.toggleSidebar() })
+    act(() => { vi.advanceTimersByTime(150) })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.drawer).toBe('true')
+    expect(frame.querySelector('[data-entering]')).toBeNull()
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(frame.querySelector('[data-entering]')).toBeNull()
+  })
+
+  it('drops the enter keyframe when a close swipe engages mid-enter and on a band exit', () => {
+    frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
+    swipe(frame, 'pointerdown', 300)
+    swipe(frame, 'pointermove', 250)
+    // The engaged swipe owns the position from its first frame: the keyframe
+    // flag clears with the engage rather than fighting the inline tracking.
+    expect(frame.querySelector('[data-drawer][data-entering]')).toBeNull()
+    swipe(frame, 'pointerup', 250)
+    // 50/280 ≈ 18%: the swipe snaps back open; no keyframe re-arms.
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    expect(frame.querySelector('[data-entering]')).toBeNull()
+    // Close fully, then leave the overlay band right after a fresh mount: the
+    // flag clears with the drawer presentation.
+    act(() => { instance.actions.toggleSidebar() })
+    act(() => { vi.advanceTimersByTime(300) })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
+    resize(800)
+    expect(frame.querySelector('[data-entering]')).toBeNull()
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
+  })
+
   it('ignores an Escape a higher surface already consumed', () => {
     frameWidth = 390
     const { frame, instance } = mountFrame()
@@ -697,6 +745,10 @@ describe('AppFrame drawer edge swipe', () => {
     swipe(frame, 'pointermove', 60, 120)
     expect(expanded(instance)).toBe(true)
     expect(frame.hasAttribute('data-sidebar-gesture')).toBe(true)
+    // A gesture-driven mount never arms the enter keyframe: the gesture's own
+    // inline tracking owns the position from the first frame.
+    expect(frame.querySelector('[data-drawer][data-gesture-driven]')).toBeTruthy()
+    expect(frame.querySelector('[data-entering]')).toBeNull()
     swipe(frame, 'pointermove', 120, 130)
     expect(animationFrames.size).toBe(1)
     act(flushFrames)

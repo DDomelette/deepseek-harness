@@ -166,6 +166,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   openSession(sessionId: SessionId): void {
     this.sessions.open(sessionId)
     this.ctx.layout.selectPanel(null)
+    // A Session picked from the handset drawer has served its navigation;
+    // outside that presentation the request is a layout no-op.
+    this.ctx.layout.closeSidebarDrawer()
   }
 
   async openWorkspace(workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void): Promise<void> {
@@ -197,6 +200,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (target === undefined) {
       this.sessions.clear()
       this.ctx.layout.selectPanel(null)
+      this.ctx.layout.closeSidebarDrawer()
       return
     }
     void this.openWorkspace(target).catch(
