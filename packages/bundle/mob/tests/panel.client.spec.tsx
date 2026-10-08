@@ -3,7 +3,7 @@
  * PairingPanel: the computer's side of the handshake — create a code with a
  * countdown, decide the requests waiting, and list or revoke paired devices.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -57,6 +57,8 @@ interface Script {
   setLifetime?: PairingResult<void>
   /** Holds the decision answer open, for a click that lands while one is in flight. */
   decideGate?: Promise<void>
+  /** Scripted answer per waiting-request read, for a poll that overlaps a slow read. */
+  requestsByRead?: (read: number) => Promise<PairingResult<readonly PendingPairingView[]>>
   /** Holds the revoke answer open, for a click that lands while one is in flight. */
   revokeGate?: Promise<void>
 }
@@ -78,8 +80,12 @@ interface FakeApi {
 function fakeApi(script: Script = {}): FakeApi {
   const open = vi.fn(async (): Promise<PairingResult<PairingSessionView>> =>
     script.open ?? { ok: true, value: { code: CODE, expiresAt: START + 120_000 } })
-  const requests = vi.fn(async (): Promise<PairingResult<readonly PendingPairingView[]>> =>
-    script.requests ?? { ok: true, value: [] })
+  let reads = 0
+  const requests = vi.fn(async (): Promise<PairingResult<readonly PendingPairingView[]>> => {
+    reads += 1
+    if (script.requestsByRead !== undefined) return await script.requestsByRead(reads)
+    return script.requests ?? { ok: true, value: [] }
+  })
   const decide = vi.fn(async (): Promise<PairingResult<void>> => {
     await script.decideGate
     return script.decide ?? { ok: true, value: undefined }
@@ -460,6 +466,81 @@ describe('PairingPanel', () => {
     expect(within(screen.getByText('新手机').closest('li')!).getByText(/30 天（手机凭证剩余 2 天）/u)).toBeTruthy()
     // A credential past its own expiry is dead whatever window the row still carries.
     expect(within(screen.getByText('掉线的手机').closest('li')!).getByText('凭证已失效，需重新配对')).toBeTruthy()
+  })
+
+  it('reads the waiting requests one at a time instead of stacking slow answers', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const pending = { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' }
+    const gate: PromiseWithResolvers<void> = Promise.withResolvers()
+    let reads = 0
+    const subject = fakeApi({
+      requestsByRead: async () => {
+        reads += 1
+        if (reads > 1) return { ok: true, value: [] }
+        await gate.promise
+        return { ok: true, value: [pending] }
+      },
+    })
+    mount({ api: subject })
+
+    // The mount read is still on the wire, so four seconds of polling must not
+    // stack two more reads behind it.
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_000) })
+    expect(subject.requests).toHaveBeenCalledTimes(1)
+
+    gate.resolve()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(screen.getByLabelText('设备名称')).toBeTruthy()
+
+    // Once that answer settled, the next tick reads the list again.
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(subject.requests).toHaveBeenCalledTimes(2)
+    expect(screen.queryByLabelText('设备名称')).toBeNull()
+  })
+
+  it('does not put an answered request back when a poll answer lands after the decision', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(START))
+    const pending = { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' }
+    const stale: PromiseWithResolvers<void> = Promise.withResolvers()
+    const fresh: PromiseWithResolvers<void> = Promise.withResolvers()
+    const subject = fakeApi({
+      requestsByRead: async (read) => {
+        if (read === 2) {
+          await stale.promise
+          return { ok: true, value: [pending] }
+        }
+        if (read === 3) {
+          await fresh.promise
+          return { ok: true, value: [] }
+        }
+        return { ok: true, value: [pending] }
+      },
+    })
+    mount({ api: subject })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const allow = screen.getByRole('button', { name: '允许' })
+    // A poll tick puts a second read on the wire, and the click lands during it.
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(subject.requests).toHaveBeenCalledTimes(2)
+    fireEvent.click(allow)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(subject.decide).toHaveBeenCalledWith(CODE, 'JAD-AL50', true)
+    expect(screen.queryByLabelText('设备名称')).toBeNull()
+
+    // The answer that started before the decision described a list that still
+    // held the request, and it must not put the row back: the fresh read that
+    // does describe the decision is still on the wire.
+    stale.resolve()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(subject.requests).toHaveBeenCalledTimes(3)
+    expect(screen.queryByLabelText('设备名称')).toBeNull()
+
+    fresh.resolve()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(screen.queryByLabelText('设备名称')).toBeNull()
   })
 
   it('shows the MAC address a device resolved at approval', async () => {

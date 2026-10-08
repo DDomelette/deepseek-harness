@@ -6,7 +6,7 @@
  * Every operation goes through the `/pair*` routes, so this page must be the
  * computer itself.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode/lib/browser.js'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -97,7 +97,30 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   const [customOpen, setCustomOpen] = useState<string | undefined>(undefined)
   /** One decision or device mutation in flight; a second click waits for it to settle. */
   const busy = useRef(false)
+  /** The `/pair/state` read in flight, if any; a poll tick during it is dropped. */
+  const reading = useRef<Promise<void> | undefined>(undefined)
+  /** Set by a decision: an answer already on the wire describes the list before it. */
+  const decided = useRef(false)
   const urlField = useRef<HTMLInputElement | null>(null)
+
+  /**
+   * Read the waiting requests, with at most one read in flight: overlapping reads
+   * would let the one that started first answer last and repaint the older list.
+   * An answer a decision has overtaken is dropped whole.
+   * @returns nothing after this read's answer settled.
+   */
+  const readRequests = useCallback((): Promise<void> => {
+    const pending = reading.current
+    if (pending !== undefined) return pending
+    decided.current = false
+    const started = api.requests().then((answer) => {
+      if (answer.ok && !decided.current) setRequests(answer.value)
+    }).finally(() => {
+      reading.current = undefined
+    })
+    reading.current = started
+    return started
+  }, [api])
 
   const remaining = useMemo(
     () => session === undefined ? 0 : Math.max(0, Math.ceil((session.expiresAt - now) / 1_000)),
@@ -135,16 +158,12 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
 
   useEffect(() => {
     if (!canDecide) return
-    let cancelled = false
-    const read = async (): Promise<void> => {
-      const answer = await api.requests()
-      if (cancelled || !answer.ok) return
-      setRequests(answer.value)
-    }
-    void read()
-    const timer = setInterval(() => { void read() }, REQUEST_POLL_MILLISECONDS)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [api, canDecide])
+    // The read applies its own answer, so an answer that arrives after unmount
+    // is a no-op rather than a tracked cancellation.
+    void readRequests()
+    const timer = setInterval(() => { void readRequests() }, REQUEST_POLL_MILLISECONDS)
+    return () => { clearInterval(timer) }
+  }, [canDecide, readRequests])
 
   if (!canDecide) return <p className={css.status}>{t('panel.lanOnly')}</p>
 
@@ -197,8 +216,15 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
         return
       }
       setNotice(undefined)
-      const listed = await api.requests()
-      if (listed.ok) setRequests(listed.value)
+      // A decision overtakes any answer already on the wire, and the answered
+      // request leaves the list at once: a row that stays until the next poll
+      // invites a second click the Host would refuse.
+      decided.current = true
+      setRequests(current => current.filter(entry => entry.code !== request.code))
+      // The refresh has to start after any read already on the wire, whose answer
+      // describes the list from before this decision.
+      await reading.current
+      await readRequests()
       await reloadDevices()
     } finally {
       busy.current = false
