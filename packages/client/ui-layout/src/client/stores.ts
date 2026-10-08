@@ -91,8 +91,16 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
     }),
     actions: {
+      // Selecting a main panel is a navigation, and in the handset band the
+      // drawer has served it: it closes with the same transition the scrim and
+      // Escape use. The overlay band is the only one affected — a squeeze-band
+      // or desktop sidebar is the user's own layout preference, so both the
+      // width and the expansion override survive the selection.
       selectPanel: (d, panelId: MainPanelId | null) => {
         d.panelInfo.activePanelId = panelId
+        if (d.layoutInfo.viewportWidth >= SIDEBAR_OVERLAY || !d.layoutInfo.narrowExpanded) return
+        d.layoutInfo.rightbarInstant = false
+        d.layoutInfo.narrowExpanded = false
       },
       retainMainPanels: (d, panelIds: readonly string[]) => {
         if (d.panelInfo.activePanelId !== null && !panelIds.includes(d.panelInfo.activePanelId)) {

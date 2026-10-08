@@ -34,6 +34,14 @@ describe('mobile viewport (390×844, touch)', () => {
       inner: window.innerWidth,
     }))
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.inner)
+    // Handset band: the transcript scroller reserves no gutter and hides its
+    // bar. A stable gutter shifts the centered column left even with overlay
+    // scrollbars, and a classic bar (some Android WebViews) would still
+    // squeeze the column's content box from the right.
+    const scroller = page.locator('[data-conversation-scroll]')
+    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarGutter)).toBe('auto')
+    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
+    expect(await scroller.evaluate(el => getComputedStyle(el).marginRight)).toBe('0px')
     expect(tripwire.pageErrors).toEqual([])
   })
 
@@ -123,6 +131,20 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(hitTest.right).toBeLessThanOrEqual(390)
     expect(hitTest.bottom).toBeLessThanOrEqual(844)
     expect(hitTest.hit).toBe(true)
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('closes the drawer after picking a session row', async () => {
+    await page.getByRole('button', { name: 'Open sidebar' }).click()
+    const scrim = page.locator('[data-drawer-scrim]')
+    await scrim.waitFor({ state: 'attached' })
+
+    await page.getByRole('tree', { name: 'Sessions' })
+      .getByRole('treeitem', { name: /New Session/ })
+      .click()
+
+    await scrim.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Open sidebar' }).waitFor({ state: 'visible' })
     expect(tripwire.pageErrors).toEqual([])
   })
 

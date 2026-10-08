@@ -386,6 +386,27 @@
   margin: 2px;
 }
 
+/* Handset band (frame data-sidebar-fab): scrollbars overlay the content
+   there, so the stable gutter and the 2px bar offset never host a bar — they
+   only shift the centered content column left by half the reserved width.
+   The overlay-composer seat's bar-width compensation drops with them. The bar
+   itself hides too (same pattern as ui-chat's TurnNavigator scroller): browsers
+   whose bars take layout width (some Android WebViews) would otherwise still
+   squeeze the centered column from the right. */
+[data-sidebar-fab] .scrollBody {
+  margin-right: 0;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+[data-sidebar-fab] .scrollBody::-webkit-scrollbar {
+  display: none;
+}
+
+[data-sidebar-fab] .scrollBody:has([data-conversation-composer-overlay]) > .composerSeat {
+  right: 0;
+}
+
 .root[data-phase='active'] .viewArea {
   flex: 1 0 auto;
   min-height: auto;

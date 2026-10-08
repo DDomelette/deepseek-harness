@@ -49,13 +49,15 @@
 
 /* Drawer presentation (viewport < 768px): the sidebar leaves the grid and
    floats over the center; the scrim freezes the center and closes on tap.
-   Enter rides a mount keyframe and the scrim fades with it (a mounting
-   element cannot transition); exit is a delayed unmount under data-closing
-   (AppFrame DRAWER_SLIDE_MS) so the base transition slides the column out.
-   An edge-swipe-driven mount (data-gesture-driven) skips the keyframe, and an
-   active swipe (frame data-sidebar-gesture) drops both animated properties:
-   the gesture's inline transform/opacity already owns the position, and a
-   running animation would override it. */
+   Enter rides a mount-scoped keyframe (data-entering, cleared on the
+   keyframe's own duration — AppFrame.tsx); exit is a delayed unmount under
+   data-closing (AppFrame DRAWER_SLIDE_MS) so the base transition slides the
+   column out. The keyframe must never re-arm mid-life: an `animation: none`
+   companion rule (the gesture band used to carry one) restarts it on
+   release, flashing the column back to its hidden keyframe start before the
+   close slide. Gesture-driven mounts simply never set data-entering, and a
+   gesture engage clears it, so the inline tracking owns the position from
+   the first frame. */
 .sidebarCol[data-drawer] {
   position: fixed;
   inset-block: 0;
@@ -64,6 +66,9 @@
   background: var(--dsw-alias-bg-base);
   box-shadow: 8px 0 24px rgb(0 0 0 / 24%);
   transition: transform var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.sidebarCol[data-drawer][data-entering] {
   animation: drawer-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
 }
 
@@ -71,12 +76,9 @@
   transform: translateX(-100%);
 }
 
-.sidebarCol[data-drawer][data-gesture-driven] {
-  animation: none;
-}
-
+/* An active swipe eases nothing: the gesture's inline transform owns the
+   column's position. animation stays untouched — see the block comment. */
 .frame[data-sidebar-gesture] .sidebarCol[data-drawer] {
-  animation: none;
   transition: none;
 }
 
@@ -90,6 +92,9 @@
   z-index: 12;
   background: rgb(0 0 0 / 32%);
   transition: opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.scrim[data-entering] {
   animation: scrim-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
 }
 
@@ -98,12 +103,7 @@
   pointer-events: none;
 }
 
-.scrim[data-gesture-driven] {
-  animation: none;
-}
-
 .frame[data-sidebar-gesture] .scrim {
-  animation: none;
   transition: none;
 }
 

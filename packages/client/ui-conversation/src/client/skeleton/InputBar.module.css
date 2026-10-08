@@ -408,3 +408,11 @@
     min-width: 44px;
   }
 }
+
+/* Handset docked composer: the row's controls keep their drawn sizes (28px
+   icon triggers, 34px send) — the coarse floor above would inflate six
+   controls past the narrow card's width and push the send action out of it. */
+[data-sidebar-fab] .root[data-composer-variant='composer'] .row button {
+  min-height: 28px;
+  min-width: 28px;
+}

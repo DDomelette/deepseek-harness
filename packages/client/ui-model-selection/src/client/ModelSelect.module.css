@@ -103,29 +103,26 @@
 
 /* Handset docked composer (frame data-sidebar-fab + ui-conversation InputBar's
    data-composer-variant='composer' — a user-directed override of the
-   coarse-pointer text rule above for this one band): the trigger takes the
-   attach controls' 28px selector-fill icon circle, with the Models glyph
-   standing in for name, effort, and chevron. The model name stays on the
-   trigger's aria-label and title, and on the menu rows. */
+   coarse-pointer text rule above for this one band): the trigger collapses to
+   a bare Models glyph standing in for name, effort, and chevron — no
+   selector-fill circle, which reads as clutter at handset widths and steals
+   row width. The model name stays on the trigger's aria-label and title, and
+   on the menu rows. */
 [data-sidebar-fab] [data-composer-variant='composer'] .trigger {
   gap: 0;
   width: 28px;
   padding: 0;
   justify-content: center;
-  border-radius: 999px;
-  corner-shape: round;
-  background: var(--dsw-specific-selector);
-  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
 }
 
-[data-sidebar-fab] [data-composer-variant='composer'] .trigger:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover-solid);
-}
-
+/* Bare icons draw one step larger than the circled glyph to keep their
+   visual weight without the fill. */
 [data-sidebar-fab] [data-composer-variant='composer'] .triggerIcon {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 [data-sidebar-fab] [data-composer-variant='composer'] .triggerLabel,

@@ -266,6 +266,8 @@ describe('UiWorkspaceService', () => {
     })
     b.uiWorkspace.openSession(current)
     expect(b.sessions.open).toHaveBeenCalledWith(current)
+    // Returning the main slot to the Conversation is the whole layout request:
+    // the handset drawer dismissal rides on that selection inside ui-layout.
     expect(b.selectPanel).toHaveBeenCalledWith(null)
     expect(b.sessions.open.mock.invocationCallOrder[0]).toBeLessThan(b.selectPanel.mock.invocationCallOrder[0]!)
   })
@@ -451,6 +453,7 @@ describe('UiWorkspaceService', () => {
     const empty = bench()
     empty.uiWorkspace.startSession()
     expect(empty.sessions.clear).toHaveBeenCalledOnce()
+    expect(empty.selectPanel).toHaveBeenCalledWith(null)
 
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     b.sessions.create.mockRejectedValueOnce(new Error('create failed'))

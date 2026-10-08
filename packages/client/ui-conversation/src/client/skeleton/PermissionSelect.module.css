@@ -83,24 +83,25 @@
 
 /* Handset docked composer (frame data-sidebar-fab + the InputBar root's
    data-composer-variant='composer' — user-directed override of the coarse-
-   pointer label rule above for this one band): the trigger collapses to the
-   28px icon circle the attach controls wear (selector fill, 14px glyph). A
-   glyph-less host mode keeps its label — the icon is its only identifier
-   otherwise. The permission name stays on the trigger's aria-label and the
-   menu rows. */
+   pointer label rule above for this one band): the trigger collapses to a
+   bare icon — no selector-fill circle, which reads as clutter at handset
+   widths and steals row width. A glyph-less host mode keeps its label — the
+   icon is its only identifier otherwise. The permission name stays on the
+   trigger's aria-label and the menu rows. */
 [data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) {
   gap: 0;
   width: 28px;
   padding: 0;
   justify-content: center;
-  border-radius: 999px;
-  corner-shape: round;
-  background: var(--dsw-specific-selector);
-  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
 }
 
-[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon):hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover-solid);
+/* Bare icons draw one step larger than the circled glyph to keep their
+   visual weight without the fill. */
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) .triggerIcon svg {
+  width: 16px;
+  height: 16px;
 }
 
 [data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) .triggerLabel,

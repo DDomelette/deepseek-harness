@@ -8,18 +8,20 @@ const css = readFileSync(fileURLToPath(new URL('../src/client/ModelSelect.module
 describe('ModelSelect.module.css handset band', () => {
   const docked = String.raw`\[data-sidebar-fab] \[data-composer-variant='composer']`
 
-  it('collapses the trigger to the attach-style icon circle in the docked composer', () => {
+  it('collapses the trigger to a bare Models glyph in the docked composer', () => {
     // User-directed override of the coarse-pointer text rule for this one
     // band; the model name stays on the trigger's aria-label and menu rows.
+    // No selector-fill circle: at handset widths the circle chrome reads as
+    // clutter next to the attach controls and steals row width.
     expect(css).toMatch(
-      new RegExp(String.raw`${docked} \.trigger \{[^}]*width: 28px;[^}]*background: var\(--dsw-specific-selector\);`),
+      new RegExp(String.raw`${docked} \.trigger \{[^}]*width: 28px;[^}]*background: transparent;`),
     )
     const hidden = String.raw`${docked} \.triggerLabel,\s*`
       + String.raw`${docked} \.triggerEffort,\s*`
       + String.raw`${docked} \.chevron\s*\{\s*display: none;\s*}`
     expect(css).toMatch(new RegExp(hidden))
     expect(css).toMatch(
-      new RegExp(String.raw`${docked} \.triggerIcon\s*\{\s*display: block;`),
+      new RegExp(String.raw`${docked} \.triggerIcon\s*\{\s*display: block;\s*width: 16px;\s*height: 16px;`),
     )
   })
 })

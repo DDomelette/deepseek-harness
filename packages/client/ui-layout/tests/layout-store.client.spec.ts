@@ -94,6 +94,30 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(500)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
+
+  it('closes only an expanded handset drawer when a panel is selected', () => {
+    const { store, actions } = createLayoutStore().create()
+    const panelId = 'panel-a' as MainPanelId
+    // Handset band, drawer open: the selection ends the presentation and leaves
+    // the width preference alone, so reopening restores it.
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().panelInfo).toEqual({ activePanelId: panelId })
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: false })
+
+    // Squeeze band: the expansion override is the user's own preference.
+    actions.setViewportWidth(800)
+    actions.toggleSidebar()
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: true })
+
+    // Desktop: the selected panel leaves the drawn sidebar untouched.
+    actions.setViewportWidth(1200)
+    actions.setSidebar(400)
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
+  })
 })
 
 describe('main panel selection', () => {

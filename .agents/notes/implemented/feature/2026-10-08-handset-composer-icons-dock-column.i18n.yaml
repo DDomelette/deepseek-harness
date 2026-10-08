@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-08-handset-composer-icons-dock-column.md
-2026-10-08-handset-composer-icons-dock-column.md: 42a1b08d10cd72d6f3ef846693ec855b9877cd85
-2026-10-08-handset-composer-icons-dock-column.zh.md: 6a5f11d0dc2fddcf30c7d1fa81aa9190990389a8
+2026-10-08-handset-composer-icons-dock-column.md: 4fdd7149638f5aa2af433c4a5e0ac0c83e8ab0d0
+2026-10-08-handset-composer-icons-dock-column.zh.md: 5826de3557572a7623c3bc55224e10163a225097

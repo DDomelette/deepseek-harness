@@ -285,9 +285,12 @@ async function openSeed(page: Page, fixture: ChatScrollFixture, tailMarker?: str
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
   await results.click()
+  // Picking the result row closes the handset drawer itself: the navigation
+  // returns the main slot to the Conversation, and that panel selection ends
+  // the drawer presentation inside ui-layout. A manual Collapse click here
+  // would race the slide-out unmount, so just wait the close out.
   const drawerScrim = page.locator('[data-drawer-scrim]')
   if (await drawerScrim.count() > 0) {
-    await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
     await drawerScrim.waitFor({ state: 'detached' })
   }
   await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 30_000 })
