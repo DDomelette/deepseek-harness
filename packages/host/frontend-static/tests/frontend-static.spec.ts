@@ -40,6 +40,10 @@ async function loadComposition(): Promise<Context> {
   await writeFile(distIndex, '<head></head><body>shell</body>')
   await writeFile(join(dist, 'app.js'), 'export {}')
   await writeFile(join(dist, 'blob.bin'), 'BLOB')
+  await writeFile(join(dist, 'icon.png'), 'PNG')
+  await writeFile(join(dist, 'shell.woff2'), 'WOFF2')
+  await writeFile(join(dist, 'shell.woff'), 'WOFF')
+  await writeFile(join(dist, 'shell.ttf'), 'TTF')
   await writeFile(join(dist, 'manifest.webmanifest'), '{}')
   await mkdir(join(dist, 'empty'))
   const configPath = join(root, 'cordis.yml')
@@ -202,6 +206,18 @@ describe('real Loader composition', () => {
     // Unknown extension ships as octet-stream.
     expect(await request(port, '/blob.bin')).toMatchObject({ status: 200, type: 'application/octet-stream', body: 'BLOB' })
 
+    // The icon fonts and images the shipped dist carries are served as
+    // themselves, not as octet-stream downloads.
+    const typed = [
+      ['/icon.png', 'image/png', 'PNG'],
+      ['/shell.woff2', 'font/woff2', 'WOFF2'],
+      ['/shell.woff', 'font/woff', 'WOFF'],
+      ['/shell.ttf', 'font/ttf', 'TTF'],
+    ] as const
+    for (const [path, type, body] of typed) {
+      expect(await request(port, path)).toMatchObject({ status: 200, type, body })
+    }
+
     // Only the root and index path render index.html through registered taps.
     const untap = server.tapIndex(html => html.replace('<head>', '<head><script>window.__T__=1</script>'))
     for (const path of ['/', '/index.html', '/?fixture']) {
@@ -286,6 +302,10 @@ describe('real Loader composition', () => {
     // malformed filesystem target still reaches the webserver's 400 guard.
     expect((await request(port, '/..%2f..%2fetc%2fpasswd')).status).toBe(403)
     expect((await request(port, '/app.js', { method: 'POST' })).status).toBe(405)
+    // A 405 names the methods this seat answers, so a client learns what to
+    // retry with instead of guessing.
+    const notAllowed = await fetch(`http://127.0.0.1:${String(port)}/app.js`, { method: 'POST' })
+    expect(notAllowed.headers.get('allow')).toBe('GET, HEAD')
     expect((await request(port, '/bad%00path')).status).toBe(400)
 
     // HMR safety: disposing the frontend row releases the fallback seat (the
@@ -295,5 +315,24 @@ describe('real Loader composition', () => {
     await frontendEntry!.fiber?.dispose()
     expect((await request(port, '/no/such/route')).status).toBe(404)
     expect(() => server.registerFallback(() => {})).not.toThrow()
+  })
+
+  it('keeps a dist read failure that is not absence loud', async () => {
+    const ctx = new Context()
+    ctx.provide('webServer', {
+      registerFallback: () => () => {},
+      renderIndex: (html: string) => html,
+    } as never)
+    ctx.provide('connection', { authorizeIndex: () => 'serve' } as never)
+    try {
+      // A configured index path this build cannot even attempt to read: the
+      // miss answer belongs to an absent dist, so the failure reaches the
+      // caller instead of reading as "unbuilt".
+      FrontendStatic.apply(ctx, { distIndex: `${join('tmp', 'dist')}\u0000index.html` })
+      const frontend = ctx.get(FrontendStatic.FRONTEND_SERVICE) as { renderIndex(): Promise<string | undefined> }
+      await expect(frontend.renderIndex()).rejects.toThrow(/without null bytes/u)
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 })

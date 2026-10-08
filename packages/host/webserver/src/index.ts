@@ -135,7 +135,10 @@ export class WebServer extends Service {
   private readonly upgrades = new Map<string, WebUpgradeRoute>()
   private readonly upgradedSockets = new Set<Duplex>()
   private readonly indexTaps: ((html: string) => string)[] = []
-  private fallback: WebRoute['handler'] | undefined
+  // One-key holder rather than a bare field: a disposer may outlive the Context
+  // its method ran under, and Cordis resolves a service method's `this` through
+  // that Context. The holder object is what a registration captures.
+  private readonly fallbackSeat: { handler: WebRoute['handler'] | undefined } = { handler: undefined }
   private server!: Server
   private listenedPort!: number
   private readonly gzip: NodeMiddleware | undefined
@@ -168,7 +171,11 @@ export class WebServer extends Service {
       throw new Error(`webserver: duplicate ${route.kind} route "${route.path}"`)
     }
     table.set(route.path, route)
-    return () => { table.delete(route.path) }
+    // The disposer releases this registration, not the key: an owner torn down
+    // after another owner took the same path must not remove the live route.
+    return () => {
+      if (table.get(route.path) === route) table.delete(route.path)
+    }
   }
 
   /**
@@ -178,11 +185,15 @@ export class WebServer extends Service {
    * @returns the disposer removing the route.
    */
   registerUpgrade(route: WebUpgradeRoute): () => void {
-    if (this.upgrades.has(route.path)) {
+    const table = this.upgrades
+    if (table.has(route.path)) {
       throw new Error(`webserver: duplicate upgrade route "${route.path}"`)
     }
-    this.upgrades.set(route.path, route)
-    return () => { this.upgrades.delete(route.path) }
+    table.set(route.path, route)
+    // Identity, not key, for the same reason as {@link WebServer.register}.
+    return () => {
+      if (table.get(route.path) === route) table.delete(route.path)
+    }
   }
 
   /**
@@ -194,11 +205,16 @@ export class WebServer extends Service {
    * @returns the disposer releasing the seat.
    */
   registerFallback(handler: WebRoute['handler']): () => void {
-    if (this.fallback !== undefined) {
+    const seat = this.fallbackSeat
+    if (seat.handler !== undefined) {
       throw new Error('webserver: fallback already registered')
     }
-    this.fallback = handler
-    return () => { this.fallback = undefined }
+    seat.handler = handler
+    // Identity, not occupancy: an owner torn down after another owner claimed
+    // the seat must not release the live handler.
+    return () => {
+      if (seat.handler === handler) seat.handler = undefined
+    }
   }
 
   /**
@@ -227,7 +243,7 @@ export class WebServer extends Service {
         await route.handler(req, res)
         return
       }
-      const fallback = this.fallback
+      const fallback = this.fallbackSeat.handler
       if (fallback === undefined) {
         res.writeHead(404)
         res.end()
