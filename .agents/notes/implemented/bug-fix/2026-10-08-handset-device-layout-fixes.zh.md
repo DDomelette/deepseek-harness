@@ -28,7 +28,7 @@ Status: implemented
 
 抽屉的入场关键帧改为挂载期作用,取代抑制式门控:新的 `data-entering` 属性只在全新的、非手势驱动的挂载上武装 `drawer-in`/`scrim-in`——滑出窗口内的重新打开改从滑出中途位置过渡回去——该标志在关键帧自身时长后清除(300ms `DRAWER_SLIDE_MS` 兜底,因为 reduced motion 丢弃动画时 `animationend` 不可靠),或在滑动手势进入时清除。手势区间现在只带 `transition: none`;挂载之后再没有任何规则切换 `animation`,关键帧因此不可能重播。`data-gesture-driven` 保留为单元测试钉住的挂载标记,但它的 CSS 规则已删除——手势挂载根本不会设置 `data-entering`。
 
-会话导航现在拥有“选中并收起”的完整序列:`uiWorkspace.openSession` 依次选中会话、把主 slot 切回会话界面、调用新的 `layout.closeSidebarDrawer()`;无工作区的新会话路径在清空到纯视图后同样调用。布局存储只在 `viewportWidth < SIDEBAR_OVERLAY && narrowExpanded` 时关闭;挤压区间与桌面侧边栏偏好不受影响,被后续导航取代的异步打开也不会到达关闭动作。
+手机抽屉的关闭是"选中主面板"的后果,因此它落在布局存储里:`selectPanel` 在 `viewportWidth < SIDEBAR_OVERLAY && narrowExpanded` 时收起抽屉,其余状态一概不动。会话导航与抽屉自己的面板行本来就调用这同一个方法,所以没有任何调用方需要额外请求一次关闭,`ctx.layout` 也不必新增一个手机专属命令;挤压区间与桌面侧边栏偏好不受影响,被后续导航取代的异步打开也不会到达关闭动作。
 
 ## 已考虑的替代方案
 
@@ -36,10 +36,11 @@ Status: implemented
 - **停靠行内保留 44px 下限**(输入区图标化笔记的立场)。因真机表现而否决:六个撑大的控件放不进卡片,且失败模式比小触摸目标更糟——发送按钮会离开视口。该下限在此行之外仍是规则。
 - **用 `animation-play-state: paused` 做手势期抑制,而不是去掉 `animation: none` 切换。** 否决:暂停的动画仍应用其冻结的关键帧值,恰好会在手指按下期间压过手势的内联跟踪。
 - **用 `onAnimationEnd` 清除关键帧标志。** 否决:reduced motion 会完全丢弃动画,事件永不触发、标志卡死;时长兜底两条路径都覆盖。
-- **通过 `sidebar.workspaces` 的属主共享下传 `collapseSidebar` 回调。** 否决:收起是导航结果,不是浏览区域的渲染职责;布局存储已经持有叠层区间事实,能在其他区间把它变成 no-op。
+- **通过 `sidebar.workspaces` 的属主共享下传 `collapseSidebar` 回调。** 否决:收起是面板选择的结果,不是浏览区域的渲染职责;布局存储已经持有叠层区间事实,能在其他区间把它变成 no-op。
+- **把关闭动作作为新的跨插件方法发布到 `ctx.layout`。** 评审中否决:它唯一的消费者会是工作区导航,于是通用的面板过渡面——以及它的每一个实现、替身与投影——都要背上一个手机专属命令。把它折进调用方本来就会发起的"选中主面板"里,后果就留在拥有抽屉的那个服务内。
 
 ## 后果
 
 - 390×844 触摸真浏览器验证(无密钥 scaffold,播种中文转写):消息列与输入卡片均为对称 16px 内边距(390px 视口下 `column`/`card` 为 16→374),行内按钮实测 [28, 28, 28, 28, 34]、零溢出,发送钮右缘落在卡片内;关闭滑动在滑出途中采样为 `animationName: none`、`translateX ≈ −195`——只滑出,不再闪回。
-- 样式契约与导航测试随行为同步:composer-handset-fab 钉住纯图标权限触发器与紧凑下限,model-select-handset-fab 钉住纯 Models 图标,app-frame 规格钉住 entering 标志的武装、超时清除、手势进入清除与窗口内重开不再武装,布局/工作区服务规格钉住抽屉关闭的作用域与选中后的顺序。mobile-drawer e2e 现在会点选会话行并断言抽屉关闭,并钉住手机端滚动容器无槽位、隐藏滚动条的计算样式;chat-scroll-contract 的 openSeed 改为等待点选结果自行关闭抽屉,不再用手动收起点击去撞滑出卸载。该 lane 与 composer-tab-geometry 全绿,chat-scroll-contract 有两条在本 Windows 宿主的干净树上同样失败(宿主工具执行问题,与布局无关)。
+- 样式契约与导航测试随行为同步:composer-handset-fab 钉住纯图标权限触发器与紧凑下限,model-select-handset-fab 钉住纯 Models 图标,布局存储规格钉住抽屉关闭的作用域(仅叠层区间),app-frame 规格钉住 entering 标志的武装、超时清除、手势进入清除与窗口内重开不再武装,工作区服务规格钉住导航先选中、再展示会话。mobile-drawer e2e 现在会点选会话行并断言抽屉关闭,并钉住手机端滚动容器无槽位、隐藏滚动条的计算样式;chat-scroll-contract 的 openSeed 改为等待点选结果自行关闭抽屉,不再用手动收起点击去撞滑出卸载。该 lane 与 composer-tab-geometry 全绿,chat-scroll-contract 有两条在本 Windows 宿主的干净树上同样失败(宿主工具执行问题,与布局无关)。
 - 本笔记取代两条所属笔记中的两点:打磨笔记的槽位否决与其 `animation: none` 手势抑制,以及输入区图标化笔记的 selector 填充圆底与行内 44px 下限。两篇笔记的已实现事实段落均指向此处。

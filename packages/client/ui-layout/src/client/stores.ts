@@ -60,7 +60,6 @@ type LayoutActions = {
   retainMainPanels: (draft: LayoutState, panelIds: readonly string[]) => void
   setSidebar: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
-  closeSidebarDrawer: (draft: LayoutState) => void
   setViewportWidth: (draft: LayoutState, width: number) => void
   setRightbar: (draft: LayoutState, px: number) => void
   openRightbar: (draft: LayoutState, track: boolean, fullscreen: boolean) => void
@@ -92,8 +91,16 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
     }),
     actions: {
+      // Selecting a main panel is a navigation, and in the handset band the
+      // drawer has served it: it closes with the same transition the scrim and
+      // Escape use. The overlay band is the only one affected — a squeeze-band
+      // or desktop sidebar is the user's own layout preference, so both the
+      // width and the expansion override survive the selection.
       selectPanel: (d, panelId: MainPanelId | null) => {
         d.panelInfo.activePanelId = panelId
+        if (d.layoutInfo.viewportWidth >= SIDEBAR_OVERLAY || !d.layoutInfo.narrowExpanded) return
+        d.layoutInfo.rightbarInstant = false
+        d.layoutInfo.narrowExpanded = false
       },
       retainMainPanels: (d, panelIds: readonly string[]) => {
         if (d.panelInfo.activePanelId !== null && !panelIds.includes(d.panelInfo.activePanelId)) {
@@ -110,13 +117,6 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
-      },
-      // Session navigation closes only the handset drawer: squeeze-band and
-      // desktop sidebar presentations belong to the user's layout preference.
-      closeSidebarDrawer: (d) => {
-        if (d.layoutInfo.viewportWidth >= SIDEBAR_OVERLAY || !d.layoutInfo.narrowExpanded) return
-        d.layoutInfo.rightbarInstant = false
-        d.layoutInfo.narrowExpanded = false
       },
       // Crossing either breakpoint (768 overlay, 1024 auto-collapse) in either
       // direction drops the override: each band's default is auto-collapsed,

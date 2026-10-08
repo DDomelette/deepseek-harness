@@ -27,7 +27,9 @@ export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
 /** Panel navigation and geometry actions exposed through ctx.layout. */
 export interface ILayout {
   /**
-   * Select a global central panel without changing the current Session.
+   * Select a global central panel without changing the current Session. In the
+   * handset overlay band the selection also ends the drawer presentation, the
+   * same way the scrim, Escape, and the close gesture do.
    * @param panelId - registered main key, or null to show the Conversation.
    * @throws if the selected main key is not registered; preserves the current selection.
    */
@@ -39,8 +41,6 @@ export interface ILayout {
   beginNavigation(): AbortSignal
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
-  /** Close the handset drawer presentation; no-op outside that band or when already closed. */
-  closeSidebarDrawer(): void
   /**
    * Report the right panel's presentation without changing its expanded state.
    * @param track - whether the normal panel width reserves a grid track,
@@ -66,7 +66,10 @@ export class LayoutController implements ILayout {
     private readonly hasMainPanel: (id: MainPanelId) => boolean,
   ) {}
 
-  /** Select a global panel or return to the Conversation. */
+  /**
+   * Select a global panel or return to the Conversation. The store folds the
+   * handset drawer dismissal into the selection, so no caller asks for it.
+   */
   selectPanel(panelId: MainPanelId | null): void {
     if (panelId !== null && !this.hasMainPanel(panelId)) {
       throw new Error(`layout.selectPanel: main panel "${panelId}" is not registered`)
@@ -90,11 +93,6 @@ export class LayoutController implements ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void {
     this.panels.toggleSidebar()
-  }
-
-  /** Close the handset drawer presentation without changing wider layouts. */
-  closeSidebarDrawer(): void {
-    this.panels.closeSidebarDrawer()
   }
 
   /** Report the right panel's track and fullscreen presentation. */

@@ -95,21 +95,27 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
 
-  it('closes only an expanded handset drawer', () => {
+  it('closes only an expanded handset drawer when a panel is selected', () => {
     const { store, actions } = createLayoutStore().create()
+    const panelId = 'panel-a' as MainPanelId
+    // Handset band, drawer open: the selection ends the presentation and leaves
+    // the width preference alone, so reopening restores it.
     actions.setViewportWidth(390)
     actions.toggleSidebar()
-    actions.closeSidebarDrawer()
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().panelInfo).toEqual({ activePanelId: panelId })
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: false })
 
+    // Squeeze band: the expansion override is the user's own preference.
     actions.setViewportWidth(800)
     actions.toggleSidebar()
-    actions.closeSidebarDrawer()
+    actions.selectPanel(panelId)
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: true })
 
+    // Desktop: the selected panel leaves the drawn sidebar untouched.
     actions.setViewportWidth(1200)
     actions.setSidebar(400)
-    actions.closeSidebarDrawer()
+    actions.selectPanel(panelId)
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 })
@@ -156,20 +162,15 @@ describe('main panel selection', () => {
     expect(store.getSnapshot().layoutInfo).toBe(selected.layoutInfo)
   })
 
-  it.each(['setSidebar', 'toggleSidebar', 'closeSidebarDrawer', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
+  it.each(['setSidebar', 'toggleSidebar', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
     'preserves panelInfo identity when %s changes layoutInfo', (action) => {
       const { store, actions } = createLayoutStore().create()
       actions.selectPanel(panelA)
       if (action === 'closeRightbar') actions.openRightbar(true, true)
-      if (action === 'closeSidebarDrawer') {
-        actions.setViewportWidth(390)
-        actions.toggleSidebar()
-      }
       const previous = store.getSnapshot()
       switch (action) {
         case 'setSidebar': actions.setSidebar(400); break
         case 'toggleSidebar': actions.toggleSidebar(); break
-        case 'closeSidebarDrawer': actions.closeSidebarDrawer(); break
         case 'setViewportWidth': actions.setViewportWidth(980); break
         case 'setRightbar': actions.setRightbar(500); break
         case 'openRightbar': actions.openRightbar(true, true); break

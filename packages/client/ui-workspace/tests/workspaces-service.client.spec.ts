@@ -196,11 +196,10 @@ function bench(options: BenchOptions = {}) {
   const ctx = new Context()
   const layout = new LayoutController({
     selectPanel: vi.fn(), retainMainPanels: vi.fn(),
-    setSidebar: vi.fn(), toggleSidebar: vi.fn(), closeSidebarDrawer: vi.fn(), setViewportWidth: vi.fn(),
+    setSidebar: vi.fn(), toggleSidebar: vi.fn(), setViewportWidth: vi.fn(),
     setRightbar: vi.fn(), openRightbar: vi.fn(), closeRightbar: vi.fn(),
   }, () => true)
   const selectPanel = vi.spyOn(layout, 'selectPanel')
-  const closeSidebarDrawer = vi.spyOn(layout, 'closeSidebarDrawer')
   ctx.provide('layout', layout)
   ctx.effect(() => () => { layout.dispose() })
   const directoryPicker = new FakeDirectoryPicker()
@@ -212,7 +211,7 @@ function bench(options: BenchOptions = {}) {
     workspaces,
     sessions as unknown as ISessions,
   )
-  return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, closeSidebarDrawer }
+  return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel }
 }
 
 async function flush(): Promise<void> {
@@ -267,18 +266,17 @@ describe('UiWorkspaceService', () => {
     })
     b.uiWorkspace.openSession(current)
     expect(b.sessions.open).toHaveBeenCalledWith(current)
+    // Returning the main slot to the Conversation is the whole layout request:
+    // the handset drawer dismissal rides on that selection inside ui-layout.
     expect(b.selectPanel).toHaveBeenCalledWith(null)
-    expect(b.closeSidebarDrawer).toHaveBeenCalledOnce()
     expect(b.sessions.open.mock.invocationCallOrder[0]).toBeLessThan(b.selectPanel.mock.invocationCallOrder[0]!)
-    expect(b.selectPanel.mock.invocationCallOrder[0]).toBeLessThan(b.closeSidebarDrawer.mock.invocationCallOrder[0]!)
   })
 
-  it('keeps the current panel and drawer when selecting a Session throws', () => {
+  it('keeps the current panel when selecting a Session throws', () => {
     const b = bench()
     b.sessions.open.mockImplementationOnce(() => { throw new Error('selection failed') })
     expect(() => { b.uiWorkspace.openSession(sid('target')) }).toThrow('selection failed')
     expect(b.selectPanel).not.toHaveBeenCalled()
-    expect(b.closeSidebarDrawer).not.toHaveBeenCalled()
   })
 
   it('leaves a later panel selection in place when New Session finishes', async () => {
@@ -456,7 +454,6 @@ describe('UiWorkspaceService', () => {
     empty.uiWorkspace.startSession()
     expect(empty.sessions.clear).toHaveBeenCalledOnce()
     expect(empty.selectPanel).toHaveBeenCalledWith(null)
-    expect(empty.closeSidebarDrawer).toHaveBeenCalledOnce()
 
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     b.sessions.create.mockRejectedValueOnce(new Error('create failed'))
