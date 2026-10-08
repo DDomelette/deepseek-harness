@@ -35,6 +35,8 @@ interface ConnectionOptions {
   readonly noCookie?: boolean
   /** Whether this Host serves an application shell at all. */
   readonly noShell?: boolean
+  /** Whether the Host's frontend service has no index.html to render. */
+  readonly unbuiltShell?: boolean
   /** Whether the last-seen bookkeeping write rejects. */
   readonly touchFails?: boolean
   /** Whether revoking a device rejects, for a reclamation that cannot finish. */
@@ -156,7 +158,11 @@ function bench(options: ConnectionOptions = {}): Bench {
   } as never)
 
   const pairing = new PairingSessions()
-  if (options.noShell !== true) ctx.provide('frontend', { renderIndex: async () => SHELL } as never)
+  if (options.noShell !== true) {
+    ctx.provide('frontend', {
+      renderIndex: async () => options.unbuiltShell === true ? undefined : SHELL,
+    } as never)
+  }
   registerPairingRoutes(ctx, pairing, async () => options.arp ?? '')
 
   return {
@@ -319,6 +325,9 @@ describe('pairing routes', () => {
     expect((await subject.call(PAIR_PATHS.screen, { method: 'HEAD', code })).body).toBe('')
     expect((await subject.call(PAIR_PATHS.screen, {})).status).toBe(400)
     expect((await bench({ noShell: true }).call(PAIR_PATHS.screen, { code })).status).toBe(503)
+    // A Host whose dist has no index.html to render is the same 503 as one with
+    // no shell service: the phone reads "no application shell", not a 400.
+    expect((await bench({ unbuiltShell: true }).call(PAIR_PATHS.screen, { code })).status).toBe(503)
     expect((await subject.call(PAIR_PATHS.screen, {})).status).toBe(400)
     const wrongMethod = await subject.call(PAIR_PATHS.screen, { method: 'POST', code })
     expect(wrongMethod.status).toBe(405)

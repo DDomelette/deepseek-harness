@@ -70,11 +70,14 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param ctx - owning Connection plugin context, which also carries the credential provider.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
+   * @param maxRequestBodyBytes - carrier cap every buffered route of this
+   *   activation buffers under, `/api` and registered channels alike.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly maxRequestBodyBytes: number,
   ) {
     super(ctx, 'connection')
   }
@@ -174,16 +177,26 @@ export class HostConnectionService extends Service implements HostConnectionHand
   }
 
   /**
-   * Stage the aligned device cookie on an authenticated request whose credential
-   * lags its registry window, so a window the operator extended reaches a phone
-   * that is already holding the application open.
+   * Note one authenticated request from a paired device: stage the aligned
+   * cookie when its credential lags the registry window, so an extension the
+   * operator makes reaches a phone holding the application open, and record the
+   * device's last use — the pairing handshake is not the only moment a device is
+   * visibly in use. Every authenticated request may carry either, and the
+   * registry throttles the write, so a busy phone costs at most one credential
+   * write an hour.
    * @param request - headers and TCP peer of an authenticated request.
-   * @param response - response that will carry the replacement cookie.
-   * @returns nothing; a fully aligned request receives no header.
+   * @param response - response that will carry any replacement cookie.
+   * @returns nothing; a fully aligned request and a launch-token request receive
+   *   nothing, and a failed last-seen write is reported rather than thrown.
    */
-  renewDeviceCookie(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
+  noteDeviceRequest(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
     const renewed = this.browserAuth.renewedDeviceCookie(request)
     if (renewed !== undefined) response.setHeader('set-cookie', renewed)
+    const deviceId = this.browserAuth.deviceIdOf(request)
+    if (deviceId === undefined) return
+    void this.devices.touch(deviceId).catch((error: unknown) => {
+      this.ctx.logger.warn('connection: could not record the last-seen time of device "%s": %s', deviceId, String(error))
+    })
   }
 
   /** Whether the local operator's launch-token cookie authorizes device management. */
@@ -244,6 +257,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
   ): () => Promise<void> {
     assertChannel(channel)
     const fetchHandler = rpcFetchHandler(channel, handler)
+    // Read the cap once, at registration: the request handler must not depend on
+    // a Context-resolved `this` for a limit the activation already fixed.
+    const maxRequestBodyBytes = this.maxRequestBodyBytes
     const route: WebRoute = {
       kind: 'prefix',
       path: channel,
@@ -254,8 +270,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
-        this.renewDeviceCookie(req, res)
-        await bridge(req, res, fetchHandler)
+        this.noteDeviceRequest(req, res)
+        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }
     return owner.effect(

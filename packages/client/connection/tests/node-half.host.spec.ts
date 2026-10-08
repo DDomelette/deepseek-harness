@@ -348,6 +348,63 @@ describe('connection node half', () => {
     }
   })
 
+  it('records an authenticated request from a paired phone as that device in use', async () => {
+    const { routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      // A phone paired hours ago keeps using the application, so the pairing
+      // handshake cannot stay the only write behind the panel's last-used time.
+      const unused = Date.now() - 3 * 60 * 60 * 1000
+      store.setPairedDevices({ version: 1, devices: [{ ...device, lastSeenAt: unused }] })
+      expect((await connection.devices.list())[0]!.lastSeenAt).toBe(unused)
+
+      const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = issued?.split(';', 1)[0]
+      expect(cookie).toBeDefined()
+
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: cookie! }, `${API_PATH}/session.list`),
+        fakeResponse().response,
+      )
+      await vi.waitFor(async () => {
+        expect((await connection.devices.list())[0]!.lastSeenAt).toBeGreaterThan(unused)
+      })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('reports a last-seen write that failed instead of failing the request', async () => {
+    const { ctx, routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      const cookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)!.split(';', 1)[0]!
+
+      // A record this build cannot interpret fails the write while the cached
+      // device set still authenticates the request.
+      store.setPairedDevices({ version: 99, devices: [] })
+      const answered = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie }, `${API_PATH}/session.list`),
+        answered.response,
+      )
+
+      await vi.waitFor(() => {
+        expect(warn).toHaveBeenCalledWith(
+          'connection: could not record the last-seen time of device "%s": %s',
+          device.id,
+          expect.stringContaining('unsupported format'),
+        )
+      })
+    } finally {
+      warn.mockRestore()
+      await dispose()
+    }
+  })
+
   it('shares its configured trust and authentication policy with sibling routes', async () => {
     const { connection, dispose } = await mounted({ trustedHosts: ['harness.example'] })
     const loopback = fakeRequest({ host: '127.0.0.1:3080' })
@@ -360,6 +417,45 @@ describe('connection node half', () => {
       cookie: await authorityCookie(connection, 'harness.example'),
     }))).toBeUndefined()
     await dispose()
+  })
+
+  it('applies the configured carrier cap to a dedicated RPC channel', async () => {
+    const { routes, connection, dispose } = await mounted({ maxRequestBodyBytes: 512 })
+    try {
+      const calls: unknown[] = []
+      connection.rpc.handle('/rpc', async (endpoint, payload) => {
+        calls.push({ endpoint, payload })
+        return { ok: true, value: null }
+      })
+      const route = routes.find(candidate => candidate.path === '/rpc')!
+      const cookie = await authorityCookie(connection, '127.0.0.1:3080')
+      const envelope = (padding: number): ClientRequest => ({
+        type: 'client-request',
+        rpcId: RpcId('rpc-cap'),
+        method: 'goals/create',
+        payload: { args: { pad: 'x'.repeat(padding) } },
+      })
+
+      // The cap a deployment configures is the one that bounds every buffered
+      // carrier of this activation, not only the shared /api route.
+      const over = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(4096)), over.response)
+      expect(over.state.status).toBe(413)
+      expect(calls).toEqual([])
+
+      const within = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(16)), within.response)
+      expect(within.state.status).toBe(200)
+      expect(calls).toHaveLength(1)
+    } finally {
+      await dispose()
+    }
   })
 
   it('provides a disposable dedicated RPC channel', async () => {

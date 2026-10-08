@@ -97,7 +97,11 @@ export interface ConnectionConfig {
    * Default: 1.
    */
   deviceLifetimeDays?: number
-  /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
+  /**
+   * Maximum bytes buffered for one request body on any buffered carrier route of
+   * this activation: the shared `/api` route and every channel registered through
+   * `connection.rpc.handle`. Default: 300 MiB.
+   */
   maxRequestBodyBytes?: number
 }
 
@@ -145,6 +149,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     ctx,
     trustedHosts,
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays, recordIssuedCookie),
+    maxRequestBodyBytes,
   )
   // The credential record is the authority for device access, and it changes
   // under this process too: the credentials owner reports every write, including
@@ -175,8 +180,9 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
           return
         }
         // An open phone calls this carrier continuously, so an extended window
-        // reaches its credential here rather than on some later document load.
-        connection.renewDeviceCookie(req, res)
+        // reaches its credential here rather than on some later document load,
+        // and this is also where its last use is recorded.
+        connection.noteDeviceRequest(req, res)
         await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }

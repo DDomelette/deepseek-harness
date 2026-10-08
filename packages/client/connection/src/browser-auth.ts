@@ -473,9 +473,29 @@ export class BrowserAuth {
    *   credential already matches the registry window.
    */
   renewedDeviceCookie(request: ConnectionTrustRequest): string | undefined {
+    const payload = this.acceptedDevicePayload(request)
+    return payload === undefined ? undefined : this.alignedCookie(payload)
+  }
+
+  /**
+   * The paired device an accepted device cookie names, for the registry
+   * bookkeeping that belongs to a request rather than to the pairing handshake.
+   * @param request - headers and TCP peer of a request.
+   * @returns the device id, or undefined for a launch-token, refused, or
+   *   unauthenticated request.
+   */
+  deviceIdOf(request: ConnectionTrustRequest): PairedDeviceId | undefined {
+    return this.acceptedDevicePayload(request)?.deviceId
+  }
+
+  /**
+   * The payload of the accepted device cookie one request carries, or undefined
+   * when the request holds no device credential this activation still accepts.
+   */
+  private acceptedDevicePayload(request: ConnectionTrustRequest): DeviceCookiePayload | undefined {
     const payload = this.cookiePayload(request)
     if (payload?.version !== DEVICE_COOKIE_PAYLOAD_VERSION || !this.accepts(payload, request)) return undefined
-    return this.alignedCookie(payload)
+    return payload
   }
 
   /**
