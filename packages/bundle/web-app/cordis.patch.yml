@@ -388,11 +388,11 @@
 # absent from a surface overlay would silently reappear the day someone reorders
 # the composition.
 
-# `shell-env` STAYS in the host plane: `apps/cli/src/web.ts` injects it to
-# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
-# the criterion for host-plane ownership — injection resolves before any session
-# exists, so there is no agent to key by. Behind a preset realm those variables
-# would never reach the model's shell at all.
+# `shell-env` STAYS in the host plane: `dsh-web-app` injects it to publish
+# `DSH_WEB_URL`, and a host row that injects a service is the criterion for
+# host-plane ownership — injection resolves before any session exists, so there
+# is no agent to key by. Behind a preset realm that variable would never reach
+# the model's shell at all.
 
 - id: tool-bash
   disabled: true

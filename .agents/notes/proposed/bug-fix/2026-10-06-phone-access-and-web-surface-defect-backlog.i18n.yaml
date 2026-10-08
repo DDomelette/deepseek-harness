@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/bug-fix/2026-10-06-phone-access-and-web-surface-defect-backlog.md
-2026-10-06-phone-access-and-web-surface-defect-backlog.md: 4bef2510252e4e6e74797b0dd7454e37dfc002fa
-2026-10-06-phone-access-and-web-surface-defect-backlog.zh.md: a9812f714d21fe4cd68707a103cb412830515210
+2026-10-06-phone-access-and-web-surface-defect-backlog.md: 36f4c60c7427f8d28c21dfa5caba0babe13ad238
+2026-10-06-phone-access-and-web-surface-defect-backlog.zh.md: c2bf564bceaeb71a3227377ff76704de7f56128f
