@@ -175,8 +175,9 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
           return
         }
         // An open phone calls this carrier continuously, so an extended window
-        // reaches its credential here rather than on some later document load.
-        connection.renewDeviceCookie(req, res)
+        // reaches its credential here rather than on some later document load,
+        // and this is also where its last use is recorded.
+        connection.noteDeviceRequest(req, res)
         await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }

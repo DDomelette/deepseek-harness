@@ -706,5 +706,36 @@ describe('BrowserAuth', () => {
       expect(auth.renewedDeviceCookie(request('/', authority, { cookie }))).toBeUndefined()
       expect(auth.isAuthenticated(request('/', authority, { cookie }))).toBe(false)
     })
+    it('names the device an accepted request belongs to, and no device for a launch token', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'))
+      const authority = '192.168.0.126:3080'
+      const store = new RecordCredentials()
+      store.setPairedDevices({
+        version: 1,
+        devices: [deviceEntry('phone-1', 'phone-1', { lifetimeDays: 30, expiresAt: Date.now() + 30 * DAY_MILLISECONDS })],
+      })
+      const auth = await createAuth(store)
+      const cookie = cookiePair(auth.issueDeviceCookie(authority, PHONE))
+
+      // The registry bookkeeping follows the request: an accepted device cookie
+      // names its row, and nothing else does.
+      expect(auth.deviceIdOf(request('/', authority, { cookie }))).toBe(PHONE)
+      expect(auth.deviceIdOf(request('/', authority))).toBeUndefined()
+      expect(auth.deviceIdOf(request('/', '127.0.0.1:3080', {
+        cookie: cookiePair(exchange(auth).cookie),
+      }))).toBeUndefined()
+
+      // A revocation ends the bookkeeping with the access it belonged to.
+      store.setPairedDevices({
+        version: 1,
+        devices: [{
+          ...deviceEntry('phone-1', 'phone-1', { lifetimeDays: 30, expiresAt: Date.now() + 30 * DAY_MILLISECONDS }),
+          revokedAt: Date.now(),
+        }],
+      })
+      await auth.refreshPairedDevices()
+      expect(auth.deviceIdOf(request('/', authority, { cookie }))).toBeUndefined()
+    })
   })
 })
