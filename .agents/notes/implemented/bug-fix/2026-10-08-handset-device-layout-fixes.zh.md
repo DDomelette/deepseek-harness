@@ -20,7 +20,7 @@ Status: implemented
 
 所有规则仍限定在框架的 `data-sidebar-fab` 手机端区间(composer 行另加 `data-composer-variant='composer'`);宽屏与 hero 行为不变。
 
-滚动容器在此区间去掉保留:`[data-sidebar-fab] .scrollBody { margin-right: 0; scrollbar-gutter: auto }`,叠层 composer 座位的条宽补偿随之去掉(`right: 0`)。叠加式滚动条引擎上无变化;占用布局的滚动条下居中列重新对称。滚动条本身在此区间一并隐藏(`scrollbar-width: none` 加 WebKit 的 `display: none` 伪元素规则,与 ui-chat 的 TurnNavigator 滚动容器同一模式):在占用布局的引擎上,即使没有槽位保留,可见滚动条仍会从右侧压缩居中列的内容盒。接受的残余:小于 768px 的桌面窗口随之失去消息区的滚动指示——接受它是因为这类窗口是拖拽过渡态,不是设备。
+滚动容器在此区间去掉保留:`[data-sidebar-fab] .scrollBody { margin-right: 0; scrollbar-gutter: auto }`,叠层 composer 座位的条宽补偿随之去掉(`right: 0`)。叠加式滚动条引擎上无变化;占用布局的滚动条下居中列重新对称。滚动条本身在此区间一并隐藏(`scrollbar-width: none` 加 WebKit 的 `display: none` 伪元素规则,与 ui-chat 的 TurnNavigator 滚动容器同一模式):在占用布局的引擎上,即使没有槽位保留,可见滚动条仍会从右侧压缩居中列的内容盒。接受的残余:小于 768px 的桌面窗口随之失去消息区的滚动指示——接受它是因为这类窗口是拖拽过渡态,不是设备。此后用户要求恢复滚动指示,隐藏与去掉保留被逆转为对称的 `stable both-edges` 槽位,滚动条与居中兼得:[手机端转录滚动条](../feature/2026-10-09-handset-transcript-scrollbar-both-edges.zh.md)。
 
 停靠 composer 行相对粗指针下限恢复绘制尺寸:`[data-sidebar-fab] .root[data-composer-variant='composer'] .row button { min-width: 28px; min-height: 28px }` 让 28px 图标触发器与 34px 发送钮保持设计尺寸,按钮行得以保持单行,发送钮留在卡片内。44px WCAG 下限在粗指针下的其他一切位置(含 hero 卡)仍然适用。
 
@@ -42,5 +42,5 @@ Status: implemented
 ## 后果
 
 - 390×844 触摸真浏览器验证(无密钥 scaffold,播种中文转写):消息列与输入卡片均为对称 16px 内边距(390px 视口下 `column`/`card` 为 16→374),行内按钮实测 [28, 28, 28, 28, 34]、零溢出,发送钮右缘落在卡片内;关闭滑动在滑出途中采样为 `animationName: none`、`translateX ≈ −195`——只滑出,不再闪回。
-- 样式契约与导航测试随行为同步:composer-handset-fab 钉住纯图标权限触发器与紧凑下限,model-select-handset-fab 钉住纯 Models 图标,布局存储规格钉住抽屉关闭的作用域(仅叠层区间),app-frame 规格钉住 entering 标志的武装、超时清除、手势进入清除与窗口内重开不再武装,工作区服务规格钉住导航先选中、再展示会话。mobile-drawer e2e 现在会点选会话行并断言抽屉关闭,并钉住手机端滚动容器无槽位、隐藏滚动条的计算样式;chat-scroll-contract 的 openSeed 改为等待点选结果自行关闭抽屉,不再用手动收起点击去撞滑出卸载。该 lane 与 composer-tab-geometry 全绿,chat-scroll-contract 有两条在本 Windows 宿主的干净树上同样失败(宿主工具执行问题,与布局无关)。
+- 样式契约与导航测试随行为同步:composer-handset-fab 钉住纯图标权限触发器与紧凑下限,model-select-handset-fab 钉住纯 Models 图标,布局存储规格钉住抽屉关闭的作用域(仅叠层区间),app-frame 规格钉住 entering 标志的武装、超时清除、手势进入清除与窗口内重开不再武装,工作区服务规格钉住导航先选中、再展示会话。mobile-drawer e2e 现在会点选会话行并断言抽屉关闭,并钉住手机端滚动容器的计算样式槽位(已随对称预留更新:[手机端转录滚动条](../feature/2026-10-09-handset-transcript-scrollbar-both-edges.zh.md));chat-scroll-contract 的 openSeed 改为等待点选结果自行关闭抽屉,不再用手动收起点击去撞滑出卸载。该 lane 与 composer-tab-geometry 全绿,chat-scroll-contract 有两条在本 Windows 宿主的干净树上同样失败(宿主工具执行问题,与布局无关)。
 - 本笔记取代两条所属笔记中的两点:打磨笔记的槽位否决与其 `animation: none` 手势抑制,以及输入区图标化笔记的 selector 填充圆底与行内 44px 下限。两篇笔记的已实现事实段落均指向此处。
