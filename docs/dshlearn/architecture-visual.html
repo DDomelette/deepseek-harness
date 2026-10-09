@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeepSeek Harness · 架构总览</title>
+<style>
+/* Design tokens mirror packages/client/ui-theme/src/styles/design-platform.css */
+:root {
+  --dsw-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --dsw-font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas,
+    'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-dur: 0.2s;
+}
+html[data-theme='dark'] {
+  --bg-base: rgb(21, 21, 23);
+  --bg-layer-1: rgb(35, 35, 36);
+  --bg-layer-2: rgb(44, 44, 46);
+  --bg-layer-3: rgb(53, 54, 56);
+  --bg-code: rgb(27, 27, 28);
+  --sidebar-fill: rgb(27, 27, 28);
+  --border-l1: rgba(255, 255, 255, 0.06);
+  --border-l2: rgba(255, 255, 255, 0.12);
+  --border-l3: rgba(255, 255, 255, 0.16);
+  --border-l4: rgba(255, 255, 255, 0.2);
+  --label-primary: rgb(249, 250, 251);
+  --label-secondary: rgb(207, 211, 214);
+  --label-tertiary: rgb(173, 178, 184);
+  --label-caption: rgb(129, 133, 140);
+  --brand: rgb(86, 134, 254);
+  --link: rgb(103, 158, 254);
+  --hover: rgba(255, 255, 255, 0.08);
+  --active: rgba(255, 255, 255, 0.14);
+  --success: rgb(34, 197, 94);
+  --error: rgb(242, 90, 90);
+  --warn: rgb(245, 158, 11);
+  --violet: rgb(167, 139, 250);
+  --teal: rgb(45, 212, 191);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+html[data-theme='light'] {
+  --bg-base: rgb(255, 255, 255);
+  --bg-layer-1: rgb(249, 250, 251);
+  --bg-layer-2: rgb(245, 246, 247);
+  --bg-layer-3: rgb(235, 238, 242);
+  --bg-code: rgb(250, 250, 250);
+  --sidebar-fill: rgb(249, 250, 251);
+  --border-l1: rgba(0, 0, 0, 0.04);
+  --border-l2: rgba(0, 0, 0, 0.1);
+  --border-l3: rgba(0, 0, 0, 0.12);
+  --border-l4: rgba(0, 0, 0, 0.16);
+  --label-primary: rgb(15, 17, 21);
+  --label-secondary: rgb(97, 102, 107);
+  --label-tertiary: rgb(129, 133, 140);
+  --label-caption: rgb(173, 178, 184);
+  --brand: rgb(65, 118, 230);
+  --link: rgb(65, 118, 230);
+  --hover: rgba(38, 49, 72, 0.06);
+  --active: rgba(38, 49, 72, 0.1);
+  --success: rgb(34, 197, 94);
+  --error: rgb(236, 19, 19);
+  --warn: rgb(221, 134, 41);
+  --violet: rgb(124, 92, 214);
+  --teal: rgb(13, 148, 136);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body {
+  margin: 0;
+  font-family: var(--dsw-font-family);
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--label-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+}
+code, .mono { font-family: var(--dsw-font-mono); font-size: 0.92em; }
+code {
+  background: var(--bg-layer-3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--label-primary);
+  white-space: nowrap;
+}
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+
+/* ---------- layout ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 12px;
+  height: 52px; padding: 0 20px;
+  background: color-mix(in srgb, var(--bg-base) 86%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 0.5px solid var(--border-l2);
+}
+.brandmark { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+.brandmark .dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--brand); border-right-color: transparent; border-bottom-color: transparent;
+  transform: rotate(-35deg);
+}
+.topnav { display: flex; gap: 4px; margin-left: 8px; }
+.topnav a {
+  padding: 5px 11px; border-radius: 8px; font-size: 13px;
+  color: var(--label-secondary); text-decoration: none; transition: background var(--ds-dur) var(--ds-ease-in-out);
+}
+.topnav a:hover { background: var(--hover); color: var(--label-primary); text-decoration: none; }
+.topnav a.on { background: var(--active); color: var(--label-primary); }
+.spacer { flex: 1; }
+.iconbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 10px; border-radius: 8px; cursor: pointer;
+  border: 0.5px solid var(--border-l3); background: transparent;
+  color: var(--label-secondary); font: inherit; font-size: 12px;
+  transition: background var(--ds-dur) var(--ds-ease-in-out);
+}
+.iconbtn:hover { background: var(--hover); color: var(--label-primary); }
+
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
+aside {
+  position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto;
+  padding: 20px 12px 40px; background: var(--sidebar-fill);
+  border-right: 0.5px solid var(--border-l2);
+}
+aside .eyebrow {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--label-caption); padding: 0 10px 8px;
+}
+aside a {
+  display: block; padding: 6px 10px; border-radius: 8px; font-size: 13px;
+  color: var(--label-secondary); text-decoration: none; line-height: 20px;
+  transition: background var(--ds-dur) var(--ds-ease-in-out);
+}
+aside a:hover { background: var(--hover); color: var(--label-primary); text-decoration: none; }
+aside a.on { background: var(--active); color: var(--label-primary); font-weight: 500; }
+aside a .n { color: var(--label-caption); font-family: var(--dsw-font-mono); font-size: 11px; margin-right: 7px; }
+aside a.on .n { color: var(--brand); }
+
+main { padding: 32px 40px 120px; max-width: 1080px; }
+section { scroll-margin-top: 76px; padding-bottom: 44px; }
+section + section { border-top: 0.5px solid var(--border-l1); padding-top: 40px; }
+h2 {
+  font-size: 21px; line-height: 30px; letter-spacing: -0.01em;
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+}
+h2 .idx { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--brand); font-weight: 500; }
+.lede { color: var(--label-tertiary); margin: 0 0 20px; max-width: 80ch; }
+h3 { font-size: 15px; margin: 26px 0 10px; color: var(--label-primary); }
+p { margin: 0 0 12px; color: var(--label-secondary); max-width: 82ch; }
+ul { margin: 0 0 12px; padding-left: 20px; color: var(--label-secondary); }
+li { margin-bottom: 5px; }
+strong { color: var(--label-primary); font-weight: 600; }
+
+.card {
+  background: var(--bg-layer-1); border: 0.5px solid var(--border-l2);
+  border-radius: 12px; padding: 16px 18px; margin-bottom: 14px;
+}
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(214px, 1fr)); gap: 10px; }
+
+.tag {
+  display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 11px;
+  font-family: var(--dsw-font-mono); line-height: 17px; white-space: nowrap;
+  border: 0.5px solid var(--border-l3); color: var(--label-tertiary);
+}
+.tag.durable { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tag.live { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 45%, transparent); }
+.tag.waterfall { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.tag.internal { color: var(--label-tertiary); }
+.tag.branch { color: var(--violet); border-color: color-mix(in srgb, var(--violet) 45%, transparent); }
+.tag.ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tag.no { color: var(--error); border-color: color-mix(in srgb, var(--error) 45%, transparent); }
+.tag.real { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tag.illu { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.tag.api { color: var(--violet); border-color: color-mix(in srgb, var(--violet) 45%, transparent); }
+
+/* ---------- boot layers ---------- */
+.profiles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.pchip {
+  padding: 5px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--dsw-font-mono);
+  border: 0.5px solid var(--border-l3); background: transparent; color: var(--label-secondary);
+  transition: all var(--ds-dur) var(--ds-ease-in-out);
+}
+.pchip:hover { background: var(--hover); color: var(--label-primary); }
+.pchip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.stack { display: flex; flex-direction: column-reverse; gap: 6px; }
+.layer {
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 14px; align-items: center;
+  padding: 12px 16px; border-radius: 10px;
+  border: 0.5px solid var(--border-l2); background: var(--bg-layer-2);
+  animation: rise 0.32s var(--ds-ease-in-out) both;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+.layer .lname { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-primary); }
+.layer .lname em { display: block; font-style: normal; font-size: 11px; color: var(--label-caption); margin-top: 2px; font-family: var(--dsw-font-family); }
+.layer .ldesc { font-size: 13px; color: var(--label-tertiary); line-height: 21px; }
+.layer.b-base { border-left: 3px solid var(--brand); }
+.layer.b-app { border-left: 3px solid var(--teal); }
+.layer.b-user { border-left: 3px solid var(--warn); }
+.layer.b-own { border-left: 3px solid var(--violet); }
+
+/* ---------- spine ---------- */
+.spine { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 10px; }
+.spine .card { margin: 0; padding: 14px; }
+.spine .pkg { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--brand); }
+.spine .key { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-primary); margin: 4px 0 8px; }
+.spine .desc { font-size: 12.5px; line-height: 20px; color: var(--label-tertiary); }
+
+/* ---------- sequence player ---------- */
+.player { border: 0.5px solid var(--border-l2); border-radius: 12px; background: var(--bg-layer-1); overflow: hidden; }
+.controls {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px; border-bottom: 0.5px solid var(--border-l2); background: var(--bg-layer-2);
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; min-width: 30px; padding: 0 10px; border-radius: 8px; cursor: pointer;
+  border: 0.5px solid var(--border-l3); background: transparent; color: var(--label-primary);
+  font: inherit; font-size: 12px; transition: background var(--ds-dur) var(--ds-ease-in-out);
+}
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; min-width: 78px; }
+.btn.primary:hover { filter: brightness(1.12); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.counter { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-tertiary); min-width: 62px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--label-tertiary); cursor: pointer; user-select: none; }
+input[type='range'] { width: 96px; accent-color: var(--brand); }
+.stage { display: grid; grid-template-columns: 156px 92px minmax(0, 1fr) minmax(330px, 400px); }
+.lanes { padding: 12px 0; border-right: 0.5px solid var(--border-l1); }
+.lane {
+  height: 34px; display: flex; flex-direction: column; justify-content: center;
+  padding: 0 12px; border-left: 2px solid transparent;
+  transition: all var(--ds-dur) var(--ds-ease-in-out);
+}
+.lane .ln { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-secondary); }
+.lane .ls { font-size: 10px; color: var(--label-caption); line-height: 13px; }
+.lane.from { border-left-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.lane.from .ln { color: var(--label-primary); font-weight: 600; }
+.lane.to { border-left-color: var(--teal); background: color-mix(in srgb, var(--teal) 12%, transparent); }
+.lane.to .ln { color: var(--label-primary); font-weight: 600; }
+.lane.pass { background: color-mix(in srgb, var(--label-caption) 10%, transparent); }
+.wire { position: relative; border-right: 0.5px solid var(--border-l1); }
+.wire i { position: absolute; left: 22px; width: 2px; background: var(--brand); transition: all 0.28s var(--ds-ease-in-out); }
+.wire b {
+  position: absolute; left: 15px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--brand); transition: all 0.28s var(--ds-ease-in-out);
+}
+.wire u {
+  position: absolute; left: 15px; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--teal); background: var(--bg-layer-1);
+  transition: all 0.28s var(--ds-ease-in-out);
+}
+.wire em {
+  position: absolute; left: 18px; width: 0; height: 0; padding: 0; font-style: normal;
+  transition: all 0.28s var(--ds-ease-in-out);
+}
+.wire em.dn { border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--teal); }
+.wire em.up { border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 7px solid var(--teal); }
+.wire em.loop { left: 11px; width: auto; height: auto; border: none; font-size: 14px; color: var(--teal); }
+.detail { padding: 14px 18px; min-height: 168px; }
+.detail .fname {
+  font-family: var(--dsw-font-mono); font-size: 13px; color: var(--label-primary);
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.detail .fdesc { font-size: 13px; line-height: 21px; color: var(--label-secondary); }
+.detail .fmeta { margin-top: 12px; font-size: 11.5px; color: var(--label-caption); font-family: var(--dsw-font-mono); }
+.payload { padding: 12px 14px; border-left: 0.5px solid var(--border-l1); max-height: 320px; overflow: auto; }
+.phead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 9px; }
+.phead .pt { font-family: var(--dsw-font-mono); font-size: 11.5px; color: var(--label-primary); }
+.pjson { margin: 0; font-family: var(--dsw-font-mono); font-size: 11px; line-height: 17px; white-space: pre; color: var(--label-secondary); }
+.pjson i { font-style: normal; }
+.pjson .pk { color: var(--brand); }
+.pjson .ps { color: var(--teal); }
+.pjson .pn { color: var(--warn); }
+.pjson .pb { color: var(--violet); }
+.pnote { margin-top: 10px; font-size: 11.5px; line-height: 18px; color: var(--label-caption); }
+.plegend { margin-top: 12px; font-size: 12px; color: var(--label-caption); line-height: 20px; }
+
+/* ---------- goal decomposition tree ---------- */
+.goaltree { position: relative; padding: 4px 0 4px 26px; }
+.goaltree::before {
+  content: ''; position: absolute; left: 7px; top: 16px; bottom: 18px;
+  width: 1.5px; background: var(--border-l3);
+}
+.gt-root {
+  display: inline-block; padding: 7px 14px; border-radius: 9px; margin-bottom: 16px;
+  border: 0.5px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  font-size: 13px; color: var(--label-primary);
+}
+.gt-root b { font-weight: 600; }
+.gt-group { position: relative; margin-bottom: 14px; }
+.gt-group:last-child { margin-bottom: 0; }
+.gt-group::before {
+  content: ''; position: absolute; left: -19px; top: 12px;
+  width: 13px; height: 1.5px; background: var(--border-l3);
+}
+.gt-title { font-size: 12.5px; font-weight: 600; color: var(--label-primary); margin-bottom: 6px; }
+.gt-group ul { list-style: none; margin: 0; padding: 0; }
+.gt-group li {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  padding: 3px 0; font-size: 12.5px; line-height: 20px;
+}
+.gt-group li .gtk {
+  font-family: var(--dsw-font-mono); font-size: 11.5px; color: var(--label-primary);
+  background: var(--bg-layer-3); border-radius: 5px; padding: 1px 7px; white-space: nowrap;
+}
+.gt-group li .gtw { color: var(--label-tertiary); }
+.gt-group.newdep li .gtk {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+.gt-group.newdep .gt-title { color: var(--warn); }
+
+/* ---------- causal frame detail ---------- */
+.flinks { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 3px 10px; margin: 0; }
+.flinks dt { font-size: 11px; color: var(--label-caption); text-align: right; line-height: 20px; white-space: nowrap; }
+.flinks dd { margin: 0; font-size: 12.5px; line-height: 20px; color: var(--label-secondary); }
+.flinks dd.lead { color: var(--label-primary); }
+.tag.z-prep { color: var(--label-tertiary); }
+.tag.z-work { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 45%, transparent); }
+.tag.z-close { color: var(--violet); border-color: color-mix(in srgb, var(--violet) 45%, transparent); }
+.progress span.z-prep { background: color-mix(in srgb, var(--label-caption) 40%, transparent); }
+.progress span.z-work { background: color-mix(in srgb, var(--brand) 40%, transparent); }
+.progress span.z-close { background: color-mix(in srgb, var(--violet) 40%, transparent); }
+.progress span.done { background: color-mix(in srgb, var(--brand) 55%, transparent); }
+.progress span.cur { background: var(--brand); }
+.zonekey { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 14px 10px; font-size: 11.5px; color: var(--label-caption); }
+.zonekey i { font-style: normal; display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.progress { display: flex; gap: 2px; padding: 0 14px 12px; flex-wrap: wrap; }
+.progress span { height: 3px; flex: 1; min-width: 5px; border-radius: 2px; background: var(--border-l3); transition: background var(--ds-dur) var(--ds-ease-in-out); }
+.progress span.done { background: color-mix(in srgb, var(--brand) 55%, transparent); }
+.progress span.cur { background: var(--brand); }
+
+/* ---------- domains ---------- */
+.domains { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 12px; }
+.domain { border: 0.5px solid var(--border-l2); border-radius: 12px; padding: 14px 16px; background: var(--bg-layer-1); }
+.domain h4 { font-size: 13px; margin-bottom: 3px; display: flex; align-items: center; gap: 7px; }
+.domain .sub { font-size: 11px; color: var(--label-caption); font-family: var(--dsw-font-mono); margin-bottom: 9px; }
+.domain p { font-size: 12.5px; line-height: 20px; margin: 0 0 8px; }
+.domain .ex { font-family: var(--dsw-font-mono); font-size: 11px; color: var(--label-tertiary); line-height: 19px; }
+.swatch { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* ---------- pipeline ---------- */
+.pipe { display: flex; flex-direction: column; gap: 7px; }
+.phase-row {
+  display: flex; align-items: center; gap: 10px; margin: 12px 0 1px;
+  font-size: 11.5px; letter-spacing: 0.05em; color: var(--label-caption);
+}
+.phase-row:first-child { margin-top: 0; }
+.phase-row .ph { font-weight: 600; color: var(--label-tertiary); white-space: nowrap; }
+.phase-row::after { content: ''; flex: 1; border-top: 0.5px solid var(--border-l2); }
+
+/* ---------- flow rows (register / dispose) ---------- */
+.flowrows { display: flex; flex-direction: column; gap: 8px; }
+.flowrow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.fbox {
+  flex: 1 1 0; min-width: 150px; border: 0.5px solid var(--border-l2);
+  background: var(--bg-layer-2); border-radius: 9px; padding: 9px 12px;
+}
+.fbox .ft { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-primary); }
+.fbox .fd { font-size: 11.5px; line-height: 17px; color: var(--label-tertiary); margin-top: 2px; }
+.farrow { align-self: center; text-align: center; flex: 0 0 108px; color: var(--label-caption); font-size: 13px; }
+.farrow .fa-l { display: block; font-family: var(--dsw-font-mono); font-size: 10.5px; color: var(--brand); margin-bottom: 1px; }
+.flowrow.rev .fbox { border-color: color-mix(in srgb, var(--error) 32%, transparent); }
+.flowrow.rev .fa-l { color: var(--error); }
+
+/* ---------- loop overview svg ---------- */
+.loopmap { width: 100%; height: auto; display: block; }
+.loopmap .node rect { fill: var(--bg-layer-2); stroke: var(--border-l3); stroke-width: 1; }
+html[data-theme='dark'] .loopmap .node.hub rect { fill: rgb(49, 55, 71); stroke: rgba(86, 134, 254, 0.55); }
+html[data-theme='light'] .loopmap .node.hub rect { fill: rgb(223, 231, 245); stroke: rgba(65, 118, 230, 0.55); }
+.loopmap .nt { font-size: 12.5px; font-weight: 600; fill: var(--label-primary); }
+.loopmap .ns { font-size: 10px; fill: var(--label-caption); }
+.loopmap .el { font-size: 10.5px; fill: var(--label-tertiary); }
+.loopmap .e-internal { stroke: var(--label-caption); }
+.loopmap .e-live { stroke: var(--brand); }
+.loopmap .e-durable { stroke: var(--success); }
+.loopmap .e-waterfall { stroke: var(--warn); }
+.loopmap .edge { fill: none; stroke-width: 1.5; }
+.loopmap .leg-t { font-size: 10.5px; fill: var(--label-tertiary); }
+.stage-row {
+  display: grid; grid-template-columns: 30px 214px minmax(0, 1fr); gap: 12px; align-items: center;
+  padding: 9px 14px; border-radius: 9px; border: 0.5px solid var(--border-l2); background: var(--bg-layer-2);
+}
+.stage-row .num { font-family: var(--dsw-font-mono); font-size: 11px; color: var(--label-caption); }
+.stage-row .sname { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--label-primary); }
+.stage-row .sdesc { font-size: 12.5px; color: var(--label-tertiary); line-height: 19px; }
+.stage-row.hl { border-color: color-mix(in srgb, var(--brand) 50%, transparent); background: color-mix(in srgb, var(--brand) 9%, var(--bg-layer-2)); }
+.stage-row.deny { border-color: color-mix(in srgb, var(--error) 42%, transparent); }
+
+/* ---------- extend table ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 0.5px solid var(--border-l1); vertical-align: top; }
+th { color: var(--label-caption); font-weight: 500; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+td:first-child { color: var(--label-secondary); width: 44%; }
+td:last-child { font-family: var(--dsw-font-mono); font-size: 12px; color: var(--brand); }
+tbody tr:hover { background: var(--hover); }
+
+.note {
+  border-left: 2px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent);
+  padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--label-secondary); margin: 14px 0;
+}
+.note.key { border-left-color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, transparent); }
+.note b { color: var(--label-primary); }
+footer { padding: 28px 40px 60px; color: var(--label-caption); font-size: 12px; border-top: 0.5px solid var(--border-l1); }
+@media (max-width: 1180px) and (min-width: 901px) {
+  .stage { grid-template-columns: 156px 92px minmax(0, 1fr); }
+  .payload { grid-column: 1 / -1; border-left: 0; border-top: 0.5px solid var(--border-l1); max-height: 240px; }
+}
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  aside { display: none; }
+  main { padding: 24px 18px 80px; }
+  .stage { grid-template-columns: 118px 62px minmax(0, 1fr); }
+  .payload { grid-column: 1 / -1; border-left: 0; border-top: 0.5px solid var(--border-l1); max-height: 240px; }
+  .layer { grid-template-columns: 1fr; gap: 4px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brandmark"><span class="dot"></span>DeepSeek Harness</div>
+  <nav class="topnav">
+    <a href="architecture-visual.html" class="on">架构总览</a>
+    <a href="plugins-visual.html">插件目录</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="themeBtn" type="button">切换主题</button>
+</div>
+
+<div class="shell">
+<aside>
+  <div class="eyebrow">目录</div>
+  <nav id="toc"></nav>
+</aside>
+
+<main>
+
+<section id="positioning">
+  <h2><span class="idx">01</span>定位：没有特权内核</h2>
+  <p class="lede">DSH 是建立在 <strong>Cordis</strong> 之上的全插件 agent harness。模型适配器、工具注册表、会话日志，乃至 agent 循环本身，全都是插件——所以每一层都能从配置里替换。</p>
+
+  <div class="card">
+    <p style="margin-bottom:10px">插件把三种东西贡献给一个共享的 <code>ctx</code>：</p>
+    <div class="grid3">
+      <div><span class="tag live">service</span><p style="font-size:12.5px;margin:6px 0 0">可注入的能力对象，如 <code>ctx.tools</code>、<code>ctx.llm</code>。</p></div>
+      <div><span class="tag waterfall">typed events</span><p style="font-size:12.5px;margin:6px 0 0">有类型的扩展点，waterfall 监听者必须调 <code>next()</code> 才能继续委派。</p></div>
+      <div><span class="tag durable">reversible effects</span><p style="font-size:12.5px;margin:6px 0 0">每次注册都走 <code>ctx.effect()</code>，插件卸载时自动回卷。</p></div>
+    </div>
+  </div>
+
+  <div class="note key"><b>关键推论：</b>没有需要打补丁的核心。扩展 DSH 的方式是<strong>在别的插件旁边再挂一个插件</strong>，而不是改循环。新增行为要挂在文档化的扩展点上；只有改动 agent-loop 本身才需要同步更新架构文档。</div>
+</section>
+
+<section id="boot">
+  <h2><span class="idx">02</span>启动分层：profile 与 bundle</h2>
+  <p class="lede">一个跑起来的 <code>dsh</code> 是启动时按序叠出来的插件树。选一个 profile，看它由哪些层堆成。</p>
+
+  <div class="profiles" id="profileChips"></div>
+  <div class="stack" id="layerStack"></div>
+
+  <h3>叠加顺序</h3>
+  <p>所有层按这个顺序作用到一个空条目列表上：profile 里列出的每个 bundle（按声明顺序）→ profile 的 <code>cordis.patch.yml</code> → home 级的那份 → 任何 <code>--patch</code> 覆盖层。</p>
+  <ul>
+    <li>patch 按 <code>id</code> 定位一行，<strong>整块替换它的 config</strong>，或插入新行。</li>
+    <li>自定义 profile 默认热重载补丁；发布的 <code>web</code> profile 是 live 的，<code>headless</code> / <code>sdk</code> / <code>sdk-minimal</code> / <code>acp</code> 只在启动时应用一次所有层——在一次性或 stdio 应用已经拥有工作之后再替换它的依赖，会破坏那个生命周期。</li>
+    <li><code>dsh --profile web --dump-config</code> 可以打印出你这台机器实际启动的树，打印出的任何一行都能被你自己的 patch 替换。</li>
+  </ul>
+
+  <h3>桌面端是另一条路</h3>
+  <p>Electron 桌面应用独占 <code>$DSH_HOME/profiles/desktop</code> 这个 npm 项目：启动时用自带的 pnpm 把某个精确 dsh 版本装进可写 profile，只从旧 profile 保留桌面插件的精确版本。它不监听 Web 服务器，也不开回环端口——通信走版本化的分帧字节管道，再经 <code>dsh-app://</code> 协议抵达渲染进程。</p>
+</section>
+
+<section id="tree">
+  <h2><span class="idx">03</span>插件树与 ctx 服务</h2>
+  <p class="lede">服务挂在 <code>ctx</code> 上，靠 Cordis 的注入关系排序激活，而不是靠显式的启动序列。下面这张表后面还会在 <a href="#seams">第 08 节</a>按「能力接缝」重新拆解。</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">五个核心脊柱包</h3>
+    <div class="spine" id="spineCards"></div>
+  </div>
+
+  <h3>注册即可逆</h3>
+  <p>每个贡献都走 <code>ctx.effect()</code> / <code>ctx.on()</code>，注册表自己的 <code>register()</code> 返回 disposer。插件卸载 → 注册回卷 → 服务消失。这条规则贯穿全部 280 个包，也是 HMR 与热插拔能成立的前提。</p>
+
+  <div class="card flowrows">
+    <div class="flowrow">
+      <div class="fbox"><div class="ft">插件挂载</div><div class="fd">cordis.yml 里的一行被激活</div></div>
+      <div class="farrow"><span class="fa-l">ctx.effect() / ctx.on()</span>→</div>
+      <div class="fbox"><div class="ft">注册表登记</div><div class="fd">register() 返回 disposer</div></div>
+      <div class="farrow"><span class="fa-l">注入拓扑排序后</span>→</div>
+      <div class="fbox"><div class="ft">ctx.* 可供注入</div><div class="fd">服务对其他插件可见</div></div>
+    </div>
+    <div class="flowrow rev">
+      <div class="fbox"><div class="ft">插件卸载</div><div class="fd">配置行移除或 HMR 替换</div></div>
+      <div class="farrow"><span class="fa-l">调用 disposer</span>→</div>
+      <div class="fbox"><div class="ft">注册回卷</div><div class="fd">该插件的每个贡献被逐个撤销</div></div>
+      <div class="farrow"><span class="fa-l">自动</span>→</div>
+      <div class="fbox"><div class="ft">服务消失</div><div class="fd">ctx 上不留残余引用</div></div>
+    </div>
+  </div>
+
+  <div class="note"><b>谨慎的地方：</b>可选服务用 <code>ctx.get(name)</code>；把 <code>ctx.&lt;name&gt;</code> 属性代理留给已声明的注入——属性代理对拓扑敏感，而严格的 <code>ctx.get</code> 读的是全局服务表。</div>
+</section>
+
+<section id="flow">
+  <h2><span class="idx">04</span>Turn / Step 时序</h2>
+  <p class="lede">下面这串步骤不是按代码顺序排的，而是按<strong>前置关系</strong>排的：每一步都在满足一个「为了完成用户这件事、必须先成立」的条件。而<strong>每满足一个前置，就会长出下一个前置</strong>——这正是 step 会重复的原因，也是 driver、系统提示词、工具这些看似无关的东西被串在一起的那根线。</p>
+
+  <h3>一根线：用户目标怎么拆成前置</h3>
+  <div class="card">
+    <div class="goaltree">
+      <div class="gt-root"><b>用户目标：</b>统计 src/ 下 TypeScript 文件的行数，写进 LOC.md</div>
+
+      <div class="gt-group">
+        <div class="gt-title">要让它「有活干，且知道何时算完」</div>
+        <ul>
+          <li><span class="gtk">driver 被唤醒</span><span class="gtw">队列不会自己往前走</span></li>
+          <li><span class="gtk">开一个 turn</span><span class="gtw">不划边界就不知道任务何时结束</span></li>
+          <li><span class="gtk">认领这条消息</span><span class="gtw">否则模型不知道该做什么</span></li>
+        </ul>
+      </div>
+
+      <div class="gt-group">
+        <div class="gt-title">要让它「答得对」</div>
+        <ul>
+          <li><span class="gtk">工作区指令</span><span class="gtw">AGENTS.md 里有没有约定俗成的写法与格式</span></li>
+          <li><span class="gtk">工具清单与用法</span><span class="gtw">它得知道自己能读文件、能跑命令</span></li>
+          <li><span class="gtk">时间 · 目录 · 引用</span><span class="gtw">当前处在什么情境里</span></li>
+          <li><span class="gtk">组装成一次请求</span><span class="gtw">以上全部就位，才发得出去</span></li>
+        </ul>
+      </div>
+
+      <div class="gt-group newdep">
+        <div class="gt-title">要让它「有手段」，并且接受它会长出新前置</div>
+        <ul>
+          <li><span class="gtk">路由与凭据</span><span class="gtw">这次请求发给哪个模型</span></li>
+          <li><span class="gtk">工具执行管线</span><span class="gtw">真去读、真去跑</span></li>
+          <li><span class="gtk">结果回到模型</span><span class="gtw">它才知道「文件在哪、一共多少行」</span></li>
+          <li><span class="gtk">↳ 新前置：现在要把答案写进 LOC.md</span><span class="gtw">于是再走一轮 —— 这就是 step 2 的由来</span></li>
+        </ul>
+      </div>
+
+      <div class="gt-group">
+        <div class="gt-title">要能「回看与续跑」</div>
+        <ul>
+          <li><span class="gtk">每一步落账</span><span class="gtw">崩溃、重放、换机器之后还说得清</span></li>
+          <li><span class="gtk">关闭 turn</span><span class="gtw">标记这件事有始有终</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="note key">注意这张图里「准备」占了多少：<strong>让它醒着、让它知道、让它有手段</strong>——前三组几乎全是前置，真正的模型调用只有一次。这不是页面结构上的凑数，而是这类系统的真实形状：<strong>大部分机制存在的理由是让那一次调用变得可能且可靠。</strong></div>
+
+  <h3>一张图看全：一个 turn 里谁和谁说话</h3>
+  <div class="card" style="padding:10px 14px">
+    <svg class="loopmap" viewBox="0 0 1000 380" role="img" aria-label="Turn 时序总览">
+      <defs>
+        <marker id="ar-i" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--label-caption)"/></marker>
+        <marker id="ar-l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/></marker>
+        <marker id="ar-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--success)"/></marker>
+        <marker id="ar-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/></marker>
+      </defs>
+
+      <!-- edges -->
+      <path class="edge e-internal" d="M140,182 H222" marker-end="url(#ar-i)"/>
+      <text class="el" x="181" y="171" text-anchor="middle">followup(content)</text>
+
+      <path class="edge e-internal" d="M340,182 H422" marker-end="url(#ar-i)"/>
+      <text class="el" x="381" y="171" text-anchor="middle">唤醒</text>
+
+      <path class="edge e-waterfall" d="M500,150 C560,140 600,58 642,58" marker-end="url(#ar-w)"/>
+      <text class="el" x="462" y="112" text-anchor="middle">assemble · pre-step</text>
+
+      <path class="edge e-internal" d="M560,182 H642" marker-end="url(#ar-i)"/>
+      <text class="el" x="601" y="171" text-anchor="middle">request / stream</text>
+
+      <path class="edge e-internal" d="M500,214 C560,224 600,306 642,306" marker-end="url(#ar-i)"/>
+      <text class="el" x="620" y="262" text-anchor="middle">tool 调用与执行</text>
+
+      <path class="edge e-durable" d="M535,152 C650,118 770,84 862,84" marker-end="url(#ar-d)"/>
+      <text class="el" x="730" y="120" text-anchor="middle">turn/step/message 落账</text>
+
+      <path class="edge e-live" d="M535,212 C660,246 780,264 862,264" marker-end="url(#ar-l)"/>
+      <text class="el" x="715" y="244" text-anchor="middle">agent/* 广播</text>
+
+      <path class="edge e-internal" d="M465,214 C440,254 550,254 530,214" marker-end="url(#ar-i)"/>
+      <text class="el" x="450" y="272" text-anchor="middle">结果 → 下一个 step ↻</text>
+
+      <!-- nodes -->
+      <g class="node"><rect x="40" y="160" width="100" height="44" rx="10"/><text class="nt" x="90" y="180" text-anchor="middle">User</text><text class="ns" x="90" y="196" text-anchor="middle">人类输入</text></g>
+      <g class="node"><rect x="230" y="160" width="110" height="44" rx="10"/><text class="nt" x="285" y="180" text-anchor="middle">Agent</text><text class="ns" x="285" y="196" text-anchor="middle">ctx.agents · inbox</text></g>
+      <g class="node hub"><rect x="430" y="150" width="130" height="64" rx="12"/><text class="nt" x="495" y="178" text-anchor="middle">Driver</text><text class="ns" x="495" y="195" text-anchor="middle">ctx.agentLoop · 循环</text></g>
+      <g class="node"><rect x="650" y="36" width="150" height="44" rx="10"/><text class="nt" x="725" y="56" text-anchor="middle">systemPrompt</text><text class="ns" x="725" y="72" text-anchor="middle">ctx.systemPrompt</text></g>
+      <g class="node"><rect x="650" y="160" width="150" height="44" rx="10"/><text class="nt" x="725" y="180" text-anchor="middle">LLM</text><text class="ns" x="725" y="196" text-anchor="middle">ctx.llm</text></g>
+      <g class="node"><rect x="650" y="284" width="150" height="44" rx="10"/><text class="nt" x="725" y="304" text-anchor="middle">Tools</text><text class="ns" x="725" y="320" text-anchor="middle">ctx.tools</text></g>
+      <g class="node"><rect x="870" y="60" width="120" height="48" rx="10"/><text class="nt" x="930" y="82" text-anchor="middle">Session</text><text class="ns" x="930" y="98" text-anchor="middle">ctx.sessions · 日志</text></g>
+      <g class="node"><rect x="870" y="240" width="120" height="48" rx="10"/><text class="nt" x="930" y="262" text-anchor="middle">UI / SDK</text><text class="ns" x="930" y="278" text-anchor="middle">agent/* 监听者</text></g>
+
+      <!-- legend -->
+      <line x1="40" y1="356" x2="66" y2="356" class="edge e-internal"/><text class="leg-t" x="72" y="360">internal · 循环内部</text>
+      <line x1="220" y1="356" x2="246" y2="356" class="edge e-live"/><text class="leg-t" x="252" y="360">live · 进程内广播</text>
+      <line x1="400" y1="356" x2="426" y2="356" class="edge e-durable"/><text class="leg-t" x="432" y="360">durable · 写会话日志</text>
+      <line x1="590" y1="356" x2="616" y2="356" class="edge e-waterfall"/><text class="leg-t" x="622" y="360">waterfall · 可改写扩展点</text>
+    </svg>
+  </div>
+
+  <h3>逐步播放：每一步满足哪个前置</h3>
+  <div class="player">
+    <div class="controls">
+      <button class="btn primary" id="btnPlay" type="button">▶ 播放</button>
+      <button class="btn" id="btnPrev" type="button">上一步</button>
+      <button class="btn" id="btnNext" type="button">下一步</button>
+      <button class="btn" id="btnReset" type="button">重置</button>
+      <span class="counter" id="counter">1 / 28</span>
+      <label class="toggle"><input type="checkbox" id="showBranch"> 显示拒绝分支</label>
+      <label class="toggle">速度 <input type="range" id="speed" min="1" max="5" step="1" value="3"></label>
+    </div>
+    <div class="stage">
+      <div class="lanes" id="lanes"></div>
+      <div class="wire" id="wire"></div>
+      <div class="detail" id="detail"></div>
+      <div class="payload" id="payload"></div>
+    </div>
+    <div class="progress" id="progress"></div>
+    <div class="zonekey">
+      <span><i style="background:color-mix(in srgb, var(--label-caption) 40%, transparent)"></i>准备：让模型具备开工条件</span>
+      <span><i style="background:color-mix(in srgb, var(--brand) 40%, transparent)"></i>干活：完成用户的要求</span>
+      <span><i style="background:color-mix(in srgb, var(--violet) 40%, transparent)"></i>收尾：让结果可回看、可续跑</span>
+    </div>
+  </div>
+  <p class="plegend">右侧面板显示<strong>这一帧实际流过的数据</strong>。<span class="tag real">实证</span> 的字段出自真实类型定义（<code>SessionEventMap</code>、<code>StreamChunk</code>、<code>TokenUsage</code>、<code>LlmCallConfig</code> 等）；<span class="tag illu">示意</span> 是非事件帧（循环内部步骤、waterfall 输入）的代表性数据；<span class="tag api">API 入参</span> 是方法调用参数而非会话事件。全部帧共用同一个场景：会话 <code>sess_9c41</code>、工作区 <code>D:\work\demo</code>、路由 <code>deepseek / deepseek-chat</code>、可见工具 <code>read · write · bash</code>，用户说「统计 src/ 下 TypeScript 文件的行数，写进 LOC.md」。重复出现的大对象缩写为 <code>"&lt;msg_u1&gt;"</code> 这类引用。</p>
+
+  <h3>读这张图的四个要点</h3>
+  <ul>
+    <li><strong>顺着「交出」那一栏往下读。</strong>每一帧的「交出」，就是下一帧「因为」里引用的东西。任何时候链断了，都说明这一步缺少存在理由——那才是真正该追问的地方。</li>
+    <li><strong>准备占了 16 帧，干活只有 10 帧。</strong>真正的模型调用要到第 17 帧才发生。这不是页面在凑数，而是这类系统的真实形状：大部分机制存在的理由，是让那一次调用变得可能、而且可靠。</li>
+    <li><span class="tag durable">durable</span> 的事件写进会话日志，重载后仍在；<span class="tag live">live</span> 的事件只在进程内用于实时协调；<span class="tag waterfall">waterfall</span> 是可改写决策的扩展点。</li>
+    <li>循环发出去的是<strong>不可变的请求</strong>，同时保持取消是活的。取消发生在 <code>agent/request</code> 或 <code>prepareCall()</code> 这两个异步阶段时，system 和 user 都不落账；重试也<strong>不重复</strong>组装、<code>agent/pre-step</code> 或 user 准入。</li>
+  </ul>
+</section>
+
+<section id="domains">
+  <h2><span class="idx">05</span>三个事件域：扩展点全景</h2>
+  <p class="lede">挑对事件域，是大多数改动要做的第一个决定。</p>
+  <div class="domains" id="domainCards"></div>
+  <div class="note key"><b>Model-visible ⟺ logged。</b>任何抵达模型请求的东西都必须能从日志重建，并且有运行时不变式在断言这件事。这就是为什么新增一个模型可见输入，必须新增一个 session 事件：扩展 <code>SessionEventMap</code>，然后从日志渲染。</div>
+</section>
+
+<section id="context">
+  <h2><span class="idx">06</span>上下文编排与注入</h2>
+  <p class="lede">回到<a href="#flow">第 04 节</a>那根线：「让它答得对」那一组前置——工作区约定、工具清单、时间与目录——就是本节的全部内容。它们不属于 loop，而是<strong>为了满足那组前置才挂在扩展点上的插件</strong>；loop 只负责每一步把它们问一遍。这也是为什么它们最容易被误认成 loop 的一部分。</p>
+
+  <h3>每一步的组装顺序</h3>
+  <div class="pipe" id="ctxPipe"></div>
+
+  <h3>三种注入路径</h3>
+  <p>前置要进入本步，有三条路。它们的区别只有一个问题：<strong>这份上下文什么时候需要它——赶着下一次请求就要看到，还是必须持久留存？</strong></p>
+  <div class="grid2">
+    <div class="card">
+      <h4 style="font-size:13px;margin-bottom:6px"><code>agent.inject()</code> <span class="tag live">live</span></h4>
+      <p style="font-size:12.5px;margin:0">加入模型可见的上下文但<strong>不唤醒 driver</strong>，所以它会落在下一个被准入的 step 里。适合"下一次请求顺带看到"的情形。</p>
+    </div>
+    <div class="card">
+      <h4 style="font-size:13px;margin-bottom:6px"><code>followup()</code> / <code>steer()</code></h4>
+      <p style="font-size:12.5px;margin:0"><code>followup()</code> 排一条普通的下一轮 prompt 并唤醒 driver；<code>steer()</code> 提交 next-step 输入并唤醒它。两者都经过同一个 <code>agent/pre-step</code> waterfall。</p>
+    </div>
+    <div class="card">
+      <h4 style="font-size:13px;margin-bottom:6px">durable 上下文插件</h4>
+      <p style="font-size:12.5px;margin:0">指令与引用以 user 角色消息进入会话历史，所以它们<strong>会持久化、会重放、会参与压缩</strong>，和普通对话内容没有区别。</p>
+    </div>
+  </div>
+
+  <h3><code>context/</code> 组：不发工具，只加上下文</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>包</th><th>做什么</th></tr></thead>
+      <tbody id="ctxTable"></tbody>
+    </table>
+  </div>
+
+  <h3>压缩也不改 loop</h3>
+  <p><code>dsh-compaction-basic</code> 是一个插件：它监听 <code>agent/pre-step</code> 处理请求派生前的压力，监听 <code>agent/request-error</code> 处理规范化的上下文溢出。一旦某个触发条件成立，可选的工具结果裁剪先跑，再做摘要选择。恢复在已开的 step 内进行，且仅在裁剪或摘要推进了 surface replacement generation 时才重试——否则原始请求错误保持权威。</p>
+
+  <div class="note"><b>Prompt 只以 <code>system/message</code> 历史的形式传输。</b>空渲染会清空所有活跃的 system 节点，让旧 prompt 对模型彻底不可见；有能力的路由可以在缓存前缀之后追加非空更新，无能力的路由或新的 request series 会把非空 prompt 文本合并到第一个 system 节点上。</div>
+</section>
+
+<section id="acquire">
+  <h2><span class="idx">07</span>Skill 与 MCP：把外部能力接进来</h2>
+  <p class="lede">同样回到那根线：「让它有手段」那一组前置。当用户要的能力不在内置工具里——比如「照项目里的 skill 规范来做」或者「用 GitHub 上那个 MCP server」——就必须有办法把它接进来。Skill 与 MCP 是两条接入路径，做的都是同一件事：<strong>给 <code>ctx.tools</code> 加东西</strong>，从而让那一组前置多一个可满足的选项。</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4 style="font-size:14px;margin-bottom:8px">Skill：按需加载的指令集</h4>
+      <p style="font-size:12.5px">能力接缝的完整三角色：</p>
+      <ul style="font-size:12.5px;margin-bottom:10px">
+        <li><b>Definition</b> — <code>dsh-skill</code>（<code>ctx.skills</code>）：合并各 provider 的目录，解析同名 skill 的胜出者。</li>
+        <li><b>Provider</b> — <code>skill-filesystem</code> 从项目 / 自定义 / 用户目录发现并监听变更；<code>skill-badge</code> 打包官方徽章 skill，默认关闭。</li>
+        <li><b>Consumer</b> — <code>tool-skill</code> 发布会话级 catalog 与面向模型的 <code>skill</code> 加载工具。</li>
+      </ul>
+      <p style="font-size:12.5px"><b>调用策略</b>由 <code>SkillSummary.invocation</code> 决定，两个正向且对称的字段 <code>modelInvocable</code> / <code>userInvocable</code>，形成四个象限：</p>
+      <table style="font-size:12px">
+        <thead><tr><th>策略</th><th>模型</th><th>用户</th></tr></thead>
+        <tbody>
+          <tr><td>both（默认）</td><td><span class="tag ok">可见</span></td><td><span class="tag ok">可见</span></td></tr>
+          <tr><td>model-only</td><td><span class="tag ok">可见</span></td><td><span class="tag no">不可见</span></td></tr>
+          <tr><td>user-only</td><td><span class="tag no">不可见</span></td><td><span class="tag ok">可见</span></td></tr>
+          <tr><td>neither</td><td><span class="tag no">不可见</span></td><td><span class="tag no">不可见</span></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--label-caption);margin:10px 0 0">来源：本地 frontmatter 的 <code>disable-model-invocation</code> 与 <code>user-invocable</code>。策略在发现阶段和加载阶段各检查一次，所以发现与加载之间改策略也不会泄漏正文。</p>
+    </div>
+
+    <div class="card">
+      <h4 style="font-size:14px;margin-bottom:8px">MCP：把外部 server 的工具变成原生工具</h4>
+      <p style="font-size:12.5px"><code>dsh-mcp-client</code> 一个包，一个配置条目 = 一个外部 server。默认一个都不开，逐个 opt-in。</p>
+      <ul style="font-size:12.5px;margin-bottom:10px">
+        <li><b>命名</b> — <code>mcp__&lt;server&gt;__&lt;tool&gt;</code>。MCP 只保证单个 server 内工具名唯一，跨 server 撞名是常态；固定前缀让碰撞在结构上不可能发生，而不是撞了再处理。</li>
+        <li><b>策略形状</b> — <code>mcp__*</code> 让权限与遥测规则有个稳定图案。</li>
+        <li><b>只桥接 Tools</b> — MCP 的 resources 与 prompts 不支持。</li>
+        <li><b>环境擦洗</b> — stdio 子进程的环境从 <code>scrubbedParentEnv()</code> 起底，先移除匹配 <code>/KEY|PASSWORD|SECRET|TOKEN/i</code> 的环境变量名和全部环境中的 <code>DSH_*</code>，再叠加配置里的 <code>env</code>。显式覆盖能活下来。</li>
+      </ul>
+      <p style="font-size:12px;color:var(--label-caption);margin:0">公开名会进入会话历史、权限与配置 API，所以改命名算法是破坏性变更。</p>
+    </div>
+  </div>
+
+  <h3>还有哪些"外部能力"入口</h3>
+  <ul>
+    <li><code>hooks-claude-code</code> / <code>hooks-codex</code>：把 Claude Code 与 Codex 的 hook 协议桥接到 DSH 事件。</li>
+    <li><code>mcp/</code> 之外的 <code>subagent-*</code> provider：把 ACP、Codex、Claude Code、DSH SDK 当成子代理的传输实现。</li>
+    <li><code>webhook</code>：外部投递经认证后创建普通 Workspace Session。</li>
+  </ul>
+</section>
+
+<section id="seams">
+  <h2><span class="idx">08</span>Capability seam：三个角色</h2>
+  <p class="lede">一个 <strong>seam</strong> 是可替换的能力，含三个角色：<b>Service Definition</b> 声明接口，<b>Service Provider</b> 实现它，<b>Consumer</b> 使用它（通常是一个面向模型的工具）。一个包可以兼任多个角色，但只有单一角色不成其为 seam。</p>
+
+  <div class="note key">接缝是"换一个 provider 就换掉整个产品行为"的原因。文件系统与子进程 provider 共享同一个执行世界——把它们指向远程沙箱，Bash、PTY 和 LSP 就跟着一起搬过去，<strong>不需要为 provider 分叉</b>。</div>
+
+  <div id="seamPicker" class="profiles"></div>
+  <div class="card" id="seamView"></div>
+  <p style="margin-top:14px">下面这些接缝的 provider 差异极大，却都藏在一个接口后面：</p>
+  <div class="grid2" id="seamExamples"></div>
+</section>
+
+<section id="log">
+  <h2><span class="idx">09</span>Session log 与投影</h2>
+  <p class="lede">会话日志是模型所见上下文的来源。<code>deriveMessages()</code> 从它投影出模型历史。</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4 style="font-size:13px;margin-bottom:8px">日志里存什么</h4>
+      <ul style="font-size:12.5px;margin:0">
+        <li>每条 <code>assistant/message</code> 内嵌产生它的那份完整 compact 计时流。</li>
+        <li><code>assistant/attempt</code> 保留已结算的失败、重试、取消、流错误尝试，且<strong>不加入模型历史</strong>。</li>
+        <li>Fork、resume、transcript、telemetry、持久化全部从这些 durable 结算派生。</li>
+        <li>实时 UI 的增量来自 <code>agent/assistant-stream</code>；settlement 之前的硬进程丢失不会留下任何 durable attempt 流。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="font-size:13px;margin-bottom:8px">格式与迁移</h4>
+      <ul style="font-size:12.5px;margin:0">
+        <li>JSONL v0 用 <code>session.jsonl[.zstd]</code>；v1 及以后用 <code>session.vN.jsonl[.zstd]</code>。</li>
+        <li>已提交的代际路径<strong>永不重命名、替换或删除</strong>。</li>
+        <li>每个相邻迁移包只负责一步 <code>vN → vN+1</code>。</li>
+        <li>结构变化才 bump <code>SESSION_FORMAT_VERSION</code>；不认识的类型在读取时按 <code>ignorable</code> 决定是否拒收整份日志。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Projection seam</h3>
+  <p><code>dsh-session-projection</code> 拥有 <code>ctx.sessionProjections</code>：注册进去的 fold 单元增量折叠已提交事件，宿主消费者用 <code>stateOf()</code> 读一份有类型的完整状态，载体用 <code>snapshot()</code> 批量裁剪出客户端视图。宿主读取方要么在激活时要求这个服务，要么在注册表或必需 key 缺失时显式失败——不会静默降级。</p>
+</section>
+
+<section id="tools">
+  <h2><span class="idx">10</span>Tool 执行管线</h2>
+  <p class="lede">策略、hook、沙箱、文件系统守卫、结果改写、终局观测与 UI 渲染都发生在这里，而循环本身一行都不用改。</p>
+  <div class="pipe" id="toolPipe"></div>
+  <div class="note"><b>顺序是刻意的：</b><code>ctx.approval</code> 在单调守卫<strong>之前</strong>解决 ask；而那类不允许被重排的 owner 策略，就注册成守卫。超时之类的 around-dispatch 关注点包在 <code>tools/execute</code> 外面。注册表对候选结果做无损快照，并在可见定义的 <code>finalizeContent</code> 回调强制其"仅内容"同步不变式之前，先规范化快照失败。</div>
+</section>
+
+<section id="extend">
+  <h2><span class="idx">11</span>扩展点速查</h2>
+  <p class="lede">新行为挂在文档化的扩展点上。改动循环本身才需要更新架构文档。</p>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>想做的事</th><th>机制</th></tr></thead>
+      <tbody id="extendTable"></tbody>
+    </table>
+  </div>
+  <p style="margin-top:16px">想看全部 280 个包按类目的分组、每一条 <code>ctx</code> key 属于哪个接缝，去 <a href="plugins-visual.html">插件目录</a>。</p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  内容对照 <code>docs/architecture.md</code>、<code>docs/agent-lifecycle.md</code>、<code>docs/tool-execution-pipeline.md</code>、<code>docs/capability-seams.md</code>、<code>docs/subsystems/skills.md</code> 与各包 README 编写。视觉 token 取自 <code>packages/client/ui-theme</code>。
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------- theme ---------------- */
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem('dshlearn-theme'); } catch (e) { saved = null; }
+  if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('dshlearn-theme', next); } catch (e) { /* storage unavailable; theme stays session-local */ }
+  });
+
+  /* ---------------- table of contents ---------------- */
+  var SECTIONS = [
+    ['positioning', '定位：没有特权内核'],
+    ['boot', '启动分层 profile / bundle'],
+    ['tree', '插件树与 ctx 服务'],
+    ['flow', 'Turn / Step 时序'],
+    ['domains', '三个事件域'],
+    ['context', '上下文编排与注入'],
+    ['acquire', 'Skill 与 MCP'],
+    ['seams', 'Capability seam 三角色'],
+    ['log', 'Session log 与投影'],
+    ['tools', 'Tool 执行管线'],
+    ['extend', '扩展点速查']
+  ];
+  var toc = document.getElementById('toc');
+  SECTIONS.forEach(function (s, i) {
+    var a = document.createElement('a');
+    a.href = '#' + s[0];
+    a.innerHTML = '<span class="n">' + String(i + 1).padStart(2, '0') + '</span>' + s[1];
+    toc.appendChild(a);
+  });
+  var tocLinks = [].slice.call(toc.querySelectorAll('a'));
+  var spy = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      tocLinks.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + en.target.id); });
+    });
+  }, { rootMargin: '-76px 0px -70% 0px', threshold: 0 });
+  SECTIONS.forEach(function (s) { var el = document.getElementById(s[0]); if (el) spy.observe(el); });
+
+  /* ---------------- boot layers ---------------- */
+  var PROFILES = [
+    {
+      id: 'web', label: '--profile web',
+      layers: [
+        { cls: 'b-own', name: '--patch 覆盖层', sub: '调用时', desc: '命令行传入的最后覆盖层，按 id 替换或插入行。' },
+        { cls: 'b-user', name: '$DSH_HOME patch', sub: 'home 级', desc: 'home 级 cordis.patch.yml，对所有 profile 生效。' },
+        { cls: 'b-user', name: 'profile patch', sub: 'cordis.patch.yml', desc: '该 profile 自己的用户补丁。' },
+        { cls: 'b-app', name: 'dsh-mob', sub: 'bundle', desc: 'LAN 手机接入层：渲染入网二维码的设置项。' },
+        { cls: 'b-app', name: 'dsh-web-app', sub: 'bundle', desc: '浏览器应用层，挂载 Web 相关行。' },
+        { cls: 'b-base', name: 'dsh-base', sub: 'bundle', desc: '共享核心：模型适配器、工具、持久化、沙箱与审批策略、设置、凭据、遥测。' }
+      ]
+    },
+    {
+      id: 'headless', label: '--profile headless',
+      layers: [
+        { cls: 'b-own', name: '--patch 覆盖层', sub: '调用时', desc: '最后覆盖。该 profile 只在启动时应用一次全部层。' },
+        { cls: 'b-user', name: '$DSH_HOME patch', sub: 'home 级', desc: 'home 级补丁。' },
+        { cls: 'b-user', name: 'profile patch', sub: 'cordis.patch.yml', desc: '该 profile 自己的用户补丁。' },
+        { cls: 'b-app', name: 'dsh-headless', sub: 'bundle', desc: '一次性运行器，不起服务器；服务 <code>headless-runner</code>。' },
+        { cls: 'b-base', name: 'dsh-base', sub: 'bundle', desc: '共享核心。' }
+      ]
+    },
+    {
+      id: 'sdk', label: '--profile sdk',
+      layers: [
+        { cls: 'b-own', name: '--patch 覆盖层', sub: '调用时', desc: '最后覆盖。stdio 应用启动后不热重载。' },
+        { cls: 'b-user', name: '$DSH_HOME patch', sub: 'home 级', desc: 'home 级补丁。' },
+        { cls: 'b-user', name: 'profile patch', sub: 'cordis.patch.yml', desc: '该 profile 自己的用户补丁。' },
+        { cls: 'b-app', name: 'dsh-sdk-app', sub: 'bundle', desc: 'SDK JSON-RPC stdio 应用，挂载 SDK server。TypeScript SDK 解析同版本 dsh 依赖后选它。' },
+        { cls: 'b-base', name: 'dsh-base', sub: 'bundle', desc: '共享核心。' }
+      ]
+    },
+    {
+      id: 'sdk-minimal', label: '--profile sdk-minimal',
+      layers: [
+        { cls: 'b-own', name: '--patch 覆盖层', sub: '调用时', desc: '最后覆盖。' },
+        { cls: 'b-user', name: '$DSH_HOME patch', sub: 'home 级', desc: 'home 级补丁。' },
+        { cls: 'b-own', name: 'dsh-sdk-minimal', sub: 'bundle', desc: '<strong>刻意的例外</strong>：一个 bundle 拥有自己完整且显式的 SDK 树，不套用 dsh-base。' }
+      ]
+    },
+    {
+      id: 'acp', label: '--profile acp',
+      layers: [
+        { cls: 'b-own', name: '--patch 覆盖层', sub: '调用时', desc: '最后覆盖。' },
+        { cls: 'b-user', name: '$DSH_HOME patch', sub: 'home 级', desc: 'home 级补丁。' },
+        { cls: 'b-user', name: 'profile patch', sub: 'cordis.patch.yml', desc: '该 profile 自己的用户补丁。' },
+        { cls: 'b-app', name: 'dsh-acp-app', sub: 'bundle', desc: '仅用于自动化的 ACP stdio 应用，挂载 ACP 桥。' },
+        { cls: 'b-base', name: 'dsh-base', sub: 'bundle', desc: '共享核心。' }
+      ]
+    },
+    {
+      id: 'desktop', label: 'desktop（Electron）',
+      layers: [
+        { cls: 'b-own', name: 'dsh-app:// 协议', sub: '渲染进程', desc: '帧化的字节管道 → 安全协议 → 渲染进程。不开 Web 服务器，不开回环端口。' },
+        { cls: 'b-app', name: 'Desktop Host 包', sub: '自带 Node.js', desc: '加载从保留 profile 安装的 dsh 后端与匹配版本的客户端图。' },
+        { cls: 'b-own', name: '第一个专属 profile', sub: '$DSH_HOME/profiles/desktop', desc: '每次签名发布绑定一个精确 dsh 版本并带第一方离线种子；保留上一版桌面插件的精确版本。不与 CLI profile 共享可执行包、插件激活、lockfile 或 node_modules。' }
+      ]
+    }
+  ];
+  var chips = document.getElementById('profileChips');
+  var stack = document.getElementById('layerStack');
+  function renderProfile(idx) {
+    [].slice.call(chips.children).forEach(function (c, i) { c.classList.toggle('on', i === idx); });
+    stack.innerHTML = '';
+    PROFILES[idx].layers.forEach(function (l, i) {
+      var d = document.createElement('div');
+      d.className = 'layer ' + l.cls;
+      d.style.animationDelay = (i * 45) + 'ms';
+      d.innerHTML = '<div class="lname">' + l.name + '<em>' + l.sub + '</em></div><div class="ldesc">' + l.desc + '</div>';
+      stack.appendChild(d);
+    });
+  }
+  PROFILES.forEach(function (p, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pchip'; b.textContent = p.label;
+    b.addEventListener('click', function () { renderProfile(i); });
+    chips.appendChild(b);
+  });
+  renderProfile(0);
+
+  /* ---------------- spine ---------------- */
+  var SPINE = [
+    ['core/session', 'ctx.sessions', '追加写入的 SessionEvent 日志与内存存储。会话事实的唯一权威。'],
+    ['core/system-prompt', 'ctx.systemPrompt', 'prompt 分节与工具 schema 的组装。每步问一次"谁要贡献"。'],
+    ['core/tools', 'ctx.tools', '带作用域的工具注册表，以及被守卫的执行管线。'],
+    ['core/agent', 'ctx.agents', 'Agent 接口、活体注册表，以及 agent/* 事件。'],
+    ['core/agent-loop', 'ctx.agentLoop', '该接口的默认实现——唯一的具体循环插件。扩展包依赖 dsh-agent，不依赖它。']
+  ];
+  var spineEl = document.getElementById('spineCards');
+  SPINE.forEach(function (s) {
+    var d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = '<div class="pkg">' + s[0] + '</div><div class="key">' + s[1] + '</div><div class="desc">' + s[2] + '</div>';
+    spineEl.appendChild(d);
+  });
+
+  /* ---------------- sequence player ---------------- */
+  var LANES = [
+    ['user', 'User', '人类输入'],
+    ['agent', 'Agent', 'ctx.agents · inbox'],
+    ['driver', 'Driver', 'ctx.agentLoop'],
+    ['prompt', 'systemPrompt', 'ctx.systemPrompt'],
+    ['llm', 'LLM', 'ctx.llm'],
+    ['tools', 'Tools', 'ctx.tools'],
+    ['session', 'Session', 'ctx.sessions · 日志'],
+    ['ui', 'UI / SDK', 'agent/* 监听者']
+  ];
+  /* 全部帧共用的场景：一次真实形状的 run。
+     字段名取自 packages/core/session/src/types.ts、packages/llm/llm/src/message.ts
+     与 docs/subsystems/{session,llm-streaming}.md 的类型定义。 */
+  var S = {
+    msgU: { id: 'msg_u1', role: 'user',
+            content: [{ type: 'text', text: '统计 src/ 下 TypeScript 文件的行数，写进 LOC.md' }],
+            source: { kind: 'user' } },
+    msgS: { id: 'msg_s0', role: 'system',
+            content: [{ type: 'text', text: 'You are DeepSeek Harness, an agent harness…' }] },
+    msgA: { id: 'msg_a1', role: 'assistant',
+            content: [ { type: 'text', text: '先看看有多少行。' },
+                       { type: 'tool-call', id: 'call_c1', name: 'bash',
+                         arguments: '{"command":"wc -l src/**/*.ts"}' } ],
+            source: { kind: 'model', provider: 'deepseek', model: 'deepseek-chat' } },
+    msgT: { id: 'msg_t1', role: 'user',
+            content: [{ type: 'tool-result', toolCallId: 'call_c1',
+                        content: [{ type: 'text', text: 'src/a.ts 42\nsrc/b.ts 118\n… 共 7 个文件 536 行' }] }],
+            source: { kind: 'tool', callId: 'call_c1' } },
+    usage: { inputTokens: 1284, outputTokens: 96, totalTokens: 1380, cacheReadTokens: 1024 },
+    config: { provider: 'deepseek', model: 'deepseek-chat', reasoningEffort: 'medium', maxTokens: 8192 }
+  };
+  var FRAMES = [
+    { z: 'prep', f: 'user', t: 'agent', n: 'followup(content)', k: 'internal',
+      need: '用户的要求怎么进入系统？',
+      why: '这是一次全新任务的起点，此前没有任何东西在等它。',
+      d: '把这条消息交给 Agent handle，放进它的 inbox。',
+      leave: 'inbox 里多了一条待处理的用户消息。',
+      p: { b: 'api', t: 'followup() 入参（UserMessage）', j: S.msgU } },
+
+    { z: 'prep', f: 'agent', t: 'ui', n: 'agent/inbox/inserted { message }', k: 'live',
+      need: '界面怎么知道有新消息进来了？',
+      why: '上一帧消息已经入队，但队列的变化只发生在进程内，外面还看不见。',
+      d: '广播一次 inbox 结构变更。',
+      leave: 'UI 立刻知道队列里多了一条消息，可以先行显示。',
+      p: { b: 'real', t: 'agent/inbox/inserted 载荷', j: { message: '<msg_u1>' } } },
+
+    { z: 'prep', f: 'agent', t: 'driver', n: '唤醒 driver', k: 'internal',
+      need: '谁来推动这件事往前走？',
+      why: '上一帧只是把消息放进队列，而队列自己不会动。',
+      d: '有活干的消息唤醒 driver。',
+      leave: 'driver 开始运转——有它之后才谈得上 turn。',
+      p: { b: 'none', t: '非事件', note: '注入的上下文<strong>不唤醒</strong> driver，它会一直留在 inbox 里等另一条消息到达。' } },
+
+    { z: 'prep', f: 'driver', t: 'session', n: 'turn/start', k: 'durable',
+      need: '这件事什么时候算做完？',
+      why: 'driver 醒了，但「醒了」不等于「这件事有边界」——没有边界就无从判断何时收尾。',
+      d: '打开一个 turn，给这次任务划出边界。',
+      leave: '一条边界：之后所有 step 都挂在它名下，关掉它就意味着这件事了结。',
+      p: { b: 'real', t: 'turn/start 载荷', j: { turn: 1 } } },
+
+    { z: 'prep', f: 'driver', t: 'agent', n: '原子认领', k: 'internal',
+      need: '这次到底要处理哪条消息？',
+      why: '边界有了，但还没定这一次要拿哪些输入。',
+      d: '一次性认领 pending 的 next-step 输入，外加一条排队消息。',
+      leave: '一批明确的输入消息，可以拿去组装请求了。',
+      p: { b: 'none', t: '非事件', note: '认领是纯删除、不带 outcome；被认领的消息由下一帧的 <code>agent/inbox/claimed</code> 通知出去。' } },
+
+    { z: 'prep', f: 'driver', t: 'ui', n: 'agent/inbox/claimed { message, turn }', k: 'live',
+      need: '界面怎么知道消息被取走了？',
+      why: '上一帧把消息从队列里删掉了，界面上的显示必须跟着变。',
+      d: '每条被认领的消息发一次通知。',
+      leave: 'UI 把这条消息从「排队中」挪到「处理中」。',
+      p: { b: 'real', t: 'agent/inbox/claimed 载荷', j: { message: '<msg_u1>', turn: 1 } } },
+
+    { z: 'prep', f: 'driver', t: 'prompt', n: 'system-prompt/assemble', k: 'waterfall',
+      need: '模型怎么知道有哪些工具可用、这个工作区有什么约定？',
+      why: '输入消息有了，但它只有用户那句话，不含任何「你能做什么」的信息。',
+      d: '向所有插件征集 prompt 分节与工具 schema，拼成本步的说明。',
+      leave: '一份渲染好的说明，和一份它当前能调用的工具清单。',
+      p: { b: 'illu', t: 'waterfall 组装结果（示意）',
+           j: { sections: [ { id: 'persona', text: 'You are DeepSeek Harness, an agent harness…' },
+                            { id: 'environment', text: 'cwd: D:\\work\\demo\nplatform: win32' } ],
+                tools: ['read', 'write', 'bash'] } } },
+
+    { z: 'prep', f: 'driver', t: 'driver', n: '组装请求材料 + 投影运行时上下文', k: 'internal',
+      need: '模型怎么知道「现在」是什么时候、在哪个目录干活？',
+      why: '上一帧给出了「能做什么」，还缺「在什么处境下做」。',
+      d: '把说明、工具清单与本步的运行时上下文合成一份渲染结果。',
+      leave: '一份完整的、可以直接发出去的请求材料。',
+      p: { b: 'illu', t: '本步渲染结果（示意）',
+           j: { renderedPrompt: 'You are DeepSeek Harness, an agent harness…',
+                visibleTools: ['read', 'write', 'bash'],
+                runtimeContext: { cwd: 'D:\\work\\demo', now: '2026-10-08T19:20:31+08:00' } } } },
+
+    { z: 'prep', f: 'driver', t: 'driver', n: 'agent/pre-step', k: 'waterfall',
+      need: '这条消息该进入本步吗？谁是最后一个能拦下它的人？',
+      why: '材料备好了，但「备好」不等于「该发」——压缩插件可能判定上下文快满了、想先做摘要。',
+      d: '开一道关卡，每个插件都能看一眼、改写或否决这批消息。',
+      leave: '本步真正要带上的消息批次，有它才能开 step。',
+      p: { b: 'real', t: 'agent/pre-step 的权威 decision',
+           j: { kind: 'enter', messages: ['<msg_u1>'], startsRequestSeries: true },
+           note: '包装型监听者用 <code>{ ...decision, messages }</code> 保留下游的 <code>startsRequestSeries</code>。' } },
+
+    { z: 'prep', f: 'driver', t: 'session', n: 'turn 空转关闭', k: 'durable', branch: true,
+      need: '要是这批消息根本不该处理呢？',
+      why: '上一帧的关卡可能判定拒绝，或者首个批次本来就是空的。',
+      d: '直接关掉 turn，一个 step 也不花。',
+      leave: '任务结束，且日志里没有任何模型请求——不会被误当成「已经处理过了」。',
+      p: { b: 'illu', t: 'turn/end 载荷（示意）', j: { turn: 1, reason: { kind: 'completed' } },
+           note: '无 step 的 turn 具体取哪个 <code>TurnEndReason</code>，文档未点明，此处为示意。' } },
+
+    { z: 'prep', f: 'driver', t: 'session', n: 'step/start', k: 'durable',
+      need: '怎么区分「这一次模型调用」和后面还会有很多次？',
+      why: '上一帧确认了输入可用，现在要正式开始一次模型调用。',
+      d: '开一个 step，给这一次调用加上序号。',
+      leave: '一个编号：这一轮的请求、工具调用、结果都挂在它下面。',
+      p: { b: 'real', t: 'step/start 载荷', j: { turn: 1, step: 1 } } },
+
+    { z: 'prep', f: 'driver', t: 'driver', n: 'agent/request', k: 'waterfall',
+      need: '有没有人要在发出去之前改一下这次调用的参数？',
+      why: 'step 已经开了，请求马上就要发出去，这是最后的改写机会。',
+      d: '派发前最后一个能改写请求的挂点。',
+      leave: '一份确定为最终的调用配置。',
+      p: { b: 'illu', t: 'waterfall 收到的 config seed（示意）',
+           j: { provider: 'deepseek', model: 'deepseek-chat', reasoningEffort: 'medium' },
+           note: '监听者可以返回替换值来换 provider、model、推理强度或采样标量。' } },
+
+    { z: 'prep', f: 'driver', t: 'llm', n: 'prepareCall(config, signal)', k: 'internal',
+      need: '这次请求到底发给谁、用什么参数？',
+      why: '上一帧定下了配置，但里面可能留着要由适配器补的默认值。',
+      d: '解析真实路由，校验适配器字段，补全推理强度与输出上限。',
+      leave: '一条绑定好的调用能力——后面记录路由、对账 prompt 都用它。',
+      p: { b: 'real', t: 'prepareCall() 解析结果',
+           j: { config: S.config, adapterDefaults: { maxTokens: true },
+                context: { contextWindow: 131072, systemPromptUpdate: 'in-history' } },
+           note: '<strong>两个异步阶段里的取消，system 与 user 都不落账。</strong>' } },
+
+    { z: 'prep', f: 'driver', t: 'session', n: 'system/message · user/message', k: 'durable',
+      need: '这次请求的「说明」和「要求」怎么被记下来？',
+      why: '路由已经确定，现在可以把渲染出的说明与用户消息正式落账。',
+      d: '用准备好的调用能力同步对账说明，并把被接纳的用户批次落账。',
+      leave: '模型历史里有了这次请求的说明与要求。',
+      p: { b: 'real', t: '两个 durable 事件',
+           j: [ { turn: 1, step: 1, message: S.msgS }, S.msgU ],
+           note: '<code>system/message</code> 带 <code>turn</code>/<code>step</code> 包装；<code>user/message</code> 的载荷就是 <code>UserMessage</code> 本身，<strong>不带包装</strong>。' } },
+
+    { z: 'prep', f: 'driver', t: 'session', n: 'request/header · request/context', k: 'durable',
+      need: '怎么保证以后能一模一样地重建这次请求？',
+      why: '消息已经落账，但「用什么配置、带哪些工具」还没记。',
+      d: '记录路由信封与路由元数据。',
+      leave: '请求 = 日志里的配置 + 消息 + 工具清单，三者齐全，可以被完整重建。',
+      p: { b: 'real', t: '两个 log-only 事件',
+           j: [ { header: { config: S.config, adapterDefaults: { maxTokens: true },
+                            tools: [ { name: 'read', description: 'Read a file…',
+                                       parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+                                     { name: 'bash', description: 'Run a shell command…',
+                                       parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } ] },
+                reason: 'initial' },
+              { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 131072, systemPromptUpdate: 'in-history' } ],
+           note: '两者都不产生 LLM 消息。header 里<strong>没有 system 字段</strong>——它禁止出现。' } },
+
+    { z: 'prep', f: 'driver', t: 'driver', n: '从日志派生并冻结请求', k: 'internal',
+      need: '发给模型的到底是什么？',
+      why: '上一帧把重建所需的全部材料都记进了日志。',
+      d: '从日志派生模型历史，连同配置与工具清单冻成一份不可变请求。',
+      leave: '一份不可变、但取消信号仍然活着的请求。',
+      p: { b: 'none', t: '非事件', note: '请求 = <code>header.config</code> + <code>deriveMessages()</code> + <code>header.tools</code>。prompt 作为 <code>system/message</code> 活在 messages 里，所以请求的 <code>system</code> 字段始终未设置。' } },
+
+    { z: 'work', f: 'driver', t: 'llm', n: 'llm/stream', k: 'waterfall',
+      need: '模型什么时候才真正开始干活？',
+      why: '前面整整 16 帧做的全部准备，到这里才换来第一次真实调用。',
+      d: '把请求送出去。',
+      leave: '一个流式回包的句柄。',
+      p: { b: 'illu', t: '流出给适配器的入参（示意）',
+           j: { messages: ['<msg_s0>', '<msg_u1>'], tools: ['read', 'write', 'bash'],
+                config: S.config, frozen: true, signal: 'live（AbortSignal 不冻结）' } } },
+
+    { z: 'work', f: 'llm', t: 'driver', n: 'StreamChunk*', k: 'internal',
+      need: '模型先说了什么？',
+      why: '请求已经发出，回答正在一个字一个字地回来。',
+      d: '流式回包。',
+      leave: '一段文本，和一次工具调用请求。',
+      p: { b: 'real', t: 'StreamChunk 序列',
+           j: [ { type: 'block-start', index: 0, blockType: 'text' },
+                { type: 'text-delta', index: 0, text: '先看看有多少行。' },
+                { type: 'block-end', index: 0, block: { type: 'text', text: '先看看有多少行。' } },
+                { type: 'block-start', index: 1, blockType: 'tool-call' },
+                { type: 'tool-call-delta', index: 1, id: 'call_c1', name: 'bash',
+                  argumentsDelta: '{"command":"wc -l src/**/*.ts"}' },
+                { type: 'block-end', index: 1,
+                  block: { type: 'tool-call', id: 'call_c1', name: 'bash',
+                           arguments: '{"command":"wc -l src/**/*.ts"}' } },
+                { type: 'usage', usage: S.usage },
+                { type: 'finish', reason: { kind: 'tool-calls' } } ] } },
+
+    { z: 'work', f: 'driver', t: 'ui', n: 'agent/assistant-stream chunk*', k: 'live',
+      need: '用户怎么能边生成边看到？',
+      why: '上一帧的 chunk 已经在进程内流动，但界面还不知道。',
+      d: '广播 start / chunk / end 帧。',
+      leave: '用户在模型说完之前就看到了内容。',
+      p: { b: 'illu', t: '进程内三帧（示意）',
+           j: [ { frame: 'start' },
+                { frame: 'chunk', chunk: { type: 'text-delta', index: 0, text: '先看看' } },
+                { frame: 'end', outcome: 'committed' } ],
+           note: '帧的具体包装形状文档未逐字段列出，此处为示意；chunk 本身是真实的 <code>StreamChunk</code>。' } },
+
+    { z: 'work', f: 'driver', t: 'session', n: 'assistant/message', k: 'durable',
+      need: '模型这次说了什么、要做什么，怎么留住？',
+      why: '流已经收完，可以结算了。',
+      d: '把产生这条消息的完整计时流嵌进一条事件落账。',
+      leave: '模型历史里多了「它说了什么、要调什么工具」。',
+      p: { b: 'real', t: 'assistant/message 载荷',
+           j: { turn: 1, step: 1, message: S.msgA,
+                stream: '<上一帧那串 chunk 的 compact 形式：连续 delta 合并为一条带 time0 与时间间隔的记录>',
+                usage: S.usage },
+           note: '失败的重试走 <code>assistant/attempt</code>，不进模型历史。' } },
+
+    { z: 'work', f: 'driver', t: 'tools', n: '按 executionMode 分类待执行调用', k: 'internal',
+      need: '模型一次要了好几个调用，能一起跑吗？',
+      why: '上一帧结算出模型要调工具，但有些调用会互相干扰。',
+      d: '把待执行的调用分成可并发的和必须独占的。',
+      leave: '一份调度顺序：并行安全的最多同时跑 N 个，独占的单独跑。',
+      p: { b: 'illu', t: '调度分类结果（示意）',
+           j: { parallelSafe: ['call_c1'], exclusive: [], maxParallelToolCalls: 10 } } },
+
+    { z: 'work', f: 'driver', t: 'session', n: 'tool/call', k: 'durable',
+      need: '工具真的去做了，事后怎么知道它为什么被调？',
+      why: '调度顺序定了，马上要执行，但「为什么要跑这次」还没记。',
+      d: '执行前先落一条账。',
+      leave: '日志里有了这次调用的意图与参数。',
+      p: { b: 'real', t: 'tool/call 载荷',
+           j: { turn: 1, step: 1, callId: 'call_c1', name: 'bash',
+                arguments: '{"command":"wc -l src/**/*.ts"}' },
+           note: '<code>arguments</code> 是模型原样产出的 JSON <strong>字符串</strong>，未解析。' } },
+
+    { z: 'work', f: 'tools', t: 'session', n: 'tool 自有事件', k: 'durable',
+      need: '工具在做的过程中产生的中间事实放哪？',
+      why: '有些工具不只是「进和出」，中途会看到值得记下来的东西。',
+      d: '由 tool 自己发出属于它的事件。',
+      leave: '中间事实也进了日志，重放时能看到工具当时看到了什么。',
+      p: { b: 'none', t: '本场景不产生',
+           note: '这些事件由发出它们的 tool 自己拥有：<code>todo/write</code> 来自 todo 工具、<code>fs/observed</code> 来自文件工具、<code>hook/*</code> 来自 hook 协议库。本例的 bash 不发。' } },
+
+    { z: 'work', f: 'driver', t: 'session', n: 'tool/result', k: 'durable',
+      need: '工具干完的结果怎么回到模型那里？',
+      why: '工具已经执行完，而模型还不知道结果。',
+      d: '按模型顺序落一条面向模型的结果。',
+      leave: '模型下一轮就能看到「文件在哪、一共多少行」——这就是它继续干活的依据。',
+      p: { b: 'real', t: 'tool/result 载荷',
+           j: { turn: 1, step: 1, message: S.msgT } } },
+
+    { z: 'work', f: 'driver', t: 'session', n: 'step/end', k: 'durable',
+      need: '这一轮什么时候算结束？',
+      why: '模型说了、工具跑了、结果回来了。',
+      d: '关掉这一步。',
+      leave: '一个完整的、可以单独回看的 step。',
+      p: { b: 'real', t: 'step/end 载荷', j: { turn: 1, step: 1 } } },
+
+    { z: 'work', f: 'driver', t: 'driver', n: '循环：tools 欠一次请求', k: 'internal',
+      need: '还欠模型一次请求吗？',
+      why: '上一步刚把结果交给模型，而它此前已明确要调用工具——事情没完。',
+      d: '回到认领，开下一个 step。',
+      leave: '<strong>一个新前置</strong>：现在要把答案写进 LOC.md → step 2 由此而来。',
+      p: { b: 'none', t: '非事件',
+           note: '这正是一开始那句话的实例：满足一个前置，长出下一个前置。step 2 里模型调 <code>write</code> 写 LOC.md。' } },
+
+    { z: 'close', f: 'driver', t: 'driver', n: 'agent/turn-stopping', k: 'live',
+      need: '模型停下来了，是不是真的没事可做了？',
+      why: '没有新输入、也没有欠着的调用，看起来可以收工。',
+      d: '串行地让监听者做最后一次检查。',
+      leave: '要么就此收尾，要么被拦下来继续干。',
+      p: { b: 'illu', t: '终局检查点（示意）', j: { kind: 'serial', hasNext: false },
+           note: '它是<strong>串行</strong>事件而非 waterfall：监听者没有 <code>next()</code>，也没有拒绝权，只有观察与触发。' } },
+
+    { z: 'close', f: 'driver', t: 'session', n: 'turn/end', k: 'durable',
+      need: '怎么标记这件事做完了？',
+      why: '上一帧确认了没有欠账。',
+      d: '关闭 turn。',
+      leave: '日志里一段有始有终的任务记录，可以回看、可以续跑。',
+      p: { b: 'real', t: 'turn/end 载荷', j: { turn: 1, reason: { kind: 'completed' } } } },
+
+    { z: 'close', f: 'driver', t: 'ui', n: 'agent/status idle', k: 'live',
+      need: '界面怎么知道可以等下一次输入了？',
+      why: 'turn 已经关闭，进程内没有在跑的工作。',
+      d: '广播空闲状态。',
+      leave: 'UI 回到可输入状态，等待下一条消息。',
+      p: { b: 'illu', t: 'agent/status（示意）', j: { status: 'idle' } } }
+  ];
+  var ZONE_LABEL = { prep: '准备', work: '干活', close: '收尾' };
+  var KIND_LABEL = { durable: 'durable · 会话日志', live: 'live · 进程内', waterfall: 'waterfall · 可改写', internal: 'internal · 循环内部' };
+  var ROW_H = 34, LANE_TOP = 12;
+
+  var lanesEl = document.getElementById('lanes'), wireEl = document.getElementById('wire'),
+      detailEl = document.getElementById('detail'), counterEl = document.getElementById('counter'),
+      progressEl = document.getElementById('progress'), payloadEl = document.getElementById('payload');
+  var laneIdx = {};
+  LANES.forEach(function (l, i) {
+    laneIdx[l[0]] = i;
+    var d = document.createElement('div');
+    d.className = 'lane';
+    d.innerHTML = '<span class="ln">' + l[1] + '</span><span class="ls">' + l[2] + '</span>';
+    lanesEl.appendChild(d);
+  });
+  var laneEls = [].slice.call(lanesEl.children);
+  wireEl.style.height = (LANES.length * ROW_H + LANE_TOP * 2) + 'px';
+  var dotA = document.createElement('b'), dotB = document.createElement('u'),
+      head = document.createElement('em'), bar = document.createElement('i');
+  bar.style.height = '0px'; bar.style.top = '0px';
+  wireEl.append(bar, dotA, dotB, head);
+
+  var showBranch = false, at = 0, timer = null, SPEEDS = [2000, 1450, 1050, 720, 460];
+  function frames() { return FRAMES.filter(function (f) { return showBranch || !f.branch; }); }
+  function laneCenter(id) { return LANE_TOP + laneIdx[id] * ROW_H + ROW_H / 2; }
+
+  /* ---- payload 面板 ---- */
+  var PAYLOAD_BADGE = { real: ['实证', 'real'], illu: ['示意', 'illu'],
+                        api: ['API 入参', 'api'], none: ['非事件', 'internal'] };
+
+  /** Renders a JSON value as escaped, lightly coloured markup. */
+  function highlightJson(value) {
+    var text = JSON.stringify(value, null, 2)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return text.replace(
+      /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)/g,
+      function (match, str, colon, keyword, num) {
+        if (str) return colon ? '<i class="pk">' + str + '</i>' + colon : '<i class="ps">' + str + '</i>';
+        if (keyword) return '<i class="pb">' + keyword + '</i>';
+        if (num) return '<i class="pn">' + num + '</i>';
+        return match;
+      });
+  }
+
+  function renderPayload(p) {
+    if (!p) return '';
+    var badge = PAYLOAD_BADGE[p.b] || PAYLOAD_BADGE.illu;
+    return '<div class="phead"><span class="pt">' + p.t + '</span>' +
+      '<span class="tag ' + badge[1] + '">' + badge[0] + '</span></div>' +
+      (p.j === undefined ? '' : '<pre class="pjson">' + highlightJson(p.j) + '</pre>') +
+      (p.note ? '<div class="pnote">' + p.note + '</div>' : '');
+  }
+
+  function draw() {
+    var list = frames();
+    if (at >= list.length) at = list.length - 1;
+    if (at < 0) at = 0;
+    var fr = list[at];
+    var a = laneIdx[fr.f], b = laneIdx[fr.t];
+    var y1 = laneCenter(fr.f), y2 = laneCenter(fr.t);
+    var top = Math.min(y1, y2), bot = Math.max(y1, y2);
+
+    laneEls.forEach(function (el, i) {
+      el.classList.toggle('from', i === a && a !== b);
+      el.classList.toggle('to', i === b);
+      el.classList.toggle('pass', (i > Math.min(a, b) && i < Math.max(a, b)));
+    });
+
+    if (a === b) {
+      bar.style.height = '0px';
+      dotA.style.top = (y1 - 8) + 'px'; dotA.style.display = '';
+      dotB.style.top = (y1 + 6) + 'px'; dotB.style.display = '';
+      head.className = 'loop'; head.textContent = '↻';
+      head.style.top = (y1 + 7) + 'px'; head.style.display = '';
+    } else {
+      bar.style.top = top + 'px'; bar.style.height = (bot - top) + 'px';
+      dotA.style.top = (y1 - 8) + 'px'; dotA.style.display = '';
+      dotB.style.top = (y2 - 8) + 'px'; dotB.style.display = '';
+      head.className = y2 > y1 ? 'dn' : 'up'; head.textContent = '';
+      head.style.top = (y2 > y1 ? y2 - 15 : y2 + 8) + 'px'; head.style.display = '';
+    }
+
+    var tagCls = fr.branch ? 'branch' : fr.k;
+    var tagTxt = fr.branch ? 'branch · 旁路' : KIND_LABEL[fr.k];
+    detailEl.innerHTML =
+      '<div class="fname">' + fr.n +
+        '<span class="tag ' + tagCls + '">' + tagTxt + '</span>' +
+        '<span class="tag z-' + fr.z + '">' + ZONE_LABEL[fr.z] + '</span></div>' +
+      '<dl class="flinks">' +
+        '<dt>要回答</dt><dd class="lead">' + fr.need + '</dd>' +
+        '<dt>因为</dt><dd>' + fr.why + '</dd>' +
+        '<dt>做什么</dt><dd>' + fr.d + '</dd>' +
+        '<dt>交出</dt><dd>' + fr.leave + '</dd>' +
+      '</dl>' +
+      '<div class="fmeta">' + LANES[a][1] + '  →  ' + LANES[b][1] + '</div>';
+    payloadEl.innerHTML = renderPayload(fr.p);
+    counterEl.textContent = (at + 1) + ' / ' + list.length;
+    progressEl.innerHTML = '';
+    list.forEach(function (f, i) {
+      var s = document.createElement('span');
+      s.className = 'z-' + f.z + (i < at ? ' done' : i === at ? ' cur' : '');
+      progressEl.appendChild(s);
+    });
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } document.getElementById('btnPlay').textContent = '▶ 播放'; }
+  function play() {
+    if (timer) { stop(); return; }
+    var list = frames();
+    if (at >= list.length - 1) at = 0;
+    document.getElementById('btnPlay').textContent = '❚❚ 暂停';
+    draw();
+    timer = setInterval(function () {
+      if (at >= frames().length - 1) { stop(); return; }
+      at++; draw();
+    }, SPEEDS[+document.getElementById('speed').value - 1]);
+  }
+  document.getElementById('btnPlay').addEventListener('click', play);
+  document.getElementById('btnPrev').addEventListener('click', function () { stop(); if (at > 0) { at--; draw(); } });
+  document.getElementById('btnNext').addEventListener('click', function () { stop(); if (at < frames().length - 1) { at++; draw(); } });
+  document.getElementById('btnReset').addEventListener('click', function () { stop(); at = 0; draw(); });
+  document.getElementById('showBranch').addEventListener('change', function (e) { stop(); showBranch = e.target.checked; at = 0; draw(); });
+  document.getElementById('speed').addEventListener('input', function () { if (timer) { stop(); play(); } });
+  draw();
+
+  /* ---------------- event domains ---------------- */
+  var DOMAINS = [
+    {
+      c: 'var(--success)', t: 'Session 事件', s: 'session/event · durable',
+      d: '追加进日志并通过 <code>session/event</code> 广播的持久事实。当这个事实必须活过一次重载时用它。',
+      e: 'turn/start · step/start · user/message · assistant/message · tool/call · tool/result · system/message'
+    },
+    {
+      c: 'var(--brand)', t: 'Agent 事件', s: 'agent/* · live',
+      d: '携带一个活体 Agent：inbox、step、status、request、validation、continuation。用来观察或<strong>拦截进行中的工作</strong>。',
+      e: 'agent/pre-step · agent/request · agent/turn-stopping · agent/assistant-stream · agent/inbox/* · agent/status'
+    },
+    {
+      c: 'var(--warn)', t: 'Capability 事件', s: 'fs/* · tools/* · telemetry/*',
+      d: '把策略与适配器挂到一条接缝上，<strong>不需要导入循环</strong>。',
+      e: 'fs/write-intent · fs/edit-intent · tools/pre-execute · tools/execute · tools/post-execute · session-telemetry/record'
+    }
+  ];
+  var domEl = document.getElementById('domainCards');
+  DOMAINS.forEach(function (x) {
+    var d = document.createElement('div');
+    d.className = 'domain';
+    d.innerHTML = '<h4><span class="swatch" style="background:' + x.c + '"></span>' + x.t + '</h4>' +
+      '<div class="sub">' + x.s + '</div><p>' + x.d + '</p><div class="ex">' + x.e + '</div>';
+    domEl.appendChild(d);
+  });
+
+  /* ---------------- context assembly pipeline ---------------- */
+  var CTX_PIPE = [
+    ['1', 'claim', '从 inbox 原子认领 pending 的 next-step 输入加一条排队消息。'],
+    ['2', 'system-prompt/assemble', 'waterfall：各插件贡献 prompt 分节与工具 schema，拼成本步的渲染结果。'],
+    ['3', 'project runtime context', '把本步的运行时上下文快照投影进去。'],
+    ['4', 'agent/pre-step', 'waterfall：注入与 steering 在这里被接纳、改写或拒绝。'],
+    ['5', 'prompt 准入对账', '用 <code>prepareCall()</code> 的真实结果，把渲染出的 prompt 同步对账到存活的 <code>system/message</code> 节点上。'],
+    ['6', 'deriveMessages()', '从日志派生并冻结本次请求的模型历史。']
+  ];
+  var ctxPipeEl = document.getElementById('ctxPipe');
+  CTX_PIPE.forEach(function (r) {
+    var d = document.createElement('div');
+    d.className = 'stage-row';
+    d.innerHTML = '<span class="num">' + r[0] + '</span><span class="sname">' + r[1] + '</span><span class="sdesc">' + r[2] + '</span>';
+    ctxPipeEl.appendChild(d);
+  });
+
+  var CTX_PKGS = [
+    ['agent-instructions', '把 <code>AGENTS.md</code> / <code>CLAUDE.md</code> 工作区指令载入上下文，并在文件被编辑后刷新。<code>dsh-base</code> 默认包含它。'],
+    ['session-reference', '引用其他会话：提到一个会话，它的有界只读快照就成为上下文。'],
+    ['file-reference', '<code>@file</code> 提及的发现逻辑与共享的 mention 语法，供宿主 UI 使用。'],
+    ['file-reference-local', '<code>@file</code> 提及的本地工作区补全 provider。'],
+    ['time-context', '当前时间、浏览器时区，以及每步的耗时。'],
+    ['tmux-context', 'agent 所处的 tmux session、window 与 pane 位置。']
+  ];
+  var ctxTableEl = document.getElementById('ctxTable');
+  CTX_PKGS.forEach(function (r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><code>' + r[0] + '</code></td><td>' + r[1] + '</td>';
+    ctxTableEl.appendChild(tr);
+  });
+
+  /* ---------------- seams ---------------- */
+  var SEAMS = [
+    {
+      k: 'ctx.llm', definer: 'llm/llm',
+      providers: ['llm-deepseek', 'llm-pi-ai', 'llm-replay'],
+      consumers: ['agent-loop', 'compaction-basic'],
+      note: '适配器注册 provider 实现；loop 与 compaction 调用 provider 中立的流式服务。'
+    },
+    {
+      k: 'ctx.fs', definer: 'fs/fs',
+      providers: ['fs-local', 'fs-sandbox', 'fs-e2b'],
+      consumers: ['tool-fs'],
+      note: 'tool-fs 通过 ctx.fs 执行读/写/编辑；fs-sandbox 按共享的沙箱模式围栏变更；fs-observation-policy 通过 fs/* 事件门贡献已观察状态检查。'
+    },
+    {
+      k: 'ctx.shell', definer: 'shell/shell',
+      providers: ['bash-local', 'bash-sandbox', 'pwsh-local'],
+      consumers: ['tool-bash', 'tool-pwsh', 'hooks-claude-code', 'hooks-codex'],
+      note: '沙箱化的、远程的或 PowerShell 的执行器替换 bash-local，而不用碰上面这些消费者。'
+    },
+    {
+      k: 'ctx.subprocess', definer: 'subprocess/subprocess',
+      providers: ['subprocess-local', 'subprocess-e2b'],
+      consumers: ['bash-local', 'bash-sandbox', 'terminal-bash', 'lsp-stdio', 'subagent-acp', 'subagent-codex', 'subagent-claude-code'],
+      note: '服务拥有进程坐标、树与会话生命周期、stdio 处置、终端机制和 kill 升级。'
+    },
+    {
+      k: 'ctx.subagents', definer: 'subagent/subagent',
+      providers: ['subagent-spawn-in-process', 'subagent-fork-in-process', 'subagent-acp', 'subagent-codex', 'subagent-claude-code', 'subagent-dsh-sdk'],
+      consumers: ['tool-subagent', 'tool-subagent-control', 'tool-ralph'],
+      note: 'provider 实现传输；服务同时拥有可选的基于 Activation 的续跑编排。范围从"一个全新的子 agent"到"在另一个产品里委派一个 turn"。'
+    },
+    {
+      k: 'ctx.sandbox', definer: 'sandbox/sandbox',
+      providers: ['sandbox-local'],
+      consumers: ['bash-sandbox', 'terminal-bash'],
+      note: '消费者交出它们<em>即将 spawn 的精确 argv</em>；同一世界的后端按每次调用的策略包装它并报告执行结果。'
+    },
+    {
+      k: 'ctx.skills', definer: 'skill/skill',
+      providers: ['skill-badge', 'skill-filesystem'],
+      consumers: ['tool-skill'],
+      note: '合并 provider 的 skill 目录；tool-skill 渲染会话前缀目录并加载完整正文。'
+    },
+    {
+      k: 'ctx.web', definer: 'web/web',
+      providers: ['web-search-exa', 'web-search-perplexity', 'web-search-deepseek', 'web-fetch-http'],
+      consumers: ['tool-web'],
+      note: '搜索与抓取 provider 注册进同一个 ctx.web 接缝；tool-web 拥有稳定的面向模型的名字。'
+    }
+  ];
+  var seamPicker = document.getElementById('seamPicker'), seamView = document.getElementById('seamView');
+  function renderSeam(i) {
+    [].slice.call(seamPicker.children).forEach(function (c, j) { c.classList.toggle('on', i === j); });
+    var s = SEAMS[i];
+    function box(title, cls, items, empty) {
+      return '<div><div style="font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--label-caption);margin-bottom:7px">' + title + '</div>' +
+        (items.length
+          ? items.map(function (n) { return '<div class="mono" style="font-size:12px;padding:5px 9px;border-radius:7px;margin-bottom:5px;border:0.5px solid ' +
+              (cls === 'brand' ? 'color-mix(in srgb, var(--brand) 42%, transparent)' : cls === 'teal' ? 'color-mix(in srgb, var(--teal) 42%, transparent)' : 'var(--border-l2)') +
+              ';background:' + (cls === 'brand' ? 'color-mix(in srgb, var(--brand) 10%, transparent)' : cls === 'teal' ? 'color-mix(in srgb, var(--teal) 10%, transparent)' : 'transparent') +
+              ';color:var(--label-primary)">' + n + '</div>'; }).join('')
+          : '<div style="font-size:12px;color:var(--label-caption)">' + empty + '</div>') + '</div>';
+    }
+    seamView.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">' +
+        '<span class="mono" style="font-size:14px;color:var(--brand)">' + s.k + '</span>' +
+        '<span class="tag">seam</span></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:16px">' +
+        box('Service Definition · 接口', 'plain', [s.definer], '') +
+        box('Service Provider · 实现', 'teal', s.providers, '') +
+        box('Consumer · 使用方', 'brand', s.consumers, '') +
+      '</div>' +
+      '<p style="margin:14px 0 0;font-size:12.5px;color:var(--label-tertiary)">' + s.note + '</p>';
+  }
+  SEAMS.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pchip'; b.textContent = s.k;
+    b.addEventListener('click', function () { renderSeam(i); });
+    seamPicker.appendChild(b);
+  });
+  renderSeam(0);
+
+  var SEAM_EXAMPLES = [
+    ['同一个执行世界', '文件系统与子进程 provider 共享一个执行世界，所以把它们指向远程沙箱，Bash、PTY 和 LSP 跟着一起搬过去。'],
+    ['子代理 provider 差异极大', '<code>subagent-spawn-in-process</code> 开一个全新的子 agent，<code>subagent-dsh-sdk</code> 走 JSON-RPC 到另一个进程，<code>subagent-claude-code</code> 把 turn 委派给另一个产品——同一个接口。'],
+    ['模型路线', '<code>llm-deepseek</code> 与 <code>llm-pi-ai</code> 并列注册；<code>llm-replay</code> 用录制回放替换真实 provider，让快照测试不需要密钥。'],
+    ['一个角色不成接缝', '能力接缝永远由三部分组成：只有接口、只有实现、或只有消费者，都不是接缝。']
+  ];
+  var exEl = document.getElementById('seamExamples');
+  SEAM_EXAMPLES.forEach(function (x) {
+    var d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = '<h4 style="font-size:13px;margin-bottom:6px">' + x[0] + '</h4><p style="font-size:12.5px;margin:0">' + x[1] + '</p>';
+    exEl.appendChild(d);
+  });
+
+  /* ---------------- tool pipeline ---------------- */
+  var TOOL_PIPE = [
+    ['1', 'assistant 消息含 tool-call', '', '模型回包里出现工具调用块。'],
+    ['2', 'tool/call', 'durable', '执行前先记账。UI 同时渲染一张 pending 卡片。'],
+    ['3', 'tools/pre-execute', 'waterfall', 'hook、权限、沙箱策略。可以改写这次调用。'],
+    ['4', 'ctx.approval 一次性询问', 'ask', '不在同一条接缝上的审批：缺失或无法应答 → 拒绝。在<strong>单调守卫之前</strong>解决。'],
+    ['5', '已注册的单调守卫', 'guard', '只能拒绝或弃权；身份受保护。这类不允许被重排的 owner 策略就住在这里。'],
+    ['6', 'tools/execute', 'waterfall', 'around dispatch：超时、重试、指标都包在这一层外面。'],
+    ['7', '已注册工具的 execute() 本体', '', '真正干活的地方。'],
+    ['8', 'fs/write-intent · fs/edit-intent', 'gate', '仅 tool-fs 的变更走这道文件系统门；读后编辑检查在 tool-fs 之下。'],
+    ['9', 'tools/post-execute', 'waterfall', '接受、阻止、替换或追加上下文。'],
+    ['10', '规范化 + finalizeContent', 'norm', '注册表做无损快照，快照失败在此规范化为 isError；最后是仅内容的同步不变式。'],
+    ['11', 'tools/result', 'sync', '同步通知，交付出冻结后的权威结果。'],
+    ['12', 'tool/result', 'durable', '唯一一条面向模型的结果落账；批量结算后的额外上下文按 FIFO 注入。']
+  ];
+  var toolPipeEl = document.getElementById('toolPipe');
+  var TOOL_PHASES = { '1': '决策：这次调用能不能执行', '6': '执行：真正干活', '9': '收尾：结果怎么落地' };
+  TOOL_PIPE.forEach(function (r) {
+    if (TOOL_PHASES[r[0]]) {
+      var ph = document.createElement('div');
+      ph.className = 'phase-row';
+      ph.innerHTML = '<span class="ph">' + TOOL_PHASES[r[0]] + '</span>';
+      toolPipeEl.appendChild(ph);
+    }
+    var d = document.createElement('div');
+    d.className = 'stage-row' + (r[1].indexOf('tools/') === 0 ? ' hl' : '');
+    d.innerHTML = '<span class="num">' + r[0] + '</span><span class="sname">' + r[1] + (r[2] ? ' <span class="tag">' + r[2] + '</span>' : '') + '</span><span class="sdesc">' + r[3] + '</span>';
+    toolPipeEl.appendChild(d);
+  });
+
+  /* ---------------- extension points ---------------- */
+  var EXTEND = [
+    ['新增模型 provider', '在 ctx.llm 上注册适配器'],
+    ['新增面向模型的能力', '注册到 ctx.tools；它的 schema 会加入 prompt 组装'],
+    ['让某个会话拥有不同的能力集', '组合一个 agent preset；那里的服务行需要 isolate 域'],
+    ['新增 shell 执行', '注册一个 ctx.shell 后端；本地那个通过 ctx.subprocess spawn'],
+    ['新增持久终端执行', '注册一个 ctx.terminals 后端，加上 dsh-tool-terminal'],
+    ['新增人类命令', '注册到 ctx.commands；它不经过模型 turn 直接派发'],
+    ['新增后台工作', '注册到 ctx.jobs；job_* 工具负责收集或停止它'],
+    ['由外部 webhook 启动 Session', '在 ctx.webhookRuntime 上注册可信规则并挂载 provider 适配器'],
+    ['新增文件系统访问或策略', '注册 ctx.fs provider，或监听 fs/* 事件'],
+    ['限制 spawn 出去的进程', '用 ctx.sandbox 后端；消费者在 spawn 前包装 argv'],
+    ['拦截一次请求、工具或 turn', '用对应的 agent/* 或 tools/* 事件；agent/turn-stopping 可以停住一个 turn'],
+    ['新增面向模型的上下文', '调用 agent.inject()；它会落在下一个被准入的请求里'],
+    ['新增 UI 或编辑器集成', '驱动 ctx.agents，并从 session/event 渲染'],
+    ['新增 Web Client Chat 节点', '注册一个 ConversationNodeDefinition 加对应的 keyed renderer'],
+    ['新增持久会话状态', '扩展 SessionEventMap；从日志渲染与重放'],
+    ['生成会话标题', '注册唯一的 ctx.sessionTitle provider'],
+    ['管理同会话目标', '用 ctx.goals；通过 agent/* 续跑'],
+    ['在 turn 边界 fork 会话', 'ctx.agents.create({ sessionId, seed, meta: { parentSession, seedLength } })'],
+    ['换一种会话存储后端', '在共享的 handle 脚手架之上实现 SessionPersistence'],
+    ['把注册限定到单个 agent', '用那个 agent 的 agent.ctx']
+  ];
+  var extendEl = document.getElementById('extendTable');
+  EXTEND.forEach(function (r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + r[0] + '</td><td>' + r[1] + '</td>';
+    extendEl.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>

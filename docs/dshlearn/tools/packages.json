@@ -1,0 +1,6272 @@
+{
+ "counts": {
+  "packages": 280,
+  "groups": 52,
+  "services": 75,
+  "clientPackages": 63
+ },
+ "groups": [
+  "acp",
+  "api",
+  "attachment",
+  "boot",
+  "bundle",
+  "client",
+  "code-runtime",
+  "compaction",
+  "context",
+  "core",
+  "credentials",
+  "e2b",
+  "experimental",
+  "extensions",
+  "feedback",
+  "fs",
+  "goal",
+  "guard",
+  "hooks",
+  "host",
+  "identity",
+  "interaction",
+  "jobs",
+  "llm",
+  "lsp",
+  "mcp",
+  "notes",
+  "plan",
+  "preset",
+  "runtime-diagnostics",
+  "sandbox",
+  "schedule",
+  "sdk",
+  "session",
+  "session-query",
+  "settings",
+  "shell",
+  "skill",
+  "spill",
+  "storage",
+  "subagent",
+  "subprocess",
+  "telemetry",
+  "terminal",
+  "test-support",
+  "todo",
+  "typert",
+  "util",
+  "web",
+  "webhook",
+  "workflow",
+  "workspace"
+ ],
+ "packages": [
+  {
+   "group": "acp",
+   "dir": "acp",
+   "rel": "packages/acp/acp",
+   "name": "@deepseek-ai/dsh-acp",
+   "description": "Automation-only Agent Client Protocol server for driving DeepSeek Harness agents over JSON-RPC stdio",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agents",
+    "ctx.approval"
+   ]
+  },
+  {
+   "group": "api",
+   "dir": "gateway",
+   "rel": "packages/api/gateway",
+   "name": "@deepseek-ai/dsh-api-gateway",
+   "description": "Typert Remote Host dispatcher and Client API endpoint",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-typert-registry",
+     "@deepseek-ai/dsh-client-connection"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 5,
+   "owns": [
+    "ctx.typertGateway"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.typert"
+   ]
+  },
+  {
+   "group": "api",
+   "dir": "remotes",
+   "rel": "packages/api/remotes",
+   "name": "@deepseek-ai/dsh-api-remotes",
+   "description": "Remote BFF assembly for application-selected Host capabilities",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-gateway"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "api",
+   "dir": "session-controller",
+   "rel": "packages/api/session-controller",
+   "name": "@deepseek-ai/dsh-api-session-controller",
+   "description": "Session Remote commands, cold reads, and live control transport",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-gateway"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 5,
+   "owns": [
+    "ctx.sessionController",
+    "ctx.sessionFileReferences",
+    "ctx.sessionSkillCatalog"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionDeletion",
+    "ctx.attachments",
+    "ctx.fileUploads",
+    "ctx.workspaceRegistry",
+    "ctx.fileReferences",
+    "ctx.sessionProjections",
+    "ctx.sessionProjectionCache",
+    "ctx.agentDefaultModel"
+   ]
+  },
+  {
+   "group": "api",
+   "dir": "settings-controller",
+   "rel": "packages/api/settings-controller",
+   "name": "@deepseek-ai/dsh-api-settings-controller",
+   "description": "Remote owner for the configuration surfaces over the settings-domain seams",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.credentialsController",
+    "ctx.settingsController"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.settings",
+    "ctx.credentials"
+   ]
+  },
+  {
+   "group": "api",
+   "dir": "workspace-controller",
+   "rel": "packages/api/workspace-controller",
+   "name": "@deepseek-ai/dsh-api-workspace-controller",
+   "description": "Workspace Remote commands and reconnect-safe state transport",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-gateway",
+     "@deepseek-ai/dsh-client-connection"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.workspaceController",
+    "ctx.directoryPickerController"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.workspaceRegistry",
+    "ctx.directoryPicker"
+   ]
+  },
+  {
+   "group": "api",
+   "dir": "workspace-files",
+   "rel": "packages/api/workspace-files",
+   "name": "@deepseek-ai/dsh-api-workspace-files",
+   "description": "Workspace file service and Client resource provider: bounded reads, directory listing, and live metadata over the workspaceFiles Remote namespace",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-gateway",
+     "@deepseek-ai/dsh-client-resources"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [
+    "ctx.workspaceFiles"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "attachment",
+   "dir": "attachment",
+   "rel": "packages/attachment/attachment",
+   "name": "@deepseek-ai/dsh-attachment",
+   "description": "Durable immutable attachment storage seam for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.attachments"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "attachment",
+   "dir": "attachment-local",
+   "rel": "packages/attachment/attachment-local",
+   "name": "@deepseek-ai/dsh-attachment-local",
+   "description": "Private content-addressed DSH_HOME attachment storage",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.attachments"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "boot",
+   "dir": "app-boot",
+   "rel": "packages/boot/app-boot",
+   "name": "@deepseek-ai/dsh-app-boot",
+   "description": "Shared boot glue for the app bins: .env loading, fail-loud Loader guards, snapshot-aware config resolution, and the Loader boot sequence",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "boot",
+   "dir": "cmdline",
+   "rel": "packages/boot/cmdline",
+   "name": "@deepseek-ai/dsh-cmdline",
+   "description": "Immutable command-line handoff from a dsh launcher to any app plugin that injects cmdlineArgs",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "bundle",
+   "dir": "acp-app",
+   "rel": "packages/bundle/acp-app",
+   "name": "@deepseek-ai/dsh-acp-app",
+   "description": "The dsh ACP profile bundle: automation-only JSON-RPC stdio and process lifecycle over dsh-base",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "bundle",
+   "dir": "base",
+   "rel": "packages/bundle/base",
+   "name": "@deepseek-ai/dsh-base",
+   "description": "The shared dsh core as a profile bundle: the first patch layer of base-backed profiles, inserting core rows over the empty profile root",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 88,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agentLoop"
+   ]
+  },
+  {
+   "group": "bundle",
+   "dir": "headless",
+   "rel": "packages/bundle/headless",
+   "name": "@deepseek-ai/dsh-headless",
+   "description": "The dsh one-shot bundle: a direct core Agent/Session runner over dsh-base with no Host, HTTP, or browser layer",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 6,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agentDefaultModel"
+   ]
+  },
+  {
+   "group": "bundle",
+   "dir": "mob",
+   "rel": "packages/bundle/mob",
+   "name": "@deepseek-ai/dsh-mob",
+   "description": "Phone access for the DeepSeek Harness Web UI: the settings join entry and the LAN join-URL Remote namespace.",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "bundle",
+   "dir": "sdk-app",
+   "rel": "packages/bundle/sdk-app",
+   "name": "@deepseek-ai/dsh-sdk-app",
+   "description": "The dsh SDK profile bundle: stdio JSON-RPC serving and process lifecycle over dsh-base",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "bundle",
+   "dir": "sdk-minimal",
+   "rel": "packages/bundle/sdk-minimal",
+   "name": "@deepseek-ai/dsh-sdk-minimal",
+   "description": "The standalone minimal SDK profile bundle: JSON-RPC, one DeepSeek adapter, persistent shell, and JSONL sessions",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 27,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agentLoop"
+   ]
+  },
+  {
+   "group": "bundle",
+   "dir": "web-app",
+   "rel": "packages/bundle/web-app",
+   "name": "@deepseek-ai/dsh-web-app",
+   "description": "The dsh browser-surface bundle: the web patch layer over dsh-base plus the runtime glue plugin (frontend dist serving, web-surface prompt, bash runtime variables, URL line)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 88,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "connection",
+   "rel": "packages/client/connection",
+   "name": "@deepseek-ai/dsh-client-connection",
+   "description": "Authenticated RPC transport, generation lifecycle, and browser fixture",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.webServer"
+   ]
+  },
+  {
+   "group": "client",
+   "dir": "file-upload",
+   "rel": "packages/client/file-upload",
+   "name": "@deepseek-ai/dsh-client-file-upload",
+   "description": "Agent-scoped browser file upload, streaming intake, and staged receipt service",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [
+    "ctx.fileUploads"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "hmr",
+   "rel": "packages/client/hmr",
+   "name": "@deepseek-ai/dsh-client-hmr",
+   "description": "Dev-only hot-reload driver for script-loaded client entries: SSE rebuilt frames → invalidate/prefetch → fiber swap through the vendored Loader entry",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.webServer",
+    "ctx.clientModules"
+   ]
+  },
+  {
+   "group": "client",
+   "dir": "locale",
+   "rel": "packages/client/locale",
+   "name": "@deepseek-ai/dsh-client-locale",
+   "description": "Locale plugin: Host-backed preference, extensible language catalog, browser fallback, and typed built-in dictionaries",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "modules",
+   "rel": "packages/client/modules",
+   "name": "@deepseek-ai/dsh-client-modules",
+   "description": "Client module system, dual-face: node half composes the __DSH_BOOT__ entry graph (incremental dsh.client scan, bundle route, index tap, webPlugins service); browser half is the lazy-CJS module table the vendored cordis Loader consumes as its internal seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.clientModules"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.webServer"
+   ]
+  },
+  {
+   "group": "client",
+   "dir": "resources",
+   "rel": "packages/client/resources",
+   "name": "@deepseek-ai/dsh-client-resources",
+   "description": "Unified client resource model: protocol-registered providers turn URL addresses into live values, consumed through the useResource global standard hook",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-renderer"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "store",
+   "rel": "packages/client/store",
+   "name": "@deepseek-ai/dsh-client-store",
+   "description": "React-free observable and snapshot-store contracts with the shared Zustand/Immer engine",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-agent-preset",
+   "rel": "packages/client/ui-agent-preset",
+   "name": "@deepseek-ai/dsh-client-ui-agent-preset",
+   "description": "Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-ui-workspace",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-approval",
+   "rel": "packages/client/ui-approval",
+   "name": "@deepseek-ai/dsh-client-ui-approval",
+   "description": "Approval composer takeover over the scoped Remote Event waterfall",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-attachment",
+   "rel": "packages/client/ui-attachment",
+   "name": "@deepseek-ai/dsh-client-ui-attachment",
+   "description": "Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-chat",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-trajectory",
+     "@deepseek-ai/dsh-client-ui-tool"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-brand-official",
+   "rel": "packages/client/ui-brand-official",
+   "name": "@deepseek-ai/dsh-client-ui-brand-official",
+   "description": "Official DeepSeek Harness brand occupants for the Web client's sidebar slots",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-sidebar"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-chat",
+   "rel": "packages/client/ui-chat",
+   "name": "@deepseek-ai/dsh-client-ui-chat",
+   "description": "Chat Conversation target, node definitions, renderers, and details surface",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-api-workspace-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-sidebar-right",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-ui-workspace"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-commands",
+   "rel": "packages/client/ui-commands",
+   "name": "@deepseek-ai/dsh-client-ui-commands",
+   "description": "Client command surface: global directory cache, '/' source, three command UI kinds, popupSelect registry",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-input-trigger",
+     "@deepseek-ai/dsh-client-ui-conversation"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-conversation",
+   "rel": "packages/client/ui-conversation",
+   "name": "@deepseek-ai/dsh-client-ui-conversation",
+   "description": "Target-neutral Conversation assembly, shell, composer, queue, and view navigation",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-file-upload",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-ui-workspace"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-deliverables",
+   "rel": "packages/client/ui-deliverables",
+   "name": "@deepseek-ai/dsh-client-ui-deliverables",
+   "description": "Produced-files turn tail and clickable final-response file references for Web",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-chat",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-tool"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-directory-picker-browse",
+   "rel": "packages/client/ui-directory-picker-browse",
+   "name": "@deepseek-ai/dsh-client-ui-directory-picker-browse",
+   "description": "In-app directory browsing surface: the workspace directory-flow owner rendering the host's listing and creation primitives",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-workspace",
+     "@deepseek-ai/dsh-client-locale"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-directory-picker-native",
+   "rel": "packages/client/ui-directory-picker-native",
+   "name": "@deepseek-ai/dsh-client-ui-directory-picker-native",
+   "description": "Native directory-picker surface: the renderless workspace directory-flow occupant driving the host's OS chooser",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-workspace"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-dockkit",
+   "rel": "packages/client/ui-dockkit",
+   "name": "@deepseek-ai/dsh-client-ui-dockkit",
+   "description": "Docking layout kit: split-tree engine with invertible operations, and the React components that render and drive it (zero cordis)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-goal",
+   "rel": "packages/client/ui-goal",
+   "name": "@deepseek-ai/dsh-client-ui-goal",
+   "description": "Session goal surface: GoalBar docked above the composer, read from the goal session projection",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-chat",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-input-trigger",
+   "rel": "packages/client/ui-input-trigger",
+   "name": "@deepseek-ai/dsh-client-ui-input-trigger",
+   "description": "Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-jobs",
+   "rel": "packages/client/ui-jobs",
+   "name": "@deepseek-ai/dsh-client-ui-jobs",
+   "description": "Session-header background-job list: live registry state mirrored from session/jobs frames",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-primitives"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-layout",
+   "rel": "packages/client/ui-layout",
+   "name": "@deepseek-ai/dsh-client-ui-layout",
+   "description": "Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-theme"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-message-feedback",
+   "rel": "packages/client/ui-message-feedback",
+   "name": "@deepseek-ai/dsh-client-ui-message-feedback",
+   "description": "The Web feedback surface: per-message Like/Dislike in the assistant-message action strip and the feedback dialog behind Dislike and /feedback, backed by the messageFeedback and sessionFeedback Host Remotes",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-commands"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-model-selection",
+   "rel": "packages/client/ui-model-selection",
+   "name": "@deepseek-ai/dsh-client-ui-model-selection",
+   "description": "Model selection over the shared model catalog, Session projection, and session.selectModel",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-commands",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-open-in-app",
+   "rel": "packages/client/ui-open-in-app",
+   "name": "@deepseek-ai/dsh-client-ui-open-in-app",
+   "description": "Web Session-header \"Open In...\" split button opening the session workspace directory in a locally installed application",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-permission-presets",
+   "rel": "packages/client/ui-permission-presets",
+   "name": "@deepseek-ai/dsh-client-ui-permission-presets",
+   "description": "Permission surfaces: a new-session default in General settings and a current-session /permission popup over the permissions projection",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-commands",
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-ui-settings"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-pinned-sessions",
+   "rel": "packages/client/ui-pinned-sessions",
+   "name": "@deepseek-ai/dsh-client-ui-pinned-sessions",
+   "description": "Pinned-sessions sidebar section and row actions for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-workspace",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-api-workspace-controller"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-plan",
+   "rel": "packages/client/ui-plan",
+   "name": "@deepseek-ai/dsh-client-ui-plan",
+   "description": "Plan-mode composer control: the conversation.input.plan seat over the plan projection and the /plan command channel",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-primitives",
+   "rel": "packages/client/ui-primitives",
+   "name": "@deepseek-ai/dsh-client-ui-primitives",
+   "description": "Pure React atoms for the dsh web UI: controls, icons, markdown, and JSON inspectors (zero cordis)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-reference",
+   "rel": "packages/client/ui-reference",
+   "name": "@deepseek-ai/dsh-client-ui-reference",
+   "description": "Unified Web @file and @session reference source",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-input-trigger"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-renderer",
+   "rel": "packages/client/ui-renderer",
+   "name": "@deepseek-ai/dsh-client-ui-renderer",
+   "description": "Browser UI renderer: React slot bindings, ctx.uiRenderer, and the assembled application root",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-schedule",
+   "rel": "packages/client/ui-schedule",
+   "name": "@deepseek-ai/dsh-client-ui-schedule",
+   "description": "Read-only active Schedule catalog in the Web Session header",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-primitives"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-session",
+   "rel": "packages/client/ui-session",
+   "name": "@deepseek-ai/dsh-client-ui-session",
+   "description": "Session Controller adapter for React and session-scoped slots",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-ui-renderer"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings",
+   "rel": "packages/client/ui-settings",
+   "name": "@deepseek-ai/dsh-client-ui-settings",
+   "description": "Settings domain base plugin: the settings-namespace scope service and the canonical settings slot-type contract",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-archived",
+   "rel": "packages/client/ui-settings-archived",
+   "name": "@deepseek-ai/dsh-client-ui-settings-archived",
+   "description": "Archived conversations settings section: restore or delete archived sessions",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-api-workspace-controller"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-general",
+   "rel": "packages/client/ui-settings-general",
+   "name": "@deepseek-ai/dsh-client-ui-settings-general",
+   "description": "Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-ui-sidebar"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-mcp",
+   "rel": "packages/client/ui-settings-mcp",
+   "name": "@deepseek-ai/dsh-client-ui-settings-mcp",
+   "description": "MCP server roster tab in Web Plugins settings",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-models",
+   "rel": "packages/client/ui-settings-models",
+   "name": "@deepseek-ai/dsh-client-ui-settings-models",
+   "description": "Models settings and shared product-onboarding dialogs over existing settings and credential joins",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-plugin-inventory",
+   "rel": "packages/client/ui-settings-plugin-inventory",
+   "name": "@deepseek-ai/dsh-client-ui-settings-plugin-inventory",
+   "description": "Read-only Cordis Loader inventory tab in Web Plugins settings",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-agent-preset"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-plugins",
+   "rel": "packages/client/ui-settings-plugins",
+   "name": "@deepseek-ai/dsh-client-ui-settings-plugins",
+   "description": "Plugins settings section with feature-owned tabs and configurable host-plane plugin cards",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-settings-skills",
+   "rel": "packages/client/ui-settings-skills",
+   "name": "@deepseek-ai/dsh-client-ui-settings-skills",
+   "description": "Skills settings section: grouped skill catalog with user enable/disable overrides",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-sidebar",
+   "rel": "packages/client/ui-sidebar",
+   "name": "@deepseek-ai/dsh-client-ui-sidebar",
+   "description": "Sidebar plugin: session multi-level tree, search, grouping, state dots",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-workspace-controller",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-workspace",
+     "@deepseek-ai/dsh-client-locale"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-sidebar-documentpreview",
+   "rel": "packages/client/ui-sidebar-documentpreview",
+   "name": "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+   "description": "Extensible document previews for Sidebar files: Markdown, highlighted code, images, PDF, HTML, and plain text",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-gateway",
+     "@deepseek-ai/dsh-api-workspace-files",
+     "@deepseek-ai/dsh-client-ui-sidebar-right",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-sidebar-files",
+   "rel": "packages/client/ui-sidebar-files",
+   "name": "@deepseek-ai/dsh-client-ui-sidebar-files",
+   "description": "Workspace file tree tab type for the right Sidebar: lazy directory listing over the workspaceFiles Remote namespace, opening files into the Sidebar",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-workspace-files",
+     "@deepseek-ai/dsh-client-ui-sidebar-right",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-sidebar-right",
+   "rel": "packages/client/ui-sidebar-right",
+   "name": "@deepseek-ai/dsh-client-ui-sidebar-right",
+   "description": "Right Sidebar: the docking surface's session-bound state, its panel and header expand control, and the navigation service over it",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-resources",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-skill",
+   "rel": "packages/client/ui-skill",
+   "name": "@deepseek-ai/dsh-client-ui-skill",
+   "description": "Web skill references and the dedicated skill tool row",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-tool",
+     "@deepseek-ai/dsh-client-ui-input-trigger",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-slots",
+   "rel": "packages/client/ui-slots",
+   "name": "@deepseek-ai/dsh-client-ui-slots",
+   "description": "Slot registry pure core: SlotMap declaration merging, single register composition API, four-share props types, store-seat types, renderer install seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-subagent",
+   "rel": "packages/client/ui-subagent",
+   "name": "@deepseek-ai/dsh-client-ui-subagent",
+   "description": "Subagent conversation catalog, continuation routing UI, and '@' reference source",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-primitives",
+     "@deepseek-ai/dsh-client-ui-input-trigger"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-theme",
+   "rel": "packages/client/ui-theme",
+   "name": "@deepseek-ai/dsh-client-ui-theme",
+   "description": "Theme plugin: Host bootstrap for the pre-plugin palette; DOM-free ThemeRuntime for light/dark/system state; --dsw-* token styles and Appearance settings row",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-settings",
+     "@deepseek-ai/dsh-api-remotes"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-tool",
+   "rel": "packages/client/ui-tool",
+   "name": "@deepseek-ai/dsh-client-ui-tool",
+   "description": "Client Tool call-tree renderer and keyed per-tool presentation slot",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-workspace-controller",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-trajectory",
+   "rel": "packages/client/ui-trajectory",
+   "name": "@deepseek-ai/dsh-client-ui-trajectory",
+   "description": "Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-user-questions",
+   "rel": "packages/client/ui-user-questions",
+   "name": "@deepseek-ai/dsh-client-ui-user-questions",
+   "description": "Web ask_user_question composer takeover and plan-review presentation UI",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-workflow-run",
+   "rel": "packages/client/ui-workflow-run",
+   "name": "@deepseek-ai/dsh-client-ui-workflow-run",
+   "description": "Durable workflow-run Conversation Node and nested member disclosure for dsh web",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-chat",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "ui-workspace",
+   "rel": "packages/client/ui-workspace",
+   "name": "@deepseek-ai/dsh-client-ui-workspace",
+   "description": "Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-api-workspace-controller",
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-layout",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-sidebar"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "client",
+   "dir": "web",
+   "rel": "packages/client/web",
+   "name": "@deepseek-ai/dsh-client-web",
+   "description": "Web boot kernel: static module table, Cordis loader, framework-free boot page, and UI-renderer handoff",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "code-runtime",
+   "dir": "code-runtime",
+   "rel": "packages/code-runtime/code-runtime",
+   "name": "@deepseek-ai/dsh-code-runtime",
+   "description": "Abstract code-execution seam (ctx.codeRuntime) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.codeRuntime"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "code-runtime",
+   "dir": "code-runtime-worker-thread",
+   "rel": "packages/code-runtime/code-runtime-worker-thread",
+   "name": "@deepseek-ai/dsh-code-runtime-worker-thread",
+   "description": "Worker-thread implementation of the DeepSeek Harness code-execution seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.codeRuntime"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "compaction",
+   "dir": "command-compact",
+   "rel": "packages/compaction/command-compact",
+   "name": "@deepseek-ai/dsh-command-compact",
+   "description": "Human-facing slash command for explicit session compaction",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "compaction",
+   "dir": "compaction",
+   "rel": "packages/compaction/compaction",
+   "name": "@deepseek-ai/dsh-compaction",
+   "description": "Abstract compaction service seam (ctx.compaction) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.compaction"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "compaction",
+   "dir": "compaction-basic",
+   "rel": "packages/compaction/compaction-basic",
+   "name": "@deepseek-ai/dsh-compaction-basic",
+   "description": "Token-meter-driven compaction policy and LLM summarization backend for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.compaction"
+   ],
+   "consumes": [
+    "ctx.llm",
+    "ctx.tokenMeter",
+    "ctx.toolResultPruner",
+    "ctx.compaction"
+   ]
+  },
+  {
+   "group": "compaction",
+   "dir": "compaction-tool-result-pruner",
+   "rel": "packages/compaction/compaction-tool-result-pruner",
+   "name": "@deepseek-ai/dsh-compaction-tool-result-pruner",
+   "description": "Replay-safe model-free head/middle/tail pruning for tool-result surface nodes",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.toolResultPruner"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "context",
+   "dir": "agent-instructions",
+   "rel": "packages/context/agent-instructions",
+   "name": "@deepseek-ai/dsh-agent-instructions",
+   "description": "Workspace context loader for AGENTS.md/CLAUDE.md instruction files",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "context",
+   "dir": "file-reference",
+   "rel": "packages/context/file-reference",
+   "name": "@deepseek-ai/dsh-file-reference",
+   "description": "File-reference discovery contract and shared @file grammar",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.fileReferences"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "context",
+   "dir": "file-reference-local",
+   "rel": "packages/context/file-reference-local",
+   "name": "@deepseek-ai/dsh-file-reference-local",
+   "description": "Local-filesystem ctx.fileReferences provider with bounded fuzzy indexes",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.fileReferences"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "context",
+   "dir": "session-reference",
+   "rel": "packages/context/session-reference",
+   "name": "@deepseek-ai/dsh-session-reference",
+   "description": "Cross-session snapshot references and durable untrusted model context (ctx.sessionReferenceResolver)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [
+    "ctx.sessionReferenceResolver"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionQuery",
+    "ctx.sessionProjectionCache"
+   ]
+  },
+  {
+   "group": "context",
+   "dir": "time-context",
+   "rel": "packages/context/time-context",
+   "name": "@deepseek-ai/dsh-time-context",
+   "description": "Opt-in durable per-step context with the current time and elapsed time",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "context",
+   "dir": "tmux-context",
+   "rel": "packages/context/tmux-context",
+   "name": "@deepseek-ai/dsh-tmux-context",
+   "description": "Opt-in durable per-step context with this agent's tmux pane and window location",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "core",
+   "dir": "agent",
+   "rel": "packages/core/agent",
+   "name": "@deepseek-ai/dsh-agent",
+   "description": "Agent interface, registry, initiator scope, and event vocabulary for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.agents"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions",
+    "ctx.invariants"
+   ]
+  },
+  {
+   "group": "core",
+   "dir": "agent-default-model",
+   "rel": "packages/core/agent-default-model",
+   "name": "@deepseek-ai/dsh-agent-default-model",
+   "description": "Default model selection shared by Agent entry points",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.agentDefaultModel"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "core",
+   "dir": "agent-loop",
+   "rel": "packages/core/agent-loop",
+   "name": "@deepseek-ai/dsh-agent-loop",
+   "description": "The concrete agent loop plugin for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 4,
+   "owns": [
+    "ctx.agentLoop"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.llm",
+    "ctx.sessions",
+    "ctx.invariants",
+    "ctx.sessionPersistence",
+    "ctx.systemPrompt",
+    "ctx.tools",
+    "ctx.agents"
+   ]
+  },
+  {
+   "group": "core",
+   "dir": "agent-tool-presentation",
+   "rel": "packages/core/agent-tool-presentation",
+   "name": "@deepseek-ai/dsh-agent-tool-presentation",
+   "description": "Agent-plane presentation selector: composes one agent's tools as PTC mode, native, or both",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "core",
+   "dir": "scope",
+   "rel": "packages/core/scope",
+   "name": "@deepseek-ai/dsh-scope",
+   "description": "Scoped-context registration primitive (scope tags, scope-filtered event dispatch) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.invariants"
+   ]
+  },
+  {
+   "group": "core",
+   "dir": "session",
+   "rel": "packages/core/session",
+   "name": "@deepseek-ai/dsh-session",
+   "description": "Event-sourced session store for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [
+    "ctx.sessions"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.invariants"
+   ]
+  },
+  {
+   "group": "core",
+   "dir": "system-prompt",
+   "rel": "packages/core/system-prompt",
+   "name": "@deepseek-ai/dsh-system-prompt",
+   "description": "System prompt assembly registry for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [
+    "ctx.systemPrompt"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "core",
+   "dir": "tools",
+   "rel": "packages/core/tools",
+   "name": "@deepseek-ai/dsh-tools",
+   "description": "Tool registry and execution pipeline for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [
+    "ctx.tools"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.systemPrompt",
+    "ctx.approval",
+    "ctx.codeRuntime"
+   ]
+  },
+  {
+   "group": "credentials",
+   "dir": "authorization",
+   "rel": "packages/credentials/authorization",
+   "name": "@deepseek-ai/dsh-authorization",
+   "description": "Authorization seam (ctx.authorization): plugin-owned flows that obtain a credential through a conversation with the human",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.authorization"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "credentials",
+   "dir": "credentials",
+   "rel": "packages/credentials/credentials",
+   "name": "@deepseek-ai/dsh-credentials",
+   "description": "Abstract credential seam (ctx.credentials): settings carry references to secrets, providers own the values",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [
+    "ctx.credentials"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "credentials",
+   "dir": "credentials-local",
+   "rel": "packages/credentials/credentials-local",
+   "name": "@deepseek-ai/dsh-credentials-local",
+   "description": "File-backed credentials provider ($DSH_HOME/.env under the live process environment) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.credentials"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "e2b",
+   "dir": "e2b",
+   "rel": "packages/e2b/e2b",
+   "name": "@deepseek-ai/dsh-e2b",
+   "description": "Shared E2B sandbox lifecycle for DeepSeek Harness provider adapters",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.e2b"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "e2b",
+   "dir": "fs-e2b",
+   "rel": "packages/e2b/fs-e2b",
+   "name": "@deepseek-ai/dsh-fs-e2b",
+   "description": "E2B filesystem implementation for DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [
+    "ctx.fs"
+   ],
+   "consumes": [
+    "ctx.e2b"
+   ]
+  },
+  {
+   "group": "e2b",
+   "dir": "subprocess-e2b",
+   "rel": "packages/e2b/subprocess-e2b",
+   "name": "@deepseek-ai/dsh-subprocess-e2b",
+   "description": "E2B subprocess implementation for DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.subprocess"
+   ],
+   "consumes": [
+    "ctx.e2b"
+   ]
+  },
+  {
+   "group": "experimental",
+   "dir": "agent-team",
+   "rel": "packages/experimental/agent-team",
+   "name": "@deepseek-ai/dsh-experimental-agent-team",
+   "description": "Implicit-root Agent Teams roster, durable peer mailbox, and shared task DAG",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [
+    "ctx.agentTeams"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "agent-team-profile",
+   "rel": "packages/experimental/agent-team-profile",
+   "name": "@deepseek-ai/dsh-experimental-agent-team-profile",
+   "description": "Experimental profile bundle enabling Agent Teams over dsh-base",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "agent-team-web-profile",
+   "rel": "packages/experimental/agent-team-web-profile",
+   "name": "@deepseek-ai/dsh-experimental-agent-team-web-profile",
+   "description": "Experimental Web profile layer for Agent Teams Remote and UI plugins",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "client-ui-agent-team",
+   "rel": "packages/experimental/client-ui-agent-team",
+   "name": "@deepseek-ai/dsh-experimental-client-ui-agent-team",
+   "description": "Web Agent Teams roster, task board, and teammate navigation",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-api-session-controller",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-primitives"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agentTeams"
+   ]
+  },
+  {
+   "group": "experimental",
+   "dir": "code-runtime-python",
+   "rel": "packages/experimental/code-runtime-python",
+   "name": "@deepseek-ai/dsh-experimental-code-runtime-python",
+   "description": "CPython subprocess implementation of the DeepSeek Harness code-execution seam",
+   "version": "0.1.5-rc.1",
+   "private": true,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.codeRuntime"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "inspector",
+   "rel": "packages/experimental/inspector",
+   "name": "@deepseek-ai/dsh-experimental-inspector",
+   "description": "Experimental cross-realm CDP hub for Host debugging and Client Runtime inspection",
+   "version": "0.1.5-rc.1",
+   "private": true,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "tool-agent-team",
+   "rel": "packages/experimental/tool-agent-team",
+   "name": "@deepseek-ai/dsh-experimental-tool-agent-team",
+   "description": "Scoped model-facing Agent Teams tools over ctx.agentTeams",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.agentTeams"
+   ]
+  },
+  {
+   "group": "experimental",
+   "dir": "webworker-packer",
+   "rel": "packages/experimental/webworker-packer",
+   "name": "@deepseek-ai/dsh-experimental-webworker-packer",
+   "description": "Build-time packer for the browser runtime's base VFS image and ordered data-overlay archives",
+   "version": "0.1.5-rc.1",
+   "private": true,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 5,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "experimental",
+   "dir": "webworker-runtime",
+   "rel": "packages/experimental/webworker-runtime",
+   "name": "@deepseek-ai/dsh-experimental-webworker-runtime",
+   "description": "Browser-only harness runtime: in-memory VFS, module transform and loader, postMessage tunnel, and the dedicated Web Worker assembly, with the Node-compatibility layer that lets the host tree run unchanged",
+   "version": "0.1.5-rc.1",
+   "private": true,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 7,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "extensions",
+   "dir": "cordis-client-runner",
+   "rel": "packages/extensions/cordis-client-runner",
+   "name": "@deepseek-ai/dsh-cordis-client-runner",
+   "description": "Browser half of dynamic dual-half plugin packages: event subscription, closure evaluation, guard facade, and loader entries",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-modules",
+     "@deepseek-ai/dsh-client-ui-theme"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "extensions",
+   "dir": "cordis-host-runner",
+   "rel": "packages/extensions/cordis-host-runner",
+   "name": "@deepseek-ai/dsh-cordis-host-runner",
+   "description": "Dynamic package definition registry, host-half sandbox lifecycle, and invoke handler table for model-mounted dual-half packages",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [
+    "ctx.dynamicCordisRunner",
+    "ctx.cordisInspect"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "extensions",
+   "dir": "tool-cordis",
+   "rel": "packages/extensions/tool-cordis",
+   "name": "@deepseek-ai/dsh-tool-cordis",
+   "description": "Self-referential cordis toolset: inspect the live runtime, mount and dispose model-written plugins",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.tools",
+    "ctx.dynamicCordisRunner",
+    "ctx.cordisInspect"
+   ]
+  },
+  {
+   "group": "extensions",
+   "dir": "ui-cordis",
+   "rel": "packages/extensions/ui-cordis",
+   "name": "@deepseek-ai/dsh-client-ui-cordis",
+   "description": "Cordis dynamic-plugin definition card: the keyed cordis_define tool row with its run/stop switch",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-connection",
+     "@deepseek-ai/dsh-cordis-client-runner",
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-input-trigger",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-tool",
+     "@deepseek-ai/dsh-client-ui-sidebar"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "feedback",
+   "dir": "command-feedback",
+   "rel": "packages/feedback/command-feedback",
+   "name": "@deepseek-ai/dsh-command-feedback",
+   "description": "Log-only session feedback: the record event, the sessionFeedback Host Remote, and the human-facing slash command",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sessionFeedback"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "feedback",
+   "dir": "message-feedback",
+   "rel": "packages/feedback/message-feedback",
+   "name": "@deepseek-ai/dsh-message-feedback",
+   "description": "Canonical Session-log ratings and notes for finalized assistant messages",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.messageFeedback"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions",
+    "ctx.sessionPersistence"
+   ]
+  },
+  {
+   "group": "fs",
+   "dir": "fs",
+   "rel": "packages/fs/fs",
+   "name": "@deepseek-ai/dsh-fs",
+   "description": "Abstract filesystem capability seam (ctx.fs) for the DeepSeek Harness — vocabulary types, the FileSystem service (text IO + optional version-guarded atomic mutations), and the fs/* policy event vocabulary",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.fs"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "fs",
+   "dir": "fs-local",
+   "rel": "packages/fs/fs-local",
+   "name": "@deepseek-ai/dsh-fs-local",
+   "description": "Local-filesystem implementation of the DeepSeek Harness filesystem seam (ctx.fs)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.fs"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "fs",
+   "dir": "fs-observation-policy",
+   "rel": "packages/fs/fs-observation-policy",
+   "name": "@deepseek-ai/dsh-fs-observation-policy",
+   "description": "File-context policy plugin for the DeepSeek Harness — observed-state, read-before-edit, and version-guarded write/edit added over the ctx.fs provider seam through the fs/* event gate (no service API)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "fs",
+   "dir": "fs-sandbox",
+   "rel": "packages/fs/fs-sandbox",
+   "name": "@deepseek-ai/dsh-fs-sandbox",
+   "description": "Sandbox-enforcing implementation of the DeepSeek Harness filesystem seam: fences write/edit by the per-call sandbox mode (read-only denies mutation, workspace-write contains it to the workspace + temp roots) while reads pass through",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [
+    "ctx.fs"
+   ],
+   "consumes": [
+    "ctx.sandboxPolicy"
+   ]
+  },
+  {
+   "group": "fs",
+   "dir": "tool-fs",
+   "rel": "packages/fs/tool-fs",
+   "name": "@deepseek-ai/dsh-tool-fs",
+   "description": "Model-facing filesystem tools (read, write, edit) over the DeepSeek Harness filesystem seam (ctx.fs)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.attachments",
+    "ctx.systemPrompt",
+    "ctx.tools",
+    "ctx.fs"
+   ]
+  },
+  {
+   "group": "fs",
+   "dir": "tool-fs-search",
+   "rel": "packages/fs/tool-fs-search",
+   "name": "@deepseek-ai/dsh-tool-fs-search",
+   "description": "Model-facing filesystem discovery tools (glob, grep) backed by the packaged ripgrep binary (@vscode/ripgrep)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "fs",
+   "dir": "tool-present",
+   "rel": "packages/fs/tool-present",
+   "name": "@deepseek-ai/dsh-tool-present",
+   "description": "Explicit workspace file delivery declarations for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "fs",
+   "dir": "tool-str-replace-editor",
+   "rel": "packages/fs/tool-str-replace-editor",
+   "name": "@deepseek-ai/dsh-tool-str-replace-editor",
+   "description": "Model-facing view, create, literal replace, and line insert tool over the Harness filesystem service",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "goal",
+   "dir": "command-goal",
+   "rel": "packages/goal/command-goal",
+   "name": "@deepseek-ai/dsh-command-goal",
+   "description": "Human-facing slash command for persisted same-session goals",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "goal",
+   "dir": "goal",
+   "rel": "packages/goal/goal",
+   "name": "@deepseek-ai/dsh-goal",
+   "description": "Event-sourced same-session goal state and lifecycle service for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.goals"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "goal",
+   "dir": "goal-round-driver",
+   "rel": "packages/goal/goal-round-driver",
+   "name": "@deepseek-ai/dsh-goal-round-driver",
+   "description": "Race-fenced same-session goal-round driver",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "goal",
+   "dir": "tool-goal",
+   "rel": "packages/goal/tool-goal",
+   "name": "@deepseek-ai/dsh-tool-goal",
+   "description": "Model-facing same-session goal tools with execution-time authority checks",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "guard",
+   "dir": "repeat-tool-reminder",
+   "rel": "packages/guard/repeat-tool-reminder",
+   "name": "@deepseek-ai/dsh-repeat-tool-reminder",
+   "description": "Repeat-tool-call guard plugin: advisory reminders when an agent loops on identical tool calls",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "guard",
+   "dir": "timeout-policy",
+   "rel": "packages/guard/timeout-policy",
+   "name": "@deepseek-ai/dsh-tool-call-timeout-policy",
+   "description": "Tool-call timeout policy: a tools/execute wrapper that arms a per-tool deadline on exec.signal and returns TOOL_TIMEOUT when it wins",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "hooks",
+   "dir": "hook-protocol",
+   "rel": "packages/hooks/hook-protocol",
+   "name": "@deepseek-ai/dsh-hook-protocol",
+   "description": "Shared Claude Code / Codex hook wire protocol: matcher engine, stdin/exit-code/stdout codec, multi-hook merge, and hook/* session events",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "hooks",
+   "dir": "hooks-claude-code",
+   "rel": "packages/hooks/hooks-claude-code",
+   "name": "@deepseek-ai/dsh-hooks-claude-code",
+   "description": "Bridge plugin: run a Claude Code hooks.json / settings hook config on the DeepSeek Harness interception seams",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionPersistence",
+    "ctx.shell"
+   ]
+  },
+  {
+   "group": "hooks",
+   "dir": "hooks-codex",
+   "rel": "packages/hooks/hooks-codex",
+   "name": "@deepseek-ai/dsh-hooks-codex",
+   "description": "Bridge plugin: run a Codex hooks.json hook config on the DeepSeek Harness interception seams",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionPersistence",
+    "ctx.shell"
+   ]
+  },
+  {
+   "group": "host",
+   "dir": "directory-picker",
+   "rel": "packages/host/directory-picker",
+   "name": "@deepseek-ai/dsh-host-directory-picker",
+   "description": "Abstract workspace-directory picking seam (ctx.directoryPicker) for the DeepSeek Harness web GUI host",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.directoryPicker"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "directory-picker-auto",
+   "rel": "packages/host/directory-picker-auto",
+   "name": "@deepseek-ai/dsh-host-directory-picker-auto",
+   "description": "Adaptive chooser of the directory-picker seam: resolves the host situation at boot and mounts the native or browse backend for the DeepSeek Harness web GUI host",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "directory-picker-browse",
+   "rel": "packages/host/directory-picker-browse",
+   "name": "@deepseek-ai/dsh-host-directory-picker-browse",
+   "description": "In-app browsing backend of the directory-picker seam (listing/creation primitives over the host filesystem)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.directoryPicker"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "directory-picker-native",
+   "rel": "packages/host/directory-picker-native",
+   "name": "@deepseek-ai/dsh-host-directory-picker-native",
+   "description": "Native-OS-chooser backend of the directory-picker seam for the DeepSeek Harness web GUI host",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.directoryPicker"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "frontend-static",
+   "rel": "packages/host/frontend-static",
+   "name": "@deepseek-ai/dsh-host-frontend-static",
+   "description": "SPA dist server for the Web shell: owns the webserver fallback seat, serving explicit index entries and static assets with traversal rejection and 404 misses",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "open-in-app",
+   "rel": "packages/host/open-in-app",
+   "name": "@deepseek-ai/dsh-host-open-in-app",
+   "description": "Host half of open-in-app: resolved application catalog, icons, and the launch endpoint as three webServer routes",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "plugin-inventory",
+   "rel": "packages/host/plugin-inventory",
+   "name": "@deepseek-ai/dsh-host-plugin-inventory",
+   "description": "Read-only Remote projection of current Cordis Loader plugin state",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "host",
+   "dir": "webserver",
+   "rel": "packages/host/webserver",
+   "name": "@deepseek-ai/dsh-host-webserver",
+   "description": "Web route-registration plugin: HTTP and upgrade routes, index transform taps, and static dist fallback; knows no harness concepts",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [
+    "ctx.webServer"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "identity",
+   "dir": "anonymous-user-id",
+   "rel": "packages/identity/anonymous-user-id",
+   "name": "@deepseek-ai/dsh-anonymous-user-id",
+   "description": "Shared anonymous user identity for DeepSeek Harness telemetry and feedback correlation",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "interaction",
+   "dir": "commands",
+   "rel": "packages/interaction/commands",
+   "name": "@deepseek-ai/dsh-commands",
+   "description": "Plugin-owned human command registry for DeepSeek Harness UIs",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.commands"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "interaction",
+   "dir": "permission-presets",
+   "rel": "packages/interaction/permission-presets",
+   "name": "@deepseek-ai/dsh-permission-presets",
+   "description": "User-facing permission presets (ctx.permissionPresets) for the DeepSeek Harness: one product-level Permissions select bundling the sandbox-mode and approval-policy knobs, written through to their own session events",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.permissionPresets"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "interaction",
+   "dir": "tool-ask-user",
+   "rel": "packages/interaction/tool-ask-user",
+   "name": "@deepseek-ai/dsh-tool-ask-user",
+   "description": "Model-facing ask_user_question tool over the ctx.userQuestions seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.tools",
+    "ctx.userQuestions"
+   ]
+  },
+  {
+   "group": "interaction",
+   "dir": "user-approval",
+   "rel": "packages/interaction/user-approval",
+   "name": "@deepseek-ai/dsh-user-approval",
+   "description": "User-approval seam (ctx.approval) for the DeepSeek Harness: one-shot permission decisions dispatched to composed answerers over the approval/request waterfall, fail-closed by default",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [
+    "ctx.approval"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "interaction",
+   "dir": "user-questions",
+   "rel": "packages/interaction/user-questions",
+   "name": "@deepseek-ai/dsh-user-questions",
+   "description": "Abstract user-questions seam (ctx.userQuestions) for asking the human during agent runs",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.userQuestions"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "jobs",
+   "dir": "jobs",
+   "rel": "packages/jobs/jobs",
+   "name": "@deepseek-ai/dsh-jobs",
+   "description": "Background job registry (ctx.jobs) for the DeepSeek Harness — shared ids, owner isolation, polling, cancellation, and completion listeners for long-running tool work",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.jobs"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "jobs",
+   "dir": "jobs-local",
+   "rel": "packages/jobs/jobs-local",
+   "name": "@deepseek-ai/dsh-jobs-local",
+   "description": "Process-local implementation of the DeepSeek Harness background job registry seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.jobs"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "jobs",
+   "dir": "tool-jobs",
+   "rel": "packages/jobs/tool-jobs",
+   "name": "@deepseek-ai/dsh-tool-jobs",
+   "description": "Model-facing background job control tools (job_output, job_list, job_kill) over the ctx.jobs registry",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.jobs"
+   ]
+  },
+  {
+   "group": "llm",
+   "dir": "deepseek-llm-api-extensions",
+   "rel": "packages/llm/deepseek-llm-api-extensions",
+   "name": "@deepseek-ai/dsh-deepseek-llm-api-extensions",
+   "description": "Additive request-field registry for the official DeepSeek LLM API adapter",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.deepseekLlmApiExtensions"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "llm",
+   "dir": "llm",
+   "rel": "packages/llm/llm",
+   "name": "@deepseek-ai/dsh-llm",
+   "description": "Provider-neutral LLM service interface for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 7,
+   "owns": [
+    "ctx.llm"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "llm",
+   "dir": "llm-deepseek",
+   "rel": "packages/llm/llm-deepseek",
+   "name": "@deepseek-ai/dsh-llm-deepseek",
+   "description": "DeepSeek chat-completions adapter for the DeepSeek Harness LLM seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [
+    "ctx.llm"
+   ],
+   "consumes": [
+    "ctx.attachments",
+    "ctx.deepseekLlmApiExtensions",
+    "ctx.settings",
+    "ctx.credentials"
+   ]
+  },
+  {
+   "group": "llm",
+   "dir": "llm-pi-ai",
+   "rel": "packages/llm/llm-pi-ai",
+   "name": "@deepseek-ai/dsh-llm-pi-ai",
+   "description": "pi-ai-backed DeepSeek adapter for the DeepSeek Harness LLM seam (design-verification twin of dsh-llm-deepseek)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [
+    "ctx.llm"
+   ],
+   "consumes": [
+    "ctx.attachments",
+    "ctx.settings",
+    "ctx.credentials",
+    "ctx.authorization"
+   ]
+  },
+  {
+   "group": "llm",
+   "dir": "llm-retry",
+   "rel": "packages/llm/llm-retry",
+   "name": "@deepseek-ai/dsh-llm-retry",
+   "description": "Provider-routed LLM request retry policy for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "llm",
+   "dir": "plugin-package-inventory-deepseek",
+   "rel": "packages/llm/plugin-package-inventory-deepseek",
+   "name": "@deepseek-ai/dsh-plugin-package-inventory-deepseek",
+   "description": "Active Loader-backed plugin package inventory for official DeepSeek LLM API requests",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.deepseekLlmApiExtensions"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "llm",
+   "dir": "token-meter",
+   "rel": "packages/llm/token-meter",
+   "name": "@deepseek-ai/dsh-token-meter",
+   "description": "Replay-aware token measurement service (ctx.tokenMeter) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [
+    "ctx.tokenMeter"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "lsp",
+   "dir": "lsp",
+   "rel": "packages/lsp/lsp",
+   "name": "@deepseek-ai/dsh-lsp",
+   "description": "Abstract LSP capability seam (ctx.lsp) for the DeepSeek Harness — language-server provider registry keyed by branded id and extension mapping, order-independent per-query selection, normalized definition/references/implementation/hover requests and results, and the LspError taxonomy",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.lsp"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "lsp",
+   "dir": "lsp-stdio",
+   "rel": "packages/lsp/lsp-stdio",
+   "name": "@deepseek-ai/dsh-lsp-stdio",
+   "description": "Generic stdio language-server provider for the DeepSeek Harness LSP capability seam (ctx.lsp) — spawns configured servers, translates JSON-RPC, and serves transient-open goToDefinition/findReferences/goToImplementation/hover queries in the host filesystem namespace",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.lsp"
+   ],
+   "consumes": [
+    "ctx.subprocess"
+   ]
+  },
+  {
+   "group": "lsp",
+   "dir": "tool-lsp",
+   "rel": "packages/lsp/tool-lsp",
+   "name": "@deepseek-ai/dsh-tool-lsp",
+   "description": "Model-facing lsp tool over the DeepSeek Harness LSP capability seam (ctx.lsp) — one read-only tool with goToDefinition/findReferences/goToImplementation/hover operations, one-based UTF-16 cursor coordinates, bounded location rendering, and hover normalization",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.lsp"
+   ]
+  },
+  {
+   "group": "mcp",
+   "dir": "mcp-client",
+   "rel": "packages/mcp/mcp-client",
+   "name": "@deepseek-ai/dsh-mcp-client",
+   "description": "MCP client bridge: connects to MCP servers and registers their tools on ctx.tools",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "mcp",
+   "dir": "mcp-manager",
+   "rel": "packages/mcp/mcp-manager",
+   "name": "@deepseek-ai/dsh-mcp-manager",
+   "description": "Settings-driven MCP server manager: hot-mounts dsh-mcp-client instances from the mcp-servers namespace",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "notes",
+   "dir": "notes",
+   "rel": "packages/notes/notes",
+   "name": "@deepseek-ai/dsh-notes",
+   "description": "Web notes panel: collect text and screenshots from a dsh session, keep them as materials, and have a configured model answer each one in its own conversation.",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-api-remotes",
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session",
+     "@deepseek-ai/dsh-client-ui-sidebar-right"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 6,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "plan",
+   "dir": "plan-mode",
+   "rel": "packages/plan/plan-mode",
+   "name": "@deepseek-ai/dsh-plan-mode",
+   "description": "Logged per-agent plan mode with deployment guidance, a direct slash command, and a user-reviewed exit",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [
+    "ctx.planMode"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "preset",
+   "dir": "agent-presets",
+   "rel": "packages/preset/agent-presets",
+   "name": "@deepseek-ai/dsh-agent-presets",
+   "description": "Per-session agent composition from preset cordis.yml files for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [
+    "ctx.agentPresets"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "preset",
+   "dir": "persona",
+   "rel": "packages/preset/persona",
+   "name": "@deepseek-ai/dsh-persona",
+   "description": "Composition-authored deployment persona section for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "runtime-diagnostics",
+   "dir": "invariants",
+   "rel": "packages/runtime-diagnostics/invariants",
+   "name": "@deepseek-ai/dsh-invariants",
+   "description": "Registry service for package-owned DeepSeek Harness runtime invariants",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.invariants"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions"
+   ]
+  },
+  {
+   "group": "sandbox",
+   "dir": "sandbox",
+   "rel": "packages/sandbox/sandbox",
+   "name": "@deepseek-ai/dsh-sandbox",
+   "description": "Abstract process-sandbox seam (ctx.sandbox) for the DeepSeek Harness: same-world confinement vocabulary and the SandboxProvider contract",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sandbox"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "sandbox",
+   "dir": "sandbox-local",
+   "rel": "packages/sandbox/sandbox-local",
+   "name": "@deepseek-ai/dsh-sandbox-local",
+   "description": "Local process-sandbox backends for the DeepSeek Harness sandbox seam: bwrap, the npm-distributed landlock-run launcher, macOS Seatbelt, or the Windows ACL restricted-token runner — functionally probed, fail-closed",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [
+    "ctx.sandbox"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "sandbox",
+   "dir": "sandbox-policy",
+   "rel": "packages/sandbox/sandbox-policy",
+   "name": "@deepseek-ai/dsh-sandbox-policy",
+   "description": "Per-call sandbox policy resolver and current model context: deployment fallbacks plus each session's mode and workspace root, shared by every enforcing capability family",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.sandboxPolicy"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "sandbox",
+   "dir": "sandbox-windows-acl",
+   "rel": "packages/sandbox/sandbox-windows-acl",
+   "name": "@deepseek-ai/dsh-sandbox-windows-acl",
+   "description": "Windows ACL write-restriction sandbox backend (restricted-token spawn with capability-SID write allowlist) for the DeepSeek Harness sandbox seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "schedule",
+   "dir": "schedule",
+   "rel": "packages/schedule/schedule",
+   "name": "@deepseek-ai/dsh-schedule",
+   "description": "Agent-scoped durable after, at, and fixed-rate reminders over the session event log",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "sdk",
+   "dir": "client",
+   "rel": "packages/sdk/client",
+   "name": "@deepseek-ai/dsh-sdk-client",
+   "description": "TypeScript client SDK for driving a DeepSeek Harness runtime subprocess over stdio JSON-RPC: the DeepSeekHarness high-level turns API and the lower-level HarnessClient",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "sdk",
+   "dir": "protocol",
+   "rel": "packages/sdk/protocol",
+   "name": "@deepseek-ai/dsh-sdk-protocol",
+   "description": "Shared wire protocol for the DeepSeek Harness SDK runtime: the newline-delimited JSON-RPC stdio transport and the named request, result, and notification types spoken between the runtime server and SDK clients",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "sdk",
+   "dir": "server",
+   "rel": "packages/sdk/server",
+   "name": "@deepseek-ai/dsh-sdk-jsonrpc-server",
+   "description": "Stdio JSON-RPC server plugin for out-of-process DeepSeek Harness SDK clients",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session-query",
+   "dir": "session-log-export",
+   "rel": "packages/session-query/session-log-export",
+   "name": "@deepseek-ai/dsh-session-log-export",
+   "description": "Web Session-log export command and shared download dialog",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": [
+     "@deepseek-ai/dsh-client-locale",
+     "@deepseek-ai/dsh-client-ui-commands",
+     "@deepseek-ai/dsh-client-ui-conversation",
+     "@deepseek-ai/dsh-client-ui-renderer",
+     "@deepseek-ai/dsh-client-ui-session"
+    ]
+   },
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session-query",
+   "dir": "session-query",
+   "rel": "packages/session-query/session-query",
+   "name": "@deepseek-ai/dsh-session-query",
+   "description": "Combined session query service contract with concrete reads, traces, and filters",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.sessionQuery"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions",
+    "ctx.sessionPersistence",
+    "ctx.sessionProjectionCache"
+   ]
+  },
+  {
+   "group": "session-query",
+   "dir": "session-query-sqlite",
+   "rel": "packages/session-query/session-query-sqlite",
+   "name": "@deepseek-ai/dsh-session-query-sqlite",
+   "description": "Concrete ctx.sessionQuery backend with SQLite FTS5 search",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.sessionQuery"
+   ],
+   "consumes": [
+    "ctx.sessions",
+    "ctx.sessionPersistence"
+   ]
+  },
+  {
+   "group": "session-query",
+   "dir": "tool-session-query",
+   "rel": "packages/session-query/tool-session-query",
+   "name": "@deepseek-ai/dsh-tool-session-query",
+   "description": "Workspace-authorized model-facing session history search, trace, and event read tools",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionQuery"
+   ]
+  },
+  {
+   "group": "session",
+   "dir": "session-checkpoint-policy",
+   "rel": "packages/session/session-checkpoint-policy",
+   "name": "@deepseek-ai/dsh-session-checkpoint-policy",
+   "description": "Semantic session durability checkpoints before model requests and tool side effects",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-deletion",
+   "rel": "packages/session/session-deletion",
+   "name": "@deepseek-ai/dsh-session-deletion",
+   "description": "Recursive session deletion orchestration for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sessionDeletion"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-flags",
+   "rel": "packages/session/session-flags",
+   "name": "@deepseek-ai/dsh-session-flags",
+   "description": "Generic per-session presentation flags registry for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.sessionFlags"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-format",
+   "rel": "packages/session/session-format",
+   "name": "@deepseek-ai/dsh-session-format",
+   "description": "Streaming adjacent Session format migration machinery",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-format-catalog",
+   "rel": "packages/session/session-format-catalog",
+   "name": "@deepseek-ai/dsh-session-format-catalog",
+   "description": "Build-static first-party Session format codec and migration catalog",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-format-v0-to-v1",
+   "rel": "packages/session/session-format-v0-to-v1",
+   "name": "@deepseek-ai/dsh-session-format-v0-to-v1",
+   "description": "Frozen released-v0 Session codec and identity migration to v1",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-format-v1-to-v2",
+   "rel": "packages/session/session-format-v1-to-v2",
+   "name": "@deepseek-ai/dsh-session-format-v1-to-v2",
+   "description": "Frozen released-v1 Session codec and assistant-stream migration to v2",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-format-v2-to-v3",
+   "rel": "packages/session/session-format-v2-to-v3",
+   "name": "@deepseek-ai/dsh-session-format-v2-to-v3",
+   "description": "Streaming system-prompt, canonical-envelope and PTC migration into V3",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-log-deepseek",
+   "rel": "packages/session/session-log-deepseek",
+   "name": "@deepseek-ai/dsh-session-log-deepseek",
+   "description": "Incremental lossless session-log request extension for the official DeepSeek LLM API",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.deepseekLlmApiExtensions"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-persistence",
+   "rel": "packages/session/session-persistence",
+   "name": "@deepseek-ai/dsh-session-persistence",
+   "description": "Abstract durable session persistence seam (ctx.sessionPersistence) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sessionPersistence"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions"
+   ]
+  },
+  {
+   "group": "session",
+   "dir": "session-persistence-jsonl",
+   "rel": "packages/session/session-persistence-jsonl",
+   "name": "@deepseek-ai/dsh-session-persistence-jsonl",
+   "description": "JSONL durable session persistence backend for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 7,
+   "owns": [],
+   "implements": [
+    "ctx.sessionPersistence"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-pins",
+   "rel": "packages/session/session-pins",
+   "name": "@deepseek-ai/dsh-session-pins",
+   "description": "Pinned-sessions persistence and Remote API for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sessionPins"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionFlags"
+   ]
+  },
+  {
+   "group": "session",
+   "dir": "session-projection",
+   "rel": "packages/session/session-projection",
+   "name": "@deepseek-ai/dsh-session-projection",
+   "description": "Session-projection seam: the merge-extensible projection type table, the provider contract, and the ctx.sessionProjections registry serving whole current values of log-derived per-session state",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.sessionProjections"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-projection-cache",
+   "rel": "packages/session/session-projection-cache",
+   "name": "@deepseek-ai/dsh-session-projection-cache",
+   "description": "Persisted projection cache (ctx.sessionProjectionCache): durable per-session checkpoint records on the session_projcache storage domain (per-record layout), throttled write-behind, and the cached listing read",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [
+    "ctx.sessionProjectionCache"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-stats",
+   "rel": "packages/session/session-stats",
+   "name": "@deepseek-ai/dsh-session-stats",
+   "description": "Whole-log conversation counts and wall times projection (sessionStats) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-telemetry",
+   "rel": "packages/session/session-telemetry",
+   "name": "@deepseek-ai/dsh-session-telemetry",
+   "description": "SessionTelemetryBackend seam for the DeepSeek Harness: session-event capture, projection, redaction, and handoff to a reporting backend",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.sessionTelemetry"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-telemetry-otel",
+   "rel": "packages/session/session-telemetry-otel",
+   "name": "@deepseek-ai/dsh-session-telemetry-otel",
+   "description": "OpenTelemetry backend for the DeepSeek Harness telemetry seam: hands captured session records to the OTel JS SDK's log pipeline",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 7,
+   "owns": [],
+   "implements": [
+    "ctx.sessionTelemetry"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-title",
+   "rel": "packages/session/session-title",
+   "name": "@deepseek-ai/dsh-session-title",
+   "description": "Log-backed session title service and provider registry for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 3,
+   "owns": [
+    "ctx.sessionTitle"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionProjections"
+   ]
+  },
+  {
+   "group": "session",
+   "dir": "session-title-all-prompts-llm",
+   "rel": "packages/session/session-title-all-prompts-llm",
+   "name": "@deepseek-ai/dsh-session-title-all-prompts-llm",
+   "description": "All-user-messages LLM provider plugin for DeepSeek Harness session titles",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.sessionTitle"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-title-first-prompt-llm",
+   "rel": "packages/session/session-title-first-prompt-llm",
+   "name": "@deepseek-ai/dsh-session-title-first-prompt-llm",
+   "description": "First-message LLM provider plugin for DeepSeek Harness session titles",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.sessionTitle"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-title-llm",
+   "rel": "packages/session/session-title-llm",
+   "name": "@deepseek-ai/dsh-session-title-llm",
+   "description": "Shared LLM generation policy for DeepSeek Harness session-title providers",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "session",
+   "dir": "session-turn-outline",
+   "rel": "packages/session/session-turn-outline",
+   "name": "@deepseek-ai/dsh-session-turn-outline",
+   "description": "Whole-log turn outline projection (turnOutline) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "settings",
+   "dir": "settings",
+   "rel": "packages/settings/settings",
+   "name": "@deepseek-ai/dsh-settings",
+   "description": "Abstract user-settings seam (ctx.settings) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [
+    "ctx.settings"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "settings",
+   "dir": "settings-file",
+   "rel": "packages/settings/settings-file",
+   "name": "@deepseek-ai/dsh-settings-file",
+   "description": "File-backed settings provider (settings.yaml) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [
+    "ctx.settings"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "bash-local",
+   "rel": "packages/shell/bash-local",
+   "name": "@deepseek-ai/dsh-bash-local",
+   "description": "Local-subprocess implementation of the DeepSeek Harness bash executor seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.shell"
+   ],
+   "consumes": [
+    "ctx.subprocess"
+   ]
+  },
+  {
+   "group": "shell",
+   "dir": "bash-sandbox",
+   "rel": "packages/shell/bash-sandbox",
+   "name": "@deepseek-ai/dsh-bash-sandbox",
+   "description": "Sandbox-consuming implementation of the DeepSeek Harness bash executor seam (confines every command via ctx.sandbox, reports denial/enforcement result facts)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [
+    "ctx.shell"
+   ],
+   "consumes": [
+    "ctx.subprocess",
+    "ctx.sandbox",
+    "ctx.sandboxPolicy"
+   ]
+  },
+  {
+   "group": "shell",
+   "dir": "pwsh-local",
+   "rel": "packages/shell/pwsh-local",
+   "name": "@deepseek-ai/dsh-pwsh-local",
+   "description": "Local PowerShell implementation of the DeepSeek Harness bash executor seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.shell"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "pwsh-sandbox",
+   "rel": "packages/shell/pwsh-sandbox",
+   "name": "@deepseek-ai/dsh-pwsh-sandbox",
+   "description": "Sandbox-consuming implementation of the DeepSeek Harness PowerShell executor seam (confines every command via ctx.sandbox, reports denial/enforcement result facts)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "shell",
+   "rel": "packages/shell/shell",
+   "name": "@deepseek-ai/dsh-shell",
+   "description": "Abstract bash executor seam (ctx.shell) for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.shell"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "shell-env",
+   "rel": "packages/shell/shell-env",
+   "name": "@deepseek-ai/dsh-shell-env",
+   "description": "Tool-independent managed DSH_* shell environment registry",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.shellEnv"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "tool-bash",
+   "rel": "packages/shell/tool-bash",
+   "name": "@deepseek-ai/dsh-tool-bash",
+   "description": "Model-facing bash tool with optional generic background-job and sandbox-escalation support",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionPersistence",
+    "ctx.tools",
+    "ctx.shell",
+    "ctx.shellEnv",
+    "ctx.approval",
+    "ctx.jobs"
+   ]
+  },
+  {
+   "group": "shell",
+   "dir": "tool-bash-persistent",
+   "rel": "packages/shell/tool-bash-persistent",
+   "name": "@deepseek-ai/dsh-tool-bash-persistent",
+   "description": "Model-facing owner-scoped persistent Bash tool backed by the Harness PTY service",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "shell",
+   "dir": "tool-pwsh",
+   "rel": "packages/shell/tool-pwsh",
+   "name": "@deepseek-ai/dsh-tool-pwsh",
+   "description": "Model-facing pwsh tool over the bash executor seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.shell",
+    "ctx.shellEnv"
+   ]
+  },
+  {
+   "group": "shell",
+   "dir": "tool-pwsh-persistent",
+   "rel": "packages/shell/tool-pwsh-persistent",
+   "name": "@deepseek-ai/dsh-tool-pwsh-persistent",
+   "description": "Model-facing owner-scoped persistent PowerShell tool backed by the Harness PTY service",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "skill",
+   "dir": "skill",
+   "rel": "packages/skill/skill",
+   "name": "@deepseek-ai/dsh-skill",
+   "description": "Agent skill provider registry for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [
+    "ctx.skills"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "skill",
+   "dir": "skill-badge",
+   "rel": "packages/skill/skill-badge",
+   "name": "@deepseek-ai/dsh-skill-badge",
+   "description": "Bundled dsh badge skill provider for DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [
+    "ctx.skills"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "skill",
+   "dir": "skill-filesystem",
+   "rel": "packages/skill/skill-filesystem",
+   "name": "@deepseek-ai/dsh-skill-filesystem",
+   "description": "Local filesystem skill provider for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.skills"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "skill",
+   "dir": "skill-settings",
+   "rel": "packages/skill/skill-settings",
+   "name": "@deepseek-ai/dsh-skill-settings",
+   "description": "User settings overrides for the DeepSeek Harness skill registry",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "skill",
+   "dir": "tool-skill",
+   "rel": "packages/skill/tool-skill",
+   "name": "@deepseek-ai/dsh-tool-skill",
+   "description": "Model-facing skill loading tool for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.tools",
+    "ctx.skills"
+   ]
+  },
+  {
+   "group": "spill",
+   "dir": "spill",
+   "rel": "packages/spill/spill",
+   "name": "@deepseek-ai/dsh-spill",
+   "description": "Abstract spill storage seam (ctx.spillStore) for the DeepSeek Harness — save oversized tool text and return a retrieval locator",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.spillStore"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "spill",
+   "dir": "spill-local",
+   "rel": "packages/spill/spill-local",
+   "name": "@deepseek-ai/dsh-spill-local",
+   "description": "Local-filesystem implementation of the DeepSeek Harness spill storage seam (private session-scoped files)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.spillStore"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "spill",
+   "dir": "spill-policy",
+   "rel": "packages/spill/spill-policy",
+   "name": "@deepseek-ai/dsh-spill-policy",
+   "description": "Tool-result spill policy for the DeepSeek Harness — replaces oversized plain-text tool results with a retained preview plus a spill-file path (no service API)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.spillStore"
+   ]
+  },
+  {
+   "group": "storage",
+   "dir": "storage",
+   "rel": "packages/storage/storage",
+   "name": "@deepseek-ai/dsh-storage",
+   "description": "Storage hub (ctx.storage): named backend registry plus mounted data-form facilities for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.storage"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "storage",
+   "dir": "storage-domain",
+   "rel": "packages/storage/storage-domain",
+   "name": "@deepseek-ai/dsh-storage-domain",
+   "description": "Domain data form (ctx.storage.domain): schema-validated, event-emitting KV domains over storage backends for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.storageDomain"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.storage"
+   ]
+  },
+  {
+   "group": "storage",
+   "dir": "storage-json",
+   "rel": "packages/storage/storage-json",
+   "name": "@deepseek-ai/dsh-storage-json",
+   "description": "JSON file KV storage backend for the DeepSeek Harness storage hub",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.storage"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "storage",
+   "dir": "storage-sqlite",
+   "rel": "packages/storage/storage-sqlite",
+   "name": "@deepseek-ai/dsh-storage-sqlite",
+   "description": "SQLite storage backend (kv facet) for the DeepSeek Harness storage hub",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.storage"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent",
+   "rel": "packages/subagent/subagent",
+   "name": "@deepseek-ai/dsh-subagent",
+   "description": "Abstract subagent seam (ctx.subagents): named-provider registry for delegating to child agents",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 4,
+   "owns": [
+    "ctx.subagents"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.sessionProjectionCache"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-acp",
+   "rel": "packages/subagent/subagent-acp",
+   "name": "@deepseek-ai/dsh-subagent-acp",
+   "description": "Out-of-process ACP subagent backend: drives a child agent in a spawned subprocess over the Agent Client Protocol",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": [
+    "ctx.subprocess"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-claude-code",
+   "rel": "packages/subagent/subagent-claude-code",
+   "name": "@deepseek-ai/dsh-subagent-claude-code",
+   "description": "One-shot Claude Code subagent provider over the official Agent SDK",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 6,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": [
+    "ctx.subprocess"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-codex",
+   "rel": "packages/subagent/subagent-codex",
+   "name": "@deepseek-ai/dsh-subagent-codex",
+   "description": "One-shot Codex subagent provider over the official app-server protocol",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": [
+    "ctx.subprocess"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-dsh-sdk",
+   "rel": "packages/subagent/subagent-dsh-sdk",
+   "name": "@deepseek-ai/dsh-subagent-dsh-sdk",
+   "description": "Out-of-process SDK subagent backend: drives a child DeepSeek Harness runtime subprocess over stdio JSON-RPC through the TypeScript SDK client",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-fork-in-process",
+   "rel": "packages/subagent/subagent-fork-in-process",
+   "name": "@deepseek-ai/dsh-subagent-fork-in-process",
+   "description": "In-process fork subagent backend: runs a child agent seeded with a prefix of the parent's log",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-in-process-driver",
+   "rel": "packages/subagent/subagent-in-process-driver",
+   "name": "@deepseek-ai/dsh-subagent-in-process-driver",
+   "description": "Shared in-process subagent run driver: drives a child agent on ctx.agents (used by the spawn and fork backends)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.sessions",
+    "ctx.agents"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "subagent-spawn-in-process",
+   "rel": "packages/subagent/subagent-spawn-in-process",
+   "name": "@deepseek-ai/dsh-subagent-spawn-in-process",
+   "description": "In-process spawn subagent backend: runs a fresh child agent on ctx.agents",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.subagents"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "subagent",
+   "dir": "tool-subagent",
+   "rel": "packages/subagent/tool-subagent",
+   "name": "@deepseek-ai/dsh-tool-subagent",
+   "description": "Model-facing subagent delegation tool over the ctx.subagents seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.subagentModelSelection"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.subagentModelSelection",
+    "ctx.tools",
+    "ctx.subagents",
+    "ctx.jobs"
+   ]
+  },
+  {
+   "group": "subagent",
+   "dir": "tool-subagent-control",
+   "rel": "packages/subagent/tool-subagent-control",
+   "name": "@deepseek-ai/dsh-tool-subagent-control",
+   "description": "Globally named send_message, interrupt_agent, and list_agents tools over ctx.subagents continuations",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.subagents"
+   ]
+  },
+  {
+   "group": "subprocess",
+   "dir": "subprocess",
+   "rel": "packages/subprocess/subprocess",
+   "name": "@deepseek-ai/dsh-subprocess",
+   "description": "Subprocess seam (ctx.subprocess) for the DeepSeek Harness — managed process groups, bounded spill-backed output, and escalated kills behind one abstract service",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.subprocess"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "subprocess",
+   "dir": "subprocess-local",
+   "rel": "packages/subprocess/subprocess-local",
+   "name": "@deepseek-ai/dsh-subprocess-local",
+   "description": "Local-subprocess implementation of the DeepSeek Harness subprocess seam",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.subprocess"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "subprocess",
+   "dir": "win32-process",
+   "rel": "packages/subprocess/win32-process",
+   "name": "@deepseek-ai/dsh-win32-process",
+   "description": "Shared low-level Win32 process, stdio, and Job Object primitives",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "telemetry",
+   "dir": "usage-exporter",
+   "rel": "packages/telemetry/usage-exporter",
+   "name": "@deepseek-ai/dsh-usage-exporter",
+   "description": "Usage exporter: tails the local usage telemetry JSONL and pushes deterministic batches over HTTP",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "telemetry",
+   "dir": "usage-telemetry",
+   "rel": "packages/telemetry/usage-telemetry",
+   "name": "@deepseek-ai/dsh-usage-telemetry",
+   "description": "Usage telemetry: appends one JSONL row for each session-attributed llm/stream invocation that reports provider usage",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "terminal",
+   "dir": "terminal",
+   "rel": "packages/terminal/terminal",
+   "name": "@deepseek-ai/dsh-terminal",
+   "description": "Persistent PTY session seam for the DeepSeek Harness — owner-scoped ids, backend registry, interactive sends, reads, signals, and awaited cleanup",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [
+    "ctx.terminals"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "terminal",
+   "dir": "terminal-bash",
+   "rel": "packages/terminal/terminal-bash",
+   "name": "@deepseek-ai/dsh-terminal-bash",
+   "description": "Persistent shell PTY backend over the DeepSeek Harness subprocess terminal primitive",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.terminals"
+   ],
+   "consumes": [
+    "ctx.subprocess",
+    "ctx.sandbox",
+    "ctx.sandboxPolicy"
+   ]
+  },
+  {
+   "group": "terminal",
+   "dir": "tool-terminal",
+   "rel": "packages/terminal/tool-terminal",
+   "name": "@deepseek-ai/dsh-tool-terminal",
+   "description": "Six model-facing persistent PTY tools with owner isolation and generic background-job integration",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.systemPrompt",
+    "ctx.tools",
+    "ctx.terminals",
+    "ctx.jobs"
+   ]
+  },
+  {
+   "group": "test-support",
+   "dir": "agent-loop-testkit",
+   "rel": "packages/test-support/agent-loop-testkit",
+   "name": "@deepseek-ai/dsh-agent-loop-testkit",
+   "description": "Prerequisite mounting, production AgentLoop drivers, and Inbox stubs for tests",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "test-support",
+   "dir": "client-runtime",
+   "rel": "packages/test-support/client-runtime",
+   "name": "@deepseek-ai/dsh-client-test-runtime",
+   "description": "jsdom slot test runtime: real Cordis Context + SlotRegistry + UI renderer with test-owned session/workspace doubles for feature specs",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "test-support",
+   "dir": "llm-mock-server",
+   "rel": "packages/test-support/llm-mock-server",
+   "name": "@deepseek-ai/dsh-llm-mock-server",
+   "description": "Scriptable OpenAI-compatible HTTP/SSE fault server for LLM recovery tests",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "test-support",
+   "dir": "llm-replay",
+   "rel": "packages/test-support/llm-replay",
+   "name": "@deepseek-ai/dsh-llm-replay",
+   "description": "Replay LLM plugin: short-circuits llm/stream with model chunks reconstructed from a recorded session JSONL (keyless snapshot tests)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [
+    "ctx.llm"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "test-support",
+   "dir": "loader-smoke",
+   "rel": "packages/test-support/loader-smoke",
+   "name": "@deepseek-ai/dsh-loader-smoke",
+   "description": "Shared subprocess and direct-agent harness for keyless real-Loader example smoke tests",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "test-support",
+   "dir": "session-snapshot",
+   "rel": "packages/test-support/session-snapshot",
+   "name": "@deepseek-ai/dsh-session-snapshot",
+   "description": "Session-log snapshot core with an ACP protocol adapter, expected-output normalization, and fixture invariants",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 7,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "todo",
+   "dir": "tool-todo",
+   "rel": "packages/todo/tool-todo",
+   "name": "@deepseek-ai/dsh-tool-todo",
+   "description": "Model-facing todo_write tool over the DeepSeek Harness event-sourced session log",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.tools",
+    "ctx.sessionProjections"
+   ]
+  },
+  {
+   "group": "typert",
+   "dir": "generator",
+   "rel": "packages/typert/generator",
+   "name": "@deepseek-ai/dsh-typert-generator",
+   "description": "TypeScript project analyzer and model-driven Typert artifact generator",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 2,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "typert",
+   "dir": "loader",
+   "rel": "packages/typert/loader",
+   "name": "@deepseek-ai/dsh-typert-loader",
+   "description": "Loader integration for generated Typert package contributions",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.typert"
+   ]
+  },
+  {
+   "group": "typert",
+   "dir": "protocol",
+   "rel": "packages/typert/protocol",
+   "name": "@deepseek-ai/dsh-typert-protocol",
+   "description": "Compiler-independent Remote metadata and Typert provider protocols",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "typert",
+   "dir": "registry",
+   "rel": "packages/typert/registry",
+   "name": "@deepseek-ai/dsh-typert-registry",
+   "description": "Runtime registry for generated package reflection and Zod schemas",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": {
+    "platform": "web",
+    "inject": []
+   },
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.typert"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "atomic-write",
+   "rel": "packages/util/atomic-write",
+   "name": "@deepseek-ai/dsh-atomic-write",
+   "description": "Zero-dependency atomic file replacement: exclusive-create random-suffix temp + rename carrying the caller-stated permissions (writeFileAtomic)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "brand",
+   "rel": "packages/util/brand",
+   "name": "@deepseek-ai/dsh-brand",
+   "description": "Stateless branded primitive types for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "chunked-list",
+   "rel": "packages/util/chunked-list",
+   "name": "@deepseek-ai/dsh-chunked-list",
+   "description": "Persistent append-only chunked lists with bounded copying and JSON checkpoint validation",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "crypto",
+   "rel": "packages/util/crypto",
+   "name": "@deepseek-ai/dsh-util-crypto",
+   "description": "Zero-dependency browser-safe UUID and byte-encoding helpers",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "deque",
+   "rel": "packages/util/deque",
+   "name": "@deepseek-ai/dsh-deque",
+   "description": "Zero-dependency circular deque with amortized constant-time end operations and bounded vacant storage",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "home-paths",
+   "rel": "packages/util/home-paths",
+   "name": "@deepseek-ai/dsh-home-paths",
+   "description": "Shared filesystem path helpers for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "http-proxy",
+   "rel": "packages/util/http-proxy",
+   "name": "@deepseek-ai/dsh-http-proxy",
+   "description": "Process-wide outbound HTTP proxy policy for DeepSeek Harness: resolve it from the launch environment and install it as undici's global dispatcher",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "launch-environment",
+   "rel": "packages/util/launch-environment",
+   "name": "@deepseek-ai/dsh-launch-environment",
+   "description": "Immutable DeepSeek Harness launch environment that records which layer supplied each value",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "native-command",
+   "rel": "packages/util/native-command",
+   "name": "@deepseek-ai/dsh-native-command",
+   "description": "Host-native command and path-opening utilities with shell-free execution, cancellation, desktop detection, and WSL handoff",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "output-retention",
+   "rel": "packages/util/output-retention",
+   "name": "@deepseek-ai/dsh-output-retention",
+   "description": "Zero-dependency bounded-retention primitive: ItemRetainer/TextRetainer + neutral notice helpers (what did we keep, what did we omit)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "package-manifest",
+   "rel": "packages/util/package-manifest",
+   "name": "@deepseek-ai/dsh-package-manifest",
+   "description": "Shared type declarations for package.json.dsh configuration fields",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "time",
+   "rel": "packages/util/time",
+   "name": "@deepseek-ai/dsh-util-time",
+   "description": "Zero-dependency time vocabulary shared by wire boundaries: canonicalClientTimeZone (IANA zone validation and canonicalization only, no formatting)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "timeout",
+   "rel": "packages/util/timeout",
+   "name": "@deepseek-ai/dsh-timeout",
+   "description": "Zero-dependency timeout/deadline primitive: clampTimeout, deadline, timeoutOf, TimeoutReason (timing + classification only, no termination)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "values",
+   "rel": "packages/util/values",
+   "name": "@deepseek-ai/dsh-util-values",
+   "description": "Duplicate-install-safe value primitives for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "util",
+   "dir": "workspace-path",
+   "rel": "packages/util/workspace-path",
+   "name": "@deepseek-ai/dsh-util-workspace-path",
+   "description": "Browser-safe Workspace path and display helpers",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 0,
+   "owns": [],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "web",
+   "dir": "tool-web",
+   "rel": "packages/web/tool-web",
+   "name": "@deepseek-ai/dsh-tool-web",
+   "description": "Model-facing web tools (web_search, web_fetch) over the DeepSeek Harness web capability seam (ctx.web)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 4,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.systemPrompt",
+    "ctx.tools",
+    "ctx.web"
+   ]
+  },
+  {
+   "group": "web",
+   "dir": "web",
+   "rel": "packages/web/web",
+   "name": "@deepseek-ai/dsh-web",
+   "description": "Abstract web access capability seam (ctx.web) for the DeepSeek Harness — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [
+    "ctx.web"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "web",
+   "dir": "web-fetch-http",
+   "rel": "packages/web/web-fetch-http",
+   "name": "@deepseek-ai/dsh-web-fetch-http",
+   "description": "Anonymous public HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.web"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "web",
+   "dir": "web-search-deepseek",
+   "rel": "packages/web/web-search-deepseek",
+   "name": "@deepseek-ai/dsh-web-search-deepseek",
+   "description": "DeepSeek-backed search provider (native web_search via the Anthropic-compatible API) for the DeepSeek Harness web capability seam (ctx.web)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.web"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "web",
+   "dir": "web-search-exa",
+   "rel": "packages/web/web-search-exa",
+   "name": "@deepseek-ai/dsh-web-search-exa",
+   "description": "Exa-backed search provider for the DeepSeek Harness web capability seam (ctx.web)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.web"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "web",
+   "dir": "web-search-perplexity",
+   "rel": "packages/web/web-search-perplexity",
+   "name": "@deepseek-ai/dsh-web-search-perplexity",
+   "description": "Perplexity-backed search provider for the DeepSeek Harness web capability seam (ctx.web)",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [
+    "ctx.web"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "webhook",
+   "dir": "webhook",
+   "rel": "packages/webhook/webhook",
+   "name": "@deepseek-ai/dsh-webhook",
+   "description": "Fire-and-forget webhook rule runtime that creates Workspace-backed DeepSeek Harness Sessions",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.webhookRuntime"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "webhook",
+   "dir": "webhook-github",
+   "rel": "packages/webhook/webhook-github",
+   "name": "@deepseek-ai/dsh-webhook-github",
+   "description": "Signed GitHub HTTP webhook adapter for the DeepSeek Harness webhook runtime",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.webhookRuntime"
+   ]
+  },
+  {
+   "group": "workflow",
+   "dir": "tool-ralph",
+   "rel": "packages/workflow/tool-ralph",
+   "name": "@deepseek-ai/dsh-tool-ralph",
+   "description": "Model-facing fresh-agent Ralph loop over the workflow and subagent seams",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.subagents",
+    "ctx.workflowEngine"
+   ]
+  },
+  {
+   "group": "workflow",
+   "dir": "tool-workflow",
+   "rel": "packages/workflow/tool-workflow",
+   "name": "@deepseek-ai/dsh-tool-workflow",
+   "description": "Model-facing workflow tool: run a JavaScript orchestration script over ctx.workflowEngine",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 1,
+   "owns": [],
+   "implements": [],
+   "consumes": [
+    "ctx.workflowEngine"
+   ]
+  },
+  {
+   "group": "workflow",
+   "dir": "workflow",
+   "rel": "packages/workflow/workflow",
+   "name": "@deepseek-ai/dsh-workflow",
+   "description": "Workflow capability seam: ctx.workflowEngine service, run vocabulary, and workflow/* events",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 0,
+   "owns": [
+    "ctx.workflowEngine"
+   ],
+   "implements": [],
+   "consumes": []
+  },
+  {
+   "group": "workflow",
+   "dir": "workflow-worker-thread",
+   "rel": "packages/workflow/workflow-worker-thread",
+   "name": "@deepseek-ai/dsh-workflow-worker-thread",
+   "description": "worker-thread workflow engine: executes model-written orchestration scripts off the host event loop, bridging agent() calls back to ctx.subagents",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": false,
+   "depCount": 3,
+   "owns": [],
+   "implements": [
+    "ctx.workflowEngine"
+   ],
+   "consumes": []
+  },
+  {
+   "group": "workspace",
+   "dir": "workspace",
+   "rel": "packages/workspace/workspace",
+   "name": "@deepseek-ai/dsh-workspace",
+   "description": "Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness",
+   "version": "0.1.5-rc.1",
+   "private": false,
+   "client": null,
+   "hasInvariant": true,
+   "depCount": 2,
+   "owns": [
+    "ctx.workspaceRegistry"
+   ],
+   "implements": [],
+   "consumes": [
+    "ctx.storageDomain"
+   ]
+  }
+ ],
+ "services": [
+  {
+   "key": "ctx.agentDefaultModel",
+   "role": "core",
+   "owner": [
+    "packages/core/agent-default-model"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/session-controller",
+    "packages/bundle/headless"
+   ],
+   "companions": [],
+   "note": "Layers the default ModelSelection through settings so direct and Host-backed Agent entry points share one state owner."
+  },
+  {
+   "key": "ctx.agentLoop",
+   "role": "bundle",
+   "owner": [
+    "packages/core/agent-loop"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/bundle/base",
+    "packages/bundle/sdk-minimal"
+   ],
+   "companions": [],
+   "note": "The one concrete loop plugin; extension packages depend on dsh-agent events and services, not on this package."
+  },
+  {
+   "key": "ctx.agentPresets",
+   "role": "core",
+   "owner": [
+    "packages/preset/agent-presets"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Discovers preset directories over trusted and user-authored roots and mounts one preset cordis.yml under an agent scope during creation, rejecting a row that never activates or that publishes into the root service realm."
+  },
+  {
+   "key": "ctx.agents",
+   "role": "core",
+   "owner": [
+    "packages/core/agent"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/acp/acp",
+    "packages/subagent/subagent-in-process-driver"
+   ],
+   "companions": [],
+   "note": "Owns live Agent handles, the create/resume factory seam, and process-local initiator propagation."
+  },
+  {
+   "key": "ctx.agentTeams",
+   "role": "core",
+   "owner": [
+    "packages/experimental/agent-team"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/experimental/tool-agent-team",
+    "packages/experimental/client-ui-agent-team"
+   ],
+   "companions": [],
+   "note": "Owns the implicit-root roster, durable peer mailbox, shared task DAG, continuable-child lifecycle, and generated Team Remote methods; tool-agent-team contributes model controls and client-ui-agent-team mounts the browser contribution."
+  },
+  {
+   "key": "ctx.approval",
+   "role": "seam",
+   "owner": [
+    "packages/interaction/user-approval"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/tools",
+    "packages/shell/tool-bash",
+    "packages/acp/acp"
+   ],
+   "companions": [],
+   "note": "One-shot permission decisions dispatched over the `approval/request` waterfall; answerers are listeners (the ACP bridge for its own agents), absence fails closed to `unavailable`."
+  },
+  {
+   "key": "ctx.attachments",
+   "role": "seam",
+   "owner": [
+    "packages/attachment/attachment"
+   ],
+   "implementations": [
+    "packages/attachment/attachment-local"
+   ],
+   "consumers": [
+    "packages/api/session-controller",
+    "packages/fs/tool-fs",
+    "packages/llm/llm-pi-ai",
+    "packages/llm/llm-deepseek"
+   ],
+   "companions": [],
+   "note": "The host commits accepted images before session events; provider adapters resolve authorized durable references into provider-native content."
+  },
+  {
+   "key": "ctx.authorization",
+   "role": "seam",
+   "owner": [
+    "packages/credentials/authorization"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/llm/llm-pi-ai"
+   ],
+   "companions": [],
+   "note": "Flows are registered by the plugin that knows how to obtain one credential and keyed by the record they write; the seam owns the conversation and the one-attempt-per-key lifecycle, never the protocol."
+  },
+  {
+   "key": "ctx.clientModules",
+   "role": "core",
+   "owner": [
+    "packages/client/modules"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/client/hmr"
+   ],
+   "companions": [],
+   "note": "Composes the __DSH_BOOT__ entry graph from an incremental dsh.client scan, serves plugin bundles, and notifies rebuilt/graph-changed subscribers."
+  },
+  {
+   "key": "ctx.codeRuntime",
+   "role": "seam",
+   "owner": [
+    "packages/code-runtime/code-runtime"
+   ],
+   "implementations": [
+    "packages/code-runtime/code-runtime-worker-thread",
+    "packages/experimental/code-runtime-python"
+   ],
+   "consumers": [
+    "packages/core/tools"
+   ],
+   "companions": [],
+   "note": "Runs one model-written program against host-provided async bindings; backends differ by substrate and language (the tool registry consumes it for PTC mode)."
+  },
+  {
+   "key": "ctx.commands",
+   "role": "core",
+   "owner": [
+    "packages/interaction/commands"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Plugins register direct human commands without sending invocations to the model."
+  },
+  {
+   "key": "ctx.compaction",
+   "role": "seam",
+   "owner": [
+    "packages/compaction/compaction"
+   ],
+   "implementations": [
+    "packages/compaction/compaction-basic"
+   ],
+   "consumers": [
+    "packages/compaction/compaction-basic"
+   ],
+   "companions": [],
+   "note": "The basic backend consumes post-step pressure and request-error recovery events; there is no model-facing compact tool."
+  },
+  {
+   "key": "ctx.cordisInspect",
+   "role": "core",
+   "owner": [
+    "packages/extensions/cordis-host-runner"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/extensions/tool-cordis"
+   ],
+   "companions": [],
+   "note": "Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport."
+  },
+  {
+   "key": "ctx.credentials",
+   "role": "seam",
+   "owner": [
+    "packages/credentials/credentials"
+   ],
+   "implementations": [
+    "packages/credentials/credentials-local"
+   ],
+   "consumers": [
+    "packages/api/settings-controller",
+    "packages/llm/llm-deepseek",
+    "packages/llm/llm-pi-ai"
+   ],
+   "companions": [],
+   "note": "Configuration carries references to secrets; providers own the values. Consumers resolve per operation, so a rotated credential reaches the very next request; the settings controller exposes value-free views and write-only storage."
+  },
+  {
+   "key": "ctx.credentialsController",
+   "role": "core",
+   "owner": [
+    "packages/api/settings-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Projects the credential-reference seam onto the generated Remote namespace: batch fan-out, view projection, and refusal mapping live here, not on the seam Definition."
+  },
+  {
+   "key": "ctx.deepseekLlmApiExtensions",
+   "role": "seam",
+   "owner": [
+    "packages/llm/deepseek-llm-api-extensions"
+   ],
+   "implementations": [
+    "packages/session/session-log-deepseek",
+    "packages/llm/plugin-package-inventory-deepseek"
+   ],
+   "consumers": [
+    "packages/llm/llm-deepseek"
+   ],
+   "companions": [],
+   "note": "Plugins prepare independent top-level fields; the official adapter merges them and commits their delivery state after HTTP acceptance."
+  },
+  {
+   "key": "ctx.directoryPicker",
+   "role": "seam",
+   "owner": [
+    "packages/host/directory-picker"
+   ],
+   "implementations": [
+    "packages/host/directory-picker-native",
+    "packages/host/directory-picker-browse"
+   ],
+   "consumers": [
+    "packages/api/workspace-controller"
+   ],
+   "companions": [],
+   "note": "Discriminated interaction capability: the native backend opens one OS chooser on the host display, the browse backend serves listing/creation primitives for the in-app browser; dual-face backends fill ui-workspace directory-flow slots from their browser halves (no wire advertisement)."
+  },
+  {
+   "key": "ctx.directoryPickerController",
+   "role": "core",
+   "owner": [
+    "packages/api/workspace-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Carries the picking seam onto the wire: capability gating, cancellation, and the seam-coded failures a browser directory flow discriminates on."
+  },
+  {
+   "key": "ctx.dynamicCordisRunner",
+   "role": "core",
+   "owner": [
+    "packages/extensions/cordis-host-runner"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/extensions/tool-cordis"
+   ],
+   "companions": [],
+   "note": "Owns the in-memory definition registry, the vm sandbox for host halves, and the request-run round trip; browser pages reach the same service over the wire through its remote namespace."
+  },
+  {
+   "key": "ctx.e2b",
+   "role": "core",
+   "owner": [
+    "packages/e2b/e2b"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/e2b/fs-e2b",
+    "packages/e2b/subprocess-e2b"
+   ],
+   "companions": [],
+   "note": "Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime."
+  },
+  {
+   "key": "ctx.fileReferences",
+   "role": "seam",
+   "owner": [
+    "packages/context/file-reference"
+   ],
+   "implementations": [
+    "packages/context/file-reference-local"
+   ],
+   "consumers": [
+    "packages/api/session-controller"
+   ],
+   "companions": [],
+   "note": "The interface returns path-only completion candidates within an Agent cwd; providers own namespace access and ranking without reading file contents."
+  },
+  {
+   "key": "ctx.fileUploads",
+   "role": "core",
+   "owner": [
+    "packages/client/file-upload"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/session-controller"
+   ],
+   "companions": [],
+   "note": "Owns streaming intake, durable storage, and staged receipt lifetime; the Session controller binds receipts to accepted submissions."
+  },
+  {
+   "key": "ctx.fs",
+   "role": "seam",
+   "owner": [
+    "packages/fs/fs"
+   ],
+   "implementations": [
+    "packages/fs/fs-local",
+    "packages/fs/fs-sandbox",
+    "packages/e2b/fs-e2b"
+   ],
+   "consumers": [
+    "packages/fs/tool-fs"
+   ],
+   "companions": [
+    "packages/fs/fs-observation-policy"
+   ],
+   "note": "tool-fs executes read/write/edit through ctx.fs; fs-sandbox fences mutations by the shared sandbox mode; fs-observation-policy contributes observed-state checks through the fs/* event gate."
+  },
+  {
+   "key": "ctx.goals",
+   "role": "core",
+   "owner": [
+    "packages/goal/goal"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Folds revisioned objective state from the session log and keeps live continuation activation process-local."
+  },
+  {
+   "key": "ctx.inspector",
+   "role": "core",
+   "owner": [],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Owns the Worker-hosted CDP target and the transport-independent Host and Client observation and Cordis-tree query API."
+  },
+  {
+   "key": "ctx.invariants",
+   "role": "core",
+   "owner": [
+    "packages/runtime-diagnostics/invariants"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/session",
+    "packages/core/agent",
+    "packages/core/scope",
+    "packages/core/agent-loop"
+   ],
+   "companions": [],
+   "note": "Companion subpaths register owner-local checks; the service owns selection, uniqueness, child fibers, and package-attributed failures."
+  },
+  {
+   "key": "ctx.jobs",
+   "role": "seam",
+   "owner": [
+    "packages/jobs/jobs"
+   ],
+   "implementations": [
+    "packages/jobs/jobs-local"
+   ],
+   "consumers": [
+    "packages/shell/tool-bash",
+    "packages/terminal/tool-terminal",
+    "packages/subagent/tool-subagent",
+    "packages/jobs/tool-jobs"
+   ],
+   "companions": [],
+   "note": "Producers (background bash, PTY sends, and subagent delegations) register running work; tool-jobs is the model-facing controller that reads, lists, and kills it; jobs-local is the process-local registry."
+  },
+  {
+   "key": "ctx.llm",
+   "role": "seam",
+   "owner": [
+    "packages/llm/llm"
+   ],
+   "implementations": [
+    "packages/llm/llm-deepseek",
+    "packages/llm/llm-pi-ai",
+    "packages/test-support/llm-replay"
+   ],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/compaction/compaction-basic"
+   ],
+   "companions": [],
+   "note": "Adapters register provider implementations; the loop and compaction call the provider-neutral stream service."
+  },
+  {
+   "key": "ctx.lsp",
+   "role": "seam",
+   "owner": [
+    "packages/lsp/lsp"
+   ],
+   "implementations": [
+    "packages/lsp/lsp-stdio"
+   ],
+   "consumers": [
+    "packages/lsp/tool-lsp"
+   ],
+   "companions": [],
+   "note": "Provider registration and selection plus normalized query execution over exactly four operations; the seam offers no protocol escape hatch, so a backend translates into the normalized request and result."
+  },
+  {
+   "key": "ctx.messageFeedback",
+   "role": "core",
+   "owner": [
+    "packages/feedback/message-feedback"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Owns per-assistant-message feedback in the canonical Session log, target validation, per-item compare-and-set, and the Host unary Remote contract. Feedback stays outside model history; log export follows the consumer policy."
+  },
+  {
+   "key": "ctx.permissionPresets",
+   "role": "core",
+   "owner": [
+    "packages/interaction/permission-presets"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "User-facing preset table (`workspace-write`/`danger-full-access`) bundling the sandbox-mode and approval-policy knobs; a switch writes one `permission/preset` event through to both knob events."
+  },
+  {
+   "key": "ctx.planMode",
+   "role": "core",
+   "owner": [
+    "packages/plan/plan-mode"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Folds logged plan/mode state, flushes user selections at turn boundaries, renders deployment-owned guidance, registers /plan, and keeps the plan-exit schema stable across transitions."
+  },
+  {
+   "key": "ctx.sandbox",
+   "role": "seam",
+   "owner": [
+    "packages/sandbox/sandbox"
+   ],
+   "implementations": [
+    "packages/sandbox/sandbox-local"
+   ],
+   "consumers": [
+    "packages/shell/bash-sandbox",
+    "packages/terminal/terminal-bash"
+   ],
+   "companions": [],
+   "note": "Consumers hand over the exact argv they are about to spawn; same-world backends wrap it under a per-call policy and report enforcement."
+  },
+  {
+   "key": "ctx.sandboxPolicy",
+   "role": "core",
+   "owner": [
+    "packages/sandbox/sandbox-policy"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/shell/bash-sandbox",
+    "packages/fs/fs-sandbox",
+    "packages/terminal/terminal-bash"
+   ],
+   "companions": [],
+   "note": "The one home for the deployment default mode + workspace root; only the sandboxed executor and provider read the service (the tool layers use the pure `sandbox/mode` fold it also exports). Both enforcing families read it so bash and fs cannot confine to different roots."
+  },
+  {
+   "key": "ctx.sessionController",
+   "role": "core",
+   "owner": [
+    "packages/api/session-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Owns Session commands, cold reads, durable-event following, live control state, model catalogs, workspace opening, and Agent activation policy."
+  },
+  {
+   "key": "ctx.sessionDeletion",
+   "role": "core",
+   "owner": [
+    "packages/session/session-deletion"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/session-controller"
+   ],
+   "companions": [],
+   "note": "Coordinates durable leaves-first persistence and Workspace cleanup."
+  },
+  {
+   "key": "ctx.sessionFeedback",
+   "role": "core",
+   "owner": [
+    "packages/feedback/command-feedback"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Records one Session-level remark with its category as a log-only feedback/record event on a live Session through the Host unary Remote contract; the /feedback command shares the same producer."
+  },
+  {
+   "key": "ctx.sessionFileReferences",
+   "role": "core",
+   "owner": [
+    "packages/api/session-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Delegates file-reference discovery through the Session Controller's established Agent lookup policy."
+  },
+  {
+   "key": "ctx.sessionFlags",
+   "role": "core",
+   "owner": [
+    "packages/session/session-flags"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/session/session-pins"
+   ],
+   "companions": [],
+   "note": "Combines synchronous provider flag maps with explicit completeness."
+  },
+  {
+   "key": "ctx.sessionPersistence",
+   "role": "seam",
+   "owner": [
+    "packages/session/session-persistence"
+   ],
+   "implementations": [
+    "packages/session/session-persistence-jsonl"
+   ],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/shell/tool-bash",
+    "packages/hooks/hooks-claude-code",
+    "packages/hooks/hooks-codex",
+    "packages/session-query/session-query",
+    "packages/session-query/session-query-sqlite",
+    "packages/feedback/message-feedback"
+   ],
+   "companions": [],
+   "note": "The JSONL backend persists the SessionEvent vocabulary as one artifact per Session."
+  },
+  {
+   "key": "ctx.sessionPins",
+   "role": "core",
+   "owner": [
+    "packages/session/session-pins"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Stores pin membership and per-view ordering independently of Workspace membership."
+  },
+  {
+   "key": "ctx.sessionProjectionCache",
+   "role": "core",
+   "owner": [
+    "packages/session/session-projection-cache"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/session-controller",
+    "packages/session-query/session-query",
+    "packages/context/session-reference",
+    "packages/subagent/subagent"
+   ],
+   "companions": [],
+   "note": "Durably checkpoints projection unit states per session (throttled + turn/end/detach mandatory points) and serves the cold-read ladder: cache row + persistence tail replay, so listings never load full logs."
+  },
+  {
+   "key": "ctx.sessionProjections",
+   "role": "core",
+   "owner": [
+    "packages/session/session-projection"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/session-controller",
+    "packages/todo/tool-todo",
+    "packages/session/session-title"
+   ],
+   "companions": [],
+   "note": "Domains register state-driven fold units; the eager drive keeps per-session watermark states and the Session controller serves baselines and pushes changed values."
+  },
+  {
+   "key": "ctx.sessionQuery",
+   "role": "seam",
+   "owner": [
+    "packages/session-query/session-query"
+   ],
+   "implementations": [
+    "packages/session-query/session-query-sqlite"
+   ],
+   "consumers": [
+    "packages/context/session-reference",
+    "packages/session-query/tool-session-query"
+   ],
+   "companions": [],
+   "note": "The interface supplies exact reads, filters, and traces; its concrete backend adds full-text reconciliation, ranking, snippets, and cursor generations, while the model consumer owns workspace authority and cursor-free rendering."
+  },
+  {
+   "key": "ctx.sessionReferenceResolver",
+   "role": "core",
+   "owner": [
+    "packages/context/session-reference"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Projects bounded current-surface conversation snapshots into durable untrusted message context; host adapters own mention syntax."
+  },
+  {
+   "key": "ctx.sessions",
+   "role": "core",
+   "owner": [
+    "packages/core/session"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/core/agent",
+    "packages/session/session-persistence",
+    "packages/session-query/session-query",
+    "packages/session-query/session-query-sqlite",
+    "packages/subagent/subagent-in-process-driver",
+    "packages/runtime-diagnostics/invariants",
+    "packages/feedback/message-feedback"
+   ],
+   "companions": [],
+   "note": "Owns append-only Session instances and emits the durable session event feed."
+  },
+  {
+   "key": "ctx.sessionSkillCatalog",
+   "role": "core",
+   "owner": [
+    "packages/api/session-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Lists the Session composition's user-invocable skills without activating a cold Agent."
+  },
+  {
+   "key": "ctx.sessionTelemetry",
+   "role": "seam",
+   "owner": [
+    "packages/session/session-telemetry"
+   ],
+   "implementations": [
+    "packages/session/session-telemetry-otel"
+   ],
+   "consumers": [],
+   "companions": [],
+   "note": "The seam captures, redacts, and hands session records to one backend; nothing else consumes the service — its output leaves the process."
+  },
+  {
+   "key": "ctx.sessionTitle",
+   "role": "seam",
+   "owner": [
+    "packages/session/session-title"
+   ],
+   "implementations": [
+    "packages/session/session-title-first-prompt-llm",
+    "packages/session/session-title-all-prompts-llm"
+   ],
+   "consumers": [],
+   "companions": [],
+   "note": "Owns the deterministic fallback, latest-title fold, and sole optional asynchronous provider registration."
+  },
+  {
+   "key": "ctx.settings",
+   "role": "seam",
+   "owner": [
+    "packages/settings/settings"
+   ],
+   "implementations": [
+    "packages/settings/settings-file"
+   ],
+   "consumers": [
+    "packages/api/settings-controller",
+    "packages/llm/llm-deepseek",
+    "packages/llm/llm-pi-ai"
+   ],
+   "companions": [],
+   "note": "Plugins register namespace schemas and resolve layered values; providers store the raw document. The LLM adapters register their entry config as the composition base under the user section; the settings controller serves redacted layered descriptors and writes the user layer."
+  },
+  {
+   "key": "ctx.settingsController",
+   "role": "core",
+   "owner": [
+    "packages/api/settings-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Projects the user-settings seam onto the generated Remote namespace: the read is always redacted and every refusal is classified here, not on the seam Definition."
+  },
+  {
+   "key": "ctx.shell",
+   "role": "seam",
+   "owner": [
+    "packages/shell/shell"
+   ],
+   "implementations": [
+    "packages/shell/bash-local",
+    "packages/shell/bash-sandbox",
+    "packages/shell/pwsh-local"
+   ],
+   "consumers": [
+    "packages/shell/tool-bash",
+    "packages/shell/tool-pwsh",
+    "packages/hooks/hooks-claude-code",
+    "packages/hooks/hooks-codex"
+   ],
+   "companions": [],
+   "note": "The model-facing shell tools and hook bridges consume this seam; sandboxed, remote, or PowerShell executors replace bash-local without touching them."
+  },
+  {
+   "key": "ctx.shellEnv",
+   "role": "core",
+   "owner": [
+    "packages/shell/shell-env"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/shell/tool-bash",
+    "packages/shell/tool-pwsh"
+   ],
+   "companions": [],
+   "note": "Plugins declare effect-scoped DSH_* facts; each shell tool collects one trusted snapshot per execution and its executor rebuilds the namespace."
+  },
+  {
+   "key": "ctx.skills",
+   "role": "seam",
+   "owner": [
+    "packages/skill/skill"
+   ],
+   "implementations": [
+    "packages/skill/skill-badge",
+    "packages/skill/skill-filesystem"
+   ],
+   "consumers": [
+    "packages/skill/tool-skill"
+   ],
+   "companions": [],
+   "note": "Merges provider skill catalogs; tool-skill renders the session-prefix catalog and loads complete skill bodies."
+  },
+  {
+   "key": "ctx.spillStore",
+   "role": "seam",
+   "owner": [
+    "packages/spill/spill"
+   ],
+   "implementations": [
+    "packages/spill/spill-local"
+   ],
+   "consumers": [
+    "packages/spill/spill-policy"
+   ],
+   "companions": [],
+   "note": "The backend saves oversized tool text and returns a model-facing locator plus retrieval hint; spill-policy is the tools/post-execute consumer that decides when to spill."
+  },
+  {
+   "key": "ctx.storage",
+   "role": "seam",
+   "owner": [
+    "packages/storage/storage"
+   ],
+   "implementations": [
+    "packages/storage/storage-json",
+    "packages/storage/storage-sqlite"
+   ],
+   "consumers": [
+    "packages/storage/storage-domain"
+   ],
+   "companions": [],
+   "note": "Backends register side by side under names; data forms (domain first) mount on the hub and translate typed operations into opaque KV-unit primitives."
+  },
+  {
+   "key": "ctx.storageDomain",
+   "role": "core",
+   "owner": [
+    "packages/storage/storage-domain"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/workspace/workspace"
+   ],
+   "companions": [],
+   "note": "Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state."
+  },
+  {
+   "key": "ctx.subagentModelSelection",
+   "role": "core",
+   "owner": [
+    "packages/subagent/tool-subagent"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/subagent/tool-subagent"
+   ],
+   "companions": [],
+   "note": "Owns the default-off settings namespace that Agent-scoped delegation tools sample when composing a new top-level Session."
+  },
+  {
+   "key": "ctx.subagents",
+   "role": "seam",
+   "owner": [
+    "packages/subagent/subagent"
+   ],
+   "implementations": [
+    "packages/subagent/subagent-spawn-in-process",
+    "packages/subagent/subagent-fork-in-process",
+    "packages/subagent/subagent-acp",
+    "packages/subagent/subagent-codex",
+    "packages/subagent/subagent-claude-code",
+    "packages/subagent/subagent-dsh-sdk"
+   ],
+   "consumers": [
+    "packages/subagent/tool-subagent",
+    "packages/subagent/tool-subagent-control",
+    "packages/workflow/tool-ralph"
+   ],
+   "companions": [],
+   "note": "Providers implement transports; the service also owns optional Activation-based continuation orchestration, tool-subagent selects one-shot or continuable delegation, tool-subagent-control delivers follow-ups, and tool-ralph requires one fresh structured-output route."
+  },
+  {
+   "key": "ctx.subprocess",
+   "role": "seam",
+   "owner": [
+    "packages/subprocess/subprocess"
+   ],
+   "implementations": [
+    "packages/subprocess/subprocess-local",
+    "packages/e2b/subprocess-e2b"
+   ],
+   "consumers": [
+    "packages/shell/bash-local",
+    "packages/shell/bash-sandbox",
+    "packages/terminal/terminal-bash",
+    "packages/lsp/lsp-stdio",
+    "packages/subagent/subagent-acp",
+    "packages/subagent/subagent-codex",
+    "packages/subagent/subagent-claude-code"
+   ],
+   "companions": [],
+   "note": "The bash executors, the PTY shell backend, the LSP host, and the out-of-process ACP, Codex, and Claude Code subagent backends spawn through ctx.subprocess; the service owns process coordinates, tree/session lifetime, stdio dispositions, terminal mechanics, and kill escalation."
+  },
+  {
+   "key": "ctx.systemPrompt",
+   "role": "core",
+   "owner": [
+    "packages/core/system-prompt"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/core/tools",
+    "packages/fs/tool-fs",
+    "packages/terminal/tool-terminal",
+    "packages/web/tool-web"
+   ],
+   "companions": [],
+   "note": "Collects prompt sections and model-facing tool schemas for each step."
+  },
+  {
+   "key": "ctx.terminals",
+   "role": "seam",
+   "owner": [
+    "packages/terminal/terminal"
+   ],
+   "implementations": [
+    "packages/terminal/terminal-bash"
+   ],
+   "consumers": [
+    "packages/terminal/tool-terminal"
+   ],
+   "companions": [],
+   "note": "The registry owns exact-Agent session identity and cleanup; backends own terminal mechanics, while tool-terminal exposes the owner-scoped model tools."
+  },
+  {
+   "key": "ctx.tokenMeter",
+   "role": "core",
+   "owner": [
+    "packages/llm/token-meter"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/compaction/compaction-basic"
+   ],
+   "companions": [],
+   "note": "Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements."
+  },
+  {
+   "key": "ctx.toolResultPruner",
+   "role": "core",
+   "owner": [
+    "packages/compaction/compaction-tool-result-pruner"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/compaction/compaction-basic"
+   ],
+   "companions": [],
+   "note": "Rewrites oversized current tool results through replayable single-node surface replacements before summary compaction."
+  },
+  {
+   "key": "ctx.tools",
+   "role": "core",
+   "owner": [
+    "packages/core/tools"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/core/agent-loop",
+    "packages/interaction/tool-ask-user",
+    "packages/shell/tool-bash",
+    "packages/extensions/tool-cordis",
+    "packages/fs/tool-fs",
+    "packages/terminal/tool-terminal",
+    "packages/skill/tool-skill",
+    "packages/subagent/tool-subagent",
+    "packages/todo/tool-todo",
+    "packages/web/tool-web"
+   ],
+   "companions": [],
+   "note": "Registers capabilities, owns PTC mode transport, and routes calls through pre-policy, monotonic guards, around dispatch, post-policy, and final-result observation."
+  },
+  {
+   "key": "ctx.typert",
+   "role": "core",
+   "owner": [
+    "packages/typert/registry"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/typert/loader",
+    "packages/api/gateway"
+   ],
+   "companions": [],
+   "note": "Plugins register live zod contributions directly or through dsh-typert-loader; the API gateway consumes invocation descriptors and providers, while other runtime consumers query schemas and reflection metadata at their own edges."
+  },
+  {
+   "key": "ctx.typertGateway",
+   "role": "core",
+   "owner": [
+    "packages/api/gateway"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Associates generated Remote descriptors with live Cordis services, resolves registered identities, and exposes unary calls through the shared Connection RPC carrier."
+  },
+  {
+   "key": "ctx.userQuestions",
+   "role": "seam",
+   "owner": [
+    "packages/interaction/user-questions"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/interaction/tool-ask-user"
+   ],
+   "companions": [],
+   "note": "UI front ends provide the active human-answer provider; tool-ask-user pauses a tool call on the provider-neutral ask() promise."
+  },
+  {
+   "key": "ctx.web",
+   "role": "seam",
+   "owner": [
+    "packages/web/web"
+   ],
+   "implementations": [
+    "packages/web/web-search-exa",
+    "packages/web/web-search-perplexity",
+    "packages/web/web-search-deepseek",
+    "packages/web/web-fetch-http"
+   ],
+   "consumers": [
+    "packages/web/tool-web"
+   ],
+   "companions": [],
+   "note": "Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names."
+  },
+  {
+   "key": "ctx.webhookRuntime",
+   "role": "core",
+   "owner": [
+    "packages/webhook/webhook"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/webhook/webhook-github"
+   ],
+   "companions": [],
+   "note": "Provider adapters dispatch authenticated deliveries; trusted plugins register independent process-local rules, and the runtime turns non-null results into ordinary Workspace-backed Sessions without delivery or completion state."
+  },
+  {
+   "key": "ctx.webServer",
+   "role": "core",
+   "owner": [
+    "packages/host/webserver"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/client/connection",
+    "packages/client/modules",
+    "packages/client/hmr"
+   ],
+   "companions": [],
+   "note": "Plain node:http carrier: named-route registry, index transform taps, and the static dist fallback; web-transport plugins register their own routes."
+  },
+  {
+   "key": "ctx.workflowEngine",
+   "role": "seam",
+   "owner": [
+    "packages/workflow/workflow"
+   ],
+   "implementations": [
+    "packages/workflow/workflow-worker-thread"
+   ],
+   "consumers": [
+    "packages/workflow/tool-workflow",
+    "packages/workflow/tool-ralph"
+   ],
+   "companions": [],
+   "note": "One engine per context, as in bash, with no named-provider registry; the general workflow and fixed Ralph consumers start runs whose agent() calls fan out through ctx.subagents."
+  },
+  {
+   "key": "ctx.workspaceController",
+   "role": "core",
+   "owner": [
+    "packages/api/workspace-controller"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Owns Workspace commands and reconnect-safe Workspace state delivery through the generated Remote namespace."
+  },
+  {
+   "key": "ctx.workspaceFiles",
+   "role": "core",
+   "owner": [
+    "packages/api/workspace-files"
+   ],
+   "implementations": [],
+   "consumers": [],
+   "companions": [],
+   "note": "Serves stat, paged text, byte windows, directory listings, and the change feed for files inside a Session's workspace root, confined by lstat, containment, and a stat re-check."
+  },
+  {
+   "key": "ctx.workspaceRegistry",
+   "role": "core",
+   "owner": [
+    "packages/workspace/workspace"
+   ],
+   "implementations": [],
+   "consumers": [
+    "packages/api/workspace-controller",
+    "packages/api/session-controller"
+   ],
+   "companions": [],
+   "note": "Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections."
+  }
+ ]
+}

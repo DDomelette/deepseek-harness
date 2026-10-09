@@ -1,0 +1,1122 @@
+{
+ "packages/acp/acp": {
+  "zh": "以 JSON-RPC stdio 提供 ACP 服务，供程序驱动 DSH agent",
+  "role": "provider"
+ },
+ "packages/api/gateway": {
+  "zh": "承载 Client 到 Host 的 Typert Remote 调用与事件转发的网关",
+  "role": "provider"
+ },
+ "packages/api/remotes": {
+  "zh": "装配本应用选定的 Host Remote 能力与转发事件",
+  "role": "infra"
+ },
+ "packages/api/session-controller": {
+  "zh": "提供 Session 命令、冷读取与实时状态的 Remote 服务",
+  "role": "provider"
+ },
+ "packages/api/settings-controller": {
+  "zh": "将 settings 与 credentials seam 投影为 Remote 配置界面的服务",
+  "role": "provider"
+ },
+ "packages/api/workspace-controller": {
+  "zh": "提供 Workspace 增删改排序与可重连状态同步的 Remote 服务",
+  "role": "provider"
+ },
+ "packages/api/workspace-files": {
+  "zh": "提供工作区文件读取、目录列举与变更订阅的 workspaceFiles 服务",
+  "role": "provider"
+ },
+ "packages/attachment/attachment": {
+  "zh": "定义可持久化的图片附件存储服务",
+  "role": "definition"
+ },
+ "packages/attachment/attachment-local": {
+  "zh": "把附件按内容寻址存到 DSH_HOME",
+  "role": "provider"
+ },
+ "packages/boot/app-boot": {
+  "zh": "加载 .env 与 patch 层、启动 Loader 并报出启动失败的库",
+  "role": "library"
+ },
+ "packages/boot/cmdline": {
+  "zh": "让 app 自行解析自身 flag、--help 与退出码的库",
+  "role": "library"
+ },
+ "packages/bundle/acp-app": {
+  "zh": "在 dsh-base 之上提供 ACP JSON-RPC stdio 自动化应用 bundle",
+  "role": "bundle"
+ },
+ "packages/bundle/base": {
+  "zh": "dsh 各 profile 共享的基础 bundle：模型、工具、持久会话与安全默认",
+  "role": "bundle"
+ },
+ "packages/bundle/headless": {
+  "zh": "一次性命令行任务的 dsh bundle：直接跑 Agent 并打印最终答案",
+  "role": "bundle"
+ },
+ "packages/bundle/mob": {
+  "zh": "为 web profile 增加手机配对入口与 mob Remote 命名空间的 bundle",
+  "role": "bundle"
+ },
+ "packages/bundle/sdk-app": {
+  "zh": "在 dsh-base 之上启动 SDK stdio JSON-RPC 服务端的 bundle",
+  "role": "bundle"
+ },
+ "packages/bundle/sdk-minimal": {
+  "zh": "独立最小 SDK bundle：单一持久 shell 与 JSONL 会话，不含 dsh-base",
+  "role": "bundle"
+ },
+ "packages/bundle/web-app": {
+  "zh": "dsh 浏览器 GUI 的 bundle：在 dsh-base 上加 Web 层并打印访问 URL",
+  "role": "bundle"
+ },
+ "packages/client/connection": {
+  "zh": "浏览器与 Host 的 Remote RPC 传输、事件流与重连代际管理",
+  "role": "infra"
+ },
+ "packages/client/file-upload": {
+  "zh": "浏览器文件上传：流式接收并返回暂存凭据",
+  "role": "infra"
+ },
+ "packages/client/hmr": {
+  "zh": "开发期热重载：SSE 重建帧触发客户端 fiber 替换",
+  "role": "infra"
+ },
+ "packages/client/locale": {
+  "zh": "语言偏好与类型化词典注册，提供 t 翻译 seat",
+  "role": "infra"
+ },
+ "packages/client/modules": {
+  "zh": "客户端模块系统：组装 __DSH_BOOT__ 启动图并懒加载插件包",
+  "role": "infra"
+ },
+ "packages/client/resources": {
+  "zh": "注册资源协议，将 URL 地址转为 useResource 实时值",
+  "role": "infra"
+ },
+ "packages/client/store": {
+  "zh": "免 React 的可观察快照 store 原语与 Zustand/Immer 引擎",
+  "role": "library"
+ },
+ "packages/client/ui-agent-preset": {
+  "zh": "Agent preset 界面：默认预设、当前 session 席位与组合编辑器",
+  "role": "consumer"
+ },
+ "packages/client/ui-approval": {
+  "zh": "审批请求呈现：在 Remote Event 瀑布上接管 composer",
+  "role": "consumer"
+ },
+ "packages/client/ui-attachment": {
+  "zh": "输入、消息图片与轨迹图片的附件呈现 slot 插件",
+  "role": "consumer"
+ },
+ "packages/client/ui-brand-official": {
+  "zh": "为 Web 客户端 sidebar slot 填充官方品牌名称与标识",
+  "role": "consumer"
+ },
+ "packages/client/ui-chat": {
+  "zh": "Chat Conversation 目标、节点定义、渲染器与详情面板",
+  "role": "consumer"
+ },
+ "packages/client/ui-commands": {
+  "zh": "客户端命令界面：全局目录缓存、'/' 来源与三类命令 UI",
+  "role": "consumer"
+ },
+ "packages/client/ui-conversation": {
+  "zh": "目标无关的 Conversation 装配、shell、composer、队列与视图导航",
+  "role": "consumer"
+ },
+ "packages/client/ui-deliverables": {
+  "zh": "回合末尾产出文件列表与回复中可点击的文件引用",
+  "role": "consumer"
+ },
+ "packages/client/ui-directory-picker-browse": {
+  "zh": "应用内目录选择对话框，经 Host 列出并创建目录",
+  "role": "consumer"
+ },
+ "packages/client/ui-directory-picker-native": {
+  "zh": "无渲染 occupant，驱动 Host 侧系统目录选择器",
+  "role": "consumer"
+ },
+ "packages/client/ui-dockkit": {
+  "zh": "停靠布局套件：可逆分割树引擎与 React 渲染组件",
+  "role": "library"
+ },
+ "packages/client/ui-goal": {
+  "zh": "Session 目标界面：composer 上方 GoalBar 读取 goal 投影",
+  "role": "consumer"
+ },
+ "packages/client/ui-input-trigger": {
+  "zh": "输入触发管线：'/' 与 '@' 检测、候选菜单与选择路由",
+  "role": "consumer"
+ },
+ "packages/client/ui-jobs": {
+  "zh": "会话头部后台任务列表，镜像 session/jobs 帧的实时状态",
+  "role": "consumer"
+ },
+ "packages/client/ui-layout": {
+  "zh": "三栏 AppFrame 外壳、拖拽手柄与 ctx.layout 视图状态服务",
+  "role": "consumer"
+ },
+ "packages/client/ui-message-feedback": {
+  "zh": "助手消息 Like/Dislike 按钮与反馈对话框，经 Remote 提交",
+  "role": "consumer"
+ },
+ "packages/client/ui-model-selection": {
+  "zh": "基于共享模型目录与 Session 投影的模型选择控件",
+  "role": "consumer"
+ },
+ "packages/client/ui-open-in-app": {
+  "zh": "会话头部 Open In 分按钮，用本机应用打开工作区目录",
+  "role": "consumer"
+ },
+ "packages/client/ui-permission-presets": {
+  "zh": "权限预设界面：新会话默认值与当前会话 /permission 弹窗",
+  "role": "consumer"
+ },
+ "packages/client/ui-pinned-sessions": {
+  "zh": "侧栏置顶会话分区、行内置顶操作与搜索结果徽标",
+  "role": "consumer"
+ },
+ "packages/client/ui-plan": {
+  "zh": "Plan 模式 composer 控件：conversation.input.plan 席位与 /plan 命令",
+  "role": "consumer"
+ },
+ "packages/client/ui-primitives": {
+  "zh": "零 cordis 的 React 原子件：控件、图标、Markdown 与输出卡片",
+  "role": "library"
+ },
+ "packages/client/ui-reference": {
+  "zh": "统一提供 Web @file 与 @session 引用来源",
+  "role": "consumer"
+ },
+ "packages/client/ui-renderer": {
+  "zh": "React slot 绑定、ctx.uiRenderer 与应用根挂载渲染器",
+  "role": "infra"
+ },
+ "packages/client/ui-schedule": {
+  "zh": "会话头部只读 Schedule 目录，列出当前活跃提醒",
+  "role": "consumer"
+ },
+ "packages/client/ui-session": {
+  "zh": "将 Session Controller 状态适配为 React 与会话 slot",
+  "role": "infra"
+ },
+ "packages/client/ui-settings": {
+  "zh": "设置域基础插件：settings 作用域服务与规范 slot 类型契约",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-archived": {
+  "zh": "归档会话设置分区：恢复或递归删除已归档 session",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-general": {
+  "zh": "General 设置分区、外壳头部内容与版本化欢迎通知",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-mcp": {
+  "zh": "Plugins 设置中的 MCP 服务器名册标签页与管理表单",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-models": {
+  "zh": "Models 设置与产品引导对话框，复用凭证接入点",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-plugin-inventory": {
+  "zh": "Plugins 设置中的只读 Cordis Loader 插件清单标签页",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-plugins": {
+  "zh": "Plugins 设置分区：功能自有标签页与可配置 host 插件卡片",
+  "role": "consumer"
+ },
+ "packages/client/ui-settings-skills": {
+  "zh": "Skills 设置分区：按分组列出技能目录并逐项启用停用",
+  "role": "consumer"
+ },
+ "packages/client/ui-sidebar": {
+  "zh": "侧栏插件：会话多级树、搜索、分组与状态圆点",
+  "role": "consumer"
+ },
+ "packages/client/ui-sidebar-documentpreview": {
+  "zh": "右侧栏文档预览：Markdown、代码、图片、PDF 与 HTML 渲染",
+  "role": "consumer"
+ },
+ "packages/client/ui-sidebar-files": {
+  "zh": "右侧栏工作区文件树标签，懒加载目录并打开文件",
+  "role": "consumer"
+ },
+ "packages/client/ui-sidebar-right": {
+  "zh": "右侧栏停靠面：会话绑定状态、展开控件与导航服务",
+  "role": "consumer"
+ },
+ "packages/client/ui-skill": {
+  "zh": "Web 技能引用与专用 skill 工具行展示",
+  "role": "consumer"
+ },
+ "packages/client/ui-slots": {
+  "zh": "slot 注册纯核心：SlotMap 声明合并与单一 register 组合 API",
+  "role": "library"
+ },
+ "packages/client/ui-subagent": {
+  "zh": "子代理会话目录、续聊路由 UI 与 '@' 引用来源",
+  "role": "consumer"
+ },
+ "packages/client/ui-theme": {
+  "zh": "主题插件：明暗/system 状态、--dsw-* token 与外观设置行",
+  "role": "consumer"
+ },
+ "packages/client/ui-tool": {
+  "zh": "客户端工具调用树渲染器与按工具键控的展示 slot",
+  "role": "consumer"
+ },
+ "packages/client/ui-trajectory": {
+  "zh": "轨迹事件账本与交互式时序总览，注册进 conversation ViewMap",
+  "role": "consumer"
+ },
+ "packages/client/ui-user-questions": {
+  "zh": "ask_user_question 的 composer 接管与计划评审呈现",
+  "role": "consumer"
+ },
+ "packages/client/ui-workflow-run": {
+  "zh": "持久 workflow 运行节点与嵌套成员展开视图",
+  "role": "consumer"
+ },
+ "packages/client/ui-workspace": {
+  "zh": "工作区选择与创建界面，向侧栏与空状态 slot 注册",
+  "role": "consumer"
+ },
+ "packages/client/web": {
+  "zh": "Web 启动内核：加载模块表、激活客户端插件并交棒渲染器",
+  "role": "infra"
+ },
+ "packages/code-runtime/code-runtime": {
+  "zh": "代码执行能力 seam 的抽象服务契约",
+  "role": "definition"
+ },
+ "packages/code-runtime/code-runtime-worker-thread": {
+  "zh": "每个程序在独立 worker 线程中运行",
+  "role": "provider"
+ },
+ "packages/compaction/command-compact": {
+  "zh": "提供 /compact 命令手动压缩会话历史",
+  "role": "consumer"
+ },
+ "packages/compaction/compaction": {
+  "zh": "定义会话压缩操作与摘要格式契约",
+  "role": "definition"
+ },
+ "packages/compaction/compaction-basic": {
+  "zh": "按 token 压力自动摘要较早的会话历史",
+  "role": "provider"
+ },
+ "packages/compaction/compaction-tool-result-pruner": {
+  "zh": "裁剪超长工具结果并保留头尾内容",
+  "role": "definition"
+ },
+ "packages/context/agent-instructions": {
+  "zh": "把 AGENTS.md 工作区指令载入上下文",
+  "role": "consumer"
+ },
+ "packages/context/file-reference": {
+  "zh": "定义 @file 引用的发现契约与共享语法",
+  "role": "definition"
+ },
+ "packages/context/file-reference-local": {
+  "zh": "以本地文件系统提供 @file 引用补全",
+  "role": "provider"
+ },
+ "packages/context/session-reference": {
+  "zh": "解析跨会话提及并注入有界快照上下文",
+  "role": "definition"
+ },
+ "packages/context/time-context": {
+  "zh": "每步注入当前时间、浏览器时区与已用时长",
+  "role": "consumer"
+ },
+ "packages/context/tmux-context": {
+  "zh": "每轮注入 tmux 会话与窗格位置",
+  "role": "consumer"
+ },
+ "packages/core/agent": {
+  "zh": "定义 Agent 句柄、注册表、initiator scope 与 agent/* 事件契约",
+  "role": "definition"
+ },
+ "packages/core/agent-default-model": {
+  "zh": "为新 Agent 提供经 settings 分层的默认模型选择",
+  "role": "provider"
+ },
+ "packages/core/agent-loop": {
+  "zh": "默认 agent 驱动：创建 Agent 并执行 turn/step 生命周期",
+  "role": "provider"
+ },
+ "packages/core/agent-tool-presentation": {
+  "zh": "预设行：为某 Agent 选择 native、PTC 或两者的工具呈现",
+  "role": "consumer"
+ },
+ "packages/core/scope": {
+  "zh": "按 Agent 或分组隔离注册与事件分发的 scope 原语库",
+  "role": "library"
+ },
+ "packages/core/session": {
+  "zh": "追加写入的 SessionEvent 日志与内存会话存储",
+  "role": "definition"
+ },
+ "packages/core/system-prompt": {
+  "zh": "按顺序装配系统提示分区、变量与工具 schema 的注册表",
+  "role": "definition"
+ },
+ "packages/core/tools": {
+  "zh": "工具注册表与执行流水线：校验、策略与结果终结",
+  "role": "definition"
+ },
+ "packages/credentials/authorization": {
+  "zh": "ctx.authorization：插件注册授权流程，经人机对话获取凭据",
+  "role": "definition"
+ },
+ "packages/credentials/credentials": {
+  "zh": "ctx.credentials：配置只保存引用，provider 持有密钥值",
+  "role": "definition"
+ },
+ "packages/credentials/credentials-local": {
+  "zh": "分层解析环境与文件的本地凭据 provider（ctx.credentials）",
+  "role": "provider"
+ },
+ "packages/e2b/e2b": {
+  "zh": "为 E2B 适配器提供共享的远程 Linux 沙箱生命周期",
+  "role": "provider"
+ },
+ "packages/e2b/fs-e2b": {
+  "zh": "在 E2B 远程沙箱内实现 ctx.fs 的文件读写与列目录",
+  "role": "provider"
+ },
+ "packages/e2b/subprocess-e2b": {
+  "zh": "在 E2B 远程沙箱内实现 ctx.subprocess 的命令与终端执行",
+  "role": "provider"
+ },
+ "packages/experimental/agent-team": {
+  "zh": "会话内命名队友：持久消息邮箱与共享任务板",
+  "role": "definition"
+ },
+ "packages/experimental/agent-team-profile": {
+  "zh": "实验性 profile bundle：在 dsh-base 之上启用 Agent Teams 与团队工具",
+  "role": "bundle"
+ },
+ "packages/experimental/agent-team-web-profile": {
+  "zh": "实验性 Web profile 层：为 Agent Teams 挂载 Remote 与 UI 插件",
+  "role": "bundle"
+ },
+ "packages/experimental/client-ui-agent-team": {
+  "zh": "Web Agent Teams 面板：花名册、任务板与队友会话导航",
+  "role": "consumer"
+ },
+ "packages/experimental/code-runtime-python": {
+  "zh": "code-runtime seam 的 CPython 子进程实现，逐请求新建解释器",
+  "role": "provider"
+ },
+ "packages/experimental/inspector": {
+  "zh": "跨 realm 的 CDP 调试枢纽：Host 调试、Client 检查与网络抓包",
+  "role": "infra"
+ },
+ "packages/experimental/tool-agent-team": {
+  "zh": "面向模型的九个 Agent Teams 工具：创建队友、发消息与协调任务",
+  "role": "consumer"
+ },
+ "packages/experimental/webworker-packer": {
+  "zh": "构建期打包器：产出浏览器 worker 挂载的 gzip 压缩 VFS 镜像",
+  "role": "library"
+ },
+ "packages/experimental/webworker-runtime": {
+  "zh": "在专用 Web Worker 内运行整棵 harness 插件树的内存 VFS 运行时",
+  "role": "library"
+ },
+ "packages/extensions/cordis-client-runner": {
+  "zh": "在页面加载动态 Cordis 包的浏览器半边并响应运行请求",
+  "role": "provider"
+ },
+ "packages/extensions/cordis-host-runner": {
+  "zh": "宿主端持有动态包注册表，用 node:vm 沙箱运行 host 半边",
+  "role": "provider"
+ },
+ "packages/extensions/tool-cordis": {
+  "zh": "模型工具：查看实时运行时并挂载、运行、停止动态插件",
+  "role": "consumer"
+ },
+ "packages/extensions/ui-cordis": {
+  "zh": "Web 端 Cordis 动态插件面板、工具卡片与 @pluginId 补全",
+  "role": "consumer"
+ },
+ "packages/feedback/command-feedback": {
+  "zh": "记录会话级反馈的 /feedback 命令",
+  "role": "provider"
+ },
+ "packages/feedback/message-feedback": {
+  "zh": "记录单条 assistant 消息的评分与备注",
+  "role": "provider"
+ },
+ "packages/fs/fs": {
+  "zh": "定义 ctx.fs 抽象文件系统服务契约",
+  "role": "definition"
+ },
+ "packages/fs/fs-local": {
+  "zh": "实现 ctx.fs 的本地主机文件系统后端",
+  "role": "provider"
+ },
+ "packages/fs/fs-observation-policy": {
+  "zh": "write/edit 前要求先读文件并校验版本",
+  "role": "infra"
+ },
+ "packages/fs/fs-sandbox": {
+  "zh": "按沙箱模式拦截写与 edit 且读取放行",
+  "role": "provider"
+ },
+ "packages/fs/tool-fs": {
+  "zh": "模型可用的 read/write/edit 工具",
+  "role": "consumer"
+ },
+ "packages/fs/tool-fs-search": {
+  "zh": "模型可用的 glob 与 grep 检索工具",
+  "role": "consumer"
+ },
+ "packages/fs/tool-present": {
+  "zh": "present 工具：声明可访问的交付文件",
+  "role": "consumer"
+ },
+ "packages/fs/tool-str-replace-editor": {
+  "zh": "str_replace_editor 编辑工具",
+  "role": "consumer"
+ },
+ "packages/goal/command-goal": {
+  "zh": "面向人的 /goal 斜杠命令，接入 UI 命令平面",
+  "role": "consumer"
+ },
+ "packages/goal/goal": {
+  "zh": "同会话持久目标服务 ctx.goals：创建、编辑、暂停、恢复与完成",
+  "role": "definition"
+ },
+ "packages/goal/goal-round-driver": {
+  "zh": "代理空闲时把活动目标续跑为顺序 Round，受轮次上限约束",
+  "role": "infra"
+ },
+ "packages/goal/tool-goal": {
+  "zh": "面向模型的 get_goal、create_goal、update_goal 目标工具",
+  "role": "consumer"
+ },
+ "packages/guard/repeat-tool-reminder": {
+  "zh": "模型重复相同 tool call 时给出提醒，促其换法或收尾",
+  "role": "consumer"
+ },
+ "packages/guard/timeout-policy": {
+  "zh": "为声明了时限的 tool call 施加超时并返回 TOOL_TIMEOUT 错误",
+  "role": "consumer"
+ },
+ "packages/hooks/hook-protocol": {
+  "zh": "Claude Code 与 Codex hook 的共享协议、匹配与编解码规则",
+  "role": "library"
+ },
+ "packages/hooks/hooks-claude-code": {
+  "zh": "复用 Claude Code 的 hooks.json，在 DSH 拦截点上运行钩子",
+  "role": "consumer"
+ },
+ "packages/hooks/hooks-codex": {
+  "zh": "复用 Codex 的 hooks.json，在 DSH 拦截点上运行钩子",
+  "role": "consumer"
+ },
+ "packages/host/directory-picker": {
+  "zh": "工作区目录挑选的 seam 与错误词汇",
+  "role": "definition"
+ },
+ "packages/host/directory-picker-auto": {
+  "zh": "启动时按主机情况挂载对应目录选择后端",
+  "role": "bundle"
+ },
+ "packages/host/directory-picker-browse": {
+  "zh": "应用内目录浏览后端：列目录与新建子目录",
+  "role": "provider"
+ },
+ "packages/host/directory-picker-native": {
+  "zh": "通过系统原生选择器挑选目录的后端",
+  "role": "provider"
+ },
+ "packages/host/frontend-static": {
+  "zh": "托管 Web 前端构建产物的静态服务",
+  "role": "consumer"
+ },
+ "packages/host/open-in-app": {
+  "zh": "让 Web UI 在本地应用打开工作区目录",
+  "role": "consumer"
+ },
+ "packages/host/plugin-inventory": {
+  "zh": "只读投影当前 Loader 插件清单",
+  "role": "provider"
+ },
+ "packages/host/webserver": {
+  "zh": "HTTP 路由注册、index 注入与兜底座位",
+  "role": "provider"
+ },
+ "packages/identity/anonymous-user-id": {
+  "zh": "每个 harness home 一个匿名 id，用于遥测与反馈关联",
+  "role": "library"
+ },
+ "packages/interaction/commands": {
+  "zh": "插件注册人类命令并直接执行的注册表",
+  "role": "provider"
+ },
+ "packages/interaction/permission-presets": {
+  "zh": "权限预设：绑定沙箱模式与审批策略",
+  "role": "provider"
+ },
+ "packages/interaction/tool-ask-user": {
+  "zh": "让模型暂停并向人类提问的工具",
+  "role": "consumer"
+ },
+ "packages/interaction/user-approval": {
+  "zh": "一次性用户授权决策的 seam",
+  "role": "definition"
+ },
+ "packages/interaction/user-questions": {
+  "zh": "暂停 agent 等待人类回答的 seam",
+  "role": "definition"
+ },
+ "packages/jobs/jobs": {
+  "zh": "后台作业注册表 seam：共享 id、owner 隔离、轮询与取消",
+  "role": "definition"
+ },
+ "packages/jobs/jobs-local": {
+  "zh": "进程内后台作业实现：按 owner 准入、就地运行与快照读取",
+  "role": "provider"
+ },
+ "packages/jobs/tool-jobs": {
+  "zh": "面向模型的 job_output、job_list、job_kill 作业控制工具",
+  "role": "consumer"
+ },
+ "packages/llm/deepseek-llm-api-extensions": {
+  "zh": "官方 DeepSeek 请求附加顶层字段的注册表",
+  "role": "definition"
+ },
+ "packages/llm/llm": {
+  "zh": "提供中立的 LLM 流式调用服务接口与消息词汇",
+  "role": "definition"
+ },
+ "packages/llm/llm-deepseek": {
+  "zh": "实现 deepseek-official 路由的官方 chat 补全适配器",
+  "role": "provider"
+ },
+ "packages/llm/llm-pi-ai": {
+  "zh": "通过 pi-ai 目录与线协议服务已配置的 provider 路由",
+  "role": "provider"
+ },
+ "packages/llm/llm-retry": {
+  "zh": "在持久 agent 步骤边界重试失败的模型请求",
+  "role": "infra"
+ },
+ "packages/llm/plugin-package-inventory-deepseek": {
+  "zh": "向官方 DeepSeek 请求贡献活跃 Loader 包清单",
+  "role": "provider"
+ },
+ "packages/llm/token-meter": {
+  "zh": "从持久会话日志重放估算 token 与上下文压力",
+  "role": "definition"
+ },
+ "packages/lsp/lsp": {
+  "zh": "定义 ctx.lsp 代码导航服务契约",
+  "role": "definition"
+ },
+ "packages/lsp/lsp-stdio": {
+  "zh": "通过 stdio 驱动语言服务器",
+  "role": "provider"
+ },
+ "packages/lsp/tool-lsp": {
+  "zh": "面向模型的 lsp 代码导航工具",
+  "role": "consumer"
+ },
+ "packages/mcp/mcp-client": {
+  "zh": "把 MCP 服务器工具注册为原生工具",
+  "role": "consumer"
+ },
+ "packages/mcp/mcp-manager": {
+  "zh": "按用户设置热挂载 MCP 客户端实例",
+  "role": "infra"
+ },
+ "packages/notes/notes": {
+  "zh": "收集会话材料为笔记并由模型逐条作答",
+  "role": "provider"
+ },
+ "packages/plan/plan-mode": {
+  "zh": "记录 plan mode 状态与退出复核",
+  "role": "provider"
+ },
+ "packages/preset/agent-presets": {
+  "zh": "ctx.agentPresets 服务：预设发现、逐会话代理组装与复制式创作",
+  "role": "definition"
+ },
+ "packages/preset/persona": {
+  "zh": "可挂入预设的 persona 行：为单个代理覆盖系统提示人格",
+  "role": "infra"
+ },
+ "packages/runtime-diagnostics/invariants": {
+  "zh": "运行各包自带的运行时不变式检查，错误归属到所属包",
+  "role": "provider"
+ },
+ "packages/sandbox/sandbox": {
+  "zh": "定义 ctx.sandbox 进程沙箱服务契约",
+  "role": "definition"
+ },
+ "packages/sandbox/sandbox-local": {
+  "zh": "bwrap、Seatbelt 等本地沙箱后端",
+  "role": "provider"
+ },
+ "packages/sandbox/sandbox-policy": {
+  "zh": "解析每次调用的沙箱模式与工作区策略",
+  "role": "provider"
+ },
+ "packages/sandbox/sandbox-windows-acl": {
+  "zh": "Windows ACL 受限令牌写入沙箱后端",
+  "role": "provider"
+ },
+ "packages/schedule/schedule": {
+  "zh": "会话内持久提醒：创建、列出、取消并按期投递为对话消息",
+  "role": "consumer"
+ },
+ "packages/sdk/client": {
+  "zh": "TypeScript 客户端 SDK：拉起 dsh 子进程并驱动 agent 轮次",
+  "role": "library"
+ },
+ "packages/sdk/protocol": {
+  "zh": "SDK 的换行分隔 JSON-RPC 传输与请求、通知类型定义",
+  "role": "library"
+ },
+ "packages/sdk/server": {
+  "zh": "stdio JSON-RPC 服务插件，让进程外 SDK 客户端驱动 DSH",
+  "role": "provider"
+ },
+ "packages/session-query/session-log-export": {
+  "zh": "Web 端 /export 命令与会话日志 ZIP 下载",
+  "role": "consumer"
+ },
+ "packages/session-query/session-query": {
+  "zh": "ctx.sessionQuery：会话历史的精确读取、过滤与关系追踪",
+  "role": "definition"
+ },
+ "packages/session-query/session-query-sqlite": {
+  "zh": "基于 SQLite FTS5 的会话历史全文搜索 backend",
+  "role": "provider"
+ },
+ "packages/session-query/tool-session-query": {
+  "zh": "面向模型的会话历史搜索、追踪与事件读取工具",
+  "role": "consumer"
+ },
+ "packages/session/session-checkpoint-policy": {
+  "zh": "在模型请求与工具副作用前写入持久检查点",
+  "role": "infra"
+ },
+ "packages/session/session-deletion": {
+  "zh": "递归删除会话及其子代理会话的编排服务",
+  "role": "definition"
+ },
+ "packages/session/session-flags": {
+  "zh": "按会话注册与合并展示标志的通用注册表",
+  "role": "definition"
+ },
+ "packages/session/session-format": {
+  "zh": "相邻 Session 格式迁移链与产物校验的纯库",
+  "role": "library"
+ },
+ "packages/session/session-format-catalog": {
+  "zh": "构建期生成的已发布 Session 迁移静态目录",
+  "role": "library"
+ },
+ "packages/session/session-format-v0-to-v1": {
+  "zh": "冻结的 v0 解码与到 v1 的恒等迁移库",
+  "role": "library"
+ },
+ "packages/session/session-format-v1-to-v2": {
+  "zh": "冻结的 v1 解码与改变基数的流式迁移库",
+  "role": "library"
+ },
+ "packages/session/session-format-v2-to-v3": {
+  "zh": "把已发布 V2 会话恢复为 V3 的相邻迁移库",
+  "role": "library"
+ },
+ "packages/session/session-log-deepseek": {
+  "zh": "把增量会话日志作为官方 DeepSeek 请求字段上传",
+  "role": "provider"
+ },
+ "packages/session/session-persistence": {
+  "zh": "定义持久会话存储服务与共享写入协调的 seam",
+  "role": "definition"
+ },
+ "packages/session/session-persistence-jsonl": {
+  "zh": "每个会话不可变 JSONL 代文件的持久化后端",
+  "role": "provider"
+ },
+ "packages/session/session-pins": {
+  "zh": "固定会话的持久化与 Remote API 服务",
+  "role": "definition"
+ },
+ "packages/session/session-projection": {
+  "zh": "把已提交事件折叠为会话投影值的注册表",
+  "role": "definition"
+ },
+ "packages/session/session-projection-cache": {
+  "zh": "持久化投影检查点以加速冷读的服务",
+  "role": "definition"
+ },
+ "packages/session/session-stats": {
+  "zh": "提供整段日志会话计数与耗时的投影单元",
+  "role": "provider"
+ },
+ "packages/session/session-telemetry": {
+  "zh": "捕获会话事件并脱敏后交给上报后端的 seam",
+  "role": "definition"
+ },
+ "packages/session/session-telemetry-otel": {
+  "zh": "把捕获的会话记录交给 OpenTelemetry 日志管道的后端",
+  "role": "provider"
+ },
+ "packages/session/session-title": {
+  "zh": "基于日志的会话标题服务与唯一 provider 注册表",
+  "role": "definition"
+ },
+ "packages/session/session-title-all-prompts-llm": {
+  "zh": "用全部人类消息经 LLM 生成会话标题的 provider",
+  "role": "provider"
+ },
+ "packages/session/session-title-first-prompt-llm": {
+  "zh": "用首条人类消息经 LLM 生成会话标题的 provider",
+  "role": "provider"
+ },
+ "packages/session/session-title-llm": {
+  "zh": "会话标题 provider 共享的 LLM 生成策略库",
+  "role": "library"
+ },
+ "packages/session/session-turn-outline": {
+  "zh": "提供整段日志轮次大纲的投影单元",
+  "role": "provider"
+ },
+ "packages/settings/settings": {
+  "zh": "ctx.settings：注册命名空间并按层解析用户配置",
+  "role": "definition"
+ },
+ "packages/settings/settings-file": {
+  "zh": "以 settings.yaml 存储全部命名空间并热重载的 provider",
+  "role": "provider"
+ },
+ "packages/shell/bash-local": {
+  "zh": "用 bash -c 子进程执行本地命令",
+  "role": "provider"
+ },
+ "packages/shell/bash-sandbox": {
+  "zh": "经沙箱执行受限 bash 命令并报告拒绝",
+  "role": "provider"
+ },
+ "packages/shell/pwsh-local": {
+  "zh": "用 pwsh -Command 执行本地命令",
+  "role": "provider"
+ },
+ "packages/shell/pwsh-sandbox": {
+  "zh": "经沙箱执行受限 PowerShell 命令",
+  "role": "provider"
+ },
+ "packages/shell/shell": {
+  "zh": "定义 ctx.shell 命令执行器契约",
+  "role": "definition"
+ },
+ "packages/shell/shell-env": {
+  "zh": "提供受管的 DSH_* shell 环境变量",
+  "role": "provider"
+ },
+ "packages/shell/tool-bash": {
+  "zh": "面向模型的 bash 工具与后台作业支持",
+  "role": "consumer"
+ },
+ "packages/shell/tool-bash-persistent": {
+  "zh": "以 PTY 持久 bash 会话执行模型的命令",
+  "role": "consumer"
+ },
+ "packages/shell/tool-pwsh": {
+  "zh": "面向模型的 pwsh 命令执行工具",
+  "role": "consumer"
+ },
+ "packages/shell/tool-pwsh-persistent": {
+  "zh": "PTY 持久 PowerShell 会话执行命令",
+  "role": "consumer"
+ },
+ "packages/skill/skill": {
+  "zh": "合并各来源 skill 目录并解析同名技能",
+  "role": "definition"
+ },
+ "packages/skill/skill-badge": {
+  "zh": "内置默认关闭的官方 dsh 徽章 skill",
+  "role": "provider"
+ },
+ "packages/skill/skill-filesystem": {
+  "zh": "从项目、用户目录发现 skill 并监视变更",
+  "role": "provider"
+ },
+ "packages/skill/skill-settings": {
+  "zh": "按用户设置覆盖 skill 启用状态",
+  "role": "infra"
+ },
+ "packages/skill/tool-skill": {
+  "zh": "向模型暴露 skill 目录与加载工具",
+  "role": "consumer"
+ },
+ "packages/spill/spill": {
+  "zh": "定义超长文本溢出存储与定位符契约",
+  "role": "definition"
+ },
+ "packages/spill/spill-local": {
+  "zh": "把溢出文本写入会话私有文件",
+  "role": "provider"
+ },
+ "packages/spill/spill-policy": {
+  "zh": "把超长工具结果替换为预览与文件路径",
+  "role": "consumer"
+ },
+ "packages/storage/storage": {
+  "zh": "ctx.storage：注册命名 backend 并挂载数据形态设施",
+  "role": "definition"
+ },
+ "packages/storage/storage-domain": {
+  "zh": "ctx.storageDomain：schema 校验的 KV 域与变更事件",
+  "role": "provider"
+ },
+ "packages/storage/storage-json": {
+  "zh": "把每个 unit 存成可读 JSON 文件的 json backend",
+  "role": "provider"
+ },
+ "packages/storage/storage-sqlite": {
+  "zh": "把每条记录存为一行 JSON 文档的 sqlite backend",
+  "role": "provider"
+ },
+ "packages/subagent/subagent": {
+  "zh": "子代理委派 seam：命名 provider 注册表与可续跑子代理",
+  "role": "definition"
+ },
+ "packages/subagent/subagent-acp": {
+  "zh": "ACP 子代理后端：以子进程和 Agent Client Protocol 驱动子代理",
+  "role": "provider"
+ },
+ "packages/subagent/subagent-claude-code": {
+  "zh": "Claude Code 子代理后端：经官方 Agent SDK 执行一次性委派",
+  "role": "provider"
+ },
+ "packages/subagent/subagent-codex": {
+  "zh": "Codex 子代理后端：经官方 app-server 协议执行一次性委派",
+  "role": "provider"
+ },
+ "packages/subagent/subagent-dsh-sdk": {
+  "zh": "SDK 子代理后端：经 stdio JSON-RPC 驱动 Harness 子进程",
+  "role": "provider"
+ },
+ "packages/subagent/subagent-fork-in-process": {
+  "zh": "进程内 fork 后端：以父代理日志前缀播种续跑子代理",
+  "role": "provider"
+ },
+ "packages/subagent/subagent-in-process-driver": {
+  "zh": "库：进程内子代理运行驱动，spawn 与 fork 后端共用",
+  "role": "library"
+ },
+ "packages/subagent/subagent-spawn-in-process": {
+  "zh": "进程内 spawn 后端：在 ctx.agents 上运行全新子代理",
+  "role": "provider"
+ },
+ "packages/subagent/tool-subagent": {
+  "zh": "面向模型的委派工具：经 ctx.subagents 启动并等待子代理",
+  "role": "consumer"
+ },
+ "packages/subagent/tool-subagent-control": {
+  "zh": "面向模型的 send_message、interrupt_agent、list_agents 续跑控制工具",
+  "role": "consumer"
+ },
+ "packages/subprocess/subprocess": {
+  "zh": "定义 ctx.subprocess 进程服务契约",
+  "role": "definition"
+ },
+ "packages/subprocess/subprocess-local": {
+  "zh": "在主机上运行子进程与终端的本地实现",
+  "role": "provider"
+ },
+ "packages/subprocess/win32-process": {
+  "zh": "共享的 Win32 进程与 Job 原语库",
+  "role": "library"
+ },
+ "packages/telemetry/usage-exporter": {
+  "zh": "尾随本地 usage JSONL 并批量推送到 HTTP 端点",
+  "role": "infra"
+ },
+ "packages/telemetry/usage-telemetry": {
+  "zh": "把每次 llm/stream 的 provider 用量追加为本地 JSONL 行",
+  "role": "infra"
+ },
+ "packages/terminal/terminal": {
+  "zh": "定义持久 PTY 会话的服务契约",
+  "role": "definition"
+ },
+ "packages/terminal/terminal-bash": {
+  "zh": "在 PTY 中启动交互式 bash 或 pwsh",
+  "role": "provider"
+ },
+ "packages/terminal/tool-terminal": {
+  "zh": "六个面向模型的持久终端操作工具",
+  "role": "consumer"
+ },
+ "packages/test-support/agent-loop-testkit": {
+  "zh": "为 AgentLoop 测试提供前置挂载、驱动与 Inbox 桩",
+  "role": "infra"
+ },
+ "packages/test-support/client-runtime": {
+  "zh": "jsdom 里的 slot 测试运行时，供浏览器功能用例复用真实渲染",
+  "role": "infra"
+ },
+ "packages/test-support/llm-mock-server": {
+  "zh": "可编排的 OpenAI 兼容故障服务器，供无密钥 LLM 恢复测试",
+  "role": "infra"
+ },
+ "packages/test-support/llm-replay": {
+  "zh": "从录制的 Session JSONL 重放模型流，支持无密钥快照测试",
+  "role": "provider"
+ },
+ "packages/test-support/loader-smoke": {
+  "zh": "从真实 bin 与 cordis.yml 启动应用夹具并跑一轮 smoke",
+  "role": "infra"
+ },
+ "packages/test-support/session-snapshot": {
+  "zh": "录制会话快照支持：清单、脱敏、归一化与 ACP 适配",
+  "role": "infra"
+ },
+ "packages/todo/tool-todo": {
+  "zh": "面向模型的 todo_write 任务清单工具",
+  "role": "consumer"
+ },
+ "packages/typert/generator": {
+  "zh": "构建期分析 TypeScript 类型并生成 Typert 反射与 schema 制品",
+  "role": "library"
+ },
+ "packages/typert/loader": {
+  "zh": "监听 Loader 条目并把生成的 Typert 反射注册进 ctx.typert",
+  "role": "consumer"
+ },
+ "packages/typert/protocol": {
+  "zh": "声明 Remote 装饰器、wire 描述符、编解码与提供方协议",
+  "role": "library"
+ },
+ "packages/typert/registry": {
+  "zh": "运行时注册表：存放生成的反射、Zod schema 与 Remote 描述符",
+  "role": "definition"
+ },
+ "packages/util/atomic-write": {
+  "zh": "临时文件加 rename 的原子文件替换，含跨进程写锁",
+  "role": "library"
+ },
+ "packages/util/brand": {
+  "zh": "跨边界不透明 id 的 Branded<B> 类型",
+  "role": "library"
+ },
+ "packages/util/chunked-list": {
+  "zh": "追加复制有界的不可变分块列表，支持 JSON checkpoint 校验",
+  "role": "library"
+ },
+ "packages/util/crypto": {
+  "zh": "浏览器安全的 UUID v4 与字节编码辅助函数",
+  "role": "library"
+ },
+ "packages/util/deque": {
+  "zh": "两端摊还常数时间的环形 deque，空闲存储有界",
+  "role": "library"
+ },
+ "packages/util/home-paths": {
+  "zh": "统一解析 Harness home 与共享用户数据路径",
+  "role": "library"
+ },
+ "packages/util/http-proxy": {
+  "zh": "从启动环境解析出站代理并装为 undici 全局 dispatcher",
+  "role": "library"
+ },
+ "packages/util/launch-environment": {
+  "zh": "记录每层来源的不可变启动环境快照",
+  "role": "library"
+ },
+ "packages/util/native-command": {
+  "zh": "免 shell 执行宿主命令并打开路径，含取消与 WSL 交接",
+  "role": "library"
+ },
+ "packages/util/output-retention": {
+  "zh": "有界保留模型可见输出并报告省略元数据",
+  "role": "library"
+ },
+ "packages/util/package-manifest": {
+  "zh": "package.json.dsh 字段的共享 TypeScript 类型声明",
+  "role": "library"
+ },
+ "packages/util/time": {
+  "zh": "只校验与规范化 IANA 时区的 canonicalClientTimeZone",
+  "role": "library"
+ },
+ "packages/util/timeout": {
+  "zh": "超时与截止时间计算及超时/取消分类原语",
+  "role": "library"
+ },
+ "packages/util/values": {
+  "zh": "无损 JSON 值校验、快照、比较与深冻结",
+  "role": "library"
+ },
+ "packages/util/workspace-path": {
+  "zh": "浏览器安全的 Workspace 路径与显示辅助函数",
+  "role": "library"
+ },
+ "packages/web/tool-web": {
+  "zh": "向模型提供 web_search 与 web_fetch 工具",
+  "role": "consumer"
+ },
+ "packages/web/web": {
+  "zh": "定义 ctx.web 搜索与抓取服务契约",
+  "role": "definition"
+ },
+ "packages/web/web-fetch-http": {
+  "zh": "匿名抓取公开 HTTP(S) 网页内容",
+  "role": "provider"
+ },
+ "packages/web/web-search-deepseek": {
+  "zh": "通过 DeepSeek 原生搜索查询网络",
+  "role": "provider"
+ },
+ "packages/web/web-search-exa": {
+  "zh": "通过 Exa 执行公开网络搜索",
+  "role": "provider"
+ },
+ "packages/web/web-search-perplexity": {
+  "zh": "通过 Perplexity 执行公开网络搜索",
+  "role": "provider"
+ },
+ "packages/webhook/webhook": {
+  "zh": "Webhook 规则运行时：把外部事件落成 Workspace 中的 Session",
+  "role": "provider"
+ },
+ "packages/webhook/webhook-github": {
+  "zh": "校验 GitHub 签名投递并转发给 webhook 规则运行时",
+  "role": "consumer"
+ },
+ "packages/workflow/tool-ralph": {
+  "zh": "面向模型的 ralph 工具：用全新子代理运行迭代循环",
+  "role": "consumer"
+ },
+ "packages/workflow/tool-workflow": {
+  "zh": "面向模型的 workflow 工具：执行 JavaScript 编排脚本并返回结果",
+  "role": "consumer"
+ },
+ "packages/workflow/workflow": {
+  "zh": "工作流能力 seam：ctx.workflowEngine 服务、运行词汇与 workflow/* 事件",
+  "role": "definition"
+ },
+ "packages/workflow/workflow-worker-thread": {
+  "zh": "worker-thread 工作流引擎：在宿主事件循环之外执行编排脚本",
+  "role": "provider"
+ },
+ "packages/workspace/workspace": {
+  "zh": "ctx.workspaceRegistry：持久化项目目录与会话归属",
+  "role": "provider"
+ }
+}
