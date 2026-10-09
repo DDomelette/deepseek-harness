@@ -45,26 +45,29 @@ interface ResourceRecord {
  */
 export const RESOURCE_SCHEME = 'dsh-resource'
 
+/** The prefix every resource address carries, scheme separator included. */
+const RESOURCE_PREFIX = `${RESOURCE_SCHEME}://`
+
 /**
- * The protocol key of one address: the host of a `dsh-resource://` URL, as the
- * URL parser reads it (lower-cased). Any other string — another scheme, or one
- * the URL parser rejects — names no protocol and is treated like an address
- * whose protocol has no provider.
+ * The protocol key of one address: the authority of a `dsh-resource://` address,
+ * lower-cased. Any other string — another scheme, a bare path, or an address
+ * with no authority — names no protocol and is treated like an address whose
+ * protocol has no provider.
+ *
+ * The authority is read from the address text rather than through `new URL`:
+ * engines disagree on a non-special scheme's authority, and one Android WebView
+ * reports an empty `hostname` with the authority left in `pathname`, which would
+ * leave every resource address without a protocol and therefore without its
+ * provider.
  * @param address - the full address.
  * @returns the protocol key, or `undefined` when the address is not a resource address.
  */
 export function protocolOf(address: string): string | undefined {
-  let parsed: URL
-  try {
-    parsed = new URL(address)
-  } catch {
-    // The URL parser rejects strings without a scheme (`/a/b.txt`, `''`);
-    // nothing else throws here, and an unparseable address is simply not ours.
-    return undefined
-  }
-  if (parsed.protocol !== `${RESOURCE_SCHEME}:`) return undefined
-  // A non-special scheme's host is opaque to the URL parser and keeps its case.
-  return parsed.hostname === '' ? undefined : parsed.hostname.toLowerCase()
+  if (address.slice(0, RESOURCE_PREFIX.length).toLowerCase() !== RESOURCE_PREFIX) return undefined
+  const rest = address.slice(RESOURCE_PREFIX.length)
+  const end = rest.search(/[/?#]/u)
+  const authority = end === -1 ? rest : rest.slice(0, end)
+  return authority === '' ? undefined : authority.toLowerCase()
 }
 
 function idle(status: 'none' | 'loading'): ResourceSnapshot<unknown> {

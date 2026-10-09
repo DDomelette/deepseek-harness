@@ -16,7 +16,7 @@ Status: implemented
 
 ### 地址
 
-资源地址是 `dsh-resource://<type>/…` 形式的 URL。host 是协议键——`ResourceProtocolMap` 的键——路径归协议拥有者。`RESOURCE_SCHEME = 'dsh-resource'` 是唯一的 scheme 常量；`protocolOf(address)` 用 `new URL` 解析字串，要求 `protocol === 'dsh-resource:'`，返回小写 host；解析器拒绝的字串、其它 scheme 或空 host 返回 `undefined`。`dsh-resource` 不是 URL 规范里的特殊 scheme，解析器会保留 host 的大小写并把路径当作不透明串，所以小写化是显式做的，每段路径由定义它的协议做百分号编码。需要作用域的协议把作用域编进路径：`dsh-resource://file/session/<sessionId>/<path>`，`session/<sessionId>` 命名由其 Host 工作区解析相对或绝对路径的 Session（[语法](../../../../packages/util/workspace-path/README.zh.md)）。其它任何 scheme——`sidebar://guide`——是导航地址：它命名一个 tab 而非数据，模型对它回答 `none`（[tab 类型与导航](2026-09-05-sidebar-tab-types-and-navigation.zh.md)）。
+资源地址是 `dsh-resource://<type>/…` 形式的 URL。host 是协议键——`ResourceProtocolMap` 的键——路径归协议拥有者。`RESOURCE_SCHEME = 'dsh-resource'` 是唯一的 scheme 常量；`protocolOf(address)` 从地址文本里读 authority——大小写不敏感的 scheme 前缀，取到第一个 `/`、`?` 或 `#` 之前为止——返回其小写形式；其它 scheme、裸路径或没有 authority 的地址返回 `undefined`。各引擎对非特殊 scheme 的 authority 并不一致，所以这个键不由 URL 解析器决定（[引擎差异](../bug-fix/2026-10-09-resource-address-authority.zh.md)）；每段路径由定义它的协议做百分号编码。需要作用域的协议把作用域编进路径：`dsh-resource://file/session/<sessionId>/<path>`，`session/<sessionId>` 命名由其 Host 工作区解析相对或绝对路径的 Session（[语法](../../../../packages/util/workspace-path/README.zh.md)）。其它任何 scheme——`sidebar://guide`——是导航地址：它命名一个 tab 而非数据，模型对它回答 `none`（[tab 类型与导航](2026-09-05-sidebar-tab-types-and-navigation.zh.md)）。
 
 ### 服务
 
@@ -67,7 +67,7 @@ type UseResource = <P extends ResourceProtocol>(address: string) => ResourceSnap
 
 **`file:/<scope>/<id>/<path>`，再到把作用域放在 authority 位的 `file://<scope>/<id>/<path>`。** 两版更早的语法。单斜杠形态不是平台解析器接受的 URL，每个消费方都得手工解析。把作用域移到 authority 位使它成为 URL，却让每个资源协议各占一个 scheme——`file://`、将来的 `chat://`、`terminal://`——scheme 的集合随协议集合增长，`file://` 地址不再是它在别处的含义，区分资源地址与导航地址需要一张清单。单一 scheme `dsh-resource://<type>/…` 让这个判断只需一次比较，host 留给协议命名，其它所有 scheme 留给导航。
 
-**手写 scheme 前缀解析代替 URL 解析器。** 第一版 `protocolOf` 用正则匹配 scheme。地址成为 URL 后被否：解析器已经决定合法性与大小写，它拒绝的字串应读作「无协议」而不是被解析一半。
+**用 URL 解析器读 authority。** 在某个 Android WebView 对 `dsh-resource://…` 报出空 hostname 之前，`protocolOf` 一直返回 `new URL(address)` 的小写 `hostname`；那次故障让每个资源地址都没有协议，文档预览读不了任何文件。不采纳：规范把非特殊 scheme 的 authority 留给实现，因此这个键归地址文本所有（[引擎差异](../bug-fix/2026-10-09-resource-address-authority.zh.md)）。
 
 **每 tab 一个流 hook，或框架代管的 `useTabResource(fetch)`。** 依次被否：挂在 tab 域上的流 hook 问错了拥有者——`file` 数据必须来自工作区文件服务，聊天数据来自聊天域——而框架代管的 fetch 没有好的缓存键。留下的是 tab 上框架绑定的 `useTabInfo` 加一个按地址的客户端级 `useResource`。
 
@@ -75,7 +75,7 @@ type UseResource = <P extends ResourceProtocol>(address: string) => ResourceSnap
 
 任何 slot 组件只凭地址读活数据，于是开启方只传数据，正文在撤销、正文重挂载或热替换后能从记录重建自己。显示同一地址的两个组件共享一条流，被钉住的地址在正文卸载后仍存活。一个协议的传输只住在一个提供方里，新增协议只是一个声明合并的类型加一次注册。
 
-代价记录在此以免被重新发现。记录不回收：内存随读过的不同地址数增长，而非随读取次数增长。中止合规归提供方；模型会丢弃已释放的流仍产出的帧，却阻止不了忽略信号的提供方跑到下一帧。失败类型是 Remote 面的 `RemoteFailure`，来源不是 Remote 调用的提供方得自己铸一个。导航地址或畸形字串读作 `none` 而非报错，这让混合地址列表渲染起来便宜，却让拼错的协议除了缺值之外没有任何诊断。
+代价记录在此以免被重新发现。记录不回收：内存随读过的不同地址数增长，而非随读取次数增长。中止合规归提供方；模型会丢弃已释放的流仍产出的帧，却阻止不了忽略信号的提供方跑到下一帧。失败类型是 Remote 面的 `RemoteFailure`，来源不是 Remote 调用的提供方得自己铸一个。导航地址或畸形字串读作 `none` 而非报错，这让混合地址列表渲染起来便宜，却让拼错的协议除了缺值之外没有任何诊断。协议键就是 authority 文本，转小写之外不做改动，因此 URL 解析器本会规范化或拒绝的 authority——userinfo、百分号转义——在这里读法不同；本代码拼装的地址不会带这些。
 
 ## Testing
 

@@ -97,12 +97,29 @@ describe('protocolOf', () => {
     expect(protocolOf('dsh-resource://file/session/s1/home/ys/b.txt')).toBe('file')
     expect(protocolOf('DSH-RESOURCE://File/session/s1/a')).toBe('file')
     expect(protocolOf('dsh-resource://chat/node/1')).toBe('chat')
+    // An authority with nothing after it still names the protocol.
+    expect(protocolOf('dsh-resource://chat')).toBe('chat')
     // A navigation address is not a resource.
     expect(protocolOf('sidebar://guide')).toBeUndefined()
     expect(protocolOf('file://sessions/s1/a.txt')).toBeUndefined()
     expect(protocolOf('dsh-resource:///no-host')).toBeUndefined()
     expect(protocolOf('/a/b.txt')).toBeUndefined()
     expect(protocolOf('')).toBeUndefined()
+  })
+
+  it('reads the authority from the address itself, for an engine that reports no host', () => {
+    // An Android WebView queried over the LAN was observed leaving `hostname`
+    // empty for this non-special scheme and moving the authority into
+    // `pathname`; reading the address through that parser would leave every
+    // resource address without a protocol, and so without its provider.
+    class HostlessUrl {
+      readonly protocol = 'dsh-resource:'
+      readonly hostname = ''
+      readonly pathname = '//file/session/s1/a.txt'
+    }
+    vi.stubGlobal('URL', HostlessUrl)
+    onTestFinished(() => { vi.unstubAllGlobals() })
+    expect(protocolOf('dsh-resource://file/session/s1/a.txt')).toBe('file')
   })
 })
 
