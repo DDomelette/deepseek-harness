@@ -34,13 +34,12 @@ describe('mobile viewport (390×844, touch)', () => {
       inner: window.innerWidth,
     }))
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.inner)
-    // Handset band: the transcript scroller reserves no gutter and hides its
-    // bar. A stable gutter shifts the centered column left even with overlay
-    // scrollbars, and a classic bar (some Android WebViews) would still
-    // squeeze the column's content box from the right.
+    // Handset band: the transcript scroller keeps its bar, reserving the
+    // gutter on both edges so a classic bar (some Android WebViews) cannot
+    // shift the centered column; overlay scrollbars reserve nothing.
     const scroller = page.locator('[data-conversation-scroll]')
-    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarGutter)).toBe('auto')
-    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
+    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarGutter)).toBe('stable both-edges')
+    expect(await scroller.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('auto')
     expect(await scroller.evaluate(el => getComputedStyle(el).marginRight)).toBe('0px')
     expect(tripwire.pageErrors).toEqual([])
   })

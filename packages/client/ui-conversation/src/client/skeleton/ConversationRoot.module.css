@@ -65,6 +65,53 @@
   padding-left: 60px;
 }
 
+/* Handset two-row header (frame data-sidebar-fab): one title row could never
+   hold the crumbs plus every action — the crumbs' min-width:0 shrank the
+   title to nothing — so the row wraps. The titleCluster and headerActions
+   boxes flatten to display:contents, making their children direct flex items
+   of .titleRow; explicit orders split them into two lines (the break pseudo
+   fills line one so order-3 items wrap): line one is the crumbs alone at full
+   width (flex:1 keeps the ellipsis working), line two heads with the preset
+   label — first in the actions slot's order — followed by the remaining
+   actions and the utility/corner groups. The 76px header measure only aligns
+   against the desktop sidebar — the handset band has no rail, so .header
+   grows past it. Order ties resolve in DOM order and ::after is the last
+   child, so every line-two item needs an explicit order past it. */
+[data-sidebar-fab] .titleRow {
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+[data-sidebar-fab] .titleCluster,
+[data-sidebar-fab] .headerActions {
+  display: contents;
+}
+
+[data-sidebar-fab] .crumbs {
+  order: 1;
+  flex: 1;
+}
+
+[data-sidebar-fab] .titleRow::after {
+  content: '';
+  order: 2;
+  flex-basis: 100%;
+  height: 0;
+}
+
+[data-sidebar-fab] .headerActions [data-slot='conversation.session.header.actions'] > *,
+[data-sidebar-fab] .headerUtilities,
+[data-sidebar-fab] .headerCorner {
+  order: 3;
+}
+
+/* The utility group pins line two's right edge; with no visible occupant its
+   anchor is zero-width and the corner still reaches the edge past it. */
+[data-sidebar-fab] .headerUtilities {
+  margin-left: auto;
+}
+
 /* Blank hero/settling: keep the strict Session header mounted without taking
    column space; the root-owned scrollport and composer remain below it. */
 .headerHidden {
@@ -386,21 +433,16 @@
   margin: 2px;
 }
 
-/* Handset band (frame data-sidebar-fab): scrollbars overlay the content
-   there, so the stable gutter and the 2px bar offset never host a bar — they
-   only shift the centered content column left by half the reserved width.
-   The overlay-composer seat's bar-width compensation drops with them. The bar
-   itself hides too (same pattern as ui-chat's TurnNavigator scroller): browsers
-   whose bars take layout width (some Android WebViews) would otherwise still
-   squeeze the centered column from the right. */
+/* Handset band (frame data-sidebar-fab): the bar stays visible, but a classic
+   scrollbar (some Android WebViews) takes layout width and would shift the
+   centered content column left by half its width — so the gutter reserves
+   both edges symmetrically and the column keeps the viewport center. Overlay
+   scrollbars (the common handset case) consume no layout, and the gutter
+   reserves nothing there. The 2px bar offset still drops, and the
+   overlay-composer seat keeps its handset compensation. */
 [data-sidebar-fab] .scrollBody {
   margin-right: 0;
-  scrollbar-gutter: auto;
-  scrollbar-width: none;
-}
-
-[data-sidebar-fab] .scrollBody::-webkit-scrollbar {
-  display: none;
+  scrollbar-gutter: stable both-edges;
 }
 
 [data-sidebar-fab] .scrollBody:has([data-conversation-composer-overlay]) > .composerSeat {
