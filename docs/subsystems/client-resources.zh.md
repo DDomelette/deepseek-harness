@@ -8,7 +8,7 @@
 
 ## 地址
 
-资源地址是 `dsh-resource://<type>/…` 形式的 URL。host 命名协议，必须是 `ResourceProtocolMap` 的键；路径归协议自己，由其拥有者逐段做百分号编码。需要作用域的协议把作用域放进路径：`file` 协议的地址形如 `dsh-resource://file/session/<sessionId>/<path>`，其中 path 可以相对工作区根，也可以是保留前导斜杠的绝对路径，用 [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.zh.md) 的 `fileAddressFor(sessionId, cwd, path)` 构造、`parseFileAddress(address)` 读回。模型本身只读 scheme 与 host：`protocolOf(address)` 对 `dsh-resource://` URL 返回小写 host，对其它任何字串返回 `undefined`。其它 scheme 下的地址——Sidebar 的 `sidebar://guide`——不指向资源，读作 `none`。
+资源地址是 `dsh-resource://<type>/…` 形式的 URL。authority 命名协议，必须是 `ResourceProtocolMap` 的键；路径归协议自己，由其拥有者逐段做百分号编码。需要作用域的协议把作用域放进路径：`file` 协议的地址形如 `dsh-resource://file/session/<sessionId>/<path>`，其中 path 可以相对工作区根，也可以是保留前导斜杠的绝对路径，用 [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.zh.md) 的 `fileAddressFor(sessionId, cwd, path)` 构造、`parseFileAddress(address)` 读回。模型本身只读 scheme 与 authority：`protocolOf(address)` 返回 `dsh-resource://` 地址中 `://` 与第一个 `/`、`?`、`#` 之间文本的小写形式，对其它任何字串返回 `undefined`。这段文本由它自己读，而不是问 `new URL`——后者对非特殊 scheme 的答案各引擎不一致（[引擎差异](../../.agents/notes/implemented/bug-fix/2026-10-09-resource-address-authority.zh.md)）。其它 scheme 下的地址——Sidebar 的 `sidebar://guide`——不指向资源，读作 `none`。
 
 | 地址 | 协议键 | 读作 |
 |---|---|---|
@@ -39,7 +39,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.resources.register<'note'>({
     protocol: 'note',
     async *open(address, { signal }): AsyncIterable<RemoteResult<NoteView>> {
-      const id = new URL(address).pathname.slice(1)
+      const id = address.slice('dsh-resource://note/'.length)
       yield await ctx.remote.notes.read(id, signal)
       for await (const change of ctx.remote.notes.follow(id, signal)) yield change
     },
