@@ -347,8 +347,8 @@ export class NotesRemote extends TypertRemoteService {
    * @returns the rows in sequence order, or the refusal that stopped the read.
    */
   @Remote
-  materialThread(request: NotesMaterialThreadRequest): NotesMaterialThreadResult {
-    const read = this.ctx.notesAnalysis.thread(request.id)
+  async materialThread(request: NotesMaterialThreadRequest): Promise<NotesMaterialThreadResult> {
+    const read = await this.ctx.notesAnalysis.thread(request.id)
     return read.ok ? success({ rows: read.rows }) : rejected(read.failure)
   }
 

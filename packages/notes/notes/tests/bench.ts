@@ -118,6 +118,24 @@ export interface Bench {
 /** One recorded follow-up submission. */
 type FollowupCall = (message: unknown) => void
 
+/** One live agent as the notes services read it. */
+export interface StandInAgent {
+  /** Records the message a caller hands this agent. */
+  readonly followup: Mock<FollowupCall>
+  /** The route this agent reports. */
+  readonly options: AgentOptions
+  /** The event log this agent's Session reports. */
+  readonly session: { readonly snapshotEvents: () => readonly unknown[] }
+}
+
+/** One stand-in agent handle. */
+export interface StandInHandle {
+  /** The resumed agent. */
+  readonly agent: StandInAgent
+  /** Releases the agent's ownership. */
+  readonly dispose: () => Promise<void>
+}
+
 /**
  * Stand-in for the agent registry. The bench mounts it because every notes
  * service that starts or drives a conversation injects `agents`; a spec that
@@ -128,6 +146,9 @@ export class FakeAgents {
   /** Every accepted `create` request, in call order. */
   readonly created: Record<string, unknown>[] = []
 
+  /** Every accepted `resume` request, in call order. */
+  readonly resumed: Record<string, unknown>[] = []
+
   /** The handle returned by each accepted `create`, in call order. */
   readonly handles: { disposed: boolean }[] = []
 
@@ -136,6 +157,9 @@ export class FakeAgents {
 
   /** Set to make the next `create` reject, which the caller must roll back. */
   failure: Error | undefined
+
+  /** Set to make the next `resume` reject, which the caller reports as not live. */
+  resumeFailure: Error | undefined
 
   /** The route every live agent reports, as `Agent.options` reports it. */
   route: AgentOptions = { provider: 'notes-provider', model: 'notes-model' }
@@ -195,18 +219,39 @@ export class FakeAgents {
   }
 
   /**
+   * Accept one resume request: the named Session becomes live again.
+   * @param options - the caller's resume options, recorded verbatim.
+   * @returns an inert handle over the now-live agent, whose disposal stops it
+   *   being live.
+   * @throws the configured {@link resumeFailure}, when one is set.
+   */
+  async resume(options: Record<string, unknown>): Promise<StandInHandle> {
+    this.resumed.push(options)
+    if (this.resumeFailure !== undefined) throw this.resumeFailure
+    const id = String(options['resumeSessionId'])
+    this.open(id)
+    return {
+      agent: this.agent(),
+      dispose: async () => { this.live.delete(id) },
+    }
+  }
+
+  /**
    * Resolve the live agent of one session.
    * @param id - session id.
    * @returns the agent stand-in, or undefined when the session is not live.
    */
-  get(id: string): {
-    followup: FakeAgents['followup']
-    options: AgentOptions
-    session: { snapshotEvents: () => readonly unknown[] }
-  } | undefined {
-    return this.live.has(id)
-      ? { followup: this.followup, options: this.route, session: { snapshotEvents: () => this.events } }
-      : undefined
+  get(id: string): StandInAgent | undefined {
+    return this.live.has(id) ? this.agent() : undefined
+  }
+
+  /** One live agent over this stand-in's recorded events and route. */
+  private agent(): StandInAgent {
+    return {
+      followup: this.followup,
+      options: this.route,
+      session: { snapshotEvents: () => this.events },
+    }
   }
 }
 
