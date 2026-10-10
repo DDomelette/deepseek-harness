@@ -250,6 +250,41 @@ describe('DeepSeekHarness', () => {
     }
   })
 
+  it('serves a start() arriving during cleanup from the same failed handshake', async () => {
+    const initializeError = new SdkProtocolError('handshake failed')
+    let releaseCleanup!: () => void
+    const cleanupGate = new Promise<void>((resolve) => { releaseCleanup = resolve })
+    let cleanupStarted!: () => void
+    const cleaningUp = new Promise<void>((resolve) => { cleanupStarted = resolve })
+    const start = vi.spyOn(HarnessClient.prototype, 'start').mockImplementation(() => {})
+    const initialize = vi.spyOn(HarnessClient.prototype, 'initialize').mockRejectedValue(initializeError)
+    const close = vi.spyOn(HarnessClient.prototype, 'close').mockImplementation(async () => {
+      cleanupStarted()
+      await cleanupGate
+    })
+    try {
+      const harness = createProcessDeepSeekHarness(fakeLaunch())
+      const failedClient = harness.client
+      const first = harness.start()
+      await cleaningUp
+      // The second caller arrives while the first handshake is being cleaned up:
+      // it must await that same operation, not start the client being closed.
+      const second = harness.start()
+      releaseCleanup()
+      await expect(first).rejects.toThrow('handshake failed')
+      await expect(second).rejects.toThrow('handshake failed')
+      expect(start).toHaveBeenCalledTimes(1)
+      // Cleanup proved the runtime exited, so the next attempt is a fresh client.
+      expect(harness.client).not.toBe(failedClient)
+      await expect(harness.start()).rejects.toThrow('handshake failed')
+      expect(start).toHaveBeenCalledTimes(2)
+    } finally {
+      start.mockRestore()
+      initialize.mockRestore()
+      close.mockRestore()
+    }
+  })
+
   it('does not replace the client after terminal close wins a failed handshake', async () => {
     let rejectInitialize!: (error: Error) => void
     const initializeResult = new Promise<never>((_resolve, reject) => { rejectInitialize = reject })
