@@ -253,4 +253,77 @@ describe('SessionDeletionService', () => {
     }
     await expect(pending).resolves.toEqual({ deletedSessionIds: ['root'] })
   })
+
+  it('refuses a child created while the deletion is still enumerating lineage', async () => {
+    const ctx = new Context()
+    roots.push(ctx)
+    const pool = new MemoryMediaPool()
+    await ctx.plugin(Storage)
+    ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
+    const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
+    ctx.storage.mount('domain', facility)
+    ctx.provide('storageDomain', facility)
+    await ctx.plugin(SessionStore)
+
+    let releaseList: (() => void) | undefined
+    const listGate = new Promise<void>((resolve) => { releaseList = resolve })
+    let listStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => { listStarted = resolve })
+    ctx.provide('sessionPersistence', {
+      list: async () => {
+        listStarted?.()
+        await listGate
+        return [{ header: header('root'), asOfSeq: 0 }]
+      },
+      delete: async (_id: SessionId) => {},
+    } as never)
+    ctx.provide('workspaceRegistry', { forgetSession: vi.fn(async (_id: SessionId) => {}) } as never)
+    await ctx.plugin(SessionDeletionService)
+
+    const pending = ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })
+    await started
+    try {
+      expect(() => ctx.sessions.create(SessionId('child'), { meta: { parentSession: SessionId('root') } }))
+        .toThrow(/while it is being deleted/)
+    } finally {
+      releaseList?.()
+    }
+    await expect(pending).resolves.toEqual({ deletedSessionIds: ['root'] })
+  })
+
+  it('plans a descendant discovered after the first enumeration', async () => {
+    const ctx = new Context()
+    roots.push(ctx)
+    const pool = new MemoryMediaPool()
+    await ctx.plugin(Storage)
+    ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
+    const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
+    ctx.storage.mount('domain', facility)
+    ctx.provide('storageDomain', facility)
+
+    const stored = new Map<string, SessionHeader>([
+      ['root', header('root')],
+      ['child', header('child', 'root')],
+    ])
+    let listCalls = 0
+    ctx.provide('sessions', { list: () => [], get: () => undefined } as never)
+    ctx.provide('sessionPersistence', {
+      list: async () => {
+        listCalls += 1
+        const snapshot = [...stored.values()].map(header => ({ header, asOfSeq: 0 }))
+        // A cold fork of a descendant commits its record after this pass has
+        // already returned, so only a later pass can see it.
+        if (listCalls === 1) queueMicrotask(() => { stored.set('grand', header('grand', 'child')) })
+        return snapshot
+      },
+      delete: async (id: SessionId) => { stored.delete(id) },
+    } as never)
+    ctx.provide('workspaceRegistry', { forgetSession: vi.fn(async (_id: SessionId) => {}) } as never)
+    await ctx.plugin(SessionDeletionService)
+
+    const result = await ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })
+    expect(result.deletedSessionIds).toContain('grand')
+    expect(result.deletedSessionIds).toHaveLength(3)
+    expect(stored.has('grand')).toBe(false)
+  })
 })

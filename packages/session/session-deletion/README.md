@@ -36,6 +36,7 @@ The service requires `storageDomain` and stores one `session_deletion` plan per 
 
 - The full deletion plan is durable before the first destructive write.
 - Retries load the plan instead of deriving lineage from the remaining logs.
+- The target is reserved before lineage enumeration begins, and the plan is re-derived until it stops growing, so a subagent created while the plan is being built joins the plan instead of surviving its deleted parent.
 - Attached cascade members refuse the whole deletion with `session-running`.
 - Non-recursive deletion refuses when descendants exist with `session-has-descendants`.
 - Deletion order is leaves-first so no dangling parent exists after a crash.
