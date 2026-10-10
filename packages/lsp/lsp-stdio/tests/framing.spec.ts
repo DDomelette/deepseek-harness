@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { encodeMessage, MessageDecoder } from '@deepseek-ai/dsh-lsp-stdio'
 
 /** Frame a message the way a server would, for decoder round-trips. */
@@ -46,6 +46,30 @@ describe('MessageDecoder', () => {
     const body = '{"ok":true}'
     const chunk = Buffer.from(`content-length: ${body.length}\r\nContent-Type: x\r\n\r\n${body}`, 'utf8')
     expect(decoder.push(chunk)).toEqual([{ ok: true }])
+  })
+
+  it('joins one frame instead of re-copying everything received', () => {
+    const decoder = new MessageDecoder(4_000_000)
+    const body = JSON.stringify({ text: 'x'.repeat(1_000_000) })
+    const full = frame(body)
+    const concat = vi.spyOn(Buffer, 'concat')
+    let messages: unknown[] = []
+    let copied = 0
+    try {
+      for (let offset = 0; offset < full.length; offset += 4_096) {
+        messages = decoder.push(full.subarray(offset, offset + 4_096))
+      }
+      copied = concat.mock.calls
+        .reduce((total, [parts]) => total + (parts as readonly Buffer[]).reduce((sum, part) => sum + part.length, 0), 0)
+    } finally {
+      concat.mockRestore()
+    }
+
+    expect(messages).toEqual([{ text: 'x'.repeat(1_000_000) }])
+    // Joining each arriving chunk onto the pending buffer would copy roughly
+    // half the frame once per chunk (some 100 MB here); one copy per frame is
+    // bounded by a small multiple of the frame itself.
+    expect(copied).toBeLessThan(full.length * 4)
   })
 
   it('rejects a body over the size limit', () => {
