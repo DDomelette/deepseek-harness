@@ -40,6 +40,7 @@ The service requires `storageDomain` and stores one `session_deletion` plan per 
 - Attached cascade members refuse the whole deletion with `session-running`.
 - Non-recursive deletion refuses when descendants exist with `session-has-descendants`.
 - Deletion order is leaves-first so no dangling parent exists after a crash.
+- Cleanup order is re-derived from the current lineage on every attempt, so a member discovered on a retry is deleted before its own ancestor; a member no longer persisted is cleaned last, and the plan's member order stays the reported deletion set.
 - Already-gone members are marked `missing` and still receive workspace cleanup.
 - Each member transition persists before the next operation.
 - The synchronous `session/created` listener rolls back creation of an active plan member or a new child of one; unrelated Sessions remain available.

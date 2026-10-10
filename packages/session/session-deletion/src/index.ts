@@ -12,7 +12,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type {} from '@deepseek-ai/dsh-workspace'
-import { deletionDomainSpec, type DeletionPlanRecord } from './spec.ts'
+import { deletionDomainSpec, type DeletionPlanMember, type DeletionPlanRecord } from './spec.ts'
 
 /** Closed failure codes callers can map to transport-specific errors. */
 export type SessionDeletionErrorCode =
@@ -162,7 +162,7 @@ export default class SessionDeletionService extends Service {
     // subagent created while enumeration is pending can no longer be missed.
     claim(sessionId)
     try {
-      let plan = await this.planMembers(sessionId, recursive, table.get(sessionId))
+      let { plan, order } = await this.planMembers(sessionId, recursive, table.get(sessionId))
       // Reserve what this pass found and enumerate again. Only a creation that
       // preceded its own parent's reservation can still appear, and every pass
       // reserves more ids, so the closure grows monotonically over a finite set
@@ -170,8 +170,9 @@ export default class SessionDeletionService extends Service {
       for (;;) {
         for (const member of plan.members) claim(member.sessionId)
         const next = await this.planMembers(sessionId, recursive, plan)
-        const settled = next.members.length === plan.members.length
-        plan = next
+        const settled = next.plan.members.length === plan.members.length
+        plan = next.plan
+        order = next.order
         if (settled) break
       }
 
@@ -182,8 +183,16 @@ export default class SessionDeletionService extends Service {
         throw new SessionDeletionError('session-running', `cannot delete attached session(s): ${attached.join(', ')}`, attached)
       }
       await table.put(sessionId, plan)
+      // Execution order is re-derived from this attempt's closure, so a member
+      // discovered on a retry is still deleted before its own ancestor. The
+      // plan's member array keeps its order, which stays the reported set.
+      const byId = new Map(plan.members.map(member => [member.sessionId, member]))
+      const executionOrder = [
+        ...order.map(id => byId.get(id)).filter((member): member is DeletionPlanMember => member !== undefined),
+        ...plan.members.filter(member => !order.includes(member.sessionId)),
+      ]
       let latest = plan
-      for (const member of latest.members) {
+      for (const member of executionOrder) {
         if (member.persistence === 'pending') {
           try {
             await this.ctx.sessionPersistence.delete(member.sessionId)
@@ -224,14 +233,14 @@ export default class SessionDeletionService extends Service {
    * @param sessionId - deletion target.
    * @param recursive - whether descendants join the plan.
    * @param existingPlan - the durable plan already holding per-member progress, when one exists.
-   * @returns the merged plan.
+   * @returns the merged plan and this pass's leaves-first order over the closure.
    * @throws SessionDeletionError when descendants exist without `recursive`, or the target is unknown and unplanned.
    */
   private async planMembers(
     sessionId: SessionId,
     recursive: boolean,
     existingPlan: DeletionPlanRecord | undefined,
-  ): Promise<DeletionPlanRecord> {
+  ): Promise<{ plan: DeletionPlanRecord; order: SessionId[] }> {
     const identities = new Map<SessionId, SessionIdentity>()
     for (const session of this.ctx.sessions.list()) {
       identities.set(session.header.id, {
@@ -282,11 +291,14 @@ export default class SessionDeletionService extends Service {
       ordered.push({ sessionId: id, persistence: 'pending', workspace: 'pending' })
     }
     return {
-      rootSessionId: sessionId,
-      recursive,
-      members: ordered,
-      createdAt: existingPlan?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      plan: {
+        rootSessionId: sessionId,
+        recursive,
+        members: ordered,
+        createdAt: existingPlan?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      order: currentOrder,
     }
   }
 

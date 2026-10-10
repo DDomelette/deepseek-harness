@@ -208,9 +208,12 @@ describe('SessionDeletionService', () => {
       headers: [header('root'), header('child', 'root')],
     })
     const result = await second.ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })
+    // The reported set keeps the plan's member order, while cleanup runs in the
+    // re-derived leaves-first order: the retry's lineage holds only root and
+    // child, so the member no longer persisted is cleaned after both.
     expect(result.deletedSessionIds).toEqual(['leaf', 'child', 'root'])
     expect(second.deleted).toEqual(['child', 'root'])
-    expect(second.forget.mock.calls.map(call => call[0])).toEqual(['leaf', 'child', 'root'])
+    expect(second.forget.mock.calls.map(call => call[0])).toEqual(['child', 'root', 'leaf'])
     expect(second.pool.media.get('session_deletion')?.tables.get('plans')?.size).toBe(0)
   })
 
@@ -252,6 +255,47 @@ describe('SessionDeletionService', () => {
       releaseDelete?.()
     }
     await expect(pending).resolves.toEqual({ deletedSessionIds: ['root'] })
+  })
+
+  it('deletes a member discovered on retry before its own ancestor', async () => {
+    const ctx = new Context()
+    roots.push(ctx)
+    const pool = new MemoryMediaPool()
+    await ctx.plugin(Storage)
+    ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
+    const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
+    ctx.storage.mount('domain', facility)
+    ctx.provide('storageDomain', facility)
+
+    const stored = new Map<string, SessionHeader>([
+      ['root', header('root')],
+      ['child', header('child', 'root')],
+    ])
+    const deleted: string[] = []
+    let failChild = true
+    ctx.provide('sessions', { list: () => [], get: () => undefined } as never)
+    ctx.provide('sessionPersistence', {
+      list: async () => [...stored.values()].map(header => ({ header, asOfSeq: 0 })),
+      delete: async (id: SessionId) => {
+        if (id === SessionId('child') && failChild) {
+          failChild = false
+          throw new Error('storage unavailable')
+        }
+        stored.delete(id)
+        deleted.push(id)
+      },
+    } as never)
+    ctx.provide('workspaceRegistry', { forgetSession: vi.fn(async (_id: SessionId) => {}) } as never)
+    await ctx.plugin(SessionDeletionService)
+
+    await expect(ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true }))
+      .rejects.toThrow('storage unavailable')
+    // The retry discovers a descendant of a member the first attempt left pending.
+    stored.set('grand', header('grand', 'child'))
+
+    const result = await ctx.sessionDeletion.delete({ sessionId: SessionId('root'), recursive: true })
+    expect(deleted).toEqual(['grand', 'child', 'root'])
+    expect(result.deletedSessionIds).toEqual(['child', 'root', 'grand'])
   })
 
   it('refuses a child created while the deletion is still enumerating lineage', async () => {
