@@ -100,9 +100,9 @@ export class MessageDecoder {
     // with the last bytes of the one before it.
     const carryLength = HEADER_SEPARATOR.length - 1
     let base = 0
-    let carry = Buffer.alloc(0)
+    let carry: Buffer = Buffer.alloc(0)
     for (const chunk of this.chunks) {
-      const haystack = carry.length === 0 ? chunk : Buffer.concat([carry, chunk])
+      const haystack: Buffer = carry.length === 0 ? chunk : Buffer.concat([carry, chunk])
       const found = haystack.indexOf(HEADER_SEPARATOR)
       if (found >= 0) return base - carry.length + found
       carry = haystack.subarray(Math.max(0, haystack.length - carryLength))
