@@ -74,6 +74,17 @@ async function liveConversation(bench: AnalysisBench, session = 'dsh-notes-1'): 
 }
 
 /**
+ * Record one conversation whose Session this process does not hold, the state
+ * a restart leaves behind.
+ * @param bench - the mounted bench.
+ * @param session - the dsh session id the record names.
+ * @returns the recorded conversation id.
+ */
+async function coldConversation(bench: AnalysisBench, session = 'dsh-cold'): Promise<ReturnType<typeof noteId>> {
+  return await bench.sessions.record(noteSession({ sessionId: sessionId(session), title: 'Notes · cold' }))
+}
+
+/**
  * One message handed to the live agent.
  * @param bench - the mounted bench.
  * @param index - zero-based position in the recorded call list.
@@ -295,11 +306,29 @@ describe('notes analysis', () => {
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
-  it('reports a material whose conversation has no live session', async () => {
+  it('submits into a conversation this process no longer holds', async () => {
     const bench = await mount()
-    const note = await bench.sessions.record(noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }))
+    const note = await coldConversation(bench)
     const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    await expect(bench.analysis.analyse(id)).resolves.toBeNull()
+
+    // A recorded conversation is the panel's own, so a message to it loads the
+    // Session again rather than reporting the conversation as gone.
+    expect(bench.agents.resumed).toEqual([expect.objectContaining({ resumeSessionId: 'dsh-cold' })])
+    expect(bench.agents.followup).toHaveBeenCalledTimes(1)
+    expect(bench.materials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('reports a material whose conversation cannot be loaded again', async () => {
+    const bench = await mount()
+    const note = await coldConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    bench.agents.resumeFailure = new Error('the log is gone')
+
     await expect(bench.analysis.analyse(id)).resolves.toEqual({ code: 'session-not-live', id: note })
+
+    expect(bench.agents.resumed).toHaveLength(1)
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
@@ -341,11 +370,26 @@ describe('notes analysis', () => {
     expect(bench.agents.followup).not.toHaveBeenCalled()
   })
 
-  it('reports a follow-up whose conversation has no live session', async () => {
+  it('reports a follow-up whose conversation cannot be loaded again', async () => {
     const bench = await mount()
-    const note = await bench.sessions.record(
-      noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }),
-    )
+    const note = await coldConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      text: 'body',
+      status: 'analyzed',
+      messageIds: [messageId('submitted')],
+    }))
+    bench.agents.resumeFailure = new Error('the log is gone')
+
+    await expect(bench.analysis.ask(id, 'why?')).resolves.toEqual({ code: 'session-not-live', id: note })
+
+    expect(bench.agents.resumed).toHaveLength(1)
+    expect(bench.agents.followup).not.toHaveBeenCalled()
+  })
+
+  it('asks a follow-up in a conversation this process no longer holds', async () => {
+    const bench = await mount()
+    const note = await coldConversation(bench)
     const id = await bench.materials.create(material({
       noteId: note,
       text: 'body',
@@ -353,9 +397,10 @@ describe('notes analysis', () => {
       messageIds: [messageId('submitted')],
     }))
 
-    await expect(bench.analysis.ask(id, 'why?')).resolves.toEqual({ code: 'session-not-live', id: note })
+    await expect(bench.analysis.ask(id, 'why?')).resolves.toBeNull()
 
-    expect(bench.agents.followup).not.toHaveBeenCalled()
+    expect(bench.agents.resumed).toEqual([expect.objectContaining({ resumeSessionId: 'dsh-cold' })])
+    expect(bench.agents.followup).toHaveBeenCalledTimes(1)
   })
 
   it('submits a collection on its own when the strategy says so', async () => {
@@ -389,7 +434,7 @@ describe('notes material thread', () => {
       { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
     ])
 
-    const read = bench.analysis.thread(id)
+    const read = await bench.analysis.thread(id)
 
     expect(read).toEqual({
       ok: true,
@@ -400,28 +445,75 @@ describe('notes material thread', () => {
     })
   })
 
+  it('reads the thread of a conversation this process no longer holds', async () => {
+    const bench = await mount()
+    const note = await coldConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      text: 'body',
+      status: 'analyzed',
+      messageIds: [messageId('submitted')],
+    }))
+    bench.agents.record([
+      { seq: 0, type: 'user/message', data: { id: 'submitted', role: 'user', content: [{ type: 'text', text: 'body' }] } },
+      { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
+    ])
+
+    const read = await bench.analysis.thread(id)
+
+    expect(read).toEqual({
+      ok: true,
+      rows: [
+        { role: 'user', text: 'body', hasImage: false, seq: 0 },
+        { role: 'assistant', text: 'answer', hasImage: false, seq: 1 },
+      ],
+    })
+    expect(bench.agents.resumed).toHaveLength(1)
+  })
+
+  it('reads a draft\'s thread as nothing without loading its conversation', async () => {
+    const bench = await mount()
+    const note = await coldConversation(bench)
+    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+
+    // A material that never entered its conversation has no thread to read, so
+    // saying so must not start the conversation it never entered.
+    await expect(bench.analysis.thread(id)).resolves.toEqual({ ok: true, rows: [] })
+    expect(bench.agents.resumed).toEqual([])
+  })
+
   it('reports an unknown material', async () => {
     const bench = await mount()
 
-    expect(bench.analysis.thread('absent' as MaterialId))
-      .toEqual({ ok: false, failure: { code: 'material-not-found', id: 'absent' } })
+    await expect(bench.analysis.thread('absent' as MaterialId))
+      .resolves.toEqual({ ok: false, failure: { code: 'material-not-found', id: 'absent' } })
   })
 
   it('reports a conversation that is not recorded', async () => {
     const bench = await mount()
-    const id = await bench.materials.create(material({ noteId: noteId('unrecorded'), text: 'body' }))
+    const id = await bench.materials.create(material({
+      noteId: noteId('unrecorded'),
+      text: 'body',
+      messageIds: [messageId('submitted')],
+    }))
 
-    expect(bench.analysis.thread(id))
-      .toEqual({ ok: false, failure: { code: 'session-not-found', id: 'unrecorded' } })
+    await expect(bench.analysis.thread(id))
+      .resolves.toEqual({ ok: false, failure: { code: 'session-not-found', id: 'unrecorded' } })
   })
 
-  it('reports a conversation with no live session', async () => {
+  it('reports a conversation that cannot be loaded again', async () => {
     const bench = await mount()
-    const note = await bench.sessions.record(noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }))
-    const id = await bench.materials.create(material({ noteId: note, text: 'body' }))
+    const note = await coldConversation(bench)
+    const id = await bench.materials.create(material({
+      noteId: note,
+      text: 'body',
+      status: 'analyzed',
+      messageIds: [messageId('submitted')],
+    }))
+    bench.agents.resumeFailure = new Error('the log is gone')
 
-    expect(bench.analysis.thread(id))
-      .toEqual({ ok: false, failure: { code: 'session-not-live', id: note } })
+    await expect(bench.analysis.thread(id))
+      .resolves.toEqual({ ok: false, failure: { code: 'session-not-live', id: note } })
   })
 })
 

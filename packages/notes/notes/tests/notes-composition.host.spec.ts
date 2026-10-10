@@ -24,22 +24,43 @@ import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as Notes from '../src/index.ts'
 import { notesDomainSpec } from '../src/domain.ts'
-import { noteId, published } from './bench.ts'
+import { material, noteId, noteSession, published, sessionId } from './bench.ts'
 
 const NOTES_PACKAGE = '@deepseek-ai/dsh-notes'
 
 /** A conversation id no fixture ever writes to. */
 const listedNoteId = noteId('probe-conversation')
 
+/** The resume requests the composition's stand-in registry received. */
+const resumed: Record<string, unknown>[] = []
+
 /**
  * Stand-in for the host's agent row. The notes row resolves `agents` from a
  * sibling host row in the shipped composition, so this mounts as its own Loader
  * row rather than as a root-level provide.
+ *
+ * Resolving no live agent is enough to activate the notes row; `resume` is here
+ * because a conversation recorded by an earlier run is loaded again through it,
+ * and this spec pins that the Loader-composed plugin reaches that path with the
+ * Session its own record names.
  */
 const FakeAgentRegistry = {
   name: 'fake-agent-registry',
   apply: (ctx: Context): void => {
-    ctx.provide('agents', { get: () => undefined } as never)
+    ctx.provide('agents', {
+      get: () => undefined,
+      resume: async (options: Record<string, unknown>) => {
+        resumed.push(options)
+        return {
+          agent: {
+            session: { id: options['resumeSessionId'], snapshotEvents: () => [] },
+            followup: () => undefined,
+            options: {},
+          },
+          dispose: async () => undefined,
+        }
+      },
+    } as never)
   },
 }
 
@@ -50,6 +71,7 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   if (root !== undefined) await rm(root, { recursive: true, force: true })
   root = undefined
+  resumed.length = 0
 })
 
 /**
@@ -153,6 +175,23 @@ describe('notes through a real Loader composition', () => {
     // No settings provider is mounted here, so the section is refused rather
     // than answered — the refusal, not a throw.
     expect(ctx.notes.settingsRead()).toEqual({ ok: false, error: { code: 'settings-unavailable' } })
+  })
+
+  it('analyses a material whose conversation this process no longer holds', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+    await published(() => ctx.get('notesSessions'), 'notesSessions')
+    // A conversation an earlier run recorded: the notes domain holds the
+    // record, while this process holds no Agent for its Session.
+    const note = await ctx.notesSessions.record(
+      noteSession({ sessionId: sessionId('dsh-cold'), title: '笔记 · 00' }),
+    )
+    const id = await ctx.notesMaterials.create(material({ noteId: note, text: 'body' }))
+
+    await expect(ctx.notes.materialAnalyze({ id })).resolves.toEqual({ ok: true, value: { applied: true } })
+
+    expect(resumed).toEqual([expect.objectContaining({ resumeSessionId: 'dsh-cold' })])
+    expect(ctx.notesMaterials.get(id)?.status).toBe('analyzing')
   })
 
   it('releases the domain name when the notes row unmounts', async () => {
