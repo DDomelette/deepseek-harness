@@ -183,7 +183,9 @@ interface SubprocessOutputReader {
   /**
    * Read everything captured since `fromByte`. When that offset has slid out
    * of the in-memory tail window the read is `lossy` — it returns the whole
-   * retained tail and the gap is only recoverable from the spill file.
+   * retained tail and the gap is only recoverable from the spill file. A read
+   * ends at the last complete UTF-8 character: text still arriving byte by
+   * byte is returned whole by the read that completes it.
    * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 for the first read).
    * @returns the delta text, the next offset, the `lossy` flag, and the spill path when one exists.
    */
@@ -194,9 +196,9 @@ interface SubprocessOutputReader {
 ```ts type-equiv
 /** One incremental {@link SubprocessOutputReader.readFrom} read. */
 interface SubprocessOutputRead {
-  /** Stream text from the requested offset (the whole retained tail when lossy). */
+  /** Stream text from the requested offset (the whole retained tail when lossy), ending at a complete UTF-8 character. */
   text: string
-  /** Whole-stream offset to resume from on the next read. */
+  /** Whole-stream offset to resume from on the next read: the end of the returned text. */
   nextOffset: number
   /** True when the requested offset slid out of the in-memory tail window. */
   lossy: boolean

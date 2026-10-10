@@ -647,6 +647,38 @@ describe('OutputCollector', () => {
     unlinkSync(spillPath)
   })
 
+  it('stops an incremental read at a complete UTF-8 character', () => {
+    const collector = new OutputCollector(64, 100, 'utf8-split', spillDir)
+    const bytes = Buffer.from('中')
+    collector.push(bytes.subarray(0, 1))
+    // The remaining bytes of the character have not arrived: advancing the
+    // offset here would replace the character on both sides of the split.
+    const first = collector.readFrom(0)
+    expect(first.text).toBe('')
+    expect(first.nextOffset).toBe(0)
+    expect(first.lossy).toBe(false)
+
+    collector.push(bytes.subarray(1))
+    const second = collector.readFrom(first.nextOffset)
+    expect(second.text).toBe('中')
+    expect(second.nextOffset).toBe(3)
+  })
+
+  it('reassembles multibyte text delivered byte by byte', () => {
+    const collector = new OutputCollector(1024, 1024, 'utf8-stream', spillDir)
+    const text = '中文测试数据'
+    let offset = 0
+    let streamed = ''
+    for (const byte of Buffer.from(text)) {
+      collector.push(Buffer.from([byte]))
+      const read = collector.readFrom(offset)
+      offset = read.nextOffset
+      streamed += read.text
+    }
+    expect(streamed).toBe(text)
+    expect(offset).toBe(Buffer.byteLength(text))
+  })
+
   it('contains an unopenable spill and keeps the in-memory tail', () => {
     const collector = new OutputCollector(4, 100, 'open-fail', spillDir)
     collector.push(Buffer.from('aaaa'))

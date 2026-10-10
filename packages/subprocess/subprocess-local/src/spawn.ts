@@ -128,6 +128,35 @@ export function prepareManagedProcessBinding(
 }
 
 /**
+ * Byte offset just past the last complete UTF-8 character at or after `start`.
+ * Decoding a truncated trailing sequence replaces each affected character with
+ * U+FFFD, so an incremental read stops before it; the read that receives the
+ * remaining bytes returns that character whole.
+ * @param buffer - the retained window being read.
+ * @param start - first byte the read covers.
+ * @returns the exclusive end offset of that window's complete-character prefix.
+ */
+function completeCharacterEnd(buffer: Buffer, start: number): number {
+  let lead = buffer.length - 1
+  let continuations = 0
+  let byte = lead >= start ? buffer[lead] : undefined
+  while (byte !== undefined && continuations < 3 && (byte & 0xc0) === 0x80) {
+    lead -= 1
+    continuations += 1
+    byte = lead >= start ? buffer[lead] : undefined
+  }
+  if (byte === undefined) return buffer.length
+  // A lead byte outside the UTF-8 ranges starts no sequence to wait for; the
+  // decoder replaces those bytes in the read that already holds them.
+  const expected = byte >= 0xf5 ? 1
+    : byte >= 0xf0 ? 4
+      : byte >= 0xe0 ? 3
+        : byte >= 0xc2 ? 2
+          : 1
+  return buffer.length - lead < expected ? lead : buffer.length
+}
+
+/**
  * Collects one stream with a bounded in-memory tail. With a spill cap, on
  * first overflow a spill file is created and every chunk (including those
  * already collected) is appended there while the full stream remains within
@@ -249,6 +278,10 @@ export class OutputCollector {
    * pushed since `fromByte`. When `fromByte` has already slid out of the
    * in-memory tail window, the read is `lossy` — it returns the whole
    * retained tail and the gap is only recoverable from the spill file.
+   *
+   * A read stops at the last complete UTF-8 character: text still arriving
+   * byte by byte is returned by the read that completes it, rather than as
+   * replacement characters on both sides of the split.
    * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 for the first read).
    * @returns the delta text, the offset for the next read, the `lossy` flag, and the spill path when one was created.
    */
@@ -256,10 +289,11 @@ export class OutputCollector {
     const windowStart = this.total - this.bytes
     const buffer = Buffer.concat(this.chunks)
     const lossy = fromByte < windowStart
-    const slice = lossy ? buffer : buffer.subarray(fromByte - windowStart)
+    const start = lossy ? 0 : fromByte - windowStart
+    const end = completeCharacterEnd(buffer, start)
     return {
-      text: slice.toString('utf8'),
-      nextOffset: this.total,
+      text: buffer.toString('utf8', start, end),
+      nextOffset: windowStart + end,
       lossy,
       ...this.spillFile !== undefined ? { spillPath: this.spillFile } : {},
     }

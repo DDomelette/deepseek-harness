@@ -42,7 +42,7 @@ Absolute executable paths are verified; bare names resolve against the scrubbed 
 
 ### Collecting output
 
-Collect mode keeps the last `maxBytes` of a stream in memory — errors and final results cluster at the end — and, when a `spill` cap is configured, appends the complete stream to a private file under a per-process directory in the OS temp dir (a `0700` directory, `0600` random-named files). A stream larger than the spill cap discards its incomplete spill and returns only the marked truncated tail. A spill that cannot be created or written — a full disk, exhausted descriptors, a removed spill directory — is discarded the same way, so collection degrades to the in-memory tail instead of failing the stream that feeds it. Reads are offset-based and non-consuming, so background and batch readers coexist before and after exit.
+Collect mode keeps the last `maxBytes` of a stream in memory — errors and final results cluster at the end — and, when a `spill` cap is configured, appends the complete stream to a private file under a per-process directory in the OS temp dir (a `0700` directory, `0600` random-named files). A stream larger than the spill cap discards its incomplete spill and returns only the marked truncated tail. A spill that cannot be created or written — a full disk, exhausted descriptors, a removed spill directory — is discarded the same way, so collection degrades to the in-memory tail instead of failing the stream that feeds it. Reads are offset-based and non-consuming, so background and batch readers coexist before and after exit. A read ends at the last complete UTF-8 character, so text still arriving byte by byte is returned whole by the read that completes it.
 
 ### Running terminal sessions
 
