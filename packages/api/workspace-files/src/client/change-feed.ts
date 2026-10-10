@@ -25,10 +25,12 @@ function keyOf(path: string): string {
 
 /** Notices of one follower, delivered in order and pulled by its consumer. */
 class Follower implements AsyncIterable<WorkspaceFileNotice> {
-  private readonly pending: Array<{ readonly key: string; readonly notice: WorkspaceFileNotice }> = []
+  /** `key` is undefined for a notice that is not bound to one Host path. */
+  private readonly pending: Array<{ readonly key: string | undefined; readonly notice: WorkspaceFileNotice }> = []
   private readonly started = Promise.withResolvers<boolean>()
   private wake: (() => void) | undefined
   private ended = false
+  private acknowledged = false
   private hostKey: string | undefined
 
   /**
@@ -50,8 +52,18 @@ class Follower implements AsyncIterable<WorkspaceFileNotice> {
     this.hostKey = keyOf(absolutePath)
   }
 
-  /** The Host acknowledged an active subscription and resolved workspace root. */
+  /**
+   * The Host acknowledged an active subscription and resolved workspace root.
+   * The first acknowledgement settles {@link ready}; a later one is a new
+   * stream generation, which reports only what happens after it opens.
+   */
   start(): void {
+    if (this.acknowledged) {
+      this.pending.push({ key: undefined, notice: { kind: 'resync' } })
+      this.wake?.()
+      return
+    }
+    this.acknowledged = true
     this.started.resolve(true)
   }
 
@@ -83,7 +95,7 @@ class Follower implements AsyncIterable<WorkspaceFileNotice> {
       while (true) {
         const next = this.pending.shift()
         if (next !== undefined) {
-          if (this.hostKey === undefined || next.key === this.hostKey) yield next.notice
+          if (this.hostKey === undefined || next.key === undefined || next.key === this.hostKey) yield next.notice
           continue
         }
         if (this.ended) return

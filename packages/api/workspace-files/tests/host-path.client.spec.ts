@@ -81,7 +81,7 @@ describe('Host-resolved file paths', () => {
     expect(source.aborted).toBe(true)
   })
 
-  it('accepts another generation ready without resetting metadata or re-statting existing files', async () => {
+  it('reads an open file again when another generation becomes ready', async () => {
     const { remote, open } = harness()
     const { iterator } = open()
     const first = iterator.next()
@@ -91,10 +91,33 @@ describe('Host-resolved file paths', () => {
     const next = iterator.next()
     const source = remote.opened[0]!.source
     await source.deliver({ kind: 'ready' })
-    await source.deliver({ kind: 'change', change: { absolutePath: CANONICAL, version: 'v1' } })
-    expect(remote.stats).toHaveLength(1)
-    expect(remote.calls).toEqual(['changes', 'accept', 'stat', 'accept'])
+    // A new generation reports only what happens after it opens, so the file
+    // held from the previous one is read again instead of keeping its version.
+    const restat = await remote.waitForStat(1)
+    restat.resolve({ ok: true, value: { absolutePath: CANONICAL, version: 'v1', bytes: 3 } })
+    expect(remote.stats).toHaveLength(2)
+    expect(remote.calls).toEqual(['changes', 'accept', 'stat', 'accept', 'stat'])
     await expect(next).resolves.toEqual({ done: false, value: { ok: true, value: { absolutePath: CANONICAL, version: 'v1', bytes: 3 } } })
+  })
+
+  it('reports a write that happened while the stream was gone', async () => {
+    const { remote, open } = harness()
+    remote.autoReady = false
+    const { iterator } = open()
+    const first = iterator.next()
+    const { source } = await remote.waitForChanges(0)
+    await source.deliver({ kind: 'ready' })
+    const firstStat = await remote.waitForStat(0)
+    firstStat.resolve({ ok: true, value: { absolutePath: CANONICAL, version: 'v0', bytes: 3 } })
+    await expect(first).resolves.toEqual({ done: false, value: { ok: true, value: { absolutePath: CANONICAL, version: 'v0', bytes: 3 } } })
+
+    // The write is reported by no frame at all: the reconnected generation
+    // knows nothing about it, so only reading the file again can surface it.
+    const next = iterator.next()
+    await source.deliver({ kind: 'ready' })
+    const offlineStat = await remote.waitForStat(1)
+    offlineStat.resolve({ ok: true, value: { absolutePath: CANONICAL, version: 'v7', bytes: 11 } })
+    await expect(next).resolves.toEqual({ done: false, value: { ok: true, value: { absolutePath: CANONICAL, version: 'v7', bytes: 11 } } })
   })
 
   it.each([

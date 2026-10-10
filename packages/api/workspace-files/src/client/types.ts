@@ -46,5 +46,11 @@ export type WorkspaceFileEdit =
   | { readonly kind: 'changed'; readonly version: string }
   | { readonly kind: 'absent' }
 
-/** What one follower of a path receives: a Host write. */
-export type WorkspaceFileNotice = WorkspaceFileEdit
+/**
+ * What one follower of a path receives: a Host write, or the Client's own
+ * request to read an opened file again after a reconnected stream generation,
+ * which replays nothing observed while the stream was gone.
+ */
+export type WorkspaceFileNotice =
+  | WorkspaceFileEdit
+  | { readonly kind: 'resync' }
