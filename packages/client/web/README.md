@@ -27,7 +27,7 @@ English | [中文](README.zh.md)
 
 Use it when you assemble the browser application: `apps/web`'s Vite entry runs `new AppWebEntry(container).run()` against the mount point, and the boot page carries the user through activation. Ordinary browser callers pass no options. A pre-injected page transport is the default ahead of the `seams` override: when `globalThis.__DSH_TRANSPORT__` carries `loadBundle`, the module stage adopts it as the bundle transport and skips the immediate-tier HTTP prefetch, while explicit `seams` still win (for example jsdom tests, where external `<script>` execution cannot reach the page context).
 
-`run()` installs the browser floor (`src/compat.ts`) before it imports any bundle: `AbortSignal.any`, the ES2025 `Iterator` global, and `Promise.withResolvers`, each skipped when the engine already provides it. Bundles, and the third-party code they carry, call those APIs unconditionally, while a LAN deployment of `dsh web` also serves the shell over plain HTTP to phone engines that predate them.
+`run()` installs the browser floor (`src/compat.ts`) before it imports any bundle: `AbortSignal.any`, the ES2025 `Iterator` global, and `Promise.withResolvers`, each skipped when the engine already provides it. The floor also subscribes to `orientationchange` and forces the shell root's `env(safe-area-inset-*)` padding to re-resolve, because some Android WebView builds keep reporting a stale, oversized top inset after a landscape→portrait rotation, shifting in-flow content down while fixed chrome stays put. Bundles, and the third-party code they carry, call those APIs unconditionally, while a LAN deployment of `dsh web` also serves the shell over plain HTTP to phone engines that predate them.
 
 The shell base styles apply automatic CJK/Latin spacing to ordinary content in supporting browsers. Semantic code and terminal, diff, read, and search output containers retain literal source spacing and column alignment; browsers without `text-autospace` support ignore both declarations.
 
@@ -76,7 +76,7 @@ The boot page is plain DOM with local CSS whose fallback fonts and colors match 
 | [`src/index.ts`](src/index.ts) | Library entry: `AppWebEntry`, `getStaticModules`, platform tables |
 | [`src/boot.ts`](src/boot.ts) | `AppWebEntry`: two-stage boot, activation audit, renderer handoff |
 | [`src/boot-page.ts`](src/boot-page.ts) | Framework-free boot page: spinner, per-entry status, failure rendering |
-| [`src/compat.ts`](src/compat.ts) | Browser floor: the APIs the shell's bundles expect from a newer engine |
+| [`src/compat.ts`](src/compat.ts) | Browser floor: APIs the bundles expect from a newer engine, plus the safe-area inset re-resolution after rotation |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`: the implicit external baseline |
 | [`src/seed.ts`](src/seed.ts) | Static module table handed to the loader at boot |
 
