@@ -15,7 +15,7 @@ import { closeSync, mkdtempSync, openSync, rmdirSync, unlinkSync, writeSync } fr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleepMs } from 'node:timers/promises'
-import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
+import { readCompleteUtf8, scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type {
   CollectedOutput,
@@ -125,35 +125,6 @@ export function prepareManagedProcessBinding(
   internals: Pick<SpawnInternals, 'spillDir'> = {},
 ): { spillDir: string } {
   return { spillDir: internals.spillDir ?? privateSpillDir() }
-}
-
-/**
- * Byte offset just past the last complete UTF-8 character at or after `start`.
- * Decoding a truncated trailing sequence replaces each affected character with
- * U+FFFD, so an incremental read stops before it; the read that receives the
- * remaining bytes returns that character whole.
- * @param buffer - the retained window being read.
- * @param start - first byte the read covers.
- * @returns the exclusive end offset of that window's complete-character prefix.
- */
-function completeCharacterEnd(buffer: Buffer, start: number): number {
-  let lead = buffer.length - 1
-  let continuations = 0
-  let byte = lead >= start ? buffer[lead] : undefined
-  while (byte !== undefined && continuations < 3 && (byte & 0xc0) === 0x80) {
-    lead -= 1
-    continuations += 1
-    byte = lead >= start ? buffer[lead] : undefined
-  }
-  if (byte === undefined) return buffer.length
-  // A lead byte outside the UTF-8 ranges starts no sequence to wait for; the
-  // decoder replaces those bytes in the read that already holds them.
-  const expected = byte >= 0xf5 ? 1
-    : byte >= 0xf0 ? 4
-      : byte >= 0xe0 ? 3
-        : byte >= 0xc2 ? 2
-          : 1
-  return buffer.length - lead < expected ? lead : buffer.length
 }
 
 /**
@@ -290,9 +261,9 @@ export class OutputCollector {
     const buffer = Buffer.concat(this.chunks)
     const lossy = fromByte < windowStart
     const start = lossy ? 0 : fromByte - windowStart
-    const end = completeCharacterEnd(buffer, start)
+    const { text, end } = readCompleteUtf8(buffer, start)
     return {
-      text: buffer.toString('utf8', start, end),
+      text,
       nextOffset: windowStart + end,
       lossy,
       ...this.spillFile !== undefined ? { spillPath: this.spillFile } : {},

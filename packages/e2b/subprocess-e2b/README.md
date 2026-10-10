@@ -101,7 +101,7 @@ One trusted control-shell probe resolves the sandbox user's login home from its 
 
 ### Output handling
 
-The remote wrapper branches raw bytes into optional bounded spill files and frames each live chunk as newline-delimited base64 ASCII; the host restores bytes across arbitrary SDK callback boundaries. Pipe mode writes to host Node streams, inherit mode to the harness process streams, and collect mode retains a bounded host tail with offset reads. For collect or inherit output, an incomplete SDK stream is disconnected after `graceMs` with its partial spill withheld; natural raw-pipe completion awaits lossless transport and preserves backpressure. Batch and streaming stdin use the SDK handle.
+The remote wrapper branches raw bytes into optional bounded spill files and frames each live chunk as newline-delimited base64 ASCII; the host restores bytes across arbitrary SDK callback boundaries. Pipe mode writes to host Node streams, inherit mode to the harness process streams, and collect mode retains a bounded host tail with offset reads that end at a complete UTF-8 character. For collect or inherit output, an incomplete SDK stream is disconnected after `graceMs` with its partial spill withheld; natural raw-pipe completion awaits lossless transport and preserves backpressure. Batch and streaming stdin use the SDK handle.
 
 ### Termination ladder
 

@@ -77,6 +77,39 @@ export function scrubbedParentEnv(): Record<string, string> {
   return env
 }
 
+/**
+ * Decode one collected-output read window up to its last complete UTF-8
+ * character. A read that stopped inside a multi-byte character would replace
+ * that character with U+FFFD on both sides of the split, so a provider returns
+ * this text and resumes its cursor at `end`, where the read that receives the
+ * remaining bytes returns the character whole. Exported as a plain function so
+ * every provider implementing {@link SubprocessOutputReader} cuts the same
+ * read boundary.
+ * @param window - the bytes a provider currently retains for one stream.
+ * @param start - first byte of `window` the read covers.
+ * @returns the decoded text and the exclusive offset in `window` just past it.
+ */
+export function readCompleteUtf8(window: Buffer, start: number): { text: string; end: number } {
+  let lead = window.length - 1
+  let continuations = 0
+  let byte = lead >= start ? window[lead] : undefined
+  while (byte !== undefined && continuations < 3 && (byte & 0xc0) === 0x80) {
+    lead -= 1
+    continuations += 1
+    byte = lead >= start ? window[lead] : undefined
+  }
+  if (byte === undefined) return { text: window.toString('utf8', start), end: window.length }
+  // A lead byte outside the UTF-8 ranges starts no sequence to wait for; the
+  // decoder replaces those bytes in the read that already holds them.
+  const expected = byte >= 0xf5 ? 1
+    : byte >= 0xf0 ? 4
+      : byte >= 0xe0 ? 3
+        : byte >= 0xc2 ? 2
+          : 1
+  const end = window.length - lead < expected ? lead : window.length
+  return { text: window.toString('utf8', start, end), end }
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     subprocess: SubprocessRuntime
