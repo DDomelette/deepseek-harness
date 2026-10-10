@@ -14,7 +14,7 @@
 import { randomUUID } from 'node:crypto'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent, AgentSetup } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -66,6 +66,16 @@ export class NoteSessions extends Service {
   }
 
   /**
+   * Sessions being loaded right now, by session id.
+   *
+   * Persistence admits one writer per Session, so two concurrent resumes of one
+   * conversation would have the second refused rather than served; callers that
+   * arrive while a load is in flight share it. An entry leaves the map when its
+   * load settles, so a failure is never remembered as an answer.
+   */
+  private readonly loading = new Map<SessionId, Promise<Agent | undefined>>()
+
+  /**
    * Start a new notes conversation: a real dsh Session over the configured
    * workspace and model, recorded and made active.
    *
@@ -90,28 +100,13 @@ export class NoteSessions extends Service {
   async create(): Promise<NoteSessionId> {
     const cwd = this.requireWorkspace()
     const workspace = await this.ensureWorkspaceRecord(cwd)
-    const presets = this.ctx.get('agentPresets')
-    const presetId = presets === undefined ? undefined : (await presets.resolve()).id
-    const setup: AgentSetup | undefined = presets === undefined || presetId === undefined
-      ? undefined
-      : async (agentCtx: Context): Promise<void> => { await presets.mount(agentCtx, presetId) }
-    const model = this.settings.model()
-    const route = model ?? this.ctx.get('agentDefaultModel')?.currentSelection()
+    const { presetId, agentOptions, setup } = await this.composition()
     const sessionId = brandString<SessionId>(randomUUID())
     const title = this.defaultTitle()
     const handle = await this.ctx.agents.create({
       sessionId,
       meta: { cwd, ...presetId === undefined ? {} : { agentPreset: presetId } },
-      ...route === undefined ? {} : {
-        agentOptions: {
-          provider: route.provider,
-          model: route.model,
-          // An absent effort leaves the choice to the route's own default.
-          ...route.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
-        },
-      },
+      ...agentOptions === undefined ? {} : { agentOptions },
       ...setup === undefined ? {} : { setup },
     })
     this.titleSession(handle.agent, title)
@@ -126,6 +121,113 @@ export class NoteSessions extends Service {
     } catch (error) {
       await handle.dispose()
       throw error
+    }
+  }
+
+  /**
+   * The live Agent of one recorded conversation, loading its Session again when
+   * this process no longer holds it.
+   *
+   * A record and its Session log outlive the process that made them, while the
+   * Agent does not, so a conversation recorded by an earlier run has to be
+   * loaded before it can receive anything. Every read and every submission
+   * resolves its Agent here, and the loaded Agent is owned by this service's
+   * fiber exactly like a created one, which is what keeps the panel working
+   * across a restart.
+   * @param record - the conversation whose Agent to resolve.
+   * @returns the live agent, or undefined when its Session cannot be loaded.
+   */
+  async liveAgent(record: StoredNoteSession): Promise<Agent | undefined> {
+    const live = this.ctx.agents.get(record.sessionId)
+    if (live !== undefined) return live
+    const loading = this.loading.get(record.sessionId) ?? this.startLoading(record.sessionId)
+    return await loading
+  }
+
+  /**
+   * Begin one conversation's load and publish it to callers arriving meanwhile.
+   * @param sessionId - the conversation's Session.
+   * @returns the load's outcome.
+   */
+  private startLoading(sessionId: SessionId): Promise<Agent | undefined> {
+    const loading = this.load(sessionId)
+    this.loading.set(sessionId, loading)
+    // The slot holds this load until it settles, and a settled load is not an
+    // answer: the next caller finds the slot free and starts the next attempt.
+    void loading.then(() => { this.loading.delete(sessionId) })
+    return loading
+  }
+
+  /**
+   * Load one conversation's Session again, reporting a load that cannot happen
+   * as no Agent rather than as a throw.
+   *
+   * A Session may be unloadable for reasons the panel can do nothing about: a
+   * log that is gone or unreadable, a deployment that mounts no session
+   * persistence, another process holding the Session's write lease, or a preset
+   * roster that cannot compose. The panel's answer is the same one in every
+   * case — this conversation is not live — so the reason is logged for the
+   * operator instead of thrown at the browser, where it would arrive as an
+   * unreachable Host rather than as a notes refusal.
+   * @param sessionId - the conversation's Session.
+   * @returns the loaded agent, or undefined when the Session could not be loaded.
+   */
+  private async load(sessionId: SessionId): Promise<Agent | undefined> {
+    try {
+      return await this.loadSession(sessionId)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`notes: could not load conversation "${sessionId}": ${String(error)}`)
+      return undefined
+    }
+  }
+
+  /**
+   * Load one conversation's Session and compose the resumed Agent the way its
+   * creation composed it.
+   * @param sessionId - the conversation's Session.
+   * @returns the loaded agent.
+   * @throws when the Session or its composition cannot be loaded.
+   */
+  private async loadSession(sessionId: SessionId): Promise<Agent> {
+    const { agentOptions, setup } = await this.composition()
+    const handle = await this.ctx.agents.resume({
+      resumeSessionId: sessionId,
+      ...agentOptions === undefined ? {} : { agentOptions },
+      ...setup === undefined ? {} : { setup },
+    })
+    return handle.agent
+  }
+
+  /**
+   * The composition one notes conversation runs on: the deployment's preset
+   * roster (when it has one) and the model route the notes section names.
+   *
+   * Creation and resume both read it here, so a conversation loaded again after
+   * a restart runs on what a conversation created now would run on.
+   * @returns the preset to record, and the options and setup to pass.
+   */
+  private async composition(): Promise<{
+    readonly presetId: string | undefined
+    readonly agentOptions: AgentOptions | undefined
+    readonly setup: AgentSetup | undefined
+  }> {
+    const presets = this.ctx.get('agentPresets')
+    const presetId = presets === undefined ? undefined : (await presets.resolve()).id
+    const model = this.settings.model()
+    const route = model ?? this.ctx.get('agentDefaultModel')?.currentSelection()
+    return {
+      presetId,
+      agentOptions: route === undefined ? undefined : {
+        provider: route.provider,
+        model: route.model,
+        // An absent effort leaves the choice to the route's own default.
+        ...route.reasoningEffort === undefined
+          ? {}
+          : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
+      },
+      setup: presets === undefined || presetId === undefined
+        ? undefined
+        : async (agentCtx: Context): Promise<void> => { await presets.mount(agentCtx, presetId) },
     }
   }
 

@@ -691,7 +691,7 @@ describe('notes remote materials', () => {
       { seq: 1, type: 'assistant/message', data: { message: { role: 'assistant', content: [{ type: 'text', text: 'answer' }] } } },
     ])
 
-    expect(host.remote.materialThread({ id })).toEqual({
+    expect(await host.remote.materialThread({ id })).toEqual({
       ok: true,
       value: {
         rows: [
@@ -705,10 +705,34 @@ describe('notes remote materials', () => {
   it('reports why a thread could not be read', async () => {
     const host = await mount()
 
-    expect(host.remote.materialThread({ id: materialId('absent') })).toEqual({
+    expect(await host.remote.materialThread({ id: materialId('absent') })).toEqual({
       ok: false,
       error: { code: 'material-not-found', id: 'absent' },
     })
+  })
+
+  it('reads a draft\'s thread as nothing over the wire', async () => {
+    const host = await mount()
+    const note = await liveConversation(host)
+    const id = await collect(host, note)
+
+    // The panel reads the thread of whatever row the reader opens, so a draft
+    // has to answer with an empty thread rather than a failure about a
+    // conversation that never received it.
+    expect(await host.remote.materialThread({ id })).toEqual({ ok: true, value: { rows: [] } })
+  })
+
+  it('analyses a material whose conversation this process no longer holds', async () => {
+    const host = await mount()
+    const note = await host.base.sessions.record(
+      noteSession({ sessionId: sessionId('dsh-cold'), title: 'Notes · cold' }),
+    )
+    const id = await collect(host, note)
+
+    await expect(host.remote.materialAnalyze({ id })).resolves.toEqual({ ok: true, value: applied })
+
+    expect(host.base.agents.resumed).toEqual([expect.objectContaining({ resumeSessionId: 'dsh-cold' })])
+    expect(host.base.materials.get(id)?.status).toBe('analyzing')
   })
 
   it('archives and restores one material', async () => {

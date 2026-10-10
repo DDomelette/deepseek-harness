@@ -58,11 +58,11 @@ declare module '@deepseek-ai/cordis' {
 
 /** Drives materials into their notes conversation. */
 export class Analysis extends Service {
-  static inject = ['agents', 'notesMaterials', 'notesSessions', 'notesSettings']
+  static inject = ['notesMaterials', 'notesSessions', 'notesSettings']
 
   /**
-   * @param ctx - host context carrying the agent registry, the material store,
-   *   the conversation records, and the live notes settings.
+   * @param ctx - host context carrying the material store, the conversation
+   *   records, and the live notes settings.
    */
   constructor(ctx: Context) {
     super(ctx, 'notesAnalysis')
@@ -148,7 +148,7 @@ export class Analysis extends Service {
     if (current.action !== null && action === undefined) {
       return { code: 'unknown-action', action: current.action }
     }
-    const target = this.targetFor(current.noteId)
+    const target = await this.targetFor(current.noteId)
     if (!target.live) return target.failure
     const content = composeContent(current, action)
     if (content.some(block => block.type === 'image') && await this.imagesUnsupported(target.agent)) {
@@ -169,7 +169,7 @@ export class Analysis extends Service {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined) return { code: 'material-not-found', id }
     if (current.messageIds.length === 0) return { code: 'material-not-submitted', id }
-    const target = this.targetFor(current.noteId)
+    const target = await this.targetFor(current.noteId)
     if (!target.live) return target.failure
     return await this.submit(id, target.agent, [{ type: 'text', text: question }])
   }
@@ -192,13 +192,19 @@ export class Analysis extends Service {
    * The log is the content truth, so this projects the conversation's live
    * events rather than any copy the notes domain keeps: what the panel shows is
    * what the model saw.
+   *
+   * A material that never entered its conversation has no thread at all: its
+   * rows are the events its own recorded messages carried. Saying so is the
+   * whole answer, and a conversation that received nothing is not loaded to
+   * deliver it.
    * @param id - material id.
    * @returns the thread's rows, or the failure that stopped the read.
    */
-  thread(id: MaterialId): ThreadRead {
+  async thread(id: MaterialId): Promise<ThreadRead> {
     const current = this.ctx.notesMaterials.get(id)
     if (current === undefined) return { ok: false, failure: { code: 'material-not-found', id } }
-    const target = this.targetFor(current.noteId)
+    if (current.messageIds.length === 0) return { ok: true, rows: [] }
+    const target = await this.targetFor(current.noteId)
     if (!target.live) return { ok: false, failure: target.failure }
     return { ok: true, rows: projectThread(target.agent.session.snapshotEvents(), current.messageIds) }
   }
@@ -243,16 +249,17 @@ export class Analysis extends Service {
   }
 
   /**
-   * The live Agent of one notes conversation.
+   * The live Agent of one notes conversation, loading its Session again when
+   * this process no longer holds it.
    * @param noteId - notes conversation id.
    * @returns the agent, or the failure that stops this conversation — a
-   *   persisted conversation whose process restarted has to be reopened before
-   *   it can receive another message.
+   *   conversation whose Session cannot be loaded is not live and cannot
+   *   receive another message.
    */
-  private targetFor(noteId: NoteSessionId): AgentTarget {
+  private async targetFor(noteId: NoteSessionId): Promise<AgentTarget> {
     const note = this.sessions.get(noteId)
     if (note === undefined) return { live: false, failure: { code: 'session-not-found', id: noteId } }
-    const agent = this.ctx.agents.get(note.sessionId)
+    const agent = await this.sessions.liveAgent(note)
     if (agent === undefined) return { live: false, failure: { code: 'session-not-live', id: noteId } }
     return { live: true, agent }
   }
