@@ -22,7 +22,7 @@ Status: implemented
 
 滚动容器在此区间去掉保留:`[data-sidebar-fab] .scrollBody { margin-right: 0; scrollbar-gutter: auto }`,叠层 composer 座位的条宽补偿随之去掉(`right: 0`)。叠加式滚动条引擎上无变化;占用布局的滚动条下居中列重新对称。滚动条本身在此区间一并隐藏(`scrollbar-width: none` 加 WebKit 的 `display: none` 伪元素规则,与 ui-chat 的 TurnNavigator 滚动容器同一模式):在占用布局的引擎上,即使没有槽位保留,可见滚动条仍会从右侧压缩居中列的内容盒。接受的残余:小于 768px 的桌面窗口随之失去消息区的滚动指示——接受它是因为这类窗口是拖拽过渡态,不是设备。此后用户要求恢复滚动指示,隐藏与去掉保留被逆转为对称的 `stable both-edges` 槽位,滚动条与居中兼得:[手机端转录滚动条](../feature/2026-10-09-handset-transcript-scrollbar-both-edges.zh.md)。
 
-停靠 composer 行相对粗指针下限恢复绘制尺寸:`[data-sidebar-fab] .root[data-composer-variant='composer'] .row button { min-width: 28px; min-height: 28px }` 让 28px 图标触发器与 34px 发送钮保持设计尺寸,按钮行得以保持单行,发送钮留在卡片内。44px WCAG 下限在粗指针下的其他一切位置(含 hero 卡)仍然适用。
+停靠 composer 行相对粗指针下限恢复绘制尺寸:`[data-sidebar-fab] .root[data-composer-variant='composer'] .row button { min-width: 28px; min-height: 28px }` 让 28px 图标触发器与 34px 发送钮保持设计尺寸,按钮行得以保持单行,发送钮留在卡片内。44px WCAG 下限在粗指针下的其他一切位置(含 hero 卡)仍然适用。卡片内的附件控件现已豁免该下限,改为保持徽章绘制尺寸并配透明热区:[手机端附件徽章与输入框触摸下限的冲突](2026-10-10-handset-attachment-badge-safearea-rotation.zh.md)。
 
 权限与模型触发器在此区间去掉 selector 填充圆底:透明背景、`label-secondary` 图标色、28px 盒内 16px 图标(比带圈的 14px 大一号,在无填充时保持视觉重量)。文字与 chevron 保持隐藏;名称留在 aria-label/title 与菜单行上。附件控件保留圆形。
 

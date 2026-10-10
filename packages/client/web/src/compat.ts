@@ -98,6 +98,37 @@ function installPromiseWithResolvers(): void {
 }
 
 /**
+ * Force the shell root's safe-area padding to re-resolve after an orientation
+ * change. Some Android WebView builds keep reporting a stale, oversized
+ * `env(safe-area-inset-top)` after a landscape→portrait rotation, leaving
+ * in-flow content (the session header) shifted down while fixed chrome (the
+ * floating brand button) stays put; the stale value persists until something
+ * forces a style re-resolution. Re-assigning one inline padding and clearing
+ * it makes the engine re-read every `env()` in the root's declaration block.
+ */
+function installSafeAreaInsetResync(): void {
+  // The unit lane for this module runs on plain Node, where no DOM exists;
+  // the resync is a browser-environment shim like the APIs above.
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  const resync = (): void => {
+    const root = document.getElementById('root')
+    if (root === null) return
+    root.style.paddingTop = '0px'
+    void root.offsetHeight
+    root.style.paddingTop = ''
+  }
+  window.addEventListener('orientationchange', () => {
+    // The inset update lands asynchronously with the rotation animation, so
+    // re-resolve on the next two frames and once more after the animation
+    // budget; harmless when the engine already reports fresh values.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resync)
+    })
+    setTimeout(resync, 400)
+  })
+}
+
+/**
  * Define every browser API the shell's bundles expect, skipping the ones this
  * engine already provides. {@link AppWebEntry.run} installs the floor as its
  * first step, before any bundle is imported; a bundle that reaches for a further
@@ -107,4 +138,5 @@ export function installBrowserCompat(): void {
   installAbortSignalAny()
   installIteratorGlobal()
   installPromiseWithResolvers()
+  installSafeAreaInsetResync()
 }

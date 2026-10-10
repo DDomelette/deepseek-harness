@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-08-handset-device-layout-fixes.md
-2026-10-08-handset-device-layout-fixes.md: cffccda2a0c58165cdaf398fead76112fc443390
-2026-10-08-handset-device-layout-fixes.zh.md: 4a7ef0a829cdc06c9eeeb01e68b17cc754b92420
+2026-10-08-handset-device-layout-fixes.md: d85ecb167268849b9bf50d111f09405cbd4953d7
+2026-10-08-handset-device-layout-fixes.zh.md: 797b0bec96df8d15bea5a25ca5edf5deaf0a2362

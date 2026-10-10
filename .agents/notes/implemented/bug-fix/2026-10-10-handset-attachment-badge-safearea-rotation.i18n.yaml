@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-10-handset-attachment-badge-safearea-rotation.md
+2026-10-10-handset-attachment-badge-safearea-rotation.md: b17859c5033f78325edd9b8a5099b6163f879dff
+2026-10-10-handset-attachment-badge-safearea-rotation.zh.md: d6c259e9c2762d2cc7d2e39c2ca2d5af911eb008
