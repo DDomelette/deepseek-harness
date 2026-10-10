@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, ToolCallId, HarnessError, type ContentBlock  } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -85,6 +85,23 @@ describe('ToolRuntime', () => {
     const schema = ctx.tools.schemas().find(s => s.name === 'budgeted')
     expect(schema).toBeDefined()
     expect('timeoutMs' in (schema as object)).toBe(false)
+  })
+
+  it('materializes a result once when no content finalizer is registered', async () => {
+    const ctx = await setup()
+    const materialize = vi.spyOn(
+      ToolRuntime.prototype as unknown as { materializeFinalResult(result: ToolExecutionResult): ToolExecutionResult },
+      'materializeFinalResult',
+    )
+    ctx.tools.register(echoTool)
+
+    await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'echo', arguments: { text: 'hi' } })
+    // Two passes remain: the candidate snapshot the staged pipeline takes
+    // before post-execute can replace anything, and this commit outcome. The
+    // redundant third pass is gone — the unmodified result the candidate step
+    // already materialized is the final one.
+    expect(materialize).toHaveBeenCalledTimes(2)
+    materialize.mockRestore()
   })
 
   it('executes a tool and returns its content', async () => {

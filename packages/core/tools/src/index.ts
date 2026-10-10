@@ -1627,7 +1627,11 @@ export class ToolRuntime extends Service {
     }
     let finalResult: ToolExecutionResult
     try {
-      finalResult = this.materializeFinalResult(this.applyFinalContent(exec, materializedResult))
+      const finalized = this.applyFinalContent(exec, materializedResult)
+      // Without a registered content finalizer the same already-materialized
+      // result comes back, and materializing it again would detach and freeze
+      // every block a second time for no change.
+      finalResult = finalized === materializedResult ? materializedResult : this.materializeFinalResult(finalized)
     } catch (error: unknown) {
       finalResult = this.materializeFinalResult(toolErrorResult(error))
     }
