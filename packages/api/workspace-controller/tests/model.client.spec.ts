@@ -343,6 +343,25 @@ describe('ClientWorkspaceModel', () => {
     expect(model.getSnapshot().archivedSessionIds).toEqual(['fresh'])
   })
 
+  it('drops a unary echo that a stream increment already superseded', async () => {
+    const remote = new FakeWorkspaceRemote()
+    const model = modelFor(remote)
+    baseline(model, [workspace('one')])
+    const rename = deferred<RemoteResult<WorkspaceValue>>()
+    remote.onRename = () => rename.promise
+
+    const pending = model.rename(wid('one'), 'stale title')
+    // Same-millisecond Host projections: only arrival order distinguishes them,
+    // and the increment that landed while rename was pending is the newer one.
+    model.upsertView(workspace('one', [sid('new')]))
+    rename.resolve(remoteOk({ workspace: { ...workspace('one'), title: 'stale title' } }))
+    await expect(pending).resolves.toMatchObject({ ok: true })
+
+    const item = model.getSnapshot().items[0]
+    expect(item?.sessionIds).toEqual([sid('new')])
+    expect(item?.title).toBe('one')
+  })
+
   it('keeps the newest row and places Workspaces missing from partial orders last', async () => {
     const model = modelFor()
     baseline(model, [

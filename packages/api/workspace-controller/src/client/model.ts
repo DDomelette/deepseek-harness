@@ -99,8 +99,12 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @returns generated Remote result.
    */
   async rename(workspaceId: WorkspaceId, title: string): Promise<RemoteResult<WorkspaceValue>> {
+    const frame = this.frameGeneration
     const result = await this.remote.rename({ workspaceId, title })
-    if (result.ok) this.upsert(result.value.workspace)
+    // A stream increment that arrived while this call was pending already
+    // published a newer projection, and the Host publishes this mutation as an
+    // increment too, so the echo is applied only while nothing else has landed.
+    if (result.ok && frame === this.frameGeneration) this.upsert(result.value.workspace)
     return result
   }
 
@@ -152,12 +156,13 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     sessionId: WorkspaceInsertSessionBeforeRequest['sessionId'],
     beforeSessionId?: WorkspaceInsertSessionBeforeRequest['beforeSessionId'],
   ): Promise<RemoteResult<WorkspaceValue>> {
+    const frame = this.frameGeneration
     const result = await this.remote.insertSessionBefore({
       workspaceId,
       sessionId,
       ...beforeSessionId === undefined ? {} : { beforeSessionId },
     })
-    if (result.ok) this.upsert(result.value.workspace)
+    if (result.ok && frame === this.frameGeneration) this.upsert(result.value.workspace)
     return result
   }
 
@@ -319,8 +324,10 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     if (this.removedIds.has(view.workspaceId)) return
     const index = this.items.findIndex(item => item.workspaceId === view.workspaceId)
     const installed = this.items[index]
-    // Unary responses and stream increments race on separate requests. Keep
-    // the newest Host projection regardless of their arrival order.
+    // Unary responses and stream increments race on separate requests. A
+    // response that lost that race is suppressed by its caller's generation
+    // check; this comparison still rejects a projection older than the
+    // installed one whatever produced it.
     if (installed !== undefined && Date.parse(view.updatedAt) < Date.parse(installed.updatedAt)) return
     if (!this.committedOrder.includes(view.workspaceId)) {
       this.committedOrder = [view.workspaceId, ...this.committedOrder]
