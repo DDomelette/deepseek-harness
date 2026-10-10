@@ -270,6 +270,51 @@ describe('JsonRpcLineTransport', () => {
     await expect(transport.request('write-fails', {})).rejects.toThrow('write exploded')
   })
 
+  it('rejects a request issued after the input closed instead of leaving it pending', async () => {
+    const { aToB, b } = transportPair()
+    b.start()
+
+    aToB.end()
+    await once(aToB, 'end')
+    const outcome = await Promise.race([
+      b.request('too-late', {}).then(() => 'resolved', (error: Error) => error.message),
+      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+    ])
+
+    expect(outcome).toBe('JSON-RPC input closed')
+    b.close()
+  })
+
+  it('rejects a request issued after the transport closed', async () => {
+    const { b } = transportPair()
+    b.close()
+
+    const outcome = await Promise.race([
+      b.request('after-close', {}).then(() => 'resolved', (error: Error) => error.message),
+      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+    ])
+
+    expect(outcome).toBe('JSON-RPC transport closed')
+  })
+
+  it('fails pending requests and stops writing when the output errors', async () => {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    const transport = new JsonRpcLineTransport(input, output)
+    transport.start()
+
+    const pending = transport.request('never-replies', {})
+    output.emit('error', new Error('output broke'))
+
+    await expect(pending).rejects.toThrow('output broke')
+    // Drain the frame the request wrote before the failure; the notification
+    // that follows must not reach the broken output.
+    expect(output.read()).not.toBeNull()
+    transport.notify('dropped')
+    expect(output.read()).toBeNull()
+    transport.close()
+  })
+
   it('stringifies non-Error write failures', async () => {
     const input = new PassThrough()
     const output = {
