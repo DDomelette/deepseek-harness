@@ -24,7 +24,7 @@ An external audit reported eleven defects across the subprocess output path, ses
 
 Each gap is closed where the contract it violates is stated, and every fix carries a test that fails without it.
 
-**Subprocess output.** `OutputCollector` contains a spill failure the way it already contains a close, unlink, or over-cap failure: the unusable file is discarded, the advertised spill path is withheld, and collection keeps its in-memory tail. An incremental read ends at the last complete UTF-8 character and `nextOffset` points at the end of the text it returned, so the read that receives the remaining bytes returns the character whole. Both providers cut that boundary with `readCompleteUtf8`, exported from `dsh-subprocess` as a plain function beside `scrubbedParentEnv`, so the rule has one home and each provider's tests pin it.
+**Subprocess output.** `OutputCollector` contains a spill failure the way it already contains a close, unlink, or over-cap failure: the unusable file is discarded, the failure is reported once through the provider's logger (a spawn outside a plugin writes one stderr line), the spill path is published only after the file was opened so a failed open never unlinks an entry this process did not create, and collection keeps its in-memory tail. An incremental read ends at the last complete UTF-8 character and `nextOffset` points at the end of the text it returned, so the read that receives the remaining bytes returns the character whole. Both providers cut that boundary with `readCompleteUtf8`, exported from `dsh-subprocess` as a plain function beside `scrubbedParentEnv`, so the rule has one home and each provider's tests pin it.
 
 **Session deletion.** The target is reserved before the first await, and each pass reserves what it found before enumerating again; the plan is fixed once a pass discovers nothing new. Reservations are released as one set, so a member another deletion owns is refused rather than released. Cleanup order is re-derived per attempt from that attempt's lineage, leaves-first, while the plan's member array keeps its order as the reported deletion set; a member no longer persisted is cleaned last.
 
@@ -47,7 +47,7 @@ Each gap is closed where the contract it violates is stated, and every fix carri
 
 ## Consequences
 
-- A spill that cannot be written now degrades silently to the in-memory tail instead of failing loud; `lossy`/`truncated` still describe the retained window, and the withheld spill path is the caller's signal that no full-stream recovery file exists.
+- A spill that cannot be written degrades to the in-memory tail and is reported once through the provider's logger, so a deployment losing full-stream recovery sees it instead of silence; `lossy`/`truncated` still describe the retained window, and the withheld spill path remains the caller's signal that no recovery file exists.
 - A read may now return empty text with an unchanged `nextOffset` while a multi-byte character is still arriving; consumers assign `nextOffset` directly, so the next read resumes correctly.
 - Subagent creation is refused for the whole reservation window, including the enumeration await it previously raced. A creation that started before the reservation and commits after the last pass can still escape — the guard is an in-process event listener and cannot cover another process.
 - Deleting a workspace registration for a member no longer persisted now happens after the live lineage; `deletion.spec.ts` records the new order, and the reported `deletedSessionIds` is unchanged.

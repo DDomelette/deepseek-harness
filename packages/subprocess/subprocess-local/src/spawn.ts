@@ -55,12 +55,23 @@ export function childEnv(extra?: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv
   return Object.fromEntries(entries)
 }
 
+/**
+ * Receives one spill open or write failure so its owner can report it. Called
+ * at most once per collector, after the unusable spill has been discarded and
+ * collection continues with the in-memory tail alone.
+ * @param error - the filesystem failure from opening or appending the spill file.
+ * @param label - the collected stream's label (`stdout` or `stderr`).
+ */
+export type SpillFailureReporter = (error: unknown, label: string) => void
+
 /** Injectable process, spill, and platform operations. */
 export interface SpawnInternals {
   /** Process spawner (defaults to `node:child_process` `spawn`). */
   spawn?: SpawnProcess
   /** Directory for spill files (defaults to the OS temp dir). */
   spillDir?: string
+  /** Receives one spill failure (defaults to a single stderr line). */
+  onSpillFailure?: SpillFailureReporter
   /** Windows tree-termination runner (defaults to `taskkill /PID <pid> /T /F`). */
   taskkill?: (pid: number) => void
   /** Host platform override for signalling decisions. */
@@ -117,14 +128,46 @@ process.once('exit', () => {
 })
 
 /**
+ * Build the reporter an owner passes as {@link SpawnInternals.onSpillFailure}:
+ * one error line through the plugin's logger. The spill file is a recovery aid,
+ * so its failure degrades to the in-memory tail, and it is reported because the
+ * caller otherwise loses the full-stream recovery path without any signal.
+ * @param logger - owner logger that receives the message and the failure as detail.
+ * @param owner - plugin name used in the message.
+ * @returns the reporter to hand to a spawn.
+ */
+export function logSpillFailure(
+  logger: { error(message: string, ...detail: unknown[]): void },
+  owner: string,
+): SpillFailureReporter {
+  return (error, label) => {
+    logger.error(
+      `${owner} could not write the complete ${label} stream to its spill file; `
+      + 'the result keeps only the in-memory tail and reports no full-output path.',
+      error,
+    )
+  }
+}
+
+/** Default reporter for spawns outside a plugin: one stderr line. */
+function reportSpillFailureToStderr(error: unknown, label: string): void {
+  process.stderr.write(
+    `dsh-subprocess-local: ${label} spill failed; only the in-memory tail is retained: ${String(error)}\n`,
+  )
+}
+
+/**
  * Prepare fallible output storage before starting a managed native process.
- * @param internals - optional caller-owned spill directory.
- * @returns binding inputs whose spill directory is ready for use.
+ * @param internals - optional caller-owned spill directory and failure reporter.
+ * @returns binding inputs whose spill directory and reporter are ready for use.
  */
 export function prepareManagedProcessBinding(
-  internals: Pick<SpawnInternals, 'spillDir'> = {},
-): { spillDir: string } {
-  return { spillDir: internals.spillDir ?? privateSpillDir() }
+  internals: Pick<SpawnInternals, 'spillDir' | 'onSpillFailure'> = {},
+): { spillDir: string; onSpillFailure: SpillFailureReporter } {
+  return {
+    spillDir: internals.spillDir ?? privateSpillDir(),
+    onSpillFailure: internals.onSpillFailure ?? reportSpillFailureToStderr,
+  }
 }
 
 /**
@@ -155,6 +198,7 @@ export class OutputCollector {
     private readonly maxSpillBytes: number | undefined,
     private readonly label: string,
     private readonly spillDir: string,
+    private readonly onSpillFailure?: SpillFailureReporter,
   ) {
     this.spillDisabled = maxSpillBytes === undefined
   }
@@ -201,22 +245,40 @@ export class OutputCollector {
       if (this.spillFd === undefined) {
         // Random suffix + O_EXCL + no-follow-equivalent ('wx' fails on any
         // existing path, symlink or not) + owner-only mode: defeats spill-path
-        // prediction and symlink planting in shared tmp dirs.
-        this.spillFile = join(
+        // prediction and symlink planting in shared tmp dirs. The path is
+        // published only once the open succeeded, so a failed open (EEXIST on a
+        // planted entry included) never lets discardSpill unlink a path this
+        // process did not create.
+        const file = join(
           this.spillDir,
           `dsh-subprocess-${process.pid}-${++spillCounter}-${randomBytes(6).toString('hex')}-${this.label}.log`,
         )
-        this.spillFd = openSync(this.spillFile, 'wx', 0o600)
-        for (const prior of this.chunks) writeSync(this.spillFd, prior)
+        const fd = openSync(file, 'wx', 0o600)
+        this.spillFile = file
+        this.spillFd = fd
+        for (const prior of this.chunks) writeSync(fd, prior)
       }
       writeSync(this.spillFd, chunk)
-    } catch {
+    } catch (error) {
       // This runs inside the stream's 'data' callback, so an escaping failure
       // (a full disk, descriptor exhaustion, a removed spill directory) would
       // end the host process before the command's outcome is ever reported.
-      // Discard the unusable file and keep the in-memory tail, exactly as a
-      // collector configured without spilling behaves.
+      // Discard the unusable file, report it once, and keep the in-memory tail,
+      // exactly as a collector configured without spilling behaves.
       this.discardSpill()
+      this.reportSpillFailure(error)
+    }
+  }
+
+  /** Report one discarded spill; a failing reporter must not escape either. */
+  private reportSpillFailure(error: unknown): void {
+    const reporter = this.onSpillFailure
+    if (reporter === undefined) return
+    try {
+      reporter(error, this.label)
+    } catch (reporterFailure) {
+      // The reporter runs inside the same stream callback.
+      process.stderr.write(`dsh-subprocess-local: spill failure reporter threw: ${String(reporterFailure)}\n`)
     }
   }
 
@@ -475,15 +537,15 @@ function fallbackOwner(
  * Bind platform launch facts to the existing stdio, outcome, abort, and termination lifecycle.
  * @param spec - fully resolved argv, cwd, stdio, grace, cancellation, environment.
  * @param launch - platform streams, direct outcome, and managed-range owner.
- * @param internals - test-only spill-directory override.
+ * @param internals - test-only spill-directory and failure-reporter override.
  * @returns live subprocess handle.
  */
 export function bindManagedProcess(
   spec: SubprocessSpawnSpec,
   launch: ManagedProcessLaunch,
-  internals: Pick<SpawnInternals, 'spillDir'> = {},
+  internals: Pick<SpawnInternals, 'spillDir' | 'onSpillFailure'> = {},
 ): LocalSubprocessHandle {
-  const { spillDir } = prepareManagedProcessBinding(internals)
+  const { spillDir, onSpillFailure } = prepareManagedProcessBinding(internals)
   const { stdin, stdout, stderr } = launch
 
   const isCollect = (mode: SubprocessOutputMode): mode is SubprocessCollect =>
@@ -494,7 +556,7 @@ export function bindManagedProcess(
 
   const collectStream = (mode: SubprocessOutputMode, stream: Readable | null, label: string): OutputCollector | undefined => {
     if (!isCollect(mode) || stream === null) return undefined
-    const collector = new OutputCollector(mode.maxBytes, mode.spill?.maxBytes, label, spillDir)
+    const collector = new OutputCollector(mode.maxBytes, mode.spill?.maxBytes, label, spillDir, onSpillFailure)
     stream.on('data', (chunk: Buffer) => { collector.push(chunk) })
     return collector
   }

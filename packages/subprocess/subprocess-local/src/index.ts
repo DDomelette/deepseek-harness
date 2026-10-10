@@ -24,11 +24,12 @@ import type {
 import {
   bindManagedProcess,
   childEnv,
+  logSpillFailure,
   prepareManagedProcessBinding,
   spawnSubprocess,
   validateSubprocessSpec,
 } from './spawn.ts'
-import type { LocalSubprocessHandle, SpawnInternals } from './spawn.ts'
+import type { LocalSubprocessHandle, SpawnInternals, SpillFailureReporter } from './spawn.ts'
 import {
   launchLinuxScope,
   prepareLinuxTerminalScope,
@@ -55,6 +56,12 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
   private terminals = new Set<LocalTerminalHandle>()
   /** Test hook: process, spill, and platform operations forwarded to spawnSubprocess. */
   internals: SpawnInternals = {}
+  /**
+   * Every spawn reports a spill open or write failure through this plugin's
+   * logger: the caller then keeps only the in-memory tail, and without the
+   * report that loss of full-stream recovery would be invisible.
+   */
+  private readonly reportSpillFailure: SpillFailureReporter = logSpillFailure(this.ctx.logger, 'subprocess-local')
   /** Provider-lifetime latch suppressing repeated weaker-containment warnings. */
   private fallbackWarningIssued = false
   /** Positive-only cache for the expensive Linux bootstrap and scope probe. */
@@ -165,11 +172,12 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     validateSubprocessSpec(spec)
     const env = targetEnvironment(spec)
     const containmentMode = this.selectContainmentMode('ordinary')
+    const internals: SpawnInternals = { ...this.internals, onSpillFailure: this.reportSpillFailure }
     let handle: LocalSubprocessHandle
     if (containmentMode === 'fallback') {
-      handle = spawnSubprocess(spec, this.internals)
+      handle = spawnSubprocess(spec, internals)
     } else {
-      const binding = prepareManagedProcessBinding(this.internals)
+      const binding = prepareManagedProcessBinding(internals)
       const launch = containmentMode === 'linux-scope'
         ? launchLinuxScope(spec, env)
         : launchWindowsJob(spec, env)

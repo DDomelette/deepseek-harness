@@ -7,7 +7,9 @@ import {
   bindManagedProcess,
   childEnv,
   killGroup,
+  logSpillFailure,
   OutputCollector,
+  prepareManagedProcessBinding,
   spawnSubprocess,
   taskkillProcessTree,
   validateSubprocessSpec,
@@ -64,20 +66,23 @@ function shellArgv(command: string): string[] {
   }
 }
 
-const { failNextClose, failNextUnlink, failNextOpen, failWrites } = vi.hoisted(() => ({
+const { failNextClose, failNextUnlink, failNextOpen, failWrites, openAttempts, unlinkAttempts } = vi.hoisted(() => ({
   failNextClose: { value: false },
   failNextUnlink: { value: false },
-  failNextOpen: { value: false },
+  failNextOpen: { value: false, code: 'EMFILE' },
   failWrites: { value: 0 },
+  openAttempts: { paths: [] as string[] },
+  unlinkAttempts: { paths: [] as string[] },
 }))
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
     openSync(path: Parameters<typeof actual.openSync>[0], flags: string, mode?: number): number {
+      openAttempts.paths.push(String(path))
       if (failNextOpen.value) {
         failNextOpen.value = false
-        throw Object.assign(new Error('simulated EMFILE on open'), { code: 'EMFILE' })
+        throw Object.assign(new Error(`simulated ${failNextOpen.code} on open`), { code: failNextOpen.code })
       }
       return actual.openSync(path, flags, mode)
     },
@@ -98,6 +103,7 @@ vi.mock('node:fs', async (importOriginal) => {
       actual.closeSync(fd)
     },
     unlinkSync(path: Parameters<typeof actual.unlinkSync>[0]): void {
+      unlinkAttempts.paths.push(String(path))
       if (failNextUnlink.value) {
         failNextUnlink.value = false
         throw Object.assign(new Error('simulated EIO on unlink'), { code: 'EIO' })
@@ -701,6 +707,106 @@ describe('OutputCollector', () => {
     expect(out.text).toBe('bbbb')
     expect(out.spillPath).toBeUndefined()
     expect(readdirSync(spillDir).filter(name => name.includes(`write-fail-${failAt}`))).toEqual([])
+  })
+})
+
+describe('spill failure reporting', () => {
+  it('reports one open failure and never unlinks a path it did not create', () => {
+    const reports: Array<{ error: unknown; label: string }> = []
+    const collector = new OutputCollector(4, 100, 'planted', spillDir, (error, label) => { reports.push({ error, label }) })
+    collector.push(Buffer.from('aaaa'))
+    failNextOpen.value = true
+    failNextOpen.code = 'EEXIST'
+    const unlinkedBefore = unlinkAttempts.paths.length
+    const openedBefore = openAttempts.paths.length
+
+    expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+
+    const attempted = openAttempts.paths.slice(openedBefore)
+    expect(attempted).toHaveLength(1)
+    expect(attempted[0]).toContain('planted')
+    // The path is published only after a successful open, so an entry this
+    // process did not create is never unlinked.
+    expect(unlinkAttempts.paths.slice(unlinkedBefore)).not.toContain(attempted[0])
+    expect(reports).toHaveLength(1)
+    expect(reports[0]?.label).toBe('planted')
+    expect((reports[0]?.error as NodeJS.ErrnoException).code).toBe('EEXIST')
+    expect(collector.finalize().spillPath).toBeUndefined()
+  })
+
+  it('reports an append failure once and keeps collecting', () => {
+    const reports: Array<{ error: unknown; label: string }> = []
+    const collector = new OutputCollector(4, 100, 'append-fail', spillDir, (error, label) => { reports.push({ error, label }) })
+    collector.push(Buffer.from('aaaa'))
+    failWrites.value = 2
+
+    expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+    expect(reports).toHaveLength(1)
+    expect((reports[0]?.error as NodeJS.ErrnoException).code).toBe('ENOSPC')
+    expect(collector.finalize().text).toBe('bbbb')
+  })
+
+  it('contains a reporter that throws', () => {
+    const written: string[] = []
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
+      written.push(String(chunk))
+      return true
+    })
+    try {
+      const collector = new OutputCollector(4, 100, 'reporter-throws', spillDir, () => { throw new Error('logger down') })
+      collector.push(Buffer.from('aaaa'))
+      failWrites.value = 1
+
+      expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+      expect(written.join('')).toContain('spill failure reporter threw: Error: logger down')
+    } finally {
+      write.mockRestore()
+    }
+  })
+
+  it('logs the failure through an owner logger', () => {
+    const lines: unknown[][] = []
+    const report = logSpillFailure({ error: (...detail: unknown[]) => { lines.push(detail) } }, 'test owner')
+
+    report(new Error('ENOSPC'), 'stdout')
+
+    expect(String(lines[0]?.[0])).toContain('test owner could not write the complete stdout stream to its spill file')
+    expect(String(lines[0]?.[0])).toContain('keeps only the in-memory tail and reports no full-output path')
+    expect(lines[0]?.[1]).toBeInstanceOf(Error)
+  })
+
+  it('writes one stderr line when a spawn passes no reporter', () => {
+    const written: string[] = []
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
+      written.push(String(chunk))
+      return true
+    })
+    try {
+      const binding = prepareManagedProcessBinding({ spillDir })
+      const collector = new OutputCollector(4, 100, 'stderr-fallback', binding.spillDir, binding.onSpillFailure)
+      collector.push(Buffer.from('aaaa'))
+      failWrites.value = 1
+
+      expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+      expect(written.join('')).toContain('stderr-fallback spill failed; only the in-memory tail is retained')
+    } finally {
+      write.mockRestore()
+    }
+  })
+
+  it('reports a spill failure from a real spawn through the injected reporter', async () => {
+    const reports: string[] = []
+    failNextOpen.value = true
+    failNextOpen.code = 'ENOENT'
+
+    const result = await finish(spawnSubprocess(
+      spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
+      { spillDir, onSpillFailure: (_error, label) => { reports.push(label) } },
+    ))
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.text).toContain('line-0200')
+    expect(reports).toEqual(['stdout'])
   })
 })
 

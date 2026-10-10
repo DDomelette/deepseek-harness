@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-11-verified-reliability-gaps.md
-2026-10-11-verified-reliability-gaps.md: 9ce938324295e5e01c031de38d38416ac5c9f9ac
-2026-10-11-verified-reliability-gaps.zh.md: 07c6f4afb7425415c8efe0bb044198cfa39bb7d2
+2026-10-11-verified-reliability-gaps.md: 734958ee978ffd3ef1f8ff593270347fad129cf5
+2026-10-11-verified-reliability-gaps.zh.md: fd8d230198902d869274bb92aea287a66af717c3
