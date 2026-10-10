@@ -688,7 +688,13 @@ export class SessionProjectionRegistry extends Service {
           if (!Object.is(views[0], views[1])) {
             const value = wire.viewSchema.parse(views[1])
             for (const listener of this.listeners) {
-              listener(session, registration.def.key as Extract<keyof SessionProjectionMap, string>, value, event.seq)
+              try {
+                listener(session, registration.def.key as Extract<keyof SessionProjectionMap, string>, value, event.seq)
+              } catch (error: unknown) {
+                // A throwing subscriber must not starve the subscribers after
+                // it, nor abandon the units this event has not reached yet.
+                this.ctx.logger.warn(`session projection "${String(registration.def.key)}" change listener failed: ${String(error)}`)
+              }
             }
           }
         } else {
