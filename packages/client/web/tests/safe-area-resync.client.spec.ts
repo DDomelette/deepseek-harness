@@ -18,10 +18,10 @@ beforeEach(() => {
   vi.useFakeTimers()
   // Run animation frames synchronously so the rAF-scheduled resyncs fire
   // inside the dispatch/assertion window.
-  vi.stubGlobal('requestAnimationFrame', ((callback: FrameRequestCallback): number => {
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
     callback(0)
     return 0
-  }) as typeof requestAnimationFrame)
+  })
 })
 
 afterEach(() => {
