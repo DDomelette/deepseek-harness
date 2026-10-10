@@ -132,7 +132,10 @@ export function prepareManagedProcessBinding(
  * first overflow a spill file is created and every chunk (including those
  * already collected) is appended there while the full stream remains within
  * the cap; without one, only the in-memory tail is ever retained (the
- * diagnostic-tail shape — a language server's stderr).
+ * diagnostic-tail shape — a language server's stderr). A spill that cannot be
+ * created or written is discarded, leaving the same in-memory tail as a
+ * collector configured without spilling; its failure never escapes the stream
+ * callback that feeds this collector.
  *
  * Tail-keep rationale (pi/OpenCode): errors and final results cluster at the
  * end of command output; the spill file covers the head.
@@ -194,18 +197,27 @@ export class OutputCollector {
       this.discardSpill()
       return
     }
-    if (this.spillFd === undefined) {
-      // Random suffix + O_EXCL + no-follow-equivalent ('wx' fails on any
-      // existing path, symlink or not) + owner-only mode: defeats spill-path
-      // prediction and symlink planting in shared tmp dirs.
-      this.spillFile = join(
-        this.spillDir,
-        `dsh-subprocess-${process.pid}-${++spillCounter}-${randomBytes(6).toString('hex')}-${this.label}.log`,
-      )
-      this.spillFd = openSync(this.spillFile, 'wx', 0o600)
-      for (const prior of this.chunks) writeSync(this.spillFd, prior)
+    try {
+      if (this.spillFd === undefined) {
+        // Random suffix + O_EXCL + no-follow-equivalent ('wx' fails on any
+        // existing path, symlink or not) + owner-only mode: defeats spill-path
+        // prediction and symlink planting in shared tmp dirs.
+        this.spillFile = join(
+          this.spillDir,
+          `dsh-subprocess-${process.pid}-${++spillCounter}-${randomBytes(6).toString('hex')}-${this.label}.log`,
+        )
+        this.spillFd = openSync(this.spillFile, 'wx', 0o600)
+        for (const prior of this.chunks) writeSync(this.spillFd, prior)
+      }
+      writeSync(this.spillFd, chunk)
+    } catch {
+      // This runs inside the stream's 'data' callback, so an escaping failure
+      // (a full disk, descriptor exhaustion, a removed spill directory) would
+      // end the host process before the command's outcome is ever reported.
+      // Discard the unusable file and keep the in-memory tail, exactly as a
+      // collector configured without spilling behaves.
+      this.discardSpill()
     }
-    writeSync(this.spillFd, chunk)
   }
 
   /** Stop spilling and remove the file once it can no longer hold the complete stream. */

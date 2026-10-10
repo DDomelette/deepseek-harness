@@ -1,5 +1,5 @@
 import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, statSync, unlinkSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -64,14 +64,32 @@ function shellArgv(command: string): string[] {
   }
 }
 
-const { failNextClose, failNextUnlink } = vi.hoisted(() => ({
+const { failNextClose, failNextUnlink, failNextOpen, failWrites } = vi.hoisted(() => ({
   failNextClose: { value: false },
   failNextUnlink: { value: false },
+  failNextOpen: { value: false },
+  failWrites: { value: 0 },
 }))
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
+    openSync(path: Parameters<typeof actual.openSync>[0], flags: string, mode?: number): number {
+      if (failNextOpen.value) {
+        failNextOpen.value = false
+        throw Object.assign(new Error('simulated EMFILE on open'), { code: 'EMFILE' })
+      }
+      return actual.openSync(path, flags, mode)
+    },
+    writeSync(fd: number, buffer: Uint8Array): number {
+      if (failWrites.value > 0) {
+        failWrites.value -= 1
+        if (failWrites.value === 0) {
+          throw Object.assign(new Error('simulated ENOSPC on write'), { code: 'ENOSPC' })
+        }
+      }
+      return actual.writeSync(fd, buffer)
+    },
     closeSync(fd: number): void {
       if (failNextClose.value) {
         failNextClose.value = false
@@ -511,6 +529,22 @@ describe('output truncation and spill', () => {
     expect(result.stdout.text).toContain('line-0200')
     expect(result.stdout.spillPath).toBeUndefined()
   })
+
+  it('settles a command whose spill cannot be created instead of failing the stream', async () => {
+    // The spill file opens lazily on first overflow, inside the stream 'data'
+    // callback: an uncontained failure there ends the host process before the
+    // command's outcome is ever reported.
+    failNextOpen.value = true
+    const result = await finish(spawnSubprocess(
+      spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
+      { spillDir },
+    ))
+    expect(failNextOpen.value).toBe(false)
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.truncated).toBe(true)
+    expect(result.stdout.text).toContain('line-0200')
+    expect(result.stdout.spillPath).toBeUndefined()
+  })
 })
 
 describe('OutputCollector', () => {
@@ -611,6 +645,30 @@ describe('OutputCollector', () => {
     expect(failNextUnlink.value).toBe(false)
     expect(collector.finalize().spillPath).toBeUndefined()
     unlinkSync(spillPath)
+  })
+
+  it('contains an unopenable spill and keeps the in-memory tail', () => {
+    const collector = new OutputCollector(4, 100, 'open-fail', spillDir)
+    collector.push(Buffer.from('aaaa'))
+    failNextOpen.value = true
+    expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+    expect(failNextOpen.value).toBe(false)
+    const out = collector.finalize()
+    expect(out.text).toBe('bbbb')
+    expect(out.truncated).toBe(true)
+    expect(out.spillPath).toBeUndefined()
+  })
+
+  it.each([1, 2])('contains a spill write failure at write %i and removes the unusable file', (failAt) => {
+    const collector = new OutputCollector(4, 100, `write-fail-${failAt}`, spillDir)
+    collector.push(Buffer.from('aaaa'))
+    failWrites.value = failAt
+    expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
+    expect(failWrites.value).toBe(0)
+    const out = collector.finalize()
+    expect(out.text).toBe('bbbb')
+    expect(out.spillPath).toBeUndefined()
+    expect(readdirSync(spillDir).filter(name => name.includes(`write-fail-${failAt}`))).toEqual([])
   })
 })
 
