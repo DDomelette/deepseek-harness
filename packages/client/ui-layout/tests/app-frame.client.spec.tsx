@@ -138,8 +138,8 @@ function drag(handle: Element, fromX: number, toX: number): void {
 }
 
 /** Dispatch one drawer-swipe pointer event on the frame with both coordinates. */
-function swipe(frame: Element, type: string, clientX: number, clientY = 0, pointerId = 1, button = 0): void {
-  act(() => { frame.dispatchEvent(new PointerEvent(type, { pointerId, clientX, clientY, button, bubbles: true })) })
+function swipe(frame: Element, type: string, clientX: number, clientY = 0, pointerId = 1, button = 0, pointerType = 'touch'): void {
+  act(() => { frame.dispatchEvent(new PointerEvent(type, { pointerId, clientX, clientY, button, pointerType, bubbles: true })) })
 }
 
 beforeEach(() => {
@@ -809,6 +809,32 @@ describe('AppFrame drawer edge swipe', () => {
     expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
     expect(frame.hasPointerCapture(1)).toBe(false)
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
+  })
+
+  it('lets a mouse drag select text instead of driving the drawer either way', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    // A mouse drag from the left edge arms no open gesture: text selection
+    // keeps the drag, the drawer stays closed, the pointer goes uncaptured.
+    swipe(frame, 'pointerdown', 30, 100, 1, 0, 'mouse')
+    swipe(frame, 'pointermove', 300, 100, 1, 0, 'mouse')
+    act(flushFrames)
+    swipe(frame, 'pointerup', 300, 100, 1, 0, 'mouse')
+    expect(expanded(instance)).toBe(false)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
+    expect(frame.hasPointerCapture(1)).toBe(false)
+    // A touch swipe opens the drawer; a full-travel mouse drag then closes
+    // nothing either.
+    swipe(frame, 'pointerdown', 30)
+    swipe(frame, 'pointermove', 300)
+    swipe(frame, 'pointerup', 300)
+    expect(expanded(instance)).toBe(true)
+    swipe(frame, 'pointerdown', 300, 100, 1, 0, 'mouse')
+    swipe(frame, 'pointermove', 50, 100, 1, 0, 'mouse')
+    act(flushFrames)
+    swipe(frame, 'pointerup', 50, 100, 1, 0, 'mouse')
+    expect(expanded(instance)).toBe(true)
+    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
   })
 
   it('ignores a secondary button and a second pointer', () => {

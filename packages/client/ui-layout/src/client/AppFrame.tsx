@@ -308,11 +308,14 @@ export function AppFrame({
   const drawerShown = drawerOpen || (overlay && drawerClosing)
   const sidebarWidth = drawerShown ? drawerWidth : cols.sidebar
 
-  // Drawer edge swipe (overlay band only): a right swipe from the frame's left
-  // edge opens the drawer under the pointer, and a left swipe while it is open
-  // closes it. The tracked position drives the column and scrim through inline
-  // styles while the store flips only at engagement and release, so a re-render
-  // never fights the gesture's own writes.
+  // Drawer edge swipe (overlay band, touch pointers only): a right swipe from
+  // the frame's left edge opens the drawer under the pointer, and a left swipe
+  // while it is open closes it. A mouse drag keeps its text-selection meaning
+  // and never arms the gesture, so overlay-band mice open and close through
+  // the fab, the drag handle, and the scrim click instead. The tracked
+  // position drives the column and scrim through inline styles while the
+  // store flips only at engagement and release, so a re-render never fights
+  // the gesture's own writes.
   const sidebarColRef = useRef<HTMLDivElement | null>(null)
   const scrimRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<SidebarGesture | null>(null)
@@ -378,7 +381,7 @@ export function AppFrame({
   }, [actions, clearGestureWrites])
   const onGestureDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const env = gestureEnv.current
-    if (!env.overlay || e.button !== 0 || gestureRef.current !== null) return
+    if (!env.overlay || e.button !== 0 || e.pointerType !== 'touch' || gestureRef.current !== null) return
     const frame = frameRef.current
     /* v8 ignore next -- the handlers only fire while the frame div is mounted. */
     if (frame === null) return
