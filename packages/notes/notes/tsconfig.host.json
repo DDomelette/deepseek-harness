@@ -28,7 +28,7 @@
     { "path": "../../core/agent-default-model" },
     { "path": "../../core/session" },
     { "path": "../../llm/llm" },
-    { "path": "../../preset/agent-presets" },
+    { "path": "../../preset/agent-preset-registry" },
     { "path": "../../session/session-title" },
     { "path": "../../settings/settings" },
     { "path": "../../storage/storage" },

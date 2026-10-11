@@ -2,7 +2,7 @@
 // dispatch entry + list state, constructed and held by ClientSessions (one per browser client).
 // List data never enters zustand; React connects via subscribe/getListSnapshot.
 
-import type { SubagentAddress, SubagentCatalog } from '@deepseek-ai/dsh-subagent/client'
+import type { SubagentAddress, SubagentCatalogEntry } from '@deepseek-ai/dsh-subagent/client'
 import { SessionSeq, type SessionId, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type {
@@ -55,14 +55,14 @@ export interface SessionListSnapshot {
   /** Arrival lifecycle (see {@link SessionListPhase}); `state` stays the pull-activity axis. */
   phase: SessionListPhase
   error: RemoteFailure | null
-  subagentsByParent: Readonly<Record<SessionId, SubagentCatalogSnapshot>>
+  subagentsByParent: Readonly<Record<SessionId, SubagentCatalogEntrySnapshot>>
   /** Background jobs per session; an absent key is an empty set. */
   jobsBySession: Readonly<Record<SessionId, readonly JobView[]>>
   currentAddress: SubagentAddress | undefined
 }
 
 /** One parent-addressed durable catalog projected through the sessions snapshot. */
-export type SubagentCatalogSnapshot = Omit<SubagentCatalog, 'parentAvailable'> & {
+export type SubagentCatalogEntrySnapshot = Omit<SubagentCatalogEntry, 'parentAvailable'> & {
   /** Absent until the first successful catalog read. */
   readonly parentAvailable?: boolean
   state: 'loading' | 'ready' | 'error'
@@ -120,7 +120,7 @@ export class SessionManager {
   /** Mutations arriving after a list request starts are replayed over its response. */
   private listMutations: SessionListMutation[] | null = null
   private readonly addresses = new Map<SessionId, SubagentAddress>()
-  private readonly catalogs = new Map<SessionId, SubagentCatalogSnapshot>()
+  private readonly catalogs = new Map<SessionId, SubagentCatalogEntrySnapshot>()
   private readonly catalogInflight = new Map<SessionId, CatalogInflight>()
   /** Catalog owners whose membership changed while a pull was in flight: one trailing refresh after it settles. */
   private readonly catalogStale = new Set<SessionId>()
@@ -433,7 +433,7 @@ export class SessionManager {
    * @param parentSessionId - catalog owner.
    * @param open - current menu state.
    */
-  setSubagentCatalogOpen(parentSessionId: SessionId, open: boolean): void {
+  setSubagentCatalogEntryOpen(parentSessionId: SessionId, open: boolean): void {
     if (open) {
       this.openCatalogs.add(parentSessionId)
       void this.refreshSubagents(parentSessionId)
@@ -859,10 +859,10 @@ export class SessionManager {
 
   /** Fold request-local row mutations into one catalog result before publication. */
   private withCatalogMutations(
-    entries: SubagentCatalog['entries'],
+    entries: SubagentCatalogEntry['entries'],
     expandableRows: ReadonlySet<SessionId>,
     activityRows: ReadonlyMap<SessionId, 'running' | 'inactive'>,
-  ): SubagentCatalog['entries'] {
+  ): SubagentCatalogEntry['entries'] {
     return entries.map((entry) => {
       if (entry.kind !== 'child') return entry
       const activity = activityRows.get(entry.id)
