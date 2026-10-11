@@ -22,6 +22,12 @@
     },
     {
       "path": "../schedule"
+    },
+    {
+      "path": "../../core/agent"
+    },
+    {
+      "path": "../../subagent/subagent"
     }
   ]
 }
