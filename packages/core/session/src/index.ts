@@ -49,6 +49,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners
      * receive only sessions entered through that agent's context.
      * @param session - the session just entered and announced.
+     * @dshScopeScan unsupported
      * @mode emit
      */
     'session/created'(this: Scoped<Session>, session: Session): void
@@ -58,6 +59,7 @@ declare module '@deepseek-ai/cordis' {
      * did not begin. Listener failures are logged and contained.
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`) reuses the owner scope.
      * @param session - the session that is no longer live in the store.
+     * @dshScopeScan unsupported
      * @mode emit
      */
     'session/disposed'(this: Scoped<Session>, session: Session): void
@@ -69,6 +71,7 @@ declare module '@deepseek-ai/cordis' {
      * receive only events from sessions entered through that agent's context.
      * @param session - the session whose log grew.
      * @param event - the appended event, exactly as recorded.
+     * @dshScopeScan unsupported
      * @mode emit
      */
     'session/event'(this: Scoped<Session>, session: Session, event: SessionEvent): void
@@ -77,6 +80,7 @@ declare module '@deepseek-ai/cordis' {
      * caller awaits all of them, with no waterfall veto. Scope-filtered dispatch
      * (`@deepseek-ai/dsh-scope`) reuses the session's owner scope.
      * @param session - the session whose buffered events must reach durable storage.
+     * @dshScopeScan unsupported
      * @mode parallel
      */
     'session/flush'(this: Scoped<Session>, session: Session): Promise<void> | void

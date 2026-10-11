@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-与工具注册表一起挂载，给出 payload 目录。配置校验在激活前要求非空 `source` 并拒绝空 `root`；两条路径都必须为绝对路径。内置 Office skills（`@deepseek-ai/dsh-skill-office`）按名字引用本工具取默认解释器。
+与工具注册表一起挂载，给出 payload 目录。配置校验在激活前要求非空 `source` 并拒绝空 `root`；两条路径都必须为绝对路径。
 
 ### 最小配置
 
@@ -73,7 +73,6 @@ kind: "package-reference"
 <a id="further-exploration"></a>
 ## 延伸阅读
 
-- [Office skills](../skill-office/README.zh.md)——调用本工具取解释器的工作流。
 - [工具注册表](../../core/tools/README.zh.md)——注册与 schema。
 
 -----
