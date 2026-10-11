@@ -1,36 +1,22 @@
 /**
- * Shared test fixtures: an in-memory settings provider and a minimal Loader
- * face. `@deepseek-ai/dsh-settings` keeps its own memory fixture unexported,
- * so this package carries a local mirror instead of widening that package's
- * exports.
+ * Shared test fixtures: a minimal Loader face. The manager's `mcp-servers`
+ * section is the plugin's own Config, so a test supplies it as the plugin
+ * config and edits it through `fiber.update()` — no settings provider takes
+ * part.
  */
 
-import { SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { McpServersConfig, McpServersSection } from '../src/schema.ts'
 
-/** In-memory provider implementing only the three provider primitives. */
-export class MemorySettings extends SettingsProvider {
-  /** Raw document the provider "storage" currently holds. */
-  doc: Record<string, unknown>
-
-  constructor(ctx: ConstructorParameters<typeof SettingsProvider>[0], options?: {
-    doc?: Record<string, unknown>
-  }) {
-    super(ctx)
-    this.doc = structuredClone(options?.doc ?? {})
-  }
-
-  get writable(): boolean {
-    return true
-  }
-
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.doc))
-  }
-
-  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.doc[ns] = structuredClone(section)
-    return Promise.resolve()
-  }
+/**
+ * Section for a mount-time plugin config. A Config with a volatile root takes
+ * its resolved reference type at the call site, while a composition — and a
+ * test standing in for one — supplies the plain section; a later edit goes
+ * through `fiber.update()`, which takes raw config as the Loader does.
+ * @param section - the section the composition stores.
+ * @returns the same section as the mount-time config argument.
+ */
+export function mountSection(section: McpServersSection): McpServersConfig {
+  return section as unknown as McpServersConfig
 }
 
 /** Declarative entry facts the fake Loader surface carries. */

@@ -6,10 +6,15 @@
  */
 
 import z from '@deepseek-ai/schemastery'
+import type { Volatile, VolatileSnapshot } from '@deepseek-ai/cordis'
 import { ReconnectConfigSchema } from '@deepseek-ai/dsh-mcp-client'
 import type { ReconnectConfig } from '@deepseek-ai/dsh-mcp-client'
 
-/** Settings namespace owning the panel-managed MCP server roster. */
+/**
+ * Settings namespace owning the panel-managed MCP server roster. A namespace
+ * IS its Loader entry id, so the composition's manager row must carry this id
+ * for the Web MCP tab, which binds the same key, to address the section.
+ */
 export const MCP_SERVERS_NS = 'mcp-servers'
 
 /** Valid serverName, identical to the mcp-client constraint. */
@@ -48,6 +53,16 @@ export type McpServerEntryConfig = McpStdioEntry | McpHttpEntry
 /** Resolved `mcp-servers` section: dict keyed by serverName. */
 export type McpServersSection = Record<string, McpServerEntryConfig>
 
+/**
+ * The section as the manager's own Config holds it. The reference stays stable
+ * for the instance's lifetime, so a settings edit that touches only this
+ * section commits into the running plugin without remounting it.
+ */
+export type McpServersConfig = Volatile<McpServersSection>
+
+/** Detached section read from {@link McpServersConfig}; every level is readonly. */
+export type McpServersSnapshot = VolatileSnapshot<McpServersSection>
+
 const stdioEntry = z.object({
   enabled: z.boolean().default(true),
   transport: z.const('stdio'),
@@ -73,5 +88,14 @@ const httpEntry = z.object({
 /** Schema of one dict entry; the key carries the serverName. */
 export const McpServerEntrySchema = z.union([stdioEntry, httpEntry]) as unknown as z<McpServerEntryConfig>
 
-/** Schema of the whole `mcp-servers` section. */
-export const McpServersSchema = z.dict(McpServerEntrySchema) as unknown as z<McpServersSection>
+/**
+ * Schema of the whole `mcp-servers` section: the manager's Config, and the form
+ * the settings page renders it from. The key schema carries the serverName
+ * grammar, so an unusable name is refused where the section is validated rather
+ * than by the roster that would mount it. The root is volatile because the
+ * section is edited while the manager runs: the settings seam only accepts a
+ * path beneath a volatile node.
+ */
+export const McpServersSchema = z.dict(McpServerEntrySchema, z.string().pattern(SERVER_NAME_PATTERN))
+  .default({})
+  .volatile() as unknown as z<McpServersConfig>

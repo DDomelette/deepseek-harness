@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-由设置驱动的 MCP 服务器管理器：拥有 Web 设置面板编辑的 `mcp-servers` 用户设置命名空间，并将 `cordis.yml` 中声明的（declarative）MCP 服务器以只读方式投影在面板管理的名册旁边。
+由设置驱动的 MCP 服务器管理器：声明 `mcp-servers` 设置段——即它自己的插件 Config，由 Web 设置面板编辑——并将 `cordis.yml` 中声明的（declarative）MCP 服务器以只读方式投影在面板管理的名册旁边。
 
 
 ## 目录
@@ -26,18 +26,21 @@ kind: "package-reference"
 <a id="usage"></a>
 ## 用法
 
-与 settings 提供方和 Loader 一起挂载该插件；它注入 `settings` 和 `loader`：
+与 Loader 一起挂载该插件；它注入 `loader`，并把该 section 声明为自己的 Config：
 
 ```yaml
-- name: '@deepseek-ai/dsh-mcp-manager'
+- id: mcp-servers
+  name: '@deepseek-ai/dsh-mcp-manager'
 ```
 
-注册后的 `mcp-servers` 段是一个以 serverName 为键的字典；每个条目镜像 `dsh-mcp-client` 的 Config 字段并增加 `enabled`。写入即时生效。当键违反 serverName 模式（`[A-Za-z0-9_-]{1,32}`）或与 `cordis.yml` 中已声明的服务器重名时，写入会被拒绝——declarative 名册与面板管理名册绝不重叠。
+`mcp-servers` 段是一个以 serverName 为键的字典；每个条目镜像 `dsh-mcp-client` 的 Config 字段并增加 `enabled`。设置编辑即时生效。段的 schema 会拒绝违反 serverName 模式（`[A-Za-z0-9_-]{1,32}`）的键；对运行中管理器的编辑若命名了 `cordis.yml` 中已声明的服务器，也会被拒绝——declarative 名册与面板管理名册绝不重叠。管理器挂载时组合中已存储的段则由本包的不变式报告。
+
+namespace 就是其 Loader entry id，因此管理器所在行必须使用 `mcp-servers` 这个 id，绑定同一键的 Web MCP 标签页才能寻址该段。
 
 <a id="config"></a>
 ## 配置
 
-`mcp-servers` 段位于设置文档中（是一个命名空间，而非插件 Config）：
+`mcp-servers` 段就是插件自身的 Config，因此设置页由 `McpServersSchema` 渲染它，配置编辑器把它持久化在 profile patch 中：
 
 | 字段 | 传输 | 必填 | 描述 |
 |---|---|---|---|
@@ -65,12 +68,12 @@ kind: "package-reference"
 <a id="roster-remote"></a>
 ## 名册 Remote
 
-本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有命名空间注册与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。设置名单或挂载生命周期状态变化后，管理器会发出不带载荷的 `mcp-servers/change` 失效通知；Remote 消费端重新读取 `list()`，而不把事件本身当作快照。
+本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有该段的 schema 与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。设置名单或挂载生命周期状态变化后，管理器会发出不带载荷的 `mcp-servers/change` 失效通知；Remote 消费端重新读取 `list()`，而不把事件本身当作快照。
 
 <a id="relationship-to-dsh-mcp-client"></a>
 ## 与 dsh-mcp-client 的关系
 
-`dsh-mcp-client` 每个插件实例连接一个 MCP 服务器，并把它的工具注册到 `ctx.tools`。本包拥有面板写入的设置命名空间，自身从不连接任何服务器——每个生效条目都是一个 `dsh-mcp-client` 实例。
+`dsh-mcp-client` 每个插件实例连接一个 MCP 服务器，并把它的工具注册到 `ctx.tools`。本包拥有面板写入的设置段，自身从不连接任何服务器——每个生效条目都是一个 `dsh-mcp-client` 实例。
 
 <a id="model-experience"></a>
 ## 模型体验
@@ -96,7 +99,8 @@ kind: "package-reference"
 - **仅生命周期状态** — `status` 上报挂载 fiber 的结算，而非存活状态；在默认 `failOnStartupError: false` 下，一台始终不应答初始连接的服务器仍会报告 `ready`。
 - **预设挂载的服务器不可见** — agent preset 内联挂载的 MCP 服务器不在 `ctx.loader.entries()` 中，因此也不在声明式名单里。
 - **以 serverName 为键** — 改名意味着删除条目并新增；settings 键即名称。
-- **面板是唯一编辑器** — 该分节是普通 settings 数据，无头部署可直接编辑 `settings.yaml`，但针对声明式名称的写时重名守卫只经 settings 缝生效。
+- **面板是唯一编辑器** — 该段是普通 profile 配置，部署可直接编辑 patch，但针对声明式名称的写时重名守卫只在管理器自己提交该段时生效。
+- **命名空间跟随所在行 id** — namespace 就是其 Loader entry id，重命名管理器所在行会让该段脱离 Web MCP 标签页绑定的键。
 
 <a id="dev-note"></a>
 ### 开发备注

@@ -5,7 +5,7 @@ describe('mcp-servers schema', () => {
   it('applies stdio defaults', () => {
     const value = McpServersSchema({
       alpha: { transport: 'stdio', command: 'memorix' },
-    } as never)
+    } as never).get()
     expect(value.alpha).toMatchObject({
       enabled: true,
       args: [],
@@ -19,13 +19,23 @@ describe('mcp-servers schema', () => {
   it('applies streamable-http defaults', () => {
     const value = McpServersSchema({
       docs: { transport: 'streamable-http', url: 'https://example.com/mcp' },
-    } as never)
+    } as never).get()
     expect(value.docs).toMatchObject({ enabled: true, headers: {} })
   })
 
   it('rejects an entry missing its transport-required field', () => {
     expect(() => McpServersSchema({ broken: { transport: 'stdio' } } as never)).toThrow()
     expect(() => McpServersSchema({ broken: { transport: 'streamable-http' } } as never)).toThrow()
+  })
+
+  it('refuses a key outside the serverName grammar', () => {
+    expect(() => McpServersSchema({ 'has space': { transport: 'stdio', command: 'x' } } as never)).toThrow()
+    expect(McpServersSchema({ node_repl: { transport: 'stdio', command: 'x' } } as never).get())
+      .toHaveProperty('node_repl')
+  })
+
+  it('resolves an absent section to an empty roster', () => {
+    expect(McpServersSchema(undefined as never).get()).toEqual({})
   })
 
   it('exposes the shared serverName pattern and namespace literal', () => {

@@ -8,7 +8,7 @@ kind: "package-reference"
 
 ## 概述
 
-`@deepseek-ai/dsh-api-settings-controller` 为浏览器配置界面提供生成的 `ctx.remote.settings` 与 `ctx.remote.credentials` namespace。它返回脱敏的 settings 与凭据元数据，支持 settings 与凭据写入而不返回机密值，并在 Host 桌面打开由提供方持有的 settings 或 Agent preset 位置。提供方缺失时，namespace 仍会注册，并返回可操作的配置错误。
+`@deepseek-ai/dsh-api-settings-controller` 为浏览器配置界面提供生成的 `ctx.remote.settings` 与 `ctx.remote.credentials` namespace。它返回脱敏的 settings 与凭据元数据，支持 settings 与凭据写入而不返回机密值，并在 Host 桌面打开 profile 自身的配置文件。提供方缺失时，namespace 仍会注册，并返回可操作的配置错误。
 
 ## 目录
 
@@ -27,9 +27,9 @@ kind: "package-reference"
 
 `describe(refs)` 以请求的名字为键返回一份 map，因此设置页描述其各行携带的全部引用时，这些行会一起落定。单次调用最多接受 64 个名字，无效名字或空写入值报告为 `bad-request`，并逐字段复制每个答案——提供方返回超出 `CredentialInfo` 声明的内容也无法扩大跨越 wire 的字段。有效的 `set(ref, value)` 与 `unset(ref)` 调用把提供方拒绝报告为 `credential-rejected`，携带提供方的消息，details 中只有该引用。机密值只在这个方向跨越 wire：这里没有任何方法会返回它。
 
-`settings.describe()` 返回部署信息，以及在 `redactSecrets: true` 下读取的所有 namespace。`settings.update`、`settings.replace` 与 `settings.mutate` 暴露 settings 服务的三种写入操作，并返回该 namespace 的新脱敏视图；陈旧写入使用 `settings-conflict`，其他提供方拒绝使用 `settings-rejected`。
+`settings.describe()` 返回部署信息，以及在 `redactSecrets: true` 下读取的所有 namespace。一个 namespace 就是一个运行时导出 Config schema 的活跃 Loader entry，因此这些视图跟随组合，而不是某个注册表。`settings.update`、`settings.replace` 与 `settings.mutate` 暴露 settings 服务的三种写入操作，并返回该 namespace 的新脱敏视图；陈旧写入使用 `settings-conflict`，其他 seam 拒绝使用 `settings-rejected`。
 
-`settings.openSettingsDocument()` 准备提供方持有的文档，并用原生文本编辑器意图将其打开。`settings.canOpenAgentPresetDirectory()` 在 preset 页面显示时报告原生打开能力。`settings.openAgentPresetDirectory(id)` 只解析用户创作的 preset，并打开其目录，或在原生打开不可用时返回目录路径；两个打开方法都不接受浏览器提供的文件系统目标。
+`settings.openSettingsDocument()` 准备 profile 自身的配置文件，并用原生文本编辑器意图将其打开。`settings.canOpenAgentPresetDirectory()` 报告本部署是否有可交付位置的原生打开器。`settings.openAgentPresetDirectory(id)` 在 preset 名册中解析该 id，并把每个 preset 都以 `agent-preset/read-only` 拒绝：preset 由组合声明，不拥有可创作的目录，因此两个打开方法都不接受浏览器提供的文件系统目标。
 
 -----
 
@@ -58,6 +58,7 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - 批量上限固定为 64 个引用，不是可按部署配置的字段。
+- **没有可打开的 preset 目录。** 合并后的 preset 名册在 `cordis.yml` 内声明每个 preset 的组合，因此 `settings.openAgentPresetDirectory` 解析 preset 后只会拒绝它；恢复用户创作的 preset 根目录才能让该方法重新打开目录（见 `src/index.ts` 的 `FIXME`）。
 
 <a id="dev-note"></a>
 ### 开发备注

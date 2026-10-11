@@ -1,76 +1,85 @@
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import z from '@deepseek-ai/schemastery'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
-import type {} from '@deepseek-ai/dsh-settings'
+import McpManager from '../src/index.ts'
 import * as McpManagerInvariant from '../src/invariant.ts'
 import { MCP_CLIENT_MODULE } from '../src/declarative.ts'
-import { MCP_SERVERS_NS, McpServersSchema } from '../src/schema.ts'
-import { MemorySettings, fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
-
-const NS = MCP_SERVERS_NS
+import type { McpStdioEntry } from '../src/schema.ts'
+import { fakeLoader, mountSection, type FakeLoaderEntry } from './fixtures.ts'
 
 const DECLARATIVE_MEMORIX: FakeLoaderEntry = {
   name: MCP_CLIENT_MODULE,
   config: { serverName: 'memorix', transport: 'stdio' },
 }
 
-async function setup(loaderEntries: FakeLoaderEntry[] = []) {
+/** Disabled stdio entry: the section carries the key, no process is ever spawned. */
+function parked(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
+  return {
+    enabled: false,
+    transport: 'stdio',
+    command: 'memorix',
+    args: [],
+    env: {},
+    cwd: '',
+    toolCallTimeoutMs: 60_000,
+    failOnStartupError: false,
+    reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
+    ...over,
+  }
+}
+
+const booted: Context[] = []
+
+afterEach(async () => {
+  await Promise.all(booted.splice(0).map(ctx => ctx.fiber.dispose()))
+})
+
+async function setup(loaderEntries: FakeLoaderEntry[] = [], section: Record<string, McpStdioEntry> = {}) {
   const ctx = new Context()
   ctx.provide('loader', fakeLoader(loaderEntries) as never)
   await ctx.plugin(InvariantRegistry)
-  await ctx.plugin(MemorySettings)
-  return ctx
+  // The section is the mount-time config: a colliding one must already be
+  // stored, because a live edit to the running manager is refused.
+  const manager = await ctx.plugin(McpManager, mountSection(section))
+  booted.push(ctx)
+  return { ctx, manager }
 }
 
 describe('mcp-manager invariants', () => {
-  it('accepts a pre-registered section without declarative collision', async () => {
-    const ctx = await setup([DECLARATIVE_MEMORIX])
-    ctx.settings.register(NS, McpServersSchema)
+  it('accepts a stored section without declarative collision', async () => {
+    const { ctx } = await setup([DECLARATIVE_MEMORIX], { alpha: parked() })
     await ctx.plugin(McpManagerInvariant)
   })
 
   it('fails when an already-stored section collides with a declarative server', async () => {
-    const ctx = await setup([DECLARATIVE_MEMORIX])
-    // No validate hook here: the invariant is the backstop for sections the
-    // owner's registration never judged (stored before it mounted).
-    ctx.settings.register(NS, McpServersSchema)
-    await ctx.settings.update(NS, { memorix: { transport: 'stdio', command: 'x' } })
+    // The live-edit gate never judged a section the composition stored before
+    // the manager mounted; the invariant is that backstop.
+    const { ctx } = await setup([DECLARATIVE_MEMORIX], { memorix: parked() })
     await expect(ctx.plugin(McpManagerInvariant)).rejects.toThrow(/memorix/)
   })
 
   it('passes a committed update without declarative collision', async () => {
-    const ctx = await setup()
+    const { ctx, manager } = await setup()
     await ctx.plugin(McpManagerInvariant)
-    ctx.settings.register(NS, McpServersSchema)
-    await ctx.settings.update(NS, { alpha: { transport: 'stdio', command: 'x' } })
+    await manager.update({ alpha: parked() })
   })
 
-  it('fails a committed update whose key collides with a declarative server', async () => {
-    const ctx = await setup([DECLARATIVE_MEMORIX])
+  it('never sees a live edit whose key collides with a declarative server', async () => {
+    const { ctx, manager } = await setup([DECLARATIVE_MEMORIX])
     await ctx.plugin(McpManagerInvariant)
-    ctx.settings.register(NS, McpServersSchema)
-    await expect(ctx.settings.update(NS, {
-      memorix: { transport: 'stdio', command: 'x' },
-    })).rejects.toThrow(/memorix/)
+    // The write path refuses the collision before it is persisted, so the
+    // section the invariant observes stays non-intersecting.
+    expect(() => manager.update({ memorix: parked() })).toThrow(/memorix/)
   })
 
-  it('ignores updates to other namespaces', async () => {
-    const ctx = await setup([DECLARATIVE_MEMORIX])
+  it('accepts a section when the composition declares no server', async () => {
+    const { ctx } = await setup([], { memorix: parked() })
     await ctx.plugin(McpManagerInvariant)
-    ctx.settings.register('other', z.object({
-      flag: z.boolean().default(false),
-    }))
-    await ctx.settings.update('other', { flag: true })
   })
 
-  it('ignores non-object payloads', async () => {
-    const ctx = await setup()
+  it('accepts a manager whose section names no server', async () => {
+    const { ctx } = await setup([DECLARATIVE_MEMORIX])
     await ctx.plugin(McpManagerInvariant)
-    ctx.settings.register(NS, McpServersSchema)
-    ctx.emit('settings/updated', NS as SettingsNamespace, 'forged', {}, 'update')
-    ctx.emit('settings/updated', NS as SettingsNamespace, null, {}, 'update')
   })
 })

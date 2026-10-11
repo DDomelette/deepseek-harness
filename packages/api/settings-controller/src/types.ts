@@ -25,6 +25,12 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
      * reference, never the value.
      */
     'credential/rejected': { readonly ref: string }
+    /**
+     * The addressed Agent preset has no location this deployment may hand to a
+     * native opener: a preset that ships with the deployment owns no authored
+     * directory.
+     */
+    'agent-preset/read-only': { readonly agentPreset: string; readonly reason: string }
   }
 }
 

@@ -4,41 +4,39 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-settings'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
-import { declarativeMcpServers, MCP_SERVERS_NS } from './index.ts'
+import { declarativeMcpServers } from './declarative.ts'
+import { supervisorFor } from './supervisor.ts'
 
 const PACKAGE_NAME = '@deepseek-ai/dsh-mcp-manager'
 
 /** Cordis companion plugin name. */
 export const name = 'mcp-manager-invariant'
 /** Service required before the companion can reserve package ownership. */
-export const inject = ['invariants']
+export const inject = ['loader']
 
 /**
- * Install the roster non-intersection contract: a resolved `mcp-servers`
- * section never names a cordis.yml-declared server. The namespace
- * registration's `validate` refuses such writes; this companion proves the
- * relation still holds at every commit, including sections stored before the
- * owner mounted.
+ * Install the roster non-intersection contract: the `mcp-servers` section the
+ * manager reconciled never names a cordis.yml-declared server. An edit to the
+ * running manager is refused before it is persisted, so this companion covers
+ * the section a composition already stored when the owner mounted — the one
+ * case the write path deliberately leaves alone.
  */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
-  const check = (value: unknown): void => {
-    if (typeof value !== 'object' || value === null) return
+  const check = (): void => {
+    const section = supervisorFor(ctx)?.currentSection() ?? {}
     const declarative = new Set(declarativeMcpServers(ctx).map(server => server.serverName))
-    for (const key of Object.keys(value)) {
+    for (const key of Object.keys(section)) {
       if (declarative.has(key)) {
         fail(`mcp-servers entry "${key}" collides with the cordis.yml-declared server of the same name`)
       }
     }
   }
-  const current = ctx.settings.get(MCP_SERVERS_NS)
-  if (current !== undefined) check(current)
-  ctx.on('settings/updated', (ns, next) => {
-    if (ns !== MCP_SERVERS_NS) return
-    check(next)
-  })
-}, { inject: ['settings', 'loader'] })
+  check()
+  // The supervisor's own roster invalidation is the one signal that a section
+  // became current, whether it was committed live or read at activation.
+  ctx.on('mcp-servers/change', check)
+}, { inject: ['loader'] })
 
 /**
  * Register this package's invariant companion.

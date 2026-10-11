@@ -15,9 +15,8 @@ import type {} from '@deepseek-ai/dsh-settings'
 import McpManager from '../src/index.ts'
 import { McpServerSupervisor } from '../src/supervisor.ts'
 import type { ManagedServerState } from '../src/supervisor.ts'
-import { MCP_SERVERS_NS } from '../src/schema.ts'
 import type { McpStdioEntry } from '../src/schema.ts'
-import { MemorySettings, fakeLoader } from './fixtures.ts'
+import { fakeLoader } from './fixtures.ts'
 
 const fixtureServerPath = fileURLToPath(new URL('../../mcp-client/tests/fixture-server.ts', import.meta.url))
 
@@ -54,16 +53,13 @@ async function mountRegistry(): Promise<Context> {
 async function boot(): Promise<{ ctx: Context; manager: Fiber }> {
   const ctx = await mountRegistry()
   ctx.provide('loader', fakeLoader([]) as never)
-  await ctx.plugin(MemorySettings)
   const manager = await ctx.plugin(McpManager)
   return { ctx, manager }
 }
 
-/** Spawn the fixture server through a settings commit. */
-async function writeEntry(ctx: Context, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
-  await ctx.settings.update(MCP_SERVERS_NS, {
-    [serverName]: { transport: 'stdio', command: process.execPath, args: [fixtureServerPath], ...entry },
-  })
+/** Spawn the fixture server through a section commit on the running plugin. */
+async function writeEntry(manager: Fiber, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
+  await manager.update({ [serverName]: fixtureEntry(entry) })
 }
 
 describe('McpServerSupervisor mounting', () => {
@@ -262,18 +258,18 @@ describe('McpServerSupervisor mounting', () => {
 })
 
 describe('mcp-manager settings wiring', () => {
-  it('mounts on a settings commit and disposes on enabled: false', async () => {
-    const { ctx } = await boot()
+  it('mounts on a section commit and disposes on enabled: false', async () => {
+    const { ctx, manager } = await boot()
     try {
-      // Non-empty env regresses the frozen-settings clone path: Schemastery
+      // Non-empty env regresses the frozen-section clone path: Schemastery
       // writes adapted dict entries back onto its input and strict-mode
       // assignment on a frozen map fails the whole mcp-client config check.
-      await writeEntry(ctx, 'echo', { env: { DSH_FIXTURE_MARKER: 'frozen' } })
+      await writeEntry(manager, 'echo', { env: { DSH_FIXTURE_MARKER: 'frozen' } })
       await vi.waitFor(() => {
         expect(ctx.tools.get('mcp__echo__add')).toBeDefined()
       }, { timeout: MOUNT_TIMEOUT })
 
-      await writeEntry(ctx, 'echo', { enabled: false })
+      await writeEntry(manager, 'echo', { enabled: false })
       await vi.waitFor(() => {
         expect(ctx.tools.get('mcp__echo__add')).toBeUndefined()
       }, { timeout: MOUNT_TIMEOUT })
@@ -285,7 +281,7 @@ describe('mcp-manager settings wiring', () => {
   it('tears down the roster when the plugin unloads', async () => {
     const { ctx, manager } = await boot()
     try {
-      await writeEntry(ctx, 'echo', {})
+      await writeEntry(manager, 'echo', {})
       await vi.waitFor(() => {
         expect(ctx.tools.get('mcp__echo__add')).toBeDefined()
       }, { timeout: MOUNT_TIMEOUT })
