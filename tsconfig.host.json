@@ -20,6 +20,7 @@
     "apps/web/tests/streaming-fence-highlight.e2e.ts",
     "apps/web/tests/declared-reasoning.e2e.ts",
     "apps/web/tests/support.ts",
+    "apps/web/tests/prefix-proxy.ts",
     "apps/web/tests/scaffold-hermetic.e2e.ts",
     "apps/web/tests/startup-rpc-budget.e2e.ts",
     "apps/web/tests/legacy-engine.e2e.ts",
@@ -118,6 +119,8 @@
     "apps/desktop/tests/**/*.ts",
     "benchmarks/**/*.ts",
     "packages/*/*/tests/**/*.ts",
+    "packages/preset/agent-preset/src/**/*.ts",
+    "packages/experimental/claude-code-mods/examples/**/*.ts",
     "scripts/**/*.ts",
     "website/**/*.ts",
     "website/.vitepress/**/*.ts"
@@ -129,6 +132,7 @@
   "exclude": [
     "packages/client/*/src/**",
     "benchmarks/**/*.client.ts",
+    "packages/experimental/claude-code-mods/examples/**/tests/**",
     "benchmarks/**/*.client.tsx",
     "packages/*/*/tests/**/*.client.ts",
     "packages/*/*/tests/**/*.client.tsx",
@@ -413,6 +417,7 @@
     { "path": "./packages/skill/tool-workspace-dependencies" },
     { "path": "./packages/telemetry/otel" },
     { "path": "./packages/util/lazy-require" },
-    { "path": "./packages/workflow/workflow-ptc" }
+    { "path": "./packages/workflow/workflow-ptc" },
+    { "path": "./packages/preset/agent-preset" }
   ]
 }

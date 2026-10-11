@@ -183,6 +183,7 @@
     "postinstall": "node scripts/install-lefthook.mjs"
   },
   "devDependencies": {
+    "semver": "^7.8.5",
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-package-manifest": "workspace:^",
     "@deepseek-ai/dsh-tool-session-query": "workspace:^",
