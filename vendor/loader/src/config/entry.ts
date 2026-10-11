@@ -54,6 +54,8 @@ export class Entry {
 
   public ctx: Context
   public fiber?: Fiber
+  /** Raw import result before export normalization; HMR updates it after a successful reload. */
+  public moduleNamespace: unknown
   public parent!: EntryGroup
   // safety: call `entry.update()` immediately after creating an entry
   public options = {} as EntryOptions
@@ -276,8 +278,10 @@ export class Entry {
 
   private async _init() {
     let plugin: any
+    let moduleNamespace: unknown
     try {
-      plugin = this.loader.unwrapExports(await this.parent.tree.import(this.options.name, this.getOuterStack))
+      moduleNamespace = await this.parent.tree.import(this.options.name, this.getOuterStack)
+      plugin = this.loader.unwrapExports(moduleNamespace)
     } catch (error) {
       throw updateError('import', this.options, error)
     }
@@ -286,6 +290,7 @@ export class Entry {
     } catch (error) {
       throw updateError('apply', this.options, error)
     }
+    this.moduleNamespace = moduleNamespace
   }
 
   private async _start(plugin: any) {
