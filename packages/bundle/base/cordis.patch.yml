@@ -103,7 +103,7 @@
     # `llm-deepseek:` or `llm-pi-ai:` section there overrides the adapter entries
     # below without a restart, and is what the web Models page writes.
     - id: settings
-      name: '@deepseek-ai/dsh-settings-file'
+      name: '@deepseek-ai/dsh-settings'
 
     # Credential sources: inherited environment over the managed
     # `$DSH_HOME/.credentials.yaml`, with project and user `.env` fallbacks.

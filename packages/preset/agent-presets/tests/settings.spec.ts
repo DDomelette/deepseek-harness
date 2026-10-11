@@ -18,7 +18,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import FileSettingsProvider from '@deepseek-ai/dsh-settings-file'
+import FileSettingsProvider from '@deepseek-ai/dsh-settings'
 import { afterEach, describe, expect, it } from 'vitest'
 import AgentPresets, { COMPOSITION_FILE, SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-presets'
 
