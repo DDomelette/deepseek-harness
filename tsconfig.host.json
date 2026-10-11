@@ -375,6 +375,14 @@
     { "path": "./packages/skill/skill-settings" },
     { "path": "./packages/telemetry/usage-exporter" },
     { "path": "./packages/telemetry/usage-telemetry" },
-    { "path": "./packages/notes/notes/tsconfig.host.json" }
+    { "path": "./packages/notes/notes/tsconfig.host.json" },
+    { "path": "./packages/boot/config-editor" },
+    { "path": "./packages/session/working-directory" },
+    { "path": "./packages/core/agent-default-model" },
+    { "path": "./packages/ptc-runtime/ptc-runtime" },
+    { "path": "./packages/ptc-runtime/ptc-runtime-node" },
+    { "path": "./packages/compaction/compaction-image-offload" },
+    { "path": "./packages/preset/agent-preset-registry" },
+    { "path": "./packages/llm/plugin-package-inventory-deepseek" }
   ]
 }
