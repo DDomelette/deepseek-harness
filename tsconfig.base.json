@@ -464,7 +464,7 @@
       "@deepseek-ai/dsh-workflow/invariant": ["./packages/workflow/workflow/src/invariant.ts"],
       "@deepseek-ai/dsh-workflow-worker-thread": ["./packages/workflow/workflow-worker-thread/src"],
       "@deepseek-ai/dsh-working-directory": ["./packages/session/working-directory/src"],
-      "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"]
+      "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"],
       // END generated package aliases
       "@deepseek-ai/dsh-experimental-claude-code-mods": ["./packages/experimental/claude-code-mods/src"],
       "@deepseek-ai/dsh-experimental-claude-code-mods/types": ["./packages/experimental/claude-code-mods/src/types.ts"],
