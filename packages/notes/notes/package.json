@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-notes",
   "description": "Web notes panel: collect text and screenshots from a dsh session, keep them as materials, and have a configured model answer each one in its own conversation.",
-  "version": "0.1.5-rc.1",
+  "version": "0.2.1-alpha.2",
   "publishConfig": {
     "access": "public"
   },
