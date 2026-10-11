@@ -347,9 +347,6 @@
     { "path": "./packages/guard/repeat-tool-reminder" },
     { "path": "./packages/extensions/cordis-host-runner" },
     { "path": "./packages/extensions/tool-cordis" },
-    { "path": "./packages/hooks/hook-protocol" },
-    { "path": "./packages/hooks/hooks-claude-code" },
-    { "path": "./packages/hooks/hooks-codex" },
     { "path": "./packages/mcp/mcp-client" },
     { "path": "./packages/host/directory-picker" },
     { "path": "./packages/host/directory-picker-auto" },
@@ -383,6 +380,11 @@
     { "path": "./packages/ptc-runtime/ptc-runtime-node" },
     { "path": "./packages/compaction/compaction-image-offload" },
     { "path": "./packages/preset/agent-preset-registry" },
-    { "path": "./packages/llm/plugin-package-inventory-deepseek" }
+    { "path": "./packages/llm/plugin-package-inventory-deepseek" },
+    { "path": "./packages/experimental/hook-protocol" },
+    { "path": "./packages/experimental/hooks-claude-code" },
+    { "path": "./packages/experimental/hooks-codex" },
+    { "path": "./packages/experimental/claude-code-mods" },
+    { "path": "./packages/experimental/client-ui-claude-code-mods" }
   ]
 }
