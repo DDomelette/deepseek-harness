@@ -296,29 +296,6 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* Where the host has no desktop opener, the row answers with the directory
-   itself — text to copy, not a control that would spawn into nothing. */
-.revealedPath {
-  margin: 0;
-  padding: 6px 16px 10px;
-  font-size: 11px;
-  color: var(--dsw-alias-label-tertiary);
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-}
-
-.revealedPath code {
-  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  color: var(--dsw-alias-label-secondary);
-  user-select: all;
-  overflow-wrap: anywhere;
-}
-
-.revealedPathLabel {
-  white-space: nowrap;
-}
-
 .secondaryButton {
   border: none;
   border-radius: 7px;

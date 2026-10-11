@@ -1926,22 +1926,6 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     openSettingsDocument(): RpcResult<{ opened: true }> {
       return { ok: true, value: { opened: true } }
     },
-    openAgentPresetDirectory(agentPreset: string): RpcResult<
-      { opened: true } | { opened: false; path: string }
-    > {
-      const existing = fixturePresets.get(agentPreset)
-      if (existing === undefined || existing.trust === 'system') {
-        return {
-          ok: false,
-          error: {
-            code: 'agent-preset/read-only',
-            message: `agent preset "${agentPreset}" ships with the deployment`,
-            details: { agentPreset, reason: 'it ships with the deployment' },
-          },
-        }
-      }
-      return { ok: true, value: { opened: true } }
-    },
   }
 
   const credentialRemotes = {
@@ -2796,7 +2780,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         return {
           ok: false,
           error: {
-            code: 'agent-preset/read-only',
+            code: 'agent-preset/invalid',
             message: `agent preset "${id}" ships with the deployment`,
             details: { agentPreset: id, reason: 'it ships with the deployment' },
           },
@@ -3875,11 +3859,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'credentials/set': return Promise.resolve(credentialRemotes.set(args.ref as string))
         case 'credentials/unset': return Promise.resolve(credentialRemotes.unset(args.ref as string))
         case 'settings/describe': return Promise.resolve(settingsRemotes.describe())
-        case 'settings/canOpenAgentPresetDirectory': return Promise.resolve({ ok: true, value: true })
         case 'settings/openSettingsDocument': return Promise.resolve(settingsRemotes.openSettingsDocument())
-        case 'settings/openAgentPresetDirectory': return Promise.resolve(
-          settingsRemotes.openAgentPresetDirectory(args.agentPreset as string),
-        )
         case 'skills/list': {
           const skillRequest = request as { readonly sessionId: SessionId }
           const missing = requireRemoteSession(skillRequest)

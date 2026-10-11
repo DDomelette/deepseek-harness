@@ -249,7 +249,7 @@ describe('connection node half', () => {
     const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example'] })
     const methods = [
       'session/openWorkspacePath',
-      'llm/discoverModels', 'skills/list', 'settings/openAgentPresetDirectory',
+      'llm/discoverModels', 'skills/list', 'settings/openSettingsDocument',
     ]
     for (const method of methods) {
       const denied = fakeResponse()
@@ -717,7 +717,6 @@ describe('connection node half over a real HTTP server', () => {
         'settings/openSettingsDocument',
         'session/openWorkspacePath',
         'llm/discoverModels', 'skills/list',
-        'settings/openAgentPresetDirectory',
         'llm/listProviders', 'session/modelCatalog',
       ]
       for (const method of methods) {

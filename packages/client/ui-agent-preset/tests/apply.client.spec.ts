@@ -73,7 +73,6 @@ async function bench() {
   // The row reads `describe` to learn whether this browser may write at all,
   // and its default write is the one op this spec records.
   const settings = {
-    canOpenAgentPresetDirectory: () => Promise.resolve({ ok: true as const, value: true }),
     describe: () => Promise.resolve({
       ok: true as const,
       value: { writable: true, hasDocument: true, namespaces: [] },
@@ -81,10 +80,6 @@ async function bench() {
     update: (_ns: string, patch: unknown) => {
       calls.push(`settings:${JSON.stringify(patch)}`)
       return Promise.resolve({ ok: true as const, value: {} })
-    },
-    openAgentPresetDirectory: (agentPreset: string) => {
-      calls.push(`openAgentPresetDirectory:${agentPreset}`)
-      return Promise.resolve({ ok: true as const, value: { opened: true as const } })
     },
   }
   const remote = new TestRemote(ctx, { settings })
@@ -236,13 +231,12 @@ describe('ui-agent-preset apply', () => {
     await section.view('standard')
     section.closeView()
     section.confirmDelete('mine')
-    await Promise.all([section.openLocation('mine'), section.remove()])
+    await section.remove()
 
     // One controller behind every action: the copy the dialog named is the
     // one the roster re-read reflects, and the delete the section confirmed
     // is the one its remove() sees.
     expect(calls).toContain('copy:mine')
-    expect(calls.filter(call => call === 'openAgentPresetDirectory:mine').length).toBeGreaterThan(0)
     expect(section.hooks.agentPresetSection.getSnapshot().rows).toHaveLength(2)
   })
 

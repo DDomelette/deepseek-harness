@@ -29,16 +29,14 @@ Mount this package as a Loader entry in a profile that serves browser configurat
 
 `settings.describe()` returns deployment facts and every namespace under `redactSecrets: true`. A namespace is one active Loader entry whose runtime exports a Config schema, so the views track the composition rather than a registry. `settings.update`, `settings.replace`, and `settings.mutate` expose the settings service's three write operations and return the namespace's new redacted view; stale writes use `settings-conflict` and other seam refusals use `settings-rejected`.
 
-`settings.openSettingsDocument()` prepares the profile's own configuration document and opens it with the native text-editor intent. `settings.canOpenAgentPresetDirectory()` reports whether this deployment has a native opener to hand a location to. `settings.openAgentPresetDirectory(id)` resolves the id against the preset roster and refuses every preset as `agent-preset/read-only`: a preset is declared by the composition and owns no authored directory, so neither open method accepts a browser-supplied filesystem target.
+`settings.openSettingsDocument()` prepares the profile's own configuration document and opens it with the native text-editor intent. Neither open operation accepts a browser-supplied filesystem target.
 
 -----
 
 <a id="configuration"></a>
 ## Configuration
 
-| Field | Default | Meaning |
-|---|---|---|
-| `nativeOpen` | platform-detected | Whether Agent preset directories can be handed to a native desktop opener |
+This package has no configuration fields.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-settings-controller) is the exhaustive source for accepted fields and their JSDoc.
 
@@ -58,7 +56,6 @@ No direct effect; reading or writing these configuration values does not alter m
 <a id="known-limitations-and-deferred-work"></a>
 
 - The batch bound is fixed at 64 references and is not a deployment-configurable field.
-- **No preset directory to open.** The merged preset roster declares each preset's composition inside `cordis.yml`, so `settings.openAgentPresetDirectory` resolves a preset only to refuse it; restoring a user-authored preset root is what would make that method open a directory again (`FIXME` in `src/index.ts`).
 
 <a id="dev-note"></a>
 ### Dev Note

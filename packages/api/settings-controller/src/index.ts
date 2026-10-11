@@ -8,13 +8,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import Schema from '@deepseek-ai/schemastery'
-// Type-only: resolves the `agentPresets` Context augmentation this controller reads.
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import {
-  canOpenNativePath,
-  openNativeTextFile,
-} from '@deepseek-ai/dsh-native-command'
+import { openNativeTextFile } from '@deepseek-ai/dsh-native-command'
 import type { SettingsDescriptor, SettingsForms, SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import type {
   SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView,
@@ -23,18 +17,12 @@ import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { z } from 'zod'
 import { CredentialsController } from './credentials.ts'
-import type { AgentPresetDirectoryOpenValue, SettingsDocumentOpenValue } from './types.ts'
+import type { SettingsDocumentOpenValue } from './types.ts'
 
 export { CredentialsController } from './credentials.ts'
 export type * from './types.ts'
 
 const settingsNamespaceRequestSchema = z.object({ ns: z.string().min(1) })
-
-/** Native document-opening policy. */
-export interface Config {
-  /** Override platform desktop-opener detection. */
-  readonly nativeOpen?: boolean
-}
 
 /** Read abort state afresh after an awaited provider or opener call. */
 function isAborted(signal: AbortSignal): boolean {
@@ -44,7 +32,6 @@ function isAborted(signal: AbortSignal): boolean {
 /** Host integrations replaceable by direct unit tests. */
 export interface SettingsControllerInternals {
   readonly openTextFile?: (path: string, signal: AbortSignal) => Promise<void>
-  readonly canOpenPath?: () => boolean
 }
 
 /**
@@ -84,21 +71,18 @@ declare module '@deepseek-ai/cordis' {
  * `settings/conflict` or `settings/rejected` with the service's message.
  */
 export class SettingsController extends TypertRemoteService {
-  static Config: Schema<Config> = Schema.object({ nativeOpen: Schema.boolean() })
-
   private readonly openTextFile: (path: string, signal: AbortSignal) => Promise<void>
-  private readonly canOpenPath: () => boolean
 
   /**
    * Register the settings namespace and mount the credentials namespace beside
    * it. Both namespaces stay registered when a provider is absent so calls can
    * return the configuration API's actionable missing-provider diagnostic.
    * @param ctx - Host context where settings and credential providers may be mounted.
+   * @param internals - Host integrations replaceable by direct unit tests.
    */
-  constructor(ctx: Context, config: Config = {}, internals: SettingsControllerInternals = {}) {
+  constructor(ctx: Context, internals: SettingsControllerInternals = {}) {
     super(ctx, 'settingsController', { namespace: 'settings' })
     this.openTextFile = internals.openTextFile ?? openNativeTextFile
-    this.canOpenPath = internals.canOpenPath ?? (() => config.nativeOpen ?? canOpenNativePath())
     ctx.plugin(CredentialsController)
   }
 
@@ -119,15 +103,6 @@ export class SettingsController extends TypertRemoteService {
       hasDocument: documentPath !== undefined,
       namespaces: settings.describe({ redactSecrets: true }).map(namespaceView),
     }
-  }
-
-  /**
-   * Report whether this deployment can open an authored Agent preset directory natively.
-   * @returns true when the matching open operation is available.
-   */
-  @Remote
-  canOpenAgentPresetDirectory(): boolean {
-    return this.canOpenPath()
   }
 
   /**
@@ -211,52 +186,6 @@ export class SettingsController extends TypertRemoteService {
       if (isAborted(signal)) throw new RemoteError('gateway/cancelled', 'settings document open was aborted', {})
       throw new RemoteError('gateway/internal', `path open failed: ${messageOf(error)}`, {}, { cause: error })
     }
-  }
-
-  /**
-   * Answer whether one declared Agent preset has files this deployment can open.
-   *
-   * The merged preset roster declares each preset's composition inside
-   * `cordis.yml`; a preset carries neither an authored directory nor a trust
-   * class, so no preset names a location an opener could receive. Every
-   * resolvable preset is therefore refused as `agent-preset/read-only`, which
-   * is the same answer the fork gave for a preset that ships with the
-   * deployment. Restoring a user-authored preset root is what would make this
-   * method open a directory again.
-   *
-   * FIXME: the fork opened the directory of a user-authored preset and revealed
-   * its path without a native opener. `AgentPreset` (agent-preset-registry)
-   * carries no `trust` and no `path`, so neither answer has a source here.
-   * @param agentPreset - preset id resolved against the Host roster.
-   * @param signal - caller lifetime; observed before the roster read.
-   * @returns never; no preset of this composition owns a directory to open.
-   * @throws RemoteError when the id is empty, the roster is absent, the preset is unknown, or it has no openable location.
-   */
-  @Remote
-  async openAgentPresetDirectory(
-    agentPreset: string,
-    signal: AbortSignal,
-  ): Promise<AgentPresetDirectoryOpenValue> {
-    if (agentPreset.length === 0) {
-      throw new RemoteError('gateway/bad-request', 'agent preset id must not be empty', {})
-    }
-    const presets = this.ctx.get('agentPresets')
-    if (presets === undefined) {
-      throw new RemoteError(
-        'agent-preset/not-found',
-        'this deployment composes no agent presets',
-        { agentPreset, available: [] },
-      )
-    }
-    if (isAborted(signal)) {
-      throw new RemoteError('gateway/cancelled', 'path open was aborted', {})
-    }
-    const preset = await presets.resolve(agentPreset)
-    throw new RemoteError(
-      'agent-preset/read-only',
-      `agent-presets: preset "${preset.id}" cannot be opened: it is declared by the deployment composition`,
-      { agentPreset: preset.id, reason: 'it is declared by the deployment composition' },
-    )
   }
 
   private async write(

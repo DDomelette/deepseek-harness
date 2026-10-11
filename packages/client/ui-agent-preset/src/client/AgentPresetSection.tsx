@@ -5,15 +5,15 @@
  *
  * The browser edits no composition text — a shipped preset opens read-only to
  * be READ (it is the known-good composition a copy starts from), and a custom
- * preset is edited in its own files, which is what the location action leads
- * to. Deleting a preset leaves running sessions alone: a composition is
- * mounted once at session creation and nothing re-reads the file.
+ * preset is edited in its own files, which live outside this page. Deleting a
+ * preset leaves running sessions alone: a composition is mounted once at
+ * session creation and nothing re-reads the file.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconBrowseOutline16, IconCopyOutline16, IconFolderOpenOutline16, IconPlusOutline16, IconTrashOutline16, Modal, Tag, Tooltip,
+  Button, IconBrowseOutline16, IconCopyOutline16, IconPlusOutline16, IconTrashOutline16, Modal, Tag, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -43,8 +43,6 @@ export interface AgentPresetSectionInjected {
   setCopyName: (name: string) => void
   /** Submit the copy. */
   confirmCopy: () => Promise<void>
-  /** Open one preset's directory, or reveal its path where there is no desktop. */
-  openLocation: (id: string) => Promise<void>
   /**
    * Stage the self-referential preset and start a new session on it — the
    * guided way to author a preset, beside copying. Absent when the surface
@@ -313,37 +311,22 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                     </button>
                     <div className={css.cardFoot}>
                       {/* Shipped presets are the compositions a copy starts
-                        from, so READING one is the point; a custom preset is
-                        edited in its files instead, which the location action
-                        leads to. A broken shipped preset has no readable
-                        composition to offer, so its viewer is withheld; a
-                        broken custom one keeps the location action — the
-                        files are where it gets fixed. */}
-                      {row.trust === 'system'
-                        ? row.broken === undefined
-                          ? (
-                            <button
-                              type="button"
-                              className={css.iconButton}
-                              data-tip={t('view')}
-                              aria-label={`${t('view')}: ${text.name}`}
-                              onClick={() => { void props.view(row.id) }}
-                            >
-                              <IconBrowseOutline16 />
-                            </button>
-                          )
-                          : null
-                        : (
+                        from, so READING one is the point; the viewer is
+                        withheld for a broken shipped preset, which has no
+                        readable composition to offer. */}
+                      {row.trust === 'system' && row.broken === undefined
+                        ? (
                           <button
                             type="button"
                             className={css.iconButton}
-                            data-tip={state.hasDocument ? t('openLocation') : t('showLocation')}
-                            aria-label={`${state.hasDocument ? t('openLocation') : t('showLocation')}: ${text.name}`}
-                            onClick={() => { void props.openLocation(row.id) }}
+                            data-tip={t('view')}
+                            aria-label={`${t('view')}: ${text.name}`}
+                            onClick={() => { void props.view(row.id) }}
                           >
-                            <IconFolderOpenOutline16 />
+                            <IconBrowseOutline16 />
                           </button>
-                        )}
+                        )
+                        : null}
                       <button
                         type="button"
                         className={css.iconButton}
@@ -370,14 +353,6 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                         )
                         : null}
                     </div>
-                    {state.revealedPaths[row.id] === undefined
-                      ? null
-                      : (
-                        <p className={css.revealedPath}>
-                          <span className={css.revealedPathLabel}>{t('revealedPathLabel')}</span>
-                          <code>{state.revealedPaths[row.id]}</code>
-                        </p>
-                      )}
                   </li>
                 ))}
               </ul>

@@ -5,9 +5,7 @@
  *
  * The browser edits no composition text. A new preset is a host-side copy of
  * an existing one (`{ from, id, name? }` is all that crosses the wire), and
- * everything after creation happens in the preset's own files — which is why
- * the page's other job is getting the user TO those files: open the directory
- * where the host has a desktop, show its path where it does not.
+ * every later change happens in the preset's own files, outside this page.
  *
  * The host stays the single fact source. Every mutation writes through the
  * wire and the page re-reads the roster afterwards, because a copy changes
@@ -77,8 +75,6 @@ export interface AgentPresetSectionState {
   error: string | null
   /** Whether the deployment configures a root new presets can be written to. */
   authorable: boolean
-  /** Whether the host can open a preset directory on a native desktop. */
-  hasDocument: boolean
   /** Every preset the deployment currently supplies. */
   rows: readonly PresetRow[]
   /** The open copy dialog, or null. */
@@ -89,24 +85,17 @@ export interface AgentPresetSectionState {
   pendingDelete: string | null
   /** Whether a delete is in flight. */
   deleting: boolean
-  /**
-   * Preset directories shown as text because the host has no desktop opener
-   * — the answer `openDocument` gives instead of opening.
-   */
-  revealedPaths: Readonly<Record<string, string>>
 }
 
 const INITIAL: AgentPresetSectionState = {
   status: 'idle',
   error: null,
   authorable: false,
-  hasDocument: false,
   rows: [],
   copy: null,
   view: null,
   pendingDelete: null,
   deleting: false,
-  revealedPaths: {},
 }
 
 /**
@@ -129,7 +118,7 @@ export function draftBlocker(
   return undefined
 }
 
-/** Reads the roster and drives the copy dialog, viewer, and location reveals. */
+/** Reads the roster and drives the copy dialog, viewer, and delete confirmation. */
 export class AgentPresetSectionController {
   /** Page snapshot the renderer subscribes to. */
   readonly store: SnapshotStore<AgentPresetSectionState> = createSnapshotStore(INITIAL)
@@ -164,35 +153,19 @@ export class AgentPresetSectionController {
    * @returns once the snapshot reflects the host.
    */
   async load(): Promise<void> {
-    // Whether a preset's directory can be opened is the Host's opener
-    // capability rather than a roster property, so the page joins the two.
-    // Issued together: one round trip decides the page, and a load that waited
-    // for them in turn would hold the section in `loading` twice as long,
-    // where a concurrent reload silently returns instead of refreshing.
-    const opener = this.ctx.remote.settings.canOpenAgentPresetDirectory()
     const roster = await beginRosterRead(this.ctx, this.store)
-    // A refused describe leaves the reveal-the-path path, which needs no opener.
-    const described = await opener
     if (roster === undefined) return
     const { presets, authorable } = roster
-    const hasDocument = described.ok && described.value
     if (presets.length === 0) {
       // Nothing to manage leaves nothing to keep a dialog open over.
-      this.set({ status: 'unavailable', rows: [], authorable, hasDocument, copy: null, view: null })
+      this.set({ status: 'unavailable', rows: [], authorable, copy: null, view: null })
       return
     }
-    // A reveal outlives a reload but not its preset: a path for a row the
-    // roster no longer lists would be a claim about a directory that is gone.
-    const revealed = this.store.getSnapshot().revealedPaths
-    const kept = Object.fromEntries(
-      Object.entries(revealed).filter(([id]) => presets.some(preset => preset.id === id)))
     this.set({
       status: 'ready',
       error: null,
       authorable,
-      hasDocument,
       rows: presets.map(preset => ({ ...preset })),
-      revealedPaths: kept,
     })
   }
 
@@ -251,9 +224,8 @@ export class AgentPresetSectionController {
   }
 
   /**
-   * Submit the copy, re-read the roster, then take the user to the new
-   * preset's files — the directory opens where the host has a desktop, and
-   * its path appears on the new row where it does not.
+   * Submit the copy, then re-read the roster — a copy changes more than the
+   * row it targeted.
    * @returns once the copy settled and the page reflects it.
    */
   async confirmCopy(): Promise<void> {
@@ -275,26 +247,6 @@ export class AgentPresetSectionController {
     this.set({ copy: null })
     await this.load()
     this.rosterChanged()
-    // A preset is its files from here on (the dialog collected nothing
-    // else), so landing in them is the completion, not a follow-up.
-    await this.openLocation(draft.id)
-  }
-
-  /**
-   * Open one preset's directory on the host desktop, or reveal its path on
-   * the row where the deployment has no opener to hand it to.
-   * @param id - the preset whose files the user wants.
-   * @returns once the host answered and the page reflects it.
-   */
-  async openLocation(id: string): Promise<void> {
-    const result = await this.ctx.remote.settings.openAgentPresetDirectory(id)
-    if (!result.ok) {
-      this.set({ error: result.error.message })
-      return
-    }
-    if (result.value.opened) return
-    const { path } = result.value
-    this.set({ revealedPaths: { ...this.store.getSnapshot().revealedPaths, [id]: path } })
   }
 
   /**

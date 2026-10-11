@@ -24,18 +24,12 @@ interface FakeOptions {
   failRead?: string
   /** Reject `copy` with this message. */
   failCopy?: string
-  /** Reject `openDocument` with this message. */
-  failOpen?: string
   /** Reject `remove` with this message. */
   failRemove?: string
   /** Reject `settings.update` with this message. */
   failSettings?: string
   /** Whether the deployment configures a writable root. */
   authorable?: boolean
-  /** Whether the host can open a preset directory on a desktop. */
-  hasDocument?: boolean
-  /** Refuse the opener capability read. */
-  failCapability?: string
   /** Hold `remove` until this resolves, to observe the in-flight state. */
   holdRemove?: Promise<void>
 }
@@ -114,25 +108,12 @@ function fakeCtx(
         },
       },
       settings: {
-        canOpenAgentPresetDirectory: () => {
-          record('canOpenAgentPresetDirectory', {})
-          return options.failCapability === undefined
-            ? remoteOk(options.hasDocument ?? true)
-            : remoteFail(options.failCapability)
-        },
         update: (ns: string, patch: { default?: string }) => {
           record('settings.update', { ns, patch })
           if (options.failSettings !== undefined) return remoteFail(options.failSettings)
           /* v8 ignore next -- the controller only ever sets `default` */
           defaultId.id = patch.default ?? defaultId.id
           return remoteOk({})
-        },
-        openAgentPresetDirectory: (agentPreset: string) => {
-          record('openAgentPresetDirectory', { agentPreset })
-          if (options.failOpen !== undefined) return remoteFail(options.failOpen)
-          return (options.hasDocument ?? true)
-            ? remoteOk({ opened: true })
-            : remoteOk({ opened: false, path: `/presets/${agentPreset}` })
         },
       },
     },
@@ -166,28 +147,14 @@ function copyOf(controller: AgentPresetSectionController): CopyDraft {
 }
 
 describe('loading the roster', () => {
-  it('still lists the roster when the opener capability is refused', async () => {
-    const { controller } = harness({ failCapability: 'no opener here' })
-
-    await controller.load()
-
-    // The two reads are independent: a refused capability query costs the
-    // open-directory affordance, not the page.
-    const state = controller.store.getSnapshot()
-    expect(state.status).toBe('ready')
-    expect(state.hasDocument).toBe(false)
-    expect(state.rows.map((row: PresetRow) => row.id)).toEqual(['standard', 'mine'])
-  })
-
   it('maps the roster onto rows with the capability flags', async () => {
-    const { controller } = harness({ authorable: true, hasDocument: false })
+    const { controller } = harness({ authorable: true })
 
     await controller.load()
 
     const state = controller.store.getSnapshot()
     expect(state.status).toBe('ready')
     expect(state.authorable).toBe(true)
-    expect(state.hasDocument).toBe(false)
     expect(state.rows.map((row: PresetRow) => row.id)).toEqual(['standard', 'mine'])
     expect(state.rows[0]).toMatchObject({ trust: 'system', isDefault: true, name: '标准模式' })
   })
@@ -341,7 +308,7 @@ describe('the copy blocker', () => {
 })
 
 describe('submitting a copy', () => {
-  it('copies, re-reads the roster, announces the change, and opens the files', async () => {
+  it('copies, re-reads the roster, and announces the change', async () => {
     const { controller, calls, rosterChanges } = harness()
     await controller.load()
     controller.beginCopy('standard')
@@ -356,10 +323,6 @@ describe('submitting a copy', () => {
     expect(rosterChanges()).toBe(1)
     expect(calls.find(call => call.method === 'copy')?.payload)
       .toEqual({ from: 'standard', id: 'my-copy', name: '我的模式' })
-    // A preset is its files from here on, so landing in them completes the
-    // copy rather than following it.
-    expect(calls.find(call => call.method === 'openAgentPresetDirectory')?.payload)
-      .toEqual({ agentPreset: 'my-copy' })
   })
 
   it('omits an empty name so the copy falls back to its id', async () => {
@@ -373,17 +336,6 @@ describe('submitting a copy', () => {
 
     expect(calls.find(call => call.method === 'copy')?.payload)
       .toEqual({ from: 'standard', id: 'my-copy' })
-  })
-
-  it('reveals the new directory as text where the host has no desktop', async () => {
-    const { controller } = harness({ hasDocument: false })
-    await controller.load()
-    controller.beginCopy('standard')
-    controller.setCopyId('my-copy')
-
-    await controller.confirmCopy()
-
-    expect(controller.store.getSnapshot().revealedPaths['my-copy']).toBe('/presets/my-copy')
   })
 
   it('keeps the dialog open with the refusal on it', async () => {
@@ -408,48 +360,6 @@ describe('submitting a copy', () => {
 
     expect(calls.some(call => call.method === 'copy')).toBe(false)
   })
-})
-
-describe('the location action', () => {
-  it('opens the directory and leaves the page alone on a desktop host', async () => {
-    const { controller, calls } = harness()
-    await controller.load()
-
-    await controller.openLocation('mine')
-
-    expect(calls.find(call => call.method === 'openAgentPresetDirectory')?.payload).toEqual({ agentPreset: 'mine' })
-    expect(controller.store.getSnapshot().revealedPaths).toEqual({})
-  })
-
-  it('reveals the path on the row where the host has none', async () => {
-    const { controller } = harness({ hasDocument: false })
-    await controller.load()
-
-    await controller.openLocation('mine')
-
-    expect(controller.store.getSnapshot().revealedPaths).toEqual({ mine: '/presets/mine' })
-  })
-
-  it('drops a revealed path once its preset leaves the roster', async () => {
-    const { controller, presets } = harness({ hasDocument: false })
-    await controller.load()
-    await controller.openLocation('mine')
-    presets.delete('mine')
-
-    await controller.load()
-
-    expect(controller.store.getSnapshot().revealedPaths).toEqual({})
-  })
-
-  it('surfaces a refusal as the page error', async () => {
-    const { controller } = harness({ failOpen: 'not yours' })
-    await controller.load()
-
-    await controller.openLocation('mine')
-
-    expect(controller.store.getSnapshot().error).toBe('not yours')
-  })
-
 })
 
 describe('deleting', () => {

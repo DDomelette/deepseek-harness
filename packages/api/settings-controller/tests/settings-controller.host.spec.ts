@@ -1,7 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
-import { RemoteError, remoteErrorOf, remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
+import { remoteErrorOf, remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import SettingsController from '../src/index.ts'
 import { configurationFixture } from '../../../settings/settings/tests/configuration-fixture.ts'
 
@@ -38,12 +37,10 @@ describe('the settings Remote namespace a configuration page calls', () => {
     expect(controller.typertRemote.namespace).toBe('settings')
     expect(remoteMethods(controller)).toEqual([
       { method: 'describe', invocation: { kind: 'direct' } },
-      { method: 'canOpenAgentPresetDirectory', invocation: { kind: 'direct' } },
       { method: 'update', invocation: { kind: 'direct' } },
       { method: 'replace', invocation: { kind: 'direct' } },
       { method: 'mutate', invocation: { kind: 'direct' } },
       { method: 'openSettingsDocument', invocation: { kind: 'direct' } },
-      { method: 'openAgentPresetDirectory', invocation: { kind: 'direct' } },
     ])
   })
 
@@ -213,7 +210,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const { ctx } = await configurationFixture()
     const prepare = vi.spyOn(ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
     const openTextFile = vi.fn((_path: string, _signal: AbortSignal) => Promise.resolve())
-    const controller = new SettingsController(ctx, {}, { openTextFile })
+    const controller = new SettingsController(ctx, { openTextFile })
     const signal = new AbortController().signal
 
     await expect(controller.openSettingsDocument(signal)).resolves.toEqual({ opened: true })
@@ -250,7 +247,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const prepared = Promise.withResolvers<string>()
     vi.spyOn(ctx.settings, 'prepareDocument').mockReturnValue(prepared.promise)
     const openTextFile = vi.fn((_path: string, _signal: AbortSignal) => Promise.resolve())
-    const controller = new SettingsController(ctx, {}, { openTextFile })
+    const controller = new SettingsController(ctx, { openTextFile })
     const abort = new AbortController()
 
     const opening = controller.openSettingsDocument(abort.signal)
@@ -264,7 +261,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
   it('maps native settings-document opener failures', async () => {
     const { ctx } = await configurationFixture()
     vi.spyOn(ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
-    const controller = new SettingsController(ctx, {}, {
+    const controller = new SettingsController(ctx, {
       openTextFile: () => Promise.reject(new Error('no default editor')),
     })
 
@@ -286,7 +283,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const opening = await configurationFixture()
     vi.spyOn(opening.ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
     const openAbort = new AbortController()
-    const openingController = new SettingsController(opening.ctx, {}, {
+    const openingController = new SettingsController(opening.ctx, {
       openTextFile: async () => {
         openAbort.abort(new Error('cancelled'))
         throw new Error('opening stopped')
@@ -294,78 +291,5 @@ describe('the settings Remote namespace a configuration page calls', () => {
     })
     await expect(openingController.openSettingsDocument(openAbort.signal))
       .rejects.toMatchObject({ code: 'gateway/cancelled' })
-  })
-
-  it('opens a user Agent preset directory or returns its path without a native opener', async () => {
-    // The merged roster declares preset compositions in `cordis.yml` and carries
-    // neither a trust class nor an authored directory, so no preset has a
-    // location either opener policy could hand to the desktop.
-    const { ctx, controller } = await boot()
-    ctx.provide('agentPresets', { resolve: (id: string) => Promise.resolve({ id }) } as never)
-    expect(new SettingsController(new Context(), { nativeOpen: true }).canOpenAgentPresetDirectory()).toBe(true)
-    await expect(controller.openAgentPresetDirectory('mine', new AbortController().signal))
-      .rejects.toMatchObject({ code: 'agent-preset/read-only', details: { agentPreset: 'mine' } })
-
-    expect(new SettingsController(new Context(), { nativeOpen: false }).canOpenAgentPresetDirectory()).toBe(false)
-    await expect(controller.openAgentPresetDirectory('mine', new AbortController().signal))
-      .rejects.toMatchObject({ code: 'agent-preset/read-only' })
-  })
-
-  it('covers native-open detection defaults and explicit overrides', () => {
-    const detected = new SettingsController(new Context())
-    expect(typeof (detected as unknown as { canOpenPath: () => boolean }).canOpenPath()).toBe('boolean')
-
-    const override = vi.fn(() => false)
-    const overridden = new SettingsController(new Context(), {}, { canOpenPath: override })
-    expect((overridden as unknown as { canOpenPath: () => boolean }).canOpenPath()).toBe(false)
-    expect(override).toHaveBeenCalledOnce()
-  })
-
-  it('refuses a shipped Agent preset and a missing preset provider', async () => {
-    const { ctx, controller } = await boot()
-    ctx.provide('agentPresets', { resolve: (id: string) => Promise.resolve({ id }) } as never)
-    await expect(controller.openAgentPresetDirectory('standard', new AbortController().signal))
-      .rejects.toMatchObject({ code: 'agent-preset/read-only' })
-
-    const missing = new SettingsController(new Context())
-    await expect(missing.openAgentPresetDirectory('mine', new AbortController().signal))
-      .rejects.toMatchObject({ code: 'agent-preset/not-found' })
-  })
-
-  it('rejects an empty Agent preset id before resolving a provider', async () => {
-    const resolve = vi.fn()
-    const ctx = new Context()
-    onTestFinished(() => ctx.fiber.dispose())
-    ctx.provide('agentPresets', { resolve } as never)
-    const controller = new SettingsController(ctx)
-
-    await expect(controller.openAgentPresetDirectory('', new AbortController().signal))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
-    expect(resolve).not.toHaveBeenCalled()
-  })
-
-  it('raises an Agent preset resolution failure as the roster reported it', async () => {
-    const ctx = new Context()
-    onTestFinished(() => ctx.fiber.dispose())
-    const reported = new RemoteError('agent-preset/not-found', 'no such preset', {
-      agentPreset: 'mine', available: ['standard'],
-    })
-    ctx.provide('agentPresets', { resolve: async () => { throw reported } } as never)
-    const controller = new SettingsController(ctx)
-
-    await expect(controller.openAgentPresetDirectory('mine', new AbortController().signal))
-      .rejects.toBe(reported)
-  })
-
-  it('classifies cancellation observed before the preset roster read', async () => {
-    const { ctx, controller } = await boot()
-    const resolve = vi.fn((id: string) => Promise.resolve({ id }))
-    ctx.provide('agentPresets', { resolve } as never)
-    const abort = new AbortController()
-    abort.abort(new Error('cancelled'))
-
-    await expect(controller.openAgentPresetDirectory('mine', abort.signal))
-      .rejects.toMatchObject({ code: 'gateway/cancelled' })
-    expect(resolve).not.toHaveBeenCalled()
   })
 })

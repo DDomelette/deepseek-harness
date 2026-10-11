@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 /**
  * The management section's rendering rules: which actions a row offers depends
- * on its trust, a shipped composition opens in a read-only viewer, creation is
- * a copy dialog that collects an id and an optional name, and the location
- * action follows the host's desktop capability.
+ * on its trust, a shipped composition opens in a read-only viewer, and creation
+ * is a copy dialog that collects an id and an optional name.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -21,7 +20,6 @@ const READY: AgentPresetSectionState = {
   status: 'ready',
   error: null,
   authorable: true,
-  hasDocument: true,
   rows: [
     { id: 'standard', trust: 'system', isDefault: true, name: '标准模式', description: '完整的编码 agent。' },
     { id: 'mine', trust: 'user', isDefault: false },
@@ -30,7 +28,6 @@ const READY: AgentPresetSectionState = {
   view: null,
   pendingDelete: null,
   deleting: false,
-  revealedPaths: {},
 }
 
 /**
@@ -55,7 +52,6 @@ function renderSection(
     setCopyId: vi.fn(),
     setCopyName: vi.fn(),
     confirmCopy: vi.fn(() => Promise.resolve()),
-    openLocation: vi.fn(() => Promise.resolve()),
     confirmDelete: vi.fn(),
     remove: vi.fn(() => Promise.resolve()),
     makeDefault: vi.fn(() => Promise.resolve()),
@@ -143,18 +139,17 @@ describe('the preset list', () => {
     expect(actions.makeDefault).not.toHaveBeenCalled()
   })
 
-  it('offers View on a shipped row and the location on a custom one', () => {
+  it('offers View on a shipped row and none on a custom one', () => {
     renderSection()
 
     // A shipped preset is the composition a copy starts from — reading it is
-    // the point. A custom preset is edited in its files, so its row leads
-    // there instead; there is no editor for either.
+    // the point. A custom preset is edited in its files, which live outside
+    // this page; there is no editor for either.
     const standard = rowFor('standard')
     expect(within(standard).getByRole('button', { name: `${en.view}: ${en.presetStandardName}` })).toBeTruthy()
-    expect(within(standard).queryByRole('button', { name: `${en.openLocation}: ${en.presetStandardName}` })).toBeNull()
     const mine = rowFor('mine')
-    expect(within(mine).getByRole('button', { name: `${en.openLocation}: mine` })).toBeTruthy()
     expect(within(mine).queryByRole('button', { name: `${en.view}: mine` })).toBeNull()
+    expect(within(mine).getByRole('button', { name: `${en.duplicate}: mine` })).toBeTruthy()
   })
 
   it('offers Delete only for a locally authored preset', () => {
@@ -203,12 +198,11 @@ describe('the preset list', () => {
     fireEvent.click(body)
     expect(actions.makeDefault).not.toHaveBeenCalled()
     // Copying a broken preset would only mint another broken one; deleting
-    // and the location remain — the files are where it gets fixed.
+    // remains, so ghost directories can still be cleared.
     const duplicate = within(ghost).getByRole('button', { name: `${en.duplicate}: 幽灵预设` })
     expect(duplicate).toHaveProperty('disabled', true)
     expect(duplicate.getAttribute('data-tip')).toBe(en.brokenNoCopy)
     expect(within(ghost).getByRole('button', { name: `${en.delete}: 幽灵预设` })).toBeTruthy()
-    expect(within(ghost).getByRole('button', { name: `${en.openLocation}: 幽灵预设` })).toBeTruthy()
   })
 
   it('withholds the viewer on a broken shipped preset', () => {
@@ -223,33 +217,15 @@ describe('the preset list', () => {
     expect(within(standard).getByRole('alert').textContent).toContain('not valid YAML')
   })
 
-  it('labels the location by what it will do without a desktop', () => {
-    renderSection({ hasDocument: false })
-
-    expect(within(rowFor('mine')).getByRole('button', { name: `${en.showLocation}: mine` })).toBeTruthy()
-  })
-
-  it('shows a revealed directory on its row', () => {
-    renderSection({ revealedPaths: { mine: '/home/user/.dsh/.agent-presets/mine' } })
-
-    const mine = rowFor('mine')
-    expect(within(mine).getByText('/home/user/.dsh/.agent-presets/mine')).toBeTruthy()
-    expect(within(mine).getByText(en.revealedPathLabel)).toBeTruthy()
-    // The reveal belongs to its row alone.
-    expect(within(rowFor('standard')).queryByText(en.revealedPathLabel)).toBeNull()
-  })
-
   it('routes the row actions to the controller', () => {
     const actions = renderSection()
 
     // The card body is the control that picks a preset.
     fireEvent.click(within(rowFor('mine')).getByRole('button', { name: `${en.setDefault}: mine` }))
-    fireEvent.click(within(rowFor('mine')).getByRole('button', { name: `${en.openLocation}: mine` }))
     fireEvent.click(within(rowFor('mine')).getByRole('button', { name: `${en.duplicate}: mine` }))
     fireEvent.click(within(rowFor('standard')).getByRole('button', { name: `${en.view}: ${en.presetStandardName}` }))
 
     expect(actions.makeDefault).toHaveBeenCalledWith('mine')
-    expect(actions.openLocation).toHaveBeenCalledWith('mine')
     expect(actions.beginCopy).toHaveBeenCalledWith('mine')
     expect(actions.view).toHaveBeenCalledWith('standard')
   })

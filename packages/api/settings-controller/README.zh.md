@@ -29,16 +29,14 @@ kind: "package-reference"
 
 `settings.describe()` 返回部署信息，以及在 `redactSecrets: true` 下读取的所有 namespace。一个 namespace 就是一个运行时导出 Config schema 的活跃 Loader entry，因此这些视图跟随组合，而不是某个注册表。`settings.update`、`settings.replace` 与 `settings.mutate` 暴露 settings 服务的三种写入操作，并返回该 namespace 的新脱敏视图；陈旧写入使用 `settings-conflict`，其他 seam 拒绝使用 `settings-rejected`。
 
-`settings.openSettingsDocument()` 准备 profile 自身的配置文件，并用原生文本编辑器意图将其打开。`settings.canOpenAgentPresetDirectory()` 报告本部署是否有可交付位置的原生打开器。`settings.openAgentPresetDirectory(id)` 在 preset 名册中解析该 id，并把每个 preset 都以 `agent-preset/read-only` 拒绝：preset 由组合声明，不拥有可创作的目录，因此两个打开方法都不接受浏览器提供的文件系统目标。
+`settings.openSettingsDocument()` 准备 profile 自身的配置文件，并用原生文本编辑器意图将其打开。两项打开操作都不接受浏览器提供的文件系统目标。
 
 -----
 
 <a id="configuration"></a>
 ## 配置
 
-| 字段 | 默认值 | 含义 |
-|---|---|---|
-| `nativeOpen` | 平台探测 | Agent preset 目录能否交给原生桌面打开器 |
+本包没有配置字段。
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-settings-controller)是所有受支持字段及其 JSDoc 的完整来源。
 
@@ -58,7 +56,6 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - 批量上限固定为 64 个引用，不是可按部署配置的字段。
-- **没有可打开的 preset 目录。** 合并后的 preset 名册在 `cordis.yml` 内声明每个 preset 的组合，因此 `settings.openAgentPresetDirectory` 解析 preset 后只会拒绝它；恢复用户创作的 preset 根目录才能让该方法重新打开目录（见 `src/index.ts` 的 `FIXME`）。
 
 <a id="dev-note"></a>
 ### 开发备注

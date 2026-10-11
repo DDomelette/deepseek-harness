@@ -4,6 +4,3 @@
 - id: session-controller
   config:
     nativeOpen: true
-- id: settings-controller
-  config:
-    nativeOpen: true

@@ -13,7 +13,7 @@ const PACKAGE_NAME = '@deepseek-ai/dsh-mcp-manager'
 /** Cordis companion plugin name. */
 export const name = 'mcp-manager-invariant'
 /** Service required before the companion can reserve package ownership. */
-export const inject = ['loader']
+export const inject = ['invariants']
 
 /**
  * Install the roster non-intersection contract: the `mcp-servers` section the
