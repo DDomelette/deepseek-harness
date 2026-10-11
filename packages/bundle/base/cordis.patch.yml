@@ -25,7 +25,7 @@
       name: '@deepseek-ai/dsh-usage-exporter'
       disabled: true
 
-    - id: mcp-manager
+    - id: mcp-servers
       name: '@deepseek-ai/dsh-mcp-manager'
 
     - id: timer
