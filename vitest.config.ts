@@ -165,6 +165,12 @@ const processBoundTests = [
 
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
+  // Vite 8's native tsconfig `paths` lookup, alongside the plugin above. For an
+  // importer inside a package (include: ["src"]) the plugin resolves against
+  // that package's own tsconfig, misses the root-relative mappings, and leaves
+  // node resolution to load the built lib/ — a second module copy beside the
+  // src/ module the test files get.
+  resolve: { tsconfigPaths: true },
   test: {
     ...coverageTiming,
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts'],
@@ -176,6 +182,7 @@ export default defineConfig({
     projects: [
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
+        resolve: { tsconfigPaths: true },
         test: {
           ...coverageTiming,
           name: 'thread-safe',
@@ -195,6 +202,7 @@ export default defineConfig({
       },
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
+        resolve: { tsconfigPaths: true },
         test: {
           ...coverageTiming,
           name: 'process-bound',
