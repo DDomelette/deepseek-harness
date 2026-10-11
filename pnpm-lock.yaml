@@ -681,7 +681,7 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:^
         version: link:../packages/test-support/agent-loop-testkit
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../packages/preset/agent-presets
       '@deepseek-ai/dsh-api-session-controller':
@@ -902,7 +902,7 @@ importers:
       '@deepseek-ai/dsh-agent':
         specifier: workspace:^
         version: link:../../core/agent
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-gateway':
@@ -1026,7 +1026,7 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:^
         version: link:../../test-support/agent-loop-testkit
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-gateway':
@@ -1147,7 +1147,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-credentials':
@@ -1951,7 +1951,7 @@ importers:
 
   packages/bundle/web-app:
     dependencies:
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-remotes':
@@ -2439,7 +2439,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-remotes':
@@ -4066,7 +4066,7 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-remotes':
@@ -7229,7 +7229,7 @@ importers:
       '@deepseek-ai/cordis-plugin-loader':
         specifier: workspace:^
         version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-brand':
@@ -8125,7 +8125,7 @@ importers:
       '@deepseek-ai/dsh-agent-default-model':
         specifier: workspace:^
         version: link:../../core/agent-default-model
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-api-remotes':
@@ -11749,7 +11749,7 @@ importers:
       '@deepseek-ai/dsh-agent-default-model':
         specifier: workspace:^
         version: link:../../core/agent-default-model
-      '@deepseek-ai/dsh-agent-presets':
+      '@deepseek-ai/dsh-agent-preset-registry':
         specifier: workspace:^
         version: link:../../preset/agent-presets
       '@deepseek-ai/dsh-invariants':

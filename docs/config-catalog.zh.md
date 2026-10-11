@@ -117,7 +117,7 @@ export interface Config {
 
 <a id="deepseek-aidsh-agent-presets"></a>
 
-## `@deepseek-ai/dsh-agent-presets`
+## `@deepseek-ai/dsh-agent-preset-registry`
 
 需要：`loader` · `sessionProjections`
 

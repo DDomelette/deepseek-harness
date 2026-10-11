@@ -1,7 +1,7 @@
 /** Session-addressed, cold-readable skill catalog Remote. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-agent-presets/types'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import { isUserInvocable, type SkillSummary } from '@deepseek-ai/dsh-skill'

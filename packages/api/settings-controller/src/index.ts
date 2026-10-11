@@ -11,7 +11,7 @@ import { dirname } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 // Type-only: resolves the `agentPresets` Context augmentation this controller reads.
-import type {} from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import {
   canOpenNativePath,
   openNativePath,

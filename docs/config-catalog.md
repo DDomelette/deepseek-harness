@@ -115,7 +115,7 @@ Source: [`packages/core/agent-loop/src/index.ts:318`](../packages/core/agent-loo
 
 <a id="deepseek-aidsh-agent-presets"></a>
 
-## `@deepseek-ai/dsh-agent-presets`
+## `@deepseek-ai/dsh-agent-preset-registry`
 
 Requires: `loader` · `sessionProjections`
 
