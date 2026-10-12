@@ -24,7 +24,7 @@ preset 组提供按会话的 agent（智能体）组装：agent preset 是一个
 
 | 包 | 职责 | ctx 键 |
 |---|---|---|
-| [`agent-presets`](agent-presets/README.zh.md) | preset 名单、对受信任根目录与用户根目录的发现、按 agent 组装、仅通过复制创建 preset | `ctx.agentPresets` |
+| [`agent-preset-registry`](agent-preset-registry/README.zh.md) | preset 名单、按 agent 组装与常驻挂载、代际保留 | `ctx.agentPresets` |
 | [`persona`](persona/README.zh.md) | preset 挂载的可组装人设行，用于遮蔽或替换部署级人设 | — |
 
 -----
@@ -32,12 +32,10 @@ preset 组提供按会话的 agent（智能体）组装：agent preset 是一个
 <a id="related-documentation"></a>
 ## 相关文档
 
-- [`AgentPresets` 参考](../../docs/subsystems/core.zh.md#ctxagentpresets--agentpresets)——发现、挂载、继承与重组。
+- [`AgentPresets` 参考](../../docs/subsystems/core.zh.md#ctxagentpresets--agentpresetregistry)——发现、挂载、继承与重组。
 - [Scope 子系统](../../docs/subsystems/scope.zh.md)——scope key，以及挂载接入 agent 时所用的父链。
 - [系统提示词子系统](../../docs/subsystems/system-prompt.zh.md)——preset 提示词段落如何注册与组装。
 - [按会话组装 agent preset 的 Agent Note](../../.agents/notes/implemented/architecture/2026-08-03-per-session-agent-presets.zh.md)——设计理由与备选方案。
-
-部署交付的 preset 位于 [`agent-presets/presets/`](agent-presets/presets)——一个 preset 一个目录，那份目录列表就是名单；在这里再列一遍只会多出一份需要同步的名单。
 
 -----
 

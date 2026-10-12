@@ -29,7 +29,7 @@ kind: "package-reference"
 
 在侧栏选择**插件**。信息按钮使用 11px 的 caption 色图标和 20px 方形悬停区域，与副标题间隔 4px。它说明当前页用于配置官方插件、安装和管理其他插件，**设置 → 内置插件**则展示内置插件列表及运行状态。悬停或聚焦显示共享 tooltip；点击后保持展开，直至再次点击、Escape、Tab 或外部点击。页面首次打开时通过 `api-remotes` 读取清单与组合包；没有受管 profile 的 Host 上页面显示为不可用。**内置插件配置**按配置的顺序列出官方配置页：子智能体、网页搜索、Agent 循环、终端。**实验性插件**展示主要的可选组合包，标题旁的**更多**打开同名的独立页面。该页列出全部官方组合包，也包含主列表已有的条目，Codex 和 Claude Code 子智能体排在最后。返回按钮回到主列表，**已安装插件**保持在实验性插件下方。组合包详情返回打开它的列表。目录条目在安装或移除后保持原位置。**已安装插件**列出其他 profile 组合包。安装随附的可选组合包没有卸载操作。实验性包在两个列表中均保留**实验性**标签。启停组合包不会改变它的分组或位置。没有组合包 patch 的依赖不是插件，除非 profile 选中了它才会带异常标签列出。全局配置仍在设置的**内置插件**分区中编辑。
 
-已安装的组合包及其插件行在卡片和详情页中，按当前界面语言显示各自的标题与描述。每个字段先读取导出的 locale `meta`，缺失时回退到包根插件可访问的 `package.json`，子路径插件从不读取；标题最终使用完整包名或模块名，两处都没有描述时不提供包描述。作者格式见[插件展示元信息](../../../docs/cookbook/adding-a-package.zh.md#plugin-display-metadata)。组合包卡片、详情和组件行显示包根的清单 `icon` 或导出的 `./icon`，或子路径插件导出的 `<子路径>/icon`；未声明或无法解码时保留默认插画。安装预览仍使用注册表或 manifest 信息。
+已安装的组合包及其插件行在卡片和详情页中，按当前界面语言显示各自的标题与描述。每个字段先读取导出的 locale `meta`，缺失时回退到包根插件可访问的 `package.json`，子路径插件从不读取；标题最终使用完整包名或模块名，两处都没有描述时不提供包描述。作者格式见[插件展示元信息](../../../docs/cookbook/adding-a-package.zh.md)。组合包卡片、详情和组件行显示包根的清单 `icon` 或导出的 `./icon`，或子路径插件导出的 `<子路径>/icon`；未声明或无法解码时保留默认插画。安装预览仍使用注册表或 manifest 信息。
 
 官方按需卡片在安装前即可离线显示。开启会打开已有的安装进度对话框，安装[当前 Host 提供的目标](../../boot/plugin-manager/README.zh.md#use-this-package)并选择配置层。安装源回退、取消和脚本审批继续使用同一组控件。关闭保留依赖；移除是独立操作。版本或开发链接来源不同会提供**更新**；详情显示当前及所提供的来源和版本。更新保留选择状态，并报告是否需要重启。文件缺失或不可读的包在诊断旁保留记录的依赖来源。已启用的 bundle 在 checkout 目标不可用时仍可关闭。
 
@@ -68,7 +68,7 @@ Host 将网络失败或超时归因于 GitHub 地址，且提供 npmmirror 时�
 
 ### 配置页
 
-自带配置的插件把配置渲染在本页而不是设置里，通过本页声明的三个 slot：`plugins.item`（list）用于官方插件，按其 `label` 列在内置插件配置分组里；`plugins.bundle.config`（以组合包的包名为键）用于组合包自己的配置，显示在组合包页面的描述与行之间；`plugins.row.config`（以 `<包名>#<行 id>` 为键）用于某一行的配置，这一行由此多出一个**配置**控件，打开该行自己的页面。页面用 `view: 'page'` 渲染带自己保存控件的表单。官方插件卡片还在标题下渲染 `view: 'summary'`；行详情页只在缺少包描述时使用该视图。只有保存才写入：页面负责画标题、图标与面包屑，条目的表单在离开页面时丢弃暂存的修改。安装随附的四个宿主平面配置页——shell 执行器、agent loop、子智能体、DeepSeek 搜索提供方——各来自一个伴生包：[ui-settings-shell](../ui-settings-shell/README.zh.md)、[ui-settings-agent-loop](../ui-settings-agent-loop/README.zh.md)、[ui-settings-subagent](../ui-settings-subagent/README.zh.md) 与 [ui-settings-web-search](../ui-settings-web-search/README.zh.md)，在 Host 服务其命名空间期间注册。组合包的浏览器半侧用同样的方式注册：
+自带配置的插件把配置渲染在本页而不是设置里，通过本页声明的三个 slot：`plugins.item`（list）用于官方插件，按其 `label` 列在内置插件配置分组里；`plugins.bundle.config`（以组合包的包名为键）用于组合包自己的配置，显示在组合包页面的描述与行之间；`plugins.row.config`（以 `<包名>#<行 id>` 为键）用于某一行的配置，这一行由此多出一个**配置**控件，打开该行自己的页面。页面用 `view: 'page'` 渲染带自己保存控件的表单。官方插件卡片还在标题下渲染 `view: 'summary'`；行详情页只在缺少包描述时使用该视图。只有保存才写入：页面负责画标题、图标与面包屑，条目的表单在离开页面时丢弃暂存的修改。安装随附的四个宿主平面配置页——shell 执行器、agent loop、子智能体、DeepSeek 搜索提供方——各来自一个伴生包：`ui-settings-shell`、`ui-settings-agent-loop`、`ui-settings-subagent` 与 `ui-settings-web-search`，在 Host 服务其命名空间期间注册。组合包的浏览器半侧用同样的方式注册：
 
 ```tsx ignore-check
 ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
@@ -136,7 +136,7 @@ Host 入口通过生成的 Remote 接口暴露 `pluginRegistryProbe.fastest()`�
 - [ui-sidebar](../ui-sidebar/README.zh.md)——插件入口注册进的面板列表；[ui-layout](../ui-layout/README.zh.md)——页面占用的主 slot。
 - [api-remotes](../../api/remotes/README.zh.md)——`pluginManager.*` 与 `pluginInventory.*` 背后的 Remote BFF 面。
 - [plugin-manager](../../boot/plugin-manager/README.zh.md)——本页驱动的 Host 侧管理器。
-- [ui-settings-shell](../ui-settings-shell/README.zh.md)、[ui-settings-agent-loop](../ui-settings-agent-loop/README.zh.md)、[ui-settings-subagent](../ui-settings-subagent/README.zh.md)、[ui-settings-web-search](../ui-settings-web-search/README.zh.md)——注册进本页 `plugins.item` slot 的官方配置页。
+- `ui-settings-shell`、`ui-settings-agent-loop`、`ui-settings-subagent`、`ui-settings-web-search`——注册进本页 `plugins.item` slot 的官方配置页。
 
 -----
 

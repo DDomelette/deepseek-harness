@@ -72,6 +72,6 @@ No model request prefix changes.
 <a id="dev-note"></a>
 ### Dev Note
 
-The [desktop login decision](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.md) records cancellation and storage ownership.
+Local cancellation is authoritative, and account presence is derived from the provider's owner-scoped stored grant.
 
 PlatformSession may carry Host-only requestHeaders from Host to Electron main: deployment headers only, because the embedded document's client identity is composed where its locale, timezone and version are known. Consumers must exclude those headers from renderer bootstrap and restrict them to the configured origin. userId is Host-only on the same terms and never enters renderer bootstrap. mergePlatformCookies preserves unrelated cookie pairs while replacing matching names.

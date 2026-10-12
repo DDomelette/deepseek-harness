@@ -98,7 +98,7 @@ The package is built on one separation: the atomic commit owns the swap, and the
 
 Read these pages when you need the consuming stores or the family this primitive belongs to.
 
-- [User-settings file store](../../settings/settings-file/README.md) — the settings document every write replaces through this package.
+- [Profile configuration editor](../../boot/config-editor/README.md) — the profile patch every edit replaces through this package.
 - [Credentials store](../../credentials/credentials-local/README.md) — the credentials file this package locks and replaces.
 - [util group map](../README.md) — the zero-dependency utility family this package belongs to.
 

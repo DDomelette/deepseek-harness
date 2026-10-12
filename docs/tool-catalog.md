@@ -15,6 +15,8 @@ This table connects model-visible tool names to the plugin package and service s
 
 | Tool package | Model-visible names | Requires | Writes / affects | Shipped aliases | Deployment note |
 | --- | --- | --- | --- | --- | --- |
+| `@deepseek-ai/dsh-plugin-manager` | `plugin_manager` | `ctx.tools`, `ctx.pluginManager`, `ctx.sandboxPolicy` | `tool/call`, `tool/result`, `user/message` | - | - |
+| `@deepseek-ai/dsh-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-ask-user` | `ask_user_question` | `ctx.tools`, `ctx.userQuestions` | `tool/call`, `tool/result after a UI/provider answers the question` | - | ask_user_question pauses the tool call until the active UI provider returns a human answer. |
 | `@deepseek-ai/dsh-tools` | `run_code` | `ctx.tools`, `ctx.codeRuntime (execution time)`, `ctx.systemPrompt` | `tool/call`, `one tool/ptc-dispatch-start + tool/ptc-dispatch pair per bridged sub-call`, `tool/result` | - | Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: ptc` / `mode: both` (see the PTC mode Agent Note). Under `ptc` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result. |
 | `@deepseek-ai/dsh-plan-mode` | `exit_plan_mode` | `ctx.tools`, `ctx.systemPrompt`, `ctx.userQuestions (execution time, opportunistic)` | `tool/call`, `plan/mode inactive on an approved review`, `tool/result` | - | exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary. |
@@ -39,8 +41,161 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
 | `@deepseek-ai/dsh-experimental-tool-agent-team` | `interrupt_agent`, `list_agents`, `send_message`, `spawn_teammate`, `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update`, `wait_agent` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `an exact live Team member Agent` | `tool/call`, `team/member`, `team/message/queued`, `team/message/delivered`, `team/task`, `tool/result` | - | All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
+| `@deepseek-ai/dsh-tool-working-directory` | `working_directory` | `ctx.tools`, `ctx.workingDirectory` | `tool/call`, `working-directory/change`, `user context for directory changes`, `tool/result` | - | Reads or changes the calling Session directory. Existing shells and processes retain their own directories; origin metadata and permission roots stay fixed. |
+| `@deepseek-ai/dsh-experimental-tool-worktree` | `create_worktree` | `ctx.tools`, `ctx.worktrees`, `a calling Agent` | `tool/call`, `Git branch and checkout`, `working-directory/change`, `tool/result` | - | Explicit experimental composition only. Creates a new branch and checkout from a pinned local commit under existing write permissions, then changes the Session directory. Leaving retains the branch and checkout. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
+| `@deepseek-ai/dsh-tool-workspace-dependencies` | `load_workspace_dependencies` | `ctx.tools` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
+
+<a id="deepseek-aidsh-plugin-manager"></a>
+
+## `@deepseek-ai/dsh-plugin-manager`
+
+### `plugin_manager`
+
+List plugins or bundles in the current profile, enable or disable them, install a bundle, or remove an installed bundle. Every action requires danger-full-access permission or approval for this call. Approval does not change the session permission mode. Changes affect every session in this profile. List first to obtain exact identifiers. Package installation can execute allowed build scripts. Live profiles apply changes immediately; startup profiles require restart. Incompatible DSH peer dependencies block installation and activation. Version exemptions risk crashes and data loss: warn the user and obtain explicit permission for the exact plugin and runtime versions before granting one.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Management operation.",
+      "enum": [
+        "list_plugins",
+        "list_bundles",
+        "set_plugin",
+        "set_bundle",
+        "install_bundle",
+        "remove_bundle",
+        "list_version_exemptions",
+        "set_version_exemption"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "description": "Plugin entry id, bundle package name, or installation spec, according to action. For an Official catalog entry, pass list_bundles installTarget.spec to install_bundle."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Required for set operations; defaults to true for installation. For set_version_exemption, true grants and false revokes."
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "description": "For set_version_exemption: exact DSH version from list_version_exemptions. Target must be the manifest package-name@version, not an alias or version range."
+    },
+    "acceptRisk": {
+      "type": "boolean",
+      "description": "For granting an exemption: true only after warning the user about possible crashes and data loss and receiving explicit permission for this exact plugin/runtime pair. General installation permission is not enough."
+    },
+    "approvedBuilds": {
+      "type": "array",
+      "description": "For install_bundle: pass names from pendingBuilds only after the user explicitly approves running their install scripts in the conversation. This grants persistent permission for this profile.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "registry": {
+      "type": "string",
+      "description": "For install_bundle: the npm registry URL asked first, when the user names one; otherwise the configured registry is asked, and its configured fallbacks while a registry is unreachable."
+    },
+    "offset": {
+      "type": "number",
+      "description": "Zero-based list offset; defaults to 0."
+    },
+    "limit": {
+      "type": "number",
+      "description": "List page size, from 1 to 100; defaults to 25."
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
+```
+
+Source: [`packages/boot/plugin-manager/src/tools.ts`](../packages/boot/plugin-manager/src/tools.ts)
+
+<a id="deepseek-aidsh-mcp-resources"></a>
+
+## `@deepseek-ai/dsh-mcp-resources`
+
+### `list_mcp_resource_templates`
+
+List parameterized resource URI templates from an MCP server.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `list_mcp_resources`
+
+List resources available from an MCP server.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `read_mcp_resource`
+
+Read an MCP resource by URI from the named server. Use a listed URI or an expanded resource template.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "uri": {
+      "type": "string",
+      "description": "Resource URI to read."
+    }
+  },
+  "required": [
+    "server",
+    "uri"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -48,7 +203,7 @@ This table connects model-visible tool names to the plugin package and service s
 
 ### `ask_user_question`
 
-Ask the user a concise question when you need confirmation, a choice, or missing information before proceeding. Send one or more questions, each with a stable id that will be echoed in the answer.
+Ask the user a concise question when you need confirmation, a choice, or missing information before proceeding.
 
 ```json
 {
@@ -122,24 +277,40 @@ ask_user_question pauses the tool call until the active UI provider returns a hu
 
 ### `run_code`
 
-Execute a TypeScript program against the available tools. Takes two required arguments: `code`, the BODY of an async function (erasable syntax only; top-level `await` and `return` work), and `description`, a short summary of what the program does. Call tools as `await tools.name(args)` per the declarations in the system prompt. Only what you print or return is program output — curate it. Image-bearing subtool results are attached after the run.
+Execute a TypeScript program against the available tools. Takes two required arguments: `description`, a short summary of what the program does, and `code`, the BODY of an async function (erasable syntax only; top-level `await` and `return` work). Call tools as `await tools.name(args)` per the declarations in the system prompt. Only what you print or return is program output — curate it. Image-bearing subtool results are attached after the run.
 
 ```json
 {
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Provide `description` before `code` in the arguments. Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+    },
     "code": {
       "type": "string",
       "description": "The program: the body of an async TypeScript function."
     },
-    "description": {
+    "timeoutMs": {
+      "type": "number",
+      "description": "Positive elapsed-time budget in milliseconds, capped by the deployment maximum."
+    },
+    "sandbox_permissions": {
       "type": "string",
-      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+      "description": "Wider sandbox mode for this complete program execution; requires justification and approval.",
+      "enum": [
+        "workspace-write",
+        "danger-full-access"
+      ]
+    },
+    "justification": {
+      "type": "string",
+      "description": "Reason this complete program needs wider access, shown to the user for approval. Use the language of the user’s current request."
     }
   },
   "required": [
-    "code",
-    "description"
+    "description",
+    "code"
   ]
 }
 ```
@@ -154,7 +325,7 @@ Owned by the tool registry as a reserved transport outside filterable capability
 
 ### `exit_plan_mode`
 
-Use only in plan mode. Present your plan for the user's review and, on approval, leave plan mode. Send the COMPLETE plan as markdown, starting with a # heading that names it. The user may approve (carry out the plan from your next step) or keep planning — their feedback comes back in the tool result; revise and present again.
+Use only in plan mode. Present your plan for the user's review and, on approval, leave plan mode. The user may approve (carry out the plan from your next step) or keep planning — their feedback comes back in the tool result; revise and present again.
 
 ```json
 {
@@ -1052,7 +1223,7 @@ The six terminal tools are opt-in and complement one-shot shell/filesystem tools
 
 ### `create_goal`
 
-Create one persisted same-session completion goal when the current direct human request is a long-running objective that should continue across autonomous goal rounds. You may infer that intent without requiring the user to say "create a goal". Do not use this for trivial single-turn work. Execution rejects non-human and subagent authority.
+Create a persisted goal that keeps this session working across automatic continuation rounds. Use it when the direct human request is a long-running objective, even if the user did not say "goal"; not for single-turn work.
 
 ```json
 {
@@ -1077,7 +1248,7 @@ Source: [`packages/goal/tool-goal/src/index.ts`](../packages/goal/tool-goal/src/
 
 ### `get_goal`
 
-Read the current same-session goal, including its exact id/revision, objective, phase, completed continuation rounds, round limit, blocker reason when present, and whether another continuation is armed. Call this before updating a goal.
+Read the current session goal, including the id and revision that update_goal requires.
 
 ```json
 {
@@ -1090,7 +1261,7 @@ Source: [`packages/goal/tool-goal/src/index.ts`](../packages/goal/tool-goal/src/
 
 ### `update_goal`
 
-Update the exact current goal revision. edit, pause, and resume require a direct top-level human request. During an automatic continuation of the current goal, complete and blocked are also allowed. blocked is rejected before the configured minimum round count; the model remains responsible for judging that the same condition persisted across those rounds and must explain it in blocked_reason.
+Update the current goal.
 
 ```json
 {
@@ -1106,7 +1277,7 @@ Update the exact current goal revision. edit, pause, and resume require a direct
     },
     "action": {
       "type": "string",
-      "description": "edit | pause | resume | complete | blocked",
+      "description": "edit, pause, and resume require a direct top-level human request. complete and blocked are also allowed during an automatic continuation of this goal; blocked is rejected before the configured minimum round count.",
       "enum": [
         "edit",
         "pause",
@@ -1125,7 +1296,7 @@ Update the exact current goal revision. edit, pause, and resume require a direct
     },
     "blocked_reason": {
       "type": "string",
-      "description": "Concrete blocking condition; required only with action blocked."
+      "description": "Required only with action blocked: the concrete condition that persisted across rounds and blocks progress."
     }
   },
   "required": [
@@ -1604,12 +1775,16 @@ Source: [`packages/subagent/tool-subagent/src/list-models.ts`](../packages/subag
 
 ### `subagent`
 
-Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. Give it a complete, standalone prompt: it does not see this conversation. This call waits for the result by default. Set `run_in_background: true` to return a job id; collect with `job_output` and stop with `job_kill`.
+Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. This tool starts an independently managed subagent and immediately returns its id. The runtime notifies you when it finishes. The child reports results with `send_message`; use `send_message` to steer it while running or continue its conversation after it finishes.
 
 ```json
 {
   "type": "object",
   "properties": {
+    "cwd": {
+      "type": "string",
+      "description": "Initial child working directory. Relative paths use your current directory; omitted inherits it. Later directory changes in either agent are independent."
+    },
     "description": {
       "type": "string",
       "description": "A short (3-5 word) description of the delegated task, for display."
@@ -1617,10 +1792,6 @@ Delegate a self-contained task to a subagent (a separate agent that works in its
     "prompt": {
       "type": "string",
       "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
-    },
-    "run_in_background": {
-      "type": "boolean",
-      "description": "Whether to run as a background job and return its id. Defaults to false; collect with job_output or stop with job_kill."
     }
   },
   "required": [
@@ -1640,7 +1811,7 @@ The registered delegation name is the load-time `toolName` config (default `suba
 
 ### `interrupt_agent`
 
-Request cancellation of a background agent's current turn by its agent id. The target may be your direct child or a deeper agent created under you. Only the current turn stops: messages already queued for the agent stay parked until a later send_message, agents it started keep running, and the agent itself stays available for follow-ups. This call returns as soon as the stop request is accepted, so the target may keep running briefly; interrupting an agent that already finished is an accepted no-op.
+Ask a subagent to stop its current work. This call returns without waiting for it to stop. You can continue a local direct child's conversation later with send_message. External executions stop permanently and cannot receive follow-ups. Subagents it started will keep running.
 
 ```json
 {
@@ -1648,7 +1819,7 @@ Request cancellation of a background agent's current turn by its agent id. The t
   "properties": {
     "agent_id": {
       "type": "string",
-      "description": "The agent id of the running agent to interrupt."
+      "description": "The id of an agent created under you: your direct child or a deeper descendant."
     }
   },
   "required": [
@@ -1661,7 +1832,7 @@ Source: [`packages/subagent/tool-subagent-control/src/index.ts`](../packages/sub
 
 ### `list_agents`
 
-List your continuable background subagents by durable id and label. Use it to recall which ones you started, not to poll for completion — you are told when one finishes. Status comes from the live registry: running means the agent is working right now, idle means it is loaded but between turns (it may be waiting on agents it started), and ready means it exists only in storage — resumable, not terminal, and not a result waiting to be collected; a `send_message` steers a running child at its nearest step boundary or starts a turn for an idle or ready child, and a direct child remains a `send_message` candidate in every status. The snapshot is not a delivery promise — `send_message` performs the authoritative check and may still fail. Children that could not be read are reported as diagnostics instead of being silently dropped. Scope `descendants` walks the whole tree below you in stable pre-order, annotating each entry with its durable direct-parent session id and depth. You may use `send_message` only for depth-1 entries; deeper entries are candidates for `interrupt_agent` only.
+List subagents you started, with their ids, labels, and status. running means it is working; inactive means it is not currently working. You will be notified when a subagent finishes; there is no need to keep checking its status. Use send_message to continue the conversation.
 
 ```json
 {
@@ -1669,7 +1840,7 @@ List your continuable background subagents by durable id and label. Use it to re
   "properties": {
     "scope": {
       "type": "string",
-      "description": "children (default) lists direct children only; descendants walks the complete tree below you.",
+      "description": "children (default) lists direct children, which accept send_message in any status. descendants lists the whole tree below you with each entry's parent session id and depth; entries deeper than 1 accept only interrupt_agent.",
       "enum": [
         "children",
         "descendants"
@@ -1683,7 +1854,7 @@ Source: [`packages/subagent/tool-subagent-control/src/list-agents.ts`](../packag
 
 ### `send_message`
 
-Send a message to a direct continuable child by its agent id. If you are a resident continuable child, you may also target your direct parent. If the target is still working, the message steers its nearest step; if it is idle, the message starts a turn. This call returns no answer from the agent — only confirmation that the message was delivered. A failure means the message was NOT delivered.
+Send a message to an agent. A working agent receives it at its next step; an idle agent starts a new turn with it. Returns delivery confirmation, not the agent's answer.
 
 ```json
 {
@@ -1715,7 +1886,7 @@ The globally named control tools over continuable background subagents: provider
 
 ### `job_kill`
 
-Request cancellation of a running background job by job id. Returns immediately; the job settles as killed once its work actually stops.
+Request cancellation of a running background job.
 
 ```json
 {
@@ -1753,7 +1924,7 @@ Source: [`packages/jobs/tool-jobs/src/index.ts`](../packages/jobs/tool-jobs/src/
 
 ### `job_output`
 
-Read a background job. Stream jobs return only output since the previous read; final-output jobs return their result after settlement. Every response ends with `[status: ...]`. Reads are non-blocking unless `wait: true`, which waits up to the configured cap.
+Read a background job: output since the previous read for stream jobs, or the result of a finished final-output job.
 
 ```json
 {
@@ -1765,11 +1936,11 @@ Read a background job. Stream jobs return only output since the previous read; f
     },
     "wait": {
       "type": "boolean",
-      "description": "Block until the job reaches a terminal status or the timeout expires. A timed-out wait returns [status: running] and leaves the job alive."
+      "description": "Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false."
     },
     "timeout_ms": {
       "type": "number",
-      "description": "Max wait in milliseconds (only meaningful with wait: true). Defaults to the configured wait timeout; capped by the configured maximum."
+      "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
     }
   },
   "required": [
@@ -2078,7 +2249,7 @@ All nine tools are scoped to implicit Team Leads and durable teammates. The ship
 
 ### `todo_write`
 
-Record and update a structured task list for the current work. Send the ENTIRE list every call — it REPLACES the previous list (there are no partial updates, no per-item edits). Use it to plan multi-step work and show progress: add one todo per concrete step before you start. Mark every todo being actively worked on `in_progress` — several at once when work genuinely runs in parallel (e.g. concurrent subagents or background commands), one for sequential work; while work remains, at least one task should be `in_progress`. Mark a todo `completed` the moment it is done (do not batch completions), and allow no `in_progress` item only once all work is complete. Skip the list for trivial single-step tasks. Statuses: `pending` (not started), `in_progress` (being worked on now), `completed` (finished).
+Record and update a task list to plan multi-step work and show progress; skip it for trivial single-step tasks. Add one todo per concrete step before you start. While work remains, keep the todos being worked on `in_progress`, several only when work runs in parallel. Mark each todo `completed` as soon as it is done.
 
 ```json
 {
@@ -2121,6 +2292,58 @@ Record and update a structured task list for the current work. Send the ENTIRE l
 Source: [`packages/todo/tool-todo/src/index.ts`](../packages/todo/tool-todo/src/index.ts)
 
 todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.
+
+<a id="deepseek-aidsh-tool-working-directory"></a>
+
+## `@deepseek-ai/dsh-tool-working-directory`
+
+### `working_directory`
+
+Read the current working directory, or change it with cd. Relative paths use the current directory. Existing shells and running processes keep their own directories.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "cd": {
+      "type": "string",
+      "description": "Existing directory to enter. Omit to read the current directory."
+    }
+  }
+}
+```
+
+Source: [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts)
+
+Reads or changes the calling Session directory. Existing shells and processes retain their own directories; origin metadata and permission roots stay fixed.
+
+<a id="deepseek-aidsh-experimental-tool-worktree"></a>
+
+## `@deepseek-ai/dsh-experimental-tool-worktree`
+
+### `create_worktree`
+
+Create a new Git branch and worktree from a local commit, branch, or tag, then change this session's working directory to it. Defaults to HEAD and a generated name. Uncommitted files stay in the source checkout. Existing names fail. Use working_directory with cd to leave; the checkout and branch remain.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "New branch name, also used as the checkout directory. Omit to generate a unique name."
+    },
+    "from": {
+      "type": "string",
+      "description": "Local commit, branch, or tag to start from. Defaults to HEAD; no fetch is performed."
+    }
+  }
+}
+```
+
+Source: [`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts)
+
+Explicit experimental composition only. Creates a new branch and checkout from a pinned local commit under existing write permissions, then changes the Session directory. Leaving retains the branch and checkout.
 
 <a id="deepseek-aidsh-tool-workflow"></a>
 
@@ -2217,6 +2440,23 @@ Constraints: concurrency and total-agent caps apply; no filesystem, network, tim
 
 Source: [`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
 
+<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+
+## `@deepseek-ai/dsh-tool-workspace-dependencies`
+
+### `load_workspace_dependencies`
+
+Get absolute paths to bundled Python and library directories, plus bundled Python distribution versions. Node.js and pnpm paths are included when the payload provides them. Python includes numpy, pandas, python-docx, python-pptx, openpyxl, Pillow, lxml, and XlsxWriter. Use these libraries for Office files unless the user or workspace instructions select another environment. When Node.js and pnpm paths are returned, run pnpm with that Node executable and pnpm script path. This does not change PATH or package-manager settings.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/skill/tool-workspace-dependencies/src/index.ts`](../packages/skill/tool-workspace-dependencies/src/index.ts)
+
 <a id="deepseek-aidsh-tool-web"></a>
 
 ## `@deepseek-ai/dsh-tool-web`
@@ -2244,7 +2484,7 @@ Source: [`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/inde
 
 ### `web_search`
 
-Search the web for current information. Provide 1–4 queries in the required queries array. Returns an optional summary answer and a list of source URLs.
+Search the web for current information. Returns an optional summary answer and a list of source URLs.
 
 ```json
 {
@@ -2252,7 +2492,7 @@ Search the web for current information. Provide 1–4 queries in the required qu
   "properties": {
     "queries": {
       "type": "array",
-      "description": "Required search queries; accepts 1–4 items and merges their results.",
+      "description": "1–4 search queries; their results are merged.",
       "items": {
         "type": "string"
       }

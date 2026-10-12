@@ -3152,7 +3152,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/core/system-prompt/src/index.ts:254`](../packages/core/system-prompt/src/index.ts)
+Source: [`packages/core/system-prompt/src/index.ts:255`](../packages/core/system-prompt/src/index.ts)
 
 <a id="deepseek-aidsh-terminal-bash"></a>
 
@@ -4211,7 +4211,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-terminal` ([`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
-- `@deepseek-ai/dsh-tool-schedule` — requires `tools` ([`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-tool-working-directory` — requires `tools` · `workingDirectory` ([`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts))
 - `@deepseek-ai/dsh-user-questions` ([`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts))

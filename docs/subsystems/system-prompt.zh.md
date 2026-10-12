@@ -56,9 +56,11 @@ interface PromptSection {
   /**
    * Static text or a provider evaluated at each assembly with that assembly's
    * {@link AssembleContext}. The text may reference `{{variable}}`s — they are
-   * interpolated later, by {@link renderPrompt}.
+   * interpolated later, by {@link renderPrompt}, unless `interpolate` is false.
    */
   readonly text: string | ((context: AssembleContext) => string)
+  /** Whether to interpolate prompt variables. Defaults to true; false preserves literal text. */
+  readonly interpolate?: boolean
   /**
    * Treat this contribution as the complete system prompt. Assembly still
    * runs the cooperative waterfall so tools, contexts, and variables can be
@@ -80,8 +82,12 @@ interface PromptContext {
   readonly name: string
   /** Contexts are joined in ascending order. */
   readonly order: number
-  /** Static text or a provider evaluated for each assembly. Empty text contributes nothing. */
+  /** Static text or a provider evaluated at assembly and admission refresh. Empty text contributes nothing. */
   readonly text: string | ((context: AssembleContext) => string)
+  /** Whether to interpolate prompt variables. Defaults to true; false preserves literal text. */
+  readonly interpolate?: boolean
+  /** Keep this operational context when optional runtime context is disabled. */
+  readonly required?: boolean
 }
 ```
 

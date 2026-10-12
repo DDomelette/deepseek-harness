@@ -17,7 +17,7 @@ interface ToolOutputDefinition {
   readonly schema: JsonSchemaNode
   /** Pure projection from validated arguments and value to Native/model content. */
   render(args: unknown, value: JsonValue): ContentBlock[]
-  /** Pure replayable presentation projection, computed only for top-level calls. */
+  /** Pure replayable presentation projection for native and nested calls. */
   presentationMeta?(args: unknown, value: JsonValue): JsonValue
 }
 ```
@@ -38,6 +38,16 @@ interface ToolDefinition extends ToolSchema {
    * @returns the canonical value declared by `output.schema`.
    */
   execute(args: unknown, exec: ToolRunContext): Promise<unknown>
+  /**
+   * Install execution-prepared content before `tools/post-execute` policies.
+   * The callback is captured when the call starts and runs once for a
+   * normalized outcome entering post-execute. Policy replacements remain
+   * authoritative; pipeline failures that bypass post-execute skip projection.
+   * @param exec - immutable execution identity and arguments.
+   * @param result - normalized result before post-execute policy.
+   * @returns replacement content, or undefined to preserve the renderer output.
+   */
+  projectContent?(exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>): ContentBlock[] | undefined
   /**
    * Synchronous last-mile transform for model-facing content. The registry
    * snapshots this callback when execution starts and invokes it exactly once
@@ -190,6 +200,8 @@ interface ToolExecutionInput {
    */
   readonly rootCallId?: ToolCallId
   readonly name: string
+  /** Binding-time tool schema for a PTC inner call; frozen by its producer and never logged. */
+  readonly schema?: ToolSchema
   /** Losslessly JSON-serializable parsed arguments (tools validate their own schema). */
   readonly arguments: unknown
   /** The agent on whose behalf the call runs (set by the agent loop). */
@@ -377,15 +389,19 @@ type ToolExecutionResult = ToolExecutionSuccess | ToolExecutionFailure
 
 ```ts type-equiv
 /**
- * Pre-dispatch decision. `allow` runs the call; `deny` materializes an error;
- * `ask` runs only after an approval service returns `allowed-once` and otherwise
- * denies. Input rewriting is excluded because arguments are already logged and
+ * Pre-dispatch decision. `allow` runs the call; `deny` materializes its
+ * model-facing reason and optional structured error identity; `cancel` selects
+ * the canonical cancellation result without presenting a policy denial; `ask`
+ * runs only after an approval service returns `allowed-once` and otherwise
+ * denies; its `reason` is the audited approval reason and its optional
+ * `displayReason` is the localized prompt text. Input rewriting is excluded because arguments are already logged and
  * presented.
  */
 type PreToolDecision =
   | { kind: 'allow' }
-  | { kind: 'deny'; reason: string }
-  | { kind: 'ask'; reason?: string }
+  | { kind: 'deny'; reason: string; info?: ToolErrorInfo }
+  | { kind: 'cancel' }
+  | { kind: 'ask'; reason?: string; displayReason?: { readonly en: string; readonly [locale: string]: string } }
 ```
 
 ```ts type-equiv

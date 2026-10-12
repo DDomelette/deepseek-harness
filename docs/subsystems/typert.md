@@ -46,7 +46,21 @@ type TypertCodec =
   | {
     readonly mode: 'strict'
     readonly typeSymbol: string
-    readonly schema: TypertSchema
+    /** Materialize and return the process-realm schema on first boundary use. */
+    readonly create: () => TypertSchema
+    /**
+     * Decode a unary result whose fields require type-specific handling.
+     * @param value - result reconstructed by the RPC carrier.
+     * @returns the validated result, retaining native byte views.
+     */
+    readonly decode?: (value: unknown) => unknown
+    /**
+     * Project typed binary fields into RPC result attachments.
+     * @param value - native unary result.
+     * @param writeBytes - records a byte view at its result-relative path and returns its JSON placeholder.
+     * @returns JSON metadata with untouched JSON subtrees retained.
+     */
+    readonly encode?: (value: unknown, writeBytes: (bytes: Uint8Array, path: readonly (string | number)[]) => null) => unknown
   }
   | {
     readonly mode: 'src-json'
@@ -84,7 +98,7 @@ interface InvocationDescriptor {
   readonly method: string
   /** Service member invoked when the exported method name is an alias. */
   readonly implementation?: string
-  /** Absent for unary calls; stream calls validate and deliver every yielded item. */
+  /** Absent for unary calls; stream calls deliver every yielded item as the Host produced it. */
   readonly mode?: 'stream'
   /** Receiver selection mode. */
   readonly invocation:
@@ -104,6 +118,16 @@ interface InvocationDescriptor {
   }
   /** Ordered business parameters. */
   readonly parameters: readonly InvocationParameterDescriptor[]
+  /**
+   * Client-to-Host items of the same logical stream, generated from the `In`
+   * type argument of the method's `RemoteStream<Out, In>` return type; absent
+   * when `In` is `never`. The method reads the items through
+   * `RemoteInvocation.uplink()`, so nothing enters the parameter list.
+   */
+  readonly uplink?: {
+    /** Codec validating every uplink item before `uplink()` delivers it. */
+    readonly codec: TypertCodec
+  }
   /** Transport cancellation injected after business parameters instead of entering wire args. */
   readonly cancellation?: {
     /** Reserved final Host method parameter. */
@@ -182,6 +206,7 @@ type TypertGatewayErrorCode =
 interface TypertGateway {
   /** Carrier adapter shared by WebSocket and in-process transports. */
   readonly wireStream: TypertGatewayWireStream
+
   /**
    * Register the application-selected forwarded-event source.
    * @param source - stream factory installed by the Remote assembly.
@@ -192,6 +217,7 @@ interface TypertGateway {
     source: TypertRemoteEventSource,
     host: RemoteEventHostInfo,
   ): () => Promise<void>
+
   /**
    * Invoke one live Remote method without assuming a carrier or response envelope.
    * @param request - decoded endpoint and named wire arguments.
@@ -199,6 +225,7 @@ interface TypertGateway {
    * @throws {@link TypertGatewayError} for dispatch, provider, or boundary failures; lookup-policy and business errors retain identity.
    */
   invoke(request: InvokeRemoteRequest): Promise<unknown>
+
   /**
    * Open one live stream Remote method without assuming a physical carrier.
    * @param request - decoded endpoint and named wire arguments.

@@ -50,14 +50,14 @@ The group owns an isolated `sessionQuery` provider with a lazy `:memory:` index,
 <a id="further-exploration"></a>
 ## Further Exploration
 
-[Capability implementation](../tool-session-query/README.md)
+[Capability implementation](../../session-query/tool-session-query/README.md)
 
 -----
 
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through the [capability implementation](../tool-session-query/README.md), which owns model context and results.
+Indirectly, through the [capability implementation](../../session-query/tool-session-query/README.md), which owns model context and results.
 
 #### KV Cache effect
 

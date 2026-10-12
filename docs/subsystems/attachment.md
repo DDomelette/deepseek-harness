@@ -126,10 +126,12 @@ interface StoredImageAttachment {
 ```
 
 ```ts type-equiv
-/** Deterministic request-image policy selected by one exact model route. */
-interface ImageRequestPolicy {
-  /** Maximum width multiplied by height after aspect-preserving projection. */
-  maxPixels: number
+/** Deterministic request-image target selected by one exact model route for one attachment. */
+interface ImageRequestTarget {
+  /** Target width in pixels; a target above the source keeps the source width. */
+  width: number
+  /** Target height in pixels; a target above the source keeps the source height. */
+  height: number
   /** Encoded-byte target before base64 expansion or Files API upload; the smallest quality-ladder output is kept when no quality fits. */
   maxBytes: number
 }

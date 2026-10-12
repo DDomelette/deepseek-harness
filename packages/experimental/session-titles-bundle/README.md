@@ -46,14 +46,14 @@ The switch changes the title provider for existing and new Sessions. Eligible hu
 <a id="further-exploration"></a>
 ## Further Exploration
 
-[Capability implementation](../session-title-all-prompts-llm/README.md)
+[Capability implementation](../../session/session-title-all-prompts-llm/README.md)
 
 -----
 
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through the [capability implementation](../session-title-all-prompts-llm/README.md), which owns model context and results.
+Indirectly, through the [capability implementation](../../session/session-title-all-prompts-llm/README.md), which owns model context and results.
 
 #### KV Cache effect
 

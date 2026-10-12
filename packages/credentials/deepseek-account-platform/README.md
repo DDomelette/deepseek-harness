@@ -97,7 +97,7 @@ No model request prefix changes.
 <a id="dev-note"></a>
 ### Dev Note
 
-The [desktop login decision](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.md) records cancellation and storage ownership.
+The provider persists an owner-scoped grant, and account presence is derived from that storage.
 
 The first profile read after sign-in uses the sanitized user returned by auth_exchange. A null or malformed user falls back to current; subsequent refreshes and Host restarts also query current. Failed current requests retain the latest successful profile for the same credential in Host memory; credential changes and disposal clear it. A ready current response whose stable account ID first becomes available or changes notifies watch subscribers, so identity consumers re-read getPlatformSession; refreshes that repeat the same ID stay silent. Exchange registers the submitted device information.
 

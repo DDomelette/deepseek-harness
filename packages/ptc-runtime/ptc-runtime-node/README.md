@@ -113,7 +113,6 @@ Source execution loads an erasable-only bootstrap closure without relying on sib
 Read the service contract before using the provider directly; the decisions explain policy and consumer ownership.
 
 - [PTC runtime service](../ptc-runtime/README.md) — requests, resolved specs and results.
-- [Sandboxed Node decision](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.md) — security, lifecycle and timeout tradeoffs.
 - [PTC foundation](../../../.agents/notes/implemented/feature/2026-06-15-ptc.md) — registry presentation and nested tool dispatch.
 - [Subprocess provider](../../subprocess/subprocess-local/README.md) — managed process ranges and platform limitations.
 
@@ -148,6 +147,6 @@ These limits qualify the execution guarantees and retained output.
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-The [timeout discussion](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.md#deferred-timeout-design) records open choices about yielding, total lifetime, approval wait accounting and process-tree CPU/RSS limits. Those choices do not alter numeric deadline defaults or the explicit no-deadline service option.
+Open choices about yielding, total lifetime, approval wait accounting and process-tree CPU/RSS limits do not alter numeric deadline defaults or the explicit no-deadline service option.
 
 </details>

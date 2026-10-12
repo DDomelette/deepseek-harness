@@ -98,7 +98,7 @@ await withFileLock('/home/u/.dsh/settings.yaml', async () => {
 
 当你需要了解使用本原语的存储或它所属的工具家族时，阅读以下页面。
 
-- [用户设置文件存储](../../settings/settings-file/README.zh.md)——每次写入都通过本包替换的设置文档。
+- [Profile 配置编辑器](../../boot/config-editor/README.zh.md)——每次编辑都通过本包替换的 profile patch。
 - [凭据存储](../../credentials/credentials-local/README.zh.md)——本包加锁并替换的凭据文件。
 - [util 组映射](../README.zh.md)——本包所属的零依赖工具家族。
 

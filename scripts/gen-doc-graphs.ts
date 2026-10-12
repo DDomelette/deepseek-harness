@@ -157,7 +157,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'session',
     title: 'In-memory session store',
     mode: 'core',
-    consumers: ['agent-loop', 'agent', 'session-persistence', 'session-query', 'session-query-sqlite', 'subagent-in-process-driver', 'invariants', 'message-feedback'],
+    consumers: ['agent-loop', 'agent', 'session-persistence', 'session-query', 'session-query-sqlite', 'subagent-spawn-in-process', 'invariants', 'message-feedback'],
     note: 'Owns append-only Session instances and emits the durable session event feed.',
   },
   {
@@ -397,7 +397,7 @@ const SERVICE_ROLES: ServiceRole[] = [
   },
   {
     key: 'agentPresets',
-    pkg: 'agent-presets',
+    pkg: 'agent-preset-registry',
     title: 'Per-session agent composition',
     mode: 'core',
     note: 'Discovers preset directories over trusted and user-authored roots and mounts one preset cordis.yml under an agent scope during creation, rejecting a row that never activates or that publishes into the root service realm.',
@@ -439,7 +439,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'agent',
     title: 'Agent service',
     mode: 'core',
-    consumers: ['agent-loop', 'acp', 'subagent-in-process-driver'],
+    consumers: ['agent-loop', 'acp', 'subagent-spawn-in-process', 'subagent-fork-in-process'],
     note: 'Owns live Agent handles, the create/resume factory seam, and process-local initiator propagation.',
   },
   {
@@ -688,6 +688,151 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['tool-cordis'],
     note: 'Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport.',
+  },
+  {
+    key: 'claudeCodeMods',
+    pkg: 'experimental-claude-code-mods',
+    title: 'Claude Code mods bridge',
+    mode: 'core',
+    note: 'Loads mods that defineMod plugins add, raises their hook chains from harness extension points, and draws the band above the prompt over its Remote.',
+  },
+  {
+    key: 'configEditor',
+    pkg: 'config-editor',
+    title: 'Profile configuration edits',
+    mode: 'core',
+    consumers: ['settings', 'agent-default-model'],
+    note: 'Persists profile config patches under the application file lock and HMR queue, then reconciles Loader entries.',
+  },
+  {
+    key: 'cotTranslation',
+    pkg: 'experimental-client-ui-cot-translation',
+    title: 'Reasoning translation Remote',
+    mode: 'service',
+    note: 'Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions.',
+  },
+  {
+    key: 'deepseekAccount',
+    pkg: 'deepseek-account',
+    title: 'DeepSeek account',
+    mode: 'seam',
+    implementations: ['deepseek-account-platform'],
+    consumers: ['api-account-controller', 'llm-deepseek'],
+    note: 'The Host owns browser authorization and local credentials; UI consumers receive state without tokens.',
+  },
+  {
+    key: 'hmr',
+    pkg: 'hmr',
+    title: 'Serialized module and configuration reloads',
+    mode: 'core',
+    consumers: ['app-boot'],
+    note: 'Owns module and exact configuration watchers; application mutations share its queue and automatic reloads await the application file lock.',
+  },
+  {
+    key: 'mcpResources',
+    pkg: 'mcp-resources',
+    title: 'Scoped MCP resource access',
+    mode: 'seam',
+    implementations: ['mcp-client'],
+    consumers: ['mcp-resources'],
+    note: 'Connection-owned providers serve shared resource tools in the calling agent scope.',
+  },
+  {
+    key: 'otel',
+    pkg: 'otel',
+    title: 'Shared OTel reporting channels',
+    mode: 'service',
+    consumers: ['host-product-telemetry-otel', 'session-telemetry-otel'],
+    note: 'Product analytics and Session feedback adapters create independent reporting channels through one injected service.',
+  },
+  {
+    key: 'pluginManager',
+    pkg: 'plugin-manager',
+    title: 'Current-profile plugin and bundle management',
+    mode: 'core',
+    consumers: ['plugin-manager', 'ui-settings-plugin-inventory'],
+    note: 'Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers.',
+  },
+  {
+    key: 'pluginRegistryProbe',
+    pkg: 'client-ui-plugin-manager',
+    title: 'Host registry response comparison',
+    mode: 'core',
+    consumers: ['client-ui-plugin-manager'],
+    note: 'Races public registry responses on the Host; the Client owns the initial registry recommendation.',
+  },
+  {
+    key: 'productAnalytics',
+    pkg: 'client-product-analytics',
+    title: 'Desktop interaction collection',
+    mode: 'service',
+    note: 'Accepts selected Desktop events, enriches available login identity, and observes live compaction under the live Host collection policy.',
+  },
+  {
+    key: 'productTelemetry',
+    pkg: 'host-product-telemetry-otel',
+    title: 'Product usage event sender',
+    mode: 'service',
+    note: 'Exports explicitly submitted analytics events through OTLP/HTTP; mounting alone collects nothing.',
+  },
+  {
+    key: 'profileContext',
+    pkg: 'app-boot',
+    title: 'Launcher-owned profile data',
+    mode: 'core',
+    consumers: ['plugin-manager'],
+    note: 'The dsh launcher supplies data-only profile locations and composition inputs; reload scheduling belongs to dsh-hmr.',
+  },
+  {
+    key: 'ptcRuntime',
+    pkg: 'ptc-runtime',
+    title: 'PTC execution seam',
+    mode: 'seam',
+    implementations: ['ptc-runtime-node', 'experimental-ptc-runtime-python'],
+    consumers: ['tools', 'workflow-ptc'],
+    note: 'Runs programs against host-provided async bindings; tools owns PTC presentation and workflow-ptc owns workflow orchestration.',
+  },
+  {
+    key: 'speechController',
+    pkg: 'experimental-api-speech-to-text',
+    title: 'Experimental transcription Remote',
+    mode: 'core',
+    note: 'Validates bounded browser audio before provider dispatch.',
+  },
+  {
+    key: 'speechToText',
+    pkg: 'experimental-speech-to-text',
+    title: 'Experimental speech recognition providers',
+    mode: 'seam',
+    implementations: ['experimental-speech-to-text-sensevoice'],
+    consumers: ['experimental-api-speech-to-text'],
+    note: 'Routes explicit recognizers; the browser uses the authenticated Remote and keeps transcripts in the draft until submission.',
+  },
+  {
+    key: 'translator',
+    pkg: 'experimental-translator',
+    title: 'Anonymous text translation',
+    mode: 'service',
+    consumers: ['experimental-client-ui-cot-translation'],
+    note: 'Resolves Google or Bing requests and retains shared experimental records through the active Session writer.',
+  },
+  {
+    key: 'workingDirectory',
+    pkg: 'working-directory',
+    title: 'Session working directory',
+    mode: 'seam',
+    implementations: ['working-directory'],
+    consumers: ['tool-working-directory', 'tool-fs', 'tool-bash', 'tool-pwsh', 'subagent', 'sdk-jsonrpc-server'],
+    note: 'One Session projection owns the effective execution directory. The filesystem validates changes; user context reports them while original metadata and write grants stay fixed.',
+  },
+  {
+    key: 'worktrees',
+    pkg: 'experimental-worktree',
+    title: 'Git worktree creation',
+    mode: 'seam',
+    implementations: ['experimental-worktree'],
+    consumers: ['experimental-tool-worktree'],
+    note: 'Explicit experimental creation from a pinned local commit. Existing write permissions govern checkout and shared Git metadata; the working-directory service owns the resulting Session directory.',
   },
 ]
 
@@ -1268,6 +1413,16 @@ function listenerPackages(listeners: Set<string>, pkgsByShort: Map<string, Pkg>)
   return [...listeners].sort().map(pkg => pkgLink(pkgsByShort.get(pkg), pkg)).join(', ')
 }
 
+/**
+ * Declared events whose publishing runtime is outside the scanned package
+ * aggregate. `loader/volatile-update` is declared by the MCP manager for a
+ * Loader that commits volatile config references into a running fiber; this
+ * tree's vendored Loader predates that feature and publishes nothing yet, so
+ * the declaration merges as an identical overload once the vendored Loader
+ * gains it. The row keeps its declaration, mode, and listeners.
+ */
+const VENDOR_DISPATCHED_EVENTS: ReadonlySet<string> = new Set(['loader/volatile-update'])
+
 function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): string {
   const relations = collectEventRelations()
   const pkgsByShort = new Map(pkgs.map(pkg => [pkg.short, pkg]))
@@ -1289,8 +1444,11 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
   // aggregate program only (host+client cannot share one program — the cordis
   // Context merges collide), so client dispatch sites are structurally
   // invisible here; their rows stay in the table for the declarations' sake.
+  // {@link VENDOR_DISPATCHED_EVENTS} carries the same exemption for events the
+  // package aggregate declares ahead of the vendored runtime that publishes them.
   const undispatched = [...events]
     .filter(event => !event.source.startsWith('packages/client/'))
+    .filter(event => !VENDOR_DISPATCHED_EVENTS.has(event.name))
     .filter(event => (relations.get(event.name)?.dispatchers.size ?? 0) === 0)
     .map(event => event.name)
     .sort()

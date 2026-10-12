@@ -45,6 +45,161 @@
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
+| `@deepseek-ai/dsh-plugin-manager` | `plugin_manager` | `ctx.tools`, `ctx.pluginManager`, `ctx.sandboxPolicy` | `tool/call`, `tool/result`, `user/message` | - | - |
+| `@deepseek-ai/dsh-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
+| `@deepseek-ai/dsh-tool-working-directory` | `working_directory` | `ctx.tools`, `ctx.workingDirectory` | `tool/call`, `working-directory/change`, `user context for directory changes`, `tool/result` | - | 读取或改变调用方 Session 的目录。已有 shell 和进程保留自己的目录；原始元数据和权限根目录保持不变。 |
+| `@deepseek-ai/dsh-experimental-tool-worktree` | `create_worktree` | `ctx.tools`, `ctx.worktrees`, `a calling Agent` | `tool/call`, `Git branch and checkout`, `working-directory/change`, `tool/result` | - | 仅通过显式实验组合加载。在现有写权限下从固定的本地提交创建新分支与检出目录，再改变 Session 工作目录。离开时保留分支与检出目录。 |
+| `@deepseek-ai/dsh-tool-workspace-dependencies` | `load_workspace_dependencies` | `ctx.tools` | `tool/call`, `tool/result` | - | - |
+
+<a id="deepseek-aidsh-plugin-manager"></a>
+
+## `@deepseek-ai/dsh-plugin-manager`
+
+### `plugin_manager`
+
+列出当前 profile 中的插件或组合包，启用或禁用它们，安装组合包或移除已安装的组合包。每项操作都要求 danger-full-access 权限或本次调用的批准。批准不改变会话权限模式。变更影响该 profile 的所有会话。先列出条目以获取准确标识。包安装可能运行已获批准的构建脚本。支持热更新的 profile 立即应用变更；仅启动时加载的 profile 需要重启。不兼容的 DSH peer 依赖会阻止安装和激活。版本豁免可能导致崩溃和数据丢失：授权前必须警告用户，并获得用户对精确插件版本与运行时版本组合的明确许可。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Management operation.",
+      "enum": [
+        "list_plugins",
+        "list_bundles",
+        "set_plugin",
+        "set_bundle",
+        "install_bundle",
+        "remove_bundle",
+        "list_version_exemptions",
+        "set_version_exemption"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "description": "Plugin entry id, bundle package name, or installation spec, according to action. For an Official catalog entry, pass list_bundles installTarget.spec to install_bundle."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Required for set operations; defaults to true for installation. For set_version_exemption, true grants and false revokes."
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "description": "For set_version_exemption: exact DSH version from list_version_exemptions. Target must be the manifest package-name@version, not an alias or version range."
+    },
+    "acceptRisk": {
+      "type": "boolean",
+      "description": "For granting an exemption: true only after warning the user about possible crashes and data loss and receiving explicit permission for this exact plugin/runtime pair. General installation permission is not enough."
+    },
+    "approvedBuilds": {
+      "type": "array",
+      "description": "For install_bundle: pass names from pendingBuilds only after the user explicitly approves running their install scripts in the conversation. This grants persistent permission for this profile.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "registry": {
+      "type": "string",
+      "description": "For install_bundle: the npm registry URL asked first, when the user names one; otherwise the configured registry is asked, and its configured fallbacks while a registry is unreachable."
+    },
+    "offset": {
+      "type": "number",
+      "description": "Zero-based list offset; defaults to 0."
+    },
+    "limit": {
+      "type": "number",
+      "description": "List page size, from 1 to 100; defaults to 25."
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
+```
+
+Source: [`packages/boot/plugin-manager/src/tools.ts`](../packages/boot/plugin-manager/src/tools.ts)
+
+<a id="deepseek-aidsh-mcp-resources"></a>
+
+## `@deepseek-ai/dsh-mcp-resources`
+
+### `list_mcp_resource_templates`
+
+列出 MCP 服务器提供的参数化资源 URI 模板。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `list_mcp_resources`
+
+List resources available from an MCP server.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `read_mcp_resource`
+
+Read an MCP resource by URI from the named server. Use a listed URI or an expanded resource template.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "uri": {
+      "type": "string",
+      "description": "Resource URI to read."
+    }
+  },
+  "required": [
+    "server",
+    "uri"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -132,18 +287,34 @@ ask_user_question 会暂停工具调用，直到当前 UI 提供方返回人类�
 {
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Provide `description` before `code` in the arguments. Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+    },
     "code": {
       "type": "string",
       "description": "The program: the body of an async TypeScript function."
     },
-    "description": {
+    "timeoutMs": {
+      "type": "number",
+      "description": "Positive elapsed-time budget in milliseconds, capped by the deployment maximum."
+    },
+    "sandbox_permissions": {
       "type": "string",
-      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+      "description": "Wider sandbox mode for this complete program execution; requires justification and approval.",
+      "enum": [
+        "workspace-write",
+        "danger-full-access"
+      ]
+    },
+    "justification": {
+      "type": "string",
+      "description": "Reason this complete program needs wider access, shown to the user for approval. Use the language of the user’s current request."
     }
   },
   "required": [
-    "code",
-    "description"
+    "description",
+    "code"
   ]
 }
 ```
@@ -1112,7 +1283,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
     },
     "action": {
       "type": "string",
-      "description": "edit | pause | resume | complete | blocked",
+      "description": "edit, pause, and resume require a direct top-level human request. complete and blocked are also allowed during an automatic continuation of this goal; blocked is rejected before the configured minimum round count.",
       "enum": [
         "edit",
         "pause",
@@ -1131,7 +1302,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
     },
     "blocked_reason": {
       "type": "string",
-      "description": "Concrete blocking condition; required only with action blocked."
+      "description": "Required only with action blocked: the concrete condition that persisted across rounds and blocks progress."
     }
   },
   "required": [
@@ -1616,6 +1787,10 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 {
   "type": "object",
   "properties": {
+    "cwd": {
+      "type": "string",
+      "description": "Initial child working directory. Relative paths use your current directory; omitted inherits it. Later directory changes in either agent are independent."
+    },
     "description": {
       "type": "string",
       "description": "A short (3-5 word) description of the delegated task, for display."
@@ -1623,10 +1798,6 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     "prompt": {
       "type": "string",
       "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
-    },
-    "run_in_background": {
-      "type": "boolean",
-      "description": "Whether to run as a background job and return its id. Defaults to false; collect with job_output or stop with job_kill."
     }
   },
   "required": [
@@ -1654,7 +1825,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "agent_id": {
       "type": "string",
-      "description": "The agent id of the running agent to interrupt."
+      "description": "The id of an agent created under you: your direct child or a deeper descendant."
     }
   },
   "required": [
@@ -1675,7 +1846,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "scope": {
       "type": "string",
-      "description": "children (default) lists direct children only; descendants walks the complete tree below you.",
+      "description": "children (default) lists direct children, which accept send_message in any status. descendants lists the whole tree below you with each entry's parent session id and depth; entries deeper than 1 accept only interrupt_agent.",
       "enum": [
         "children",
         "descendants"
@@ -1771,11 +1942,11 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     },
     "wait": {
       "type": "boolean",
-      "description": "Block until the job reaches a terminal status or the timeout expires. A timed-out wait returns [status: running] and leaves the job alive."
+      "description": "Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false."
     },
     "timeout_ms": {
       "type": "number",
-      "description": "Max wait in milliseconds (only meaningful with wait: true). Defaults to the configured wait timeout; capped by the configured maximum."
+      "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
     }
   },
   "required": [
@@ -2129,6 +2300,58 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。
 
+<a id="deepseek-aidsh-tool-working-directory"></a>
+
+## `@deepseek-ai/dsh-tool-working-directory`
+
+### `working_directory`
+
+读取当前工作目录，或通过 cd 改变它。相对路径使用当前目录。已有 shell 和运行中的进程保留自己的目录。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "cd": {
+      "type": "string",
+      "description": "Existing directory to enter. Omit to read the current directory."
+    }
+  }
+}
+```
+
+Source: [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts)
+
+读取或改变调用方 Session 的目录。已有 shell 和进程保留自己的目录；原始元数据和权限根目录保持不变。
+
+<a id="deepseek-aidsh-experimental-tool-worktree"></a>
+
+## `@deepseek-ai/dsh-experimental-tool-worktree`
+
+### `create_worktree`
+
+从本地提交、分支或标签创建新的 Git 分支与工作树，再将本 Session 的工作目录切换到该位置。默认使用 HEAD 和自动生成的名称。未提交文件保留在源检出目录中。名称已存在时失败。使用 working_directory 的 cd 参数离开；检出目录与分支仍然保留。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "New branch name, also used as the checkout directory. Omit to generate a unique name."
+    },
+    "from": {
+      "type": "string",
+      "description": "Local commit, branch, or tag to start from. Defaults to HEAD; no fetch is performed."
+    }
+  }
+}
+```
+
+Source: [`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts)
+
+仅通过显式实验组合加载。在现有写权限下从固定的本地提交创建新分支与检出目录，再改变 Session 工作目录。离开时保留分支与检出目录。
+
 <a id="deepseek-aidsh-tool-workflow"></a>
 
 ## `@deepseek-ai/dsh-tool-workflow`
@@ -2225,6 +2448,23 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 来源：[`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
 
+<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+
+## `@deepseek-ai/dsh-tool-workspace-dependencies`
+
+### `load_workspace_dependencies`
+
+获取随包附带的 Python 和库目录的绝对路径，以及随包 Python 发行版的版本。payload 提供 Node.js 和 pnpm 时才返回对应路径。Python 含 numpy、pandas、python-docx、python-pptx、openpyxl、Pillow、lxml 与 XlsxWriter。除非用户或工作区指令选择了别的环境，Office 文件请使用这些库。返回 Node.js 和 pnpm 路径时，用该 Node 可执行文件和 pnpm 脚本路径运行 pnpm。本工具不改 PATH，也不改包管理器设置。
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/skill/tool-workspace-dependencies/src/index.ts`](../packages/skill/tool-workspace-dependencies/src/index.ts)
+
 <a id="deepseek-aidsh-tool-web"></a>
 
 ## `@deepseek-ai/dsh-tool-web`
@@ -2260,7 +2500,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
   "properties": {
     "queries": {
       "type": "array",
-      "description": "Required search queries; accepts 1–4 items and merges their results.",
+      "description": "1–4 search queries; their results are merged.",
       "items": {
         "type": "string"
       }

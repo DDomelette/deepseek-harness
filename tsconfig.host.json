@@ -412,7 +412,6 @@
     { "path": "./packages/llm/llm-deepseek-account" },
     { "path": "./packages/llm/llm-deepseek-api-key" },
     { "path": "./packages/mcp/mcp-resources" },
-    { "path": "./packages/schedule/tool-schedule" },
     { "path": "./packages/session/tool-working-directory" },
     { "path": "./packages/skill/tool-workspace-dependencies" },
     { "path": "./packages/telemetry/otel" },

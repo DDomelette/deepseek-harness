@@ -36,7 +36,7 @@ kind: "package-reference"
 - name: '@deepseek-ai/dsh-tool-cordis'
 ```
 
-CLI 示例 [`apps/cli/config/examples/cordis/cordis.yml`](../../../apps/cli/config/examples/cordis/cordis.yml) 同时组合了这两者。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
+上面的最小组合同时包含这两者。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
 
 ### 工具能做什么
 

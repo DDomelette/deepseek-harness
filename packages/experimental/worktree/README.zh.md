@@ -65,7 +65,6 @@ Git 与目录分配通过挂载的子进程及沙箱提供方执行，沿用调�
 - [工作目录](../../session/working-directory/README.zh.md) — 记录的 Session 目录与目录切换。
 - [工作树工具](../tool-worktree/README.zh.md) — 面向模型的创建操作。
 - [子进程](../../subprocess/subprocess/README.zh.md) — 进程所有权与执行环境。
-- [创建决策](../../../.agents/notes/implemented/feature/2026-09-13-explicit-worktree-creation.zh.md) — 保留检出目录与既有写权限。
 
 -----
 

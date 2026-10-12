@@ -83,8 +83,6 @@ export type OptionalSessionSeq = SessionSeq | null
  * Same-version readers retain earlier representations: the adjacent migration
  * chain does not run when stored and current versions match. A subsequent
  * migration must account for all supported representations of its source.
- * Compatibility review and the retained migration obligations are recorded in
- * `.agents/notes/implemented/process/2026-10-08-session-reader-compatibility-review.md`.
  */
 export const SESSION_FORMAT_VERSION = 4
 

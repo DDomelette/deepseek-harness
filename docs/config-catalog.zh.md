@@ -3154,7 +3154,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/core/system-prompt/src/index.ts:254`](../packages/core/system-prompt/src/index.ts)
+来源：[`packages/core/system-prompt/src/index.ts:255`](../packages/core/system-prompt/src/index.ts)
 
 <a id="deepseek-aidsh-terminal-bash"></a>
 
@@ -4213,7 +4213,6 @@ export interface Config {
 - `@deepseek-ai/dsh-terminal`（[`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts)）
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）
 - `@deepseek-ai/dsh-tool-cordis` — 需要 `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`（[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)）
-- `@deepseek-ai/dsh-tool-schedule` — 需要 `tools`（[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)）
 - `@deepseek-ai/dsh-tool-subagent-control` — 需要 `tools` · `subagents`（[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)）
 - `@deepseek-ai/dsh-tool-working-directory` — 需要 `tools` · `workingDirectory`（[`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts)）
 - `@deepseek-ai/dsh-user-questions`（[`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts)）

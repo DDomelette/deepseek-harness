@@ -23,6 +23,7 @@ export type SessionEventType = keyof SessionEventMap
  */
 export type SurfaceEventType =
   | 'system/message'
+  | 'developer/message'
   | 'user/message'
   | 'assistant/message'
   | 'tool/result'
@@ -83,7 +84,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 }[T]
 ```
 
-Sources: [`packages/core/session/src/types.ts:404`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:412`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:434`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:465`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/session/src/types.ts:429`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:437`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:460`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:491`](../packages/core/session/src/types.ts)
 
 ## Events
 
@@ -108,7 +109,7 @@ Sources: [`packages/core/session/src/types.ts:404`](../packages/core/session/src
 }
 ```
 
-Source: [`packages/core/agent/src/types.ts:87`](../packages/core/agent/src/types.ts)
+Source: [`packages/core/agent/src/types.ts:96`](../packages/core/agent/src/types.ts)
 
 ### `agent-preset/*`
 
@@ -126,7 +127,7 @@ Source: [`packages/core/agent/src/types.ts:87`](../packages/core/agent/src/types
 'agent-preset/selected': { agentPreset: string }
 ```
 
-Source: [`packages/preset/agent-presets/src/session.ts:28`](../packages/preset/agent-presets/src/session.ts)
+Source: [`packages/preset/agent-preset-registry/src/session.ts:28`](../packages/preset/agent-preset-registry/src/session.ts)
 
 ### `approval/*`
 
@@ -193,7 +194,7 @@ Source: [`packages/interaction/user-approval/src/types.ts:55`](../packages/inter
 }
 ```
 
-Source: [`packages/interaction/user-approval/src/index.ts:33`](../packages/interaction/user-approval/src/index.ts)
+Source: [`packages/interaction/user-approval/src/index.ts:40`](../packages/interaction/user-approval/src/index.ts)
 
 ### `assistant/*`
 
@@ -210,7 +211,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:33`](../packages/inter
 'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
 ```
 
-Source: [`packages/core/session/src/types.ts:335`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:353`](../packages/core/session/src/types.ts)
 
 <a id="assistantmessage--surface"></a>
 
@@ -240,7 +241,7 @@ Source: [`packages/core/session/src/types.ts:335`](../packages/core/session/src/
 
 Types: [TokenUsage](subsystems/llm-streaming.md)
 
-Source: [`packages/core/session/src/types.ts:321`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:339`](../packages/core/session/src/types.ts)
 
 ### `command/*`
 
@@ -263,7 +264,7 @@ Source: [`packages/core/session/src/types.ts:321`](../packages/core/session/src/
 }
 ```
 
-Source: [`packages/interaction/commands/src/types.ts:110`](../packages/interaction/commands/src/types.ts)
+Source: [`packages/interaction/commands/src/types.ts:112`](../packages/interaction/commands/src/types.ts)
 
 <a id="commandrun--log-only"></a>
 
@@ -283,7 +284,7 @@ Source: [`packages/interaction/commands/src/types.ts:110`](../packages/interacti
 'command/run': { commandId: CommandId; name: string; args?: string; source: CommandSource }
 ```
 
-Source: [`packages/interaction/commands/src/types.ts:103`](../packages/interaction/commands/src/types.ts)
+Source: [`packages/interaction/commands/src/types.ts:105`](../packages/interaction/commands/src/types.ts)
 
 ### `compaction/*`
 
@@ -411,6 +412,25 @@ Types: [ToolCallId](subsystems/core.md)
 
 Source: [`packages/fs/tool-present/src/types.ts:15`](../packages/fs/tool-present/src/types.ts)
 
+### `developer/*`
+
+<a id="developermessage--surface"></a>
+
+#### `developer/message` — surface
+
+```ts persistence-catalog
+/** An incremental agent session change admitted at the named turn and step. */
+'developer/message': {
+  turn: number
+  step: number
+  message: DeveloperMessage
+  /** Earlier request/header defining every tool addition; required exactly when additions are present. */
+  headerSeq?: SessionSeq
+}
+```
+
+Source: [`packages/core/session/src/types.ts:309`](../packages/core/session/src/types.ts)
+
 ### `feedback/*`
 
 <a id="feedbackmessage-delete--log-only"></a>
@@ -489,7 +509,7 @@ Source: [`packages/goal/goal/src/domain.ts:66`](../packages/goal/goal/src/domain
 }
 ```
 
-Source: [`packages/hooks/hook-protocol/src/types.ts:19`](../packages/hooks/hook-protocol/src/types.ts)
+Source: [`packages/experimental/hook-protocol/src/types.ts:19`](../packages/experimental/hook-protocol/src/types.ts)
 
 <a id="hookresult--log-only"></a>
 
@@ -512,7 +532,26 @@ Source: [`packages/hooks/hook-protocol/src/types.ts:19`](../packages/hooks/hook-
 }
 ```
 
-Source: [`packages/hooks/hook-protocol/src/types.ts:31`](../packages/hooks/hook-protocol/src/types.ts)
+Source: [`packages/experimental/hook-protocol/src/types.ts:31`](../packages/experimental/hook-protocol/src/types.ts)
+
+### `image/*`
+
+<a id="imageoffload--log-only"></a>
+
+#### `image/offload` — log-only
+
+```ts persistence-catalog
+/**
+ * Permanently omit selected input-image occurrences from subsequent model requests.
+ * Targets name unique current user/message or tool/result nodes. Nonempty, strictly
+ * increasing indexes count all images in depth-first order, including nested tool
+ * results and already omitted images. Message nodes and identities remain unchanged.
+ * @messageProjection
+ */
+'image/offload': { targets: ImageOffloadTarget[] }
+```
+
+Source: [`packages/compaction/compaction-image-offload/src/projection.ts:25`](../packages/compaction/compaction-image-offload/src/projection.ts)
 
 ### `llm/*`
 
@@ -570,7 +609,7 @@ Source: [`packages/api/session-controller/src/types.ts:40`](../packages/api/sess
 'permission/preset': { preset: string }
 ```
 
-Source: [`packages/interaction/permission-presets/src/index.ts:53`](../packages/interaction/permission-presets/src/index.ts)
+Source: [`packages/interaction/permission-presets/src/index.ts:59`](../packages/interaction/permission-presets/src/index.ts)
 
 ### `plan/*`
 
@@ -587,7 +626,7 @@ Source: [`packages/interaction/permission-presets/src/index.ts:53`](../packages/
 'plan/mode': { active: boolean }
 ```
 
-Source: [`packages/plan/plan-mode/src/index.ts:46`](../packages/plan/plan-mode/src/index.ts)
+Source: [`packages/plan/plan-mode/src/index.ts:52`](../packages/plan/plan-mode/src/index.ts)
 
 ### `request/*`
 
@@ -605,7 +644,7 @@ Source: [`packages/plan/plan-mode/src/index.ts:46`](../packages/plan/plan-mode/s
 'request/context': RequestContext
 ```
 
-Source: [`packages/core/session/src/types.ts:377`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:400`](../packages/core/session/src/types.ts)
 
 <a id="requestheader--log-only"></a>
 
@@ -619,12 +658,12 @@ Source: [`packages/core/session/src/types.ts:377`](../packages/core/session/src/
 'request/header': {
   header: EpochHeader
   reason: RequestHeaderReason
-  /** A changed header also begins a distinct model-message series. */
+  /** This request begins a distinct model-message series, independently of the header reason. */
   startsSeries?: true
 }
 ```
 
-Source: [`packages/core/session/src/types.ts:365`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:388`](../packages/core/session/src/types.ts)
 
 ### `sandbox/*`
 
@@ -675,18 +714,20 @@ Source: [`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/sch
 
 ```ts persistence-catalog
 /**
- * Marks the end of a constructor seed. Events before it have smaller seq
- * values and came from the seed (resume, fork, or replay); this lifecycle
- * produced none of them. This log-only event is the durable projection of
- * {@link Session.firstLiveSeq}.
+ * Separates inherited or restored history from later lifecycle-owned work.
+ * This log-only marker need not be at {@link Session.firstLiveSeq}: a fork
+ * seed can already contain its tagged marker and child-owned synthetic
+ * closers before construction.
  *
  * A fresh fork child owns one `{ inherited: true }` marker at its exact
  * inherited-prefix cut, even when that prefix ends in an ancestor marker.
- * The last tagged marker is the current Session's cut; untagged markers keep
- * ordinary restore and replay lifecycle boundaries.
+ * `buildForkSeed` appends that marker before any synthetic closers; the
+ * `Session` constructor supplies it when given only the inherited prefix.
+ * The last tagged marker is the current Session's cut; untagged markers
+ * keep ordinary restore and replay lifecycle boundaries.
  *
- * `Session`'s constructor is the only legitimate writer. The invariant
- * companion deliberately constrains nothing here, so a plugin appending one
+ * Only the `Session` constructor and `buildForkSeed` may create this marker.
+ * Session append does not reject other writers, so a plugin appending one
  * would silently classify every live bracket before it as seed history.
  *
  * An owner of a standalone open/close bracket (`compaction/start` …
@@ -699,7 +740,7 @@ Source: [`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/sch
 'session/end-seed': { inherited?: true }
 ```
 
-Source: [`packages/core/session/src/types.ts:400`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:425`](../packages/core/session/src/types.ts)
 
 <a id="sessiontitle--log-only"></a>
 
@@ -761,7 +802,7 @@ Source: [`packages/session/session-log-deepseek/src/types.ts:81`](../packages/se
 'step/end': { turn: number; step: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:299`](../packages/core/session/src/types.ts)
 
 <a id="stepstart--log-only"></a>
 
@@ -772,7 +813,7 @@ Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/
 'step/start': { turn: number; step: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:287`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:297`](../packages/core/session/src/types.ts)
 
 ### `subagent/*`
 
@@ -782,13 +823,13 @@ Source: [`packages/core/session/src/types.ts:287`](../packages/core/session/src/
 
 ```ts persistence-catalog
 /**
- * A direct child's complete discovery fact.
+ * A direct child's identity and available discovery fields.
  * @param data - versioned parent-owned catalog entry.
  */
 'subagent/catalog': SubagentCatalogEvent
 ```
 
-Source: [`packages/subagent/subagent/src/catalog.ts:40`](../packages/subagent/subagent/src/catalog.ts)
+Source: [`packages/subagent/subagent/src/catalog.ts:44`](../packages/subagent/subagent/src/catalog.ts)
 
 <a id="subagentdescriptor--log-only"></a>
 
@@ -797,8 +838,8 @@ Source: [`packages/subagent/subagent/src/catalog.ts:40`](../packages/subagent/su
 ```ts persistence-catalog
 /**
  * Durable identity and lifecycle mode of a session-backed subagent child,
- * appended once by the establishing provider inside the child's initial
- * turn, before its first request. Continuable records also carry their
+ * appended once inside the child's initial turn, before its first
+ * request. Continuable records also carry their
  * resumable composition. Log-only: it carries no `surfaceOp`, never enters
  * model history, and survives compaction.
  */
@@ -848,7 +889,7 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../p
 'system/message': { turn: number; step: number; message: SystemMessage }
 ```
 
-Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:328`](../packages/core/session/src/types.ts)
 
 ### `team/*`
 
@@ -941,7 +982,7 @@ Source: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/s
 
 Types: [ToolCallId](subsystems/core.md)
 
-Source: [`packages/core/session/src/types.ts:341`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts)
 
 <a id="toolptc-dispatch--log-only"></a>
 
@@ -952,9 +993,9 @@ Source: [`packages/core/session/src/types.ts:341`](../packages/core/session/src/
  * One bridged sub-dispatch SETTLING: the pairing ids (matching the
  * `tool/ptc-dispatch-start` with the same `subCallId`), the tool `name`
  * with the same JSON-normalized `arguments`, and the sub-call's complete
- * model-facing outcome in `tool/result`'s own vocabulary
- * (`content` + `isError`), so UIs render a sub-call through the exact
- * code path that renders a native call. Every started sub-call settles
+ * durable outcome in `tool/result`'s own vocabulary (`content` + `isError`
+ * + optional presentation `meta` and structured `error`), so UIs and SDKs
+ * render a sub-call through the exact path used for a native call. Every started sub-call settles
  * with exactly one of these (abort included: the aborted pipeline result
  * is an `isError` outcome).
  * Log-only: `deriveMessages()` ignores it, so sub-calls never re-enter
@@ -966,7 +1007,7 @@ Source: [`packages/core/session/src/types.ts:341`](../packages/core/session/src/
 'tool/ptc-dispatch': PtcDispatchEventData
 ```
 
-Source: [`packages/core/tools/src/types.ts:56`](../packages/core/tools/src/types.ts)
+Source: [`packages/core/tools/src/types.ts:61`](../packages/core/tools/src/types.ts)
 
 <a id="toolptc-dispatch-start--log-only"></a>
 
@@ -989,7 +1030,7 @@ Source: [`packages/core/tools/src/types.ts:56`](../packages/core/tools/src/types
 'tool/ptc-dispatch-start': PtcDispatchStartEventData
 ```
 
-Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types.ts)
+Source: [`packages/core/tools/src/types.ts:45`](../packages/core/tools/src/types.ts)
 
 <a id="toolresult--surface"></a>
 
@@ -998,7 +1039,9 @@ Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types
 ```ts persistence-catalog
 /**
  * A completed tool call's model-facing result, optional internal failure
- * identity, and optional tool-private `meta` presentation payload. `meta` is
+ * identity and user-facing reason, and optional tool-private `meta`
+ * presentation payload. The reason remains outside the model-facing message.
+ * `meta` is
  * opaque to the core (the producing tool owns its shape and reads it back in
  * `presentResult`) but MUST be JSON-serializable: `Session.append`
  * runtime-validates all event data with `isJsonValue`, so a non-serializable
@@ -1011,13 +1054,16 @@ Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types
   turn: number
   step: number
   message: ToolResultMessage
-  /** Optional failure identity; allowed only when the tool-result block has `isError: true`. */
-  error?: { name: string; code: string }
+  /**
+   * Optional failure identity and raw user-facing reason, outside model content;
+   * allowed only when the message has `isError: true`.
+   */
+  error?: { name: string; code: string; reason?: string }
   meta?: JsonValue
 }
 ```
 
-Source: [`packages/core/session/src/types.ts:353`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:373`](../packages/core/session/src/types.ts)
 
 ### `tool-workflow/*`
 
@@ -1097,7 +1143,7 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:47`](../packages/workflow
 
 Types: [TurnEndReason](subsystems/session.md)
 
-Source: [`packages/core/session/src/types.ts:285`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:295`](../packages/core/session/src/types.ts)
 
 <a id="turnstart--log-only"></a>
 
@@ -1113,7 +1159,7 @@ Source: [`packages/core/session/src/types.ts:285`](../packages/core/session/src/
 'turn/start': { turn: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:276`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:286`](../packages/core/session/src/types.ts)
 
 ### `user/*`
 
@@ -1132,7 +1178,7 @@ Source: [`packages/core/session/src/types.ts:276`](../packages/core/session/src/
 'user/message': UserMessage
 ```
 
-Source: [`packages/core/session/src/types.ts:297`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
 
 ### `web/*`
 
@@ -1145,4 +1191,20 @@ Source: [`packages/core/session/src/types.ts:297`](../packages/core/session/src/
 'web/deepseek-search-llm-request': DeepSeekSearchLlmRequest
 ```
 
-Source: [`packages/web/web-search-deepseek/src/provider.ts:83`](../packages/web/web-search-deepseek/src/provider.ts)
+Source: [`packages/web/web-search-deepseek/src/provider.ts:82`](../packages/web/web-search-deepseek/src/provider.ts)
+
+### `working-directory/*`
+
+<a id="working-directorychange--log-only"></a>
+
+#### `working-directory/change` — log-only
+
+```ts persistence-catalog
+/** Effective working directory; the immutable Session header retains the original project. */
+'working-directory/change': {
+  /** Absolute directory used by subsequent directory-based operations. */
+  cwd: string
+}
+```
+
+Source: [`packages/session/working-directory/src/index.ts:36`](../packages/session/working-directory/src/index.ts)

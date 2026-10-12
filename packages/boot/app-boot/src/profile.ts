@@ -204,8 +204,7 @@ const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
  * {@link loadProfileDirectory} removes them from the profile's bundle list.
  */
 const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
-  // The Web composition mounts Schedule itself
-  // ([upgrade guide](../../../../docs/upgrade-guide/v0.2.0-rc.2/schedule-bundle-retired/guide.md)).
+  // The Web composition mounts Schedule itself.
   '@deepseek-ai/dsh-experimental-schedule-bundle',
 ])
 
@@ -216,9 +215,7 @@ export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-bas
  * The bundles the dsh installation ships for a person to switch on: each a
  * runtime dependency of the installation that declares `dsh.bundle.patch`,
  * an `icon`, and `./locale/*.json` display metadata, selected by no shipped
- * template, and offered switched off by the plugin manager
- * ([rationale](../../../../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md),
- * [admission](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
+ * template, and offered switched off by the plugin manager.
  */
 export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-experimental-session-search',

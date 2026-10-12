@@ -33,7 +33,7 @@ The Official entry is visible offline. Enabling it installs the [target for the 
 
 Switching Off deselects the layer and leaves the package installed. Remove is a separate package operation. Enabling or switching Off registers or removes the global tool in the running Host, so live Agents see the change on their next request.
 
-The layer inserts Host rows only, so any profile can select it, including the shipped headless, SDK, and ACP profiles. Existing provider-only consumers follow the [upgrade guide](../../../docs/upgrade-guide/v0.2.1-alpha.1/native-subagent-bundle-tools/guide.md).
+The layer inserts Host rows only, so any profile can select it, including the shipped headless, SDK, and ACP profiles.
 
 ### Configuration
 
@@ -121,7 +121,6 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Subagent subsystem](../../../docs/subsystems/subagent.md) — the service contract, provider contract, and terminal result semantics.
 - [dsh-subagent seam](../subagent/README.md) — the registry and start API this provider registers on.
 - [Claude Code subagent provider](../subagent-claude-code/README.md) — the sibling product backend over the official Agent SDK.
-- [historical Claude Code and Codex backends](../../../.agents/notes/archived/feature/2026-08-04-claude-code-and-codex-subagent-backends.md) — the design record for the product providers.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-subagent-codex) — every accepted config field and its source declaration.
 
 -----

@@ -12,7 +12,7 @@ The [macOS Sandbox run](https://github.com/deepseek-harness/deepseek-harness/act
 
 The [user-patch transaction test](../../../../packages/boot/app-boot/tests/user-patches.spec.ts) writes real patch files and delivers their add, change, and unlink events through a Chokidar watcher without native watch handles. HMR registration, refresh serialization, Include recomposition, plugin activation, failure broadcasting, rollback, and recovery remain real. The fixture restores its watcher factory and disposes the Context even when setup fails before the local cleanup block.
 
-The separate [HMR config tests](../../../../packages/boot/app-boot/tests/hmr-config.spec.ts) own native notification delivery, including add/change/unlink, initially absent parents, and filesystem aliases. The transaction test does not establish operating-system delivery guarantees.
+The separate [HMR config tests](../../../../packages/boot/hmr/tests/watch-config.spec.ts) own native notification delivery, including add/change/unlink, initially absent parents, and filesystem aliases. The transaction test does not establish operating-system delivery guarantees.
 
 ## Alternatives considered
 

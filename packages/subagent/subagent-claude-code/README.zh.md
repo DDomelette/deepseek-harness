@@ -33,7 +33,7 @@ kind: "package-bundle"
 
 关闭只会取消选择配置层，保留已安装的包。移除是独立的包操作。启用或关闭会在运行中的 Host 注册或移除该全局工具，正在运行的智能体会在下一次请求时看到变化。
 
-此层只插入 Host 条目，因此任何配置（包括随附的 headless、SDK 和 ACP）都可以选择它。原有仅提供方用法请遵循[升级指南](../../../docs/upgrade-guide/v0.2.1-alpha.1/native-subagent-bundle-tools/guide.zh.md)。
+此层只插入 Host 条目，因此任何配置（包括随附的 headless、SDK 和 ACP）都可以选择它。
 
 ### 配置
 
@@ -123,7 +123,6 @@ Bundle 将 `tool-subagent-claude-code` 作为 Host 条目插入，因此 `subage
 - [Subagent 子系统](../../../docs/subsystems/subagent.zh.md)——服务约定、提供方约定与终态结果语义。
 - [dsh-subagent seam](../subagent/README.zh.md)——本提供方注册于其上的注册表与启动 API。
 - [Codex subagent 提供方](../subagent-codex/README.zh.md)——经官方 app-server 协议的兄弟产品后端。
-- [历史Claude Code 与 Codex 后端](../../../.agents/notes/archived/feature/2026-08-04-claude-code-and-codex-subagent-backends.md)——产品提供方的设计记录。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-subagent-claude-code)——每个受支持配置字段及其源声明。
 
 -----

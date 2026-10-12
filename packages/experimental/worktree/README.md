@@ -65,7 +65,6 @@ No runtime invariant companion is published: Git owns checkout registration and 
 - [Working directory](../../session/working-directory/README.md) — recorded Session directory and directory changes.
 - [Worktree tool](../tool-worktree/README.md) — model-facing creation.
 - [Subprocess](../../subprocess/subprocess/README.md) — process ownership and execution worlds.
-- [Creation decision](../../../.agents/notes/implemented/feature/2026-09-13-explicit-worktree-creation.md) — retained checkouts and existing write grants.
 
 -----
 

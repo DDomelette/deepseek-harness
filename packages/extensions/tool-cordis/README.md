@@ -36,7 +36,7 @@ Mount this plugin when a session should be able to extend its own runtime tempor
 - name: '@deepseek-ai/dsh-tool-cordis'
 ```
 
-The CLI example [`apps/cli/config/examples/cordis/cordis.yml`](../../../apps/cli/config/examples/cordis/cordis.yml) composes both. A package with a browser half additionally needs the browser runner and the UI package in the client composition; a host-only package needs none of them.
+The minimal composition above composes both. A package with a browser half additionally needs the browser runner and the UI package in the client composition; a host-only package needs none of them.
 
 ### What the tools do
 

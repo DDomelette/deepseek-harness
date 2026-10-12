@@ -6,7 +6,7 @@ The subagent seam lets an agent delegate work to a child agent. Like [bash](shel
 
 Service Definition: [dsh-subagent](../../packages/subagent/subagent) (`ctx.subagents` + the vocabulary below). Service Providers are sibling packages (`dsh-subagent-spawn-in-process`, `dsh-subagent-fork-in-process`, `dsh-subagent-acp`, `dsh-subagent-codex`, `dsh-subagent-claude-code`, `dsh-subagent-dsh-sdk`); the model-facing Consumers are [dsh-tool-subagent](../../packages/subagent/tool-subagent) (per-provider delegation) and [dsh-tool-subagent-control](../../packages/subagent/tool-subagent-control) (the optional global `send_message`, `interrupt_agent`, and `list_agents` controls). The same `ctx.subagents` service owns continuable-child orchestration through an internal activation manager and read-only child and descendant discovery straight from the session store and optional session persistence. Product-provider rationale lives in [the Codex and Claude Code Agent Note](../../.agents/notes/implemented/feature/2026-08-04-claude-code-and-codex-subagent-backends.md); common-seam rationale lives in [the subagent Agent Note](../../.agents/notes/implemented/feature/2026-06-21-subagent-capability-seam.md), [the continuable subagents Agent Note](../../.agents/notes/implemented/feature/2026-07-28-continuable-subagent-conversations.md), and [the adjacent-Agent messaging Agent Note](../../.agents/notes/implemented/architecture/2026-08-27-adjacent-agent-steer-messaging.md); [the archived list-identity-projection record](../../.agents/notes/archived/architecture/2026-08-06-subagent-list-identity-projection.md) documents the original list-identity decision.
 
-Sources: [`packages/subagent/subagent/src/types.ts`](../../packages/subagent/subagent/src/types.ts), [`packages/subagent/subagent/src/index.ts`](../../packages/subagent/subagent/src/index.ts), and [`packages/subagent/subagent/src/continuation.ts`](../../packages/subagent/subagent/src/continuation.ts)
+Sources: [`packages/subagent/subagent/src/types.ts`](../../packages/subagent/subagent/src/types.ts), [`packages/subagent/subagent/src/index.ts`](../../packages/subagent/subagent/src/index.ts), and [`packages/subagent/subagent/src/manager.ts`](../../packages/subagent/subagent/src/manager.ts)
 
 The `subagentCatalog` projection exposes `SubagentCatalogEntry[]` in parent event order through Session observations and client snapshots. Each entry contains the child id, creation time, mode, and mode-dependent label; fork-inherited catalog facts are excluded. [The subagent package](../../packages/subagent/subagent/README.md) owns catalog creation and persistence semantics.
 
@@ -16,15 +16,10 @@ A provider advertises its **start-time** features on a static descriptor the ser
 
 ```ts type-equiv
 /**
- * Which START-TIME features a provider supports. Checked by the service before delegating to
- * {@link SubagentProvider.start}: a request that needs a capability the chosen provider lacks
- * is rejected with a typed error rather than accepted-then-ignored (the "fail loud, no silent
- * degradation" rule). These flags describe the ONE-SHOT
- * {@link SubagentProvider.start} path, where the provider composes the child;
- * continuable children are composed by the continuation manager itself and are
- * gated by {@link SubagentProvider.prepareContinuable} instead. Each flag
- * corresponds one-to-one to a {@link SubagentStartRequest} option: `depthLimit`
- * to `maxDepth`; the other names match.
+ * Start-time options supported by a registered backend. The manager checks
+ * every requested option before preparing a local child or starting an external
+ * execution. depthLimit controls maxDepth; the remaining flag names match
+ * SubagentStartRequest fields.
  */
 interface SubagentCapabilities {
   readonly agentOptions: boolean
@@ -41,21 +36,20 @@ The tool layer builds this request from the model input and its own config; the 
 
 ```ts type-equiv
 /**
- * What a caller asks for when starting a ONE-SHOT subagent. The tool layer
- * builds this from the model's `{ description, prompt }` plus its own config;
- * the service validates {@link SubagentCapabilities} against the named provider
- * and resolves the durable descriptor before dispatching to
- * {@link SubagentProvider.start}.
+ * Task and optional capabilities supplied to a backend. startActivation carries
+ * these fields in request while owning its label, cancellation, and delivery
+ * policy separately.
  */
 interface SubagentStartRequest {
+  /** Initial child directory; relative paths resolve against the parent's current directory. Omitted inherits that directory at start. */
+  readonly cwd?: string
   /** Optional short display label persisted with a session-backed child. */
   readonly label?: string
   /** Content delivered as the child's user message. */
   readonly prompt: ContentBlock[]
   /**
-   * The spawning agent. In-process providers derive workspace, lineage, and
-   * delegation depth from its durable session state. ACP reads only its cwd,
-   * and only when no deployment `cwd` override is configured.
+   * The spawning agent. Its effective directory supplies the default cwd;
+   * in-process children retain its origin, lineage, and delegation depth.
    */
   readonly parent: Agent
   /**
@@ -111,13 +105,10 @@ interface SubagentStartRequest {
 The caller-facing request does not carry catalog format details or continuation state. `SubagentRuntime.start()` resolves the detached one-shot descriptor after capability checks, then passes this provider-facing request to the selected transport; a continuable child never reaches `SubagentProvider.start()`:
 
 ```ts type-equiv
-/**
- * Provider-facing one-shot request after {@link SubagentRuntime.start} resolves
- * the durable child descriptor.
- */
+/** Provider-facing request with an absolute directory selected before startup. */
 interface ResolvedSubagentStartRequest extends SubagentStartRequest {
-  /** Detached descriptor a session-backed provider persists in the child log. */
-  readonly descriptor: SubagentDescriptorData
+  /** Absolute child directory captured from the parent or explicit request. */
+  readonly cwd: string
 }
 ```
 
@@ -171,7 +162,7 @@ Every Activation owns its `AgentHandle` and an `ownedChildren: Set<SessionId>`; 
 Final settlement awaits `ctx.sessions.flush(session)` but ignores its participation boolean because an arbitrary listener cannot prove that a persistence backend stored the state. Rejection is logged without failing the Activation, and the manager still disposes the handle and releases ownership; the persisted child state may then be missing or stale on a later resume. Manager unload invokes an internal manager-wide drain that closes admission and disposes every live forest; `drainContinuableDescendants(parents)` closes admission only below exact live host-owned Agents and disposes their continuable descendants while unrelated forests remain live. Both await already-admitted materializations in their scope, propagate cancellation top-down, release handles child-first, and await every selected branch despite individual failures. Durable child Sessions survive that process-local teardown.
 
 ```ts type-equiv
-/** Durable attribution for one model-authored message between adjacent Agents. */
+/** Durable attribution for one model-authored message between Agents. */
 interface AgentMessageSource {
   readonly kind: 'agent-message'
   /** A message another agent addressed to this one (`relay` context form). */
@@ -186,16 +177,6 @@ interface AgentMessageSource {
 interface SubagentSendMessageOptions {
   /** Caller cancellation, owning the operation only until inbox acceptance. */
   readonly signal: AbortSignal
-}
-```
-
-```ts type-equiv
-/** Identities returned once a continuable child accepted its initial prompt. */
-interface ContinuableStart {
-  /** The durable child session id, stable across activations. */
-  readonly childId: SessionId
-  /** The accepted initial prompt's inbox message id. */
-  readonly messageId: MessageId
 }
 ```
 
@@ -231,6 +212,8 @@ The provider participates only in preparing the initial creation spec, where `sp
  * history.
  */
 interface ContinuableCreateRequest {
+  /** Absolute initial directory captured before provider preparation. */
+  readonly cwd: string
   /** The reserved durable child session id, for provider diagnostics. */
   readonly sessionId: SessionId
   /** The delegating parent agent whose history a seeding provider reads. */
@@ -271,13 +254,9 @@ A local one-shot provider appends the descriptor inside the child's initial turn
 `SubagentRuntime.listDescendants(rootSessionId)` applies the same live-preferred corpus and projection-backed interpretation to the root's complete descendant tree in stable pre-order. Ordinary sessions and one-shot children remain traversal nodes, so continuable descendants below them are discovered; only `origin: 'subagent'` candidates produce rows. Each returned child or diagnostic adds its position from the enumerated durable header, while a cold inspection revalidates that complete lifecycle before serving identity:
 
 ```ts type-equiv
-/**
- * One entry of a descendant listing: the interpreted subagent facts plus its
- * position in the complete session tree. `parentId` is the durable direct
- * parent from the enumerated header, and `depth` counts edges from the root.
- */
+/** One catalog descendant with its direct parent and edge distance from the requested root. */
 type SubagentDescendantListEntry = SubagentListEntry & {
-  /** Durable direct parent of this candidate in the enumerated tree. */
+  /** Parent whose catalog contains this child. */
   readonly parentId: SessionId
   /** Edge distance from the requested root; direct children are `1`. */
   readonly depth: number
@@ -300,7 +279,7 @@ interface SubagentResult {
    * are skipped. Without a non-empty message, the output is its accumulated
    * assistant text stream, or `[]` when the child produced neither.
    */
-  readonly output: ContentBlock[]
+  readonly output: readonly ContentBlock[]
   /**
    * The structured result after a requested `outputSchema` was successfully
    * satisfied. Requesting a schema does not guarantee presence: a provider can
@@ -351,27 +330,15 @@ interface SubagentStopReasonMap {
 
 ```ts type-equiv
 /**
- * ONE-SHOT child handle returned after publication. Prompt submission, turn
- * work, and infrastructure faults after that boundary belong to {@link result}.
- * Consumers await that result and must always {@link dispose} to cancel
- * remaining work and reach quiescence. A run is one disposable foreground
- * delegation with one result; continuable conversations have no run — the
- * continuation manager holds their `AgentHandle` directly and orders every
- * turn through the child's own inbox.
+ * Backend execution handle owned directly by the activation registry.
+ * A result may become available before resource release; the manager always
+ * disposes the handle and awaits cleanup. Backend startup failures clean up
+ * partial resources before rejecting, while accepted execution failures settle
+ * through result.
  */
 interface SubagentRun {
-  /**
-   * Parent-scoped run id. For a local run, this MUST equal the published child
-   * session id, whose `parentSession` records `request.parent.session.id`; a
-   * remote provider mints an id unique in the parent namespace.
-   */
+  /** Provider-minted id, unique across all parents, providers, and local Sessions in this runtime. */
   readonly id: SessionId
-  /**
-   * The exact published in-process child, or `undefined` for a remote run.
-   * When present, its id is {@link id}; the provider retains no ownership
-   * implication beyond the run's ordinary {@link dispose} contract.
-   */
-  readonly localAgent: Agent | undefined
   /**
    * Resolves with the child's terminal {@link SubagentResult} when the run
    * settles. Does NOT reject on a child-level failure — a model/transport
@@ -415,31 +382,28 @@ interface SubagentProvider {
    */
   readonly inheritsParentContext: boolean
   /**
-   * Optional static provider-owned provider/model route for one-shot Agent
+   * Optional static provider-owned provider/model route for child Agent
    * options. Consumers merge tool/model overrides over these values before
    * preflight; providers whose route derives from the parent omit it. The value
    * is detached immutable data and requires `agentOptions` support.
    */
   readonly agentRouteDefaults?: Readonly<{ provider: string; model: string }>
   /**
-   * Establish a ONE-SHOT child and return its handle after publication.
+   * Establish one external execution and return its owned handle.
    * The service has already validated that every requested start-time
-   * capability is supported and resolved `request.descriptor`, so a
-   * session-backed implementation appends that descriptor inside the child's
-   * initial turn. Before fulfillment, the provider owns setup and cleans any
-   * unpublished partial resources before rejecting. Ownership transfers on
+   * capability is supported. Before fulfillment, the provider owns setup and
+   * cleans any unpublished partial resources before rejecting. Ownership transfers on
    * fulfillment; subsequent turn or infrastructure failure settles through
    * the returned run. Distinct starts may overlap; cancellation, failure,
    * result settlement, and disposal remain independent for each run.
    */
-  start(request: ResolvedSubagentStartRequest): Promise<SubagentRun>
+  start?(request: ResolvedSubagentStartRequest): Promise<SubagentRun>
   /**
    * OPTIONAL (continuable-creation capability): contribute the detached
    * creation inputs that distinguish this provider's continuable children —
    * only whether the child session is seeded with parent history. Method
-   * presence IS the capability: the service rejects continuable starts on
-   * providers without it, while a provider that has it may still serve
-   * ordinary one-shot delegations.
+   * presence selects local activation execution. Providers without it execute
+   * through start and do not accept subsequent messages.
    *
    * This is the provider's ONLY participation in a continuable child. The
    * continuation manager owns identity reservation, composition, Agent

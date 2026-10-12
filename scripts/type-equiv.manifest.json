@@ -73,7 +73,7 @@
     },
     {
       "doc": "docs/subsystems/attachment.md",
-      "symbol": "ImageRequestPolicy",
+      "symbol": "ImageRequestTarget",
       "source": "packages/attachment/attachment/src/types.ts"
     },
     {
@@ -585,7 +585,7 @@
     {
       "doc": "docs/subsystems/jobs.md",
       "symbol": "JobKindMap",
-      "source": "packages/jobs/jobs/src/types.ts"
+      "source": "packages/jobs/jobs/src/view.ts"
     },
     {
       "doc": "docs/subsystems/jobs.md",
@@ -599,12 +599,12 @@
     },
     {
       "doc": "docs/subsystems/jobs.md",
-      "symbol": "JobSnapshot",
-      "source": "packages/jobs/jobs/src/types.ts"
+      "symbol": "JobView",
+      "source": "packages/jobs/jobs/src/view.ts"
     },
     {
       "doc": "docs/subsystems/jobs.md",
-      "symbol": "JobStart",
+      "symbol": "JobSpec",
       "source": "packages/jobs/jobs/src/types.ts"
     },
     {
@@ -656,7 +656,7 @@
     },
     {
       "doc": "docs/subsystems/llm-streaming.md",
-      "symbol": "AssistantProvenance",
+      "symbol": "AssistantProviderMetadata",
       "source": "packages/llm/llm/src/message.ts"
     },
     {
@@ -1467,46 +1467,6 @@
       "source": "packages/llm/llm/src/message.ts"
     },
     {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsApplies",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsDescribeOptions",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsDescriptor",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsPathOp",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsRegisterOptions",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsScope",
-      "source": "packages/settings/settings/src/index.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsNamespace",
-      "source": "packages/settings/settings/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/settings.md",
-      "symbol": "SettingsUpdateSource",
-      "source": "packages/settings/settings/src/types.ts"
-    },
-    {
       "doc": "docs/subsystems/shell.md",
       "symbol": "ShellExecRequest",
       "source": "packages/shell/shell/src/types.ts"
@@ -1684,11 +1644,6 @@
     {
       "doc": "docs/subsystems/subagent.md",
       "symbol": "ContinuableCreateSpec",
-      "source": "packages/subagent/subagent/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/subagent.md",
-      "symbol": "ContinuableStart",
       "source": "packages/subagent/subagent/src/types.ts"
     },
     {
