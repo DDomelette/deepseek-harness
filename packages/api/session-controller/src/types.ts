@@ -386,7 +386,8 @@ export type SessionAddress =
     readonly kind: 'subagent'
     readonly parentSessionId: SessionId
     readonly childSessionId: SessionId
-    readonly mode: 'one-shot' | 'continuable'
+    /** `unknown` addresses a child whose durable mode the caller has not read yet; the Session's own descriptor resolves it. */
+    readonly mode: 'one-shot' | 'continuable' | 'unknown'
   }
 
 /** One raw Session event in the Remote journal. */

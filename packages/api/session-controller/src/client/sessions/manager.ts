@@ -2,7 +2,7 @@
 // dispatch entry + list state, constructed and held by ClientSessions (one per browser client).
 // List data never enters zustand; React connects via subscribe/getListSnapshot.
 
-import type { SubagentAddress, SubagentCatalogEntry } from '@deepseek-ai/dsh-subagent/client'
+import type { SubagentAddress, SubagentCatalog } from '@deepseek-ai/dsh-subagent/client'
 import { SessionSeq, type SessionId, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type {
@@ -55,14 +55,14 @@ export interface SessionListSnapshot {
   /** Arrival lifecycle (see {@link SessionListPhase}); `state` stays the pull-activity axis. */
   phase: SessionListPhase
   error: RemoteFailure | null
-  subagentsByParent: Readonly<Record<SessionId, SubagentCatalogEntrySnapshot>>
+  subagentsByParent: Readonly<Record<SessionId, SubagentCatalogSnapshot>>
   /** Background jobs per session; an absent key is an empty set. */
   jobsBySession: Readonly<Record<SessionId, readonly JobView[]>>
   currentAddress: SubagentAddress | undefined
 }
 
 /** One parent-addressed durable catalog projected through the sessions snapshot. */
-export type SubagentCatalogEntrySnapshot = Omit<SubagentCatalogEntry, 'parentAvailable'> & {
+export type SubagentCatalogSnapshot = Omit<SubagentCatalog, 'parentAvailable'> & {
   /** Absent until the first successful catalog read. */
   readonly parentAvailable?: boolean
   state: 'loading' | 'ready' | 'error'
@@ -120,7 +120,7 @@ export class SessionManager {
   /** Mutations arriving after a list request starts are replayed over its response. */
   private listMutations: SessionListMutation[] | null = null
   private readonly addresses = new Map<SessionId, SubagentAddress>()
-  private readonly catalogs = new Map<SessionId, SubagentCatalogEntrySnapshot>()
+  private readonly catalogs = new Map<SessionId, SubagentCatalogSnapshot>()
   private readonly catalogInflight = new Map<SessionId, CatalogInflight>()
   /** Catalog owners whose membership changed while a pull was in flight: one trailing refresh after it settles. */
   private readonly catalogStale = new Set<SessionId>()
@@ -227,7 +227,8 @@ export class SessionManager {
     if (retained !== undefined) return retained
     for (const [parentSessionId, catalog] of this.catalogs) {
       const child = catalog.entries.find(entry => entry.kind === 'child' && entry.id === sessionId)
-      if (child?.kind === 'child') {
+      // An external child runs without a local Session, so it has no address.
+      if (child?.kind === 'child' && child.mode !== 'external') {
         return { parentSessionId, childSessionId: sessionId, mode: child.mode }
       }
     }
@@ -433,7 +434,7 @@ export class SessionManager {
    * @param parentSessionId - catalog owner.
    * @param open - current menu state.
    */
-  setSubagentCatalogEntryOpen(parentSessionId: SessionId, open: boolean): void {
+  setSubagentCatalogOpen(parentSessionId: SessionId, open: boolean): void {
     if (open) {
       this.openCatalogs.add(parentSessionId)
       void this.refreshSubagents(parentSessionId)
@@ -859,10 +860,10 @@ export class SessionManager {
 
   /** Fold request-local row mutations into one catalog result before publication. */
   private withCatalogMutations(
-    entries: SubagentCatalogEntry['entries'],
+    entries: SubagentCatalog['entries'],
     expandableRows: ReadonlySet<SessionId>,
     activityRows: ReadonlyMap<SessionId, 'running' | 'inactive'>,
-  ): SubagentCatalogEntry['entries'] {
+  ): SubagentCatalog['entries'] {
     return entries.map((entry) => {
       if (entry.kind !== 'child') return entry
       const activity = activityRows.get(entry.id)

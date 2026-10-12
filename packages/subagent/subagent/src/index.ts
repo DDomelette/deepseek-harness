@@ -42,11 +42,13 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
-  rejectPrompt, validateControlRequest,
+  catalogView, rejectCatalogRead, rejectPrompt, validateControlRequest,
 } from './control.ts'
 import type {
+  SubagentCatalog,
   SubagentDelivery,
   SubagentInterruptReceipt,
+  SubagentListEntry,
   SubagentPromptReceipt,
   SubagentPromptRequest,
   SubagentPromptRequestId,
@@ -424,6 +426,32 @@ export class SubagentRuntime extends TypertRemoteService {
    */
   listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<SubagentDescendantListEntry[]> {
     return listSubagentDescendants(this.ctx, rootSessionId, signal)
+  }
+
+  /**
+   * Remote face of a parent's direct-child catalog for one browser: the durable
+   * rows plus live Agent activity and the delivery-time parent availability
+   * hint. Availability is a hint; {@link prompt} performs the authoritative
+   * check. Read from the descendant walk's direct children, because a browser
+   * row also carries whether that child owns a catalog of its own. Named apart
+   * from the provider-name {@link list}, which owns the member.
+   * @param parentSessionId - parent session whose direct children are listed.
+   * @param signal - carrier cancellation forwarded to Session queries.
+   * @returns the catalog view for that parent.
+   * @throws {RemoteError} `gateway/bad-request` for an empty parent id,
+   *   `gateway/cancelled` for an aborted read, `subagent/projections-unavailable` when
+   *   the deployment has no projection registry, otherwise `gateway/internal`.
+   */
+  @Remote('list')
+  async remoteExportList(parentSessionId: SessionId, signal: AbortSignal): Promise<SubagentCatalog> {
+    validateControlRequest('subagent.list', { parentSessionId })
+    try {
+      const descendants = await this.listDescendants(parentSessionId, signal)
+      const directChildren: SubagentListEntry[] = descendants.filter(entry => entry.depth === 1)
+      return catalogView(this.ctx, parentSessionId, directChildren)
+    } catch (error: unknown) {
+      return rejectCatalogRead(error, signal)
+    }
   }
 
   /**

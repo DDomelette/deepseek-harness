@@ -9,7 +9,7 @@ kind: "package-group"
 
 ## 概述
 
-preset 组提供按会话的 agent（智能体）组装：agent preset 是一个目录，内含一份 `agent.cordis.yml`；从 preset 组装的会话会使用该 preset 的工具、提示词段落与 skill（技能），而其他会话仍各自使用自己的工具、提示词段落与 skill。`agent-presets` 拥有名单——对已配置根目录与 harness home 的发现、受防护的按 agent 挂载，以及仅通过复制创建 preset 的方式——`persona` 则提供可组装的行，让 preset 不止能改变 agent 的工具，也能改变它的身份。两者合起来让一个进程可以同时运行多个组装方式不同的 agent。
+preset 组提供按会话的 agent（智能体）组装：一个 agent preset 就是一行 `@deepseek-ai/dsh-agent-preset` 声明，其 `plugins` 是普通的 Cordis 条目列表；从 preset 组装的会话会使用该 preset 的工具、提示词段落与 skill（技能），而其他会话仍各自使用自己的。`agent-preset-registry` 拥有名单与代际保留，`agent-preset` 贡献声明行并随包交付组合创作 skill，`persona` 则提供可组装的人设行。四个随附 preset（`standard`、`ptc`、`minimal`、`cordis`）以 `dsh-web-app` bundle 的 `presets/<id>.patch.yml` 文件形式交付。
 
 ## 目录
 
@@ -24,7 +24,8 @@ preset 组提供按会话的 agent（智能体）组装：agent preset 是一个
 
 | 包 | 职责 | ctx 键 |
 |---|---|---|
-| [`agent-preset-registry`](agent-preset-registry/README.zh.md) | preset 名单、按 agent 组装与常驻挂载、代际保留 | `ctx.agentPresets` |
+| [`agent-preset-registry`](agent-preset-registry/README.zh.md) | preset 名单：已声明的定义、会话加入的常驻挂载与代际保留 | `ctx.agentPresets` |
+| [`agent-preset`](agent-preset/README.zh.md) | 一行 `@deepseek-ai/dsh-agent-preset` 声明，以及 `cordis` preset 挂载的组合创作 skill | — |
 | [`persona`](persona/README.zh.md) | preset 挂载的可组装人设行，用于遮蔽或替换部署级人设 | — |
 
 -----

@@ -1,6 +1,6 @@
 /**
- * Client-safe recursive catalog rows and browser continuation requests,
- * receipts, and failures.
+ * Client-safe recursive catalog rows, the complete direct-child catalog the
+ * browser reads, and browser continuation requests, receipts, and failures.
  *
  * @module @deepseek-ai/dsh-subagent/control-types
  */
@@ -75,6 +75,12 @@ export type SubagentListEntry =
     readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
   }
 
+/** Complete direct-child catalog plus the delivery-time parent availability hint. */
+export interface SubagentCatalog {
+  readonly entries: readonly SubagentListEntry[]
+  readonly parentAvailable: boolean
+}
+
 /** Durable parent/child browsing address; unknown mode is resolved when child history is read. */
 export type SubagentAddress =
   & {
@@ -121,8 +127,8 @@ export interface SubagentInterruptReceipt {
 }
 
 /**
- * Failure details the control surface answers with. Prompts and interrupts
- * share these failures with the Client Remote result.
+ * Failure details the control surface answers with. Catalog reads, prompts,
+ * and interrupts share this vocabulary with the Client Remote result.
  */
 declare module '@deepseek-ai/dsh-workspace/types' {
   interface SessionActivityKindMap {
@@ -145,5 +151,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'subagent/attachment-invalid': { readonly reason: string }
     /** The child exists but its inbox cannot admit the message now. */
     'subagent/delivery-unavailable': { readonly childSessionId: SessionId }
+    /** The deployment mounts no session-projection registry. */
+    'subagent/projections-unavailable': {}
   }
 }

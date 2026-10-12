@@ -22,7 +22,7 @@ import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from 'v
 import { bundlePatchPaths, composeEntries } from '@deepseek-ai/dsh-app-boot'
 import { createPluginProfile } from '../../desktop/src/project-manager.ts'
 /** Profile entry ids whose volatile fields these scenarios edit through Settings. */
-const SETTINGS_NAMESPACE = 'agent-preset-registry'
+const SETTINGS_NAMESPACE = 'agent-presets'
 const SUBAGENT_MODEL_SELECTION_SETTINGS_NAMESPACE = 'subagent-model-selection-settings'
 import { applyChildComposition, childSessionMeta } from '@deepseek-ai/dsh-subagent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -93,9 +93,10 @@ async function bootWeb(
     { id: 'desktop-product-telemetry', disabled: true },
     { id: 'product-analytics', disabled: true },
     // A deployment-level skill on the host registry's GLOBAL layer — the same
-    // registration shape a repository plugin's skill root uses. The layered
-    // skills test below proves it reaches preset-composed agents.
-    { insert: [{ id: 'skill-badge', name: import.meta.resolve('@deepseek-ai/dsh-skill-badge') }] },
+    // registration shape a repository plugin's skill root uses. The shipped
+    // base patch declares the row disabled, so enabling it is the opt-in. The
+    // layered skills test below proves it reaches preset-composed agents.
+    { id: 'skill-badge', disabled: false },
     { id: 'modules', disabled: true },
     // The physical Connection row owns the disabled HTTP server. bootWeb
     // supplies only its in-process registries so Host services still prove
@@ -118,7 +119,7 @@ async function bootWeb(
       { id: 'directory-picker-browse', name: '@deepseek-ai/dsh-host-directory-picker-browse' },
       { id: 'ui-directory-picker-browse', name: '@deepseek-ai/dsh-client-ui-directory-picker-browse' },
     ] },
-    { id: 'agent-preset-registry', config: { default: 'standard' } },
+    { id: 'agent-presets', config: { default: 'standard' } },
     ...extra,
   ]
   const home = profileHome

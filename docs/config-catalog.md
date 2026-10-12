@@ -410,24 +410,6 @@ Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
 Source: [`packages/client/product-analytics/src/index.ts:14`](../packages/client/product-analytics/src/index.ts)
 
-<a id="deepseek-aidsh-client-ui-plugin-manager"></a>
-
-## `@deepseek-ai/dsh-client-ui-plugin-manager`
-
-```ts config-catalog
-/** Registry-probe deadline and process-local cache policy. */
-export interface Config {
-  /** Whether the dialog can compare the public npm registries. */
-  registryProbeEnabled: boolean
-  /** Deadline for the parallel HTTPS probes, including response cleanup. */
-  registryProbeTimeoutMs: number
-  /** Lifetime of a winning registry or unavailable result. */
-  registryProbeCacheTtlMs: number
-}
-```
-
-Source: [`packages/client/ui-plugin-manager/src/index.ts:15`](../packages/client/ui-plugin-manager/src/index.ts)
-
 <a id="deepseek-aidsh-code-runtime-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-code-runtime-worker-thread`
@@ -694,34 +676,6 @@ export interface Config {
 ```
 
 Source: [`packages/experimental/claude-code-mods/src/index.ts:53`](../packages/experimental/claude-code-mods/src/index.ts)
-
-<a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
-
-## `@deepseek-ai/dsh-experimental-client-ui-cot-translation`
-
-Requires: `translator` · `typert` · `sessionController`
-
-```ts config-catalog
-/** Live preferences presented on the bundle's Plugins page. */
-export interface Config {
-  /** Explicit translation provider, defaulting to Bing. */
-  provider: Volatile<CotTranslationPreferences['provider']>
-  /** Target language code; auto follows the browser UI locale. */
-  targetLanguage: Volatile<string>
-}
-
-/** Translation choices; auto targets the active browser UI language. */
-export interface CotTranslationPreferences {
-  /** Explicit provider selection; requests never fall back to another provider. */
-  provider: TranslationProvider
-  /** BCP 47 language code, or auto to follow the UI language. */
-  targetLanguage: string
-}
-```
-
-Depends on: [`TranslationProvider`](subsystems/translation.md) · `Volatile` (`@deepseek-ai/cordis`)
-
-Source: [`packages/experimental/client-ui-cot-translation/src/index.ts:14`](../packages/experimental/client-ui-cot-translation/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-code-runtime-python"></a>
 
@@ -2912,7 +2866,7 @@ export interface Config {
 
 Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
-Source: [`packages/subagent/subagent/src/index.ts:186`](../packages/subagent/subagent/src/index.ts)
+Source: [`packages/subagent/subagent/src/index.ts:188`](../packages/subagent/subagent/src/index.ts)
 
 <a id="deepseek-aidsh-subagent-acp"></a>
 
@@ -4180,7 +4134,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-experimental-auto-review` — requires `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` ([`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts))
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team` ([`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts))
 - `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods` ([`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts))
-- `@deepseek-ai/dsh-experimental-client-ui-voice-input` ([`packages/experimental/client-ui-voice-input/src/index.ts`](../packages/experimental/client-ui-voice-input/src/index.ts))
 - `@deepseek-ai/dsh-experimental-session-inspector` ([`packages/experimental/session-inspector/src/index.ts`](../packages/experimental/session-inspector/src/index.ts))
 - `@deepseek-ai/dsh-experimental-tool-worktree` — requires `tools` · `worktrees` ([`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts))
 - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
@@ -4291,6 +4244,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-session-format-v0-to-v1` ([`packages/session/session-format-v0-to-v1/src/index.ts`](../packages/session/session-format-v0-to-v1/src/index.ts))
 - `@deepseek-ai/dsh-session-format-v1-to-v2` ([`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts))
 - `@deepseek-ai/dsh-session-format-v2-to-v3` ([`packages/session/session-format-v2-to-v3/src/index.ts`](../packages/session/session-format-v2-to-v3/src/index.ts))
+- `@deepseek-ai/dsh-session-format-v3-to-v4` ([`packages/session/session-format-v3-to-v4/src/index.ts`](../packages/session/session-format-v3-to-v4/src/index.ts))
 - `@deepseek-ai/dsh-session-snapshot` ([`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts))
 - `@deepseek-ai/dsh-session-telemetry` ([`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts))
 - `@deepseek-ai/dsh-session-title-llm` ([`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts))

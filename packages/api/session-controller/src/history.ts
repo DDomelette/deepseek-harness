@@ -363,7 +363,9 @@ function validateAddress(
       reason: 'unsupported',
     })
   }
-  if (identity.mode !== address.mode) {
+  // An unknown-mode address defers to the child's own descriptor; every other
+  // address must agree with the resolved identity.
+  if (address.mode !== 'unknown' && identity.mode !== address.mode) {
     throw new RemoteError('subagent/unauthorized', 'subagent mode does not match the supplied address', {
       childSessionId: address.childSessionId,
     })

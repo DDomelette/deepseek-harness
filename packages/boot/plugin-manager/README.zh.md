@@ -28,7 +28,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-基于 base 的 profile 提供管理服务。在 Web 中，侧边栏的**插件**页（[ui-plugin-manager](../../client/ui-plugin-manager/README.zh.md)）管理 profile 的组合包及其能唯一定位的行；设置页的插件列表保持只读。Agent 预设条目保持只读。`plugin_manager` 工具提供相同操作，在 Creator 模式中启用。其他预设仍默认禁用。 每个工具操作都要求 `danger-full-access` 或本次调用的批准。在较低沙箱模式下，`ask` 会请求审批；`never`、拒绝、取消或审批渠道不可用时均不执行。批准不改变会话的权限模式。profile 变更跨会话持久化，已安装的 Host 代码在宿主进程内运行，不受工作区沙箱限制。依赖构建脚本仍需单独批准。
+基于 base 的 profile 提供管理服务。设置页的插件列表保持只读。Agent 预设条目保持只读。`plugin_manager` 工具提供相同操作，在 Creator 模式中启用。其他预设仍默认禁用。 每个工具操作都要求 `danger-full-access` 或本次调用的批准。在较低沙箱模式下，`ask` 会请求审批；`never`、拒绝、取消或审批渠道不可用时均不执行。批准不改变会话的权限模式。profile 变更跨会话持久化，已安装的 Host 代码在宿主进程内运行，不受工作区沙箱限制。依赖构建脚本仍需单独批准。
 
 未使用 Agent 预设的部署在 profile patch 中启用工具；使用预设的会话由其预设中的 `tool-plugin-manager` 条目控制。
 
@@ -112,7 +112,6 @@ service 运行若在 `idleTimeoutMs` 内没有任何捕获输出即被终止，�
 
 - [App boot](../app-boot/README.zh.md)——profile 配置层与启动策略。
 - [Plugin inventory](../../host/plugin-inventory/README.zh.md)——当前 Loader 和预设状态。
-- [插件管理页](../../client/ui-plugin-manager/README.zh.md)——基于本服务的 Web 侧边栏页面。
 - [Plugin settings](../../client/ui-settings-plugin-inventory/README.zh.md)——只读的 Web 清单。
 
 <a id="model-experience"></a>

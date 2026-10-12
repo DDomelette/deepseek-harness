@@ -133,12 +133,10 @@ export const SERVICE_PAGE: Record<string, string> = {
 
   claudeCodeMods: 'claude-code-mods.md',
   configEditor: 'boot.md',
-  cotTranslation: 'translation.md',
   hmr: 'boot.md',
   mcpResources: 'mcp.md',
   otel: 'otel.md',
   pluginManager: 'boot.md',
-  pluginRegistryProbe: 'boot.md',
   productAnalytics: 'product-telemetry.md',
   productTelemetry: 'product-telemetry.md',
   profileContext: 'boot.md',
@@ -209,7 +207,6 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   notes: 'Host service the notes function plugin mounts as the Remote namespace the Web panel calls — packages/notes/notes/README.md owns the API',
 
   pluginPackages: 'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
-  pluginNavigation: 'client-side bundle navigation — packages/client/ui-plugin-manager/README.md owns the API',
   invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract' }
 
 /**

@@ -235,8 +235,6 @@ flowchart LR
   svc_claudeCodeMods["ctx.claudeCodeMods<br/>Claude Code mods bridge"]
   pkg_config_editor["config-editor"]
   svc_configEditor["ctx.configEditor<br/>Profile configuration edits"]
-  pkg_experimental_client_ui_cot_translation["experimental-client-ui-cot-translation"]
-  svc_cotTranslation["ctx.cotTranslation<br/>Reasoning translation Remote"]
   pkg_deepseek_account["deepseek-account"]
   svc_deepseekAccount["ctx.deepseekAccount<br/>DeepSeek account"]
   pkg_deepseek_account_platform["deepseek-account-platform"]
@@ -253,8 +251,6 @@ flowchart LR
   pkg_plugin_manager["plugin-manager"]
   svc_pluginManager["ctx.pluginManager<br/>Current-profile plugin and bundle management"]
   pkg_ui_settings_plugin_inventory["ui-settings-plugin-inventory"]
-  pkg_client_ui_plugin_manager["client-ui-plugin-manager"]
-  svc_pluginRegistryProbe["ctx.pluginRegistryProbe<br/>Host registry response comparison"]
   pkg_client_product_analytics["client-product-analytics"]
   svc_productAnalytics["ctx.productAnalytics<br/>Desktop interaction collection"]
   svc_productTelemetry["ctx.productTelemetry<br/>Product usage event sender"]
@@ -300,7 +296,6 @@ flowchart LR
   pkg_client_file_upload --> svc_fileUploads
   pkg_client_modules --> svc_clientModules
   pkg_client_product_analytics --> svc_productAnalytics
-  pkg_client_ui_plugin_manager --> svc_pluginRegistryProbe
   pkg_code_runtime --> svc_codeRuntime
   pkg_code_runtime_worker_thread --> svc_codeRuntime
   pkg_command_feedback --> svc_sessionFeedback
@@ -320,7 +315,6 @@ flowchart LR
   pkg_experimental_agent_team --> svc_agentTeams
   pkg_experimental_api_speech_to_text --> svc_speechController
   pkg_experimental_claude_code_mods --> svc_claudeCodeMods
-  pkg_experimental_client_ui_cot_translation --> svc_cotTranslation
   pkg_experimental_code_runtime_python --> svc_codeRuntime
   pkg_experimental_ptc_runtime_python --> svc_ptcRuntime
   pkg_experimental_speech_to_text --> svc_speechToText
@@ -477,7 +471,6 @@ flowchart LR
   svc_otel --> pkg_session_telemetry_otel
   svc_pluginManager --> pkg_plugin_manager
   svc_pluginManager --> pkg_ui_settings_plugin_inventory
-  svc_pluginRegistryProbe --> pkg_client_ui_plugin_manager
   svc_profileContext --> pkg_plugin_manager
   svc_ptcRuntime --> pkg_tools
   svc_ptcRuntime --> pkg_workflow_ptc
@@ -555,7 +548,6 @@ flowchart LR
   svc_tools --> pkg_tool_terminal
   svc_tools --> pkg_tool_todo
   svc_tools --> pkg_tool_web
-  svc_translator --> pkg_experimental_client_ui_cot_translation
   svc_typert --> pkg_api_gateway
   svc_typert --> pkg_typert_loader
   svc_userQuestions --> pkg_tool_ask_user
@@ -657,20 +649,18 @@ flowchart LR
 | `ctx.cordisInspect` | `core` | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) | - | [`tool-cordis`](../packages/extensions/tool-cordis) | - | 注册 Host inspect 提供方、镜像 Client 提供方 manifest，并通过动态 Cordis 传输路由 Client 查询。 |
 | `ctx.claudeCodeMods` | `core` | [`experimental-claude-code-mods`](../packages/experimental/claude-code-mods) | - | - | - | 加载 defineMod 插件添加的模组，从 harness 扩展点触发其钩子链，并通过其 Remote 绘制提示框上方的横幅。 |
 | `ctx.configEditor` | `core` | [`config-editor`](../packages/boot/config-editor) | - | [`settings`](../packages/settings/settings), [`agent-default-model`](../packages/core/agent-default-model) | - | 在应用文件锁与 HMR 队列下持久化 profile 配置补丁，并据此调和 Loader 条目。 |
-| `ctx.cotTranslation` | `service` | [`experimental-client-ui-cot-translation`](../packages/experimental/client-ui-cot-translation) | - | - | - | 提供推理解释翻译、复用已保存的结果，并在未缓存的不活跃 Session 上加入常规 Session 激活。 |
 | `ctx.deepseekAccount` | `seam` | [`deepseek-account`](../packages/credentials/deepseek-account) | [`deepseek-account-platform`](../packages/credentials/deepseek-account-platform) | `api-account-controller`, [`llm-deepseek`](../packages/llm/llm-deepseek) | - | Host 负责浏览器授权和本地凭证；UI 使用方只接收不含 token 的状态。 |
 | `ctx.hmr` | `core` | [`hmr`](../packages/boot/hmr) | - | [`app-boot`](../packages/boot/app-boot) | - | 负责模块和精确配置监听；应用修改共用其队列，自动重载等待应用文件锁。 |
 | `ctx.mcpResources` | `seam` | [`mcp-resources`](../packages/mcp/mcp-resources) | [`mcp-client`](../packages/mcp/mcp-client) | [`mcp-resources`](../packages/mcp/mcp-resources) | - | 连接所有者提供的操作在调用 agent 的作用域内服务于共享资源工具。 |
 | `ctx.otel` | `service` | [`otel`](../packages/telemetry/otel) | - | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel), [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | 产品埋点和 Session 反馈适配器通过同一个注入服务创建独立上报通道。 |
 | `ctx.pluginManager` | `core` | [`plugin-manager`](../packages/boot/plugin-manager) | - | [`plugin-manager`](../packages/boot/plugin-manager), `ui-settings-plugin-inventory` | - | 与 CLI 共享 profile 包操作，并向 Web 和 Agent 调用方分别报告持久状态与运行状态。 |
-| `ctx.pluginRegistryProbe` | `core` | [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager) | - | [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager) | - | 在 Host 上并发比较公共安装源响应；初始安装源推荐由 Client 负责。 |
 | `ctx.productAnalytics` | `service` | [`client-product-analytics`](../packages/client/product-analytics) | - | - | - | 根据 Host 动态采集策略接收指定桌面事件、补充可用登录身份并监听实时压缩。 |
 | `ctx.productTelemetry` | `service` | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel) | - | - | - | 通过 OTLP/HTTP 发送显式提交的分析事件；仅挂载插件不会采集信息。 |
 | `ctx.profileContext` | `core` | [`app-boot`](../packages/boot/app-boot) | - | [`plugin-manager`](../packages/boot/plugin-manager) | - | dsh launcher 提供纯数据形式的 profile 位置与组合输入；重载调度由 dsh-hmr 负责。 |
 | `ctx.ptcRuntime` | `seam` | [`ptc-runtime`](../packages/ptc-runtime/ptc-runtime) | [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), [`experimental-ptc-runtime-python`](../packages/experimental/ptc-runtime-python) | [`tools`](../packages/core/tools), [`workflow-ptc`](../packages/workflow/workflow-ptc) | - | 使用 Host 提供的异步绑定运行程序；tools 负责 PTC 呈现，workflow-ptc 负责工作流编排。 |
 | `ctx.speechController` | `core` | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | - | - | 在 Provider 调用前校验受限的浏览器音频。 |
-| `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | 路由显式选择的识别器；浏览器使用带认证的 Remote，并在提交前将转写保留在草稿中。 |
-| `ctx.translator` | `service` | [`experimental-translator`](../packages/experimental/translator) | - | [`experimental-client-ui-cot-translation`](../packages/experimental/client-ui-cot-translation) | - | 解析 Google 或 Bing 请求，并通过当前活跃的 Session 写入方保留共享的实验性记录。 |
+| `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | 路由显式选择的识别器；经带认证的 Remote 提供服务。 |
+| `ctx.translator` | `service` | [`experimental-translator`](../packages/experimental/translator) | - | - | - | 解析 Google 或 Bing 请求，并通过当前活跃的 Session 写入方保留共享的实验性记录。 |
 | `ctx.workingDirectory` | `seam` | [`working-directory`](../packages/session/working-directory) | [`working-directory`](../packages/session/working-directory) | [`tool-working-directory`](../packages/session/tool-working-directory), [`tool-fs`](../packages/fs/tool-fs), [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`subagent`](../packages/subagent/subagent), [`sdk-jsonrpc-server`](../packages/sdk/server) | - | 一个 Session 投影拥有有效执行目录。文件系统验证变更，用户上下文报告目录信息，原始元数据与写入授权保持不变。 |
 | `ctx.worktrees` | `seam` | [`experimental-worktree`](../packages/experimental/worktree) | [`experimental-worktree`](../packages/experimental/worktree) | [`experimental-tool-worktree`](../packages/experimental/tool-worktree) | - | 显式实验组合从固定的本地提交创建工作树。检出目录与共享 Git 元数据受现有写权限约束；工作目录服务拥有创建后的 Session 目录。 |
 

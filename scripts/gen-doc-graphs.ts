@@ -705,13 +705,6 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Persists profile config patches under the application file lock and HMR queue, then reconciles Loader entries.',
   },
   {
-    key: 'cotTranslation',
-    pkg: 'experimental-client-ui-cot-translation',
-    title: 'Reasoning translation Remote',
-    mode: 'service',
-    note: 'Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions.',
-  },
-  {
     key: 'deepseekAccount',
     pkg: 'deepseek-account',
     title: 'DeepSeek account',
@@ -752,14 +745,6 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['plugin-manager', 'ui-settings-plugin-inventory'],
     note: 'Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers.',
-  },
-  {
-    key: 'pluginRegistryProbe',
-    pkg: 'client-ui-plugin-manager',
-    title: 'Host registry response comparison',
-    mode: 'core',
-    consumers: ['client-ui-plugin-manager'],
-    note: 'Races public registry responses on the Host; the Client owns the initial registry recommendation.',
   },
   {
     key: 'productAnalytics',
@@ -806,14 +791,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'seam',
     implementations: ['experimental-speech-to-text-sensevoice'],
     consumers: ['experimental-api-speech-to-text'],
-    note: 'Routes explicit recognizers; the browser uses the authenticated Remote and keeps transcripts in the draft until submission.',
+    note: 'Routes explicit recognizers through the authenticated Remote.',
   },
   {
     key: 'translator',
     pkg: 'experimental-translator',
     title: 'Anonymous text translation',
     mode: 'service',
-    consumers: ['experimental-client-ui-cot-translation'],
     note: 'Resolves Google or Bing requests and retains shared experimental records through the active Session writer.',
   },
   {

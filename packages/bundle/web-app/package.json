@@ -23,6 +23,7 @@
       "default": "./lib/startup.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./presets/*.patch.yml": "./presets/*.patch.yml",
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
@@ -30,15 +31,26 @@
     "lib/index.js",
     "lib/startup.js",
     "cordis.patch.yml",
+    "presets/standard.patch.yml",
+    "presets/ptc.patch.yml",
+    "presets/minimal.patch.yml",
+    "presets/cordis.patch.yml",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": [
+        "./cordis.patch.yml",
+        "./presets/standard.patch.yml",
+        "./presets/ptc.patch.yml",
+        "./presets/minimal.patch.yml",
+        "./presets/cordis.patch.yml"
+      ]
     }
   },
   "dependencies": {
+    "@deepseek-ai/dsh-agent-preset": "workspace:^",
     "@deepseek-ai/dsh-agent-preset-registry": "workspace:^",
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-api-session-controller": "workspace:^",
@@ -126,7 +138,36 @@
     "@deepseek-ai/dsh-client-ui-pinned-sessions": "workspace:^",
     "@deepseek-ai/dsh-client-ui-settings-archived": "workspace:^",
     "@deepseek-ai/dsh-client-ui-settings-mcp": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-settings-skills": "workspace:^"
+    "@deepseek-ai/dsh-client-ui-settings-skills": "workspace:^",
+    "@deepseek-ai/dsh-agent-instructions": "workspace:^",
+    "@deepseek-ai/dsh-agent-tool-presentation": "workspace:^",
+    "@deepseek-ai/dsh-command-compact": "workspace:^",
+    "@deepseek-ai/dsh-command-goal": "workspace:^",
+    "@deepseek-ai/dsh-compaction-basic": "workspace:^",
+    "@deepseek-ai/dsh-compaction-tool-result-pruner": "workspace:^",
+    "@deepseek-ai/dsh-persona": "workspace:^",
+    "@deepseek-ai/dsh-plan-mode": "workspace:^",
+    "@deepseek-ai/dsh-skill-filesystem": "workspace:^",
+    "@deepseek-ai/dsh-terminal": "workspace:^",
+    "@deepseek-ai/dsh-terminal-bash": "workspace:^",
+    "@deepseek-ai/dsh-tool-ask-user": "workspace:^",
+    "@deepseek-ai/dsh-tool-bash": "workspace:^",
+    "@deepseek-ai/dsh-tool-bash-persistent": "workspace:^",
+    "@deepseek-ai/dsh-tool-cordis": "workspace:^",
+    "@deepseek-ai/dsh-tool-fs": "workspace:^",
+    "@deepseek-ai/dsh-tool-fs-search": "workspace:^",
+    "@deepseek-ai/dsh-tool-goal": "workspace:^",
+    "@deepseek-ai/dsh-tool-jobs": "workspace:^",
+    "@deepseek-ai/dsh-tool-present": "workspace:^",
+    "@deepseek-ai/dsh-tool-pwsh": "workspace:^",
+    "@deepseek-ai/dsh-tool-pwsh-persistent": "workspace:^",
+    "@deepseek-ai/dsh-tool-ralph": "workspace:^",
+    "@deepseek-ai/dsh-tool-skill": "workspace:^",
+    "@deepseek-ai/dsh-tool-subagent-control": "workspace:^",
+    "@deepseek-ai/dsh-tool-todo": "workspace:^",
+    "@deepseek-ai/dsh-tool-web": "workspace:^",
+    "@deepseek-ai/dsh-tool-workflow": "workspace:^",
+    "@deepseek-ai/dsh-workflow-worker-thread": "workspace:^"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",

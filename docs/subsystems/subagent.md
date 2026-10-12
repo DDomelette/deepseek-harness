@@ -572,6 +572,22 @@ listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<Subagent
 listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<SubagentDescendantListEntry[]>
 
 /**
+ * Remote face of a parent's direct-child catalog for one browser: the durable
+ * rows plus live Agent activity and the delivery-time parent availability
+ * hint. Availability is a hint; {@link prompt} performs the authoritative
+ * check. Read from the descendant walk's direct children, because a browser
+ * row also carries whether that child owns a catalog of its own. Named apart
+ * from the provider-name {@link list}, which owns the member.
+ * @param parentSessionId - parent session whose direct children are listed.
+ * @param signal - carrier cancellation forwarded to Session queries.
+ * @returns the catalog view for that parent.
+ * @throws {RemoteError} `gateway/bad-request` for an empty parent id,
+ *   `gateway/cancelled` for an aborted read, `subagent/projections-unavailable` when
+ *   the deployment has no projection registry, otherwise `gateway/internal`.
+ */
+@Remote('list') async remoteExportList(parentSessionId: SessionId, signal: AbortSignal): Promise<SubagentCatalog>
+
+/**
  * Deliver one browser-authored message to a continuable child through the
  * exact live direct parent, retaining the caller-minted request identity and
  * validated browser zone on the accepted message. Success identifies the

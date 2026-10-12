@@ -59,7 +59,7 @@ dsh --profile web --no-open --port 8080
 
 ### 按会话的 agent 设置
 
-每个浏览器会话都从随发行版交付的 preset（默认 `standard`）组合自己的 agent，而不是共享一套进程级工具集。你可以更改默认 preset，或在 `$DSH_HOME/.agent-presets` 下添加自己的 preset。
+每个浏览器会话都从随发行版交付的 preset（默认 `standard`）组合自己的 agent，而不是共享一套进程级工具集。这四份声明随本组合包以 patch 列表中的 `presets/<id>.patch.yml` 文件交付；想要不同 agent 的 Profile 在自己的 patch 层里重新声明 `preset-<id>` 行，或安装一个自带 preset 的组合包。
 
 -----
 
@@ -69,7 +69,7 @@ dsh --profile web --no-open --port 8080
 <details>
 <summary>实现细节——点击展开</summary>
 
-本组合包是一份 patch 加一个运行时粘合插件。存储栈与投影缓存来自 `dsh-base`；Web 叠加层的 workspace 与 message-feedback 行使用共享的 `storageDomain` 服务。patch 重述 base 刻意省略的表层专属值，插入仅 Web 使用的宿主行与浏览器名录，然后把 agent 层改由 preset 承载；粘合插件负责 dist 服务、信任采样、提示词段落、bash 变量与就绪宣告。
+本组合包是一份 Web patch、每个随附 preset 各一份 patch，加一个运行时粘合插件。存储栈与投影缓存来自 `dsh-base`；Web 叠加层的 workspace 与 message-feedback 行使用共享的 `storageDomain` 服务。patch 重述 base 刻意省略的表层专属值，插入仅 Web 使用的宿主行与浏览器名录，然后把 agent 层改由 preset 承载，并让名录指向 `presets/` 中的声明；粘合插件负责 dist 服务、信任采样、提示词段落、bash 变量与就绪宣告。
 
 ### patch 语义
 
@@ -90,8 +90,10 @@ URL 行与浏览器交接都是就绪信号：监督方一观察到该行就发�
 | [`src/index.ts`](src/index.ts) | `web-app` 粘合插件：dist 解析、LAN 信任采样、提示词段落、bash 变量、URL 行、浏览器交接 |
 | [`src/startup.ts`](src/startup.ts) | `web-startup` 提供方：`--host`、`--allow-lan`、`--port`、`--trusted-host`、`--no-open`、`--help` |
 | [`cordis.patch.yml`](cordis.patch.yml) | Web patch：重述的基础值、Web 宿主行、浏览器名录、由 preset 承载的 agent 层 |
+| [`presets/`](presets/) | 每个随附 preset 一份 `@deepseek-ai/dsh-agent-preset` 声明（`standard`、`ptc`、`minimal`、`cordis`） |
 | — | 不发布运行时不变式伴生入口；每项贡献（frontend-static 子插件、提示词段落、bashEnv 注册）都会随 fiber 由注册表释放，且每个所属注册表的包负责该关系的不变式；本包不持有需要审计的可变状态。 |
 | [`tests/web-app.spec.ts`](tests/web-app.spec.ts) | dist 解析、回退席位、提示词段落、就绪宣告 |
+| [`tests/shipped-presets.spec.ts`](tests/shipped-presets.spec.ts) | 随附 preset 声明及其挂载的行 |
 | [`tests/startup.spec.ts`](tests/startup.spec.ts) | 在真实 Loader 树上的命令行解析 |
 | [`tests/trusted-hosts.spec.ts`](tests/trusted-hosts.spec.ts) | LAN 信任采样 |
 | [`tests/browser-open.spec.ts`](tests/browser-open.spec.ts) | 页面可达后的默认浏览器交接 |

@@ -52,3 +52,29 @@ export function isCordisGroupEntry(value: unknown): value is Record<string, unkn
     && ((value as Record<string, unknown>).group === true
       || (value as Record<string, unknown>).name === '@deepseek-ai/cordis-plugin-group')
 }
+
+/**
+ * Test whether an entry declares an Agent preset with a child plugin list.
+ * @param value - parsed Loader entry.
+ * @returns whether `config.plugins` nests entries owned by a preset.
+ */
+export function isAgentPresetEntry(value: unknown): value is Record<string, unknown> & { config: { id: string; plugins: unknown[] } } {
+  if (typeof value !== 'object' || value === null) return false
+  const row = value as Record<string, unknown>
+  if (row.name !== '@deepseek-ai/dsh-agent-preset' || typeof row.config !== 'object' || row.config === null) return false
+  const config = row.config as Record<string, unknown>
+  return typeof config.id === 'string' && Array.isArray(config.plugins)
+}
+
+/**
+ * Read preset definitions nested in ordinary groups and patch insertions.
+ * @param value - parsed Cordis YAML.
+ * @returns declared identities and child plugin lists in document order.
+ */
+export function presetDefinitions(value: unknown): { id: string; plugins: unknown[] }[] {
+  if (Array.isArray(value)) return value.flatMap(presetDefinitions)
+  if (isAgentPresetEntry(value)) return [value.config]
+  if (typeof value !== 'object' || value === null) return []
+  const row = value as Record<string, unknown>
+  return [...presetDefinitions(row.insert), ...(isCordisGroupEntry(row) ? presetDefinitions(row.config) : [])]
+}

@@ -1,9 +1,10 @@
 /** Built-process owner shared by the Host and browser default-Web isolation smokes. */
 
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { request as httpRequest } from 'node:http'
 import type { IncomingHttpHeaders } from 'node:http'
@@ -12,6 +13,7 @@ import ts from 'typescript'
 import { expect } from 'vitest'
 import type { TestContext } from 'vitest'
 import { PROCESS_SHUTDOWN_TIMEOUT_MS } from '../../../../src/process-shutdown.ts'
+import type { ScheduleProbe, ScheduleProbeResult } from './fixtures/runtime-roster-observer.ts'
 import type { RuntimeRoster } from './runtime-roster.ts'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))
@@ -21,6 +23,8 @@ interface DefaultWeb {
   root: string
   url: string
   request: (command: 'roster' | 'mount-experimental' | 'mount-experimental-entry') => Promise<RuntimeRoster>
+  /** Execute one test-only probe through the observer inside the real plugin composition. */
+  probe: (probe: ScheduleProbe) => Promise<ScheduleProbeResult>
 }
 
 /**
@@ -32,7 +36,12 @@ interface DefaultWeb {
 export async function withDefaultWeb(
   test: TestContext,
   inspect: (app: DefaultWeb) => Promise<void>,
-  options: { patches?: readonly string[]; prepare?: (root: string) => Promise<void> } = {},
+  options: {
+    patches?: readonly string[]
+    prepare?: (root: string) => Promise<void>
+    /** Extra child environment this case owns; it layers over the keyless defaults. */
+    env?: Readonly<NodeJS.ProcessEnv>
+  } = {},
 ): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-web-default-isolation-'))
   let removal: Promise<void> | undefined
@@ -61,7 +70,9 @@ export async function withDefaultWeb(
       srcBin: join(repoRoot, 'apps/cli/src/bin.ts'),
       mode: 'lib',
       configArgs: [
-        '--profile', 'web', ...options.patches?.flatMap(path => ['--patch', path]) ?? [],
+        '--profile', 'web',
+        // A relative patch resolves against the owned root `prepare` already wrote into.
+        ...options.patches?.flatMap(path => ['--patch', resolve(root, path)]) ?? [],
         '--patch', patch, '--host', '127.0.0.1', '--port', '0', '--no-open',
       ],
       env: {
@@ -73,6 +84,7 @@ export async function withDefaultWeb(
         DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: 'keyless-default-web-no-call',
         NODE_NO_WARNINGS: '1',
+        ...options.env,
       },
     })
     test.signal.throwIfAborted()
@@ -90,9 +102,12 @@ export async function withDefaultWeb(
     let exited = false
     let processError: Error | undefined
     const pending = new Map<string, ReturnType<typeof Promise.withResolvers<RuntimeRoster>>>()
+    const pendingProbes = new Map<string, ReturnType<typeof Promise.withResolvers<ScheduleProbeResult>>>()
     const rejectPending = (error: Error): void => {
       for (const request of pending.values()) request.reject(error)
       pending.clear()
+      for (const probe of pendingProbes.values()) probe.reject(error)
+      pendingProbes.clear()
     }
     child.once('error', (error) => { processError = error; rejectPending(error) })
     child.once('close', (code, signal) => {
@@ -101,7 +116,22 @@ export async function withDefaultWeb(
       completion.resolve({ code, signal })
     })
     child.once('disconnect', () => { rejectPending(new Error(`Web IPC disconnected\n${stdout}\n${stderr}`)) })
-    child.on('message', (message: { command?: string; roster?: RuntimeRoster; error?: string }) => {
+    child.on('message', (message: {
+      command?: string
+      roster?: RuntimeRoster
+      error?: string
+      probeId?: string
+      result?: ScheduleProbeResult
+    }) => {
+      if (message.probeId !== undefined) {
+        const probe = pendingProbes.get(message.probeId)
+        if (probe === undefined) return
+        pendingProbes.delete(message.probeId)
+        if (message.error !== undefined) probe.reject(new Error(message.error))
+        else if (message.result !== undefined) probe.resolve(message.result)
+        else probe.reject(new Error('Web observer returned no probe result'))
+        return
+      }
       if (message.command === undefined) return
       const request = pending.get(message.command)
       if (request === undefined) return
@@ -121,6 +151,19 @@ export async function withDefaultWeb(
       void send(command).catch((error: unknown) => {
         if (pending.get(command) !== reply) return
         pending.delete(command)
+        reply.reject(error)
+      })
+      return reply.promise
+    }
+    const probe = async (payload: ScheduleProbe): Promise<ScheduleProbeResult> => {
+      test.signal.throwIfAborted()
+      if (exited || !child.connected) throw new Error('Web is not connected during a Schedule probe')
+      const probeId = randomUUID()
+      const reply = Promise.withResolvers<ScheduleProbeResult>()
+      pendingProbes.set(probeId, reply)
+      child.send({ command: 'schedule-probe', probeId, probe: payload }, (error: Error | null) => {
+        if (error === null || pendingProbes.get(probeId) !== reply) return
+        pendingProbes.delete(probeId)
         reply.reject(error)
       })
       return reply.promise
@@ -155,7 +198,7 @@ export async function withDefaultWeb(
         return /dsh web: (http:\/\/[^\s]+)/u.exec(stdout)?.[1]
       }, { timeout: test.task.timeout }).toBeDefined()
       const url = /dsh web: (http:\/\/[^\s]+)/u.exec(stdout)![1]!
-      await inspect({ root, url, request })
+      await inspect({ root, url, request, probe })
     } finally {
       const result = await close()
       test.signal.removeEventListener('abort', abort)

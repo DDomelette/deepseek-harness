@@ -167,7 +167,6 @@ flowchart TD
     pkg_client_ui_permission_presets["client-ui-permission-presets"]
     pkg_client_ui_pinned_sessions["client-ui-pinned-sessions"]
     pkg_client_ui_plan["client-ui-plan"]
-    pkg_client_ui_plugin_manager["client-ui-plugin-manager"]
     pkg_client_ui_primitives["client-ui-primitives"]
     pkg_client_ui_reference["client-ui-reference"]
     pkg_client_ui_renderer["client-ui-renderer"]
@@ -237,8 +236,6 @@ flowchart TD
     pkg_experimental_claude_code_mods["experimental-claude-code-mods"]
     pkg_experimental_client_ui_agent_team["experimental-client-ui-agent-team"]
     pkg_experimental_client_ui_claude_code_mods["experimental-client-ui-claude-code-mods"]
-    pkg_experimental_client_ui_cot_translation["experimental-client-ui-cot-translation"]
-    pkg_experimental_client_ui_voice_input["experimental-client-ui-voice-input"]
     pkg_experimental_code_runtime_python["experimental-code-runtime-python"]
     pkg_experimental_cot_translation_bundle["experimental-cot-translation-bundle"]
     pkg_experimental_inspector["experimental-inspector"]
@@ -1314,26 +1311,6 @@ flowchart TD
   pkg_experimental_client_ui_claude_code_mods --> pkg_experimental_claude_code_mods
   pkg_experimental_client_ui_claude_code_mods --> pkg_session
   pkg_experimental_client_ui_claude_code_mods --> pkg_typert_protocol
-  pkg_experimental_client_ui_cot_translation --> pkg_api_session_controller
-  pkg_experimental_client_ui_cot_translation --> pkg_experimental_translator
-  pkg_experimental_client_ui_cot_translation --> pkg_session
-  pkg_experimental_client_ui_cot_translation --> pkg_settings
-  pkg_experimental_client_ui_cot_translation --> pkg_typert_protocol
-  pkg_experimental_client_ui_voice_input --> pkg_api_gateway
-  pkg_experimental_client_ui_voice_input --> pkg_api_remotes
-  pkg_experimental_client_ui_voice_input --> pkg_api_session_controller
-  pkg_experimental_client_ui_voice_input --> pkg_client_locale
-  pkg_experimental_client_ui_voice_input --> pkg_client_store
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_conversation
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_plugin_manager
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_primitives
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_renderer
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_session
-  pkg_experimental_client_ui_voice_input --> pkg_client_ui_slots
-  pkg_experimental_client_ui_voice_input --> pkg_experimental_api_speech_to_text
-  pkg_experimental_client_ui_voice_input --> pkg_experimental_speech_to_text
-  pkg_experimental_client_ui_voice_input --> pkg_session
-  pkg_experimental_client_ui_voice_input --> pkg_typert_protocol
   pkg_experimental_tool_agent_team --> pkg_agent
   pkg_experimental_tool_agent_team --> pkg_experimental_agent_team
   pkg_experimental_tool_agent_team --> pkg_session
@@ -1429,7 +1406,6 @@ flowchart TD
 | [`client-ui-permission-presets`](../packages/client/ui-permission-presets) | `client` | — |
 | [`client-ui-pinned-sessions`](../packages/client/ui-pinned-sessions) | `client` | — |
 | [`client-ui-plan`](../packages/client/ui-plan) | `client` | — |
-| [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager) | `client` | — |
 | [`client-ui-primitives`](../packages/client/ui-primitives) | `client` | — |
 | [`client-ui-reference`](../packages/client/ui-reference) | `client` | — |
 | [`client-ui-renderer`](../packages/client/ui-renderer) | `client` | — |
@@ -1687,8 +1663,6 @@ flowchart TD
 | [`workflow-worker-thread`](../packages/workflow/workflow-worker-thread) | `workflow` | [`agent`](../packages/core/agent), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`subagent`](../packages/subagent/subagent), [`tools`](../packages/core/tools), [`workflow`](../packages/workflow/workflow) |
 | [`experimental-client-ui-agent-team`](../packages/experimental/client-ui-agent-team) | `experimental` | [`api-remotes`](../packages/api/remotes), [`api-session-controller`](../packages/api/session-controller), [`client-locale`](../packages/client/locale), [`client-ui-conversation`](../packages/client/ui-conversation), [`client-ui-primitives`](../packages/client/ui-primitives), [`client-ui-renderer`](../packages/client/ui-renderer), [`client-ui-session`](../packages/client/ui-session), [`client-ui-slots`](../packages/client/ui-slots), [`experimental-agent-team`](../packages/experimental/agent-team), [`session`](../packages/core/session), [`typert-protocol`](../packages/typert/protocol) |
 | [`experimental-client-ui-claude-code-mods`](../packages/experimental/client-ui-claude-code-mods) | `experimental` | [`api-remotes`](../packages/api/remotes), [`api-session-controller`](../packages/api/session-controller), [`client-locale`](../packages/client/locale), [`client-ui-conversation`](../packages/client/ui-conversation), [`client-ui-primitives`](../packages/client/ui-primitives), [`client-ui-renderer`](../packages/client/ui-renderer), [`client-ui-session`](../packages/client/ui-session), [`client-ui-slots`](../packages/client/ui-slots), [`experimental-claude-code-mods`](../packages/experimental/claude-code-mods), [`session`](../packages/core/session), [`typert-protocol`](../packages/typert/protocol) |
-| [`experimental-client-ui-cot-translation`](../packages/experimental/client-ui-cot-translation) | `experimental` | [`api-session-controller`](../packages/api/session-controller), [`experimental-translator`](../packages/experimental/translator), [`session`](../packages/core/session), [`settings`](../packages/settings/settings), [`typert-protocol`](../packages/typert/protocol) |
-| [`experimental-client-ui-voice-input`](../packages/experimental/client-ui-voice-input) | `experimental` | [`api-gateway`](../packages/api/gateway), [`api-remotes`](../packages/api/remotes), [`api-session-controller`](../packages/api/session-controller), [`client-locale`](../packages/client/locale), [`client-store`](../packages/client/store), [`client-ui-conversation`](../packages/client/ui-conversation), [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager), [`client-ui-primitives`](../packages/client/ui-primitives), [`client-ui-renderer`](../packages/client/ui-renderer), [`client-ui-session`](../packages/client/ui-session), [`client-ui-slots`](../packages/client/ui-slots), [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text), [`experimental-speech-to-text`](../packages/experimental/speech-to-text), [`session`](../packages/core/session), [`typert-protocol`](../packages/typert/protocol) |
 | [`experimental-tool-agent-team`](../packages/experimental/tool-agent-team) | `experimental` | [`agent`](../packages/core/agent), [`experimental-agent-team`](../packages/experimental/agent-team), [`session`](../packages/core/session), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools) |
 | [`sdk-client`](../packages/sdk/client) | `sdk` | [`llm`](../packages/llm/llm), [`sdk-protocol`](../packages/sdk/protocol), [`session`](../packages/core/session) |
 | [`sdk-jsonrpc-server`](../packages/sdk/server) | `sdk` | [`agent`](../packages/core/agent), [`attachment`](../packages/attachment/attachment), [`llm`](../packages/llm/llm), [`llm-deepseek`](../packages/llm/llm-deepseek), [`scope`](../packages/core/scope), [`sdk-protocol`](../packages/sdk/protocol), [`session`](../packages/core/session), [`subagent`](../packages/subagent/subagent) |

@@ -754,25 +754,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
-    key: 'cotTranslation',
-    summary: 'Optional reasoning translation delegates Session-bound storage to the translator.',
-    description: 'Optional reasoning translation delegates Session-bound storage to the translator.',
-    methods: [
-      {
-        signature: '@Remote async limits(signal: AbortSignal): Promise<CotTranslationSnapshot>',
-        description: 'Read accepted translation preferences and the current request limit without sending text.',
-        parameters: [{ name: 'signal', description: 'browser query cancellation or Remote contribution withdrawal.' }],
-        returns: 'authoritative preferences, eligible routes, and maximum UTF-16 text length per request.',
-      },
-      {
-        signature: '@Remote async translate(request: TranslationRequest, signal: AbortSignal): Promise<string>',
-        description: 'Translate one displayed fragment through the reader\'s selected provider.',
-        parameters: [{ name: 'request', description: 'original text and Session identity supplied by the Client; provider and explicit target language match accepted preferences, while auto uses the browser locale.' }, { name: 'signal', description: 'browser cancellation or Remote contribution withdrawal.' }],
-        returns: 'translated text; an uncached inactive Session joins ordinary GUI activation before retry. Failures omit the source and provider response. Cancellation stops this caller\'s wait, not shared activation.',
-      },
-    ],
-  },
-  {
     key: 'credentials',
     summary: 'Abstract credential service over two key spaces that answer two questions.',
     description: 'Abstract credential service over two key spaces that answer two questions.\n\nA CredentialRef answers "what is behind this environment-variable name", layered over the process environment, the provider-managed store, and `.env` files. One seam-wide rule binds that half: an empty stored value is absent everywhere — `resolve` skips it, `describe` reports it unconfigured — so a blank never masquerades as a configured secret.\n\nA CredentialKey answers "what credential does this plugin hold for this id". Nothing can layer here — an authorization grant has no environment to be read from — so presence of the record is the whole fact, and modifyRecord is the only write path because a correct write depends on the current value (a token refresh is read-decide-replace under one lock).',
@@ -1680,20 +1661,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Unload and remove a profile-owned bundle dependency through dsh plugin\'s pnpm path; a selected name no dependency holds is only deselected.',
         parameters: [{ name: 'name', description: 'Installed dependency or selected bundle name.' }],
         returns: 'Removal diagnostics and the remaining profile state.',
-      },
-    ],
-  },
-  {
-    key: 'pluginRegistryProbe',
-    summary: 'Compares public registry responses on the Host; the Client owns the initial selection.',
-    description: 'Compares public registry responses on the Host; the Client owns the initial selection.',
-    methods: [
-      {
-        signature: '@Remote async fastest(): Promise<string | null>',
-        description: 'Race npm and npmmirror HTTPS ping responses through the Host\'s fetch proxy. Concurrent readers share a probe; a winner cancels and awaits the other request.',
-        parameters: [],
-        returns: 'the first registry with a successful response, or null when disabled or neither responds successfully; results are cached.',
-        throws: ['rejects when the service has been unloaded.'],
       },
     ],
   },
@@ -2912,6 +2879,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'rootSessionId', description: 'session whose catalog starts descendant discovery.' }, { name: 'signal', description: 'cancellation forwarded to and checked around each catalog read.' }],
         returns: 'children and branch diagnostics in parent-catalog pre-order.',
         throws: ['{@link SubagentError} when listing dependencies are unavailable or the caller cancels.', 'SessionQueryError when the root catalog cannot be read.'],
+      },
+      {
+        signature: '@Remote(\'list\') async remoteExportList(parentSessionId: SessionId, signal: AbortSignal): Promise<SubagentCatalog>',
+        description: 'Remote face of a parent\'s direct-child catalog for one browser: the durable rows plus live Agent activity and the delivery-time parent availability hint. Availability is a hint; prompt performs the authoritative check. Read from the descendant walk\'s direct children, because a browser row also carries whether that child owns a catalog of its own. Named apart from the provider-name list, which owns the member.',
+        parameters: [{ name: 'parentSessionId', description: 'parent session whose direct children are listed.' }, { name: 'signal', description: 'carrier cancellation forwarded to Session queries.' }],
+        returns: 'the catalog view for that parent.',
+        throws: ['{RemoteError} `gateway/bad-request` for an empty parent id, `gateway/cancelled` for an aborted read, `subagent/projections-unavailable` when the deployment has no projection registry, otherwise `gateway/internal`.'],
       },
       {
         signature: '@Remote(\'prompt\') async prompt(request: SubagentPromptRequest, signal: AbortSignal): Promise<SubagentPromptReceipt>',
@@ -4910,14 +4884,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CordisRuntimeTreeReader {\n    getTree(): Promise<CordisRuntimeTree>;\n}',
   },
   {
-    name: 'CotTranslationPreferences',
-    declaration: 'export interface CotTranslationPreferences {\n    provider: TranslationProvider;\n    targetLanguage: string;\n}',
-  },
-  {
-    name: 'CotTranslationSnapshot',
-    declaration: 'export interface CotTranslationSnapshot {\n    maxTextChars: number;\n    preferences: CotTranslationPreferences;\n    availableProviders: readonly TranslationProvider[];\n}',
-  },
-  {
     name: 'CreateAgentOptions',
     declaration: 'export interface CreateAgentOptions {\n    readonly sessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly isSeeded?: boolean;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n    readonly inheritedEventCount?: SessionLogOffset;\n    readonly seed?: readonly SessionEvent[];\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
   },
@@ -6319,7 +6285,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionAddress',
-    declaration: 'export type SessionAddress = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n} | {\n    readonly kind: \'subagent\';\n    readonly parentSessionId: SessionId;\n    readonly childSessionId: SessionId;\n    readonly mode: \'one-shot\' | \'continuable\';\n};',
+    declaration: 'export type SessionAddress = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n} | {\n    readonly kind: \'subagent\';\n    readonly parentSessionId: SessionId;\n    readonly childSessionId: SessionId;\n    readonly mode: \'one-shot\' | \'continuable\' | \'unknown\';\n};',
   },
   {
     name: 'SessionAssistantStreamAttempt',
@@ -7134,6 +7100,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubagentCapabilities {\n    readonly agentOptions: boolean;\n    readonly outputSchema: boolean;\n    readonly depthLimit: boolean;\n    readonly toolFilter: boolean;\n    readonly persona: boolean;\n}',
   },
   {
+    name: 'SubagentCatalog',
+    declaration: 'export interface SubagentCatalog {\n    readonly entries: readonly SubagentListEntry[];\n    readonly parentAvailable: boolean;\n}',
+  },
+  {
     name: 'SubagentCatalogEntry',
     declaration: 'export type SubagentCatalogEntry = {\n    readonly id: SessionId;\n    readonly createdAt: number;\n} & ({\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'external\';\n    readonly label?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n} | {\n    readonly mode: \'unknown\';\n    readonly label?: string;\n});',
   },
@@ -7195,7 +7165,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SubagentRuntime',
-    declaration: 'export class SubagentRuntime extends TypertRemoteService {\n    static Config;\n    static inject;\n    constructor(ctx: Context, private config: Config);\n    resolveMaxDepth(configured?: number | \'provider-managed\'): number | undefined;\n    startActivation(spec: SubagentActivationSpec & {\n        readonly childId: SessionId;\n    }): Promise<SubagentActivation & {\n        readonly messageId: MessageId;\n    }>;\n    startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>;\n    async startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>;\n    async waitForChildren(parent: Agent): Promise<boolean>;\n    async sendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions): Promise<MessageId>;\n    interrupt(targetSessionId: SessionId, authority: SubagentInterruptAuthority): void;\n    async drainDescendants(parents: readonly Agent[]): Promise<void>;\n    async drainChildren(parent: Agent, childIds: readonly SessionId[]): Promise<void>;\n    listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentCatalogEntry[]>;\n    listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<SubagentDescendantListEntry[]>;\n    @Remote(\'prompt\')\n    async prompt(request: SubagentPromptRequest, signal: AbortSignal): Promise<SubagentPromptReceipt>;\n    @Remote(\'interruptByParent\')\n    interruptByParent(childSessionId: SessionId, parentSessionId: SessionId, mode: \'continuable\'): SubagentIn /* …truncated — full shape in source */',
+    declaration: 'export class SubagentRuntime extends TypertRemoteService {\n    static Config;\n    static inject;\n    constructor(ctx: Context, private config: Config);\n    resolveMaxDepth(configured?: number | \'provider-managed\'): number | undefined;\n    startActivation(spec: SubagentActivationSpec & {\n        readonly childId: SessionId;\n    }): Promise<SubagentActivation & {\n        readonly messageId: MessageId;\n    }>;\n    startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>;\n    async startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>;\n    async waitForChildren(parent: Agent): Promise<boolean>;\n    async sendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions): Promise<MessageId>;\n    interrupt(targetSessionId: SessionId, authority: SubagentInterruptAuthority): void;\n    async drainDescendants(parents: readonly Agent[]): Promise<void>;\n    async drainChildren(parent: Agent, childIds: readonly SessionId[]): Promise<void>;\n    listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentCatalogEntry[]>;\n    listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<SubagentDescendantListEntry[]>;\n    @Remote(\'list\')\n    async remoteExportList(parentSessionId: SessionId, signal: AbortSignal): Promise<SubagentCatalog>;\n    @Remote(\'prompt\')\n    async prompt(request: SubagentPromptRequest, signal: AbortSignal): Promise<SubagentPromptReceipt>;\n    @Remote(\'interr /* …truncated — full shape in source */',
   },
   {
     name: 'SubagentSendMessageOptions',

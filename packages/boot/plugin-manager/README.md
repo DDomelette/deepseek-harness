@@ -28,7 +28,7 @@ Manage the current profile's plugins without editing configuration by hand. Enab
 <a id="use-this-package"></a>
 ## Use this package
 
-Base-backed profiles provide the manager. In Web, the sidebar's **Plugins** page ([ui-plugin-manager](../../client/ui-plugin-manager/README.md)) manages the profile's bundles and their uniquely addressable rows; the Settings Plugin list stays read-only. Agent-preset rows remain read-only. The `plugin_manager` tool exposes the same operations and is enabled in Creator mode. Other presets keep it disabled by default. Every tool action requires `danger-full-access` or approval for that call. Under lower sandbox modes, `ask` requests approval; `never`, rejection, cancellation, or an unavailable approval channel prevents execution. An approval leaves the session permission mode unchanged. Profile changes persist across sessions, and installed Host code executes in-process outside the workspace sandbox. Dependency build-script approval remains separate.
+Base-backed profiles provide the manager. The Settings Plugin list stays read-only. Agent-preset rows remain read-only. The `plugin_manager` tool exposes the same operations and is enabled in Creator mode. Other presets keep it disabled by default. Every tool action requires `danger-full-access` or approval for that call. Under lower sandbox modes, `ask` requests approval; `never`, rejection, cancellation, or an unavailable approval channel prevents execution. An approval leaves the session permission mode unchanged. Profile changes persist across sessions, and installed Host code executes in-process outside the workspace sandbox. Dependency build-script approval remains separate.
 
 For a deployment without agent presets, enable the tool in the profile patch. Preset-backed sessions use their preset’s `tool-plugin-manager` entry.
 
@@ -112,7 +112,6 @@ Results contain the last attempted stage, target, saved-state change, applicatio
 
 - [App boot](../app-boot/README.md) — profile layers and startup policy.
 - [Plugin inventory](../../host/plugin-inventory/README.md) — current Loader and preset observations.
-- [Plugin manager page](../../client/ui-plugin-manager/README.md) — the Web sidebar page over this service.
 - [Plugin settings](../../client/ui-settings-plugin-inventory/README.md) — the read-only Web inventory.
 
 <a id="model-experience"></a>

@@ -233,8 +233,6 @@ flowchart LR
   svc_claudeCodeMods["ctx.claudeCodeMods<br/>Claude Code mods bridge"]
   pkg_config_editor["config-editor"]
   svc_configEditor["ctx.configEditor<br/>Profile configuration edits"]
-  pkg_experimental_client_ui_cot_translation["experimental-client-ui-cot-translation"]
-  svc_cotTranslation["ctx.cotTranslation<br/>Reasoning translation Remote"]
   pkg_deepseek_account["deepseek-account"]
   svc_deepseekAccount["ctx.deepseekAccount<br/>DeepSeek account"]
   pkg_deepseek_account_platform["deepseek-account-platform"]
@@ -251,8 +249,6 @@ flowchart LR
   pkg_plugin_manager["plugin-manager"]
   svc_pluginManager["ctx.pluginManager<br/>Current-profile plugin and bundle management"]
   pkg_ui_settings_plugin_inventory["ui-settings-plugin-inventory"]
-  pkg_client_ui_plugin_manager["client-ui-plugin-manager"]
-  svc_pluginRegistryProbe["ctx.pluginRegistryProbe<br/>Host registry response comparison"]
   pkg_client_product_analytics["client-product-analytics"]
   svc_productAnalytics["ctx.productAnalytics<br/>Desktop interaction collection"]
   svc_productTelemetry["ctx.productTelemetry<br/>Product usage event sender"]
@@ -298,7 +294,6 @@ flowchart LR
   pkg_client_file_upload --> svc_fileUploads
   pkg_client_modules --> svc_clientModules
   pkg_client_product_analytics --> svc_productAnalytics
-  pkg_client_ui_plugin_manager --> svc_pluginRegistryProbe
   pkg_code_runtime --> svc_codeRuntime
   pkg_code_runtime_worker_thread --> svc_codeRuntime
   pkg_command_feedback --> svc_sessionFeedback
@@ -318,7 +313,6 @@ flowchart LR
   pkg_experimental_agent_team --> svc_agentTeams
   pkg_experimental_api_speech_to_text --> svc_speechController
   pkg_experimental_claude_code_mods --> svc_claudeCodeMods
-  pkg_experimental_client_ui_cot_translation --> svc_cotTranslation
   pkg_experimental_code_runtime_python --> svc_codeRuntime
   pkg_experimental_ptc_runtime_python --> svc_ptcRuntime
   pkg_experimental_speech_to_text --> svc_speechToText
@@ -475,7 +469,6 @@ flowchart LR
   svc_otel --> pkg_session_telemetry_otel
   svc_pluginManager --> pkg_plugin_manager
   svc_pluginManager --> pkg_ui_settings_plugin_inventory
-  svc_pluginRegistryProbe --> pkg_client_ui_plugin_manager
   svc_profileContext --> pkg_plugin_manager
   svc_ptcRuntime --> pkg_tools
   svc_ptcRuntime --> pkg_workflow_ptc
@@ -553,7 +546,6 @@ flowchart LR
   svc_tools --> pkg_tool_terminal
   svc_tools --> pkg_tool_todo
   svc_tools --> pkg_tool_web
-  svc_translator --> pkg_experimental_client_ui_cot_translation
   svc_typert --> pkg_api_gateway
   svc_typert --> pkg_typert_loader
   svc_userQuestions --> pkg_tool_ask_user
@@ -655,20 +647,18 @@ flowchart LR
 | `ctx.cordisInspect` | `core` | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) | - | [`tool-cordis`](../packages/extensions/tool-cordis) | - | Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport. |
 | `ctx.claudeCodeMods` | `core` | [`experimental-claude-code-mods`](../packages/experimental/claude-code-mods) | - | - | - | Loads mods that defineMod plugins add, raises their hook chains from harness extension points, and draws the band above the prompt over its Remote. |
 | `ctx.configEditor` | `core` | [`config-editor`](../packages/boot/config-editor) | - | [`settings`](../packages/settings/settings), [`agent-default-model`](../packages/core/agent-default-model) | - | Persists profile config patches under the application file lock and HMR queue, then reconciles Loader entries. |
-| `ctx.cotTranslation` | `service` | [`experimental-client-ui-cot-translation`](../packages/experimental/client-ui-cot-translation) | - | - | - | Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions. |
 | `ctx.deepseekAccount` | `seam` | [`deepseek-account`](../packages/credentials/deepseek-account) | [`deepseek-account-platform`](../packages/credentials/deepseek-account-platform) | `api-account-controller`, [`llm-deepseek`](../packages/llm/llm-deepseek) | - | The Host owns browser authorization and local credentials; UI consumers receive state without tokens. |
 | `ctx.hmr` | `core` | [`hmr`](../packages/boot/hmr) | - | [`app-boot`](../packages/boot/app-boot) | - | Owns module and exact configuration watchers; application mutations share its queue and automatic reloads await the application file lock. |
 | `ctx.mcpResources` | `seam` | [`mcp-resources`](../packages/mcp/mcp-resources) | [`mcp-client`](../packages/mcp/mcp-client) | [`mcp-resources`](../packages/mcp/mcp-resources) | - | Connection-owned providers serve shared resource tools in the calling agent scope. |
 | `ctx.otel` | `service` | [`otel`](../packages/telemetry/otel) | - | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel), [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | Product analytics and Session feedback adapters create independent reporting channels through one injected service. |
 | `ctx.pluginManager` | `core` | [`plugin-manager`](../packages/boot/plugin-manager) | - | [`plugin-manager`](../packages/boot/plugin-manager), `ui-settings-plugin-inventory` | - | Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers. |
-| `ctx.pluginRegistryProbe` | `core` | [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager) | - | [`client-ui-plugin-manager`](../packages/client/ui-plugin-manager) | - | Races public registry responses on the Host; the Client owns the initial registry recommendation. |
 | `ctx.productAnalytics` | `service` | [`client-product-analytics`](../packages/client/product-analytics) | - | - | - | Accepts selected Desktop events, enriches available login identity, and observes live compaction under the live Host collection policy. |
 | `ctx.productTelemetry` | `service` | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel) | - | - | - | Exports explicitly submitted analytics events through OTLP/HTTP; mounting alone collects nothing. |
 | `ctx.profileContext` | `core` | [`app-boot`](../packages/boot/app-boot) | - | [`plugin-manager`](../packages/boot/plugin-manager) | - | The dsh launcher supplies data-only profile locations and composition inputs; reload scheduling belongs to dsh-hmr. |
 | `ctx.ptcRuntime` | `seam` | [`ptc-runtime`](../packages/ptc-runtime/ptc-runtime) | [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), [`experimental-ptc-runtime-python`](../packages/experimental/ptc-runtime-python) | [`tools`](../packages/core/tools), [`workflow-ptc`](../packages/workflow/workflow-ptc) | - | Runs programs against host-provided async bindings; tools owns PTC presentation and workflow-ptc owns workflow orchestration. |
 | `ctx.speechController` | `core` | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | - | - | Validates bounded browser audio before provider dispatch. |
-| `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | Routes explicit recognizers; the browser uses the authenticated Remote and keeps transcripts in the draft until submission. |
-| `ctx.translator` | `service` | [`experimental-translator`](../packages/experimental/translator) | - | [`experimental-client-ui-cot-translation`](../packages/experimental/client-ui-cot-translation) | - | Resolves Google or Bing requests and retains shared experimental records through the active Session writer. |
+| `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | Routes explicit recognizers through the authenticated Remote. |
+| `ctx.translator` | `service` | [`experimental-translator`](../packages/experimental/translator) | - | - | - | Resolves Google or Bing requests and retains shared experimental records through the active Session writer. |
 | `ctx.workingDirectory` | `seam` | [`working-directory`](../packages/session/working-directory) | [`working-directory`](../packages/session/working-directory) | [`tool-working-directory`](../packages/session/tool-working-directory), [`tool-fs`](../packages/fs/tool-fs), [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`subagent`](../packages/subagent/subagent), [`sdk-jsonrpc-server`](../packages/sdk/server) | - | One Session projection owns the effective execution directory. The filesystem validates changes; user context reports them while original metadata and write grants stay fixed. |
 | `ctx.worktrees` | `seam` | [`experimental-worktree`](../packages/experimental/worktree) | [`experimental-worktree`](../packages/experimental/worktree) | [`experimental-tool-worktree`](../packages/experimental/tool-worktree) | - | Explicit experimental creation from a pinned local commit. Existing write permissions govern checkout and shared Git metadata; the working-directory service owns the resulting Session directory. |
 
