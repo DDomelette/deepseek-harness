@@ -1,33 +1,24 @@
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
-import {
-  LOCALE_SETTINGS_NAMESPACE, apply,
-} from '@deepseek-ai/dsh-client-locale'
-
-class MemorySettings extends SettingsProvider {
-  readonly writable = true
-  protected load(): Promise<Record<string, unknown>> { return Promise.resolve({}) }
-  protected persist(_ns: SettingsNamespace, _section: Record<string, unknown>): Promise<void> {
-    return Promise.resolve()
-  }
-}
+import * as HostPlugin from '../src/index.ts'
+import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
+import { plainConfig } from '../../../settings/settings/src/schema.ts'
+import { Config, apply } from '@deepseek-ai/dsh-client-locale'
 
 describe('locale host', () => {
   it('registers an open locale preference with the Host settings lifecycle', async () => {
     const ctx = new Context()
-    await ctx.plugin(MemorySettings).await()
-    const fiber = ctx.plugin({ apply })
-    await fiber.await()
-    const ns = LOCALE_SETTINGS_NAMESPACE
-    expect(ctx.settings.get(ns)).toEqual({})
-    await ctx.settings.update(ns, { preference: 'en' })
-    expect(ctx.settings.get(ns)).toEqual({ preference: 'en' })
-    await ctx.settings.update(ns, { preference: 'pt-BR' })
-    expect(ctx.settings.get(ns)).toEqual({ preference: 'pt-BR' })
-    await expect(ctx.settings.update(ns, { preference: 'bad locale' })).rejects.toThrow()
-    await expect(ctx.settings.update(ns, { preference: '123' })).rejects.toThrow()
+    const configuration = await liveConfig(ctx, { Config, apply })
+    const { fiber } = configuration
+    expect(plainConfig(configuration.fiber.config)).toEqual({})
+    await configuration.update({ preference: 'en' })
+    expect(plainConfig(configuration.fiber.config)).toEqual({ preference: 'en' })
+    await configuration.update({ preference: 'pt-BR' })
+    expect(plainConfig(configuration.fiber.config)).toEqual({ preference: 'pt-BR' })
+    await expect(configuration.update({ preference: 'bad locale' })).rejects.toThrow()
+    await expect(configuration.update({ preference: '123' })).rejects.toThrow()
     await fiber.dispose()
-    expect(ctx.settings.describe().map(row => row.ns)).not.toContain(ns)
   })
 })
+
+it('keeps its own instance off the generated Settings pages', () => omitsGeneratedPage(ctx => ctx.plugin(HostPlugin)))

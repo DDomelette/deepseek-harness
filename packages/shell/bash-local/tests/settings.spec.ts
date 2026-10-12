@@ -1,72 +1,45 @@
-/** The `bash` settings section layered over the executor's composition entry. */
+/** The bash executor's own settings section as the Loader and a committed write resolve it. */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import type { Fiber } from '@deepseek-ai/cordis'
-import { SettingsProvider } from '@deepseek-ai/dsh-settings'
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import { SHELL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-shell'
 import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
+import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 
-/** The smallest real provider: one in-memory document, always writable. */
-class MemorySettings extends SettingsProvider {
-  doc: Record<string, unknown> = {}
-
-  get writable(): boolean {
-    return true
-  }
-
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.doc))
-  }
-
-  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.doc = { ...this.doc, [ns]: structuredClone(section) }
-    return Promise.resolve()
-  }
-}
-
-async function boot(config: ConstructorParameters<typeof LocalBashExecutor>[1] = {}): Promise<{
-  ctx: Context
-  settingsFiber: Fiber
-  executorFiber: Fiber
-  bash: LocalBashExecutor
-}> {
+/** Mount the executor under a Loader entry and read the mounted provider back. */
+async function boot(config: object = {}) {
   const ctx = new Context()
   await ctx.plugin(LocalSubprocessRuntime)
-  const settingsFiber = ctx.plugin(MemorySettings)
-  await settingsFiber.await()
-  const executorFiber = ctx.plugin(LocalBashExecutor, { timeoutMs: 60_000, ...config })
-  await executorFiber.await()
-  return { ctx, settingsFiber, executorFiber, bash: ctx.shell as LocalBashExecutor }
+  const configuration = await liveConfig(ctx, LocalBashExecutor, { timeoutMs: 60_000, ...config })
+  const bash = (): LocalBashExecutor => ctx.shell as LocalBashExecutor
+  return { ctx, configuration, bash }
 }
 
 describe('bash settings section', () => {
-  it('resolves the user layer over the composition entry', async () => {
+  it('resolves the committed entry over the composition value', async () => {
     const bench = await boot()
-    expect(bench.bash.config.timeoutMs).toBe(60_000)
+    expect(bench.bash().config.timeoutMs.get()).toBe(60_000)
 
-    await bench.ctx.settings.update(SHELL_SETTINGS_NAMESPACE, { timeoutMs: 5_000 })
+    await bench.configuration.update({ timeoutMs: 5_000 })
 
-    expect(bench.bash.config.timeoutMs).toBe(5_000)
+    expect(bench.bash().config.timeoutMs.get()).toBe(5_000)
     await bench.ctx.fiber.dispose()
   })
 
-  it('refuses a stored value the constructor would have rejected', async () => {
+  it('refuses a stored value the executor could not run with', async () => {
     const bench = await boot()
 
-    await expect(bench.ctx.settings.update(SHELL_SETTINGS_NAMESPACE, { timeoutMs: 0 }))
+    await expect(bench.configuration.update({ timeoutMs: 0 }))
       .rejects.toThrow(/positive finite/)
 
-    expect(bench.bash.config.timeoutMs).toBe(60_000)
+    expect(bench.bash().config.timeoutMs.get()).toBe(60_000)
     await bench.ctx.fiber.dispose()
   })
 
   it('refuses a grace period longer than a timer can carry', async () => {
     const bench = await boot()
 
-    await expect(bench.ctx.settings.update(SHELL_SETTINGS_NAMESPACE, { graceMs: Number.MAX_SAFE_INTEGER }))
+    await expect(bench.configuration.update({ graceMs: Number.MAX_SAFE_INTEGER }))
       .rejects.toThrow(/graceMs must be no greater than/)
 
     await bench.ctx.fiber.dispose()
@@ -74,42 +47,42 @@ describe('bash settings section', () => {
 
   it('serves the stored section to every later read', async () => {
     const bench = await boot()
-    await bench.ctx.settings.update(SHELL_SETTINGS_NAMESPACE, { maxOutputBytes: 1_024, cwd: '/tmp' })
+    await bench.configuration.update({ maxOutputBytes: 1_024, cwd: '/tmp' })
 
-    const spec = bench.bash.resolve({ command: 'true' })
+    const spec = bench.bash().resolve({ command: 'true' })
 
     expect(spec.stdoutMaxBytes).toBe(1_024)
     expect(spec.workdir).toBe('/tmp')
     await bench.ctx.fiber.dispose()
   })
 
-  it('falls back to the composition entry when the settings provider detaches', async () => {
+  it('returns to the schema defaults when the stored section is cleared', async () => {
     const bench = await boot()
-    await bench.ctx.settings.update(SHELL_SETTINGS_NAMESPACE, { timeoutMs: 5_000 })
-    expect(bench.bash.config.timeoutMs).toBe(5_000)
+    await bench.configuration.update({ timeoutMs: 5_000 })
+    expect(bench.bash().config.timeoutMs.get()).toBe(5_000)
 
-    await bench.settingsFiber.dispose()
+    await bench.configuration.replace({})
 
-    expect(bench.bash.config.timeoutMs).toBe(60_000)
+    expect(bench.bash().config.timeoutMs.get()).toBe(120_000)
     await bench.ctx.fiber.dispose()
   })
 
-  it('keeps the composition entry when no settings provider is mounted', async () => {
+  it('keeps the composition entry when the executor is mounted without a Loader', async () => {
     const ctx = new Context()
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalBashExecutor, { timeoutMs: 1_234 })
 
-    expect((ctx.shell as LocalBashExecutor).config.timeoutMs).toBe(1_234)
+    expect((ctx.shell as LocalBashExecutor).config.timeoutMs.get()).toBe(1_234)
     await ctx.fiber.dispose()
   })
 
-  it('releases the namespace when the executor unloads', async () => {
+  it('releases the shell provider when the executor unloads', async () => {
     const bench = await boot()
-    expect(bench.ctx.settings.describe().map(row => String(row.ns))).toContain('shell')
+    expect(bench.ctx.get('shell')).toBeDefined()
 
-    await bench.executorFiber.dispose()
+    await bench.configuration.fiber.dispose()
 
-    expect(bench.ctx.settings.describe().map(row => String(row.ns))).not.toContain('shell')
+    expect(bench.ctx.get('shell')).toBeUndefined()
     await bench.ctx.fiber.dispose()
   })
 })

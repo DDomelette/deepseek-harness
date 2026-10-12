@@ -132,12 +132,15 @@ describe('ui-settings-plugins apply', () => {
     await ctx.plugin({ inject: [...inject], apply }).await()
 
     expect(slots.entries('settings.plugin.item').map(entry => entry.options.key))
-      .toEqual(['usage-telemetry', 'shell', 'agent-loop', 'subagent-model-selection', 'web-search-deepseek'])
+      .toEqual([
+        'usage-telemetry', 'pwsh-sandbox', 'bash-sandbox', 'agent-loop',
+        'subagent-model-selection-settings', 'web-search-deepseek',
+      ])
   })
 
   it('dispatches the served namespaces its cards claim, and no others', async () => {
     // ui-theme is served but belongs to another surface, and a deployment
-    // composing no PowerShell/POSIX executor serves no `bash` at all.
+    // composing no PowerShell/POSIX executor serves no shell section at all.
     const { ctx, slots } = await bench(['agent-loop', 'ui-theme', 'web-search-deepseek'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
@@ -154,19 +157,19 @@ describe('ui-settings-plugins apply', () => {
     // Which namespaces the Host serves is a registration fact the wire never
     // announces on its own, so the tab rides the invalidation that can
     // accompany a changed composition.
-    const { ctx, slots, describeSettings, remote } = await bench(['bash'])
+    const { ctx, slots, describeSettings, remote } = await bench(['pwsh-sandbox'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
     await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })
     describeSettings.mockClear()
 
-    remote.emit('settings/document-updated', ['bash', 1])
+    remote.emit('settings/document-updated', ['pwsh-sandbox', 1])
 
     await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })
   })
 
   it('re-reads the served namespaces after a reconnect', async () => {
-    const { ctx, slots, describeSettings } = await bench(['bash'])
+    const { ctx, slots, describeSettings } = await bench(['pwsh-sandbox'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
     await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })
@@ -235,7 +238,7 @@ describe('ui-settings-plugins apply', () => {
     declareRoot(slots)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(slots.entries('settings.plugin.item')).toHaveLength(5)
+    expect(slots.entries('settings.plugin.item')).toHaveLength(6)
 
     await fiber.dispose()
 

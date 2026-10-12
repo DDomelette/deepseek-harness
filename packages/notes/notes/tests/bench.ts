@@ -23,8 +23,7 @@ import type { Mock } from 'vitest'
 import type { MaterialRecord, NoteSessionRecord } from '../src/domain.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
-import { NotesSettings } from '../src/settings.ts'
-import type { Config } from '../src/settings.ts'
+import { Config, NotesSettings } from '../src/settings.ts'
 import { NotesStore } from '../src/store.ts'
 import type { MaterialId, MaterialSource, NoteSessionId } from '../src/types.ts'
 
@@ -291,10 +290,11 @@ export class FakeLlm {
 /**
  * Mount a real storage stack, an agent-registry stand-in, the settings
  * section, and the notes services over a fresh temporary directory.
- * @param settings - the composition entry the settings section serves.
+ * @param settings - raw composition entry for the notes row; the schema
+ *   resolves its defaults and the live value references the owner reads.
  * @returns the mounted bench, with its own teardown.
  */
-export async function bench(settings: Config = { strategy: 'manual', actions: [] }): Promise<Bench> {
+export async function bench(settings: Record<string, unknown> = { strategy: 'manual', actions: [] }): Promise<Bench> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-notes-'))
   const ctx = new Context()
   const agents = new FakeAgents()
@@ -303,7 +303,7 @@ export async function bench(settings: Config = { strategy: 'manual', actions: []
   await ctx.plugin(StorageDomain, { backend: 'json' }).await()
   await ctx.plugin(NotesStore).await()
   ctx.provide('agents', agents as never)
-  await ctx.plugin(NotesSettings, settings).await()
+  await ctx.plugin(NotesSettings, Config(settings)).await()
   await ctx.plugin(Materials).await()
   await ctx.plugin(NoteSessions).await()
   return {

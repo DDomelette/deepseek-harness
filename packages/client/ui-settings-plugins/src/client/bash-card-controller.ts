@@ -1,15 +1,20 @@
-/** The shell card's staged form over the `bash` settings namespace. */
+/** The shell card's staged form over one shell executor's settings namespace. */
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CardForm, numberField, type CardActions, type CardFieldState, type CardShell } from './card-form.ts'
 
 /**
- * Namespace of the shell capability. Spelled here rather than imported: a
- * client package must not depend on a Host package, and the executor families
- * that own it spell the same value.
+ * Namespaces of the shell executors. Spelled here rather than imported: a
+ * client package must not depend on a Host package. A settings namespace is
+ * its Loader entry id, and a host composes exactly one executor per platform,
+ * so the card registers under both and the Plugins tab dispatches the served
+ * one.
  */
-export const SHELL_NS = 'shell'
+export const BASH_NS = 'bash-sandbox'
+
+/** The Windows executor's entry id; see {@link BASH_NS}. */
+export const PWSH_NS = 'pwsh-sandbox'
 
 /** The shell fields this card edits — a subset of the served schema by design. */
 export interface BashSettings {
@@ -35,12 +40,12 @@ export interface BashCardFace extends CardActions {
   }
 }
 
-/** Bridges the `bash` scope onto the shell card's staged form. */
+/** Bridges one executor scope onto the shell card's staged form. */
 export class BashCardController {
   private readonly form: CardForm<BashSettings>
   private readonly store: SnapshotStore<BashCardState>
 
-  /** @param scope - the bound settings scope for the `bash` namespace. */
+  /** @param scope - the bound settings scope for one shell executor namespace. */
   constructor(scope: SettingsScope<BashSettings>) {
     this.form = new CardForm(scope, [numberField('timeoutMs'), numberField('maxOutputBytes')])
     this.store = this.form.bind(() => this.projection())

@@ -71,7 +71,7 @@ Call `start` to run a command in the background; it returns a handle immediately
 <a id="adjusting-budgets-at-runtime"></a>
 ### Adjusting budgets at runtime
 
-When a settings provider is composed, this executor registers the capability's shared `shell` settings namespace — the same one the POSIX family uses, because a host composes exactly one provider of `ctx.shell` — so a user section in `settings.yaml` layers over the composition entry and the next command runs with the new budgets. Values the schema cannot judge — positive and finite numbers, and the `graceMs` timer bound — are refused at the write, leaving the running executor on its last good section.
+When a settings service is composed, this executor's Loader entry declares every budget as a live Config field — the same section the POSIX family declares, because a host composes exactly one provider of `ctx.shell` — so the settings namespace is the entry id (`pwsh-sandbox` in the shipped composition) and a committed write persists into the active profile patch; the next command runs with the new budgets. Values the schema cannot judge — positive and finite numbers, and the `graceMs` timer bound — are refused at the write, leaving the running executor on its last good section.
 
 -----
 

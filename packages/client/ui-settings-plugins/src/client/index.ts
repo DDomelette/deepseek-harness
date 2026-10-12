@@ -30,7 +30,7 @@ import type { PluginsSettingsSectionInjected, PluginsSettingsTabEntry } from './
 import { SubagentModelSelectionCard } from './SubagentModelSelectionCard.tsx'
 import { WebSearchCard } from './WebSearchCard.tsx'
 import { AGENT_LOOP_NS, AgentLoopCardController } from './agent-loop-card-controller.ts'
-import { SHELL_NS, BashCardController } from './bash-card-controller.ts'
+import { BASH_NS, BashCardController, PWSH_NS } from './bash-card-controller.ts'
 import { ConfigurablePluginsTabController } from './tab-store.ts'
 import {
   SUBAGENT_MODEL_SELECTION_NS, SubagentModelSelectionCardController,
@@ -69,7 +69,11 @@ export function apply(ctx: ClientContext): void {
 
   const usageTelemetry = new UsageTelemetryCardController(ctx.settingsScope.bind({ namespace: USAGE_TELEMETRY_NS }))
   ctx.effect(() => () => { usageTelemetry.dispose() }, 'ui-settings-plugins: usage telemetry')
-  const bash = new BashCardController(ctx.settingsScope.bind({ namespace: SHELL_NS }))
+  // One shell card per executor namespace: a host composes exactly one
+  // executor per platform, and the tab dispatches only the namespace the Host
+  // actually serves.
+  const pwsh = new BashCardController(ctx.settingsScope.bind({ namespace: PWSH_NS }))
+  const bashSandbox = new BashCardController(ctx.settingsScope.bind({ namespace: BASH_NS }))
   const agentLoop = new AgentLoopCardController(ctx.settingsScope.bind({ namespace: AGENT_LOOP_NS }))
   const webSearch = new WebSearchCardController(
     ctx.settingsScope.bind({ namespace: WEB_SEARCH_NS }), ctx)
@@ -174,9 +178,15 @@ export function apply(ctx: ClientContext): void {
     }, UsageTelemetryCard)
     yield ctx.slots.register({
       name: 'settings.plugin.item',
-      key: SHELL_NS,
+      key: PWSH_NS,
       locale: NS,
-      inject: () => bash.inject(),
+      inject: () => pwsh.inject(),
+    }, BashCard)
+    yield ctx.slots.register({
+      name: 'settings.plugin.item',
+      key: BASH_NS,
+      locale: NS,
+      inject: () => bashSandbox.inject(),
     }, BashCard)
     yield ctx.slots.register({
       name: 'settings.plugin.item',

@@ -99,9 +99,15 @@
     - id: llm-retry
       name: '@deepseek-ai/dsh-llm-retry'
 
-    # User-settings document (`$DSH_HOME/settings.yaml`, hot-reloaded): a
-    # `llm-deepseek:` or `llm-pi-ai:` section there overrides the adapter entries
-    # below without a restart, and is what the web Models page writes.
+    # Live Config forms persist through the active profile patch; the editor
+    # owns the profile writes the settings service reconciles through the Loader.
+    - id: config-editor
+      name: '@deepseek-ai/dsh-config-editor'
+      disabled: !!js "!ctx.get('profileContext')"
+
+    # Schema-derived configuration forms over the active Loader entries: a
+    # `llm-deepseek:` or `llm-pi-ai:` entry config there overrides the adapter
+    # entries below without a restart, and is what the web Models page writes.
     - id: settings
       name: '@deepseek-ai/dsh-settings'
 

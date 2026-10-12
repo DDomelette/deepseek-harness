@@ -66,7 +66,7 @@ if (result.timedOut) console.log('timed out after', result.timeoutMs)
 <a id="adjusting-budgets-at-runtime"></a>
 ### 运行时调整预算
 
-当组合了设置提供方时，本执行器以组合条目为 base 注册该能力共享的 `shell` 设置命名空间，因此 `settings.yaml` 中的用户段会叠加其上，下一条命令即按新预算运行。schema 无法判定的值——正有限数字与 `graceMs` 的定时器上界——会在写入时被拒绝，运行中的执行器保持它最后一份可用的段；没有提供方时，运行的就是组合条目。
+当组合了设置服务时，本执行器的 Loader 条目把每一项预算声明为实时 Config 字段，因此设置命名空间就是条目 id（随附组合中为 `bash-sandbox`），提交的写入会持久化到当前 profile 补丁，下一条命令即按新预算运行。schema 无法判定的值——正有限数字与 `graceMs` 的定时器上界——会在写入时被拒绝，运行中的执行器保持它最后一份可用的段；没有设置服务时，运行的就是组合条目。
 
 -----
 

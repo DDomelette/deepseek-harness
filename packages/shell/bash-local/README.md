@@ -66,7 +66,7 @@ Call `start` to run a command in the background; it returns a handle immediately
 <a id="adjusting-budgets-at-runtime"></a>
 ### Adjusting budgets at runtime
 
-When a settings provider is composed, this executor registers the capability's shared `shell` settings namespace with the composition entry as its base, so a user section in `settings.yaml` layers over it and the next command runs with the new budgets. Values the schema cannot judge — positive and finite numbers, and the `graceMs` timer bound — are refused at the write, leaving the running executor on its last good section; without a provider, the composition entry is what runs.
+When a settings service is composed, this executor's Loader entry declares every budget as a live Config field, so the settings namespace is the entry id (`bash-sandbox` in the shipped composition) and a committed write persists into the active profile patch; the next command runs with the new budgets. Values the schema cannot judge — positive and finite numbers, and the `graceMs` timer bound — are refused at the write, leaving the running executor on its last good section; without a settings service, the composition entry is what runs.
 
 -----
 

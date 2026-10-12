@@ -1,27 +1,27 @@
 /** Host loader entry for the browser implementation exported from `./client`. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
+import z from '@deepseek-ai/schemastery'
 
-/** Durable settings namespace for product-wide GUI onboarding facts. */
-const ONBOARDING_SETTINGS_NAMESPACE = 'ui-onboarding'
-
-interface OnboardingSettings {
-  /** Last version acknowledged by the current product welcome step. */
-  welcomeNoticeVersion?: string
+/** Runtime preference projected to the browser. */
+export interface Config {
+  /** Last acknowledged welcome notice version. */
+  welcomeNoticeVersion: Volatile<string | undefined>
 }
 
-const OnboardingSettingsSchema: z<OnboardingSettings> = z.object({
-  welcomeNoticeVersion: z.string(),
+/** Live onboarding facts; the entry id `ui-settings-general` is the settings namespace. */
+export const Config = z.object({
+  welcomeNoticeVersion: z.string().volatile(),
 })
 
-/** Register the durable GUI-onboarding section when a settings provider exists. */
+/**
+ * Keep this instance off the generated Settings pages: the shell owns its own
+ * screens.
+ * @param ctx - Host context that may acquire the settings service.
+ */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.register(
-      ONBOARDING_SETTINGS_NAMESPACE,
-      OnboardingSettingsSchema,
-    )
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
 }

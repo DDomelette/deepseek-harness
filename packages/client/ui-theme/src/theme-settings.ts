@@ -37,11 +37,14 @@ export interface ThemeSettings {
   fontSize: number
 }
 
-/** Durable theme schema; also the wire envelope the browser scope validates against. */
-export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
+/** Field schemas shared by the durable section and the plugin's live Config. */
+export const ThemeSettingsFields = {
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
   [FONT_SIZE_FIELD]: z.number().step(1).min(FONT_SIZE_MIN).max(FONT_SIZE_MAX).default(DEFAULT_FONT_SIZE),
-})
+}
+
+/** Durable theme schema; also the wire envelope the browser scope validates against. */
+export const ThemeSettingsSchema: z<ThemeSettings> = z.object(ThemeSettingsFields)
 
 /**
  * Narrow one wire or registry value to a persistable preference.

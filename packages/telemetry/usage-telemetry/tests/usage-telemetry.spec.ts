@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMessage, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { canonicalHeader, SessionId } from '@deepseek-ai/dsh-session'
-import { SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import UsageTelemetry, { USAGE_TELEMETRY_SETTINGS_NAMESPACE } from '../src/index.ts'
+import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 
 const appendState = vi.hoisted(() => ({
   holdAppend: false,
@@ -57,7 +57,7 @@ async function setup(enabled = true, withSessions = false): Promise<Context> {
   const ctx = new Context()
   roots.push(ctx)
   if (withSessions) await ctx.plugin(SessionStore)
-  await ctx.plugin(UsageTelemetry, { enabled })
+  await liveConfig(ctx, UsageTelemetry, { enabled })
   return ctx
 }
 
@@ -102,25 +102,11 @@ async function expectRows(count: number): Promise<Record<string, unknown>[]> {
 
 const finish: StreamChunk = { type: 'finish', reason: { kind: 'stop' } }
 
-/** The smallest real settings provider: one writable in-memory document. */
-class MemorySettings extends SettingsProvider {
-  doc: Record<string, unknown> = {}
-
-  get writable(): boolean {
-    return true
-  }
-
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.doc))
-  }
-
-  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.doc = { ...this.doc, [ns]: structuredClone(section) }
-    return Promise.resolve()
-  }
-}
-
 describe('UsageTelemetry service', () => {
+  it('names its settings section by the shipped Loader entry id', () => {
+    expect(USAGE_TELEMETRY_SETTINGS_NAMESPACE).toBe('usage-telemetry')
+  })
+
   it('writes one frozen v1 row after a session-scoped stream yields usage', async () => {
     const ctx = await setup()
     vi.spyOn(Date, 'now').mockReturnValue(1710000000000)
@@ -258,41 +244,38 @@ describe('UsageTelemetry service', () => {
     await expect(rows()).resolves.toEqual([])
   })
 
-  it('restores the composition setting after the settings provider detaches', async () => {
+  it('detaches the stream subscription when the committed entry config disables capture', async () => {
     const ctx = new Context()
     roots.push(ctx)
-    const settingsFiber = ctx.plugin(MemorySettings)
-    await settingsFiber
-    await ctx.plugin(UsageTelemetry, { enabled: true })
+    const configuration = await liveConfig(ctx, UsageTelemetry, { enabled: true })
 
-    await ctx.settings.replace(USAGE_TELEMETRY_SETTINGS_NAMESPACE, { enabled: false })
+    await configuration.replace({ enabled: false })
     await consume(ctx, options(SessionId('provider-disabled')), [{ type: 'usage', usage: { inputTokens: 1, outputTokens: 2 } }, finish])
     await new Promise(resolve => setTimeout(resolve, 20))
     await expect(rows()).resolves.toEqual([])
 
-    await settingsFiber.dispose()
+    await configuration.fiber.dispose()
     await consume(ctx, options(SessionId('provider-detached')), [{ type: 'usage', usage: { inputTokens: 3, outputTokens: 4 } }, finish])
-    await expectRows(1)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    await expect(rows()).resolves.toEqual([])
   })
 
   it('rejudges the stream subscription after a committed settings update', async () => {
     const ctx = new Context()
     roots.push(ctx)
-    const settingsFiber = ctx.plugin(MemorySettings)
-    await settingsFiber
-    await ctx.plugin(UsageTelemetry, { enabled: true })
+    const configuration = await liveConfig(ctx, UsageTelemetry, { enabled: true })
 
-    await ctx.settings.replace(USAGE_TELEMETRY_SETTINGS_NAMESPACE, { enabled: false })
+    await configuration.replace({ enabled: false })
     await consume(ctx, options(SessionId('settings-false')), [{ type: 'usage', usage: { inputTokens: 1, outputTokens: 2 } }, finish])
     await new Promise(resolve => setTimeout(resolve, 20))
     await expect(rows()).resolves.toEqual([])
 
-    await ctx.settings.replace(USAGE_TELEMETRY_SETTINGS_NAMESPACE, { enabled: true })
+    await configuration.replace({ enabled: true })
     await consume(ctx, options(SessionId('settings-true')), [{ type: 'usage', usage: { inputTokens: 3, outputTokens: 4 } }, finish])
     await expectRows(1)
   })
 
-  it('uses the composition setting when no settings provider is mounted', async () => {
+  it('uses the composition setting when the entry carries no override', async () => {
     const enabled = await setup(true)
     await consume(enabled, options(SessionId('composition-true')), [{ type: 'usage', usage: { inputTokens: 1, outputTokens: 2 } }, finish])
     await expectRows(1)

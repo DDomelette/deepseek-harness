@@ -12,7 +12,15 @@ import Hmr from '@deepseek-ai/dsh-hmr'
 import DefaultModel from '@deepseek-ai/dsh-agent-default-model'
 import Settings from '../src/index.ts'
 
-export async function configurationFixture(options: { schema?: z; apply?: (ctx: Context, config: unknown) => void; hmr?: boolean } = {}) {
+export async function configurationFixture(options: {
+  schema?: z
+  apply?: (ctx: Context, config: unknown) => void
+  hmr?: boolean
+  /** Loader entry id of the probe row, which is also the settings namespace a consumer addresses. */
+  probeId?: string
+  /** Raw composition config of the probe row; its keys follow `schema`. */
+  probeConfig?: Record<string, unknown>
+} = {}) {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'settings-config-')))
   const dir = join(home, 'profiles', 'test')
   onTestFinished(() => { rmSync(home, { recursive: true, force: true }) })
@@ -25,7 +33,7 @@ export async function configurationFixture(options: { schema?: z; apply?: (ctx: 
     { id: 'config-editor', name: 'cordis:editor' },
     { id: 'settings', name: 'cordis:settings' },
     { id: 'default-model', name: 'cordis:model', config: { provider: 'test', model: 'original' } },
-    { id: 'first', name: 'cordis:probe', config: { ordinary: 'fixed', token: 'private' } },
+    { id: options.probeId ?? 'first', name: 'cordis:probe', config: options.probeConfig ?? { ordinary: 'fixed', token: 'private' } },
     { id: 'second', name: 'cordis:probe', config: { ordinary: 'second' } },
   ] }]))
   writeFileSync(join(dir, 'cordis.yml'), '[]\n')

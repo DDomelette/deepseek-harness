@@ -1,12 +1,13 @@
 /** Host registration for the browser theme preference and pre-plugin palette. */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
+import z from '@deepseek-ai/schemastery'
 import { bootThemeInjection } from './boot-theme.ts'
 import {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema,
-  type ThemePreference, type ThemeSettings,
+  FONT_SIZE_FIELD, THEME_PREFERENCE_FIELD, ThemeSettingsFields,
+  type ThemePreference,
 } from './theme-settings.ts'
 
 export {
@@ -15,30 +16,32 @@ export {
   type ThemePreference, type ThemeSettings,
 } from './theme-settings.ts'
 
-const THEME_NAMESPACE = THEME_SETTINGS_NAMESPACE
-
-/** Read the registered theme section or the schema defaults without a settings provider. */
-function readSection(ctx: Context): { preference: ThemePreference; fontSize: number } {
-  const fallback = { preference: DEFAULT_PREFERENCE, fontSize: DEFAULT_FONT_SIZE }
-  const settings = ctx.get('settings')
-  if (settings === undefined) return fallback
-  const section = settings.get(THEME_NAMESPACE) as ThemeSettings | undefined
-  if (section === undefined) return fallback
-  return section
+/** Runtime preferences projected to the browser. */
+export interface Config {
+  /** Browser palette preference. */
+  preference: Volatile<ThemePreference>
+  /** Conversation content font size in pixels. */
+  fontSize: Volatile<number>
 }
 
+/** Live theme preferences; the entry id `ui-theme` is the settings namespace. */
+export const Config = z.object({
+  preference: ThemeSettingsFields[THEME_PREFERENCE_FIELD].volatile(),
+  fontSize: ThemeSettingsFields[FONT_SIZE_FIELD].volatile(),
+})
+
 /**
- * Register the durable theme section when the optional settings service is
- * composed, and answer every index injection collection with the current
- * theme bootstrap row.
+ * Keep this instance off the generated Settings pages (the theme feature owns
+ * its own Appearance and font-size rows) and answer every index injection
+ * collection with the live theme bootstrap row.
  * @param ctx - Host context that may acquire the settings service.
+ * @param config - the entry's live theme preferences.
  */
-export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.register(THEME_NAMESPACE, ThemeSettingsSchema)
+export function apply(ctx: Context, config: Config): void {
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
   ctx.on('webserver/index-inject', (table) => {
-    const section = readSection(ctx)
-    table.push(bootThemeInjection(section.preference, section.fontSize))
-  })
+    table.push(bootThemeInjection(config.preference.get(), config.fontSize.get()))
+  }, { prepend: true })
 }

@@ -36,7 +36,7 @@ const kit = {
 
 function skillsNamespace() {
   return {
-    ns: 'skills',
+    ns: 'skill-settings',
     schema: {},
     value: { disabled: ['grouped-b'] },
     applies: 'live' as const,
@@ -137,7 +137,7 @@ describe('SkillsSection', () => {
     const switchControl = within(row).getByRole('switch')
 
     fireEvent.click(switchControl)
-    expect(update).toHaveBeenCalledWith('skills', { disabled: ['grouped-b', 'grouped-a'] }, 1)
+    expect(update).toHaveBeenCalledWith('skill-settings', { disabled: ['grouped-b', 'grouped-a'] }, 1)
   })
 
   it('disables toggles while the settings seam is read-only', async () => {

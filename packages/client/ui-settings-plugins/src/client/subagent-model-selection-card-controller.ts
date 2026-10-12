@@ -6,8 +6,8 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CardShell } from './card-form.ts'
 
-/** Namespace of the Host-owned subagent model-selection preference. */
-export const SUBAGENT_MODEL_SELECTION_NS = 'subagent-model-selection'
+/** Namespace of the Host-owned subagent model-selection preference (its Loader entry id). */
+export const SUBAGENT_MODEL_SELECTION_NS = 'subagent-model-selection-settings'
 
 /** One exact provider/model route stored as user authorization. */
 export interface AllowedSubagentModel {

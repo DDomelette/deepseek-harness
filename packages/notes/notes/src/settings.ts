@@ -10,13 +10,13 @@
  */
 
 import { Service } from '@deepseek-ai/cordis'
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import s from '@deepseek-ai/schemastery'
 import type { SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-settings'
 import type { NotesInvalidActions } from './types.ts'
 
-/** Settings namespace owned by this plugin. */
+/** Settings namespace owned by this plugin (the Loader entry id). */
 export const NOTES_SETTINGS_NAMESPACE = 'notes'
 
 /** One collection action: the bubble entry and the prompt it prepends. */
@@ -82,28 +82,28 @@ function usable(actions: readonly ActionDef[]): boolean {
 /** Composition entry, also the settings base layer. */
 export interface Config {
   /** `manual` waits for an explicit analyse; `auto` analyses on collection. */
-  readonly strategy: NotesStrategy
+  readonly strategy: Volatile<NotesStrategy>
   /** Collection actions the selection bubble offers. */
-  readonly actions: ActionDef[]
+  readonly actions: Volatile<ActionDef[]>
   /**
    * Absolute workspace path for notes conversations. Absent until first-run
    * setup has chosen one; schemastery reserves `null` as "no default", so
    * absence is `undefined` and the accessors report it as `null`.
    */
-  readonly workspace?: string
+  readonly workspace: Volatile<string | undefined>
   /**
    * Model override for notes conversations; absent follows the session default.
    * A nested literal rather than a named type, so the config catalog renders
    * both fields with their own prose.
    */
-  readonly model?: {
+  readonly model: Volatile<{
     /** Registered provider route. */
     readonly provider: string
     /** Provider-owned model id. */
     readonly model: string
     /** Adapter-owned reasoning effort; absent asks for the route's own default. */
     readonly reasoningEffort?: string
-  }
+  } | undefined>
 }
 
 const actionSchema: s<ActionDef> = s.object({
@@ -124,20 +124,20 @@ const modelSchema = s.object({
  * settings section. The built-in translate action is a schema default rather
  * than a code constant, so a deployment replaces it from the composition file.
  */
-export const Config: s<Config> = s.object({
-  strategy: s.union(['manual', 'auto'] as const).default('manual'),
+export const Config = s.object({
+  strategy: s.union(['manual', 'auto'] as const).default('manual').volatile(),
   actions: s.array(actionSchema).default([{
     id: 'translate',
     label: '翻译',
     prompt: '你仅作翻译，不改变语句结构，直接翻译下列内容为中文：',
     autoSend: true,
-  }]),
-  workspace: s.string(),
+  }]).volatile(),
+  workspace: s.string().volatile(),
   // A bare object schema defaults to `{}`, which would then fail the required
   // fields; the single-member union keeps the whole override skippable while
   // still validating a present one strictly.
-  model: s.union([modelSchema]),
-})
+  model: s.union([modelSchema]).volatile(),
+}) as unknown as s<Config>
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -149,28 +149,22 @@ declare module '@deepseek-ai/cordis' {
 /**
  * Reads the notes settings section for this plugin's own consumers.
  *
- * The settings service is not a declared injection: a deployment without one
- * must fall back to the composition entry rather than leave this service
- * pending forever. `installSection` restores that fallback when the provider
- * detaches.
+ * The section is this row's own configuration: a committed write persists the
+ * entry's config through the profile patch, so the Loader resolves a new
+ * section here.
  */
 export class NotesSettings extends Service {
   private source: () => Config
 
   /**
    * @param ctx - host context.
-   * @param entry - the row's validated composition entry, used as the base layer.
+   * @param entry - the row's live composition entry, the settings section itself.
    */
   constructor(ctx: Context, entry: Config) {
     super(ctx, 'notesSettings')
     this.source = () => entry
-    ctx.inject(['settings'], (settingsCtx) => {
-      settingsCtx.settings.installSection(ctx, NOTES_SETTINGS_NAMESPACE, Config, entry, {
-        setSource: (source) => { this.source = source },
-        // Consumers read through the accessors below on every use, so no
-        // registration-level fact needs rebuilding when the document changes.
-        onChange: () => {},
-      })
+    ctx.inject(['settings'], (child) => {
+      child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
     })
   }
 
@@ -179,7 +173,7 @@ export class NotesSettings extends Service {
    * @returns `manual` or `auto`.
    */
   strategy(): NotesStrategy {
-    return this.source().strategy
+    return this.source().strategy.get()
   }
 
   /**
@@ -187,7 +181,7 @@ export class NotesSettings extends Service {
    * @returns the configured actions.
    */
   actions(): readonly ActionDef[] {
-    return this.source().actions
+    return this.source().actions.get()
   }
 
   /**
@@ -195,7 +189,7 @@ export class NotesSettings extends Service {
    * @returns the absolute path, or null before first-run setup.
    */
   workspace(): string | null {
-    return this.source().workspace ?? null
+    return this.source().workspace.get() ?? null
   }
 
   /**
@@ -204,7 +198,7 @@ export class NotesSettings extends Service {
    *   the session default.
    */
   model(): { provider: string; model: string; reasoningEffort?: string } | null {
-    return this.source().model ?? null
+    return this.source().model.get() ?? null
   }
 
   /**

@@ -23,7 +23,10 @@ export interface ChatSettings {
   transcriptView: TranscriptViewMode
 }
 
-/** Durable Chat schema; also the wire envelope the browser scope validates against. */
-export const ChatSettingsSchema: z<ChatSettings> = z.object({
+/** Field schemas shared by the durable section and the plugin's live Config. */
+export const ChatSettingsFields = {
   [TRANSCRIPT_VIEW_FIELD]: z.union([...TRANSCRIPT_VIEW_MODES]).default(DEFAULT_TRANSCRIPT_VIEW_MODE),
-})
+}
+
+/** Durable Chat schema; also the wire envelope the browser scope validates against. */
+export const ChatSettingsSchema: z<ChatSettings> = z.object(ChatSettingsFields)

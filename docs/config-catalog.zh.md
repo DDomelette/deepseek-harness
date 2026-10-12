@@ -278,22 +278,24 @@ export interface Config {
 需要：`subprocess`
 
 ```ts config-catalog
-/** Plugin config (all optional — `static Config` supplies the defaults). */
+/** Validated plugin configuration with live command budgets. */
 export interface Config {
   /** Default working directory for commands (default: process.cwd()). */
-  cwd?: string
+  cwd: Volatile<string | undefined>
   /** Default foreground timeout in milliseconds. */
-  timeoutMs?: number
+  timeoutMs: Volatile<number>
   /** Upper bound for per-call timeout overrides. */
-  maxTimeoutMs?: number
+  maxTimeoutMs: Volatile<number>
   /** Per-stream in-memory output cap; overflow spills to a temp file. */
-  maxOutputBytes?: number
+  maxOutputBytes: Volatile<number>
   /** Per-stream spill-file cap; larger streams retain only their in-memory tail. */
-  maxSpillBytes?: number
+  maxSpillBytes: Volatile<number>
   /** Grace period for kill escalation and inherited pipes; at most `MAX_TIMER_DELAY_MS`. */
-  graceMs?: number
+  graceMs: Volatile<number>
 }
 ```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
 
 来源：[`packages/shell/bash-local/src/index.ts:41`](../packages/shell/bash-local/src/index.ts)
 
@@ -411,6 +413,27 @@ export interface Config {
 依赖：`Volatile` (`@deepseek-ai/cordis`)
 
 来源：[`packages/client/product-analytics/src/index.ts:14`](../packages/client/product-analytics/src/index.ts)
+
+<a id="deepseek-aidsh-client-ui-theme"></a>
+
+## `@deepseek-ai/dsh-client-ui-theme`
+
+```ts config-catalog
+/** Runtime preferences projected to the browser. */
+export interface Config {
+  /** Browser palette preference. */
+  preference: Volatile<ThemePreference>
+  /** Conversation content font size in pixels. */
+  fontSize: Volatile<number>
+}
+
+/** Theme preference persisted by the product Appearance row. */
+export type ThemePreference = typeof THEME_PREFERENCES[number]
+```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
+
+来源：[`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
 
 <a id="deepseek-aidsh-code-runtime-worker-thread"></a>
 
@@ -1994,28 +2017,28 @@ export interface Config {
 /** Composition entry, also the settings base layer. */
 export interface Config {
   /** `manual` waits for an explicit analyse; `auto` analyses on collection. */
-  readonly strategy: NotesStrategy
+  readonly strategy: Volatile<NotesStrategy>
   /** Collection actions the selection bubble offers. */
-  readonly actions: ActionDef[]
+  readonly actions: Volatile<ActionDef[]>
   /**
    * Absolute workspace path for notes conversations. Absent until first-run
    * setup has chosen one; schemastery reserves `null` as "no default", so
    * absence is `undefined` and the accessors report it as `null`.
    */
-  readonly workspace?: string
+  readonly workspace: Volatile<string | undefined>
   /**
    * Model override for notes conversations; absent follows the session default.
    * A nested literal rather than a named type, so the config catalog renders
    * both fields with their own prose.
    */
-  readonly model?: {
+  readonly model: Volatile<{
     /** Registered provider route. */
     readonly provider: string
     /** Provider-owned model id. */
     readonly model: string
     /** Adapter-owned reasoning effort; absent asks for the route's own default. */
     readonly reasoningEffort?: string
-  }
+  } | undefined>
 }
 
 /** When a newly collected material is sent to the model. */
@@ -2033,6 +2056,8 @@ export interface ActionDef {
   readonly autoSend: boolean
 }
 ```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
 
 来源：[`packages/notes/notes/src/settings.ts:83`](../packages/notes/notes/src/settings.ts)
 
@@ -2223,29 +2248,31 @@ export type LaunchConfig = {
 需要：`subprocess`
 
 ```ts config-catalog
-/** Plugin config (all optional — `static Config` supplies the defaults). */
+/** Validated plugin configuration with live command budgets. */
 export interface Config {
   /** Default working directory for commands (default: process.cwd()). */
-  cwd?: string
+  cwd: Volatile<string | undefined>
   /** Default foreground timeout in milliseconds. */
-  timeoutMs?: number
+  timeoutMs: Volatile<number>
   /** Upper bound for per-call timeout overrides. */
-  maxTimeoutMs?: number
+  maxTimeoutMs: Volatile<number>
   /** Per-stream in-memory output cap; overflow spills to a temp file. */
-  maxOutputBytes?: number
+  maxOutputBytes: Volatile<number>
   /** Per-stream spill-file cap; larger streams retain only their in-memory tail. */
-  maxSpillBytes?: number
+  maxSpillBytes: Volatile<number>
   /** Grace period for kill escalation and inherited pipes; at most `MAX_TIMER_DELAY_MS`. */
-  graceMs?: number
+  graceMs: Volatile<number>
   /**
    * Explicit pwsh executable. When omitted, well-known Windows install
    * locations and PATH entries are probed in order (PowerShell 7 install,
    * PATH entries such as the Microsoft Store install, then Windows
    * PowerShell 5.1), falling back to a bare `pwsh` resolved through PATH.
    */
-  pwshPath?: string
+  pwshPath: Volatile<string | undefined>
 }
 ```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
 
 来源：[`packages/shell/pwsh-local/src/index.ts:58`](../packages/shell/pwsh-local/src/index.ts)
 
@@ -2720,6 +2747,24 @@ export interface Config {
 ```
 
 来源：[`packages/skill/skill-filesystem/src/index.ts:49`](../packages/skill/skill-filesystem/src/index.ts)
+
+<a id="deepseek-aidsh-skill-settings"></a>
+
+## `@deepseek-ai/dsh-skill-settings`
+
+需要：`skills`
+
+```ts config-catalog
+/** Runtime settings section: skill names the user switched off. */
+export interface Config {
+  /** Disabled skill names; disabling is total (neither model nor user invocation). */
+  disabled: Volatile<string[]>
+}
+```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
+
+来源：[`packages/skill/skill-settings/src/index.ts:26`](../packages/skill/skill-settings/src/index.ts)
 
 <a id="deepseek-aidsh-spill-local"></a>
 
@@ -3787,9 +3832,11 @@ export interface Config {
 /** Configuration for local usage telemetry capture. */
 export interface Config {
   /** Whether live LLM usage is appended to local telemetry files. */
-  enabled: boolean
+  enabled: Volatile<boolean>
 }
 ```
+
+依赖：`Volatile` (`@deepseek-ai/cordis`)
 
 来源：[`packages/telemetry/usage-telemetry/src/index.ts:28`](../packages/telemetry/usage-telemetry/src/index.ts)
 
@@ -4119,7 +4166,6 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-sidebar-right`（[`packages/client/ui-sidebar-right/src/index.ts`](../packages/client/ui-sidebar-right/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-skill`（[`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-subagent`（[`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts)）
-- `@deepseek-ai/dsh-client-ui-theme`（[`packages/client/ui-theme/src/index.ts`](../packages/client/ui-theme/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-tool`（[`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-trajectory`（[`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-user-questions`（[`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts)）
@@ -4160,7 +4206,6 @@ export interface Config {
 - `@deepseek-ai/dsh-session-turn-outline` — 需要 `sessionProjections`（[`packages/session/session-turn-outline/src/index.ts`](../packages/session/session-turn-outline/src/index.ts)）
 - `@deepseek-ai/dsh-settings` — 需要 `configEditor` · `profileContext`（[`packages/settings/settings/src/index.ts`](../packages/settings/settings/src/index.ts)）
 - `@deepseek-ai/dsh-skill-badge` — 需要 `skills`（[`packages/skill/skill-badge/src/index.ts`](../packages/skill/skill-badge/src/index.ts)）
-- `@deepseek-ai/dsh-skill-settings` — 需要 `skills`（[`packages/skill/skill-settings/src/index.ts`](../packages/skill/skill-settings/src/index.ts)）
 - `@deepseek-ai/dsh-storage`（[`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts)）
 - `@deepseek-ai/dsh-subprocess-local`（[`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts)）
 - `@deepseek-ai/dsh-terminal`（[`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts)）

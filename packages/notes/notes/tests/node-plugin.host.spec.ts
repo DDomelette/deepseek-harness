@@ -38,7 +38,7 @@ describe('notes host half', () => {
     // supplies from its own host row; this spec stands one in.
     host.provide('agents', new FakeAgents() as never)
 
-    const mounted = host.plugin({ name, apply, inject, Config }, Config(undefined))
+    const mounted = host.plugin({ name, apply, inject, Config })
     await mounted.await()
     expect(mounted.state).toBe(FiberState.ACTIVE)
     // The mounted services open the domain asynchronously, so the plugin fiber
