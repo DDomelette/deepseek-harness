@@ -280,11 +280,11 @@ fileHostPath(ref: FileAttachmentRef): string | undefined
 /**
  * Generate or read one deterministic model-request version from the stored normalized image.
  * @param ref - durable provider-independent normalized attachment reference.
- * @param policy - exact route pixel budget and encoded-byte target; a target no ladder quality meets yields the smallest ladder output.
+ * @param target - route-chosen dimensions and byte target; an unmet byte target yields the smallest ladder output.
  * @param signal - optional cancellation.
  * @returns request bytes and the cache/upload identity covering every transform input.
  */
-readImageRequest( ref: ImageAttachmentRef, policy: ImageRequestPolicy, signal?: AbortSignal, ): Promise<RequestImageAttachment>
+readImageRequest( ref: ImageAttachmentRef, target: ImageRequestTarget, signal?: AbortSignal, ): Promise<RequestImageAttachment>
 ```
 
 Source: [`packages/attachment/attachment/src/index.ts`](../../packages/attachment/attachment/src/index.ts)

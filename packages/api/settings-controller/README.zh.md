@@ -38,8 +38,6 @@ kind: "package-reference"
 
 本包没有配置字段。
 
-生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-settings-controller)是所有受支持字段及其 JSDoc 的完整来源。
-
 -----
 
 <a id="model-experience"></a>

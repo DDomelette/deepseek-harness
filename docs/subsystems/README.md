@@ -31,9 +31,14 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [shell.md](shell.md) | the bash executor seam: `ShellExecRequest`/`Spec`, `ShellRunResult`, background `ShellProcess` handles |
 | [subprocess.md](subprocess.md) | the subprocess seam: fully-explicit `SubprocessSpawnSpec`, offset-based output readers, unclassified `SubprocessOutcome`, and the managed `DSH_*` environment vocabulary |
 | [terminal.md](terminal.md) | persistent terminal ids, backend/session contracts, send readiness, bounded reads, and owner-visible snapshots |
+| [working-directory.md](working-directory.md) | Session execution directories, durable changes, recovery, and user context |
+| [worktrees.md](worktrees.md) | Experimental Git branch and checkout creation under existing permissions |
 | [sandbox.md](sandbox.md) | per-session policy resolution and the process-confinement seam: file-effect modes, execution/provider policies, `ConfinedArgv`, enforcement and fail-closed errors |
 | [code-runtime.md](code-runtime.md) | the code-execution seam: `CodeRunRequest`/`Result`, binding namespaces, captured logs, the `CodeRunFailure` taxonomy |
+| [ptc-runtime.md](ptc-runtime.md) | the PTC execution seam: `PtcRunRequest`/`Result`, binding namespaces, captured logs, the `PtcRunFailure` taxonomy |
 | [extensions.md](extensions.md) | versioned dynamic Cordis Plugins and Packages, Host/Client activation, approval, runtime inspection, and lifecycle teardown |
+| [boot.md](boot.md) | Current-profile plugin management and launcher reload coordination |
+| [claude-code-mods.md](claude-code-mods.md) | Claude Code mods through the experimental bridge: every event, `$` member, chain rule, drawing feature, and example mod that differs from Claude Code |
 | [filesystem.md](filesystem.md) | the filesystem seam: `FsTarget`, read/write/edit outcomes, observed-file state, `FsErrorCode` |
 | [lsp.md](lsp.md) | the LSP navigation seam: `LspQueryRequest`/`Result`, `LspProvider`/`Service`, four operations, `LspError` |
 | [skills.md](skills.md) | the skill service: discovery priority, `SkillSummary`/`SkillDefinition`, session-prefix catalog, model-facing `skill` loading |
@@ -41,6 +46,7 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [subagent.md](subagent.md) | the subagent seam: the named-provider registry, `SubagentStartRequest`/`Result`/`Run`, the start-time-vs-runtime capability split |
 | [agent-team.md](agent-team.md) | Agent Teams: implicit Lead identity, named continuable teammates, durable peer mailbox, and shared task DAG |
 | [web.md](web.md) | the web access seam: `WebSearchRequest`/`Result`, `WebFetchRequest`/`Result`, `WebFetchBody`, provider availability, `WebError` |
+| [mcp.md](mcp.md) | external MCP connections, scoped tools and resources, server instructions, protocol results, and configuration ownership |
 | [spill.md](spill.md) | the spill storage seam: `SaveTextSpill`, `SpillOwner`/`SpillSource`, `SpillRef`, the branded `SpillLocator` |
 | [workflow.md](workflow.md) | the workflow seam: `WorkflowStartRequest`, `WorkflowMeta`, `WorkflowRun`/`Result`, the `workflow/*` event payloads, `WorkflowError` fatality |
 | [jobs.md](jobs.md) | the background-job runtime: branded `JobId`s, the producer contract, consumer views, and `ctx.jobs` service behavior |
@@ -56,8 +62,12 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [slots.md](slots.md) | typed Web UI composition: declaration ownership, cardinality and scope, framework and feature injection, props derivation, and the shipped hierarchy |
 | [client-resources.md](client-resources.md) | the client resource model: `dsh-resource://<type>/…` addresses, protocol providers and `ResourceProtocolMap`, the `useResource` global hook and its states, pins and release |
 | [sidebar-right.md](sidebar-right.md) | the right Sidebar: resource and navigation addresses, tab-type registration and routing, the `ctx.sidebarRight` navigation service, the pane-tab slots and owner props, the resource model, and the Workspace Files service |
+| [voice-input.md](voice-input.md) | experimental named recognizers, transient audio and revision-guarded draft insertion |
+| [translation.md](translation.md) | experimental anonymous text translation and explicit provider requests |
 | [conversation.md](conversation.md) | target-neutral Session-event assembly: Context identity, Location data, replay paths, view builders, and target-owned render nodes |
 | [session-projection.md](session-projection.md) | the projection seam: `SessionProjectionMap`, the pure `ProjectionDefinition` unit, `ProjectionSnapshot`'s consistent cut, the change feed |
 | [session-telemetry.md](session-telemetry.md) | the outbound session-reporting capability seam: `SessionTelemetryRecord`/`SessionTelemetrySeverity`, the `SessionTelemetrySink` contract, and the `session-telemetry/record` redact waterfall |
+| [otel.md](otel.md) | Shared ordinary-event and Session-log OTLP channels |
+| [product-telemetry.md](product-telemetry.md) | Explicit product analytics submission and OTLP/HTTP transport |
 
 > Type declarations and their JSDoc on these pages are source-equivalent and drift-checked by `pnpm run verify-type-equiv` (see [development.md](../development.md#documenting-types-verbatim-ts-type-equiv)). Ordinary blocks preserve complete declarations; `public-api` blocks preserve body-stripped public class declarations. Cordis services and events use each page's generated **Cordis API** section.

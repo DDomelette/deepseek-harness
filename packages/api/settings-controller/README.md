@@ -38,8 +38,6 @@ Mount this package as a Loader entry in a profile that serves browser configurat
 
 This package has no configuration fields.
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-settings-controller) is the exhaustive source for accepted fields and their JSDoc.
-
 -----
 
 <a id="model-experience"></a>

@@ -5,18 +5,19 @@
  * part.
  */
 
-import type { McpServersConfig, McpServersSection } from '../src/schema.ts'
+import type { McpServersConfig, McpServersRoster } from '../src/schema.ts'
 
 /**
- * Section for a mount-time plugin config. A Config with a volatile root takes
- * its resolved reference type at the call site, while a composition — and a
- * test standing in for one — supplies the plain section; a later edit goes
- * through `fiber.update()`, which takes raw config as the Loader does.
- * @param section - the section the composition stores.
- * @returns the same section as the mount-time config argument.
+ * Section for a mount-time plugin config. A composition — and a test standing
+ * in for one — supplies the plain roster under `servers`; Schemastery resolves
+ * that raw value into the live reference the constructor receives, so only the
+ * call itself needs the resolved type. A later edit goes through
+ * `fiber.update()`, which takes raw config as the Loader does.
+ * @param roster - the roster the composition stores.
+ * @returns the same roster as the mount-time config argument.
  */
-export function mountSection(section: McpServersSection): McpServersConfig {
-  return section as unknown as McpServersConfig
+export function mountSection(roster: McpServersRoster): McpServersConfig {
+  return { servers: roster } as unknown as McpServersConfig
 }
 
 /** Declarative entry facts the fake Loader surface carries. */

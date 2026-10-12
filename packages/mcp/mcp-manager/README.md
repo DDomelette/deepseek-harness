@@ -33,7 +33,7 @@ Mount the plugin alongside the Loader; it injects `loader` and declares the sect
   name: '@deepseek-ai/dsh-mcp-manager'
 ```
 
-The `mcp-servers` section is a dict keyed by serverName; every entry mirrors the `dsh-mcp-client` Config fields plus `enabled`. A settings edit applies live. The section's schema refuses a key outside the serverName pattern (`[A-Za-z0-9_-]{1,32}`), and an edit to the running manager is refused when it names a server already declared in `cordis.yml` — the declarative and panel-managed rosters never overlap. A section the composition already stored when the manager mounted is reported by the package invariant instead.
+The `mcp-servers` section holds the panel-managed roster under `servers`: a dict keyed by serverName whose every entry mirrors the `dsh-mcp-client` Config fields plus `enabled`. A settings edit applies live. The section's schema refuses a key outside the serverName pattern (`[A-Za-z0-9_-]{1,32}`), and an edit to the running manager is refused when it names a server already declared in `cordis.yml` — the declarative and panel-managed rosters never overlap. A section the composition already stored when the manager mounted is reported by the package invariant instead.
 
 A namespace IS its Loader entry id, so the manager's row must carry the `mcp-servers` id for the Web MCP tab, which binds the same key, to address the section.
 
@@ -44,7 +44,8 @@ The `mcp-servers` section is the plugin's own Config, so the settings page rende
 
 | Field | Transport | Required | Description |
 |---|---|---|---|
-| (key) | both | yes | serverName: `[A-Za-z0-9_-]{1,32}`, unique across the panel-managed roster and every declarative server |
+| `servers` | both | no | Panel-managed roster keyed by serverName (default `{}`); the settings seam edits it live |
+| `servers.<key>` | both | yes | serverName: `[A-Za-z0-9_-]{1,32}`, unique across the panel-managed roster and every declarative server |
 | `enabled` | both | no | Whether the entry is in effect (default `true`) |
 | `transport` | both | yes | `"stdio"` or `"streamable-http"` |
 | `command` | stdio | yes | Executable to spawn |

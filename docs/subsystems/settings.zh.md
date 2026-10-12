@@ -173,105 +173,52 @@ type SettingsUpdateSource = 'update' | 'provider'
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.zh.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
-<a id="ctxsettings--settingsprovider-abstract-seam"></a>
+<a id="ctxsettings--settingsforms"></a>
 
-### `ctx.settings` — `SettingsProvider` (abstract seam)
+### `ctx.settings` — `SettingsForms`
 
-Abstract settings service. Providers implement raw-document storage (`load`/`persist`) and push external changes through Settings.publish; the base class owns namespace registration, resolution, validation, change detection, and the `settings/updated` commit event.
+Project Config schemas into forms and own optional instance-level UI policy.
 
 ```ts cordis-catalog
-/**
- * Prepare the provider's user-editable document for a native editor. File
- * providers may materialize an absent document before returning its path;
- * non-file providers return undefined.
- * @returns the absolute local document path, or undefined for non-file storage.
+/** Register the calling plugin instance's page policy without changing its Config.
+ * @param presentation Automatic-page policy for this instance; `auto` defaults to true.
+ * @param owner Plugin instance the policy belongs to; defaults to the calling fiber.
+ * @returns Disposer; register it with the calling plugin's effects.
+ * @throws If this instance already has a registered policy.
  */
-prepareDocument(): Promise<string | undefined>
+configure(presentation: { auto?: boolean }, owner: Fiber = this.ctx.fiber): () => void
 
-/**
- * Register a namespace schema and receive its owner scope. The registration
- * is an effect on the calling plugin's fiber: disposing that fiber removes
- * the namespace and its observers. An invalid stored section fails the
- * registration itself — the earliest point where the schema can judge it.
- * @param ns - unique namespace; duplicate registration fails loud.
- * @param schema - schemastery schema resolving this namespace's value.
- * @param options - composition `base` layer and effect timing.
- * @returns the owner scope for reads, observation, and updates.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
+/** Locate the profile patch for native editing.
+ * @returns The existing profile patch path.
  */
-register<const Namespace extends string, T>( ns: Namespace & SettingsNamespaceInput<Namespace>, schema: z<T>, options?: SettingsRegisterOptions<T>, ): SettingsScope<T>
+prepareDocument(): Promise<string>
 
-/**
- * Attach one optional-settings consumer to this provider. The consumer
- * registers its composition entry as the base layer while this provider is
- * present, then falls back to that entry if the provider detaches.
- * @param owner - consumer context whose unload suppresses fallback work.
- * @param ns - consumer-owned settings namespace.
- * @param schema - schema resolving the namespace.
- * @param entry - composition entry used as the base and fallback value.
- * @param hooks - source sink, change notification, and optional validation.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
- */
-installSection<const Namespace extends string, T>( owner: Context, ns: Namespace & SettingsNamespaceInput<Namespace>, schema: z<T>, entry: T, hooks: SettingsSectionHooks<T>, ): void
-
-/**
- * Describe every registered namespace for configuration surfaces, including
- * the composition `base` and raw user layers so a form can mark which fields
- * the user overrode (presence in `user`) and what a reset returns to.
- * @param options - redaction switch; wire surfaces must redact.
- * @returns one descriptor per registered namespace, in registration order.
+/** Read active plugin schemas and their live values.
+ * @param options Redaction required for remote callers.
+ * @returns Forms keyed by unique profile entry ids.
  */
 describe(options?: SettingsDescribeOptions): SettingsDescriptor[]
 
-/**
- * Read one registered namespace's resolved value.
- * @param ns - the namespace to read.
- * @returns the resolved value, or `undefined` while unregistered.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
+/** Merge editable fields into an entry's config.
+ * @param ns Profile entry id.
+ * @param patch Fields to merge.
+ * @param expectedRevision Revision returned by describe.
  */
-get<const Namespace extends string>(ns: Namespace & SettingsNamespaceInput<Namespace>): unknown
+async update(ns: string, patch: object, expectedRevision?: number): Promise<void>
 
-/**
- * Merge a patch into one registered namespace's user layer, validate the
- * resolved candidate, persist through the provider, then commit and emit.
- * A validation failure rejects before anything is persisted. Writes to one
- * namespace are serialized: concurrent updates apply in call order, each
- * merging over the previous write's committed section.
- * @param ns - the registered namespace to update.
- * @param patch - plain-object patch over the user section.
- * @param expectedRevision - the descriptor `revision` the caller read; a
- *   namespace that moved past it rejects with {@link SettingsConflictError}.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
+/** Reset all live fields, then set the supplied fields; ordinary config is preserved.
+ * @param ns Profile entry id.
+ * @param section Complete form values.
+ * @param expectedRevision Revision returned by describe.
  */
-async update<const Namespace extends string>( ns: Namespace & SettingsNamespaceInput<Namespace>, patch: object, expectedRevision?: number, ): Promise<void>
+async replace(ns: string, section: object, expectedRevision?: number): Promise<void>
 
-/**
- * Replace one registered namespace's user section wholesale, validate,
- * persist, then commit and emit. Keys absent from `section` fall back to the
- * composition `base` and schema defaults — this is the removal/reset path a
- * merge-only patch cannot express (`replace({})` re-inherits everything).
- * @param ns - the registered namespace to replace.
- * @param section - the complete next user section.
- * @param expectedRevision - the descriptor `revision` the caller read; a
- *   namespace that moved past it rejects with {@link SettingsConflictError}.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
+/** Apply field edits without restating redacted secrets; unsetting an array index removes its element.
+ * @param ns Profile entry id.
+ * @param ops Ordered form edits.
+ * @param expectedRevision Revision returned by describe.
  */
-async replace<const Namespace extends string>( ns: Namespace & SettingsNamespaceInput<Namespace>, section: object, expectedRevision?: number, ): Promise<void>
-
-/**
- * Apply path-addressed edits to one registered namespace's user section,
- * validate, persist, then commit and emit. The ops are applied to the
- * section as it stands when the write reaches the front of the queue, so a
- * caller never has to restate fields it did not touch — and, crucially,
- * cannot delete fields it never saw. This is the write path for any caller
- * holding a redacted view; `replace` remains the wholesale reset.
- * @param ns - the registered namespace to edit.
- * @param ops - ordered path edits; later ops observe earlier ones.
- * @param expectedRevision - the descriptor `revision` the caller read; a
- *   namespace that moved past it rejects with {@link SettingsConflictError}.
- * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
- */
-async mutate<const Namespace extends string>( ns: Namespace & SettingsNamespaceInput<Namespace>, ops: readonly SettingsPathOp[], expectedRevision?: number, ): Promise<void>
+async mutate(ns: string, ops: readonly SettingsPathOp[], expectedRevision?: number): Promise<void>
 ```
 
 Source: [`packages/settings/settings/src/index.ts`](../../packages/settings/settings/src/index.ts)
@@ -290,12 +237,6 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  * @throws RemoteError when no settings provider is mounted.
  */
 @Remote describe(): SettingsDescribeValue
-
-/**
- * Report whether this deployment can open an authored Agent preset directory natively.
- * @returns true when the matching open operation is available.
- */
-@Remote canOpenAgentPresetDirectory(): boolean
 
 /**
  * Merge a patch into one namespace's stored user section.
@@ -336,15 +277,6 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  * @throws RemoteError when no document exists, preparation fails, or opening fails.
  */
 @Remote async openSettingsDocument(signal: AbortSignal): Promise<SettingsDocumentOpenValue>
-
-/**
- * Open one user-authored Agent preset directory or return its path when no native opener exists.
- * @param agentPreset - preset id resolved against Host-owned roots.
- * @param signal - caller lifetime; abort terminates the native command.
- * @returns an opened confirmation or the resolved directory for text display.
- * @throws RemoteError when the preset is missing, read-only, invalid, or cannot be opened.
- */
-@Remote async openAgentPresetDirectory( agentPreset: string, signal: AbortSignal, ): Promise<AgentPresetDirectoryOpenValue>
 ```
 
 Source: [`packages/api/settings-controller/src/index.ts`](../../packages/api/settings-controller/src/index.ts)
@@ -357,48 +289,17 @@ Source: [`packages/api/settings-controller/src/index.ts`](../../packages/api/set
 
 #### `settings/document-updated` — emit
 
-One registered namespace's RAW user section changed, whether or not the resolved value did. `settings/updated` is the consumer-facing event and stays deep-equal-gated; this one exists for configuration surfaces, which must learn that a field went from inherited to overridden (same resolved value, different meaning) and that their held revision is stale. Listener containment matches `settings/updated`.
+One profile entry's form values, availability, or page policy changed. Form clients re-read its schema, resolved values, and revision.
 
 ```ts cordis-catalog
 /**
- * One registered namespace's RAW user section changed, whether or not the
- * resolved value did. `settings/updated` is the consumer-facing event and
- * stays deep-equal-gated; this one exists for configuration surfaces,
- * which must learn that a field went from inherited to overridden (same
- * resolved value, different meaning) and that their held revision is
- * stale. Listener containment matches `settings/updated`.
- * @param ns - the namespace whose stored section changed.
- * @param revision - the namespace's new revision.
+ * One profile entry's form values, availability, or page policy changed.
+ * Form clients re-read its schema, resolved values, and revision.
+ * @param ns Profile entry id.
+ * @param revision The entry's new revision.
  * @mode emit
  */
 'settings/document-updated'(ns: SettingsNamespace, revision: number): void
-```
-
-Source: [`packages/settings/settings/src/types.ts`](../../packages/settings/settings/src/types.ts)
-
-<a id="settingsupdated--emit"></a>
-
-#### `settings/updated` — emit
-
-Committed change to one registered namespace's resolved value. Emitted after the provider persisted (for `update`) or published (`provider`) the change; never emitted when the resolved value is deep-equal. Listener failures are contained and logged — a sync throw and an async rejection alike — except `INVARIANT`-coded failures, which rethrow after every listener ran; that rethrow reaches the emitter only from synchronous listeners, so invariant checks on this event must not be async functions.
-
-```ts cordis-catalog
-/**
- * Committed change to one registered namespace's resolved value. Emitted
- * after the provider persisted (for `update`) or published (`provider`)
- * the change; never emitted when the resolved value is deep-equal.
- * Listener failures are contained and logged — a sync throw and an async
- * rejection alike — except `INVARIANT`-coded failures, which rethrow
- * after every listener ran; that rethrow reaches the emitter only from
- * synchronous listeners, so invariant checks on this event must not be
- * async functions.
- * @param ns - the namespace whose resolved value changed.
- * @param next - the new resolved value.
- * @param prev - the previous resolved value.
- * @param source - whether the change entered through `update()` or the provider.
- * @mode emit
- */
-'settings/updated'(ns: SettingsNamespace, next: unknown, prev: unknown, source: SettingsUpdateSource): void
 ```
 
 Source: [`packages/settings/settings/src/types.ts`](../../packages/settings/settings/src/types.ts)

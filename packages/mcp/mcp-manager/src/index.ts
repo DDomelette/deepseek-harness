@@ -39,18 +39,18 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /**
- * Refuse a live section that names a server the composition already declares.
+ * Refuse a live roster that names a server the composition already declares.
  * The declarative roster is a composition fact no schema can see, so the check
  * runs where the candidate config is validated: a settings write fails before
  * it is persisted, and the stored-section case stays with the package
  * invariant.
  * @param ctx - Host context carrying the Loader roster.
- * @param section - candidate section read from this plugin's own Config.
+ * @param roster - candidate roster read from this plugin's own Config.
  * @throws Error naming the colliding serverName.
  */
-function assertNoDeclarativeCollision(ctx: Context, section: McpServersSnapshot): void {
+function assertNoDeclarativeCollision(ctx: Context, roster: McpServersSnapshot): void {
   const declarative = new Set(declarativeMcpServers(ctx).map(server => server.serverName))
-  for (const key of Object.keys(section)) {
+  for (const key of Object.keys(roster)) {
     if (declarative.has(key)) {
       throw new Error(`mcp-servers: serverName "${key}" is already declared in cordis.yml — pick a unique name`)
     }
@@ -72,12 +72,12 @@ function assertNoDeclarativeCollision(ctx: Context, section: McpServersSnapshot)
  */
 export class McpServersGateway extends TypertRemoteService {
   static inject = ['loader']
-  /** The section itself: one Config whose fields the settings page edits. */
+  /** The section itself: the `servers` roster the settings page edits. */
   static Config = McpServersSchema
 
   /**
    * @param ctx - host context carrying the loader service.
-   * @param config - the live `mcp-servers` section, retained for the instance's lifetime.
+   * @param config - the live `mcp-servers` section; its `servers` reference is retained for the instance's lifetime.
    */
   constructor(ctx: Context, private readonly config: McpServersConfig) {
     super(ctx, 'mcpServers')
@@ -110,14 +110,14 @@ export class McpServersGateway extends TypertRemoteService {
       // predates this owner is the package invariant's case. An edit to the
       // running instance is the settings seam's write, and that is refused.
       if (this !== ctx.fiber || this.state !== FiberState.ACTIVE) return candidate
-      assertNoDeclarativeCollision(ctx, McpServersSchema(candidate).get() ?? {})
+      assertNoDeclarativeCollision(ctx, McpServersSchema(candidate).servers.get() ?? {})
       return candidate
     })
   }
 
-  /** Current section, or an empty roster before the first commit. */
+  /** Current roster, or an empty one before the first commit. */
   private section(): McpServersSnapshot {
-    return this.config.get() ?? {}
+    return this.config.servers.get() ?? {}
   }
 
   /**

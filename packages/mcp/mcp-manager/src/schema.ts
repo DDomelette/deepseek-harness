@@ -1,6 +1,7 @@
 /**
- * Settings schema for the `mcp-servers` namespace: a dict keyed by serverName
- * whose entries mirror the `dsh-mcp-client` Config fields plus `enabled`.
+ * Settings schema for the `mcp-servers` namespace: a `servers` dict keyed by
+ * serverName whose entries mirror the `dsh-mcp-client` Config fields plus
+ * `enabled`.
  *
  * @module @deepseek-ai/dsh-mcp-manager
  */
@@ -25,43 +26,62 @@ const DEFAULT_TOOL_CALL_TIMEOUT_MS = 60_000
 
 /** Fully resolved settings entry for one stdio MCP server. */
 export interface McpStdioEntry {
+  /** Whether the entry is in effect; a disabled entry mounts no client. */
   enabled: boolean
+  /** Selects child-process stdio transport. */
   transport: 'stdio'
+  /** Executable used to start the server. */
   command: string
+  /** Arguments passed directly, without shell interpolation. */
   args: string[]
+  /** Extra env vars merged on top of scrubbed ambient env. */
   env: Record<string, string>
+  /** Working directory for the child process. */
   cwd: string
+  /** Per-tool-call timeout in milliseconds. */
   toolCallTimeoutMs: number
+  /** Fail the mount when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Automatic reconnect policy after a lost connection. */
   reconnect: Required<ReconnectConfig>
 }
 
 /** Fully resolved settings entry for one Streamable HTTP MCP server. */
 export interface McpHttpEntry {
+  /** Whether the entry is in effect; a disabled entry mounts no client. */
   enabled: boolean
+  /** Selects Streamable HTTP transport. */
   transport: 'streamable-http'
+  /** MCP endpoint URL. */
   url: string
+  /** Additional headers attached to MCP requests. */
   headers: Record<string, string>
+  /** Per-tool-call timeout in milliseconds. */
   toolCallTimeoutMs: number
+  /** Fail the mount when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Automatic reconnect policy after a lost connection. */
   reconnect: Required<ReconnectConfig>
 }
 
 /** Fully resolved settings entry for one MCP server. */
 export type McpServerEntryConfig = McpStdioEntry | McpHttpEntry
 
-/** Resolved `mcp-servers` section: dict keyed by serverName. */
-export type McpServersSection = Record<string, McpServerEntryConfig>
+/** Panel-managed server roster: one resolved entry per serverName. */
+export type McpServersRoster = Record<string, McpServerEntryConfig>
 
 /**
- * The section as the manager's own Config holds it. The reference stays stable
- * for the instance's lifetime, so a settings edit that touches only this
- * section commits into the running plugin without remounting it.
+ * The `mcp-servers` section as the manager's own Config holds it. The `servers`
+ * reference stays stable for the instance's lifetime, so a settings edit that
+ * touches only this section commits into the running plugin without remounting it.
  */
-export type McpServersConfig = Volatile<McpServersSection>
+export interface McpServersConfig {
+  /** Panel-managed roster, keyed by serverName. */
+  readonly servers: Volatile<McpServersRoster>
+}
 
-/** Detached section read from {@link McpServersConfig}; every level is readonly. */
-export type McpServersSnapshot = VolatileSnapshot<McpServersSection>
+/** Detached roster read from {@link McpServersConfig.servers}; every level is readonly. */
+export type McpServersSnapshot = VolatileSnapshot<McpServersRoster>
 
 const stdioEntry = z.object({
   enabled: z.boolean().default(true),
@@ -92,10 +112,12 @@ export const McpServerEntrySchema = z.union([stdioEntry, httpEntry]) as unknown 
  * Schema of the whole `mcp-servers` section: the manager's Config, and the form
  * the settings page renders it from. The key schema carries the serverName
  * grammar, so an unusable name is refused where the section is validated rather
- * than by the roster that would mount it. The root is volatile because the
+ * than by the roster that would mount it. `servers` is volatile because the
  * section is edited while the manager runs: the settings seam only accepts a
- * path beneath a volatile node.
+ * path beneath a volatile node, and a commit touching only this field reaches
+ * the running plugin without a remount. An omitted section resolves to an empty
+ * roster.
  */
-export const McpServersSchema = z.dict(McpServerEntrySchema, z.string().pattern(SERVER_NAME_PATTERN))
-  .default({})
-  .volatile() as unknown as z<McpServersConfig>
+export const McpServersSchema = z.object({
+  servers: z.dict(McpServerEntrySchema, z.string().pattern(SERVER_NAME_PATTERN)).default({}).volatile(),
+}).default({}) as unknown as z<McpServersConfig>

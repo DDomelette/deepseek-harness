@@ -4,9 +4,9 @@ import { MCP_SERVERS_NS, McpServersSchema, SERVER_NAME_PATTERN } from '../src/sc
 describe('mcp-servers schema', () => {
   it('applies stdio defaults', () => {
     const value = McpServersSchema({
-      alpha: { transport: 'stdio', command: 'memorix' },
-    } as never).get()
-    expect(value.alpha).toMatchObject({
+      servers: { alpha: { transport: 'stdio', command: 'memorix' } },
+    } as never).servers.get()
+    expect(value?.alpha).toMatchObject({
       enabled: true,
       args: [],
       env: {},
@@ -18,24 +18,24 @@ describe('mcp-servers schema', () => {
 
   it('applies streamable-http defaults', () => {
     const value = McpServersSchema({
-      docs: { transport: 'streamable-http', url: 'https://example.com/mcp' },
-    } as never).get()
-    expect(value.docs).toMatchObject({ enabled: true, headers: {} })
+      servers: { docs: { transport: 'streamable-http', url: 'https://example.com/mcp' } },
+    } as never).servers.get()
+    expect(value?.docs).toMatchObject({ enabled: true, headers: {} })
   })
 
   it('rejects an entry missing its transport-required field', () => {
-    expect(() => McpServersSchema({ broken: { transport: 'stdio' } } as never)).toThrow()
-    expect(() => McpServersSchema({ broken: { transport: 'streamable-http' } } as never)).toThrow()
+    expect(() => McpServersSchema({ servers: { broken: { transport: 'stdio' } } } as never)).toThrow()
+    expect(() => McpServersSchema({ servers: { broken: { transport: 'streamable-http' } } } as never)).toThrow()
   })
 
   it('refuses a key outside the serverName grammar', () => {
-    expect(() => McpServersSchema({ 'has space': { transport: 'stdio', command: 'x' } } as never)).toThrow()
-    expect(McpServersSchema({ node_repl: { transport: 'stdio', command: 'x' } } as never).get())
+    expect(() => McpServersSchema({ servers: { 'has space': { transport: 'stdio', command: 'x' } } } as never)).toThrow()
+    expect(McpServersSchema({ servers: { node_repl: { transport: 'stdio', command: 'x' } } } as never).servers.get())
       .toHaveProperty('node_repl')
   })
 
   it('resolves an absent section to an empty roster', () => {
-    expect(McpServersSchema(undefined as never).get()).toEqual({})
+    expect(McpServersSchema(undefined as never).servers.get()).toEqual({})
   })
 
   it('exposes the shared serverName pattern and namespace literal', () => {

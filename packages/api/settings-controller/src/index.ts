@@ -29,10 +29,8 @@ function isAborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
 
-/** Host integrations replaceable by direct unit tests. */
-export interface SettingsControllerInternals {
-  readonly openTextFile?: (path: string, signal: AbortSignal) => Promise<void>
-}
+/** Native opener for one materialized settings document. */
+type OpenTextFile = (path: string, signal: AbortSignal) => Promise<void>
 
 /**
  * Project one redacted descriptor onto its wire view, field by field. The
@@ -71,18 +69,21 @@ declare module '@deepseek-ai/cordis' {
  * `settings/conflict` or `settings/rejected` with the service's message.
  */
 export class SettingsController extends TypertRemoteService {
-  private readonly openTextFile: (path: string, signal: AbortSignal) => Promise<void>
+  /**
+   * Open one prepared settings document with the platform's text editor. A test
+   * overrides this to stand in for the native opener; it is a test seam, not a
+   * deployment knob, and the constructor takes no config for it.
+   */
+  protected openTextFile: OpenTextFile = openNativeTextFile
 
   /**
    * Register the settings namespace and mount the credentials namespace beside
    * it. Both namespaces stay registered when a provider is absent so calls can
    * return the configuration API's actionable missing-provider diagnostic.
    * @param ctx - Host context where settings and credential providers may be mounted.
-   * @param internals - Host integrations replaceable by direct unit tests.
    */
-  constructor(ctx: Context, internals: SettingsControllerInternals = {}) {
+  constructor(ctx: Context) {
     super(ctx, 'settingsController', { namespace: 'settings' })
-    this.openTextFile = internals.openTextFile ?? openNativeTextFile
     ctx.plugin(CredentialsController)
   }
 

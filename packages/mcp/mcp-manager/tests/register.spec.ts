@@ -46,10 +46,10 @@ describe('mcp-manager section config', () => {
   it('declares the mcp-servers section as the plugin Config and applies a commit to the running plugin', async () => {
     const { ctx, manager } = await boot()
     expect(McpManager.Config).toBe(McpServersSchema)
-    // The volatile root is what makes the section a settings form whose commits
-    // land in the running instance instead of a remount.
-    expect(McpServersSchema.meta.volatile).toBe(true)
-    await manager.update({ alpha: entry() })
+    // The volatile `servers` field is what makes the roster a settings form
+    // whose commits land in the running instance instead of a remount.
+    expect(McpServersSchema.dict?.servers?.meta.volatile).toBe(true)
+    await manager.update({ servers: { alpha: entry() } })
     const gateway = ctx.get('mcpServers') as McpManager
     expect(gateway.list().entries).toEqual([
       { serverName: 'alpha', transport: 'stdio', source: 'settings', enabled: false, status: null },
@@ -57,7 +57,7 @@ describe('mcp-manager section config', () => {
   })
 
   it('accepts a well-formed section and resolves schema defaults', async () => {
-    const value = McpServersSchema({ alpha: { transport: 'stdio', command: 'memorix' } } as never).get()
+    const value = McpServersSchema({ servers: { alpha: { transport: 'stdio', command: 'memorix' } } } as never).servers.get()
     expect(value).toMatchObject({
       alpha: {
         enabled: true,
@@ -70,8 +70,8 @@ describe('mcp-manager section config', () => {
 
   it('preserves and resolves a partial reconnect policy for the mounted client', async () => {
     const value = McpServersSchema({
-      alpha: { transport: 'stdio', command: 'memorix', reconnect: { enabled: false, initialDelayMs: 750 } },
-    } as never).get()
+      servers: { alpha: { transport: 'stdio', command: 'memorix', reconnect: { enabled: false, initialDelayMs: 750 } } },
+    } as never).servers.get()
     expect(value).toMatchObject({
       alpha: {
         reconnect: { enabled: false, initialDelayMs: 750, maxDelayMs: 30_000, maxAttempts: 10 },
@@ -84,12 +84,12 @@ describe('mcp-manager section config', () => {
       name: MCP_CLIENT_MODULE,
       config: { serverName: 'memorix', transport: 'stdio' },
     }])
-    expect(() => manager.update({ memorix: entry() })).toThrow(/memorix/)
+    expect(() => manager.update({ servers: { memorix: entry() } })).toThrow(/memorix/)
   })
 
   it('refuses a live edit whose key violates the serverName pattern', async () => {
     const { manager } = await boot()
-    expect(() => manager.update({ 'has space': entry() })).toThrow()
+    expect(() => manager.update({ servers: { 'has space': entry() } })).toThrow()
   })
 })
 

@@ -33,7 +33,7 @@ kind: "package-reference"
   name: '@deepseek-ai/dsh-mcp-manager'
 ```
 
-`mcp-servers` 段是一个以 serverName 为键的字典；每个条目镜像 `dsh-mcp-client` 的 Config 字段并增加 `enabled`。设置编辑即时生效。段的 schema 会拒绝违反 serverName 模式（`[A-Za-z0-9_-]{1,32}`）的键；对运行中管理器的编辑若命名了 `cordis.yml` 中已声明的服务器，也会被拒绝——declarative 名册与面板管理名册绝不重叠。管理器挂载时组合中已存储的段则由本包的不变式报告。
+`mcp-servers` 段在 `servers` 下持有面板管理的名册：一个以 serverName 为键的字典，每个条目镜像 `dsh-mcp-client` 的 Config 字段并增加 `enabled`。设置编辑即时生效。段的 schema 会拒绝违反 serverName 模式（`[A-Za-z0-9_-]{1,32}`）的键；对运行中管理器的编辑若命名了 `cordis.yml` 中已声明的服务器，也会被拒绝——declarative 名册与面板管理名册绝不重叠。管理器挂载时组合中已存储的段则由本包的不变式报告。
 
 namespace 就是其 Loader entry id，因此管理器所在行必须使用 `mcp-servers` 这个 id，绑定同一键的 Web MCP 标签页才能寻址该段。
 
@@ -44,7 +44,8 @@ namespace 就是其 Loader entry id，因此管理器所在行必须使用 `mcp-
 
 | 字段 | 传输 | 必填 | 描述 |
 |---|---|---|---|
-| （键） | 两者 | 是 | serverName：`[A-Za-z0-9_-]{1,32}`，在面板管理名册与所有 declarative 服务器中唯一 |
+| `servers` | 两者 | 否 | 以 serverName 为键的面板管理名册（默认 `{}`）；设置 seam 对其就地编辑 |
+| `servers.<key>` | 两者 | 是 | serverName：`[A-Za-z0-9_-]{1,32}`，在面板管理名册与所有 declarative 服务器中唯一 |
 | `enabled` | 两者 | 否 | 该条目是否生效（默认 `true`） |
 | `transport` | 两者 | 是 | `"stdio"` 或 `"streamable-http"` |
 | `command` | stdio | 是 | 要 spawn 的可执行文件 |

@@ -30,6 +30,19 @@ function bareDescriptor() {
   return { ns: NS as never, schema: {}, value: {}, autoGenerate: true, applies: 'live' as const, revision: 0 }
 }
 
+/**
+ * Build a controller whose native document opener is the supplied stand-in:
+ * `openTextFile` is a protected test seam, so a subclass replaces it.
+ * @param ctx - host context to mount the probe controller on.
+ * @param open - opener the controller calls instead of the platform's.
+ * @returns the controller with that opener.
+ */
+function controllerOpeningWith(ctx: Context, open: (path: string, signal: AbortSignal) => Promise<void>): SettingsController {
+  return new (class extends SettingsController {
+    protected override openTextFile = open
+  })(ctx)
+}
+
 describe('the settings Remote namespace a configuration page calls', () => {
   it('publishes the settings namespace from its own service key', async () => {
     const { controller } = await boot()
@@ -210,7 +223,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const { ctx } = await configurationFixture()
     const prepare = vi.spyOn(ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
     const openTextFile = vi.fn((_path: string, _signal: AbortSignal) => Promise.resolve())
-    const controller = new SettingsController(ctx, { openTextFile })
+    const controller = controllerOpeningWith(ctx, openTextFile)
     const signal = new AbortController().signal
 
     await expect(controller.openSettingsDocument(signal)).resolves.toEqual({ opened: true })
@@ -247,7 +260,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const prepared = Promise.withResolvers<string>()
     vi.spyOn(ctx.settings, 'prepareDocument').mockReturnValue(prepared.promise)
     const openTextFile = vi.fn((_path: string, _signal: AbortSignal) => Promise.resolve())
-    const controller = new SettingsController(ctx, { openTextFile })
+    const controller = controllerOpeningWith(ctx, openTextFile)
     const abort = new AbortController()
 
     const opening = controller.openSettingsDocument(abort.signal)
@@ -261,9 +274,7 @@ describe('the settings Remote namespace a configuration page calls', () => {
   it('maps native settings-document opener failures', async () => {
     const { ctx } = await configurationFixture()
     vi.spyOn(ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
-    const controller = new SettingsController(ctx, {
-      openTextFile: () => Promise.reject(new Error('no default editor')),
-    })
+    const controller = controllerOpeningWith(ctx, () => Promise.reject(new Error('no default editor')))
 
     await expect(controller.openSettingsDocument(new AbortController().signal))
       .rejects.toMatchObject({ code: 'gateway/internal', message: 'path open failed: no default editor' })
@@ -283,11 +294,9 @@ describe('the settings Remote namespace a configuration page calls', () => {
     const opening = await configurationFixture()
     vi.spyOn(opening.ctx.settings, 'prepareDocument').mockResolvedValue(DOCUMENT)
     const openAbort = new AbortController()
-    const openingController = new SettingsController(opening.ctx, {
-      openTextFile: async () => {
-        openAbort.abort(new Error('cancelled'))
-        throw new Error('opening stopped')
-      },
+    const openingController = controllerOpeningWith(opening.ctx, async () => {
+      openAbort.abort(new Error('cancelled'))
+      throw new Error('opening stopped')
     })
     await expect(openingController.openSettingsDocument(openAbort.signal))
       .rejects.toMatchObject({ code: 'gateway/cancelled' })

@@ -8,7 +8,7 @@
  */
 
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve, sep } from 'node:path'
+import { dirname, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'
 import { LINK_MAP } from './gen-cordis-catalog.ts'
 import { parseJsDoc, pointer, rawJsDoc } from './jsdoc.ts'
@@ -499,20 +499,59 @@ function walkSchemaExpr(
   return { keys, composes }
 }
 
+/** A schema expression together with the file that declares it. */
+interface SchemaExpr {
+  ctx: FileCtx
+  expr: ts.Expression
+}
+
 /** Find a plugin's schemastery schema expression: an exported `const Config`
- * in the entry file, else a `static Config` on the plugin class. */
-function findSchemaExpr(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null): ts.Expression | null {
+ * in the entry file, else a `static Config` on the plugin class. An identifier
+ * initializer resolves once to the const it names — declared in the same file
+ * or imported from a relative module — so a package that keeps its schema
+ * beside the plugin still reaches the walk instead of failing it. */
+function findSchemaExpr(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null, cache: Map<string, FileCtx>): SchemaExpr | null {
+  const initializerOf = (owner: FileCtx, name: string): ts.Expression | undefined => {
+    for (const stmt of owner.sf.statements) {
+      if (!ts.isVariableStatement(stmt)) continue
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === name) return decl.initializer
+      }
+    }
+    return undefined
+  }
+  /** Resolve an identifier initializer to the const it names, one level deep. */
+  const resolveSchema = (owner: FileCtx, expr: ts.Expression): SchemaExpr => {
+    if (!ts.isIdentifier(expr)) return { ctx: owner, expr }
+    const name = expr.text
+    const local = initializerOf(owner, name)
+    if (local) return { ctx: owner, expr: local }
+    const imp = owner.imports.get(name)
+    if (!imp || !imp.specifier.startsWith('.')) return { ctx: owner, expr }
+    const abs = resolve(dirname(owner.abs), imp.specifier)
+    let target: FileCtx
+    try {
+      target = loadFile(abs, relative(root, abs).split(sep).join('/'), cache)
+    } catch {
+      // An unreadable module leaves the identifier unresolved; the walk reports it.
+      return { ctx: owner, expr }
+    }
+    const imported = initializerOf(target, imp.imported)
+    return imported ? { ctx: target, expr: imported } : { ctx: owner, expr }
+  }
   for (const stmt of ctx.sf.statements) {
     if (!ts.isVariableStatement(stmt)) continue
     if (!stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)) continue
     for (const decl of stmt.declarationList.declarations) {
-      if (ts.isIdentifier(decl.name) && decl.name.text === 'Config' && decl.initializer) return decl.initializer
+      if (ts.isIdentifier(decl.name) && decl.name.text === 'Config' && decl.initializer) {
+        return resolveSchema(ctx, decl.initializer)
+      }
     }
   }
   for (const member of pluginClass?.members ?? []) {
     if (!ts.isPropertyDeclaration(member) || member.name.getText() !== 'Config') continue
     if (!member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword)) continue
-    if (member.initializer) return member.initializer
+    if (member.initializer) return resolveSchema(ctx, member.initializer)
   }
   return null
 }
@@ -717,9 +756,9 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
     entry.refs = [...refs.values()].sort((a, b) => a.alias.localeCompare(b.alias))
 
     // Statically walk the runtime schema (when one exists) for the subset check.
-    const schemaExpr = findSchemaExpr(ctx, pluginClass)
+    const schemaExpr = findSchemaExpr(ctx, pluginClass, cache)
     if (schemaExpr) {
-      const { keys, composes } = walkSchemaExpr(ctx, unwrapExpr(schemaExpr), `${pkg} (${entryRel})`, violations)
+      const { keys, composes } = walkSchemaExpr(schemaExpr.ctx, unwrapExpr(schemaExpr.expr), `${pkg} (${entryRel})`, violations)
       entry.schemaKeys = keys
       entry.schemaComposes = composes
     } else {

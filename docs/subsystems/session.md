@@ -926,6 +926,15 @@ Persistence is intentionally not implemented here — the agent lifecycle attach
 
 ```ts cordis-catalog
 /**
+ * Register one event interpreter for live creation, restore, and fork.
+ * Disposing the contribution makes sessions that used it refuse further derivation.
+ * @param projection - pure definition owned by the event's plugin.
+ * @returns the fiber-owned disposer.
+ * @throws when another definition already owns this event type.
+ */
+registerMessageProjection(projection: SessionMessageProjection): () => Promise<void>
+
+/**
  * Create a session owned by the calling fiber: disposing that fiber stops
  * event notification and removes the session from the store. `options.seed`
  * populates the session with a copy of those events (replay/fork);
@@ -1008,8 +1017,8 @@ announce(session: Session): void
  * store owns the carrier, so callers (the checkpoint policy's per-request
  * barrier, goal-round-driver's idle checkpoint, teardown drains, and consumers
  * that flush themselves before reading storage) must come through here
- * rather than dispatch a raw `ctx.parallel('session/flush', …)` — one owner,
- * one spelling, and the scoped-dispatch invariant can pin it.
+ * rather than dispatch a raw `ctx.parallel('session/flush', …)` — one owner
+ * and one spelling.
  * @param session - the session whose buffered events must reach durable storage.
  * @returns whether at least one durability listener participated, after every
  *   listener has settled successfully.
@@ -1031,10 +1040,12 @@ get(id: SessionId): Session | undefined
 list(): Session[]
 
 /**
- * Create a live child session from a stable prefix of a live source.
+ * Create a live child session from an exact prefix of a live source.
  * `boundary` is an inclusive source event seq; omitted means the source's
- * current last event. The selected slice may end with a between-turn event
- * but must not end inside an open turn.
+ * current last event. An open tail receives synthetic tool results and
+ * step/turn closers with the forked cause. Closed steps and turns remain
+ * unchanged, including any failed tool calls already missing results.
+ * `inheritedEventCount` counts only copied source events, excluding these closers.
  *
  * @param source - Live source session object or id.
  * @param boundary - Inclusive source event seq to fork through; omitted means

@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import McpServersGateway from '../src/index.ts'
 import { McpServerSupervisor, trackSupervisor } from '../src/supervisor.ts'
-import type { McpServersSection } from '../src/schema.ts'
+import type { McpServersRoster } from '../src/schema.ts'
 import type { McpStdioEntry } from '../src/schema.ts'
 import { fakeLoader } from './fixtures.ts'
 import type { FakeLoaderEntry } from './fixtures.ts'
@@ -43,13 +43,13 @@ const DECLARATIVE: FakeLoaderEntry[] = [
   { name: '@deepseek-ai/dsh-mcp-client', group: true, config: { serverName: 'grouped', transport: 'stdio', command: 'cmd' } },
 ]
 
-async function boot(section?: McpServersSection): Promise<{ ctx: Context; gateway: McpServersGateway; manager: Fiber }> {
+async function boot(roster?: McpServersRoster): Promise<{ ctx: Context; gateway: McpServersGateway; manager: Fiber }> {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   ctx.provide('loader', fakeLoader(DECLARATIVE) as never)
   const manager = await ctx.plugin(McpServersGateway)
-  if (section !== undefined) await manager.update(section)
+  if (roster !== undefined) await manager.update({ servers: roster })
   return { ctx, gateway: liveGateway(ctx), manager }
 }
 
@@ -79,7 +79,7 @@ function fixtureEntry(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
 
 /** Spawn the fixture server through a section commit. */
 async function writeEntry(manager: Fiber, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
-  await manager.update({ [serverName]: fixtureEntry(entry) })
+  await manager.update({ servers: { [serverName]: fixtureEntry(entry) } })
 }
 
 describe('McpServersGateway', () => {

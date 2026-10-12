@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
@@ -38,7 +38,7 @@ async function bench() {
   const scope = {
     getSnapshot: () => ({
       status: 'ready' as const,
-      value: { filesystem: { enabled: true, transport: 'stdio' as const } },
+      value: { servers: { filesystem: { enabled: true, transport: 'stdio' as const } } },
       base: undefined,
       user: undefined,
       revision: 1,
@@ -98,7 +98,7 @@ describe('ui-settings-mcp browser plugin', () => {
 
     await injected.setEnabled('filesystem', false)
     expect(b.set).not.toHaveBeenCalled()
-    expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['filesystem', 'enabled'], value: false }])
+    expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['servers', 'filesystem', 'enabled'], value: false }])
     await b.ctx.fiber.dispose()
   })
 

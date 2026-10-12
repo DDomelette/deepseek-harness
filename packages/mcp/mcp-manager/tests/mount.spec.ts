@@ -59,7 +59,7 @@ async function boot(): Promise<{ ctx: Context; manager: Fiber }> {
 
 /** Spawn the fixture server through a section commit on the running plugin. */
 async function writeEntry(manager: Fiber, serverName: string, entry: Partial<McpStdioEntry>): Promise<void> {
-  await manager.update({ [serverName]: fixtureEntry(entry) })
+  await manager.update({ servers: { [serverName]: fixtureEntry(entry) } })
 }
 
 describe('McpServerSupervisor mounting', () => {

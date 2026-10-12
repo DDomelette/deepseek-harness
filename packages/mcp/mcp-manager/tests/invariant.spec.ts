@@ -62,7 +62,7 @@ describe('mcp-manager invariants', () => {
   it('passes a committed update without declarative collision', async () => {
     const { ctx, manager } = await setup()
     await ctx.plugin(McpManagerInvariant)
-    await manager.update({ alpha: parked() })
+    await manager.update({ servers: { alpha: parked() } })
   })
 
   it('never sees a live edit whose key collides with a declarative server', async () => {
@@ -70,7 +70,7 @@ describe('mcp-manager invariants', () => {
     await ctx.plugin(McpManagerInvariant)
     // The write path refuses the collision before it is persisted, so the
     // section the invariant observes stays non-intersecting.
-    expect(() => manager.update({ memorix: parked() })).toThrow(/memorix/)
+    expect(() => manager.update({ servers: { memorix: parked() } })).toThrow(/memorix/)
   })
 
   it('accepts a section when the composition declares no server', async () => {
