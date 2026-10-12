@@ -19,6 +19,22 @@ export type MaterialId = Branded<'material-id'>
 /** Opaque id of one notes conversation. */
 export type NoteSessionId = Branded<'note-session-id'>
 
+/**
+ * Durable source of a user message the notes workspace submits into one of its
+ * own analysis conversations: a collected material, or the follow-up question
+ * asked from one.
+ */
+export interface NoteMessageSource {
+  readonly kind: 'notes'
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /** A material or follow-up question the notes workspace submitted. */
+    notes: NoteMessageSource
+  }
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /**

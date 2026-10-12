@@ -453,6 +453,19 @@ pinSession(sessionId: SessionId): Promise<void>
 unpinSession(sessionId: SessionId): Promise<void>
 
 /**
+ * Forget one deleted Session. Session deletion owns this call: the log is
+ * already gone, so every reference this registry still holds must go with it.
+ * The id leaves each Workspace's accounting, the registry-global archive and
+ * pin sets, and the header index — without that last eviction {@link sessionKnown}
+ * keeps answering for a Session that no longer exists. Entity writes run
+ * first because pruning a candidate can read the header paths this then drops.
+ * An id the registry does not hold resolves without writing.
+ * @param sessionId - The deleted Session to forget.
+ * @returns resolution after every durable write.
+ */
+forgetSession(sessionId: SessionId): Promise<void>
+
+/**
  * Resolve by canonical directory path without creating or mutating a
  * workspace. A missing path rejects during `realpath`; an existing unowned
  * directory returns `undefined`.

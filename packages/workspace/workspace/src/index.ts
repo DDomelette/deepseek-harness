@@ -464,6 +464,37 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Forget one deleted Session. Session deletion owns this call: the log is
+   * already gone, so every reference this registry still holds must go with it.
+   * The id leaves each Workspace's accounting, the registry-global archive and
+   * pin sets, and the header index — without that last eviction {@link sessionKnown}
+   * keeps answering for a Session that no longer exists. Entity writes run
+   * first because pruning a candidate can read the header paths this then drops.
+   * An id the registry does not hold resolves without writing.
+   * @param sessionId - The deleted Session to forget.
+   * @returns resolution after every durable write.
+   */
+  forgetSession(sessionId: SessionId): Promise<void> {
+    return this.enqueueOperation(async () => {
+      const table = this.requireTable()
+      for (const entity of [...this.entities.values()]) {
+        const record = table.get(entity.id) as WorkspaceRecord
+        if (record.sessionIds.includes(sessionId)) await entity.detachSession(sessionId)
+      }
+      this.headers.delete(sessionId)
+      this.sessionPaths.delete(sessionId)
+      this.invalidSessionPaths.delete(sessionId)
+      const state = this.requireState()
+      if (!state.archivedSessionIds.includes(sessionId) && !state.pinnedSessionIds.includes(sessionId)) return
+      await this.setState({
+        ...state,
+        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+      })
+    })
+  }
+
+  /**
    * Whether a session is live, header-indexed, or present in a fresh
    * persistence listing. Only a definite miss returns false — a failing
    * `sessionPersistence.list()` propagates so storage faults never

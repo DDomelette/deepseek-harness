@@ -15,7 +15,7 @@ import { carrierKeyOf, type Scoped } from '@deepseek-ai/dsh-scope'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
 import type {
   InitializeParams,
   InitializeResult,
@@ -121,7 +121,9 @@ export class HarnessSdkJsonRpcServer {
         childSessionId: String(info.id),
         status: successStatus(info.stopReason, serverOptions),
         stopReason: info.stopReason,
-        ...(info.lastAssistantMessage === undefined ? {} : { lastAssistantMessage: info.lastAssistantMessage }),
+        ...(info.lastAssistantMessage === undefined
+          ? {}
+          : { lastAssistantMessage: [...info.lastAssistantMessage] }),
       }
       transport.notify('subagent.finished', payload)
     }))

@@ -132,7 +132,7 @@ Read these pages when the package-level contract is not enough.
 
 #### What the model sees
 
-One `user/message` per analysis or follow-up, on that material's own notes conversation. A text material submits its text; a material collected through an action carries that action's configured prompt template prepended on its own line, in front of the image when the material is a screenshot. A screenshot submits an image block naming the durable reference its store returned, so the model reads the picture itself. The message source is `{ kind: 'plugin', plugin: 'notes' }`, so the transcript attributes it to this plugin rather than to the user. A conversation whose route declares text-only input is refused before anything is sent (`image-unsupported`), so the model never receives a placeholder in place of the screenshot.
+One `user/message` per analysis or follow-up, on that material's own notes conversation. A text material submits its text; a material collected through an action carries that action's configured prompt template prepended on its own line, in front of the image when the material is a screenshot. A screenshot submits an image block naming the durable reference its store returned, so the model reads the picture itself. The message source is `{ kind: 'notes' }`, a kind this package declares in `src/types.ts`, so the transcript attributes it to this plugin rather than to the user. A conversation whose route declares text-only input is refused before anything is sent (`image-unsupported`), so the model never receives a placeholder in place of the screenshot.
 
 #### Token effect
 

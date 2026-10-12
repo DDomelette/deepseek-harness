@@ -76,11 +76,11 @@ describe('thread attribution', () => {
 
   it('carries the harness\'s own context through to the answer', () => {
     const withContext: Row[] = [
-      { seq: 60, type: 'user/message', data: { id: 'a1', source: { kind: 'plugin', plugin: 'notes' } } },
+      { seq: 60, type: 'user/message', data: { id: 'a1', source: { kind: 'notes' } } },
       { seq: 61, type: 'user/message', data: { id: 'c1', source: { kind: 'agent-instructions', form: 'instructions' } } },
-      { seq: 62, type: 'user/message', data: { id: 'c2', source: { kind: 'plugin', plugin: 'system-prompt', form: 'snapshot' } } },
+      { seq: 62, type: 'user/message', data: { id: 'c2', source: { kind: 'time-context', form: 'snapshot' } } },
       { seq: 63, type: 'assistant/message' },
-      { seq: 70, type: 'user/message', data: { id: 'b1', source: { kind: 'plugin', plugin: 'notes' } } },
+      { seq: 70, type: 'user/message', data: { id: 'b1', source: { kind: 'notes' } } },
       { seq: 71, type: 'assistant/message' },
     ]
 

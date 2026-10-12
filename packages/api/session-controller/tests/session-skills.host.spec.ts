@@ -65,7 +65,9 @@ describe('SessionSkillCatalog', () => {
           modelInvocable: true, userInvocable: true, disabled: false },
         { name: 'hidden', description: 'Hidden', source: 'local', modelInvocable: false, userInvocable: false, disabled: false },
       ])
-      ctx.provide('settings', { get: () => ({ disabled: ['review'] }) } as never)
+      ctx.provide('settings', {
+        describe: () => [{ ns: 'skill-settings', value: { disabled: ['review'] } }],
+      } as never)
       expect((await catalog.catalog(request, signal)).skills.map(skill => skill.disabled)).toEqual([true, false])
     } finally {
       await ctx.fiber.dispose()
@@ -125,10 +127,10 @@ describe('SessionSkillCatalog', () => {
       description: 'Composed for this Agent.',
       invocation: { modelInvocable: false, userInvocable: true },
     }]))
-    const standingKeyFor = vi.fn()
+    const acquireScope = vi.fn()
     ctx.provide('agentPresets', {
       serviceFor: () => ({ list: scopedList }),
-      standingKeyFor,
+      acquireScope,
     } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
@@ -140,10 +142,10 @@ describe('SessionSkillCatalog', () => {
       }],
     })
     expect(scopedList).toHaveBeenCalledWith({ cwd: '/live/project', scope: agent })
-    expect(standingKeyFor).not.toHaveBeenCalled()
+    expect(acquireScope).not.toHaveBeenCalled()
   })
 
-  it('uses the recorded preset standing scope for a cold Session', async () => {
+  it('leases the recorded preset standing scope for a cold Session and releases it after the read', async () => {
     const ctx = await context()
     const sessionId = SessionId('standing-skills')
     const scope = { agentPreset: 'minimal' }
@@ -153,15 +155,17 @@ describe('SessionSkillCatalog', () => {
         agentPreset: 'minimal',
       })),
     } as never)
-    const standingKeyFor = vi.fn(() => Promise.resolve(scope))
-    ctx.provide('agentPresets', { standingKeyFor } as never)
+    const release = vi.fn()
+    const acquireScope = vi.fn(() => Promise.resolve({ key: scope, [Symbol.asyncDispose]: release }))
+    ctx.provide('agentPresets', { acquireScope } as never)
     const list = vi.fn(() => Promise.resolve([]))
     ctx.provide('skills', { list } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
     await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
-    expect(standingKeyFor).toHaveBeenCalledWith('minimal')
+    expect(acquireScope).toHaveBeenCalledWith('minimal')
     expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope })
+    expect(release).toHaveBeenCalledOnce()
     expect(ctx.agents.list()).toEqual([])
   })
 
@@ -175,7 +179,7 @@ describe('SessionSkillCatalog', () => {
       })),
     } as never)
     ctx.provide('agentPresets', {
-      standingKeyFor: () => Promise.reject(new Error('unknown preset')),
+      acquireScope: () => Promise.reject(new Error('unknown preset')),
     } as never)
     const list = vi.fn(() => Promise.resolve([]))
     ctx.provide('skills', { list } as never)

@@ -2,13 +2,15 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
-import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import { isUserInvocable, type SkillSummary } from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-settings/types'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { SkillListRequest, SkillListValue, SkillCatalogValue } from './types.ts'
+
+/** Settings namespace of the skill-settings entry, whose live `disabled` list is the user's switch-off roster. */
+const SKILL_SETTINGS_NAMESPACE = 'skill-settings'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -52,7 +54,8 @@ export class SessionSkillCatalog extends TypertRemoteService {
   @Remote
   async catalog(request: SkillListRequest, signal: AbortSignal): Promise<SkillCatalogValue> {
     const skills = await this.readSkills(request, signal)
-    const section = this.ctx.get('settings')?.get('skills') as { disabled: readonly string[] } | undefined
+    const section = this.ctx.get('settings')?.describe()
+      .find(view => view.ns === SKILL_SETTINGS_NAMESPACE)?.value as { disabled?: readonly string[] } | undefined
     const disabled = new Set(section?.disabled ?? [])
     return { skills: skills.map(skill => ({
       name: skill.name,
@@ -105,7 +108,8 @@ export class SessionSkillCatalog extends TypertRemoteService {
       )
     }
 
-    const scope = await this.scopeFor(sessionId, agentPreset)
+    await using lease = live === undefined ? await this.scopeFor(agentPreset) : undefined
+    const scope = live ?? lease?.key
     try {
       return await skillRegistry.list({ cwd, scope })
     } catch (error: unknown) {
@@ -113,17 +117,20 @@ export class SessionSkillCatalog extends TypertRemoteService {
     }
   }
 
-  /** Resolve a live or standing preset scope without creating an Agent. */
+  /**
+   * Acquire the recorded preset's standing scope without creating an Agent.
+   * The lease keeps that composition mounted for the listing, so the caller
+   * disposes it once the catalog read settles.
+   * @param agentPreset - preset recorded on the Session, when it names one.
+   * @returns the scope lease, or undefined when no preset service or preset can serve it.
+   */
   private async scopeFor(
-    sessionId: SessionId,
     agentPreset: string | undefined,
-  ): Promise<ScopeKey | undefined> {
-    const live = this.ctx.agents.get(sessionId)
-    if (live !== undefined) return live
+  ): Promise<({ key: ScopeKey } & AsyncDisposable) | undefined> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined) return undefined
     try {
-      return await presets.standingKeyFor(agentPreset)
+      return await presets.acquireScope(agentPreset)
     } catch {
       // An unknown or unusable recorded preset falls back to the global registry.
       return undefined

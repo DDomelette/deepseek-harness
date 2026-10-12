@@ -124,7 +124,9 @@ export function createSessionControlStream(
       : new Error('session control stream ended before its opening snapshot'),
     ...(options.carrierFailed === undefined ? {} : { carrierFailed: options.carrierFailed }),
   })
-  return new RemoteSnapshotStream(stream, {
+  // Both halves are named: the options object cannot infer Snapshot and Delta
+  // separately, so the stream's SessionControlFrame union would fix both of them.
+  return new RemoteSnapshotStream<SessionControlBaselineFrame, SessionControlDeltaFrame>(stream, {
     name: 'session control stream',
     isSnapshot: (frame): frame is SessionControlBaselineFrame => frame.type === 'baseline',
     replace: options.accept,

@@ -364,7 +364,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         const id = jobs.start({
           kind: 'bash',
           label: args.command,
-          ...exec.agent ? { owner: exec.agent } : {},
+          ...exec.agent ? { owner: exec.agent.id } : {},
           run: () => {
             const proc = ctx.shell.start(ctx.shell.resolve(request))
             return {

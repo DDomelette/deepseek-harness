@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,10 +6,12 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, type MessageId } from '@deepseek-ai/dsh-llm'
 import { SessionLogOffset, SessionId, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SubagentService from '@deepseek-ai/dsh-subagent'
+import type { SubagentActivation, SubagentResult } from '@deepseek-ai/dsh-subagent'
+import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { deliverSubagentPrompt, type HostPromptDeliverer } from '@deepseek-ai/dsh-subagent/internal'
 import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
@@ -45,6 +47,25 @@ function durable(agent: Agent): {
   }
 }
 
+/**
+ * Stand-in activation for a mocked `startActivation` whose test observes only
+ * the accepted initial prompt.
+ * @param childId - reserved child identity the production call passes in.
+ * @param messageId - accepted initial prompt's inbox id.
+ * @returns an activation whose execution result and disposal the test never reaches.
+ */
+function acceptedActivation(
+  childId: SessionId,
+  messageId: MessageId,
+): SubagentActivation & { readonly messageId: MessageId } {
+  return {
+    childId,
+    messageId,
+    result: new Promise<SubagentResult>(() => {}),
+    dispose: async () => {},
+  }
+}
+
 /** Read one stored session's full event log through a short-lived read handle. */
 async function storedEvents(ctx: Context, id: SessionId): Promise<readonly SessionEvent[]> {
   const handle = await ctx.sessionPersistence.open(id, 'read')
@@ -61,6 +82,7 @@ async function setup(
 ) {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
+  await mountWorkingDirectoryFixture(ctx)
   const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-'))
   roots.push(storageRoot)
   await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
@@ -168,6 +190,7 @@ describe('Team identity and provisioning', () => {
   it('supports direct-constructor defaults and recovers roots that already exist', async () => {
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
+    await mountWorkingDirectoryFixture(ctx)
     const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-direct-'))
     roots.push(storageRoot)
     await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
@@ -336,7 +359,7 @@ describe('Team identity and provisioning', () => {
 
   it('records non-Error provider failures and contains a reversed provisioning settlement race', async () => {
     const first = await setup([])
-    vi.spyOn(first.ctx.subagents, 'startContinuable').mockRejectedValueOnce('string provider failure')
+    vi.spyOn(first.ctx.subagents, 'startActivation').mockRejectedValueOnce('string provider failure')
     await expect(spawn(first.ctx, first.lead, 'string-failure')).rejects.toBe('string provider failure')
     expect(first.ctx.agentTeams.listMembers(first.lead)[1]).toMatchObject({
       status: 'failed',
@@ -347,7 +370,7 @@ describe('Team identity and provisioning', () => {
     })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_FOUND' })
 
     const second = await setup([])
-    vi.spyOn(second.ctx.subagents, 'startContinuable').mockImplementationOnce(async () => {
+    vi.spyOn(second.ctx.subagents, 'startActivation').mockImplementationOnce(async () => {
       const provisioning = durable(second.lead).members[0]
       if (provisioning === undefined) throw new Error('missing provisioning edge')
       second.lead.session.append('team/member', {
@@ -364,11 +387,11 @@ describe('Team identity and provisioning', () => {
 
   it('cleans up a child when recovery settles its provisioning record first', async () => {
     const { ctx, lead } = await setup(['hang'])
-    const start = ctx.subagents.startContinuable.bind(ctx.subagents)
+    const start = ctx.subagents.startActivation.bind(ctx.subagents)
     const entered = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
     let childId: SessionId | undefined
-    vi.spyOn(ctx.subagents, 'startContinuable').mockImplementation(async (spec) => {
+    vi.spyOn(ctx.subagents, 'startActivation').mockImplementation(async (spec) => {
       childId = spec.childId
       entered.resolve(undefined)
       await release.promise
@@ -390,10 +413,9 @@ describe('Team identity and provisioning', () => {
   it('handles a continuation that settles before the active roster view or conflict cleanup lookup', async () => {
     const first = await setup([])
     vi.spyOn(teamInternals(first.ctx).roster, 'checkpointInitialPrompt').mockResolvedValueOnce()
-    vi.spyOn(first.ctx.subagents, 'startContinuable').mockImplementationOnce(async spec => ({
-      childId: spec.childId!,
-      messageId: createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id,
-    }))
+    vi.spyOn(first.ctx.subagents, 'startActivation').mockImplementationOnce(async spec => (
+      acceptedActivation(spec.childId!, createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id)
+    ))
     const inactive = await spawn(first.ctx, first.lead, 'instant-worker')
     expect(inactive.member).toMatchObject({ status: 'inactive', diagnostics: [] })
     expect(inactive.member).not.toHaveProperty('model')
@@ -402,13 +424,13 @@ describe('Team identity and provisioning', () => {
     vi.spyOn(teamInternals(second.ctx).roster, 'checkpointInitialPrompt').mockResolvedValueOnce()
     const entered = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
-    vi.spyOn(second.ctx.subagents, 'startContinuable').mockImplementationOnce(async (spec) => {
+    vi.spyOn(second.ctx.subagents, 'startActivation').mockImplementationOnce(async (spec) => {
       entered.resolve(undefined)
       await release.promise
-      return {
-        childId: spec.childId!,
-        messageId: createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id,
-      }
+      return acceptedActivation(
+        spec.childId!,
+        createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id,
+      )
     })
     const spawning = spawn(second.ctx, second.lead, 'instant-conflict')
     const rejected = expect(spawning).rejects.toMatchObject({ code: 'TEAM_PROVISIONING_CONFLICT' })
@@ -486,11 +508,12 @@ describe('Team identity and provisioning', () => {
 
   it('rejects stale Agent identities and non-Team subagent children', async () => {
     const { ctx, lead } = await setup([textResponse('done')])
-    const started = await ctx.subagents.startContinuable({
+    const started = await ctx.subagents.startActivation({
       provider: 'spawn',
       label: 'ordinary worker',
       request: { prompt: content('ordinary'), parent: lead },
       signal: SIGNAL,
+      delivery: 'parent',
     })
     const live = ctx.agents.get(started.childId)
     if (live !== undefined) expect(ctx.agentTeams.tryMembership(live)).toBeUndefined()
@@ -516,11 +539,12 @@ describe('Team identity and provisioning', () => {
       sessionId: SessionId('temporary-parent'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    const started = await first.ctx.subagents.startContinuable({
+    const started = await first.ctx.subagents.startActivation({
       provider: 'spawn',
       label: 'ordinary child',
       request: { prompt: content('finish'), parent: parent.agent },
       signal: SIGNAL,
+      delivery: 'parent',
     })
     await waitNoAgent(first.ctx, started.childId)
     await parent.dispose()
@@ -1408,6 +1432,7 @@ describe('Team mailbox and waiting', () => {
   it('waits for one change, supports cancellation, times out, and releases waiters on HMR disposal', async () => {
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
+    await mountWorkingDirectoryFixture(ctx)
     const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-wait-'))
     roots.push(storageRoot)
     await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
@@ -1495,11 +1520,11 @@ describe('Team mailbox and waiting', () => {
   it('closes creation admission and drains an in-flight spawn before unload completes', async () => {
     const { ctx, lead, teamFiber } = await setup(['hang'])
     const service = ctx.agentTeams
-    const start = ctx.subagents.startContinuable.bind(ctx.subagents)
+    const start = ctx.subagents.startActivation.bind(ctx.subagents)
     const entered = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
     let childId: SessionId | undefined
-    vi.spyOn(ctx.subagents, 'startContinuable').mockImplementation(async (spec) => {
+    vi.spyOn(ctx.subagents, 'startActivation').mockImplementation(async (spec) => {
       childId = spec.childId
       entered.resolve(undefined)
       await release.promise
@@ -1577,12 +1602,13 @@ describe('Team mailbox and waiting', () => {
       teamId: TeamId(lead.id),
       member,
     })
-    await ctx.subagents.startContinuable({
+    await ctx.subagents.startActivation({
       childId,
       provider: 'spawn',
       label: member.description,
       request: { prompt: content('failed child task'), parent: lead },
       signal: SIGNAL,
+      delivery: 'parent',
     })
     await waitRunning(ctx, childId)
     lead.session.append('team/member', {
@@ -1701,7 +1727,7 @@ describe('Team mailbox and waiting', () => {
     const { ctx, lead, teamFiber } = await setup(['hang'], { disposalTimeoutMs: 25 })
     const started = await spawn(ctx, lead, 'stuck-worker')
     await waitRunning(ctx, started.member.id)
-    const drain = vi.spyOn(ctx.subagents, 'drainContinuableChildren')
+    const drain = vi.spyOn(ctx.subagents, 'drainChildren')
       .mockImplementation(() => new Promise(() => {}))
 
     const outcome = await Promise.race([
@@ -1783,7 +1809,7 @@ describe('Team mailbox and waiting', () => {
     const { ctx, lead, teamFiber } = await setup(['hang'])
     const started = await spawn(ctx, lead, 'failing-drain')
     await waitRunning(ctx, started.member.id)
-    vi.spyOn(ctx.subagents, 'drainContinuableDescendants').mockRejectedValueOnce(new Error('drain failure'))
+    vi.spyOn(ctx.subagents, 'drainDescendants').mockRejectedValueOnce(new Error('drain failure'))
 
     await teamFiber.dispose()
     expect(ctx.get('agentTeams')).toBeUndefined()

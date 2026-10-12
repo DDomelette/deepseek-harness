@@ -105,7 +105,7 @@ export class LocalBashExecutor extends ShellExecutor {
     maxOutputBytes: z.number().default(64_000).volatile(),
     maxSpillBytes: z.number().default(DEFAULT_MAX_SPILL_BYTES).volatile(),
     graceMs: z.number().default(DEFAULT_GRACE_MS).volatile(),
-  }) as unknown as z<Config>
+  })
 
   /**
    * @param ctx - host context carrying the subprocess service.

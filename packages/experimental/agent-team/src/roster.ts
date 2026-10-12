@@ -7,7 +7,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { foldSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
-import type { ContinuableStart } from '@deepseek-ai/dsh-subagent'
+import type { SubagentActivation } from '@deepseek-ai/dsh-subagent'
 import { errorMessage, TeamError } from './error.ts'
 import type { TeamJournal } from './journal.ts'
 import type { TeamRuntimeLifecycle } from './lifecycle.ts'
@@ -239,7 +239,7 @@ export class TeamRoster {
    * @param childIds - selected roster child ids.
    */
   async stopTeammates(root: Agent, childIds: readonly SessionId[]): Promise<void> {
-    await this.lifecycle.withTimeout(this.ctx.subagents.drainContinuableChildren(root, childIds))
+    await this.lifecycle.withTimeout(this.ctx.subagents.drainChildren(root, childIds))
   }
 
   /** Perform one creation admitted before the Team runtime disposal cutoff. */
@@ -277,9 +277,9 @@ export class TeamRoster {
       await this.journal.appendAndFlush(root, 'team/member', { version: 2, teamId: TeamId(root.id), member })
     })
 
-    let started: ContinuableStart
+    let started: SubagentActivation & { readonly messageId: MessageId }
     try {
-      started = await this.ctx.subagents.startContinuable({
+      started = await this.ctx.subagents.startActivation({
         childId,
         provider: request.provider,
         label: description,
@@ -288,6 +288,7 @@ export class TeamRoster {
           parent: root,
         },
         signal,
+        delivery: 'parent',
       })
       await this.checkpointInitialPrompt(childId, started.messageId, signal)
     } catch (error: unknown) {

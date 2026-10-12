@@ -11,6 +11,7 @@
 import { constants } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { delimiter, extname, isAbsolute, resolve } from 'node:path'
+import type { Duplex } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import * as nodePty from 'node-pty'
 import type { IPtyForkOptions } from 'node-pty'
@@ -54,6 +55,8 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
   private live = new Set<LocalSubprocessHandle>()
   /** Live terminals retained through normal quiescence or host-exit finalization. */
   private terminals = new Set<LocalTerminalHandle>()
+  /** Caller endpoints retained until close, independently of managed process lifetime. */
+  private controlChannels = new Set<Duplex>()
   /** Test hook: process, spill, and platform operations forwarded to spawnSubprocess. */
   internals: SpawnInternals = {}
   /**
@@ -117,6 +120,8 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       pending.push(terminal.terminate().then(() => { this.terminals.delete(terminal) }))
     }
     const outcomes = await Promise.allSettled(pending)
+    for (const control of this.controlChannels) control.destroy()
+    this.controlChannels.clear()
     const failures: unknown[] = []
     for (const outcome of outcomes) {
       if (outcome.status === 'rejected') failures.push(outcome.reason)
@@ -184,6 +189,11 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       handle = bindManagedProcess(spec, launch, binding)
     }
     this.live.add(handle)
+    const control = handle.control
+    if (control !== undefined) {
+      this.controlChannels.add(control)
+      control.once('close', () => { this.controlChannels.delete(control) })
+    }
     // Release ownership only once the whole managed range is gone, not at direct-child
     // settlement — a TERM-trapping helper that outlives the leader must stay
     // owned so teardown can still escalate it. For the common no-survivor

@@ -76,6 +76,7 @@ describe('rewritePluginSource', () => {
     expect(rewritePluginSource({ kind: 'plugin', plugin: 'agent-instructions', form: 'instructions', changes: [] }, 3, 'user'))
       .toEqual({ kind: 'agent-instructions', form: 'instructions', changes: [] })
     expect(rewritePluginSource({ kind: 'plugin', plugin: 'tool-jobs' }, 3, 'user')).toEqual({ kind: 'tool-jobs' })
+    expect(rewritePluginSource({ kind: 'plugin', plugin: 'notes' }, 3, 'user')).toEqual({ kind: 'notes' })
     expect(rewritePluginSource({ kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' }, 3, 'system')).toEqual({ kind: 'system-prompt' })
   })
 })
@@ -94,6 +95,10 @@ describe('external V3 source identities', () => {
     const source = { kind: 'tool', callId: 'call', extra: true }
     expect(rewriteV3MessageSource(source, 1, 'user')).toBe(source)
     expect(rewriteV3MessageSource({ kind: 'plugin', plugin: 'compact' }, 1, 'user')).toEqual({ kind: 'compact-checkpoint' })
+  })
+
+  it('converts a released notes producer to the kind its package declares', () => {
+    expect(rewriteV3MessageSource({ kind: 'plugin', plugin: 'notes' }, 1, 'user')).toEqual({ kind: 'notes' })
   })
 
   it.each([null, 0, ''])('rejects type-invalid source kind %j', (kind) => {

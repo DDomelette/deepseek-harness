@@ -1236,6 +1236,48 @@ describe('registry-global session unpin', () => {
   })
 })
 
+describe('deleted-session forget', () => {
+  it('drops a deleted session from accounting, both global sets, and the header index', async () => {
+    const dir = await makeDir('forget-home')
+    const result = await harness({
+      sessions: [header('gone', dir, 100), header('pinned', dir, 200), header('kept', dir, 300)],
+    })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('gone'))
+    await result.registry.pinSession(SessionId('pinned'))
+    expect(workspace.sessionIds).toEqual(['kept', 'pinned', 'gone'])
+
+    // Deletion removes the persisted log first; the registry must stop
+    // answering for the ids it just cleaned up.
+    result.setSessions([header('kept', dir, 300)])
+    await result.registry.forgetSession(SessionId('gone'))
+    await result.registry.forgetSession(SessionId('pinned'))
+
+    expect(workspace.sessionIds).toEqual(['kept'])
+    expect(storedRecord(result.pool, workspace.id).sessionIds).toEqual(['kept'])
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+    // The evicted header is the observable difference: an id still indexed
+    // here would pass the existence probe and archive again.
+    await expect(result.registry.archiveSession(SessionId('gone')))
+      .rejects.toThrow(/cannot archive session 'gone'/)
+  })
+
+  it('resolves without writing for an id the registry does not hold', async () => {
+    const dir = await makeDir('forget-absent')
+    const result = await harness({ sessions: [header('kept', dir, 100)] })
+    const changesBefore = result.changes.length
+    const stateBefore = storedState(result.pool)
+
+    await expect(result.registry.forgetSession(SessionId('never-here'))).resolves.toBeUndefined()
+
+    expect(result.changes.length).toBe(changesBefore)
+    expect(storedState(result.pool)).toEqual(stateBefore)
+  })
+})
+
 describe('first-use Workspace preparation', () => {
   const contexts: Context[] = []
 

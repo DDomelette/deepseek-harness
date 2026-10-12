@@ -605,6 +605,9 @@ function imageBlockIn(
       const ref = block.attachment as ImageAttachmentRef
       if (match(ref)) return ref
     }
+    // A replayed V3 Session keeps this retired tag wherever migration left the
+    // payload opaque, so the nested carrier stays reachable; descending into
+    // every nested content array instead would widen what this scan admits.
     if (block.type === 'tool-result') {
       const nested = imageBlockIn(block.content, match)
       if (nested !== undefined) return nested

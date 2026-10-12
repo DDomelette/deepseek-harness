@@ -52,7 +52,7 @@ const RELEASED_SAME_NAME_PRODUCERS: ReadonlySet<string> = new Set([
   'plan-mode', 'time-context', 'tmux-context', 'user-approval',
   'repeat-tool-reminder', 'tool-cordis', 'cordis-host-runner', 'tool-goal',
   'tool-jobs', 'hooks-codex', 'hooks-claude-code', 'schedule',
-  'dsh-session-title-llm',
+  'dsh-session-title-llm', 'notes',
 ])
 
 /** Resolve the current producer kind for one released V3 plugin string. */

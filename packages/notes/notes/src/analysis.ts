@@ -293,7 +293,7 @@ export class Analysis extends Service {
       if (claim !== undefined && record.messageIds.length > 0) return record
       message = createUserMessage({
         content: claim === undefined ? content : claim(record),
-        source: { kind: 'plugin', plugin: 'notes' },
+        source: { kind: 'notes' },
       })
       return {
         ...record,

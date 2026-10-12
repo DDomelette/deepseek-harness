@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,6 +12,7 @@ import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SubagentService, { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import TeamService, { TeamId, TeamMessageId } from '../src/index.ts'
 import type { TeamMailbox } from '../src/mailbox.ts'
@@ -107,6 +108,7 @@ async function stack(
   const ctx = new Context()
   contexts.add(ctx)
   await mountAgentLoopTestDependencies(ctx)
+  await mountWorkingDirectoryFixture(ctx)
   await backend.mount(ctx, root)
   await ctx.plugin(TestSessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -195,7 +197,7 @@ for (const backend of backends) {
         first.ctx.sessions.flush(activeRoot.session),
         first.ctx.sessions.flush(failedRoot.session),
       ])
-      await first.ctx.subagents.startContinuable({
+      await first.ctx.subagents.startActivation({
         childId,
         provider: 'spawn',
         label: 'recoverable recovery',
@@ -204,6 +206,7 @@ for (const backend of backends) {
           parent: activeRoot,
         },
         signal: SIGNAL,
+        delivery: 'parent',
       })
       await vi.waitFor(() => { expect(first.ctx.agents.get(childId)).toBeUndefined() }, { timeout: 5_000 })
       expect((await storedEvents(first.ctx, childId))

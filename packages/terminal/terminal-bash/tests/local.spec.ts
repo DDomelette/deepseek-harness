@@ -29,7 +29,7 @@ afterEach(async () => {
 class PassthroughSandbox extends SandboxProvider {
   calls: { argv: readonly string[]; policy: SandboxPolicy }[] = []
 
-  confine(argv: readonly string[], policy: SandboxPolicy): ConfinedArgv {
+  async confine(argv: readonly string[], policy: SandboxPolicy): Promise<ConfinedArgv> {
     this.calls.push({ argv, policy })
     return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
   }
