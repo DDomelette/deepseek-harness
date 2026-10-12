@@ -287,6 +287,47 @@ export class FakeLlm {
   }
 }
 
+/** The notes services one context carries, with the temporary root they write to. */
+export interface NotesStack {
+  /** The temporary storage root these services own. */
+  readonly root: string
+  /** The agent-registry stand-in the mounted services resolve. */
+  readonly agents: FakeAgents
+  /** The notes domain owner. */
+  readonly store: NotesStore
+  /** Material storage. */
+  readonly materials: Materials
+  /** Notes-conversation records. */
+  readonly sessions: NoteSessions
+}
+
+/**
+ * Mount a real storage stack, an agent-registry stand-in, and the notes
+ * services that read them over one context. The caller mounts the settings
+ * section owner first: the conversation service injects `notesSettings`, so
+ * this stack stays pending until that owner exists.
+ * @param ctx - context to mount over; the caller owns its disposal.
+ * @returns the temporary root and the mounted services.
+ */
+export async function mountNotes(ctx: Context): Promise<NotesStack> {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-'))
+  const agents = new FakeAgents()
+  await ctx.plugin(Storage).await()
+  await ctx.plugin(StorageJson, { root }).await()
+  await ctx.plugin(StorageDomain, { backend: 'json' }).await()
+  await ctx.plugin(NotesStore).await()
+  ctx.provide('agents', agents as never)
+  await ctx.plugin(Materials).await()
+  await ctx.plugin(NoteSessions).await()
+  return {
+    root,
+    agents,
+    store: ctx.notesStore,
+    materials: ctx.notesMaterials,
+    sessions: ctx.notesSessions,
+  }
+}
+
 /**
  * Mount a real storage stack, an agent-registry stand-in, the settings
  * section, and the notes services over a fresh temporary directory.
@@ -295,28 +336,16 @@ export class FakeLlm {
  * @returns the mounted bench, with its own teardown.
  */
 export async function bench(settings: Record<string, unknown> = { strategy: 'manual', actions: [] }): Promise<Bench> {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-notes-'))
   const ctx = new Context()
-  const agents = new FakeAgents()
-  await ctx.plugin(Storage).await()
-  await ctx.plugin(StorageJson, { root }).await()
-  await ctx.plugin(StorageDomain, { backend: 'json' }).await()
-  await ctx.plugin(NotesStore).await()
-  ctx.provide('agents', agents as never)
   await ctx.plugin(NotesSettings, Config(settings)).await()
-  await ctx.plugin(Materials).await()
-  await ctx.plugin(NoteSessions).await()
+  const mounted = await mountNotes(ctx)
   return {
     ctx,
-    root,
-    agents,
-    store: ctx.notesStore,
-    materials: ctx.notesMaterials,
-    sessions: ctx.notesSessions,
+    ...mounted,
     settings: ctx.notesSettings,
     dispose: async () => {
       await ctx.fiber.dispose()
-      await rm(root, { recursive: true, force: true })
+      await rm(mounted.root, { recursive: true, force: true })
     },
   }
 }

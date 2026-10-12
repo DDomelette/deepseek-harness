@@ -9,42 +9,22 @@
  */
 import { join } from 'node:path'
 import { Buffer } from 'node:buffer'
+import { rm } from 'node:fs/promises'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SettingsProvider } from '@deepseek-ai/dsh-settings'
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { Context } from '@deepseek-ai/cordis'
 import { Analysis } from '../src/analysis.ts'
 import { NotesRemote } from '../src/remote.ts'
-import type { ActionDef, Config } from '../src/settings.ts'
-import { bench } from './bench.ts'
+import { Config, NOTES_SETTINGS_NAMESPACE, NotesSettings } from '../src/settings.ts'
+import type { ActionDef } from '../src/settings.ts'
+import type { Config as NotesConfig } from '../src/settings.ts'
+import { bench, mountNotes } from './bench.ts'
 import type { Bench } from './bench.ts'
 import { imageRef, materialId, noteId, noteSession, sessionId, source } from './bench.ts'
+import { configurationFixture } from '../../../settings/settings/tests/configuration-fixture.ts'
 import type { MaterialId, NoteSessionId, NotesApplied } from '../src/types.ts'
 
 /** The workspace every fixture conversation is created over. */
 const workspace = join('probe-root', 'notes-workspace')
-
-/**
- * Minimal in-memory settings provider. `@deepseek-ai/dsh-settings` exports the
- * abstract `SettingsProvider`, which cannot be mounted itself, and its own
- * `tests/` directory is not part of the package's `exports`, so every consumer
- * spec declares its own.
- */
-class MemorySettings extends SettingsProvider {
-  private doc: Record<string, unknown> = {}
-
-  get writable(): boolean {
-    return true
-  }
-
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.doc))
-  }
-
-  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.doc[ns] = structuredClone(section)
-    return Promise.resolve()
-  }
-}
 
 /** The acknowledgment every valueless mutation reports. */
 const applied: NotesApplied = { applied: true }
@@ -61,7 +41,24 @@ interface RemoteBench {
   dispose(): Promise<void>
 }
 
-let mounted: RemoteBench | undefined
+/**
+ * The settings cases' host: a real profile composition whose `notes` row is the
+ * section, so a write lands in the profile patch and the Loader resolves the
+ * row again.
+ */
+interface ConfiguredBench {
+  readonly ctx: Context
+  readonly remote: NotesRemote
+  /**
+   * The live section owner. A committed write restarts the entry, so every
+   * assertion reads the owner again rather than holding an instance.
+   * @returns the section owner this composition currently runs.
+   */
+  settings(): NotesSettings
+  dispose(): Promise<void>
+}
+
+let mounted: RemoteBench | ConfiguredBench | undefined
 
 afterEach(async () => {
   if (mounted !== undefined) await mounted.dispose()
@@ -76,8 +73,8 @@ afterEach(async () => {
  * @returns the mounted bench.
  */
 async function mount(settings: {
-  readonly strategy?: Config['strategy'] | undefined
-  readonly actions?: Config['actions'] | undefined
+  readonly strategy?: NotesConfig['strategy'] | undefined
+  readonly actions?: NotesConfig['actions'] | undefined
   readonly workspace?: string | undefined
 } = {}): Promise<RemoteBench> {
   // An explicitly supplied `workspace: undefined` means "no workspace
@@ -114,6 +111,39 @@ async function mount(settings: {
       await Promise.resolve()
     },
     dispose: async () => { await base.dispose() },
+  }
+  return mounted
+}
+
+/**
+ * Mount the Remote namespace over a real profile composition whose `notes` row
+ * is the settings section. A write goes through the profile's settings service
+ * into the patch the Loader reads, so these assertions observe the path a
+ * deployment's panel takes.
+ * @param entry - raw config of the `notes` row.
+ * @returns the mounted host.
+ */
+async function configured(entry: {
+  readonly actions?: NotesConfig['actions']
+} = {}): Promise<ConfiguredBench> {
+  const home = await configurationFixture({
+    schema: Config as never,
+    apply: (host, config) => { host.plugin(NotesSettings, config as NotesConfig) },
+    probeId: NOTES_SETTINGS_NAMESPACE,
+    probeConfig: { strategy: 'manual', actions: [], workspace, ...entry },
+    hmr: false,
+  })
+  const stack = await mountNotes(home.ctx)
+  await home.ctx.plugin(Analysis).await()
+  await home.ctx.plugin(NotesRemote).await()
+  mounted = {
+    ctx: home.ctx,
+    remote: home.ctx.notes,
+    settings: () => home.ctx.notesSettings,
+    dispose: async () => {
+      await home.ctx.fiber.dispose()
+      await rm(stack.root, { recursive: true, force: true })
+    },
   }
   return mounted
 }
@@ -832,8 +862,7 @@ describe('notes remote settings', () => {
   })
 
   it('reads the resolved section and writes one field at a time', async () => {
-    const host = await mount()
-    await host.ctx.plugin(MemorySettings).await()
+    const host = await configured()
 
     expect(host.remote.settingsRead()).toEqual({
       ok: true,
@@ -842,14 +871,14 @@ describe('notes remote settings', () => {
 
     await expect(host.remote.settingsUpdate({ model: { provider: 'deepseek', model: 'deepseek-flash' } }))
       .resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
+    expect(host.settings().model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
 
     // A named effort is stored, and the read reports it; an absent one reads
     // as null rather than as a missing field.
     await host.remote.settingsUpdate({
       model: { provider: 'deepseek', model: 'deepseek-v4-pro', reasoningEffort: 'max' },
     })
-    expect(host.base.settings.model())
+    expect(host.settings().model())
       .toEqual({ provider: 'deepseek', model: 'deepseek-v4-pro', reasoningEffort: 'max' })
     expect(host.remote.settingsRead()).toMatchObject({
       ok: true,
@@ -858,14 +887,14 @@ describe('notes remote settings', () => {
 
     await expect(host.remote.settingsUpdate({ model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: null } }))
       .resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
+    expect(host.settings().model()).toEqual({ provider: 'deepseek', model: 'deepseek-flash' })
     expect(host.remote.settingsRead()).toMatchObject({
       ok: true,
       value: { model: { provider: 'deepseek', model: 'deepseek-flash', reasoningEffort: null } },
     })
 
     await expect(host.remote.settingsUpdate({ model: null })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.model()).toBeNull()
+    expect(host.settings().model()).toBeNull()
   })
 
   it('carries the collection actions and writes the strategy and workspace', async () => {
@@ -875,21 +904,20 @@ describe('notes remote settings', () => {
       prompt: '不改变语句结构，翻译下列内容：',
       autoSend: true,
     }
-    const host = await mount({ actions: [translate] })
-    await host.ctx.plugin(MemorySettings).await()
+    const host = await configured({ actions: [translate] })
 
     const read = host.remote.settingsRead()
     expect(read.ok && read.value.actions).toEqual([translate])
 
     await expect(host.remote.settingsUpdate({ strategy: 'auto' })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.strategy()).toBe('auto')
+    expect(host.settings().strategy()).toBe('auto')
 
     await expect(host.remote.settingsUpdate({ workspace: '/work/other' })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.workspace()).toBe('/work/other')
+    expect(host.settings().workspace()).toBe('/work/other')
 
     // Clearing the user value returns the field to the composition entry.
     await expect(host.remote.settingsUpdate({ workspace: null })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.workspace()).toBe(workspace)
+    expect(host.settings().workspace()).toBe(workspace)
   })
 
   it('replaces the collection actions through one write, and refuses a list the notes cannot use', async () => {
@@ -900,18 +928,17 @@ describe('notes remote settings', () => {
       autoSend: true,
     }
     const edited: ActionDef = { ...translate, label: '译', prompt: '翻译下面这段：' }
-    const host = await mount({ actions: [translate] })
-    await host.ctx.plugin(MemorySettings).await()
+    const host = await configured({ actions: [translate] })
 
     await expect(host.remote.settingsUpdate({ actions: [edited] })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.actions()).toEqual([edited])
+    expect(host.settings().actions()).toEqual([edited])
 
     await expect(host.remote.settingsUpdate({ actions: [{ ...edited, prompt: '   ' }] }))
       .resolves.toEqual({ ok: false, error: { code: 'invalid-actions' } })
-    expect(host.base.settings.actions()).toEqual([edited])
+    expect(host.settings().actions()).toEqual([edited])
 
     // Clearing the user value returns the list to the composition entry.
     await expect(host.remote.settingsUpdate({ actions: null })).resolves.toEqual({ ok: true, value: applied })
-    expect(host.base.settings.actions()).toEqual([translate])
+    expect(host.settings().actions()).toEqual([translate])
   })
 })

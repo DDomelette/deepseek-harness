@@ -3,7 +3,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, InboxState } from '@deepseek-ai/dsh-agent'
 import { Deque } from '@deepseek-ai/dsh-deque'
-import type { JobSnapshot } from '@deepseek-ai/dsh-jobs'
+import type { JobEvent, JobView } from '@deepseek-ai/dsh-jobs'
 import type {
   Session, SessionId, UserMessage,
 } from '@deepseek-ai/dsh-session'
@@ -41,10 +41,12 @@ export class SessionControlController {
       })
     })
     ctx.inject(['jobs'], (jobsCtx) => {
-      jobsCtx.jobs.onJobsChanged((owner) => { this.onJobsChanged(owner) })
+      // Lifecycle commits move the visible set this stream projects; `output`
+      // and `progress` commits leave every published row unchanged.
+      jobsCtx.jobs.events.subscribe({ owners: 'all' }, (event) => { this.onJobEvent(event) })
     })
     ctx.on('session/created', (session) => {
-      const jobs = this.jobsFor(this.ctx.agents.get(session.id))
+      const jobs = this.jobsFor(session.id)
       if (jobs.length > 0) this.broadcast({ type: 'jobs', sessionId: session.id, jobs })
     })
     ctx.effect(() => () => {
@@ -78,7 +80,7 @@ export class SessionControlController {
     for (const session of sessions) {
       const agent = this.ctx.agents.get(session.id)
       queues[session.id] = agent?.session === session ? queueItems(agent) : []
-      jobs[session.id] = this.jobsFor(agent)
+      jobs[session.id] = this.jobsFor(session.id)
     }
     return {
       queues,
@@ -102,23 +104,30 @@ export class SessionControlController {
     return blocks
   }
 
-  private onJobsChanged(owner: Agent | undefined): void {
+  /**
+   * Republish the visible set a job lifecycle commit moved.
+   * @param event - the registry's lifecycle or output event.
+   */
+  private onJobEvent(event: JobEvent): void {
+    if (event.type === 'output' || event.type === 'progress') return
+    const owner = event.job.owner
     if (owner !== undefined) {
-      this.broadcast({ type: 'jobs', sessionId: owner.id, jobs: this.jobsFor(owner) })
+      this.broadcast({ type: 'jobs', sessionId: owner, jobs: this.jobsFor(owner) })
       return
     }
     for (const session of this.ctx.sessions.list()) {
-      this.broadcast({
-        type: 'jobs',
-        sessionId: session.id,
-        jobs: this.jobsFor(this.ctx.agents.get(session.id)),
-      })
+      this.broadcast({ type: 'jobs', sessionId: session.id, jobs: this.jobsFor(session.id) })
     }
   }
 
-  private jobsFor(agent: Agent | undefined): SessionJob[] {
+  /**
+   * The jobs one caller can see.
+   * @param caller - reading session; an unowned job is visible to every caller.
+   * @returns browser-safe rows, empty while no registry is composed.
+   */
+  private jobsFor(caller: SessionId | undefined): SessionJob[] {
     const jobs = this.ctx.get('jobs')
-    return jobs === undefined ? [] : jobs.list(agent).map(jobView)
+    return jobs === undefined ? [] : jobs.list(caller).map(jobView)
   }
 
   private broadcast(frame: SessionControlFrame): void {
@@ -197,7 +206,7 @@ function promptRpcId(message: UserMessage): Pick<SessionQueuedItem, 'rpcId'> {
   return source.kind === 'user' && 'rpcId' in source ? { rpcId: source.rpcId } : {}
 }
 
-function jobView(job: JobSnapshot): SessionJob {
+function jobView(job: JobView): SessionJob {
   return {
     id: job.id,
     kind: job.kind,

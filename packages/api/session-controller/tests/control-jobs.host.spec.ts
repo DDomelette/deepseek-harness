@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { JobOutcome } from '@deepseek-ai/dsh-jobs'
+import type { JobHandle, JobOutcome } from '@deepseek-ai/dsh-jobs'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -16,17 +16,20 @@ type JobFrame = Extract<SessionControlFrame, { type: 'jobs' }>
 
 function producer(label = 'sleep 60') {
   let settle!: (outcome: JobOutcome) => void
-  const reads = { count: 0 }
   const spec = {
     kind: 'bash' as const,
     label,
-    run: () => ({
-      cancel: () => {},
-      done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
-      readOutput: () => { reads.count += 1; return 'stolen output' },
-    }),
+    run: (job: JobHandle) => {
+      // Staged inside the starter, so it becomes visible with the registration
+      // commit and the model's own read below is the first to consume it.
+      job.append('stolen output')
+      return {
+        cancel: () => {},
+        done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
+      }
+    },
   }
-  return { spec, reads, settle: (outcome: JobOutcome) => { settle(outcome) } }
+  return { spec, settle: (outcome: JobOutcome) => { settle(outcome) } }
 }
 
 async function harness(withJobs: boolean): Promise<{
@@ -97,8 +100,8 @@ describe('Session control jobs baseline', () => {
   })
 
   it('carries the visible set when the stream opens', async () => {
-    const { ctx, session, agent, control } = await harness(true)
-    ctx.jobs.start({ ...producer('pnpm run build').spec, owner: agent })
+    const { ctx, session, control } = await harness(true)
+    ctx.jobs.start({ ...producer('pnpm run build').spec, owner: session.id })
     const frame = await baseline(control)
     const jobs = frame.value.jobs[session.id]
     expect(jobs).toHaveLength(1)
@@ -139,27 +142,28 @@ describe('Session control jobs updates', () => {
   })
 
   it('pushes the owner whole set on registration, stopping, and settlement', async () => {
-    const { ctx, session, agent, control } = await harness(true)
+    const { ctx, session, control } = await harness(true)
     const abort = new AbortController()
     const collected = collectJobs(control.control(abort.signal), 3, abort)
 
     const task = producer()
-    const id = ctx.jobs.start({ ...task.spec, owner: agent })
-    ctx.jobs.kill(id, agent, 'test')
+    const id = ctx.jobs.start({ ...task.spec, owner: session.id })
+    ctx.jobs.kill(id, session.id, 'test')
     task.settle({ status: 'killed', detail: 'signal: SIGTERM' })
 
     const frames = await collected
     expect(frames.map(frame => frame.sessionId)).toEqual([session.id, session.id, session.id])
     expect(frames.map(frame => frame.jobs[0]?.status)).toEqual(['running', 'stopping', 'killed'])
-    expect(frames[2]?.jobs[0]?.detail).toBe('signal: SIGTERM')
+    // The registry merges the kill reason into the producer's terminal detail.
+    expect(frames[2]?.jobs[0]?.detail).toBe('signal: SIGTERM; test')
     expect(frames[2]?.jobs[0]?.finishedAt).toBeTypeOf('number')
   })
 
   it('drops internal registry fields from the browser view', async () => {
-    const { ctx, agent, control } = await harness(true)
+    const { ctx, session, control } = await harness(true)
     const abort = new AbortController()
     const collected = collectJobs(control.control(abort.signal), 1, abort)
-    ctx.jobs.start({ ...producer().spec, owner: agent, outputLimitBytes: 1_024 })
+    ctx.jobs.start({ ...producer().spec, owner: session.id, outputLimitBytes: 1_024 })
 
     const [frame] = await collected
     expect(Object.keys(frame?.jobs[0] ?? {}).sort()).toEqual([
@@ -210,28 +214,31 @@ describe('Session control jobs updates', () => {
   })
 
   it('never consumes model output while projecting a lifecycle', async () => {
-    const { ctx, agent, control } = await harness(true)
+    const { ctx, session, control } = await harness(true)
     const abort = new AbortController()
     const collected = collectJobs(control.control(abort.signal), 3, abort)
 
     const task = producer()
-    const id = ctx.jobs.start({ ...task.spec, owner: agent })
-    ctx.jobs.kill(id, agent, 'test')
+    const id = ctx.jobs.start({ ...task.spec, owner: session.id })
+    ctx.jobs.kill(id, session.id, 'test')
     task.settle({ status: 'killed', detail: 'signal: SIGTERM' })
     await collected
 
-    expect(task.reads.count).toBe(0)
+    // The model's cursor never moved: the ring still hands the whole stream to
+    // its own reader, whichever lifecycle the control stream projected.
+    expect(ctx.jobs.read(id, session.id).chunks.map(chunk => chunk.text).join('')).toBe('stolen output')
   })
 
   it('never consumes model output while producing a baseline', async () => {
-    const { ctx, agent, control } = await harness(true)
+    const { ctx, session, control } = await harness(true)
     const task = producer()
-    ctx.jobs.start({ ...task.spec, owner: agent })
+    const id = ctx.jobs.start({ ...task.spec, owner: session.id })
 
     const frame = await baseline(control)
 
-    expect(frame.value.jobs[agent.id]).toHaveLength(1)
-    expect(task.reads.count).toBe(0)
+    expect(frame.value.jobs[session.id]).toHaveLength(1)
+
+    expect(ctx.jobs.read(id, session.id).chunks.map(chunk => chunk.text).join('')).toBe('stolen output')
   })
 
 })
