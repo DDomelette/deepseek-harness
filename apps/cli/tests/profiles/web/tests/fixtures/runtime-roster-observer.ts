@@ -124,10 +124,14 @@ async function scheduleProbe(ctx: Context, probe: ScheduleProbe): Promise<Schedu
     changes: events
       .filter(event => event.type === 'schedule/change')
       .map(event => event.data),
+    // A delivered reminder is durable as the inbox splice that carries it; a
+    // message appended straight to the log stays its own user/message row.
     framings: events
-      .filter(event => event.type === 'user/message'
-        && (event.data['source'] as { readonly plugin?: unknown } | undefined)?.plugin === 'schedule')
-      .flatMap(event => messageText(event.data)),
+      .flatMap(event => event.type === 'agent/inbox/spliced'
+        ? (event.data['inserted'] as readonly Record<string, unknown>[] | undefined) ?? []
+        : event.type === 'user/message' ? [event.data] : [])
+      .filter(message => (message['source'] as { readonly kind?: unknown } | undefined)?.kind === 'schedule')
+      .flatMap(message => messageText(message)),
     durable,
   }
 }
