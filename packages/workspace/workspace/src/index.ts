@@ -344,6 +344,16 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Archive instants (ISO-8601) keyed by session id, key-equal to
+   * {@link archivedSessionIds}. Sessions archived before this field existed
+   * carry no entry; consumers must tolerate a missing timestamp.
+   * @returns the durable archive-time map.
+   */
+  get archivedSessionAts(): Readonly<Record<SessionId, string>> {
+    return this.requireState().archivedSessionAts
+  }
+
+  /**
    * Archive one session durably. The session must exist (live or in session
    * persistence); its workspace accounting — or lack of one — is irrelevant.
    * Without `stopActivity` the session must also be inactive: the
@@ -353,9 +363,10 @@ export class WorkspaceRegistry extends Service {
    * activity check, and the `workspace/session-stop` providers are then asked
    * to stop the session's work: the durable archive set is what a provider's
    * `agent/pre-step` gate reads, so every wake the stops induce is already
-   * blocked. Archiving drops the session's pin in the same durable write
-   * (pinning and archival are mutually exclusive). An already archived id
-   * resolves without writing, asking, or stopping.
+   * blocked. Archiving drops the session's pin and stamps its archive instant
+   * in the same durable write (pinning and archival are mutually exclusive).
+   * An already archived id resolves without writing, asking, or stopping, so
+   * a repeat never restamps the instant.
    * @param sessionId - The session to archive.
    * @param options - Whether running work is stopped instead of refusing.
    * @returns resolution after durability and, with `stopActivity`, after every stop request was issued.
@@ -378,6 +389,7 @@ export class WorkspaceRegistry extends Service {
       await this.setState({
         ...state,
         archivedSessionIds: [...state.archivedSessionIds, sessionId],
+        archivedSessionAts: { ...state.archivedSessionAts, [sessionId]: new Date().toISOString() },
         pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
       })
       if (options.stopActivity === true) await this.stopSessionActivity(sessionId)
@@ -386,11 +398,11 @@ export class WorkspaceRegistry extends Service {
 
   /**
    * Unarchive one session durably by dropping it from the registry-global
-   * archive set; the accounting slot was never touched, so the session
-   * returns to its recorded position. Unarchiving runs no session-existence
-   * check because removing an id cannot introduce an unknown one, so an
-   * entry whose session is gone still resolves. An id that is not archived
-   * resolves without writing.
+   * archive set and its archive instant; the accounting slot was never
+   * touched, so the session returns to its recorded position. Unarchiving runs
+   * no session-existence check because removing an id cannot introduce an
+   * unknown one, so an entry whose session is gone still resolves. An id that
+   * is not archived resolves without writing.
    * @param sessionId - The session to unarchive.
    * @returns resolution after durability.
    */
@@ -403,6 +415,7 @@ export class WorkspaceRegistry extends Service {
       await this.setState({
         ...state,
         archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
       })
     })
   }
@@ -489,6 +502,7 @@ export class WorkspaceRegistry extends Service {
       await this.setState({
         ...state,
         archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
         pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
       })
     })
@@ -759,6 +773,7 @@ export class WorkspaceRegistry extends Service {
         initialized: false,
         workspaceIds,
         archivedSessionIds: state.archivedSessionIds,
+        archivedSessionAts: state.archivedSessionAts,
         pinnedSessionIds: state.pinnedSessionIds,
       })
     }
@@ -766,6 +781,7 @@ export class WorkspaceRegistry extends Service {
       initialized: true,
       workspaceIds,
       archivedSessionIds: state.archivedSessionIds,
+      archivedSessionAts: state.archivedSessionAts,
       pinnedSessionIds: state.pinnedSessionIds,
     })
   }
@@ -928,5 +944,12 @@ export class WorkspaceRegistry extends Service {
 
 const sameSessionIds = (left: readonly SessionId[], right: readonly SessionId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
+
+/** Remove one Session's archive instant; callers drop the same id in the same write. */
+const withoutArchiveInstant = (
+  instants: Readonly<Record<SessionId, string>>,
+  sessionId: SessionId,
+): Readonly<Record<SessionId, string>> =>
+  Object.fromEntries(Object.entries(instants).filter(([id]) => id !== sessionId))
 
 export default WorkspaceRegistry

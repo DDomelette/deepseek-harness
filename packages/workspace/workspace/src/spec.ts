@@ -49,10 +49,13 @@ const workspacePendingMutation = z.discriminatedUnion('operation', [
  * the registry-global archive set layered over workspace accounting: an
  * archived session keeps its `sessionIds` slot (unarchiving must restore the
  * position), so the set never participates in the one-owner accounting
- * invariant. `pinnedSessionIds` is the registry-global pin set in pin order
- * (most recently pinned first); pinning and archival are mutually
- * exclusive, so archiving drops the session's pin. Both session sets are
- * defaulted so records written before the fields parse unchanged.
+ * invariant. `archivedSessionAts` stamps each archive instant (ISO-8601) and
+ * stays key-equal to `archivedSessionIds`; entries archived before the field
+ * existed carry no timestamp. `pinnedSessionIds` is the registry-global pin
+ * set in pin order (most recently pinned first); pinning and archival are
+ * mutually exclusive, so archiving drops the session's pin. The archive id
+ * set, the archive-instant map, and the pin set are all defaulted, so records
+ * written before the fields parse unchanged.
  */
 export const workspaceDomainState = z.object({
   initialized: z.boolean(),
@@ -60,6 +63,7 @@ export const workspaceDomainState = z.object({
   defaultWorkspaceId: workspaceId.optional(),
   workspaceIds: z.array(workspaceId),
   archivedSessionIds: z.array(sessionId).default([]),
+  archivedSessionAts: z.record(sessionId, z.string()).default({}),
   pinnedSessionIds: z.array(sessionId).default([]),
   pendingMutation: workspacePendingMutation.optional(),
 })
@@ -78,7 +82,13 @@ export const workspaceDomainSpec = defineDomain({
   version: 2,
   global: {
     schema: workspaceDomainState,
-    initial: { initialized: false, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] },
+    initial: {
+      initialized: false,
+      workspaceIds: [],
+      archivedSessionIds: [],
+      archivedSessionAts: {},
+      pinnedSessionIds: [],
+    },
   },
   tables: { workspaces: domainTable<WorkspaceId, WorkspaceRecord>(workspaceRecord) },
 })

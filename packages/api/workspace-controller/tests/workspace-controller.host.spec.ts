@@ -220,15 +220,22 @@ describe('WorkspaceController commands', () => {
       sessionId: session.id,
     })).rejects.toMatchObject({ code: 'workspace/not-found' })
 
-    await expect(controller.archiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string } })
+    const archived = await controller.archiveSession({ sessionId: session.id })
+    const stampedAt = ctx.workspaceRegistry.archivedSessionAts[session.id]
+    expect(stampedAt).toEqual(expect.any(String))
+    // The unary echo and the list projection both read the registry's own
+    // instant map rather than inventing a timestamp for the caller.
+    expect(archived).toEqual({
+      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: stampedAt },
+    })
     expect(controller.list()).toMatchObject({
-      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: stampedAt },
     })
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
     await expect(controller.unarchiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
+    expect(ctx.workspaceRegistry.archivedSessionAts).toEqual({})
     expect(workspace.sessionIds).toEqual([session.id])
   })
 })
@@ -298,8 +305,12 @@ describe('WorkspaceController follow', () => {
       meta: { cwd: first.workspace.path },
     })
     await controller.archiveSession({ sessionId: session.id })
+    const stampedAt = ctx.workspaceRegistry.archivedSessionAts[session.id]
+    expect(stampedAt).toEqual(expect.any(String))
+    // The frame's instant is the registry's, so the stream cannot publish a
+    // timestamp the durable archive set does not hold.
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+      type: 'archived', archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: stampedAt },
     })
     await controller.delete({ workspaceId: second.workspace.workspaceId })
     await expect(nextFrame(iterator)).resolves.toEqual({

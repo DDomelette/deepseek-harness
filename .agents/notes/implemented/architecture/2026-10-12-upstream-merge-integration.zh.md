@@ -36,6 +36,10 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 合并不但采用了 `SESSION_FORMAT_VERSION = 4`，还引入了 `packages/session/session-format-v3-to-v4`；但合并原样保留的 fork 版 `packages/session/session-persistence-jsonl/src/format.ts` 仍在用 `assertV3RowAdmission` 接纳当前世代的物理行，且从不运行 `assertReleasedV4Relationships`。V3 接纳要求 `system/message` 的来源为 `kind: 'plugin'`，而合并后的 `createSystemMessage` 写入的是 `kind: 'system-prompt'`，于是扫描器拒绝循环写出的每一个日志，所有回读路径随之失败。本次移植把上游的三行重新落到 fork 的扫描器上：导入块中的 `KNOWN_SESSION_EVENT_TYPES`、`consumeEventLine` 中的 `assertV4RowAdmission(decoded, KNOWN_SESSION_EVENT_TYPES)`、`finish()` 中的 `assertReleasedV4Relationships(artifact, KNOWN_SESSION_EVENT_TYPES)`，以及指向 `dsh-session-format-v3-to-v4` 的依赖、项目引用与聚合引用。
 
+## 归档时刻在生产方恢复
+
+上游注册表从不携带归档时刻——`git log -S archivedSessionAts upstream/master` 为空，其 `archivedSessionIds` 只有归档顺序。合并从上游取了 `packages/workspace/workspace/src/{index,spec}.ts`，却保留了 fork 的 `workspace-controller` 线格式与 Client 层，于是 `packages/api` 下 49 处读取点与 `ui-settings-archived` 读取一张没有生产方写入的映射；该包自身 host 规格中的两个失败用例即为症状。本次在上游注册表上增量恢复 fork 的生产方：`workspaceDomainState.archivedSessionAts`（`z.record(sessionId, z.string()).default({})`），由 `archiveSession` 在同一次清除置顶的持久写入中打戳，并由 `unarchiveSession` 与 `forgetSession` 删除。上游的归档动词、归档准入事件与置顶集合均未改动，领域版本仍为 2，因为该字段对旧介质有默认值。
+
 ## 刻意的搁置
 
 **Office 线。** 未引入上游的 Office 客户端包，也没有任何 bundle 挂载它们；本 fork 交付自己的插件清单页。

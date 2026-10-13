@@ -412,9 +412,10 @@ insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly Workspac
  * activity check, and the `workspace/session-stop` providers are then asked
  * to stop the session's work: the durable archive set is what a provider's
  * `agent/pre-step` gate reads, so every wake the stops induce is already
- * blocked. Archiving drops the session's pin in the same durable write
- * (pinning and archival are mutually exclusive). An already archived id
- * resolves without writing, asking, or stopping.
+ * blocked. Archiving drops the session's pin and stamps its archive instant
+ * in the same durable write (pinning and archival are mutually exclusive).
+ * An already archived id resolves without writing, asking, or stopping, so
+ * a repeat never restamps the instant.
  * @param sessionId - The session to archive.
  * @param options - Whether running work is stopped instead of refusing.
  * @returns resolution after durability and, with `stopActivity`, after every stop request was issued.
@@ -423,11 +424,11 @@ archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promi
 
 /**
  * Unarchive one session durably by dropping it from the registry-global
- * archive set; the accounting slot was never touched, so the session
- * returns to its recorded position. Unarchiving runs no session-existence
- * check because removing an id cannot introduce an unknown one, so an
- * entry whose session is gone still resolves. An id that is not archived
- * resolves without writing.
+ * archive set and its archive instant; the accounting slot was never
+ * touched, so the session returns to its recorded position. Unarchiving runs
+ * no session-existence check because removing an id cannot introduce an
+ * unknown one, so an entry whose session is gone still resolves. An id that
+ * is not archived resolves without writing.
  * @param sessionId - The session to unarchive.
  * @returns resolution after durability.
  */
