@@ -4,7 +4,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import { isUserInvocable, type SkillSummary } from '@deepseek-ai/dsh-skill'
-import type {} from '@deepseek-ai/dsh-settings/types'
+// Brings the `settings` Context service into this program: the catalog reads
+// its namespaces through `ctx.get('settings')`, which is untyped without it.
+import type {} from '@deepseek-ai/dsh-settings'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { SkillListRequest, SkillListValue, SkillCatalogValue } from './types.ts'

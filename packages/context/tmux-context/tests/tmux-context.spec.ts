@@ -5,13 +5,10 @@ import AgentRegistry, { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { ShellExecutor } from '@deepseek-ai/dsh-shell'
-import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@deepseek-ai/dsh-shell'
+import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import * as tmuxContext from '@deepseek-ai/dsh-tmux-context'
 import type { Config } from '@deepseek-ai/dsh-tmux-context'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
-
-/** Empty offset readers for fakes that never produce output. */
-const silentReader = { readFrom: (fromByte: number) => ({ text: '', nextOffset: fromByte, lossy: false }) }
 
 const SIGNAL = new AbortController().signal
 
@@ -64,25 +61,18 @@ class FakeBash extends ShellExecutor {
       command: request.command,
       workdir: request.workdir ?? '/work',
       timeoutMs: request.timeoutMs ?? 60_000,
-      onExpiry: request.onExpiry ?? 'kill',
       stdoutMaxBytes: request.stdoutMaxBytes ?? 64_000,
       signal: request.signal,
       sandboxPolicy: request.sandboxPolicy,
     }
   }
-  override async execute(spec: ShellExecSpec): Promise<ShellExecution> {
-    if (spec.onExpiry === 'none') throw new Error('tmux-context must never start a background job')
+  override async run(spec: ShellExecSpec): Promise<ShellRunResult> {
     this.commands.push(spec.command)
-    return {
-      status: 'completed',
-      exitCode: 0,
-      signal: null,
-      done: Promise.resolve(),
-      readOutput: () => ({ delta: '', lossy: false }),
-      observed: { stdout: silentReader, stderr: silentReader },
-      kill: () => false,
-      result: () => this.runError ? Promise.reject(this.runError) : Promise.resolve(this.result),
-    }
+    if (this.runError) throw this.runError
+    return this.result
+  }
+  override start(): ShellProcess {
+    throw new Error('tmux-context must never start a background job')
   }
 }
 

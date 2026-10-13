@@ -7,8 +7,6 @@ import { apply as applyConnection, inject as connectionInject } from '@deepseek-
 import type {
   ConnectionRpcHandler,
   HostConnectionHandle,
-  PeerId,
-  PeerScope,
 } from '@deepseek-ai/dsh-client-connection'
 import type { WebServer, WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
@@ -17,6 +15,8 @@ import {
   RemoteError,
   RemoteScope,
   type InvocationDescriptor,
+  type PeerId,
+  type PeerScope,
   type TypertContext,
   type TypertLookup,
   type TypertLookupProvider,

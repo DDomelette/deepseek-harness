@@ -17,7 +17,7 @@ type SessionTitleProviderId = Branded<'SessionTitleProviderId'>
 
 ```ts type-equiv
 /** Exact auxiliary model route that produced a title. */
-interface SessionTitleModelProvenance {
+interface SessionTitleModelIdentity {
   /** Registered LLM provider route. */
   readonly provider: string
   /** Provider model id. */
@@ -32,7 +32,7 @@ type SessionTitleSource =
   | {
     readonly kind: 'provider'
     readonly provider: SessionTitleProviderId
-    readonly model?: SessionTitleModelProvenance
+    readonly model?: SessionTitleModelIdentity
   }
   | {
     /** Explicit user rename: pins the title — automatic generation stops scheduling. */
@@ -74,13 +74,15 @@ interface SessionTitleLlmRequestEventData {
   /** Exact human `user/message` seqs represented in `messages`. */
   readonly messageSeqs: SessionSeq[]
   /** Exact auxiliary LLM route. */
-  readonly route: SessionTitleModelProvenance
+  readonly route: SessionTitleModelIdentity
   /** Exact auxiliary system prompt. */
   readonly system: string
   /** Exact auxiliary message list. */
   readonly messages: Message[]
   /** Exact auxiliary output-token cap. */
   readonly maxTokens: number
+  /** Resolved reasoning effort when recorded; older requests can omit it. */
+  readonly reasoningEffort?: ReasoningEffortId
 }
 ```
 
@@ -111,7 +113,13 @@ interface SessionTitleProviderRequest {
   /** All eligible human messages through this generation revision. */
   readonly messages: readonly SessionTitleUserMessage[]
   /** Exact current logged main-request route, when one has been recorded. */
-  readonly route?: SessionTitleModelProvenance
+  readonly route?: SessionTitleModelIdentity
+  /**
+   * Latest accepted title captured at invocation, including an accepted
+   * fallback whose event may follow the last eligible message. Absent before
+   * any title is accepted. The provider decides whether and how to use it.
+   */
+  readonly currentTitle?: SessionTitleSnapshot
   /** Cancellation for supersession, disposal, timeout composition, or the explicit caller. */
   readonly signal: AbortSignal
 }
@@ -125,7 +133,7 @@ interface SessionTitleProviderResult {
   /** Exact seqs from `request.messages` used by this result. */
   readonly messageSeqs: readonly SessionSeq[]
   /** Auxiliary LLM route, when generation used a model. */
-  readonly model?: SessionTitleModelProvenance
+  readonly model?: SessionTitleModelIdentity
 }
 ```
 
@@ -138,7 +146,7 @@ interface SessionTitleProvider {
   readonly automatic: SessionTitleAutomaticMode
   /**
    * Produce one title revision.
-   * @param request - message snapshot, current route, session, and cancellation.
+   * @param request - message snapshot, current title, current route, session, and cancellation.
    * @returns proposed title plus exact input seqs and the optional provider/model route used to generate it.
    */
   generate(request: SessionTitleProviderRequest): Promise<SessionTitleProviderResult>
@@ -191,7 +199,8 @@ async refresh(session: Session, signal?: AbortSignal): Promise<SessionTitleSnaps
 
 /**
  * Register the sole optional title provider. Disposal aborts its pending and
- * active work before another provider may register.
+ * active work; a replacement may register once disposal has started, and the
+ * closing provider's late results never commit.
  * @param provider - provider identity, cadence, and generation function.
  * @returns exact Cordis effect disposer, which settles after active calls quiesce.
  */

@@ -39,6 +39,8 @@ A backend implements three members: `emit(record)` must be a non-blocking enqueu
 
 Capture runs in one of two modes. `live` capture follows session events as they are appended, replays already-live sessions at mount time, and records lifecycle markers; `on-demand` capture reads the canonical session log only when the backend requests a prefix through `captureSession(session, throughSeq?)`. Coordinator options select whether stored history is included. Every canonical session event maps to one ledger record in order. An `assistant/message` or `assistant/attempt` record carries its complete embedded compact stream, including failed and retried output. Each ledger record also carries `session.id`, `session.format_version`, the numeric event identity, optional header facts, and a pre-mapped severity (`error` for `tool/result.isError`, `turn/end` error reasons, and `agent-error`; `info` otherwise).
 
+Ledger records carry `sourceEvent` with the owning Session id and a copied event envelope excluding `data`. The redaction waterfall receives `body` as the only payload copy. Backends can reconstruct a complete exported event from the envelope and redacted body without bypassing redaction.
+
 ### The sharing disclosure
 
 <a id="the-sharing-disclosure"></a>
@@ -78,7 +80,7 @@ Live capture registers Session events, flush hints, shutdown markers, and agent/
 
 ### The handoff cursor
 
-A module-scope `WeakMap<Session, seq>` records the highest sequence handed off, not delivered. Re-adopting the same object resumes after that cursor. Capture normally starts at `firstLiveSeq`; explicit `includeHistory: true` starts an unhanded object at seq 0, including restored or fork history. The backend owns capture authorization. Stored history does not itself authorize capture; the OTel backend waits for new explicit feedback. Receivers deduplicate repeated records by `(session.id, session.format_version, event.seq)`.
+A module-scope `WeakMap<Session, seq>` records the highest sequence handed off, not delivered. Re-adopting the same object resumes after that cursor. Capture starts at `firstLifecycleSeq`: a new fork includes its child-owned marker and closers, while a restored Session excludes its stored prefix, including prior child turns; explicit `includeHistory: true` starts an unhanded object at seq 0, including restored or fork history. The backend owns capture authorization. Stored history does not itself authorize capture; the OTel backend waits for new explicit feedback. Receivers deduplicate repeated records by `(session.id, session.format_version, event.seq)`.
 
 </details>
 

@@ -255,7 +255,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         const jobId = jobs.start({
           kind: 'pty-send',
           label: `${id}: ${args.text || '(input)'}`,
-          owner,
+          owner: owner.id,
           outputLimitBytes: maxResultBytes,
           run: () => {
             const operation = ctx.terminals.startSend(owner, id, request)

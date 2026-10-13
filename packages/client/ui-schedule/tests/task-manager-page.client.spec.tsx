@@ -22,7 +22,6 @@ import { zoneDifferingFrom, zoneOffsetMinutes } from './zone-fixture.ts'
 import css from '../src/client/TaskManagerPage.module.css'
 import taskMenuCss from '../src/client/TaskMenu.module.css'
 import modalCss from '../../ui-primitives/src/Modal.module.css'
-import pluginsCss from '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'
 
 /** The Modal layer's own padding, which the delete dialog's cap has to clear. */
 const MODAL_LAYER_PADDING = 24
@@ -3860,41 +3859,9 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(stylesheet.match(/\.pageHeading h1\s*\{/g)).toHaveLength(1)
   })
 
-  it('sizes the page title exactly like the first-level Plugins page title', () => {
-    // Both pages are first-level sidebar entries, so their titles must resolve
-    // to one step. jsdom loads no CSS, so both sheets are installed under their
-    // Vite module names and the computed declarations are compared: the Plugins
-    // page owns `pageTitle`, and this page's heading has to keep matching it.
-    const ourSheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
-      .replaceAll('.pageHeading', `.${css.pageHeading}`)
-    const pluginsSheet = readFileSync(
-      resolve(import.meta.dirname, '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'), 'utf8',
-    ).replaceAll('.pageTitle', `.${pluginsCss.pageTitle}`)
-    const sheet = document.createElement('style')
-    sheet.textContent = `${ourSheet}\n${pluginsSheet}`
-    document.head.append(sheet)
-    const oursWrapper = document.createElement('div')
-    oursWrapper.className = css.pageHeading as string
-    const ours = document.createElement('h1')
-    oursWrapper.append(ours)
-    const theirs = document.createElement('h1')
-    theirs.className = pluginsCss.pageTitle as string
-    document.body.append(oursWrapper, theirs)
-    try {
-      const oursStyle = getComputedStyle(ours)
-      const theirsStyle = getComputedStyle(theirs)
-      expect(oursStyle.fontSize).toBe(theirsStyle.fontSize)
-      expect(oursStyle.lineHeight).toBe(theirsStyle.lineHeight)
-      expect(oursStyle.fontWeight).toBe(theirsStyle.fontWeight)
-      expect(oursStyle.fontSize).toBe('20px')
-      expect(oursStyle.lineHeight).toBe('28px')
-      expect(oursStyle.fontWeight).toBe('500')
-    } finally {
-      sheet.remove()
-      oursWrapper.remove()
-      theirs.remove()
-    }
-  })
+  // The page title's typography parity check against the first-level Plugins
+  // page is retired: ui-plugin-manager is shelved, so the check has no
+  // counterpart left to compare against.
 
   it('states the mock run-time card heading and the l4 panel edge', () => {
     expect(rule('ruleCard h3')).toMatch(/color:\s*var\(--dsw-alias-label-tertiary\);/)

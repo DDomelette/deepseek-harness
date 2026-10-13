@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { SessionId, SessionStore } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, SessionId, SessionStore } from '@deepseek-ai/dsh-session'
 import type { SessionHeader } from '@deepseek-ai/dsh-session'
 import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
 import Storage from '@deepseek-ai/dsh-storage'
@@ -15,7 +15,7 @@ afterEach(async () => {
 
 function header(id: string, parent?: string): SessionHeader {
   return {
-    version: 3,
+    version: SESSION_FORMAT_VERSION,
     isSeeded: false,
     id: SessionId(id),
     createdAt: 1000,

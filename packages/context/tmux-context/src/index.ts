@@ -134,7 +134,7 @@ async function queryTmuxLocation(
   ].join('\n')
   let result: ShellRunResult
   try {
-    result = await (await bash.execute(bash.resolve({ command, signal }))).result()
+    result = await bash.run(bash.resolve({ command, signal }))
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     logger.warn(`tmux location query failed: ${message}; injecting no location this turn`)

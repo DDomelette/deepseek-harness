@@ -1437,7 +1437,7 @@
     },
     {
       "doc": "docs/subsystems/session-title.md",
-      "symbol": "SessionTitleModelProvenance",
+      "symbol": "SessionTitleModelIdentity",
       "source": "packages/session/session-title/src/types.ts"
     },
     {

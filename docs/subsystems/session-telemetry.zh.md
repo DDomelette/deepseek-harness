@@ -12,7 +12,7 @@
 /**
  * Severity of a telemetry record, pre-mapped at capture so a receiver can
  * alert with zero configuration: `error` for events whose own outcome flag
- * says so (the tool-result block's `isError`, `turn/end` error reasons) and for
+ * says so (the tool message's `isError`, `turn/end` error reasons) and for
  * `agent-error` operational records. Captured events otherwise default to
  * `info`; `warn` remains available to `session-telemetry/record` policies and
  * backends.
@@ -29,6 +29,8 @@ type SessionTelemetrySeverity = 'info' | 'warn' | 'error'
  * identity so they can never be mistaken for ledger rows.
  */
 interface SessionTelemetryRecord {
+  /** Canonical envelope without data; body carries the separately redacted payload. Absent for operational records. */
+  sourceEvent?: { sessionId: SessionId; envelope: Omit<SessionEvent, 'data'> }
   /** Ledger (session-log mirror) or ops (operational signal) channel; backends keep the two under separate instrumentation scopes. */
   channel: 'ledger' | 'ops'
   /** Unix epoch milliseconds — the source event's append time for ledger records, the emission time for ops records. */
@@ -80,7 +82,7 @@ type SessionTelemetryCapture = 'live' | 'on-demand'
 interface SessionTelemetryCaptureOptions {
   /** Follow live events, or wait for explicit capture; defaults to live. */
   capture?: SessionTelemetryCapture
-  /** Include stored history before this lifecycle; defaults to false. */
+  /** Include inherited fork history and stored history from earlier lifecycles; defaults to false. */
   includeHistory?: boolean
 }
 ```

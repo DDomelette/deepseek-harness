@@ -22,6 +22,19 @@ import {
 import { CORDIS_SYSTEM_PROMPT } from './prompt.ts'
 import { hostInspectProviders } from './providers.ts'
 
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'tool-cordis': ToolCordisReferenceSource
+  }
+}
+
+/** Context this tool injects for an `@pluginId` reference named in a prompt. */
+export interface ToolCordisReferenceSource {
+  readonly kind: 'tool-cordis'
+  /** Injected Plugin references are instructions for the model to follow. */
+  readonly form: 'instructions'
+}
+
 export const name = 'tool-cordis'
 export const inject = ['tools', 'systemPrompt', 'dynamicCordisRunner', 'cordisInspect']
 
@@ -394,7 +407,7 @@ export function apply(ctx: Context): void {
           type: 'text',
           text: reference === undefined ? renderUnavailableReference(id) : renderReference(reference),
         }],
-        source: { kind: 'plugin', plugin: name, form: 'instructions' },
+        source: { kind: 'tool-cordis', form: 'instructions' },
       })
     })
     return { ...decision, messages: [...decision.messages, ...contexts] }
