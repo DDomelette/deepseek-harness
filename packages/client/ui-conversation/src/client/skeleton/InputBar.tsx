@@ -44,7 +44,7 @@ export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
   toggleCommandMenu, stop, command, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher,
+  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, usePermissionOptions,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory,
@@ -113,9 +113,12 @@ export const InputBar = memo(function InputBar({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
-  // The Access seat's data: the host-computed permissions projection
-  // (undefined = capability absent → the chip renders nothing).
+  // The Access seat's data: the session's current selection from the host
+  // projection (undefined = capability absent → the chip renders nothing) and
+  // the selectable presets from the process catalog Remote, which the seat
+  // needs before it can offer a menu.
   const permissions = useProjection('permissions')
+  const permissionOptions = usePermissionOptions(options => options)
 
   // A continuable child without its live parent cannot accept human input,
   // but its independent Stop below stays available while it runs.
@@ -364,12 +367,21 @@ export const InputBar = memo(function InputBar({
     if (!empty && !disabled && !machineBusy && !uploadsPending) keyboard.submit(primarySubmitMode)
   }
 
-  // The Access seat: the projection-fed permission chip (renders nothing
-  // while the permissions key is absent — permission-less host or Draft —
-  // or while the command face is absent with the session).
-  const accessSelect: ReactNode = command === undefined
+  // The Access seat: the permission chip over the session's current value and
+  // the process catalog's presets (renders nothing while the permissions key
+  // is absent — permission-less host or Draft — or while the catalog has not
+  // arrived, or while the command face is absent with the session).
+  const accessSelect: ReactNode = command === undefined || permissions === undefined || permissionOptions === undefined
     ? null
-    : <PermissionSelect key={sessionId} value={permissions} locked={locked} command={command} t={t} />
+    : (
+      <PermissionSelect
+        key={sessionId}
+        value={{ currentValue: permissions.currentValue, options: permissionOptions }}
+        locked={locked}
+        command={command}
+        t={t}
+      />
+    )
 
   // Claim ghost hint: rendered by CSS as generated content after the last
   // paragraph while the claim's args are blank (a hint implies a single-line

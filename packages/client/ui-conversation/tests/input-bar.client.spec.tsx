@@ -30,6 +30,7 @@ import type {
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
+import type { PermissionOptions } from '../src/client/permission-catalog.ts'
 import { zh } from '../src/client/locales.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
@@ -60,7 +61,7 @@ interface BenchOptions {
   modelEntry?: React.ReactNode
   /** Hot text-ref lexicon (injects a minimal slash stub exposing only lexicon()). */
   lexicon?: ReadonlyMap<'/' | '@', readonly string[]>
-  permissions?: { options: { value: string; name: string; description?: string }[]; currentValue: string }
+  permissions?: { options?: readonly { value: string; name: string; description?: string }[]; currentValue: string }
   /** The `imageLimits` projection value (absent = no attachment service). */
   imageLimits?: {
     maxImageBytes: number
@@ -178,9 +179,11 @@ function bench(over?: BenchOptions) {
     useWorkspaces: bindSnapshotSelector(createSnapshotStore({ archivedSessionAts: {},
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
     })),
+    // The Host serves the two halves separately: the Session projection carries
+    // the current value, the process catalog Remote the selectable presets.
     useProjection: ((key: string, selector?: (v: unknown) => unknown) =>
       (selector ?? (v => v))(key === 'permissions'
-        ? over?.permissions
+        ? over?.permissions === undefined ? undefined : { currentValue: over.permissions.currentValue }
         : key === 'plan' ? over?.plan
           : key === 'goal' ? over?.goal
             : key === 'imageLimits' ? over?.imageLimits : undefined)),
@@ -200,6 +203,7 @@ function bench(over?: BenchOptions) {
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    usePermissionOptions: bindSnapshotSelector(createSnapshotStore<PermissionOptions>(over?.permissions?.options)),
     stop,
     command: over?.command ?? (() => Promise.resolve(true)),
     // Mirrors the real lookup chain (conversation namespace, then common).
@@ -1519,6 +1523,16 @@ describe('command launcher chrome and control seats', () => {
     expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
     act(() => { menuLauncher.set('command') })
     expect(launcher.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('renders no Access chip while the catalog has not arrived', () => {
+    // The Session projection carries the current value alone and the selectable
+    // presets arrive from the process catalog Remote. Until they do the seat
+    // renders nothing: a control rendered from the value alone would look up an
+    // option in an absent list and take the composer bar down with it.
+    const { view } = bench({ permissions: { currentValue: 'read-only' }, command: vi.fn() })
+    expect(view.getByLabelText('指令')).toBeTruthy()
+    expect(view.queryByLabelText(/^访问模式/)).toBeNull()
   })
 
   it('the Access chip renders the projection value and submits a non-Full-access pick directly', async () => {

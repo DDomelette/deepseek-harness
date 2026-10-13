@@ -15,6 +15,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type { ComposerBlock } from './composer-blocks.ts'
+import type { PermissionOptions } from '../permission-catalog.ts'
 import type {
   ComposerKeyboard, DraftAttachmentId, EditSelection, InputActions, InputNotice, InputState,
 } from './input.ts'
@@ -348,6 +349,12 @@ export interface ComposerBarInjected {
     notices: ObservableSnapshot<InputNotice | null>
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
+    /**
+     * Live selectable permission presets for the Access seat's menu, from the
+     * process catalog Remote. Absent until the first catalog read settles, and
+     * the seat renders nothing while it is.
+     */
+    permissionOptions: ObservableSnapshot<PermissionOptions>
   }
 }
 

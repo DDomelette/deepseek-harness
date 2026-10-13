@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
-import type { PermissionSelect as PermissionSelectValue } from '@deepseek-ai/dsh-permission-presets/client'
+import type { PresetOption } from '@deepseek-ai/dsh-permission-presets/client'
 import { IconChevronDownOutline14, Menu, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
@@ -75,8 +75,21 @@ function permissionLabel(
   return displayName(name)
 }
 
+/**
+ * The Access seat's value: the Session's current selection joined with the
+ * process catalog's selectable presets. The Host serves the two separately —
+ * the selection rides the `permissions` Session projection, the presets the
+ * catalog Remote — and the composer joins them at the seat.
+ */
+export interface PermissionSeatValue {
+  /** The effective current value: a configured preset key, `auto`, or `custom`. */
+  currentValue: string
+  /** Every currently selectable preset, in contribution order. */
+  options: readonly PresetOption[]
+}
+
 export interface PermissionSelectProps {
-  value: PermissionSelectValue | undefined
+  value: PermissionSeatValue
   locked: boolean
   command: (line: string) => Promise<boolean>
   /** The owning bar's locale seat, passed down as a plain prop. */
@@ -90,13 +103,11 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
   const [acknowledged, setAcknowledged] = useState(false)
 
   useEffect(() => {
-    if (!locked && value !== undefined) return
+    if (!locked) return
     setOpen(false)
     setAcknowledged(false)
     setConfirmation(null)
-  }, [locked, value])
-
-  if (value === undefined) return null
+  }, [locked])
 
   const currentValue = pick ?? value.currentValue
   const current = value.options.find(option => option.value === currentValue)

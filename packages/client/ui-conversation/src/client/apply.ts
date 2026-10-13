@@ -10,6 +10,9 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: the ctx.remote Context merge and the permission-presets wire types.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import { PermissionCatalogSeat, type PermissionOptions } from './permission-catalog.ts'
 import { UiConversation } from './conversation/assembly.ts'
 import type { ViewTab } from './contract/views.ts'
 import type {
@@ -128,6 +131,19 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const submissionPolicy = new ComposerSubmissionPolicy(
     ctx.settingsScope.bind<ConversationSettings>({ namespace: CONVERSATION_SETTINGS_NAMESPACE }),
   )
+  // The Access seat's selectable presets: the process catalog over the Remote,
+  // re-read whenever the Host reports it changed. The snapshot exists whether
+  // or not the Remote assembly is mounted, so the seat reads one stable source
+  // and stays absent — no chip — until a catalog arrives.
+  const permissionOptions = createSnapshotStore<PermissionOptions>(undefined)
+  ctx.inject(['remote', 'remote.permissionPresets'], (remoteCtx) => {
+    const seat = new PermissionCatalogSeat(
+      permissionOptions,
+      remoteCtx.remote.permissionPresets,
+      listener => remoteCtx.remote.$on('permission-presets/catalog-changed', listener),
+    )
+    remoteCtx.effect(() => seat.start(), 'ui-conversation: permission catalog')
+  })
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
@@ -323,6 +339,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             notices: ABSENT_NOTICES,
             lexicon: ABSENT_LEXICON,
             menuLauncher: ABSENT_MENU_LAUNCHER,
+            permissionOptions,
           },
         }
       }
@@ -381,6 +398,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          permissionOptions,
         },
       }
     },
