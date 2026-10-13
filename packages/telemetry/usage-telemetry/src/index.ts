@@ -44,7 +44,6 @@ export class UsageTelemetry extends Service {
 
   private readonly writer: UsageWriter
   private readonly writes = new Set<Promise<void>>()
-  private disposeSubscription: (() => boolean) | null = null
   private stopping = false
 
   constructor(ctx: Context, private readonly config: Config) {
@@ -55,24 +54,15 @@ export class UsageTelemetry extends Service {
   protected *[Service.init](): Generator<() => Promise<void>, void, void> {
     yield async () => {
       this.stopping = true
-      this.disposeSubscription?.()
-      this.disposeSubscription = null
       await Promise.allSettled([...this.writes])
     }
-    this.syncSubscription()
+    // Enablement is read per stream rather than at activation: the settings
+    // plane commits a live config the running service keeps reading, so a
+    // subscription gated here would keep capturing after `enabled` turns false.
+    this.ctx.on('llm/stream', this.onStream)
     this.ctx.inject(['settings'], (child) => {
       child.effect(() => child.settings.configure({ auto: false }, this.ctx.fiber))
     })
-  }
-
-  /** Keep the waterfall subscription active only while capture is enabled. */
-  private syncSubscription(): void {
-    if (this.enabled() && this.disposeSubscription === null) {
-      this.disposeSubscription = this.ctx.on('llm/stream', this.onStream)
-    } else if (!this.enabled() && this.disposeSubscription !== null) {
-      this.disposeSubscription()
-      this.disposeSubscription = null
-    }
   }
 
   /** Whether capture is currently enabled by the live configuration. */
@@ -89,10 +79,11 @@ export class UsageTelemetry extends Service {
     options: GenerateOptions,
     next: () => AsyncIterable<StreamChunk>,
   ): AsyncIterable<StreamChunk> {
+    const capture = this.enabled()
     let observed: { usage: TokenUsage; time: number } | undefined
     try {
       for await (const chunk of next()) {
-        if (chunk.type === 'usage') observed = { usage: chunk.usage, time: Date.now() }
+        if (capture && chunk.type === 'usage') observed = { usage: chunk.usage, time: Date.now() }
         yield chunk
       }
     } finally {
