@@ -2491,7 +2491,7 @@ export interface Config {
 export type JsonlCompression = 'zstd' | 'none'
 ```
 
-来源：[`packages/session/session-persistence-jsonl/src/index.ts:88`](../packages/session/session-persistence-jsonl/src/index.ts)
+来源：[`packages/session/session-persistence-jsonl/src/index.ts:90`](../packages/session/session-persistence-jsonl/src/index.ts)
 
 <a id="deepseek-aidsh-session-projection-cache"></a>
 
@@ -2913,7 +2913,7 @@ export interface Config {
 
 依赖：`Volatile` (`@deepseek-ai/cordis`)
 
-来源：[`packages/subagent/subagent/src/index.ts:188`](../packages/subagent/subagent/src/index.ts)
+来源：[`packages/subagent/subagent/src/index.ts:186`](../packages/subagent/subagent/src/index.ts)
 
 <a id="deepseek-aidsh-subagent-acp"></a>
 
