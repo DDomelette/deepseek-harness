@@ -40,6 +40,14 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 上游注册表从不携带归档时刻——`git log -S archivedSessionAts upstream/master` 为空，其 `archivedSessionIds` 只有归档顺序。合并从上游取了 `packages/workspace/workspace/src/{index,spec}.ts`，却保留了 fork 的 `workspace-controller` 线格式与 Client 层，于是 `packages/api` 下 49 处读取点与 `ui-settings-archived` 读取一张没有生产方写入的映射；该包自身 host 规格中的两个失败用例即为症状。本次在上游注册表上增量恢复 fork 的生产方：`workspaceDomainState.archivedSessionAts`（`z.record(sessionId, z.string()).default({})`），由 `archiveSession` 在同一次清除置顶的持久写入中打戳，并由 `unarchiveSession` 与 `forgetSession` 删除。上游的归档动词、归档准入事件与置顶集合均未改动，领域版本仍为 2，因为该字段对旧介质有默认值。
 
+## gateway 跟随上游，调用方权限保留 fork 的模型
+
+上游把 Remote 流协议在 `packages/api/gateway` 与 `packages/api/remotes` 中一起重做，同时把 `dsh-client-connection` 的调用方模型替换为「每个被接纳的请求都代表同一个 operator Peer」。合并当时取了这一对的测试，却把它的源码留在合并基线上，于是两个平面在 RPC 上一致、在会话与流状态上不一致：客户端能启动，Host 创建并持久化了实时会话，而输入框始终不解锁。现在这一对取自上游，并把其中十处 fork 独有改动重新落回——四个额外的 Remote 挂载（`sessionPins`、`mcpServers`、`mob`、`notes`）及其所需的三个转发事件（`skills/change`、`mcp-servers/change`、`notes/material-settled`）、它们的 manifest 依赖与工程引用、凭据假实现新增的 `readRecord`、权限桩所需的 `socket` 与 `setHeader` 成员，以及 `authorizeIndex(...) === 'serve'`。
+
+调用方模型仍属 fork。Connection 保留配对设备权限：设备 cookie 的权限低于回环启动令牌——`isLocalOperatorRequest` 正是移动端路由使用的判据——因此 `HostConnectionHandle.admit(request)` 返回调用方自身类别的 Peer：启动令牌凭据得到 operator Peer，设备 cookie 得到该设备自己的 Peer。上游的 `admit` 会把 operator Peer 交给每一个被接纳的请求；照搬就会把配对设备提升为 operator，因此 `ConnectionPeer`（`packages/client/connection/src/peer.ts`）是唯一实现——一个由 Connection 拥有的 scope，operator 铸造一次，每台设备各铸造一次。RPC 拦截器的第四个参数就是发起该请求的调用方 Peer，它在 TCP 对端仍可观测之处解析，因此按 scope 的分发与流复用器的 Peer 生命周期绑定都不会覆盖凭据未授予的类别。吊销设备会释放它的 Peer，这正是终止该设备已持有流的机制。
+
+**RPC 附件不做成帧。** 上游把处理函数返回的二进制附件放进 multipart 响应。本传输只承载 JSON，且本仓库没有任何 codec 会投影附件，因此 `ConnectionRpcAttachment` 保留在处理函数契约中，而 `fullResponse` 会拒绝携带附件的返回值，而不是用 `null` 占位符作答。二进制载荷继续走精确 Fetch 路由。
+
 ## 刻意的搁置
 
 **Office 线。** 未引入上游的 Office 客户端包，也没有任何 bundle 挂载它们；本 fork 交付自己的插件清单页。
@@ -50,15 +58,22 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 **preset 目录打开表面。** 合并后的 `AgentPreset` 不携带 trust 与 path，因为上游用「在 `cordis.yml` 中声明 preset」的注册表取代了 fork 那个会自行发现目录的 agent-presets 包；打开用户自撰的 preset 目录因此没有数据来源。该表面被端到端移除——两个 preset 打开的 Remote 方法、SettingsController 的 `nativeOpen` 字段、`canOpenPath`、`AgentPresetDirectoryOpenValue`、`agent-preset/read-only` 错误码、connection fixture 的分发条目、`ui-agent-preset` 的位置入口及其 locale 与 CSS，以及仅覆盖它的那些用例。若 Host 侧的 `deletePreset` 回归，请恢复 `agent-preset/read-only`。
 
+**上游的 `remote-mock`。** gateway 的上游客户端 spec 需要 `@deepseek-ai/dsh-remote-mock`，一个本次合并从未引入的测试支持包；把它声明为 `workspace:*` 依赖会让 `pnpm install` 直接失败。因此保留 fork 的 `gateway.client.spec.ts` 并去掉该依赖，该文件在被引入该包或重写 spec 之前保持红色。
+
 ## Alternatives considered
 
 - **保留 fork 自己的 settings provider 接缝。** 已否决：上游从 Loader 组合派生命名空间，这也正是插件无需注册调用即可出现其 section 的原因；两者并存会让同一个 section 出现两个权威。
 - **保持 V3 时代的会话格式版本。** 已否决：合并后的会话族、session-format catalog、迁移与 web profile 全面处于 v4，把 JSONL 后端固定在 v3 就必须回退 `createSystemMessage`、消息来源词汇以及已引入的迁移边。
 - **改写上游测试以适配 fork 的 `win32-process` API，而不是移植缺失的访问器。** 已否决：`sandbox-windows-acl` 的失败路径 spec 来自上游，而它校验的原生布局正是 fork 的即时绑定已经物化的那一个；一行访问器即可让两侧同时通过编译，无需重写 spec。
 - **删除 job 镜像而不接线。** 已否决：`ui-jobs` 在该镜像之上渲染且 Web profile 挂载了它，上游所做的删除会移除一个已交付的头部。
+- **把每个请求都接纳为 operator。** 已否决：那样 `admit` 会把 operator Peer 交给配对设备，而设备 cookie 本就弱于启动令牌。改为把 gateway 的调用适配到 fork 的权限类别，并用一个「设备被当作 operator 即失败」的用例钉住该性质。
+- **整体采纳上游的 `dsh-client-connection`。** 本次合并已否决：那会替 fork 的配对设备登记表做决定，而它是 fork 自己的安全表面，不该在合并中顺带定夺。改为把 gateway 的五个 Connection 调用点适配到 fork 的接缝。
 
 ## Consequences
 
+- gateway/remotes 这一对已收敛到上游的流协议，其测试族从 104 failed | 236 passed 变为 46 failed | 294 passed：`gateway.host.spec.ts`、`gateway-stream.host.spec.ts`、`echo-stream.host.spec.ts`、`stream-server.host.spec.ts`、`stream-protocol.host.spec.ts` 与 remotes 的两个文件均已转绿。剩余 46 条全部位于 `packages/api/gateway/tests/gateway.client.spec.ts`——它的上游改写需要 `@deepseek-ai/dsh-remote-mock`（见「刻意的搁置」）；fork 的那份仍在针对上游客户端运行，在被引入该包或重写 spec 之前保持红色。
+- web 通道现在能打开 Host 的会话：`apps/web/tests/archived-sessions-settings.e2e.ts` 已越过输入框闸门的载体——浏览器打开 `/api/remote.mux`，订阅 `session/control`、`workspace/follow`、`$events` 与 `session/follow`，并收到会话快照。它的下一个失败在客户端且有明确名字：`conversation.composer.bar` 席位在 `PermissionSelect` 抛出 `TypeError: Cannot read properties of undefined (reading 'find')`，因为合并后的 `permissions` 会话投影只携带 `currentValue`（上游把可选预设移到了 `permissionPresets.catalog()` Remote），而 fork 的输入框从投影上读取 `options`。把该席位移植到 catalog Remote 是下一个工作流。
+- `packages/client/connection` 承载 fork 的调用方 Peer：operator 一个、每台已接纳设备各一个，凭据不属于任何一类的调用方没有；`node-half.host.spec.ts` 钉住该性质——配对设备被接纳为它自己的 Peer——若把 operator 的 Peer 交给设备，该用例即失败。
 - Agent Team 包已转绿：`team.spec.ts` 48/48、`persistence.spec.ts` 5/5，而接纳移植之前为 9 failed | 44 passed。
 - `packages/sdk/server` 仍保留一条失败断言：它期望 `body.reasoning_effort === 'max'`，而合并后的 DeepSeek 适配器使用 Messages 线格式。该断言属于 `packages/llm/llm-deepseek`，在做出该决定前保持红色。
 - `packages/subprocess/subprocess-local/tests/control.spec.ts` 在 Windows 上仍有六个用例中的两个为红，分别是 `handle.done` 与 `once(channel, 'data')` 上的超时；通过的四个包含 256 KB 二进制传输，接线本身保持不变。

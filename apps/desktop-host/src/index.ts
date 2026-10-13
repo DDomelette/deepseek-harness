@@ -302,7 +302,9 @@ export async function runDesktopHost(
     await ctx.fiber.dispose()
     throw new Error('dsh desktop: composition did not provide connection, typertGateway, and clientModules')
   }
-  const api = connection.createSharedFetchHandler('/api')
+  // The desktop pipe carries no HTTP credential of its own, so its lanes speak
+  // as the operator; browser requests are admitted per request by Connection.
+  const api = connection.createSharedFetchHandler('/api', connection.operator)
   const assets = assetHandler(ctx, absoluteProject)
   const streams = remoteStreamHandler(ctx)
   const requests = new Map<number, AbortController>()

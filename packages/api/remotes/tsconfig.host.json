@@ -27,6 +27,9 @@
       "path": "../../interaction/commands"
     },
     {
+      "path": "../../interaction/permission-presets"
+    },
+    {
       "path": "../../llm/llm"
     },
     {
@@ -68,9 +71,26 @@
     {
       "path": "../../typert/protocol"
     },
-    { "path": "../../session/session-pins" },
-    { "path": "../../mcp/mcp-manager" },
-    { "path": "../../notes/notes/tsconfig.host.json" },
-    { "path": "../../skill/skill" }
+    {
+      "path": "../../session/session-pins"
+    },
+    {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
+      "path": "../../notes/notes/tsconfig.host.json"
+    },
+    {
+      "path": "../../skill/skill"
+    },
+    {
+      "path": "../../boot/plugin-manager"
+    },
+    {
+      "path": "../../host/plugin-inventory"
+    },
+    {
+      "path": "../../credentials/deepseek-account"
+    }
   ]
 }

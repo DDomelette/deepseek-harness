@@ -11,6 +11,7 @@
     "src/types.ts"
   ],
   "references": [
+    { "path": "../../client/product-analytics/tsconfig.client.json" },
     {
       "path": "../../../vendor/cordis"
     },
@@ -46,6 +47,9 @@
     },
     {
       "path": "../../interaction/commands"
+    },
+    {
+      "path": "../../interaction/permission-presets"
     },
     {
       "path": "../../llm/llm"
@@ -91,6 +95,12 @@
     },
     {
       "path": "../../skill/skill"
+    },
+    {
+      "path": "../../boot/plugin-manager"
+    },
+    {
+      "path": "../../credentials/deepseek-account"
     }
   ]
 }

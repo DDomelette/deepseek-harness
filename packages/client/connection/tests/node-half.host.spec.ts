@@ -3,6 +3,8 @@ import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
+import { scopeOf } from '@deepseek-ai/dsh-scope'
+import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
 import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -850,6 +852,102 @@ describe('connection device registry handle', () => {
       expect(connection.isLocalOperatorRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
       expect(connection.isLocalOperatorRequest(fakeRequest({}))).toBe(false)
       expect(connection.isLocalOperatorRequest({ headers: { host: 'bad host' } })).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('admits a paired device as its own Peer, never as the operator', async () => {
+    const { connection, routes, dispose } = await mounted()
+    try {
+      const host = '127.0.0.1:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      const deviceCookie = connection.devices.issueCookie(fakeRequest({ host }), device.id)!.split(';', 1)[0]!
+      const operatorCookie = browserCookie(connection, host)
+      // The launch-token credential is the operator's; the device cookie is a
+      // device's even where the operator's own authority is granted, because
+      // `accepts` admits a launch-token cookie only on a loopback peer.
+      const operatorRequest = fakeRequest({ host, cookie: operatorCookie })
+      const deviceRequest = fakeRequest({ host, cookie: deviceCookie })
+      expect(connection.isLocalOperatorRequest(operatorRequest)).toBe(true)
+      expect(connection.isLocalOperatorRequest(deviceRequest)).toBe(false)
+
+      // The stream-mux upgrade calls exactly this pair (`admit`, then the Peer).
+      const operatorAdmission = connection.admit(operatorRequest)
+      const deviceAdmission = connection.admit(deviceRequest)
+      expect(operatorAdmission).toEqual({ peer: connection.operator })
+      if ('rejection' in deviceAdmission) throw new Error('the device credential was refused')
+      // Handing the device the operator Peer is the regression this forbids: the
+      // two identities must differ, so operator-scoped registrations and the
+      // operator's stream lifetime never cover a paired device.
+      expect(deviceAdmission.peer).not.toBe(connection.operator)
+      expect(deviceAdmission.peer.id).not.toBe(connection.operator.id)
+      expect(scopeOf(deviceAdmission.peer.ctx)).toBe(deviceAdmission.peer)
+      expect(scopeOf(connection.operator.ctx)).toBe(connection.operator)
+
+      // The RPC interceptor receives the request's own Peer, not one constant.
+      const seen: PeerScope[] = []
+      const interceptor = connection.rpc.intercept(
+        '/api',
+        endpoint => endpoint === 'device.peer',
+        async (_endpoint, _payload, _signal, peer) => {
+          seen.push(peer)
+          return { ok: true, value: null }
+        },
+      )
+      const envelope: ClientRequest = {
+        type: 'client-request',
+        rpcId: RpcId('peer-1'),
+        method: 'device.peer',
+        payload: {},
+      }
+      const route = routes.find(candidate => candidate.path === API_PATH)!
+      const answer = fakeResponse()
+      await route.handler(fakePost({ host, cookie: operatorCookie }, `${API_PATH}/device.peer`, envelope), answer.response)
+      const deviceAnswer = fakeResponse()
+      await route.handler(fakePost({ host, cookie: deviceCookie }, `${API_PATH}/device.peer`, envelope), deviceAnswer.response)
+      await interceptor()
+      expect(answer.state.status).toBe(200)
+      expect(deviceAnswer.state.status).toBe(200)
+      expect(seen[0]).toBe(connection.operator)
+      expect(seen[1]).toBe(deviceAdmission.peer)
+      expect(seen[1]).not.toBe(connection.operator)
+
+      // Revocation closes the device's scope: the registrations it owns end, and
+      // the next admitted request from a restored device mints a fresh Peer.
+      let closed = false
+      deviceAdmission.peer.ctx.effect(() => () => { closed = true })
+      expect(await connection.devices.revoke(device.id)).toBe(true)
+      await vi.waitFor(() => { expect(closed).toBe(true) })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('refuses a handler result that projects RPC attachments', async () => {
+    const { connection, routes, dispose } = await mounted()
+    try {
+      const host = '127.0.0.1:3080'
+      const cookie = browserCookie(connection, host)
+      const unregister = connection.rpc.handle('/rpc', async () => ({
+        ok: true,
+        value: null,
+        attachments: [{ path: ['bytes'], bytes: new Uint8Array([1, 2, 3]) }],
+      }))
+      const route = routes.find(candidate => candidate.path === '/rpc')!
+      const envelope: ClientRequest = {
+        type: 'client-request',
+        rpcId: RpcId('attach-1'),
+        method: 'blob.read',
+        payload: {},
+      }
+      const answer = fakeResponse()
+      await route.handler(fakePost({ host, cookie }, '/rpc/blob.read', envelope), answer.response)
+      await unregister()
+      // This carrier frames JSON alone; answering with `null` placeholders would
+      // silently corrupt the bytes, so the result is refused instead.
+      expect(answer.state.status).toBe(500)
+      expect(String(answer.state.body)).toContain('carries no RPC attachments')
     } finally {
       await dispose()
     }
