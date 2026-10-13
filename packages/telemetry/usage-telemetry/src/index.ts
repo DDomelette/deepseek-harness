@@ -33,7 +33,7 @@ export interface Config {
 /** Validated usage telemetry configuration; the entry id `usage-telemetry` is the settings namespace. */
 export const Config = z.object({
   enabled: z.boolean().required().volatile(),
-}) as unknown as z<Config>
+})
 
 /** User-settings namespace controlling local usage telemetry. */
 export const USAGE_TELEMETRY_SETTINGS_NAMESPACE = 'usage-telemetry'

@@ -137,7 +137,7 @@ export const Config = s.object({
   // fields; the single-member union keeps the whole override skippable while
   // still validating a present one strictly.
   model: s.union([modelSchema]).volatile(),
-}) as unknown as s<Config>
+})
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

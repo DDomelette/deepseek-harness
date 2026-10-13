@@ -124,7 +124,9 @@ export async function createWebhookSession(
   const resolved = resolveRequest(ctx, request)
   ctx.permissionPresets.resolve(resolved.permissionPreset)
   const preset = await ctx.agentPresets.resolve(resolved.agentPreset)
-  await ctx.agentPresets.standingKeyFor(preset.id)
+  // Hold the preset's composition for the whole creation: acquiring the lease
+  // is what fails loud on an unknown or unusable preset, before any workspace exists.
+  await using _presetScope = await ctx.agentPresets.acquireScope(preset.id)
   signal.throwIfAborted()
 
   const workspace = await ctx.workspaceRegistry.create(resolved.workspacePath)

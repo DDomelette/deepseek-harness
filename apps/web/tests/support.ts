@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Locator, Page } from 'playwright'
+import { expect } from 'vitest'
 
 /** The built page under test; `pnpm run test:web` rebuilds it before running. */
 export const DIST_INDEX = fileURLToPath(new URL('../dist/index.html', import.meta.url))
@@ -135,6 +136,18 @@ export async function readSettledWidth(locator: Locator): Promise<number> {
     await locator.page().waitForTimeout(50)
   }
   throw new Error(`width never settled (last ${last}px)`)
+}
+
+/**
+ * Scroll a locator whose rendered element can be replaced during layout.
+ * @param target - locator resolved again when its previous element detached.
+ */
+export async function scrollIntoView(target: Locator): Promise<void> {
+  await expect.poll(() => target.evaluate((element) => {
+    if (!element.isConnected) return false
+    element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
+    return true
+  }), { timeout: 10_000 }).toBe(true)
 }
 
 /**

@@ -24,6 +24,20 @@ import SessionQueryEngine, {
 } from '@deepseek-ai/dsh-session-query'
 import { SessionTitleProviderId, SessionTitleService } from '@deepseek-ai/dsh-session-title'
 import { TestSessionQueryEngine } from './test-service.ts'
+import type { ContextFormed, MessageSource } from '@deepseek-ai/dsh-llm'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'test': { kind: 'test' } & ContextFormed
+  }
+}
+
+type CheckpointSource = Extract<MessageSource, { readonly kind: 'compact-checkpoint' }>
+
+/** Build a typed checkpoint source for a query fixture without owning compaction. */
+function checkpointSource(compactionId: string): CheckpointSource {
+  return { kind: 'compact-checkpoint', compactionId: compactionId as CheckpointSource['compactionId'] }
+}
 
 const TITLE_SERVICE_CONFIG = { fallbackMaxWords: 8, fallbackMaxBytes: 64, maxTitleBytes: 256 }
 
@@ -960,7 +974,7 @@ describe('session-query exact reads', () => {
       'user/message',
       createUserMessage({
         content: [{ type: 'text', text: 'replacement' }],
-        source: { kind: 'plugin', plugin: 'test' },
+        source: { kind: 'test' },
       }),
       { surfaceOp: { op: 'replace', startSeq: first.seq, endSeq: first.seq }, sourceEventSeqs: [first.seq] },
     )
@@ -987,7 +1001,7 @@ describe('session-query exact reads', () => {
     session.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'checkpoint' }], source: { kind: 'plugin', plugin: 'compact' },
+        content: [{ type: 'text', text: 'checkpoint' }], source: checkpointSource('query-compaction-1'),
       }),
       { surfaceOp: { op: 'replace', startSeq: first.seq, endSeq: first.seq }, sourceEventSeqs: [first.seq] },
     )
@@ -1001,7 +1015,7 @@ describe('session-query exact reads', () => {
     session.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'latest checkpoint' }], source: { kind: 'plugin', plugin: 'compact' },
+        content: [{ type: 'text', text: 'latest checkpoint' }], source: checkpointSource('query-compaction-2'),
       }),
       { surfaceOp: { op: 'replace', startSeq: SessionSeq(2), endSeq: retained.seq }, sourceEventSeqs: [SessionSeq(2), retained.seq] },
     )
@@ -1031,7 +1045,7 @@ describe('session-query exact reads', () => {
     ])
     if (snapshot.events[0]?.type !== 'user/message') throw new Error('expected current user message')
     expect(() => {
-      (snapshot.events[0]!.data as { content: unknown[] }).content = []
+      (snapshot.events[0]!.data as unknown as { content: unknown[] }).content = []
     }).toThrow()
     Object.assign(snapshot.session, { cwd: '/mutated' })
 

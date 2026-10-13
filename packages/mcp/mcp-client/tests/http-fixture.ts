@@ -8,12 +8,14 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 /** Running HTTP fixture and the request headers it observed. */
 export interface HttpMcpFixture {
   url: string
+  calls: string[]
   authorization: Array<string | undefined>
   close: () => Promise<void>
 }
 
 /** Start a local stateless MCP endpoint exposing one `ping` tool. */
 export async function startHttpMcpFixture(): Promise<HttpMcpFixture> {
+  const calls: string[] = []
   const authorization: Array<string | undefined> = []
   const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     authorization.push(request.headers.authorization)
@@ -21,9 +23,10 @@ export async function startHttpMcpFixture(): Promise<HttpMcpFixture> {
       { name: 'http-fixture', version: '1.0.0' },
       { capabilities: { tools: {} } },
     )
-    mcp.registerTool('ping', { description: 'Replies pong.', inputSchema: {} }, async () => ({
-      content: [{ type: 'text', text: 'pong' }],
-    }))
+    mcp.registerTool('ping', { description: 'Replies pong.', inputSchema: {} }, async () => {
+      calls.push('ping')
+      return { content: [{ type: 'text', text: 'pong' }] }
+    })
     const transport = new StreamableHTTPServerTransport({})
     response.on('close', () => {
       void transport.close()
@@ -45,6 +48,7 @@ export async function startHttpMcpFixture(): Promise<HttpMcpFixture> {
   return {
     url: `http://127.0.0.1:${address.port}/mcp`,
     authorization,
+    calls,
     close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => { if (error === undefined) resolve(); else reject(error) })
     }),

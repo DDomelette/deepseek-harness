@@ -14,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { assertNever, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import type SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
+import type { SubagentActivation } from '@deepseek-ai/dsh-subagent'
 import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowMeta, WorkflowResult, WorkflowRun, WorkflowRunId } from '@deepseek-ai/dsh-workflow'
 import { renderThrown } from './realm.ts'
 import type { ExecutionObserver } from './runtime.ts'
@@ -24,7 +24,7 @@ import type { ChildResult, ChildStartRequest, WorkerInit } from './types.ts'
 
 /** One published child and its shared quiescent-disposal transaction. */
 interface ChildRecord {
-  readonly run: SubagentRun
+  readonly run: SubagentActivation
   disposal?: Promise<void>
 }
 
@@ -350,21 +350,26 @@ export class WorkerRun implements WorkflowRun {
 
   /** Await one provider-owned startup transaction and publish only while admitted. */
   private async startChild(callId: number, request: ChildStartRequest): Promise<void> {
-    let run: SubagentRun
+    let run: SubagentActivation
     try {
-      run = await this.subagents.start(this.provider, {
-        prompt: [{ type: 'text', text: request.prompt }],
-        parent: this.parent,
+      run = await this.subagents.startActivation({
+        provider: this.provider,
+        label: `${this.meta.name} child ${callId}`,
+        delivery: 'caller',
         signal: this.controller.signal,
-        ...request.schema !== undefined ? { outputSchema: request.schema } : {},
-        ...request.provider !== undefined || request.model !== undefined
-          ? {
-            agentOptions: {
-              ...request.provider !== undefined ? { provider: request.provider } : {},
-              ...request.model !== undefined ? { model: request.model } : {},
-            },
-          }
-          : {},
+        request: {
+          prompt: [{ type: 'text', text: request.prompt }],
+          parent: this.parent,
+          ...request.schema !== undefined ? { outputSchema: request.schema } : {},
+          ...request.provider !== undefined || request.model !== undefined
+            ? {
+              agentOptions: {
+                ...request.provider !== undefined ? { provider: request.provider } : {},
+                ...request.model !== undefined ? { model: request.model } : {},
+              },
+            }
+            : {},
+        },
       })
     } catch (error: unknown) {
       const failure = this.childAdmissionFailure()
@@ -394,7 +399,7 @@ export class WorkerRun implements WorkflowRun {
       (result) => {
         try {
           const snapshot = snapshotJsonValue<ChildResult>({
-            output: result.output,
+            output: [...result.output],
             ...result.structured !== undefined ? { structured: result.structured } : {},
             stopReason: result.stopReason,
           })
@@ -410,7 +415,7 @@ export class WorkerRun implements WorkflowRun {
         return () => { this.post(HostToWorkerType.ChildFailed, { callId, rendered }) }
       },
     )
-    this.post(HostToWorkerType.ChildStarted, { callId, childId: run.id })
+    this.post(HostToWorkerType.ChildStarted, { callId, childId: run.childId })
     void forwardResult.then((forward) => { forward() })
   }
 

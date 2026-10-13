@@ -15,7 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Analysis } from '../src/analysis.ts'
 import { NotesRemote } from '../src/remote.ts'
 import { Config, NOTES_SETTINGS_NAMESPACE, NotesSettings } from '../src/settings.ts'
-import type { ActionDef } from '../src/settings.ts'
+import type { ActionDef, NotesStrategy } from '../src/settings.ts'
 import type { Config as NotesConfig } from '../src/settings.ts'
 import { bench, mountNotes } from './bench.ts'
 import type { Bench } from './bench.ts'
@@ -73,8 +73,8 @@ afterEach(async () => {
  * @returns the mounted bench.
  */
 async function mount(settings: {
-  readonly strategy?: NotesConfig['strategy'] | undefined
-  readonly actions?: NotesConfig['actions'] | undefined
+  readonly strategy?: NotesStrategy | undefined
+  readonly actions?: ActionDef[] | undefined
   readonly workspace?: string | undefined
 } = {}): Promise<RemoteBench> {
   // An explicitly supplied `workspace: undefined` means "no workspace
@@ -124,7 +124,7 @@ async function mount(settings: {
  * @returns the mounted host.
  */
 async function configured(entry: {
-  readonly actions?: NotesConfig['actions']
+  readonly actions?: ActionDef[]
 } = {}): Promise<ConfiguredBench> {
   const home = await configurationFixture({
     schema: Config as never,

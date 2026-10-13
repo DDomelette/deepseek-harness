@@ -57,7 +57,7 @@ describe('notes host half', () => {
 
   it('stays inactive while the storage domain facility is absent', async () => {
     ctx = new Context()
-    const mounted = ctx.plugin({ name, apply, inject, Config }, Config(undefined))
+    const mounted = ctx.plugin({ name, apply, inject, Config })
     await Promise.resolve()
     expect(mounted.state).not.toBe(FiberState.ACTIVE)
     await mounted.dispose()

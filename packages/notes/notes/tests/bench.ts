@@ -335,7 +335,9 @@ export async function mountNotes(ctx: Context): Promise<NotesStack> {
  *   resolves its defaults and the live value references the owner reads.
  * @returns the mounted bench, with its own teardown.
  */
-export async function bench(settings: Record<string, unknown> = { strategy: 'manual', actions: [] }): Promise<Bench> {
+export async function bench(
+  settings: NonNullable<Parameters<typeof Config>[0]> = { strategy: 'manual', actions: [] },
+): Promise<Bench> {
   const ctx = new Context()
   await ctx.plugin(NotesSettings, Config(settings)).await()
   const mounted = await mountNotes(ctx)

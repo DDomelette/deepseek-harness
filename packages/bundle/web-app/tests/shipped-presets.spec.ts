@@ -23,15 +23,16 @@ interface BundleManifest {
 interface Row {
   id?: string
   name?: string
+  insert?: Row[]
   config?: { id?: string; name?: string; description?: string; order?: number; plugins?: unknown[] }
 }
 
 const manifest = JSON.parse(readFileSync(join(WEB_BUNDLE, 'package.json'), 'utf8')) as BundleManifest
 const patchPaths = bundlePatchPaths(WEB_BUNDLE, manifest.dsh.bundle)
-const rows = composeEntries([
+const rows = composeEntries([[
   ...loadOverlayPatches('shipped presets', BASE_PATCH),
   ...patchPaths.flatMap(file => loadOverlayPatches('shipped presets', file)),
-]) as Row[]
+]]) as Row[]
 const declarations = rows.filter(row => row.name === '@deepseek-ai/dsh-agent-preset')
 
 /** Every plugin package a row names, including nested group and preset rows. */

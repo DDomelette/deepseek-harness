@@ -5,7 +5,7 @@ import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentHandle, AssistantStreamFrame, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
 import AgentDefaultModelConfig from '@deepseek-ai/dsh-agent-default-model'
-import { LlmAttemptId, createAssistantMessage, type StreamChunk } from '@deepseek-ai/dsh-llm'
+import { LlmAttemptId, MessageId, createAssistantMessage, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Session, UserMessage } from '@deepseek-ai/dsh-session'
@@ -140,8 +140,8 @@ describe('headless runner', () => {
     const test = await bench({
       before(session) {
         const setupMessage = {
-          role: 'user', content: [{ type: 'text', text: 'setup' }], source: { kind: 'user' }, id: 'setup',
-        } as UserMessage
+          role: 'user', content: [{ type: 'text', text: 'setup' }], source: { kind: 'user' }, id: MessageId('setup'),
+        } satisfies UserMessage
         appendTurn(session, 0, setupMessage, 'pre-task noise', true)
       },
       async afterPrompt(session, message) {
