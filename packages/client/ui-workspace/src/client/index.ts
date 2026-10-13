@@ -146,6 +146,8 @@ export function apply(ctx: Context): void {
         'sidebar.workspaces.pinned': { kind: 'single', scope: 'root' },
         'sidebar.workspaces.sessionActions': { kind: 'list', scope: 'root' },
         'sidebar.workspaces.searchResultExtra': { kind: 'list', scope: 'root' },
+        'sidebar.session.row.leading': { kind: 'list', scope: 'root' },
+        'sidebar.session.row.hover': { kind: 'list', scope: 'root' },
       },
       store: createWorkspaceViewStore(),
       inject: browserInjected,

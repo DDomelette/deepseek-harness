@@ -706,7 +706,7 @@ Sources: [`packages/core/session/src/types.ts:429`](../packages/core/session/src
 
 类型：[ScheduleChange](subsystems/schedule.zh.md)
 
-来源：[`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/schedule/src/types.ts)
+来源：[`packages/schedule/schedule/src/types.ts:365`](../packages/schedule/schedule/src/types.ts)
 
 ### `session/*`
 

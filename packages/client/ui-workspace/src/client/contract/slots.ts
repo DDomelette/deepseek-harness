@@ -52,6 +52,16 @@ export interface DirectoryFlowOwnerProps {
   onError: (message: string) => void
 }
 
+/**
+ * Owner share of the two Session-row ambient seats. Both receive only the
+ * row's Session identity: the occupant reads that Session's own data by it,
+ * and reading activates nothing.
+ */
+export interface SessionRowScheduleOwnerProps {
+  /** Session this row shows; the occupant addresses its own data by this id. */
+  readonly sessionId: SessionId
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /** Pinned list contributed by a Session presentation feature. */
@@ -64,6 +74,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
+    /**
+     * Leading decoration of one Session row, in the 16px cell before the title
+     * that the row's own state dot otherwise occupies. A higher-priority state
+     * (a pending interaction or live activity) replaces the seat with that dot
+     * for the same row, so an occupant here never renders beside a status dot
+     * and is mounted only by a row whose primary state is resting.
+     */
+    'sidebar.session.row.leading': { kind: 'list'; scope: 'root'; owner: SessionRowScheduleOwnerProps }
+    /**
+     * Section of the Session row's hover card between its relative time and
+     * its trailing status line. Mounted only while that card is open.
+     */
+    'sidebar.session.row.hover': { kind: 'list'; scope: 'root'; owner: SessionRowScheduleOwnerProps }
   }
 }
 
@@ -156,7 +179,7 @@ export type WorkspaceBrowserInjected = {
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
 export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
-  & PropsRenderSlots<'sidebar.workspaces.directoryFlow' | 'sidebar.workspaces.pinned' | 'sidebar.workspaces.sessionActions' | 'sidebar.workspaces.searchResultExtra'>
+  & PropsRenderSlots<'sidebar.workspaces.directoryFlow' | 'sidebar.workspaces.pinned' | 'sidebar.workspaces.sessionActions' | 'sidebar.workspaces.searchResultExtra' | 'sidebar.session.row.leading' | 'sidebar.session.row.hover'>
   & PropsStore<ReturnType<typeof createWorkspaceViewStore>>
   & Omit<WorkspaceBrowserInjected, 'hooks'>
   & PropsHooks<WorkspaceBrowserInjected['hooks']>

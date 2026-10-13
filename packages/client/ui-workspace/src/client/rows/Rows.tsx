@@ -8,12 +8,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
+  HoverCard, IconArchiveOutline20, IconBranchOutline16,
   IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
   IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
   StateDot, StatusDots,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
@@ -21,6 +22,17 @@ import css from './Rows.module.css'
 
 /** The standard locale seat, prop-passed from the browser root. */
 type RowTranslate = WorkspaceBrowserProps['t']
+
+/**
+ * Child-seat renderer threaded from the browser root: the row's leading
+ * decoration and its hover-card section. The leading seat renders only while
+ * the row's status cell carries nothing else, so a status dot and a leading
+ * occupant never share the row; the hover seat only while the card is open.
+ */
+type RowRenderSlots = PropsRenderSlots<
+  | 'sidebar.session.row.leading'
+  | 'sidebar.session.row.hover'
+>['renderSlot']
 
 /** Row display title: blank rows show the localized New Session label. */
 function displayTitle(node: SessionNode, t: RowTranslate): string {
@@ -268,23 +280,13 @@ function sessionStatuses(
   return [{ state: 'done', label: t('status.idle') }]
 }
 
-/** Non-interactive active-Schedule marker; the enclosing row remains the only action. */
-function ActiveScheduleIndicator({ t, search = false }: { t: RowTranslate; search?: boolean }) {
-  const label = t('schedule.active')
-  return (
-    <span
-      className={clsx(css.scheduleIndicator, search && css.searchScheduleIndicator)}
-      role="img"
-      aria-label={label}
-      title={label}
-    >
-      <IconAlarmClockOutline16 />
-    </span>
-  )
-}
-
-/** Hover-card body: full title, relative time, and every relevant live status. */
-function SessionHoverContent({ node, now, t }: { node: SessionNode; now: number; t: RowTranslate }) {
+/** Hover-card body: full title, relative time, ambient row section, and every relevant live status. */
+function SessionHoverContent({ node, now, renderSlot, t }: {
+  node: SessionNode
+  now: number
+  renderSlot: RowRenderSlots
+  t: RowTranslate
+}) {
   const statuses = sessionStatuses(node, t)
   return (
     <div className={css.hoverContent}>
@@ -293,6 +295,7 @@ function SessionHoverContent({ node, now, t }: { node: SessionNode; now: number;
       {/* Same placeholder rule as the row's trailing cell: no timestamp
           before the first prompt. */}
       {!node.blank && <div className={css.hoverTime}>{hoverTimeLabel(node.updatedAt, now, t)}</div>}
+      {renderSlot('sidebar.session.row.hover', { sessionId: node.id })}
       {statuses.map(status => (
         <div className={css.hoverStatus} key={status.label}>
           <StateDot state={status.state} />
@@ -338,7 +341,6 @@ export function SearchResultItem({ result, currentId, onOpen, extra, t }: {
           )}
         </span>
         <span className={css.searchResultTitle}>{result.title}</span>
-        {result.hasActiveSchedule && <ActiveScheduleIndicator t={t} search />}
         {extra}
       </span>
       <span className={css.searchResultMeta}>
@@ -368,7 +370,8 @@ export function SearchResultItem({ result, currentId, onOpen, extra, t }: {
  * @returns the session row.
  */
 export function SessionNodeItem({
-  node, currentId, now, onOpen, onRename, onFork, onArchive, onReveal, drag, flat = false, extraActions, t,
+  node, currentId, now, onOpen, onRename, onFork, onArchive, onReveal, drag, flat = false,
+  extraActions, renderSlot, t,
 }: {
   node: SessionNode
   extraActions?: ReactNode
@@ -388,7 +391,7 @@ export function SessionNodeItem({
   /** The row is rendered without a parent Workspace header. */
   flat?: boolean | undefined
   t: RowTranslate
-}) {
+} & PropsRenderSlots<'sidebar.session.row.leading' | 'sidebar.session.row.hover'>) {
   const row = node
   const title = displayTitle(node, t)
   const selected = node.id === currentId
@@ -450,14 +453,17 @@ export function SessionNodeItem({
     >
       {/* Pending interaction and own or descendant activity outrank the
           finished-but-unviewed reminder, which returns after activity stops
-          and is cleared by opening the session. */}
+          and is cleared by opening the session. A resting cell hands itself to
+          the row's leading seat, so an ambient occupant and a status dot never
+          share the row. */}
       {(!flat || showStatus) && (
         <span className={css.slot}>
-          {showStatus && <StatusDots statuses={statuses} />}
+          {showStatus
+            ? <StatusDots statuses={statuses} />
+            : renderSlot('sidebar.session.row.leading', { sessionId: node.id })}
         </span>
       )}
       <span className={css.title}>{title}</span>
-      {row.hasActiveSchedule && <ActiveScheduleIndicator t={t} />}
       {/* A blank New Session row is a provisional placeholder: nothing has
           happened in it yet, so a "now" timestamp and the row verbs
           (rename/fork/archive) would all act on content that does not
@@ -496,7 +502,7 @@ export function SessionNodeItem({
   return (
     <HoverCard
       anchor={ownRow}
-      content={<SessionHoverContent node={node} now={now} t={t} />}
+      content={<SessionHoverContent node={node} now={now} renderSlot={renderSlot} t={t} />}
       disabled={menuOpen || drag?.active === true}
       copyText={row.blank ? undefined : row.title}
       copyLabel={t('copy')}

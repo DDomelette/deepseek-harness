@@ -2393,6 +2393,30 @@ Depends on: [`SandboxMode`](subsystems/sandbox.md)
 
 Source: [`packages/sandbox/sandbox-policy/src/index.ts:71`](../packages/sandbox/sandbox-policy/src/index.ts)
 
+<a id="deepseek-aidsh-schedule"></a>
+
+## `@deepseek-ai/dsh-schedule`
+
+Requires: `agents` · `sessions` · `storageDomain` · `sessionController` · `sessionPersistence`
+
+```ts config-catalog
+/** Configuration for the Host Schedule domain. */
+export interface Config {
+  /**
+   * Delivery-history window retained per task, in days; omission defaults to 30.
+   * Pruning happens when an acknowledgment is appended, and `lastDelivery` is always retained.
+   */
+  deliveryHistoryDays?: number
+  /**
+   * Retained delivery records per task; omission defaults to 200. The older of this
+   * cap and the window wins, and the newest records survive.
+   */
+  deliveryHistoryRecords?: number
+}
+```
+
+Source: [`packages/schedule/schedule/src/index.ts:72`](../packages/schedule/schedule/src/index.ts)
+
 <a id="deepseek-aidsh-sdk-app"></a>
 
 ## `@deepseek-ai/dsh-sdk-app`
@@ -4195,7 +4219,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-mcp-resources` — requires `tools` ([`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts))
 - `@deepseek-ai/dsh-mob` — requires `webServer` · `connection` ([`packages/bundle/mob/src/index.ts`](../packages/bundle/mob/src/index.ts))
 - `@deepseek-ai/dsh-otel` ([`packages/telemetry/otel/src/index.ts`](../packages/telemetry/otel/src/index.ts))
-- `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))
 - `@deepseek-ai/dsh-session-deletion` — requires `sessions` · `sessionPersistence` · `storageDomain` ([`packages/session/session-deletion/src/index.ts`](../packages/session/session-deletion/src/index.ts))
@@ -4211,6 +4234,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-terminal` ([`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
+- `@deepseek-ai/dsh-tool-schedule` — requires `tools` ([`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-tool-working-directory` — requires `tools` · `workingDirectory` ([`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts))
 - `@deepseek-ai/dsh-user-questions` ([`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts))

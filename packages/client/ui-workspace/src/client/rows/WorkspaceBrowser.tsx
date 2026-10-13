@@ -235,7 +235,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessions' | 'useSessionPendingInteraction' | 'startSession' | 'open' | 'forkSession'
-  | 'insertWorkspaceBefore' | 'insertSessionBefore' | 't' | 'usePanelInfo'
+  | 'insertWorkspaceBefore' | 'insertSessionBefore' | 't' | 'usePanelInfo' | 'renderSlot'
 > & {
   /** Host account home for POSIX hover-path abbreviation. */
   home?: string | undefined
@@ -281,7 +281,7 @@ function SessionTree({
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed, renderSessionActions,
+  revealSessionId, onSessionRevealed, renderSessionActions, renderSlot,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const list = useSessions(s => s)
@@ -584,6 +584,7 @@ function SessionTree({
                     key={node.id}
                     node={node}
                     extraActions={renderSessionActions(node.id)}
+                    renderSlot={renderSlot}
                     currentId={current}
                     now={now}
                     onOpen={open}
@@ -624,7 +625,7 @@ function FlatList({
   useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive,
   archivedSessionIds, usePanelInfo,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder,
-  revealSessionId, onSessionRevealed, renderSessionActions, t,
+  revealSessionId, onSessionRevealed, renderSessionActions, t, renderSlot,
 }: Pick<
   SessionTreeProps,
   | 'useSessions'
@@ -643,6 +644,7 @@ function FlatList({
   | 'revealSessionId'
   | 'onSessionRevealed'
   | 'renderSessionActions'
+  | 'renderSlot'
   | 't'
 >) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
@@ -713,6 +715,7 @@ function FlatList({
               key={node.id}
               node={node}
               extraActions={renderSessionActions(node.id)}
+              renderSlot={renderSlot}
               currentId={panelActive ? undefined : list.current}
               now={now}
               onOpen={open}
@@ -1297,6 +1300,7 @@ export function WorkspaceBrowser({
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
                 archivedSessionIds={hiddenSessionIds}
                 renderSessionActions={sessionId => renderSlot('sidebar.workspaces.sessionActions', { sessionId })}
+                renderSlot={renderSlot}
                 orderBy={orderBy}
                 sessionOrderByAccount={sessionOrderByAccount}
                 sessionUpdatedAtByAccount={sessionUpdatedAtByAccount}
@@ -1325,8 +1329,8 @@ export function WorkspaceBrowser({
                 setSessionOrder={actions.setSessionOrder}
                 archivedSessionIds={hiddenSessionIds}
                 renderSessionActions={sessionId => renderSlot('sidebar.workspaces.sessionActions', { sessionId })}
-                startSession={startSession}
-                open={open}
+                renderSlot={renderSlot}
+                startSession={startSession}                open={open}
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 insertSessionBefore={insertSessionBefore}
                 orderBy={orderBy}

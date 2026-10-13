@@ -54,7 +54,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 **三个未挂载的上游客户端包。** `client-ui-cot-translation`、`client-ui-voice-input` 与 `ui-plugin-manager` 与 Office 线一样被搁置：没有 bundle 挂载它们，且它们的 slot 席位只存在于上游的客户端包中，本地声明这些 slot 只会留下死注册。
 
-**上游的 `tool-schedule`。** fork 保留自己的 schedule 插件，并把上游的两个期望 spec 移植到 fork 的 `after`/`at`/`every` 模型上，而不是采纳上游的 `ScheduleService`。
+**上游的 `tool-schedule`。** 合并最初保留了 fork 自己的 schedule 插件，并把上游的两个期望 spec 移植到 fork 的 `after`/`at`/`every` 模型上。该搁置决定已被撤销：fork 的模型整体退役，改为采纳上游的 `ScheduleService` 线路——宿主包、`tool-schedule`、带 `schedule/changed` 转发事件的 `scheduleRemote` Remote 贡献、客户端与 spec。该撤销由被采纳的 [Host Schedule 存储](2026-09-16-host-schedule-storage.zh.md)决策与 [preset 级提醒工具](2026-09-24-preset-scoped-schedule-tools.zh.md)决策记录；fork 的会话日志权威说明已归档至[持久定时提醒](../../archived/feature/2026-08-05-durable-web-schedule.md)。
 
 **preset 目录打开表面。** 合并后的 `AgentPreset` 不携带 trust 与 path，因为上游用「在 `cordis.yml` 中声明 preset」的注册表取代了 fork 那个会自行发现目录的 agent-presets 包；打开用户自撰的 preset 目录因此没有数据来源。该表面被端到端移除——两个 preset 打开的 Remote 方法、SettingsController 的 `nativeOpen` 字段、`canOpenPath`、`AgentPresetDirectoryOpenValue`、`agent-preset/read-only` 错误码、connection fixture 的分发条目、`ui-agent-preset` 的位置入口及其 locale 与 CSS，以及仅覆盖它的那些用例。若 Host 侧的 `deletePreset` 回归，请恢复 `agent-preset/read-only`。
 

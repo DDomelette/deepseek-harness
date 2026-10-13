@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-24-preset-scoped-time-context.md
+2026-09-24-preset-scoped-time-context.md: c10d4c0f43893eca8e0f3997de5808f8189198ce
+2026-09-24-preset-scoped-time-context.zh.md: 19cfe7c9166f8f93a997841ce5aa021ef4f889bc

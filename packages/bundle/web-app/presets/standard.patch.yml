@@ -46,6 +46,9 @@
             config:
               maxBytes: 65536
 
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+
           # ── shell ───────────────────────────────────────────────────────────────────
 
           # `shell-env` stays in the HOST composition: `apps/cli/src/web.ts` injects it to
@@ -86,6 +89,9 @@
           # chooses is whether its agent can collect and stop background work at all.
           - id: tool-jobs
             name: '@deepseek-ai/dsh-tool-jobs'
+
+          - id: tool-schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
 
           # ── skills ──────────────────────────────────────────────────────────────────
 
@@ -197,6 +203,12 @@
                   provider: spawn
                   toolName: subagent
                   modelSelectionSettings: true
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
                   backgroundMode: continuable
 
               # Fork omits model selection so provider/model stay equal to the parent and
@@ -209,6 +221,12 @@
                   provider: fork
                   toolName: subagent_fork
                   backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
 
               # Production dsh does not install these optional providers. Install the
               # matching Bundle in this Profile and restart the Host, then copy this

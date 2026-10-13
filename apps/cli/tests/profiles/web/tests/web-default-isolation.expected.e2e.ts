@@ -9,7 +9,7 @@ import { withDefaultWeb, webGet } from './default-web-process.ts'
 
 const experimentalName = '@deepseek-ai/dsh-experimental-client-ui-agent-team'
 
-it('boots default Web with the disabled Schedule row and no Schedule service, without experimental modules, time context, or an active built-in Browser', async (test) => {
+it('boots default Web with the shipped Schedule rows, without experimental modules, time context, or an active built-in Browser', async (test) => {
   await withDefaultWeb(test, async ({ url, request }) => {
     const auth = await webGet(url, test.signal)
     const cookie = auth.headers['set-cookie']?.[0]?.split(';', 1)[0]
@@ -34,13 +34,13 @@ it('boots default Web with the disabled Schedule row and no Schedule service, wi
     expect(browser).toBeDefined()
     expect(browser!.state).toBeUndefined()
     expect(delivered.entries.some(entry => entry.id === '@deepseek-ai/dsh-client-ui-sidebar-browser')).toBe(false)
-    // Schedule is opt-in: the shipped composition declares the browser row and
-    // leaves it disabled, and mounts no Host Schedule plugin at all.
-    const scheduleRow = roster.entries.find(entry => entry.id === 'ui-schedule')
-    expect(scheduleRow?.name).toBe('@deepseek-ai/dsh-client-ui-schedule')
-    expect(scheduleRow?.state).toBeUndefined()
-    expect(roster.entries.some(entry => entry.name === '@deepseek-ai/dsh-schedule')).toBe(false)
-    expect(delivered.entries.some(entry => entry.id === 'ui-schedule')).toBe(false)
+    // The shipped composition mounts the Host Schedule service and its task
+    // page; the clock stays preset-level, so neither plane carries a row for it.
+    expect(roster.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: '@deepseek-ai/dsh-schedule', state: FiberState.ACTIVE }),
+      expect.objectContaining({ name: '@deepseek-ai/dsh-client-ui-schedule', state: FiberState.ACTIVE }),
+    ]))
+    expect(delivered.entries.some(entry => entry.id === '@deepseek-ai/dsh-client-ui-schedule')).toBe(true)
     expect(roster.entries.some(entry => entry.name === '@deepseek-ai/dsh-time-context')).toBe(false)
     expect(delivered.entries.some(entry => entry.id === '@deepseek-ai/dsh-time-context')).toBe(false)
     expect(experimentalRuntimeReferences(roster)).toEqual([])

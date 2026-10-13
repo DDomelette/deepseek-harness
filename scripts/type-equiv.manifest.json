@@ -1032,12 +1032,32 @@
     },
     {
       "doc": "docs/subsystems/schedule.md",
+      "symbol": "DailyInput",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "DailyScheduleRecord",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "DeliveryRetentionBounds",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
       "symbol": "EveryScheduleDispatchChange",
       "source": "packages/schedule/schedule/src/types.ts"
     },
     {
       "doc": "docs/subsystems/schedule.md",
       "symbol": "EveryScheduleRecord",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "LegacyScheduleRecord",
       "source": "packages/schedule/schedule/src/types.ts"
     },
     {
@@ -1057,6 +1077,16 @@
     },
     {
       "doc": "docs/subsystems/schedule.md",
+      "symbol": "RecurringScheduleRecord",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleCatalogEntry",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
       "symbol": "ScheduleChange",
       "source": "packages/schedule/schedule/src/types.ts"
     },
@@ -1067,7 +1097,32 @@
     },
     {
       "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleCreateRequest",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
       "symbol": "ScheduleDeleteChange",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeleteRequest",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeleteResult",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeliveryHistoryRequest",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeliveryHistoryResult",
       "source": "packages/schedule/schedule/src/types.ts"
     },
     {
@@ -1077,7 +1132,22 @@
     },
     {
       "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeliveryReceipt",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleDeliveryRecord",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
       "symbol": "ScheduleDispatchChange",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleListRequest",
       "source": "packages/schedule/schedule/src/types.ts"
     },
     {
@@ -1088,6 +1158,21 @@
     {
       "doc": "docs/subsystems/schedule.md",
       "symbol": "ScheduleState",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleTimingChange",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleUpdateRequest",
+      "source": "packages/schedule/schedule/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/schedule.md",
+      "symbol": "ScheduleUpdateResult",
       "source": "packages/schedule/schedule/src/types.ts"
     },
     {

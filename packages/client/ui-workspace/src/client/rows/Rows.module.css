@@ -199,22 +199,6 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.scheduleIndicator {
-  display: inline-flex;
-  flex: none;
-  width: 16px;
-  height: 20px;
-  align-items: center;
-  justify-content: center;
-  margin-right: 6px;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.searchScheduleIndicator {
-  margin-right: 0;
-  margin-left: 4px;
-}
-
 .dot {
   flex: none;
 }

@@ -137,6 +137,13 @@
     - id: workspace-files
       name: '@deepseek-ai/dsh-api-workspace-files'
 
+    # The Schedule service owns the task store and delivers each due occurrence
+    # as a follow-up in its original Session. The clock reading and the four
+    # reminder tools belong to the `standard`, `cordis`, and `ptc` presets,
+    # which declare them in their own scope.
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+
     # Configuration-surface reads and writes over Typert Remote. Each method
     # reports an actionable error when its settings-domain provider is absent.
     - id: settings-controller
@@ -329,12 +336,10 @@
     - id: ui-reference
       name: '@deepseek-ai/dsh-client-ui-reference'
 
-    # Read-only active Schedule catalog. The shipped Web graph resolves the
-    # client package but leaves it disabled; the explicit Schedule overlay
-    # enables this same row together with the host Schedule services.
+    # Task management and Session reminder catalog over the Host Schedule
+    # service mounted above.
     - id: ui-schedule
       name: '@deepseek-ai/dsh-client-ui-schedule'
-      disabled: true
 
     # Background jobs: the session-header list over the jobsBySession mirror.
     - id: ui-jobs
