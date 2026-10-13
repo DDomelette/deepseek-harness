@@ -159,6 +159,14 @@ export const PROCESS_INFORMATION = koffi.struct('DSH_PROCESS_INFORMATION', {
   dwThreadId: 'uint32',
 })
 
+/**
+ * Return the PROCESS_INFORMATION layout for callers that encode or decode it directly.
+ * @returns the same Koffi struct type {@link allocProcessInfo} and {@link decodeProcessInfo} use.
+ */
+export function processInformationType(): typeof PROCESS_INFORMATION {
+  return PROCESS_INFORMATION
+}
+
 /* v8 ignore start -- ABI guards are pinned by native header probes. */
 if (STARTUPINFOW.size !== abi.STARTUPINFOW_SIZE) {
   throw new Error(`STARTUPINFOW layout mismatch: koffi computed ${STARTUPINFOW.size}, expected ${abi.STARTUPINFOW_SIZE}`)

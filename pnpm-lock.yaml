@@ -10185,9 +10185,9 @@ importers:
       '@deepseek-ai/dsh-session-format-catalog':
         specifier: workspace:^
         version: link:../session-format-catalog
-      '@deepseek-ai/dsh-session-format-v2-to-v3':
-        specifier: workspace:^
-        version: link:../session-format-v2-to-v3
+      '@deepseek-ai/dsh-session-format-v3-to-v4':
+        specifier: workspace:*
+        version: link:../session-format-v3-to-v4
       '@deepseek-ai/node-addon-system':
         specifier: workspace:^
         version: link:../../../native/system/packages/entry
