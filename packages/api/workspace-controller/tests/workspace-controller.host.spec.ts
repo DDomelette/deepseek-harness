@@ -14,6 +14,14 @@ import { WorkspaceFeed } from '../src/feed.ts'
 import type { WorkspaceFollowFrame } from '../src/types.ts'
 import { MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 
+// The controller relays whatever families the providers report; this suite merges its own.
+declare module '@deepseek-ai/dsh-workspace/types' {
+  interface SessionActivityKindMap {
+    probe: true
+    'probe-items': true
+  }
+}
+
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     'fixture/failure': {}
@@ -237,6 +245,33 @@ describe('WorkspaceController commands', () => {
       .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
     expect(ctx.workspaceRegistry.archivedSessionAts).toEqual({})
     expect(workspace.sessionIds).toEqual([session.id])
+  })
+
+  it('refuses an active Session as workspace/session-active and writes nothing', async () => {
+    const { controller, ctx, root } = await harness()
+    const created = await controller.create({ path: stageDir(root, 'active') })
+    const session = ctx.sessions.create(SessionId('active-session'), {
+      meta: { cwd: created.workspace.path },
+    })
+    const activity = [
+      { kind: 'probe' as const },
+      { kind: 'probe-items' as const, items: [{ id: 'item-1', label: 'build' }] },
+    ]
+    const stopReporting = ctx.on('workspace/session-activity', async ({ sessionId }, next) => (
+      sessionId === session.id ? [...activity, ...(await next())] : next()
+    ))
+
+    // The registry's refusal reaches the wire as its own code with the
+    // activity the providers reported, and the archive set stays untouched.
+    await expect(controller.archiveSession({ sessionId: session.id })).rejects.toMatchObject({
+      code: 'workspace/session-active',
+      details: { sessionId: session.id, activity },
+    })
+    expect(controller.list()).toMatchObject({ archivedSessionIds: [], archivedSessionAts: {} })
+
+    stopReporting()
+    await expect(controller.archiveSession({ sessionId: session.id }))
+      .resolves.toMatchObject({ archivedSessionIds: [session.id] })
   })
 })
 

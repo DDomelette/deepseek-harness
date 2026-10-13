@@ -3,6 +3,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import {
+  WorkspaceActiveSessionError,
   WorkspaceId,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
@@ -146,7 +147,9 @@ export class WorkspaceCommands {
   }
 
   /**
-   * Add one known Session to the registry-global archive set.
+   * Add one known Session to the registry-global archive set. A Session with
+   * running work is refused as `workspace/session-active` with the activity the
+   * registry's providers reported.
    * @param request - Session identity to archive.
    * @returns the complete resulting archive set.
    */
@@ -170,6 +173,14 @@ export class WorkspaceCommands {
     try {
       await this.ctx.workspaceRegistry[operation](request.sessionId)
     } catch (error) {
+      if (error instanceof WorkspaceActiveSessionError) {
+        throw new RemoteError(
+          'workspace/session-active',
+          error.message,
+          { sessionId: request.sessionId, activity: error.activity },
+          { cause: error },
+        )
+      }
       if (!(error instanceof WorkspaceUnknownSessionError)) throw error
       throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
     }
