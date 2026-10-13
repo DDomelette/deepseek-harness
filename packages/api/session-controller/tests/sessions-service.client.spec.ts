@@ -574,6 +574,9 @@ describe('Agent scope disposal lifecycle', () => {
                 })
               },
             }),
+            send: () => undefined,
+            end: () => undefined,
+            dispose: () => undefined,
           }
         },
       },
@@ -644,6 +647,9 @@ describe('Agent scope disposal lifecycle', () => {
                 })
               },
             }),
+            send: () => undefined,
+            end: () => undefined,
+            dispose: () => undefined,
           }
         },
       },

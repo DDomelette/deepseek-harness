@@ -75,12 +75,18 @@ const movedToDaily: ScheduleCatalogEntry = {
 const sessions: SessionListState = {
   ids: [at.sessionId, every.sessionId, daily.sessionId],
   byId: Object.fromEntries([at, every, daily].map(record => [record.sessionId, {
-    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0, retainedBy: {},
+    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0,
   }] as const)),
-  phase: 'ready', projectionsBySession: {},
+  current: undefined,
+  phase: 'ready',
+  subagentsByParent: {},
+  jobsBySession: {},
+  currentAddress: undefined,
 }
 
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = {
+  items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
+}
 
 afterEach(cleanup)
 
@@ -115,8 +121,7 @@ function mount(
     useSessions: select => select(sessions),
     useWorkspaces: select => select(workspaces),
     usePanelInfo: select => select({ activePanelId: null }),
-    useSessionStatus: select => select(new Map()),
-    useSessionRetainInfo: () => undefined,
+    useSessionPendingInteraction: select => select(new Map()),
     useResource: () => { throw new Error('The task manager does not load document resources') },
     onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'deleted'),
     onRetry: vi.fn(async () => {}),

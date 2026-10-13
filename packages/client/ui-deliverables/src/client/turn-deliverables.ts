@@ -190,9 +190,9 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       return { ...context.state, calls }
     }
     if (match.event.type !== 'tool/result') return context.state
-    const result = match.event.data.message.content[0]
-    if (result.isError === true) return context.state
-    const callId = String(match.event.data.message.source.callId)
+    const message = match.event.data.message
+    if (message.isError === true) return context.state
+    const callId = String(message.source.callId)
     const path = context.state.calls.get(callId)
     return path === null || path === undefined
       ? context.state

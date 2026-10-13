@@ -299,7 +299,8 @@ function CatalogRows({
           || (childCatalog.state === 'loading' && childCatalog.entries.length === 0)
         const summary = summaries[entry.id]
         const label = entry.label ?? entry.id
-        const mode = entry.mode === 'one-shot' ? t('mode.oneShot') : t('mode.continuable')
+        const mode = entry.mode === 'external' ? t('mode.external')
+          : entry.mode === 'one-shot' ? t('mode.oneShot') : t('mode.continuable')
         const activity = entry.activity === 'running' ? t('activity.running') : t('activity.inactive')
         const secondary = [summary?.title, mode, activity]
           .filter(value => value !== undefined)
@@ -324,6 +325,9 @@ function CatalogRows({
           .join(' · ')
 
         const open = (): void => {
+          // An external child runs without a local Session, so it has no
+          // address to open.
+          if (entry.mode === 'external') return
           openChild({ parentSessionId, childSessionId: entry.id, mode: entry.mode })
           closeCatalog()
         }

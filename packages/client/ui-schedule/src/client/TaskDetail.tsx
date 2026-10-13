@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import {
   Button, IconChevronDownOutline14, IconChevronRightOutline14, IconChevronUpOutline14,
   IconClockOutline16, IconCloseOutline16,
-  IconEllipsisOutline16, IconTrashOutline16, Modal, Pill, ReferenceIconRegular, Tooltip,
+  IconEllipsisOutline16, IconTrashOutline16, Modal, Pill, ReferenceIcon, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
@@ -747,7 +747,7 @@ export function TaskDetail({
               >
                 {linkedCompact
                   ? <>
-                    <ReferenceIconRegular kind="session" />
+                    <ReferenceIcon kind="session" />
                     {linkedName}
                   </>
                   : <>

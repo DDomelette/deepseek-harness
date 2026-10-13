@@ -22,7 +22,7 @@ import type {
 } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { WorkspaceRemote } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { WorkspaceFollowFrame } from '@deepseek-ai/dsh-api-workspace-controller/types'
-import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { RemoteFailure, RemoteResult, RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import {
   RemoteStream,
   type RemoteStreamOptions,
@@ -36,6 +36,21 @@ const AVAILABLE_STREAM_CONNECTION = {
     getSnapshot: () => ({ id: 1, host: { home: '/h' } }),
     subscribe: () => () => {},
   },
+}
+
+/**
+ * Adapt a hand-pumped downlink to the handle a generated Client stream method returns.
+ * The uplink members are inert: this fake pushes frames from the test side.
+ * @param source - frames the fake yields.
+ * @returns a handle that iterates `source`.
+ */
+function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
+  return {
+    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
+    send: () => undefined,
+    end: () => undefined,
+    dispose: () => undefined,
+  }
 }
 
 /** Programmable-default workspace row (branded id, ISO-ish times). */
@@ -242,8 +257,8 @@ export class FakeApiClient {
           this.onOpenWorkspacePath(payload),
         ),
         page: request => this.page(request),
-        follow: (request, signal) => this.openFollow(request, signal),
-        control: signal => this.openControl(signal),
+        follow: (request, signal) => streamHandle(this.followFrames(request, signal)),
+        control: signal => streamHandle(this.controlFrames(signal)),
       },
       subagents: {
         list: parentSessionId => this.record(
@@ -279,7 +294,7 @@ export class FakeApiClient {
           payload,
           this.onWorkspaceArchiveSession(payload),
         ),
-        follow: signal => this.openWorkspace(signal),
+        follow: signal => streamHandle(this.workspaceFollowFrames(signal)),
       },
     }
   }
@@ -377,7 +392,7 @@ export class FakeApiClient {
     }
   }
 
-  private async *openFollow(
+  private async *followFrames(
     request: SessionFollowRequest,
     signal: AbortSignal = new AbortController().signal,
   ): AsyncGenerator<SessionFollowFrame> {
@@ -421,7 +436,7 @@ export class FakeApiClient {
     }
   }
 
-  private async *openControl(
+  private async *controlFrames(
     signal: AbortSignal = new AbortController().signal,
   ): AsyncGenerator<SessionControlFrame> {
     const stream = this.openValueStream(this.controlConns, signal)
@@ -433,7 +448,7 @@ export class FakeApiClient {
     }
   }
 
-  private async *openWorkspace(
+  private async *workspaceFollowFrames(
     signal: AbortSignal = new AbortController().signal,
   ): AsyncGenerator<WorkspaceFollowFrame> {
     const stream = this.openValueStream(this.workspaceConns, signal)

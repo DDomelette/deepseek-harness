@@ -11,9 +11,16 @@ import { createWorkspaceViewStore } from '../src/client/stores.ts'
 
 const sid = (id: string) => id as SessionId
 const wid = (id: string) => id as WorkspaceId
-const summary = (id: string, updatedAt: number, cwd?: string): SessionSummary => ({
+const summary = (
+  id: string,
+  updatedAt: number,
+  cwd?: string,
+  projectionValues?: SessionSummary['projectionValues'],
+): SessionSummary => ({
   id: sid(id), displayTitle: id, running: false, blank: false,
-  updatedAt, ...(cwd === undefined ? {} : { cwd }),
+  updatedAt,
+  ...(cwd === undefined ? {} : { cwd }),
+  ...(projectionValues === undefined ? {} : { projectionValues }),
 })
 const list = (...items: SessionSummary[]): SessionListState => ({
   ids: items.map(item => item.id),
@@ -150,7 +157,9 @@ describe('deriveGroups', () => {
 
   it('derives the same row facts with and without a Schedule list projection value', () => {
     const absent = summary('absent', 4)
-    const carried = { ...summary('carried', 3), projectionValues: { schedule: [{ id: 'x' }] } }
+    // The retired Session-list projection key: the row facts must not move
+    // because a log carries one.
+    const carried = summary('carried', 3, undefined, { schedule: [{ id: 'x' }] } as SessionSummary['projectionValues'])
     const sessions = list(absent, carried)
     const workspaces = [workspace('project', ['absent', 'carried'], 'Project')]
 

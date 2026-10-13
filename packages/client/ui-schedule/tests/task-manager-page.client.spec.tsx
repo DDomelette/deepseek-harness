@@ -91,11 +91,17 @@ const records = [at, every, after]
 const sessions: SessionListState = {
   ids: [...records, daily, weekly].map(record => record.sessionId),
   byId: Object.fromEntries([...records, daily, weekly].map(record => [record.sessionId, {
-    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0, retainedBy: {},
+    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0,
   }] as const)),
-  phase: 'ready', projectionsBySession: {},
+  current: undefined,
+  phase: 'ready',
+  subagentsByParent: {},
+  jobsBySession: {},
+  currentAddress: undefined,
 }
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = {
+  items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
+}
 
 /**
  * Session list whose catalog rows carry the given titles.
@@ -170,8 +176,7 @@ function mount(
     useSessions: select => select(sessions),
     useWorkspaces: select => select(workspaces),
     usePanelInfo: select => select({ activePanelId: null }),
-    useSessionStatus: select => select(new Map()),
-    useSessionRetainInfo: () => undefined,
+    useSessionPendingInteraction: select => select(new Map()),
     useResource: () => { throw new Error('The task manager does not load document resources') },
     onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'deleted'),
     onRetry: vi.fn(async () => {}),
@@ -1593,10 +1598,9 @@ describe('Task manager details', () => {
       active={false}
       usePanelInfo={unread}
       useSessions={unread}
+      useSessionPendingInteraction={unread}
       useWorkspaces={unread}
       useResource={unread}
-      useSessionStatus={unread}
-      useSessionRetainInfo={unread}
     />)
   }
 

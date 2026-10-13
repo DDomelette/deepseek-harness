@@ -3,10 +3,25 @@
  * opened `changes` generation, and a supervisor that runs one generation and
  * classifies its end the way the real one does.
  */
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { RemoteResult, RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceFileWatchFrame, WorkspaceFileStat } from '../src/types.ts'
 import type { SupervisedStream, SupervisedStreamOptions, WorkspaceFilesRemote } from '../src/client/remote.ts'
+
+/**
+ * Adapt a scripted downlink to the handle a generated Client stream method returns.
+ * The uplink members are inert: this fake pushes frames from the spec side.
+ * @param source - frames the fake yields.
+ * @returns a handle that iterates `source`.
+ */
+function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
+  return {
+    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
+    send: () => undefined,
+    end: () => undefined,
+    dispose: () => undefined,
+  }
+}
 
 /** One scripted Host `changes` generation: frames pushed by the spec, ended by abort. */
 export class Source<T> implements AsyncIterable<T> {
@@ -154,7 +169,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
         for (const waiter of this.statWaiters.get(index) ?? []) waiter(stat)
         this.statWaiters.delete(index)
       }),
-    changes: (sessionId: SessionId, signal?: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame> => {
+    changes: (sessionId: SessionId, signal?: AbortSignal): RemoteStreamHandle<WorkspaceFileWatchFrame, never> => {
       this.calls.push('changes')
       if (signal === undefined) throw new Error('the feed must hand its signal to the Host stream')
       const source = new Source<WorkspaceFileWatchFrame>(signal)
@@ -164,7 +179,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
       for (const waiter of this.watchWaiters.get(index) ?? []) waiter(watch)
       this.watchWaiters.delete(index)
       if (this.autoReady) source.push({ kind: 'ready' })
-      return source
+      return streamHandle(source)
     },
   }
 }

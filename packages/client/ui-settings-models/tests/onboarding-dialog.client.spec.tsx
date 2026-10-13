@@ -57,6 +57,7 @@ function deepSeekNamespace(apiKeyEnv: string | null): SettingsNamespaceView {
     value,
     base: value,
     user: {},
+    autoGenerate: true,
     applies: 'live',
     secrets: [],
     revision: 0,

@@ -48,7 +48,6 @@ const SNAPSHOT = {
   agentPresets: [
     {
       id: 'standard',
-      trust: 'system',
       name: '标准模式',
       isDefault: true,
       rows: [
@@ -68,7 +67,6 @@ const SNAPSHOT = {
     },
     {
       id: 'ptc',
-      trust: 'system',
       isDefault: false,
       rows: [
         { entryId: 'bash', moduleName: '@deepseek-ai/dsh-tool-bash', enabled: true, fiberPhase: null },
@@ -76,7 +74,7 @@ const SNAPSHOT = {
         { entryId: 'fs', moduleName: '@deepseek-ai/dsh-tool-fs', enabled: 'conditional', fiberPhase: null },
       ],
     },
-    { id: 'shattered', trust: 'user', name: '坏预设', isDefault: false, broken: 'the composition file is missing', rows: [] },
+    { id: 'shattered', name: '坏预设', isDefault: false, broken: 'the composition file is missing', rows: [] },
   ],
 } as unknown as Snapshot
 
@@ -185,7 +183,6 @@ describe('PluginInventorySettingsTab', () => {
       entries: [],
       agentPresets: [{
         id: 'same-module',
-        trust: 'user',
         isDefault: true,
         rows: [
           { entryId: 'tool-subagent-primary', moduleName: '@deepseek-ai/dsh-tool-subagent', enabled: true, fiberPhase: null },
@@ -287,10 +284,10 @@ describe('PluginInventorySettingsTab', () => {
   })
 
   it('routes every preset name through the display resolver', async () => {
-    // The resolver stands in for presetDisplayText: shipped presets localize,
-    // user-authored ones keep their own metadata.
+    // The resolver stands in for presetDisplayText: a shipped preset resolves
+    // by id, a preset that names itself keeps its own metadata.
     const localized: PluginInventorySettingsTabInjected['presetName'] = preset =>
-      preset.trust === 'system' ? `Localized ${preset.id}` : preset.name ?? preset.id
+      ['standard', 'ptc'].includes(preset.id) ? `Localized ${preset.id}` : preset.name ?? preset.id
     render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, localized)} />)
     await screen.findByRole('searchbox', { name: en.search })
 
@@ -380,7 +377,6 @@ describe('PluginInventorySettingsTab', () => {
       entries: [],
       agentPresets: [{
         id: 'solo',
-        trust: 'user',
         isDefault: false,
         rows: [{ entryId: 'one', moduleName: '@fixture/one', enabled: true, fiberPhase: null }],
       }],

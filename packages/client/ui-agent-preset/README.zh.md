@@ -29,11 +29,11 @@ kind: "package-reference"
 
 ### 管理名单
 
-设置分区把名单呈现为卡片：复制对话框是创建 preset 的唯一入口——浏览器不编辑任何组装文本——自定义 preset 自身的文件在浏览器之外编辑。默认值可在任一界面设置；删除会移除 preset 目录，而已据其组装的会话继续运行。随附 preset 在只读查看器中打开，不提供删除。名单行携带 `broken` 时渲染为标记卡片，其主体与复制均被禁用，因为损坏 preset 的副本只是另一个损坏 preset；损坏的自定义行保留删除动作，以便清掉幽灵目录。卡片正面仍显示 preset 自己的描述——在选择器里，一个包说明符不足以让人采取行动——宿主给出的原因作为工具提示附在徽标上，另有一个视觉隐藏的 alert 将该原因传达给辅助技术，而被禁用的卡片主体无法做到这一点。
+设置分区把名单呈现为卡片，并分为部署随附的 preset 与自行发布展示文案的 preset 两组。默认值可在任一界面设置；preset 文件本身存放在浏览器之外、也在浏览器之外编辑，本页不会创建、改名或移除它们。随附 preset 在只读查看器中打开。名单行携带 `broken` 时渲染为标记卡片，其主体被禁用，因为无法组装会话的 preset 也无法被选中；卡片正面仍显示 preset 自己的描述——在选择器里，一个包说明符不足以让人采取行动——宿主给出的原因作为工具提示附在徽标上，另有一个视觉隐藏的 alert 将该原因传达给辅助技术，而被禁用的卡片主体无法做到这一点。
 
 ### 对话式入口
 
-名单携带自指的 `cordis` preset 时，一张虚线添加卡会暂存它并开启新会话——分区关闭设置面板，新建会话 chip 自己的应用器负责组装工作区流程产出的空白会话。
+名单携带自指的 `cordis` preset 时，一张虚线添加卡会暂存它并开启新会话——分区关闭设置面板，新建会话 chip 自己的应用器负责组装工作区流程产出的空白会话。preset 正是在那段对话中创作的；本页只读取名单并做选择。
 
 -----
 
@@ -43,7 +43,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节——点击展开</summary>
 
-展示选项来自同一次 `agentPresets/list` 调用——名单本身已报告未显式选择的会话会得到哪个 id，因此任何界面都无需对 settings schema 做内省——默认值的写入即设置分区的设为默认动作，目标是 `agent-presets` settings 命名空间的 `default` 字段，也正是宿主在创建时解析的字段。新建会话 chip 与标题标签共用一个控制器，因为暂存选择属于流程而非任何单个会话；暂存值在会话到达时应用（既覆盖工作区连接新建的会话，也覆盖它复用的空白会话），被拒绝时丢弃。系统会通过 composer 列上方的瞬时横幅提示拒绝结果，因为 chip 的标签此时已经恢复原值，而被宿主拒绝挂载的 preset 正是发现过程报告为健康的那一种——它的名单卡片上没有任何原因可供回头查看。只有用户刚做出的选择会触发提示；会话成为当前会话时触发的应用器不会。[`dsh-client-connection`](../connection/README.zh.md) 使用同一浏览器会话认证 `agentPresets/read`、`agentPresets/copy`、`agentPresets/deletePreset`、`agentPresets/list` 及其他所有 Host API 方法。组装仍会指明一个会话所运行的插件，因此读取属于侦察，而复制与删除负责管理名单。分区在自身操作、`settings/document-updated` 与 `connection/reset` 时重读，因为组装文件在浏览器之外编辑，协议链路不会通知文件变动。
+展示选项来自同一次 `agentPresets/list` 调用——名单本身已报告未显式选择的会话会得到哪个 id，因此任何界面都无需对 settings schema 做内省——默认值的写入即设置分区的设为默认动作，目标是 `agent-presets` settings 命名空间的 `default` 字段，也正是宿主在创建时解析的字段。新建会话 chip 与标题标签共用一个控制器，因为暂存选择属于流程而非任何单个会话；暂存值在会话到达时应用（既覆盖工作区连接新建的会话，也覆盖它复用的空白会话），被拒绝时丢弃。系统会通过 composer 列上方的瞬时横幅提示拒绝结果，因为 chip 的标签此时已经恢复原值，而被宿主拒绝挂载的 preset 正是发现过程报告为健康的那一种——它的名单卡片上没有任何原因可供回头查看。只有用户刚做出的选择会触发提示；会话成为当前会话时触发的应用器不会。[`dsh-client-connection`](../connection/README.zh.md) 使用同一浏览器会话认证 `agentPresets/read`、`agentPresets/list` 及其他所有 Host API 方法。组装仍会指明一个会话所运行的插件，因此读取属于侦察；名单本身是宿主契约，本页只读取。分区在自身操作、`settings/document-updated` 与 `connection/reset` 时重读，因为组装文件在浏览器之外编辑，协议链路不会通知文件变动。
 
 </details>
 
@@ -77,7 +77,7 @@ kind: "package-reference"
 
 这些限制界定了当前 preset 界面。它们是当前包约束，不是通用组装对比或任务积压。
 
-- **没有元数据的 preset 按 id 列出**——展示文本是可选的，未取名的副本刻意回退到目录名，而不是与其来源呈现得一模一样。解析本身使用 [`dsh-agent-preset-registry/display`](../../preset/agent-preset-registry/README.zh.md) 共享的 `presetDisplayText` 解析逻辑，设置的插件列表把它内联在本插件的字典之上，按当前语言显示随附 preset 的名称，同时不翻译用户自建的元数据。
+- **没有元数据的 preset 按 id 列出**——展示文案是可选的，不发布任何文案的 preset 回退到自己的 id。解析本身使用 [`dsh-agent-preset-registry/display`](../../preset/agent-preset-registry/README.zh.md) 共享的 `presetDisplayText` 解析逻辑，设置的插件列表把它内联在本插件的字典之上，按当前语言显示随附 preset 的名称，同时不翻译由声明方自有的元数据。
 - **组装编辑对页面不可见**——文件在浏览器之外编辑，协议链路不广播文件变动，因此名单只在自身操作、`settings/changed` 与 `connection/reset` 时重读，而非每次磁盘编辑。
 
 <a id="dev-note"></a>

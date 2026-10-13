@@ -175,8 +175,9 @@ function result(seq: number, callId: string, isError = false, turn = 1): Session
     turn,
     step: 1,
     message: {
-      source: { type: 'tool-result', callId },
-      content: [{ type: 'tool-result', content: [], isError }],
+      source: { kind: 'tool', callId },
+      content: [],
+      isError,
     },
   })
 }

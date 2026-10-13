@@ -30,20 +30,7 @@ import { apply as hostApply } from '../src/index.ts'
 const ROSTER_ONE = {
   ok: true as const,
   value: {
-    presets: [{ id: 'standard', trust: 'system', isDefault: true }],
-    authorable: true,
-  },
-}
-
-/** The roster after this browser copied one preset of its own. */
-const ROSTER_AUTHORED = {
-  ok: true as const,
-  value: {
-    presets: [
-      { id: 'standard', trust: 'system', isDefault: true },
-      { id: 'mine', trust: 'user', isDefault: false },
-    ],
-    authorable: true,
+    presets: [{ id: 'standard', isDefault: true }],
   },
 }
 
@@ -52,10 +39,9 @@ const ROSTER_MOVED = {
   ok: true as const,
   value: {
     presets: [
-      { id: 'standard', trust: 'system', isDefault: false },
-      { id: 'minimal', trust: 'system', isDefault: true },
+      { id: 'standard', isDefault: false },
+      { id: 'minimal', isDefault: true },
     ],
-    authorable: true,
   },
 }
 
@@ -63,7 +49,7 @@ async function bench() {
   const ctx = new Context()
   // The host's answer, mutable so a spec can move the default the way the
   // settings surface does and watch who re-reads it.
-  let ROSTER: typeof ROSTER_ONE | typeof ROSTER_MOVED | typeof ROSTER_AUTHORED = ROSTER_ONE
+  let ROSTER: typeof ROSTER_ONE | typeof ROSTER_MOVED = ROSTER_ONE
   const moveDefault = (): void => { ROSTER = ROSTER_MOVED }
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
@@ -92,16 +78,8 @@ async function bench() {
     list: () => { calls.push('list'); return Promise.resolve(ROSTER) },
     read: () => Promise.resolve({
       ok: true as const,
-      value: { agentPreset: 'standard', trust: 'system', content: '' },
+      value: { agentPreset: 'standard', content: '' },
     }),
-    copy: (_from: string, id: string) => {
-      calls.push(`copy:${id}`)
-      // The host's roster now contains it, which is the whole point of the
-      // copy and what every surface must converge on.
-      ROSTER = ROSTER_AUTHORED
-      return Promise.resolve({ ok: true as const, value: undefined })
-    },
-    deletePreset: () => Promise.resolve({ ok: true as const, value: undefined }),
     select: (_agentId: SessionId, agentPreset: string) => {
       calls.push(`select:${agentPreset}`)
       return Promise.resolve({ ok: true as const, value: agentPreset })
@@ -212,7 +190,7 @@ describe('ui-agent-preset apply', () => {
 
     await section.makeDefault('standard')
     expect(section.hooks.agentPresetSection.getSnapshot().rows)
-      .toEqual([{ id: 'standard', trust: 'system', isDefault: true }])
+      .toEqual([{ id: 'standard', isDefault: true }])
   })
 
   it('routes the section actions to one controller', async () => {
@@ -222,22 +200,15 @@ describe('ui-agent-preset apply', () => {
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
 
     await section.load()
-    section.beginCopy('standard')
-    section.cancelCopy()
-    section.beginCopy('standard')
-    section.setCopyId('mine')
-    section.setCopyName('我的模式')
-    await section.confirmCopy()
     await section.view('standard')
     section.closeView()
-    section.confirmDelete('mine')
-    await section.remove()
+    await section.makeDefault('standard')
 
-    // One controller behind every action: the copy the dialog named is the
-    // one the roster re-read reflects, and the delete the section confirmed
-    // is the one its remove() sees.
-    expect(calls).toContain('copy:mine')
-    expect(section.hooks.agentPresetSection.getSnapshot().rows).toHaveLength(2)
+    // One controller behind every action: the load the section asked for is
+    // the one the viewer and the default write re-read.
+    expect(calls.filter(call => call === 'list')).toHaveLength(2)
+    expect(calls).toContain('settings:{"default":"standard"}')
+    expect(section.hooks.agentPresetSection.getSnapshot().rows).toHaveLength(1)
   })
 
   it('refreshes a showing surface when its namespace changes, and ignores others', async () => {
@@ -338,36 +309,6 @@ describe('ui-agent-preset apply', () => {
     remote.emit('settings/document-updated', ['agent-presets', 1])
     await vi.waitFor(() => {
       expect(seat.hooks.agentPresetSeat.getSnapshot().current).toBe('minimal')
-    })
-    conversation()
-  })
-
-  it('offers a just-authored preset on the new-session chip', async () => {
-    const { ctx, slots } = await bench()
-    declareRoot(slots)
-    const conversation = declareConversation(slots)
-    ctx.provide('conversation', {} as never)
-    ctx.provide('sessions', sessionsDouble({ byId: {} }) as never)
-    ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
-    await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
-
-    const chip = slots.entries('conversation.hero.agentPreset')[0]!
-    const seat = (chip.inject as unknown as () => AgentPresetSeatInjected)()
-    await seat.load()
-    expect(seat.hooks.agentPresetSeat.getSnapshot().options.map(option => option.id)).toEqual(['standard'])
-
-    const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
-    await section.load()
-    section.beginCopy('standard')
-    section.setCopyId('mine')
-    section.setCopyName('我的模式')
-    await section.confirmCopy()
-
-    // Authoring copies a directory rather than writing a setting, so nothing
-    // on the wire announces it: a preset created to be used must appear on
-    // the one screen that starts sessions, without a reload.
-    await vi.waitFor(() => {
-      expect(seat.hooks.agentPresetSeat.getSnapshot().options.map(option => option.id)).toEqual(['standard', 'mine'])
     })
     conversation()
   })
@@ -473,7 +414,7 @@ describe('ui-agent-preset apply', () => {
 
     await label.load()
 
-    expect(label.hooks.agentPresets.getSnapshot().options).toEqual([{ id: 'standard', trust: 'system' }])
+    expect(label.hooks.agentPresets.getSnapshot().options).toEqual([{ id: 'standard' }])
   })
 
   it('stages the creator preset and starts a session from the section', async () => {

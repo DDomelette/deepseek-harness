@@ -86,6 +86,7 @@ function piAiNamespace(
     value: { providers },
     base: { providers: baseProviders },
     user: { providers: userProviders },
+    autoGenerate: true,
     applies: 'live',
     secrets: [],
     revision: 3,

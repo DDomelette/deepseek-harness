@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -23,10 +23,16 @@ type SessionRowProps = Parameters<typeof SessionNodeItemComponent>[0]
 /** Default seat renderer: an unoccupied row renders no ambient entry. */
 const renderNoRowEntries: RowRenderSlot = () => null
 
-/** Render a Session row with a seat stub, so a case names only the seats it asserts. */
+/**
+ * Render a Session row with a seat stub, so a case names only the seats it
+ * asserts. A `vi.fn` mock of an overloaded seat function is callable with one
+ * signature only, so the cast back to the seat type lives here.
+ * @param props - the row props, carrying the case's own seat stub when it has one.
+ * @returns the row over the supplied seats.
+ */
 function SessionNodeItem({ renderSlot = renderNoRowEntries, ...props }:
-Omit<SessionRowProps, 'renderSlot'> & { renderSlot?: RowRenderSlot }) {
-  return <SessionNodeItemComponent {...props} renderSlot={renderSlot} />
+Omit<SessionRowProps, 'renderSlot'> & { renderSlot?: RowRenderSlot | Mock<RowRenderSlot> }) {
+  return <SessionNodeItemComponent {...props} renderSlot={renderSlot as RowRenderSlot} />
 }
 
 const sid = (id: string) => id as SessionId

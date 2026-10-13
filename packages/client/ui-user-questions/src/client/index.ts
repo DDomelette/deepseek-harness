@@ -58,7 +58,10 @@ async function answerQuestion(
   next: ClientQuestionNext,
   registerPendingInteraction: PendingInteractionPublisher<PendingQuestion>,
 ): Promise<ClientQuestionAnswer> {
-  const sessionId = (ctx.sessions as ISessions).scopeOf(owner)
+  // The Client program also carries dsh-session's Host-face `sessions`
+  // declaration, so the property types as the Host store even though the
+  // running service is the Client Sessions object layer.
+  const sessionId = (ctx.sessions as unknown as ISessions).scopeOf(owner)
   if (sessionId === undefined) return next()
   const pending = new PendingQuestion(sessionId, request.questions, request.signal)
   const completed = Promise.withResolvers<void>()

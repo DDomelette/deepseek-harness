@@ -135,7 +135,7 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
   const dismiss = useCallback(() => { closeRef.current() }, [])
 
   const position = useAnchoredPosition({
-    open: open && portal, anchorRef: rootRef, panelRef: listRef, align, gap: ANCHOR_GAP, margin: VIEWPORT_MARGIN,
+    open: open && portal, anchorRef: rootRef, panelRef: listRef, gap: ANCHOR_GAP, margin: VIEWPORT_MARGIN,
   })
   useDismissOnOutsidePointer(rootRef, open, dismiss, listRef)
 

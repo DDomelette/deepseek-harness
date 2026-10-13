@@ -29,9 +29,6 @@
       "types": "./lib/typert.host.d.ts",
       "default": "./lib/typert.host.js"
     },
-    "./remote-events": {
-      "types": "./lib/types/remote-events.d.ts"
-    },
     "./remote": {
       "types": "./lib/typert.remote-client.d.ts",
       "default": "./lib/typert.remote-client.js"

@@ -11,6 +11,7 @@ import type { MessageId, ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type {
   AssistantMessage,
   ContentBlock,
+  ContextFormed,
   MessageSource,
   StreamChunk,
   TokenUsage,
@@ -45,6 +46,12 @@ import { randomUuid } from './random-uuid.ts'
 import type {
   ClientConnectionRpc, ConnectionRpcFailure, ConnectionRpcResult,
 } from '../rpc.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    fixture: { kind: 'fixture' } & ContextFormed
+  }
+}
 
 const FIXTURE_SESSION_SEARCH_RESULT_LIMIT = 20
 
@@ -727,7 +734,7 @@ function buildAlphaLog(): SessionEvent[] {
     if (turn === 0) {
       push({
         type: 'system/message', surfaceOp: 'append',
-        data: { turn, step: 0, message: createSystemMessage(FIXTURE_SYSTEM_PROMPT, '@deepseek-ai/dsh-system-prompt') },
+        data: { turn, step: 0, message: createSystemMessage(FIXTURE_SYSTEM_PROMPT) },
       })
     }
     const userSeq = push({
@@ -741,7 +748,7 @@ function buildAlphaLog(): SessionEvent[] {
       })
     }
     if (turn % 9 === 4) {
-      push({ type: 'user/message', surfaceOp: 'append', data: userMessage(text(`[fixture] 上下文注入（turn ${turn}）`), { kind: 'plugin', plugin: 'fixture' }) })
+      push({ type: 'user/message', surfaceOp: 'append', data: userMessage(text(`[fixture] 上下文注入（turn ${turn}）`), { kind: 'fixture' }) })
     }
     push({ type: 'step/start', data: { turn, step: 0 } })
     const withTool = turn % 5 === 2
@@ -1257,11 +1264,8 @@ function estimateFixtureContent(blocks: readonly ContentBlock[]): number {
       return tokens + densityPrice(block.name) + densityPrice(block.arguments) + BLOCK_OVERHEAD
     }
     // ContentBlockMap is merge-extensible: this client graph sees only the
-    // base four members, but fixture turns do carry extended blocks at
-    // runtime, so the structural JSON fallback below is live code.
-    if (block.type === 'tool-result') {
-      return tokens + estimateFixtureContent(block.content) + BLOCK_OVERHEAD
-    }
+    // base members, but fixture turns do carry extended blocks at runtime,
+    // so the structural JSON fallback below is live code.
     return tokens + densityPrice(JSON.stringify(block)) + BLOCK_OVERHEAD
   }, 0)
 }
@@ -1560,8 +1564,6 @@ function searchBlockText(block: ContentBlock): string[] {
       return []
     case 'tool-call':
       return [block.name, block.arguments]
-    case 'tool-result':
-      return block.content.flatMap(searchBlockText)
     default:
       return []
   }
@@ -1885,6 +1887,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             ns: 'llm-deepseek',
             schema: {},
             value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+            autoGenerate: true,
             applies: 'live',
             secrets: [{ path: ['apiKey'], set: false }],
             revision: 0,

@@ -1,24 +1,23 @@
 /**
- * Agent-presets settings section: the roster as cards, a copy dialog as the
- * only way a preset is created, and a read-only viewer over the shipped
- * compositions.
+ * Agent-presets settings section: the roster as cards, the default, and a
+ * read-only viewer over the shipped compositions.
  *
- * The browser edits no composition text — a shipped preset opens read-only to
- * be READ (it is the known-good composition a copy starts from), and a custom
- * preset is edited in its own files, which live outside this page. Deleting a
- * preset leaves running sessions alone: a composition is mounted once at
- * session creation and nothing re-reads the file.
+ * A deployment declares its presets in its own composition files, outside this
+ * page, so the browser creates none and edits no composition text. Deleting a
+ * preset is likewise a file change elsewhere; sessions already composed from
+ * one keep running, because a composition is mounted once at session creation
+ * and nothing re-reads the file.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconBrowseOutline16, IconCopyOutline16, IconPlusOutline16, IconTrashOutline16, Modal, Tag, Tooltip,
+  Button, IconBrowseOutline16, IconPlusOutline16, Modal, Tag, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { draftBlocker, type AgentPresetSectionState } from './section-store.ts'
-import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
+import type { AgentPresetSectionState } from './section-store.ts'
+import { isBuiltInPreset, presetDisplayText } from './locales.ts'
 import css from './AgentPresetSection.module.css'
 
 /** Registration-side business face for the management section. */
@@ -33,26 +32,12 @@ export interface AgentPresetSectionInjected {
   view: (id: string) => Promise<void>
   /** Close the read-only viewer. */
   closeView: () => void
-  /** Open the copy dialog over one preset. */
-  beginCopy: (from: string) => void
-  /** Close the copy dialog, discarding the draft. */
-  cancelCopy: () => void
-  /** Name the preset the copy creates. */
-  setCopyId: (id: string) => void
-  /** Name the copy's display name. */
-  setCopyName: (name: string) => void
-  /** Submit the copy. */
-  confirmCopy: () => Promise<void>
   /**
    * Stage the self-referential preset and start a new session on it — the
-   * guided way to author a preset, beside copying. Absent when the surface
-   * is composed without the conversation flow to land the session in.
+   * conversational way to author a preset. Absent when the surface is
+   * composed without the conversation flow to land the session in.
    */
   startCreatorDraft?: () => void
-  /** Ask for delete confirmation, or dismiss it with null. */
-  confirmDelete: (id: string | null) => void
-  /** Delete the preset awaiting confirmation. */
-  remove: () => Promise<void>
   /** Make one preset the default for sessions created later. */
   makeDefault: (id: string) => Promise<void>
 }
@@ -62,78 +47,6 @@ export type AgentPresetSectionProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSectionInjected>
-
-/** Copy-dialog sub-view props: the draft plus the actions that mutate it. */
-interface CopyDialogProps {
-  state: AgentPresetSectionState
-  t: (key: AgentPresetSettingsKey) => string
-  actions: Pick<AgentPresetSectionInjected,
-    'cancelCopy' | 'confirmCopy' | 'setCopyId' | 'setCopyName'>
-}
-
-function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
-  const draft = state.copy
-  const blocker = draft === null ? undefined : draftBlocker(draft, state.rows)
-  const message = draft === null ? null : draft.error ?? (blocker === undefined ? null : t(blocker))
-  const source = draft === null ? undefined : state.rows.find(row => row.id === draft.from)
-  const sourceTitle = source === undefined ? draft?.fromTitle : presetDisplayText(source, t).name
-  return (
-    <Modal
-      open={draft !== null}
-      onClose={() => { actions.cancelCopy() }}
-      title={draft === null ? t('copyTitle') : `${t('copyTitle')} · ${t('copyOf')} ${sourceTitle}`}
-      closeLabel={t('close')}
-      description={t('copyIntro')}
-      className={css.dialog as string}
-      footer={(
-        <>
-          <Button
-            variant="outline"
-            disabled={draft?.saving === true}
-            onClick={() => { actions.cancelCopy() }}
-          >
-            {t('cancel')}
-          </Button>
-          <Button
-            disabled={draft === null || draft.saving || blocker !== undefined}
-            onClick={() => { void actions.confirmCopy() }}
-          >
-            {draft?.saving === true ? t('creating') : t('create')}
-          </Button>
-        </>
-      )}
-    >
-      {draft === null
-        ? null
-        : (
-          <div className={css.dialogFields}>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('presetId')}</span>
-              <input
-                className={css.input}
-                value={draft.id}
-                autoFocus
-                spellCheck={false}
-                placeholder={t('presetIdPlaceholder')}
-                onChange={(event) => { actions.setCopyId(event.target.value) }}
-              />
-            </label>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('displayName')}</span>
-              <input
-                className={css.input}
-                value={draft.name}
-                spellCheck={false}
-                placeholder={t('displayNamePlaceholder')}
-                onChange={(event) => { actions.setCopyName(event.target.value) }}
-              />
-            </label>
-            {message === null ? null : <p className={css.error} role="alert">{message}</p>}
-          </div>
-        )}
-    </Modal>
-  )
-}
 
 /**
  * Render one card's description, clamped by CSS and offered in full on hover.
@@ -202,18 +115,14 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     )
   }
 
-  /* The guided alternative to copying: the self-referential preset can
-     read this very composition and author a new one in conversation.
-     Offered only where that preset is actually on the roster and a
-     session can be landed; without a writable root the draft could
-     never be discovered, so the reason rides the disabled button. */
+  /* The self-referential preset can read this very composition and author a
+     new one in conversation. Offered only where that preset is actually on
+     the roster and a session can be landed. */
   const creatorButton = props.startCreatorDraft !== undefined && state.rows.some(row => row.id === 'cordis')
     ? (
       <button
         type="button"
         className={css.creatorButton}
-        disabled={!state.authorable}
-        title={state.authorable ? undefined : t('duplicateUnavailable')}
         onClick={() => {
           props.startCreatorDraft?.()
           props.close()
@@ -230,16 +139,17 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
       <h2 className={css.title}>{t('nav')}</h2>
       <p className={css.intro}>{t('sectionIntro')}</p>
       {state.error === null ? null : <p className={css.error} role="alert">{state.error}</p>}
-      {([['system', t('builtInGroup')], ['user', t('customGroup')]] as const).map(([trust, heading]) => {
+      {([true, false] as const).map((builtIn) => {
+        const heading = builtIn ? t('builtInGroup') : t('customGroup')
         const group = state.rows
-          .filter(row => row.trust === trust)
+          .filter(row => isBuiltInPreset(row) === builtIn)
           .map(row => ({ row, text: presetDisplayText(row, t) }))
         // The custom group is where a preset of one's own will appear, so it
         // stays on screen even while empty: heading plus the creator entry.
-        const tail = trust === 'user' ? creatorButton : null
+        const tail = builtIn ? null : creatorButton
         if (group.length === 0 && tail === null) return null
         return (
-          <section key={trust} className={css.group}>
+          <section key={String(builtIn)} className={css.group}>
             <h3 className={css.groupHead}>{heading}</h3>
             {group.length === 0 ? null : (
               <ul className={css.cards}>
@@ -295,7 +205,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                           )
                           : null}
                         <Tag>
-                          {row.trust === 'user' ? t('userTrust') : t('builtIn')}
+                          {builtIn ? t('builtIn') : t('userTrust')}
                         </Tag>
                         {row.isDefault ? <Tag tone="solid" className={css.inUse}>{t('inUse')}</Tag> : null}
                       </span>
@@ -310,11 +220,11 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                       <code className={css.cardId}>{row.id}</code>
                     </button>
                     <div className={css.cardFoot}>
-                      {/* Shipped presets are the compositions a copy starts
-                        from, so READING one is the point; the viewer is
-                        withheld for a broken shipped preset, which has no
-                        readable composition to offer. */}
-                      {row.trust === 'system' && row.broken === undefined
+                      {/* A deployment's own preset is the composition this
+                        page can show; a preset that names itself is declared
+                        outside it, and the viewer is withheld for a broken
+                        row, which has no readable composition to offer. */}
+                      {builtIn && row.broken === undefined
                         ? (
                           <button
                             type="button"
@@ -327,31 +237,6 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                           </button>
                         )
                         : null}
-                      <button
-                        type="button"
-                        className={css.iconButton}
-                        disabled={!state.authorable || row.broken !== undefined}
-                        data-tip={row.broken !== undefined
-                          ? t('brokenNoCopy')
-                          : state.authorable ? t('duplicate') : t('duplicateUnavailable')}
-                        aria-label={`${t('duplicate')}: ${text.name}`}
-                        onClick={() => { props.beginCopy(row.id) }}
-                      >
-                        <IconCopyOutline16 />
-                      </button>
-                      {row.trust === 'user'
-                        ? (
-                          <button
-                            type="button"
-                            className={`${css.iconButton} ${css.iconDanger}`}
-                            data-tip={t('delete')}
-                            aria-label={`${t('delete')}: ${text.name}`}
-                            onClick={() => { props.confirmDelete(row.id) }}
-                          >
-                            <IconTrashOutline16 />
-                          </button>
-                        )
-                        : null}
                     </div>
                   </li>
                 ))}
@@ -361,16 +246,6 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
           </section>
         )
       })}
-      <CopyDialog
-        state={state}
-        t={t}
-        actions={{
-          cancelCopy: props.cancelCopy,
-          confirmCopy: props.confirmCopy,
-          setCopyId: props.setCopyId,
-          setCopyName: props.setCopyName,
-        }}
-      />
       <Modal
         open={state.view !== null}
         onClose={() => { props.closeView() }}
@@ -388,34 +263,6 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
           ? null
           : <pre className={css.viewerCode}>{state.view.content}</pre>}
       </Modal>
-      <Modal
-        open={state.pendingDelete !== null}
-        onClose={() => { props.confirmDelete(null) }}
-        title={t('deleteTitle')}
-        closeLabel={t('close')}
-        description={t('deleteDescription')}
-        className={css.deleteDialog as string}
-        footer={(
-          <>
-            <Button
-              variant="outline"
-              autoFocus
-              disabled={state.deleting}
-              onClick={() => { props.confirmDelete(null) }}
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="outline"
-              className={css.deleteConfirm}
-              disabled={state.deleting}
-              onClick={() => { void props.remove() }}
-            >
-              {state.deleting ? t('deleting') : t('deleteConfirm')}
-            </Button>
-          </>
-        )}
-      />
     </div>
   )
 }

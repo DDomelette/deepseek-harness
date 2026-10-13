@@ -46,6 +46,7 @@ function view(value: JsonValue, revision = 0): SettingsNamespaceView {
     // schema builder's, so one cast names what the Host actually sends.
     schema: ENVELOPE as unknown as JsonValue,
     value,
+    autoGenerate: true,
     applies: 'live',
     secrets: [],
     revision,

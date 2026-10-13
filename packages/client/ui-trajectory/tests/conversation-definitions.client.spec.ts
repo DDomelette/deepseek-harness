@@ -457,14 +457,11 @@ describe('Trajectory conversation Definitions', () => {
         step: 1,
         message: {
           id: 'result-root-a',
-          role: 'user',
+          role: 'tool',
           source: { kind: 'tool', callId: 'root-a' },
-          content: [{
-            type: 'tool-result',
-            toolCallId: 'root-a',
-            content: [{ type: 'text', text: 'root failed' }],
-            isError: true,
-          }],
+          toolCallId: 'root-a',
+          content: [{ type: 'text', text: 'root failed' }],
+          isError: true,
         },
         error: { name: 'ToolError', code: 'failed' },
         meta: { presentation: 'raw' },

@@ -1,11 +1,18 @@
 /**
  * Shared public types of the notes plugin: the opaque ids, the material
- * vocabulary, and the source stamp a collected material carries.
+ * vocabulary, the source stamp a collected material carries, and the notes
+ * events a Remote Event assembly may forward.
  *
  * Identities are `Branded` from `@deepseek-ai/dsh-brand` rather than a
  * hand-rolled `string & { … }`: the repo brands every opaque cross-boundary id
  * through that one declaration. Types only — the durable schemas that mint
  * these brands live in `src/domain.ts`.
+ *
+ * The forwardability declaration lives here rather than in its own
+ * `remote-events` module because the `api/remotes` Client program reads this
+ * package through `@deepseek-ai/dsh-notes/types` alone: a second notes module
+ * in that program would need a Project Reference the notes browser half
+ * already holds in the opposite direction.
  * @module @deepseek-ai/dsh-notes/types
  */
 
@@ -50,6 +57,10 @@ declare module '@deepseek-ai/cordis' {
      */
     'notes/material-settled'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void
   }
+}
+
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface TypertRemoteEventSelection extends Record<'notes/material-settled', true> {}
 }
 
 /** How a material entered the notes. */

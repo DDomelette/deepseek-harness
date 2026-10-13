@@ -7,7 +7,7 @@ import {
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { LlmAttemptId } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { RemoteResult, RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import {
   createSessionControlStream,
   SessionEventStream,
@@ -73,6 +73,21 @@ function assistantFrame(frame: SessionAssistantStreamFrame): SessionFollowFrame 
   return { type: 'assistant-stream', frame }
 }
 
+/**
+ * Adapt a scripted downlink to the handle a generated Client stream method returns.
+ * The uplink members are inert: these scripts drive the downlink only.
+ * @param source - frames the fake yields.
+ * @returns a handle that iterates `source`.
+ */
+function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
+  return {
+    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
+    send: () => undefined,
+    end: () => undefined,
+    dispose: () => undefined,
+  }
+}
+
 function sessionClient(remote: SessionTransportRemote): SessionRemotes {
   return {
     session: remote as SessionRemote,
@@ -107,7 +122,14 @@ class ScriptedSessionRemote implements SessionTransportRemote {
     private readonly holdControl = true,
   ) {}
 
-  async *follow(request: SessionFollowRequest, signal = new AbortController().signal): AsyncIterable<SessionFollowFrame> {
+  follow(
+    request: SessionFollowRequest,
+    signal = new AbortController().signal,
+  ): RemoteStreamHandle<SessionFollowFrame, never> {
+    return streamHandle(this.followFrames(request, signal))
+  }
+
+  private async *followFrames(request: SessionFollowRequest, signal: AbortSignal): AsyncIterable<SessionFollowFrame> {
     const generation = this.generations.shift()
     if (generation === undefined) throw new Error('no scripted Session generation')
     this.followRequests.push(request)
@@ -129,7 +151,11 @@ class ScriptedSessionRemote implements SessionTransportRemote {
     return Promise.resolve(result)
   }
 
-  async *control(signal = new AbortController().signal): AsyncIterable<SessionControlFrame> {
+  control(signal = new AbortController().signal): RemoteStreamHandle<SessionControlFrame, never> {
+    return streamHandle(this.controlSequence(signal))
+  }
+
+  private async *controlSequence(signal: AbortSignal): AsyncIterable<SessionControlFrame> {
     for (const frame of this.controlFrames) yield frame
     if (this.holdControl && !signal.aborted) {
       await new Promise<void>((resolve) => {

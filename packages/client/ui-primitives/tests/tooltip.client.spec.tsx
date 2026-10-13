@@ -27,6 +27,27 @@ describe('Tooltip', () => {
     }
   })
 
+  it('mounts a portaled bubble outside the anchor subtree, and none before it shows', () => {
+    const { container } = render(
+      <div>
+        <Tooltip label="Retention rules" portal>
+          <button type="button">anchor</button>
+        </Tooltip>
+      </div>,
+    )
+    const anchor = screen.getByText('anchor')
+    // Nothing is mounted before the bubble shows, portal or not.
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    fireEvent.focus(anchor)
+
+    const bubble = screen.getByRole('tooltip')
+    expect(bubble.textContent).toBe('Retention rules')
+    // The ancestor's own text never gains the bubble's.
+    expect(container.textContent).toBe('anchor')
+    expect(bubble.parentElement).toBe(document.body)
+  })
+
   it('can delay pointer hover without delaying keyboard focus', () => {
     vi.useFakeTimers()
     try {

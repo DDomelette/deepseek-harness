@@ -9,7 +9,6 @@
 import type {} from '@deepseek-ai/dsh-api-session-controller/remote-events'
 import type {} from '@deepseek-ai/dsh-deepseek-account/types'
 import type {} from '@deepseek-ai/dsh-mcp-manager/types'
-import type {} from '@deepseek-ai/dsh-notes/remote-events'
 import type {} from '@deepseek-ai/dsh-notes/types'
 import type {} from '@deepseek-ai/dsh-permission-presets/types'
 import type {} from '@deepseek-ai/dsh-plugin-manager/types'

@@ -30,6 +30,7 @@ function view(defaultPreset: string, revision = 0, schema: SettingsNamespaceView
     schema,
     value: { defaultPreset },
     base: { defaultPreset: 'read-only' },
+    autoGenerate: true,
     applies: 'live',
     secrets: [],
     revision,

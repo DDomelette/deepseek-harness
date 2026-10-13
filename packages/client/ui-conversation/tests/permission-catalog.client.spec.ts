@@ -6,7 +6,9 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
+import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { PermissionCatalogSeat, type PermissionOptions } from '../src/client/permission-catalog.ts'
 
 const CATALOG: PermissionCatalog = {
@@ -15,7 +17,7 @@ const CATALOG: PermissionCatalog = {
   defaultPreset: 'read-only',
 }
 
-type Answer = { ok: true; value: PermissionCatalog } | { ok: false }
+type Answer = RemoteResult<PermissionCatalog>
 
 /** One Remote stub recording its reads, answering from a script of factories. */
 function wire(answers: readonly (() => Promise<Answer>)[]): {
@@ -81,7 +83,7 @@ describe('permission catalog seat', () => {
     const { seat, options } = seatOver(wire([
       () => Promise.resolve({ ok: true, value: CATALOG }),
       () => Promise.reject(new Error('carrier down')),
-      () => Promise.resolve({ ok: false }),
+      () => Promise.resolve({ ok: false as const, error: new RemoteError('gateway/internal', 'catalog refused', {}) }),
     ]))
     await seat.refresh()
     await seat.refresh()

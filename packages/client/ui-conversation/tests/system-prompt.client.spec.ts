@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { createSystemMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { inspectSystemPrompt, type SystemPromptState } from '../src/client/contract/system-prompt.ts'
 
 function system(seq: number, text: string, replaces?: number): SessionEvent {
   return {
     seq, time: seq, type: 'system/message',
-    data: { turn: 1, step: seq, message: { role: 'system', content: [{ type: 'text', text }] } },
+    data: { turn: 1, step: seq, message: createSystemMessage(text) },
     surfaceOp: replaces === undefined ? 'append' : { op: 'replace', startSeq: replaces, endSeq: replaces },
   } as SessionEvent
 }

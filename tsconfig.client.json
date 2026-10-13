@@ -26,6 +26,10 @@
     "packages/*/*/tests/**/*.client.spec.tsx",
     "packages/*/*/tests/**/*.client.tsx",
     "packages/*/*/tests/**/*.client.ts",
+    // The Loader-backed settings fixture the client packages' Host-half specs
+    // mount; shared with the Settings host suite, so it is listed here too
+    // rather than copied per consumer.
+    "packages/settings/settings/tests/live-config.ts",
     // Client package outside packages/client with a local CSS module face.
     "packages/extensions/ui-cordis/src/css-modules.d.ts",
     "packages/notes/notes/src/css-modules.d.ts",
@@ -124,7 +128,6 @@
     { "path": "./packages/client/ui-settings-skills" },
     { "path": "./packages/notes/notes/tsconfig.client.json" },
     { "path": "./packages/experimental/client-ui-claude-code-mods" },
-    { "path": "./packages/client/product-analytics/tsconfig.client.json" },
-    { "path": "./packages/experimental/session-inspector" }
+    { "path": "./packages/client/product-analytics/tsconfig.client.json" }
   ]
 }

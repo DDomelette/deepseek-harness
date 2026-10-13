@@ -30,7 +30,10 @@ export async function liveConfig(ctx: Context, plugin: Plugin, initial: object =
     resolveConfig(fiber.runtime!, fiber.ctx.waterfall(fiber, 'internal/config', next, () => next))
     await entry.update({ config: next })
     await entry.fiber!.await()
-    ctx.emit('app-boot/config-reload')
+    // Dispatched by name, not `ctx.emit`: this fixture is compiled into both
+    // compiler faces, and `app-boot/config-reload` is declared by the Host-face
+    // app-boot plugin, which the Client aggregate does not carry.
+    ctx.events.emit('app-boot/config-reload')
   }
   return {
     entry,

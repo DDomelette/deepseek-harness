@@ -18,8 +18,26 @@ import type {
   WorkspaceId,
   WorkspaceView,
 } from '../src/types.ts'
-import { RemoteError, type RemoteFailure, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, type RemoteFailure, type RemoteResult, type RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+
+/**
+ * Adapt a scripted downlink to the handle a generated Client stream method returns.
+ * The uplink members are inert: this fake yields no frames.
+ * @param source - frames the fake yields.
+ * @returns a handle that iterates `source`.
+ */
+function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
+  return {
+    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
+    send: () => undefined,
+    end: () => undefined,
+    dispose: () => undefined,
+  }
+}
+
+/** @returns an already-finished Workspace frame sequence. */
+async function* finishedFrames(): AsyncGenerator<WorkspaceFollowFrame> {}
 
 const sid = (id: string): SessionId => id as SessionId
 const wid = (id: string): WorkspaceId => id as WorkspaceId
@@ -117,7 +135,9 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
     return this.onArchiveSession(request)
   }
 
-  async *follow(_signal?: AbortSignal): AsyncGenerator<WorkspaceFollowFrame> {}
+  follow(_signal?: AbortSignal): RemoteStreamHandle<WorkspaceFollowFrame, never> {
+    return streamHandle(finishedFrames())
+  }
 
   private record(method: string, request: unknown): void {
     this.calls.push({ method, request })

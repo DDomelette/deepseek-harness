@@ -6,16 +6,22 @@ import { sessionLinkState } from '../src/client/session-link.ts'
 
 const id = 'session-original' as SessionId
 
-const ready: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const ready: WorkspaceSnapshot = {
+  items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
+}
 
 /** Session list whose Host-list projection is `ids` and whose rows are `byId`. */
 function sessions(ids: SessionId[], rows: SessionId[]): SessionListState {
   return {
     ids,
     byId: Object.fromEntries(rows.map(row => [row, {
-      id: row, displayTitle: row, running: false, blank: false, updatedAt: 0, retainedBy: {},
+      id: row, displayTitle: row, running: false, blank: false, updatedAt: 0,
     }] as const)),
-    phase: 'ready', projectionsBySession: {},
+    current: undefined,
+    phase: 'ready',
+    subagentsByParent: {},
+    jobsBySession: {},
+    currentAddress: undefined,
   }
 }
 

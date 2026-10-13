@@ -395,7 +395,6 @@
     { "path": "./packages/experimental/auto-review" },
     { "path": "./packages/experimental/badge-skill-bundle" },
     { "path": "./packages/experimental/cot-translation-bundle" },
-    { "path": "./packages/experimental/inspector-profile" },
     { "path": "./packages/experimental/ptc-runtime-python" },
     { "path": "./packages/experimental/ralph-bundle" },
     { "path": "./packages/experimental/session-search" },

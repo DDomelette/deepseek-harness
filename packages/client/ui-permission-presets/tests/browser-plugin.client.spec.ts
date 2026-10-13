@@ -1,12 +1,12 @@
 /**
  * ui-permission browser half on a real cordis Context with fake command/
  * sessions faces: the plugin hangs the /permission popup decoration on the
- * host command; options flatten the session's permissions projection with
- * the current value active and `custom` excluded; availability follows the
- * projection key's presence; a pick submits the /permission line through
- * Session.command and surfaces rejection/unmatched as thrown errors; fiber
- * disposal removes the contribution (HMR safety). The same plugin registers
- * its Settings row and invalidates that row on host settings changes.
+ * host command; options flatten the Host's process catalog with the session's
+ * own current value active; availability follows the projection key's
+ * presence; a pick submits the /permission line through Session.command and
+ * surfaces rejection/unmatched as thrown errors; fiber disposal removes the
+ * contribution (HMR safety). The same plugin registers its Settings row and
+ * invalidates that row on host settings changes.
  */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
@@ -16,7 +16,7 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote, scriptedSettingsRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CommandDecoration, PopupSelectSpec } from '@deepseek-ai/dsh-client-ui-commands/client'
-import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
+import type { PermissionCatalog, PermissionSelection } from '@deepseek-ai/dsh-permission-presets/client'
 import {
   PermissionRow, type PermissionRowInjected,
 } from '../src/client/PermissionRow.tsx'
@@ -25,14 +25,19 @@ import { accessEn, accessZh } from '../src/client/locales.ts'
 
 const sid = (k: string): SessionId => k as SessionId
 
-const SELECT: PermissionSelect = {
+/** The process catalog the Host serves; the selectable presets live here. */
+const CATALOG: PermissionCatalog = {
   options: [
     { value: 'read-only', name: 'read-only', description: 'Reads only.' },
     { value: 'workspace-write', name: 'workspace-write' },
     { value: 'danger-full-access', name: 'danger-full-access' },
   ],
-  currentValue: 'workspace-write',
+  defaultOptions: [],
+  defaultPreset: 'workspace-write',
 }
+
+/** The session's own projection value; the catalog carries the selectable set. */
+const SELECT: PermissionSelection = { currentValue: 'workspace-write' }
 
 async function bench() {
   const ctx = new Context()
@@ -42,6 +47,10 @@ async function bench() {
   ctx.provide('locale', locale)
   const settingsRemote = scriptedSettingsRemote()
   const remote = new TestRemote(ctx, { settings: settingsRemote.settings })
+  let catalog = CATALOG
+  const permissionPresets = { catalog: () => Promise.resolve({ ok: true as const, value: catalog }) }
+  ctx.provide('remote.permissionPresets', permissionPresets as never)
+  Object.assign(remote, { permissionPresets })
   ctx.slots.register({
     name: 'root',
     children: {
@@ -56,7 +65,7 @@ async function bench() {
       return () => { decoration = undefined }
     },
   })
-  const values = new Map<SessionId, PermissionSelect>()
+  const values = new Map<SessionId, PermissionSelection>()
   const commands: string[] = []
   let commandResult: { ok: boolean; matched?: boolean } = { ok: true, matched: true }
   const session = (id: SessionId) => ({
@@ -81,6 +90,7 @@ async function bench() {
   return {
     ctx, fiber, locale, values, commands, remote,
     setResult: (r: { ok: boolean; matched?: boolean }) => { commandResult = r },
+    setCatalog: (next: PermissionCatalog) => { catalog = next },
     decoration: () => decoration,
     popup: (): PopupSelectSpec => {
       const ui = decoration!.ui
@@ -108,12 +118,14 @@ describe('ui-permission browser plugin', () => {
     await injected!.select('read-only')
   })
 
-  it('availability follows the projection key; options mark the current value active and exclude custom', async () => {
+  it('availability follows the projection key; options mark the current value active', async () => {
     const b = await bench()
     const c = b.decoration()!
     const proj = { sessionId: sid('s1') }
     expect(c.available(proj)).toBe(false)
-    b.values.set(sid('s1'), { ...SELECT, options: [...SELECT.options, { value: 'custom', name: 'Custom' }], currentValue: 'custom' })
+    // A current value the catalog does not offer — the Host's derived `custom` —
+    // still means the capability is present, and marks no row active.
+    b.values.set(sid('s1'), { currentValue: 'custom' })
     expect(c.available(proj)).toBe(true)
     const options = await b.popup().options(proj, new AbortController().signal)
     expect(options.map(option => option.id)).toEqual(['read-only', 'workspace-write', 'danger-full-access'])
@@ -141,20 +153,23 @@ describe('ui-permission browser plugin', () => {
       cancelLabel: '取消',
       confirmLabel: '启用完全权限',
     })
-    b.values.set(sid('s1'), { ...SELECT, options: [
-      { value: 'workspace-write', name: 'Project Files' },
-      { value: 'danger-full-access', name: 'Operator Mode' },
-      { value: 'custom-mode', name: 'custom-mode' },
-      { value: '__proto__', name: '__proto__' },
-      { value: 'plain', name: 'Ask Every Time' },
-    ] })
+    b.setCatalog({
+      ...CATALOG,
+      options: [
+        { value: 'workspace-write', name: 'Project Files' },
+        { value: 'danger-full-access', name: 'Operator Mode' },
+        { value: 'custom-mode', name: 'custom-mode' },
+        { value: '__proto__', name: '__proto__' },
+        { value: 'plain', name: 'Ask Every Time' },
+      ],
+    })
     const passthrough = await b.popup().options(proj, new AbortController().signal)
     expect(passthrough.map(option => option.label)).toEqual([
       'Project Files', 'Operator Mode', 'Custom Mode', '__proto__', 'Ask Every Time',
     ])
     // A projection that vanished between availability and open throws.
-    expect(() => b.popup().options({ sessionId: sid('ghost') }, new AbortController().signal))
-      .toThrow(/not available on this host/)
+    await expect(b.popup().options({ sessionId: sid('ghost') }, new AbortController().signal))
+      .rejects.toThrow(/not available on this host/)
   })
 
   it('a pick submits the /permission line; rejection and unmatched throw', async () => {

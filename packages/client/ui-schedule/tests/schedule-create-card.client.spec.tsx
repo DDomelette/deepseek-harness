@@ -40,8 +40,6 @@ afterEach(cleanup)
 /** One running call block carrying the model's own arguments. */
 function running(args: unknown = ARGS): ToolBlock {
   return {
-    phase: 'start',
-    args: PartialArguments.fromText(typeof args === 'string' ? args : JSON.stringify(args)),
     callId: CALL, name: TOOL, argsRaw: typeof args === 'string' ? args : JSON.stringify(args),
     turn: 1, step: 1, time: 0, subCalls: [],
   }
@@ -141,7 +139,7 @@ describe('scheduleCreateCardModel', () => {
 
   it('names a still-preparing call by the tool until its arguments arrive', () => {
     expect(scheduleCreateCardModel({
-      phase: 'preparing', args: PartialArguments.EMPTY, callId: CALL, name: TOOL, turn: 1, step: 1, time: 0, subCalls: [],
+      callId: CALL, name: TOOL, argsRaw: '', turn: 1, step: 1, time: 0, subCalls: [],
     }, TOOL)).toEqual({ task: undefined, title: TOOL, output: null })
   })
 

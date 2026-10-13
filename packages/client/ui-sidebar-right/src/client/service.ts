@@ -240,6 +240,16 @@ export class SidebarRightController implements ISidebarRight {
   }
 
   /**
+   * Read the committed tabs of one Session, so a provider can restore its own
+   * content after the layout is adopted.
+   * @param sessionId - Session whose layout has been adopted.
+   * @returns its open records, or an empty list before adoption.
+   */
+  tabsIn(sessionId: SessionId): readonly TabRecord[] {
+    return Object.values(this.adopted.get(sessionId)?.store.getSnapshot().bySession[sessionId]?.layout.tabs ?? {})
+  }
+
+  /**
    * Open a resource: claim it, place it, reveal the column, record the navigation.
    * @param address - a `dsh-resource://<type>/…` address.
    * @param options - placement, the opening type, and navigation parameters.

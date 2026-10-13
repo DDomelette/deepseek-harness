@@ -26,7 +26,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { CommandUiContract, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
+import type { PermissionCatalog, PermissionSelection } from '@deepseek-ai/dsh-permission-presets/client'
 import { PermissionRow } from './PermissionRow.tsx'
 import type { PermissionRowInjected } from './PermissionRow.tsx'
 import {
@@ -44,26 +44,33 @@ export type {
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'commandUi', 'sessions', 'slots', 'locale', 'remote', 'remote.settings',
+  'commandUi', 'sessions', 'slots', 'locale', 'remote', 'remote.permissionPresets', 'remote.settings',
   'settingsScope', 'settingsSchema',
 ]
 
 const ACCESS_NS = 'permission.access'
 
 /** Read one session's current permissions projection value (undefined = capability absent). */
-function selectOf(session: SessionFace | undefined): PermissionSelect | undefined {
-  return session?.projections.faceOf('permissions').getSnapshot() as PermissionSelect | undefined
+function selectOf(session: SessionFace | undefined): PermissionSelection | undefined {
+  return session?.projections.faceOf('permissions').getSnapshot() as PermissionSelection | undefined
 }
 
-/** Flatten the projection select into popup rows; `custom` is display state, never a target. */
-function optionsOf(value: PermissionSelect, t: (key: string) => string): SelectOption[] {
-  return value.options
-    .filter(option => option.value !== 'custom')
+/**
+ * Flatten the process catalog into popup rows, marking the session's own value
+ * active. The selectable presets are process-level, so they arrive from the
+ * catalog rather than from the projection, which carries the current value only.
+ * @param catalog - the process catalog the Host serves.
+ * @param currentValue - the value the addressed session currently runs.
+ * @param t - the dictionary binding for the row copy.
+ * @returns one row per selectable preset, in catalog order.
+ */
+function optionsOf(catalog: PermissionCatalog, currentValue: string, t: (key: string) => string): SelectOption[] {
+  return catalog.options
     .map(option => ({
       id: option.value,
       label: displayPermissionPreset(option.value, option.name, t),
       ...(option.description !== undefined ? { detail: option.description } : {}),
-      ...(option.value === value.currentValue ? { active: true } : {}),
+      ...(option.value === currentValue ? { active: true } : {}),
       ...(option.value === FULL_ACCESS_PRESET
         ? {
           confirmation: {
@@ -150,10 +157,14 @@ export function apply(ctx: ClientContext): void {
     available: session => selectOf(sessionFor(session)) !== undefined,
     ui: {
       kind: 'popupSelect',
-      options: (session) => {
+      options: async (session) => {
         const value = selectOf(sessionFor(session))
         if (value === undefined) throw new Error('permission presets are not available on this host')
-        return Promise.resolve(optionsOf(value, t))
+        const catalog = await ctx.remote.permissionPresets.catalog()
+        if (!catalog.ok) {
+          throw new Error(`permission catalog failed: ${catalog.error.code}: ${catalog.error.message}`)
+        }
+        return optionsOf(catalog.value, value.currentValue, t)
       },
       onSelect: async (option, session) => {
         const live = sessionFor(session)

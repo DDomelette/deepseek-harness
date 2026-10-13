@@ -226,7 +226,9 @@ class ClientRemoteService extends Service implements ClientRemote {
   ): AsyncIterable<unknown> {
     const connection = this.ownerCtx.get('connection') as ConnectionHandle | undefined
     if (connection === undefined) throw new Error(noConnection)
-    const local = connection.rpc.open?.('/api', endpoint, payload, signal, uplink)
+    // The in-process carrier seam opens a downlink only; the uplink stays with
+    // the Remote carrier that reads it.
+    const local = connection.rpc.open?.('/api', endpoint, payload, signal)
     return local === undefined
       ? this.streams.open(endpoint, payload, signal, uplink)
       : normalizeConnectionStream(local)

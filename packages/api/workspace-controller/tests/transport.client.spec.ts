@@ -8,7 +8,7 @@ import {
 } from '@deepseek-ai/dsh-api-gateway/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { RemoteError, type RemoteFailure, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, type RemoteFailure, type RemoteResult, type RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import * as WorkspaceClientPlugin from '../src/client/index.ts'
 import {
   ClientWorkspaceModel,
@@ -41,6 +41,24 @@ const AVAILABLE_CONNECTION = {
     subscribe: () => () => {},
   },
 }
+
+/**
+ * Adapt a scripted downlink to the handle a generated Client stream method returns.
+ * The uplink members are inert: these scripts drive the downlink only.
+ * @param source - frames the fake yields.
+ * @returns a handle that iterates `source`.
+ */
+function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
+  return {
+    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
+    send: () => undefined,
+    end: () => undefined,
+    dispose: () => undefined,
+  }
+}
+
+/** @returns an already-finished Workspace frame sequence. */
+async function* finishedFrames(): AsyncGenerator<WorkspaceFollowFrame> {}
 
 function workspaceClient(
   remote: WorkspaceRemote,
@@ -142,7 +160,11 @@ class ScriptedWorkspaceRemote implements WorkspaceRemote {
     throw new Error('unused')
   }
 
-  async *follow(signal = new AbortController().signal): AsyncIterable<WorkspaceFollowFrame> {
+  follow(signal = new AbortController().signal): RemoteStreamHandle<WorkspaceFollowFrame, never> {
+    return streamHandle(this.followFrames(signal))
+  }
+
+  private async *followFrames(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     const generation = this.generations[this.calls++]
     if (generation === undefined) throw new Error('no scripted Workspace generation')
     this.signals.push(signal)
@@ -184,7 +206,9 @@ class CommandWorkspaceRemote implements WorkspaceRemote {
     archivedSessionIds: [request.sessionId],
   })))
 
-  async *follow(_signal?: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {}
+  follow(_signal?: AbortSignal): RemoteStreamHandle<WorkspaceFollowFrame, never> {
+    return streamHandle(finishedFrames())
+  }
 }
 
 async function waitFor(check: () => void): Promise<void> {

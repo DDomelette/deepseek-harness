@@ -17,7 +17,6 @@ import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-control
 import { createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { ScheduleCatalogEntry, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
-import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { ScheduleTurnCard, type ScheduleTurnCardProps } from '../src/client/ScheduleTurnCard.tsx'
 import { zoneLabel } from '../src/client/schedule-format.ts'
 import {
@@ -161,7 +160,6 @@ function scheduleOf(value: ConversationNodeAssembler, turn = 1): Readonly<Schedu
 function settledBlock(task: unknown, callId = CALL): ToolResultNode {
   return {
     kind: 'tool-result', seq: 3, time: 3_000, callId,
-    name: 'schedule_create', args: PartialArguments.fromText(JSON.stringify(ARGS)),
     call: { name: 'schedule_create', argsRaw: JSON.stringify(ARGS) },
     callTime: 2_000,
     content: [{ type: 'text', text: JSON.stringify(task) }],
@@ -208,6 +206,8 @@ function cardProps(
   // delivers, so the fake leaves those members to the assertion below.
   const props: Partial<ScheduleTurnCardProps> = {
     ...tailOwner({ created }, 3),
+    sessionId: 'session' as never,
+    matched: { created },
     openTaskDetail,
     onRetry,
     t,
@@ -366,7 +366,7 @@ describe('ScheduleTurnCard', () => {
     expect(screen.getByText(`Daily at 23:00 (${zoneLabel('Asia/Shanghai', makeTranslate(en))})`)).toBeDefined()
     expect(screen.getByRole('button', { name: 'Open' })).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Check the deployment' }))
-    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('task-daily' as ScheduleId)
+    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('session', 'task-daily' as ScheduleId)
   })
 
   it('renders the stored title of the created task rather than its instruction', () => {
@@ -375,7 +375,7 @@ describe('ScheduleTurnCard', () => {
     expect(screen.getByText('Deployment check')).toBeDefined()
     expect(screen.queryByText('Check the deployment')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Deployment check' }))
-    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('task-daily' as ScheduleId)
+    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('session', 'task-daily' as ScheduleId)
   })
 
   it('replaces the creation result with the current task title and timing', async () => {
@@ -536,8 +536,8 @@ describe('ScheduleTurnCard', () => {
     expect(view.container.querySelectorAll('[data-tool="schedule_create"]')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Check the deployment' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Summarize the incident' }))
-    expect(openTaskDetail).toHaveBeenNthCalledWith(1, 'task-daily' as ScheduleId)
-    expect(openTaskDetail).toHaveBeenNthCalledWith(2, 'task-later' as ScheduleId)
+    expect(openTaskDetail).toHaveBeenNthCalledWith(1, 'session', 'task-daily' as ScheduleId)
+    expect(openTaskDetail).toHaveBeenNthCalledWith(2, 'session', 'task-later' as ScheduleId)
   })
 
   it.each([
@@ -555,7 +555,7 @@ describe('ScheduleTurnCard', () => {
     )} />)
     expect(screen.getByText(`每周一、三 09:00（${zoneLabel('Asia/Shanghai', makeTranslate(zh))}）`)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '打开任务详情：Check the deployment' }))
-    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('task-weekly' as ScheduleId)
+    expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('session', 'task-weekly' as ScheduleId)
   })
 
   it('renders no card when the turn created none', () => {
