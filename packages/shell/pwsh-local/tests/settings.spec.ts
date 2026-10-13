@@ -1,81 +1,41 @@
-/** The pwsh executor's own settings section as the Loader and a committed write resolve it. */
-
-import { describe, expect, it } from 'vitest'
+/** Live executor configuration through Loader updates. */
+import { expect, it, onTestFinished } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import { PwshLocalExecutor } from '@deepseek-ai/dsh-pwsh-local'
+import { PwshLocalExecutor } from '../src/index.ts'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 
-/** Mount the executor under a Loader entry and read the mounted provider back. */
-async function boot(config: object = {}) {
+it('uses changed budgets for later commands without remounting the executor', async () => {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(LocalSubprocessRuntime)
-  const configuration = await liveConfig(ctx, PwshLocalExecutor, { timeoutMs: 60_000, ...config })
-  const pwsh = (): PwshLocalExecutor => ctx.shell as PwshLocalExecutor
-  return { ctx, configuration, pwsh }
-}
+  const live = await liveConfig(ctx, PwshLocalExecutor, { timeoutMs: 60_000 })
+  const before = live.fiber
+  await live.update({ timeoutMs: 5_000, maxOutputBytes: 1_024 })
+  expect(live.entry.fiber === before).toBe(true)
+  expect(ctx.shell.resolve({ command: 'echo ok' })).toMatchObject({ timeoutMs: 5_000, stdoutMaxBytes: 1_024 })
+  // A stored budget the executor cannot use fails the next command, not the profile write.
+  await live.update({ timeoutMs: 0 })
+  expect(() => ctx.shell.resolve({ command: 'echo ok' })).toThrow('timeoutMs must be a positive finite number')
+  await live.update({ timeoutMs: 5_000, graceMs: Number.MAX_SAFE_INTEGER })
+  expect(() => ctx.shell.resolve({ command: 'echo ok' })).toThrow('graceMs must be no greater')
+  await live.update({ graceMs: 200 })
+  expect(ctx.shell.resolve({ command: 'echo ok' }).timeoutMs).toBe(5_000)
+  await live.replace({})
+  expect(ctx.shell.resolve({ command: 'echo ok' }).timeoutMs).toBe(120_000)
+})
 
-describe('pwsh executor over its settings section', () => {
-  it('resolves the committed entry over the composition value', async () => {
-    const bench = await boot()
-    expect(bench.pwsh().config.timeoutMs.get()).toBe(60_000)
-
-    await bench.configuration.update({ timeoutMs: 5_000 })
-
-    expect(bench.pwsh().config.timeoutMs.get()).toBe(5_000)
-    await bench.ctx.fiber.dispose()
-  })
-
-  it('refuses a stored value the executor could not run with', async () => {
-    const bench = await boot()
-
-    await expect(bench.configuration.update({ timeoutMs: 0 }))
-      .rejects.toThrow(/pwsh-local: timeoutMs must be a positive finite number/)
-
-    expect(bench.pwsh().config.timeoutMs.get()).toBe(60_000)
-    await bench.ctx.fiber.dispose()
-  })
-
-  it('re-resolves the executable when the stored path changes', async () => {
-    const bench = await boot({ pwshPath: '/opt/first/pwsh' })
-    expect(bench.pwsh().pwshPath).toBe('/opt/first/pwsh')
-
-    await bench.configuration.update({ pwshPath: '/opt/second/pwsh' })
-
-    expect(bench.pwsh().pwshPath).toBe('/opt/second/pwsh')
-    await bench.ctx.fiber.dispose()
-  })
-
-  it('keeps the resolved executable when an unrelated field changes', async () => {
-    const bench = await boot({ pwshPath: '/opt/first/pwsh' })
-    const before = bench.pwsh().pwshPath
-
-    await bench.configuration.update({ timeoutMs: 5_000 })
-
-    expect(bench.pwsh().pwshPath).toBe(before)
-    await bench.ctx.fiber.dispose()
-  })
-
-  it('returns to the schema defaults when the stored section is cleared', async () => {
-    const bench = await boot({ pwshPath: '/opt/first/pwsh' })
-    await bench.configuration.update({ timeoutMs: 5_000, pwshPath: '/opt/second/pwsh' })
-    expect(bench.pwsh().config.timeoutMs.get()).toBe(5_000)
-    expect(bench.pwsh().pwshPath).toBe('/opt/second/pwsh')
-
-    await bench.configuration.replace({})
-
-    expect(bench.pwsh().config.timeoutMs.get()).toBe(120_000)
-    expect(bench.pwsh().config.pwshPath.get()).toBeUndefined()
-    await bench.ctx.fiber.dispose()
-  })
-
-  it('releases the shell provider when the executor unloads', async () => {
-    const bench = await boot()
-    expect(bench.ctx.get('shell')).toBeDefined()
-
-    await bench.configuration.fiber.dispose()
-
-    expect(bench.ctx.get('shell')).toBeUndefined()
-    await bench.ctx.fiber.dispose()
-  })
+it('resolves a changed pwsh path for later commands without remounting the executor', async () => {
+  const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  await ctx.plugin(LocalSubprocessRuntime)
+  const live = await liveConfig(ctx, PwshLocalExecutor, {})
+  const executor = ctx.shell as PwshLocalExecutor
+  const before = live.fiber
+  const initial = executor.pwshPath
+  await live.update({ pwshPath: '/opt/pwsh/pwsh' })
+  expect(live.entry.fiber === before).toBe(true)
+  expect(executor.pwshPath).toBe('/opt/pwsh/pwsh')
+  await live.replace({})
+  expect(executor.pwshPath).toBe(initial)
 })

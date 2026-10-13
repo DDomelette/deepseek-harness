@@ -26,6 +26,12 @@ declare module '@deepseek-ai/cordis' {
     'loader/config-update'(): void
     'loader/entry-init'(entry: Entry): void
     'loader/partial-dispose'(entry: Entry, legacy: Partial<EntryOptions>, active: boolean): void
+    /**
+     * Volatile config values were committed into the running fiber without a remount; dispatched to the owning fiber only.
+     * @param paths - changed config paths as key arrays; every value is committed before dispatch.
+     * @mode emit
+     */
+    'loader/volatile-update'(paths: readonly (readonly string[])[]): void
     'loader/patch-context'(entry: Entry, next: () => void | Promise<void>): void | Promise<void>
   }
 
@@ -104,7 +110,7 @@ export class Loader extends EntryTree {
       if (!this.entry || noSave || this.parent.fiber?.entry === this.entry) return next()
       await next()
       const unparse = this.runtime?.Config?.['simplify']
-      this.entry.options.config = unparse ? unparse(config) : config
+      this.entry.options.config = unparse ? unparse.call(this.runtime!.Config, config) : config
       this.entry.parent.tree.write()
     }, { global: true, prepend: true })
 
