@@ -771,7 +771,7 @@ Sources: [`packages/core/session/src/types.ts:429`](../packages/core/session/src
 
 类型：[SessionTitleLlmRequestEventData](subsystems/session-title.zh.md)
 
-来源：[`packages/session/session-title-llm/src/index.ts:45`](../packages/session/session-title-llm/src/index.ts)
+来源：[`packages/session/session-title-llm/src/index.ts:57`](../packages/session/session-title-llm/src/index.ts)
 
 ### `session-log-deepseek/*`
 

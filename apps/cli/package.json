@@ -103,12 +103,12 @@
     "@deepseek-ai/dsh-experimental-session-titles-bundle": "workspace:*",
     "@deepseek-ai/dsh-experimental-terminal-bundle": "workspace:*",
     "@deepseek-ai/dsh-experimental-session-search": "workspace:*",
-    "@deepseek-ai/dsh-experimental-tool-worktree": "workspace:*"
+    "@deepseek-ai/dsh-experimental-tool-worktree": "workspace:*",
+    "@deepseek-ai/dsh-webhook": "workspace:*",
+    "@deepseek-ai/dsh-webhook-github": "workspace:*"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-skill-badge": "workspace:*",
-    "@deepseek-ai/dsh-webhook-github": "workspace:*",
-    "@deepseek-ai/dsh-webhook": "workspace:*",
     "@deepseek-ai/dsh-tool-ralph": "workspace:*",
     "@deepseek-ai/dsh-hooks-codex": "workspace:*",
     "@deepseek-ai/dsh-hooks-claude-code": "workspace:*",

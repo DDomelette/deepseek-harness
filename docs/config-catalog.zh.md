@@ -2814,7 +2814,7 @@ export interface Config {
 
 依赖：`Volatile` (`@deepseek-ai/cordis`)
 
-来源：[`packages/skill/skill-settings/src/index.ts:26`](../packages/skill/skill-settings/src/index.ts)
+来源：[`packages/skill/skill-settings/src/index.ts:40`](../packages/skill/skill-settings/src/index.ts)
 
 <a id="deepseek-aidsh-spill-local"></a>
 

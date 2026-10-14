@@ -2812,7 +2812,7 @@ export interface Config {
 
 Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
-Source: [`packages/skill/skill-settings/src/index.ts:26`](../packages/skill/skill-settings/src/index.ts)
+Source: [`packages/skill/skill-settings/src/index.ts:40`](../packages/skill/skill-settings/src/index.ts)
 
 <a id="deepseek-aidsh-spill-local"></a>
 
