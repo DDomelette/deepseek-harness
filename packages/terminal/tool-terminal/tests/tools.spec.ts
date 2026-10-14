@@ -47,6 +47,7 @@ class StubSession implements TerminalBackendSession {
     let settle!: () => void
     let reject!: (error: unknown) => void
     let cancelled = false
+    let unread = true
     const done = new Promise<void>((resolve, rejectPromise) => { settle = resolve; reject = rejectPromise }).then(() => ({
       viewport: cancelled ? '^C' : this.viewport,
       waitReason: 'stdin_read' as const,
@@ -55,7 +56,13 @@ class StubSession implements TerminalBackendSession {
     }))
     const operation: TerminalSendOperation = {
       done,
-      readOutput: () => ({ delta: this.delta, truncated: this.deltaTruncated }),
+      // The registry pumps this source on its own cadence, so the read consumes
+      // what it reports, exactly as a backend read does.
+      readOutput: () => {
+        const read = unread ? { delta: this.delta, truncated: this.deltaTruncated } : { delta: '', truncated: false }
+        unread = false
+        return read
+      },
       cancel: () => {
         if (cancelled) return false
         cancelled = true

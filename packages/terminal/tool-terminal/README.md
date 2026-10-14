@@ -83,7 +83,8 @@ The package is a thin adapter: the six tools forward to `ctx.terminals` with the
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | Six tool definitions, schemas, guidance section, background-job integration |
+| [`src/index.ts`](src/index.ts) | Six tool definitions, schemas, guidance section, background-job registration |
+| [`src/background.ts`](src/background.ts) | The registry pull source one background send's output is read through |
 | [`src/render.ts`](src/render.ts) | Result rendering and the complete-result UTF-8 cap |
 
 ### Result bounding
