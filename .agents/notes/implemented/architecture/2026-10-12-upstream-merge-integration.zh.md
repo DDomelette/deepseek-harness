@@ -22,7 +22,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 同一区域的三处上游内容已恢复。`disposeManagedProcesses` 重新在清空集合之前等待每个控制端点的 `close`（上游 `562e7f364e`），这正是 `channel.closed` 在 dispose 返回后为真的原因；注册点本就会移除已关闭的端点，因此它等待的每一项都仍会被 `destroy()` 关闭。`win32-process` 重新隐藏初始控制台——`abi.ts` 中的 `STARTF_USESHOWWINDOW` 与 `SW_HIDE`、`STARTUPINFOW` 编码器中的 `wShowWindow`，以及 `spawnPipedProcess` 与 `spawnJobProcess` 两处标志位——并且 `launchWindowsJob` 传入 `windowsHide: true`，那里的注释因此拒绝 `CREATE_NO_WINDOW`：受限令牌在没有控制台时可能 DLL 初始化失败。`sandbox-windows-acl/tests/control.spec.ts` 是上游的文件，它启动的 `win32-process/tests/fixtures/console-state.ts` 已按字节一致恢复。
 
-该文件的两个用例——以及它们在 `subprocess-local/tests/control.spec.ts` 中镜像的两个——属于平台绑定，已原样移入 `subprocess-local/tests/control-lifecycle.spec.ts`，并在 `vitest.config.ts` 的 `windowsUnsupportedTests` 中列出。子进程在继承来的 fd 7 上建立的 `net.Socket` 会把它的首次写入（以及该次写入的回调）推迟到端点读取之后：暂停的端点永远不会排空，而先打招呼再读取的子进程永远不会退出。用原生 `node:child_process.spawn` 加第七条 `'pipe'` 可在完全不经过 harness 代码的情况下复现，同一个子进程用 `fs.writeSync(7, …)` 则立即送达，而留在 Windows 上运行的四个用例覆盖了该描述符的继承与 256 KB 传输。被移走的用例断言的是 POSIX 行为，尚未在本机执行；该信号由 Linux 通道负责。
+**控制描述符在 Windows 上必须是重叠管道。** 合并把 `runnerStdio` 中两处 `'overlapped'` 换成了 `'pipe'`。同步管道在 Windows 上无法承载 `net.Socket` 端点：子进程的首次写入及其回调都会被推迟到对端读取之后，于是先打招呼再读取的子进程永远送不出问候，而卡在 `c.write(…)` 里的子进程永远到不了 `c.destroy()`。恢复 `'overlapped'`——也就是上游自己的 `ptc-runtime-node/tests/process.spec.ts` 为描述符 7 传入的值——使 `ptc-runtime-node/tests/runtime.spec.ts` 从二十条超时变为 26 passed | 1 skipped，并让两个生命周期用例留在 `subprocess-local/tests/control.spec.ts` 中，而不必移入被排除的文件。
 
 ## 会话删除经 workspace 注册表执行遗忘
 
@@ -31,6 +31,14 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 ## subagent 的 working directory 注入
 
 合并后的 `SubagentRuntime` 通过 `ctx.workingDirectory.ensure(parent, signal)` 解析每个子会话的目录，因此该服务属于它的注入集合。挂载了 subagent runtime 却没有 `dsh-working-directory` 的组合会让每次启动与每次冷恢复停在挂起状态，而不是显式失败：基础 bundle 挂载了它，测试则挂载共享的 `mountWorkingDirectoryFixture`。
+
+## 工作流执行采用上游的 PTC runtime
+
+fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:worker_threads` 引擎。上游已退役该执行基座：[工作流沙箱复用](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)在共享 Node `PtcRuntime` 之上于 `packages/workflow/workflow-ptc` 中实现 `WorkflowEngine`，并拒绝第二个启动器，因为终止 worker 既无法施加会话的文件策略，也无法提供直接执行 Node 代码本就需要的受管进程清理。本次合并两边都没有整体采纳：`apps/cli/package.json`、`tsconfig.host.json`、`scripts/gen-doc-graphs.ts` 与 `packages/experimental/ralph-bundle/cordis.patch.yml` 属于上游、写的是 `workflow-ptc`，而 `packages/bundle/base/cordis.patch.yml`、web-app 的 `standard`、`ptc`、`cordis` 三个 preset 以及两个模型侧消费方属于 fork、写的是 `workflow-worker-thread`，于是两个引擎都被导入、只有 fork 的被挂载。
+
+现在引擎是上游的。基础 bundle 在 `@deepseek-ai/dsh-workflow-ptc` 旁挂载 `@deepseek-ai/dsh-ptc-runtime-node`；web-app bundle 禁用该宿主行，改由各 preset 在已经隔离 `workflowEngine` 的 realm 内挂载该引擎；`tool-workflow` 与 `tool-ralph` 通过 `packages/workflow/workflow-ptc/tests/setup.ts` 的 `mountWorkflowRuntime` 组合各自真实引擎的用例。fork 的包连同全部入口一并退役：`./worker` 导出及其路径别名、tsconfig 项目引用、CI 原生通道与 `processBoundTests` 行、source-workflow 与 built-worker 门禁条目、清单依赖，以及 group、subsystem 与组合参考的行。
+
+`packages/workflow/workflow-worker-thread/tests/integration.spec.ts` 在 `workflow/agent-start` 上断言 `ctx.agents.get(agent.childId)`。那不是合并后生命周期的发布信号：`ctx.subagents.startActivation({ delivery: 'caller' })` 在接纳时即兑现，而子 agent 之后才会在 agents 注册表中可读。上游替换后的 spec 断言引擎真正拥有的发布——先观察到 `subagent/start` 事件，再看到工作流自己的 `agent-start`——两个引擎都无需改动即可满足，因为二者都只在 `startChild` 兑现之后才发出 `agent-start`。
 
 ## settings 命名空间来自组合
 
@@ -77,6 +85,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 - **改写上游测试以适配 fork 的 `win32-process` API，而不是移植缺失的访问器。** 已否决：`sandbox-windows-acl` 的失败路径 spec 来自上游，而它校验的原生布局正是 fork 的即时绑定已经物化的那一个；一行访问器即可让两侧同时通过编译，无需重写 spec。
 - **删除 job 镜像而不接线。** 已否决：`ui-jobs` 在该镜像之上渲染且 Web profile 挂载了它，上游所做的删除会移除一个已交付的头部。
 - **把每个请求都接纳为 operator。** 已否决：那样 `admit` 会把 operator Peer 交给配对设备，而设备 cookie 本就弱于启动令牌。改为把 gateway 的调用适配到 fork 的权限类别，并用一个「设备被当作 operator 即失败」的用例钉住该性质。
+- **保留 fork 的 worker-thread 工作流引擎。** 已否决：上游的[工作流沙箱复用](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)已经退役该执行基座，它的挂载、目录与消费方都是上游的，而同时保留两个引擎会让同一个接缝出现两个权威——合并后的树把两者都导入了，却只挂载了其中一个。
 - **整体采纳上游的 `dsh-client-connection`。** 本次合并已否决：那会替 fork 的配对设备登记表做决定，而它是 fork 自己的安全表面，不该在合并中顺带定夺。改为把 gateway 的五个 Connection 调用点适配到 fork 的接缝。
 
 ## Consequences
@@ -91,3 +100,4 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 - fork 的 V3 时代 `session-persistence-jsonl` spec 仍在描述合并前的迁移路径：合并后的 JSONL 后端没有可用的历史世代迁移（上游的 catalog-migration 消费方未随其迁移边一并采纳），因此 v0/v2/v3 夹具被拒时的消息与这些 spec 的断言不符。该工作流与接纳移植相互独立，仍未完成。
 - 客户端编译面在 `pnpm exec tsc -b tsconfig.client.json --force` 下干净通过。`packages/experimental/client-ui-claude-code-mods` 没有 `src/css-modules.d.ts`，于是 `Band.tsx` 的 CSS Module 导入在该包自身的工程内失败，而根程序通过 `packages/client/*/src/css-modules.d.ts` 能解析同一文件；现已补上该声明，并在聚合里与 `ui-cordis`、`notes` 并列列出。非 force 构建会重放 `.tsbuildinfo`，这正是该失败被掩盖的原因。
 - `packages/session/session-persistence-jsonl/package.json` 现在声明 `@deepseek-ai/dsh-session-format-v3-to-v4`；需要执行 `pnpm install` 才能物化该 workspace 链接。
+- `packages/workflow/workflow-ptc` 能在本树的组合中执行，但它自己的两个套件在本机仍为红色。`tool-workflow` 的真实引擎用例与 `tool-ralph` 的八轮集成都跑完了一个沙箱化 PTC 进程，而 `packages/ptc-runtime/ptc-runtime-node/tests/runtime.spec.ts` 27 例中 20 例失败、`packages/workflow/workflow-ptc/tests/source-runtime.compat.spec.ts` 3 例全失败——全部是裸的 `Test timed out in 5000ms`，`--testTimeout 60000` 下亦然，没有各自的错误。这两个套件正是本机无法复现其进程可见行为的部分；`packages/subprocess/**` 是与上游分歧最大的表面（63 个文件，含 `subprocess-local/src/spawn.ts`），而上游自己的 Windows 原生通道会运行 `workflow-ptc.spec.ts`。

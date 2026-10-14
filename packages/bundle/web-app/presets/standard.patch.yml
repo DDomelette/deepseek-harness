@@ -20,7 +20,7 @@
 # ── identity ────────────────────────────────────────────────────────────────
 
 # The preset's own persona, shadowing the deployment default for this agent.
-# `{{model}}` and `{{cwd}}` resolve from the agent's own route and workspace.
+# `{{model}}` resolves from the agent's own route.
 #
 # Shipped as one `@deepseek-ai/dsh-agent-preset` declaration: `plugins` below
 # is the composition the roster mounts for every session naming `standard`.
@@ -37,7 +37,6 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              suffix: Your working directory is {{cwd}}.
               prefix: >-
                 You are a coding agent powered by the {{model}} model.
 
@@ -250,8 +249,8 @@
                   backgroundMode: one-shot
                   maxDepth: provider-managed
 
-              - id: workflow-worker-thread
-                name: '@deepseek-ai/dsh-workflow-worker-thread'
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
                 config:
                   provider: spawn
 

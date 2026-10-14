@@ -12,10 +12,11 @@ import type {
 } from '@deepseek-ai/dsh-workflow'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import WorkerThreadWorkflowEngine from '@deepseek-ai/dsh-workflow-worker-thread'
+import PtcWorkflowEngine from '@deepseek-ai/dsh-workflow-ptc'
 import * as toolWorkflow from '../src/index.ts'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { mountWorkflowRuntime } from '../../workflow-ptc/tests/setup.ts'
+import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 
 const testToolSignal = new AbortController().signal
 
@@ -418,14 +419,16 @@ describe('dsh-tool-workflow', () => {
     expect(typeof unwrapped.apply).toBe('function')
   })
 
-  describe('composition with the REAL worker-thread engine (the mock above must stay honest)', () => {
+  describe('composition with the REAL PTC engine (the mock above must stay honest)', () => {
     it('an abort releases the tool even when the script parks on a promise no hook owns', async () => {
       // The tool and loop await run.result before cleanup, so cancellation must settle a script
-      // parked on an unowned promise. Exercise that guarantee through the real registry and worker.
+      // parked on an unowned promise. Exercise that guarantee through the real registry and the
+      // sandboxed PTC process the shipped composition mounts.
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
-      await ctx.plugin(SessionProjectionRegistry)
+      await mountWorkingDirectoryFixture(ctx)
+      await mountWorkflowRuntime(ctx)
       await ctx.plugin(SubagentRuntime)
       ctx.subagents.registerProvider({
         name: 'spawn',
@@ -433,17 +436,19 @@ describe('dsh-tool-workflow', () => {
         inheritsParentContext: false,
         start: () => Promise.reject(new Error('the parked-script fixture must not start a child')),
       })
-      await ctx.plugin(WorkerThreadWorkflowEngine, { disposeGraceMs: 30 })
+      await ctx.plugin(PtcWorkflowEngine, {})
       await ctx.plugin(toolWorkflow, {})
       const session = Session.create(SessionId('caller'))
       const parent = { id: session.id, options: {}, session } as unknown as Agent
       const controller = new AbortController()
+      const ready = Promise.withResolvers<undefined>()
+      ctx.on('workflow/log', () => { ready.resolve(undefined) })
       const pending = execute(ctx, {
-        script: 'await new Promise(() => {})\nreturn 1',
+        script: 'log("ready"); await new Promise(() => {})\nreturn 1',
         meta: { name: 'stuck', description: 'parks forever' },
       }, { agent: parent, signal: controller.signal })
-      // Give the run a beat to start (past its synchronous slice), then abort.
-      await new Promise(resolve => setTimeout(resolve, 20))
+      // Wait for the guest's first frame, so the abort lands after the process is live.
+      await ready.promise
       controller.abort('user abort')
       const result = await pending
       expect(result.isError).toBe(true)

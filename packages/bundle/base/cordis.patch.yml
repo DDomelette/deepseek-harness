@@ -392,8 +392,15 @@
         toolName: subagent_fork
         backgroundMode: one-shot
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+    # The shared sandboxed Node runtime owns workflow execution: each run keeps
+    # its VM inside one managed PTC process, so OS file policy, output and
+    # control bounds and process cleanup come from the sandbox and subprocess
+    # providers below. See docs/subsystems/workflow.md.
+    - id: ptc-runtime
+      name: '@deepseek-ai/dsh-ptc-runtime-node'
+
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 

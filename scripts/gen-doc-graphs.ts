@@ -659,7 +659,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'workflow',
     title: 'Workflow script engine',
     mode: 'seam',
-    implementations: ['workflow-worker-thread'],
+    implementations: ['workflow-ptc'],
     consumers: ['tool-workflow', 'tool-ralph'],
     note: 'One engine per context, as in bash, with no named-provider registry; the general workflow and fixed Ralph consumers start runs whose agent() calls fan out through ctx.subagents.',
   },

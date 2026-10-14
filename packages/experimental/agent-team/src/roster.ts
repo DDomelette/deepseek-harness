@@ -133,6 +133,7 @@ export class TeamRoster {
       id: root.id,
       name: 'lead',
       role: 'lead',
+      // The Lead row reports the Lead's own Agent status; teammate rows report turn availability.
       status: root.status,
       ...root.options.model === undefined ? {} : { model: root.options.model },
       diagnostics: [],
@@ -148,7 +149,7 @@ export class TeamRoster {
           ? 'failed'
           : member.phase === 'provisioning'
             ? 'provisioning'
-            : live?.status ?? 'inactive',
+            : availability(live),
         description: member.description,
         provider: member.provider,
         context: member.context,
@@ -209,7 +210,7 @@ export class TeamRoster {
     if (target.id === membership.root.id) throw new TeamError('the Team Lead cannot interrupt itself', 'TEAM_INVALID_TARGET')
     const live = this.ctx.agents.get(target.id)
     if (live === undefined) return { previousStatus: 'inactive' }
-    const previousStatus = live.status
+    const previousStatus = availability(live)
     this.ctx.subagents.interrupt(target.id, { kind: 'ancestor', agent: caller })
     return { previousStatus }
   }
@@ -485,4 +486,9 @@ export class TeamRoster {
   private subagentDescriptor(agent: Agent): boolean {
     return foldSubagentDescriptor(agent.session.snapshotEvents(agent.session.inheritedEventCount)) !== undefined
   }
+}
+
+/** Turn availability is independent of whether the Agent is loaded. */
+function availability(agent: Agent | undefined): 'running' | 'inactive' {
+  return agent?.status === 'running' ? 'running' : 'inactive'
 }

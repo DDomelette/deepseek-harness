@@ -91,10 +91,10 @@ kind: "package-reference"
 
 - [工作流子系统](../../../docs/subsystems/workflow.zh.md)——seam 约定、启动请求与事件载荷。
 - [工作流 seam](../workflow/README.zh.md)——工具背后的运行与结果词汇。
-- [worker-thread 引擎](../workflow-worker-thread/README.zh.md)——执行脚本的引擎。
+- [PTC 工作流引擎](../workflow-ptc/README.zh.md)——执行脚本的引擎。
 - [subagent 工具](../../subagent/tool-subagent/README.zh.md)——一两项委派时的普通委派替代方案。
 - [组地图](../README.zh.md)——工作流能力家族及其包。
-- [动态工作流 Agent Note](../../../.agents/notes/implemented/feature/2026-07-05-dynamic-workflows.zh.md)——seam 设计及其决策。
+- [历史动态工作流 Agent Note](../../../.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md)——seam 设计及其决策。
 
 -----
 

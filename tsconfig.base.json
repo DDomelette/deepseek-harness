@@ -458,7 +458,6 @@
       "@deepseek-ai/dsh-workflow": ["./packages/workflow/workflow/src"],
       "@deepseek-ai/dsh-workflow/invariant": ["./packages/workflow/workflow/src/invariant.ts"],
       "@deepseek-ai/dsh-workflow-ptc": ["./packages/workflow/workflow-ptc/src"],
-      "@deepseek-ai/dsh-workflow-worker-thread": ["./packages/workflow/workflow-worker-thread/src"],
       "@deepseek-ai/dsh-working-directory": ["./packages/session/working-directory/src"],
       "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"],
       // END generated package aliases
@@ -548,7 +547,6 @@
       "@fixture/host/models": ["./packages/typert/generator/tests/fixtures/type-model/packages/host/src/models.ts"],
       "@deepseek-ai/dsh-webhook-github/types": ["./packages/webhook/webhook-github/src/types.ts"],
       "@deepseek-ai/dsh-webhook/types": ["./packages/webhook/webhook/src/types.ts"],
-      "@deepseek-ai/dsh-workflow-worker-thread/worker": ["./packages/workflow/workflow-worker-thread/src/worker.ts"],
       "@deepseek-ai/dsh-client-product-analytics": ["./packages/client/product-analytics/src"],
       "@deepseek-ai/dsh-experimental-api-speech-to-text": ["./packages/experimental/api-speech-to-text/src"],
       "@deepseek-ai/dsh-experimental-auto-review": ["./packages/experimental/auto-review/src"],
