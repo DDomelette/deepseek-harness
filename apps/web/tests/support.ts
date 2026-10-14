@@ -1,5 +1,6 @@
 // Shared plumbing for the web smoke tests (dist location, free port, failure shots).
 import { existsSync, mkdirSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -300,6 +301,46 @@ export async function saveFailureShot(page: Page, name: string): Promise<void> {
   } catch {
     // Best-effort evidence: a dead page/browser at failure time must not mask the real assertion error.
   }
+}
+
+/**
+ * The document the settings plane persists writes into: the active scaffold
+ * profile's Cordis patch ("Changes persist through the active profile's Cordis
+ * patch", `packages/settings/settings/README.md`). `$DSH_HOME/settings.yaml` is
+ * only a one-shot legacy import source, renamed `settings.yaml.imported` before
+ * the first write, so a scenario polling it waits for a file the Host never
+ * writes.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @returns the profile patch path the settings document accumulates in.
+ */
+export function settingsPatchPath(harnessHome: string): string {
+  return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
+}
+
+/**
+ * One settings row of that patch, as the plane writes it: an entry-id-targeted
+ * row whose editable fields live under its `config` key.
+ * @param document - the complete patch document.
+ * @param id - profile entry id the row addresses.
+ * @returns the row's text, or an empty string while the row does not exist.
+ */
+export function settingsRow(document: string, id: string): string {
+  const start = document.indexOf(`- id: ${id}\n`)
+  if (start < 0) return ''
+  const rest = document.slice(start)
+  const next = rest.indexOf('\n- id: ')
+  return next < 0 ? rest : rest.slice(0, next)
+}
+
+/**
+ * Read one settings row out of the profile patch, for a poll that waits for the
+ * Host's write to land.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @param id - profile entry id the row addresses.
+ * @returns the row's text, or an empty string while the patch has no such row.
+ */
+export async function persistedSettingsRow(harnessHome: string, id: string): Promise<string> {
+  return settingsRow(await readFile(settingsPatchPath(harnessHome), 'utf8').catch(() => ''), id)
 }
 
 /**

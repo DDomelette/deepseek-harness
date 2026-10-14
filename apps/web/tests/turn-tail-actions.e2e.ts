@@ -20,7 +20,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newEnglishPage, persistedSettingsRow, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/turn-tail-actions', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.v3.jsonl')
@@ -253,8 +253,11 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
 
     await expect.poll(() => process.count(), { timeout: 10_000 }).toBe(0)
     await tool.waitFor({ state: 'visible', timeout: 10_000 })
-    await expect.poll(async () => readFile(join(scaffold!.harnessHome, 'settings.yaml'), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-chat:\n\s+transcriptView: normal/)
+    // The settings plane persists this row into the active profile's Cordis
+    // patch, not the legacy `$DSH_HOME/settings.yaml` import source, which the
+    // first write renames to `settings.yaml.imported`.
+    await expect.poll(() => persistedSettingsRow(scaffold!.harnessHome, 'ui-chat'), { timeout: 5_000 })
+      .toContain('transcriptView: normal')
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     const restored = page.getByRole('dialog', { name: 'Settings' })
