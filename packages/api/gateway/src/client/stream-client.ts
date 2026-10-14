@@ -10,6 +10,9 @@ import {
 import { Deque } from '@deepseek-ai/dsh-deque'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 
+/** Origin the mux socket targets from a carrier that runs outside a page. */
+const INTERNAL_BASE = 'http://dsh.internal'
+
 /** Physical Remote stream socket failure that may be retried by a domain transport. */
 export class RemoteStreamCarrierError extends Error {
   /**
@@ -472,9 +475,17 @@ export class ClientUplinkQueue implements AsyncIterable<unknown>, AsyncIterator<
 function remoteStreamUrl(): string {
   // The mux route is registered absolute; a page resolves its document-relative
   // form against its own document base. A shell-owned Host on another origin
-  // supplies that base through the transport.
-  const globals = globalThis as { __DSH_TRANSPORT__?: { streamBaseUrl?: string } }
-  const url = new URL(REMOTE_STREAM_MUX_PATH.slice(1), globals.__DSH_TRANSPORT__?.streamBaseUrl ?? document.baseURI)
+  // supplies that base through the transport, and a carrier started outside a
+  // page has neither.
+  const globals = globalThis as {
+    __DSH_TRANSPORT__?: { streamBaseUrl?: string }
+    document?: { baseURI?: string }
+    location?: { origin?: string }
+  }
+  const origin = globals.location?.origin
+  const url = new URL(REMOTE_STREAM_MUX_PATH.slice(1), globals.__DSH_TRANSPORT__?.streamBaseUrl
+    ?? globals.document?.baseURI
+    ?? (origin !== undefined && origin !== 'null' ? origin : INTERNAL_BASE))
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   return url.href
 }

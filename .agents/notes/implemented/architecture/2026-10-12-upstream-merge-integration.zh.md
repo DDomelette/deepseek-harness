@@ -46,6 +46,10 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 调用方模型仍属 fork。Connection 保留配对设备权限：设备 cookie 的权限低于回环启动令牌——`isLocalOperatorRequest` 正是移动端路由使用的判据——因此 `HostConnectionHandle.admit(request)` 返回调用方自身类别的 Peer：启动令牌凭据得到 operator Peer，设备 cookie 得到该设备自己的 Peer。上游的 `admit` 会把 operator Peer 交给每一个被接纳的请求；照搬就会把配对设备提升为 operator，因此 `ConnectionPeer`（`packages/client/connection/src/peer.ts`）是唯一实现——一个由 Connection 拥有的 scope，operator 铸造一次，每台设备各铸造一次。RPC 拦截器的第四个参数就是发起该请求的调用方 Peer，它在 TCP 对端仍可观测之处解析，因此按 scope 的分发与流复用器的 Peer 生命周期绑定都不会覆盖凭据未授予的类别。吊销设备会释放它的 Peer，这正是终止该设备已持有流的机制。
 
+**客户端半边采用上游的 handle，并保留无页面时的载体。** 上游的 `ClientStreamHandle` 在构造时预读下行，这正是让它的 `open` 帧先于任何 `send()` 的机制；同一次预读还会在调用流方法时解析 Connection，因此缺少传输会在调用处抛出，而已退役命名空间的首次读取会在等待载体之前报出 `Remote method <endpoint> is no longer mounted`，未被读取的流因而永远不会等待一个已经不存在的 Host。上游只按 `document.baseURI` 解析复用 socket，而该值只存在于页面内；本 fork 的载体也会在没有页面的环境中运行，因此 `remoteStreamUrl` 依次尝试传输的 `streamBaseUrl`、文档基址、`location.origin`，最后回退到 `http://dsh.internal`。
+
+**边界取值由 Host 拒绝。** `requireStrictInputs` 在挂载时拒绝没有严格 codec 的描述符，而 Host 会把每一个线上字段——调用身份、参数、上行项——都经 `codec.create().parse(value)` 解码，并以 `gateway/input-invalid` 拒绝。因此客户端原样转发取值，自己只负责参数个数、Context 适配器、Connection 存活与描述符严格性。被取消的转发事件同样由 Host 兜底：客户端一旦观察到 Host 的 `cancel` 帧就不再回复，而 Host 不再等待的回复在 `receiveRemoteEventResult` 中是幂等空操作。
+
 **RPC 附件不做成帧。** 上游把处理函数返回的二进制附件放进 multipart 响应。本传输只承载 JSON，且本仓库没有任何 codec 会投影附件，因此 `ConnectionRpcAttachment` 保留在处理函数契约中，而 `fullResponse` 会拒绝携带附件的返回值，而不是用 `null` 占位符作答。二进制载荷继续走精确 Fetch 路由。
 
 ## 刻意的搁置
@@ -60,7 +64,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 **preset 目录打开表面。** 合并后的 `AgentPreset` 不携带 trust 与 path，因为上游用「在 `cordis.yml` 中声明 preset」的注册表取代了 fork 那个会自行发现目录的 agent-presets 包；打开用户自撰的 preset 目录因此没有数据来源。该表面被端到端移除——两个 preset 打开的 Remote 方法、SettingsController 的 `nativeOpen` 字段、`canOpenPath`、`AgentPresetDirectoryOpenValue`、`agent-preset/read-only` 错误码、connection fixture 的分发条目、`ui-agent-preset` 的位置入口及其 locale 与 CSS，以及仅覆盖它的那些用例。若 Host 侧的 `deletePreset` 回归，请恢复 `agent-preset/read-only`。
 
-**上游的 `remote-mock`。** gateway 的上游客户端 spec 需要 `@deepseek-ai/dsh-remote-mock`，一个本次合并从未引入的测试支持包；把它声明为 `workspace:*` 依赖会让 `pnpm install` 直接失败。因此保留 fork 的 `gateway.client.spec.ts` 并去掉该依赖，该文件在被引入该包或重写 spec 之前保持红色。
+**上游的 `remote-mock`。** gateway 的上游客户端 spec 需要 `@deepseek-ai/dsh-remote-mock`，一个本次合并从未引入的测试支持包；把它声明为 `workspace:*` 依赖会让 `pnpm install` 直接失败。因此保留 fork 的 `gateway.client.spec.ts` 并去掉该依赖；它跑在 spec 自带的 fixture 上，断言的是客户端半边自身的职责——挂载、参数个数、适配器、存活、描述符严格性、载体生命周期、上行成帧——而不是某个替身装配。
 
 ## Alternatives considered
 
@@ -73,7 +77,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 
 ## Consequences
 
-- gateway/remotes 这一对已收敛到上游的流协议，其测试族从 104 failed | 236 passed 变为 46 failed | 294 passed：`gateway.host.spec.ts`、`gateway-stream.host.spec.ts`、`echo-stream.host.spec.ts`、`stream-server.host.spec.ts`、`stream-protocol.host.spec.ts` 与 remotes 的两个文件均已转绿。剩余 46 条全部位于 `packages/api/gateway/tests/gateway.client.spec.ts`——它的上游改写需要 `@deepseek-ai/dsh-remote-mock`（见「刻意的搁置」）；fork 的那份仍在针对上游客户端运行，在被引入该包或重写 spec 之前保持红色。
+- gateway/remotes 这一对已收敛到上游的流协议，两个包的测试族均已转绿：`gateway.host.spec.ts`、`gateway-stream.host.spec.ts`、`echo-stream.host.spec.ts`、`stream-server.host.spec.ts`、`stream-protocol.host.spec.ts`、`remote-event-protocol.host.spec.ts`、`control-retry.client.spec.ts`、`journal-stream.client.spec.ts`、`gateway.client.spec.ts`（106/106），以及 remotes 的两个文件。客户端 spec 并不需要 `@deepseek-ai/dsh-remote-mock`，见「刻意的搁置」。
 - web 通道已抵达其断言：`apps/web/tests/archived-sessions-settings.e2e.ts` 通过——归档设置行、`Archived YYYY-MM-DD` 归档时刻、恢复流程与确认后的递归删除——`startup-auto-selection.e2e.ts`（2/2）同样通过。为此落地了两件事：输入框的 Access 席位改读合并后的权限模型（下一段），以及孤立转录的准备器把 V3→V4 边绑定到空子集——`prepareSessionSnapshotFixtureForComparison` 现在经由 `createSessionFormatCatalogWithChildren([])` 恢复，因为静态 catalog 的「仅头部」声明会拒绝任何历史正文。产品路径不受影响：`session-persistence-jsonl` 通过 `prepareCatalogFacts` 收集真实的直属子 Session 事实。
 - 输入框的 Access 席位读取合并后的权限模型。Host 把当前选择放在 `permissions` 会话投影上、把可选预设放在 `permissionPresets.catalog()` Remote 上，因此 `InputBar` 在席位处合并两者：`PermissionCatalogSeat`（`packages/client/ui-conversation/src/client/permission-catalog.ts`）通过已挂载的 Remote 读取目录，在转发事件 `permission-presets/catalog-changed` 上重读，并把预设发布到输入框的 `hooks` 舱位。投影缺失、目录尚未到达、或会话缺少命令面时，席位都不渲染；读取失败或被拒时保留上一次的预设，而不清空一个正在使用的席位。
 - `packages/client/connection` 承载 fork 的调用方 Peer：operator 一个、每台已接纳设备各一个，凭据不属于任何一类的调用方没有；`node-half.host.spec.ts` 钉住该性质——配对设备被接纳为它自己的 Peer——若把 operator 的 Peer 交给设备，该用例即失败。
@@ -81,4 +85,5 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 - `packages/sdk/server` 仍保留一条失败断言：它期望 `body.reasoning_effort === 'max'`，而合并后的 DeepSeek 适配器使用 Messages 线格式。该断言属于 `packages/llm/llm-deepseek`，在做出该决定前保持红色。
 - `packages/subprocess/subprocess-local/tests/control.spec.ts` 在 Windows 上仍有六个用例中的两个为红，分别是 `handle.done` 与 `once(channel, 'data')` 上的超时；通过的四个包含 256 KB 二进制传输，接线本身保持不变。
 - fork 的 V3 时代 `session-persistence-jsonl` spec 仍在描述合并前的迁移路径：合并后的 JSONL 后端没有可用的历史世代迁移（上游的 catalog-migration 消费方未随其迁移边一并采纳），因此 v0/v2/v3 夹具被拒时的消息与这些 spec 的断言不符。该工作流与接纳移植相互独立，仍未完成。
+- 客户端编译面在 `pnpm exec tsc -b tsconfig.client.json --force` 下干净通过。`packages/experimental/client-ui-claude-code-mods` 没有 `src/css-modules.d.ts`，于是 `Band.tsx` 的 CSS Module 导入在该包自身的工程内失败，而根程序通过 `packages/client/*/src/css-modules.d.ts` 能解析同一文件；现已补上该声明，并在聚合里与 `ui-cordis`、`notes` 并列列出。非 force 构建会重放 `.tsbuildinfo`，这正是该失败被掩盖的原因。
 - `packages/session/session-persistence-jsonl/package.json` 现在声明 `@deepseek-ai/dsh-session-format-v3-to-v4`；需要执行 `pnpm install` 才能物化该 workspace 链接。

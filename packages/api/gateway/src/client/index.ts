@@ -600,6 +600,9 @@ class ClientStreamHandle implements RemoteStreamHandle<unknown, unknown> {
   private async *iterate(): AsyncGenerator {
     try {
       while (true) {
+        // A retired namespace answers its next read before the carrier is asked
+        // for one, so an unread stream never waits on a Host that is gone.
+        if (!mountActive(this.token)) throw new Error(withdrawn(this.endpoint).error.message)
         const next = await (this.primed ?? this.downlink.next())
         this.primed = undefined
         if (this.disposed || next.done === true) return

@@ -32,6 +32,7 @@
     "packages/settings/settings/tests/live-config.ts",
     // Client package outside packages/client with a local CSS module face.
     "packages/extensions/ui-cordis/src/css-modules.d.ts",
+    "packages/experimental/client-ui-claude-code-mods/src/css-modules.d.ts",
     "packages/notes/notes/src/css-modules.d.ts",
     "packages/client/tsdown.client.ts",
     "scripts/client-build-environment.ts",
