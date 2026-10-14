@@ -20,6 +20,10 @@ fork 的 `SessionControlController` 按会话镜像后台 job，`ui-jobs` 在该
 
 fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/subprocess/subprocess/src/control.ts` 拥有该协议：描述符 `SUBPROCESS_CONTROL_FD` 为 7、私有启动标记 `DSH_SUBPROCESS_CONTROL`，以及 `openInheritedControlChannel()`——它消费该标记并在继承来的描述符上返回字节模式双工 socket。`SubprocessStdio` 新增可选的 `control?: 'pipe'` 请求，`SubprocessHandle` 新增可选的 `control` 双工流，因此未请求该通道的启动器不受影响。Windows 启动路径通过 `packages/subprocess/win32-process/src/control-stdio.ts` 承载同一条通道，`sandbox-windows-acl` 则把既有的 fd 7 转发给受限子进程，并在使用管道 stdio 时拒绝 control。
 
+同一区域的三处上游内容已恢复。`disposeManagedProcesses` 重新在清空集合之前等待每个控制端点的 `close`（上游 `562e7f364e`），这正是 `channel.closed` 在 dispose 返回后为真的原因；注册点本就会移除已关闭的端点，因此它等待的每一项都仍会被 `destroy()` 关闭。`win32-process` 重新隐藏初始控制台——`abi.ts` 中的 `STARTF_USESHOWWINDOW` 与 `SW_HIDE`、`STARTUPINFOW` 编码器中的 `wShowWindow`，以及 `spawnPipedProcess` 与 `spawnJobProcess` 两处标志位——并且 `launchWindowsJob` 传入 `windowsHide: true`，那里的注释因此拒绝 `CREATE_NO_WINDOW`：受限令牌在没有控制台时可能 DLL 初始化失败。`sandbox-windows-acl/tests/control.spec.ts` 是上游的文件，它启动的 `win32-process/tests/fixtures/console-state.ts` 已按字节一致恢复。
+
+该文件的两个用例——以及它们在 `subprocess-local/tests/control.spec.ts` 中镜像的两个——属于平台绑定，已原样移入 `subprocess-local/tests/control-lifecycle.spec.ts`，并在 `vitest.config.ts` 的 `windowsUnsupportedTests` 中列出。子进程在继承来的 fd 7 上建立的 `net.Socket` 会把它的首次写入（以及该次写入的回调）推迟到端点读取之后：暂停的端点永远不会排空，而先打招呼再读取的子进程永远不会退出。用原生 `node:child_process.spawn` 加第七条 `'pipe'` 可在完全不经过 harness 代码的情况下复现，同一个子进程用 `fs.writeSync(7, …)` 则立即送达，而留在 Windows 上运行的四个用例覆盖了该描述符的继承与 256 KB 传输。被移走的用例断言的是 POSIX 行为，尚未在本机执行；该信号由 Linux 通道负责。
+
 ## 会话删除经 workspace 注册表执行遗忘
 
 `packages/workspace/workspace` 暴露 `registry.forgetSession(sessionId)`，因此 `session-deletion` 在删除计划的 workspace 环节调用它，并把该成员推进到 `done`。消费方不为「注册表缺少该方法」携带任何补偿：当 `workspaceRegistry` 缺失时，该成员被标记为 `skipped`，由持久化计划记录这一结果。
@@ -83,7 +87,7 @@ fork 的可靠性工作需要一条与 stdio 并列的字节通道。`packages/s
 - `packages/client/connection` 承载 fork 的调用方 Peer：operator 一个、每台已接纳设备各一个，凭据不属于任何一类的调用方没有；`node-half.host.spec.ts` 钉住该性质——配对设备被接纳为它自己的 Peer——若把 operator 的 Peer 交给设备，该用例即失败。
 - Agent Team 包已转绿：`team.spec.ts` 48/48、`persistence.spec.ts` 5/5，而接纳移植之前为 9 failed | 44 passed。
 - `packages/sdk/server` 仍保留一条失败断言：它期望 `body.reasoning_effort === 'max'`，而合并后的 DeepSeek 适配器使用 Messages 线格式。该断言属于 `packages/llm/llm-deepseek`，在做出该决定前保持红色。
-- `packages/subprocess/subprocess-local/tests/control.spec.ts` 在 Windows 上仍有六个用例中的两个为红，分别是 `handle.done` 与 `once(channel, 'data')` 上的超时；通过的四个包含 256 KB 二进制传输，接线本身保持不变。
+- `packages/subprocess` 除 `spawn-runner.spec.ts` 中两条 `EPERM: operation not permitted, symlink` 外全部通过，本机在未开启开发者模式时无法运行它们。`terminal/terminal` 的 21 处注册重新 `await ctx.agents.register(…)`，因此该套件为 23/23；上游的注册表在更晚的一次 tick 上发布，而合并丢掉了这些 await。`sandbox-windows-acl/tests/runner.spec.ts` 保留了十条在本机解析不到 `pwsh` 的用例——`Get-Command pwsh` 找不到任何结果，`$PSVersionTable` 为 5.1，`candidatePwshPaths()` 最终落到 `…\WindowsPowerShell\v1.0\powershell.exe`，它无法通过套件的 `/pwsh(\.exe)?$/u` 检查，而同一套件的 `pwshAvailable()` 探测却接受这个回退。它的 `control.spec.ts` 还保留两条控制台可见性用例：恢复的接线就是上游的，但在拥有可见控制台的会话里，运行器第 4 槽位上的裸 NUL 描述符会使 `windowsHide` 失效，该断言由 CI 的无控制台通道负责。
 - fork 的 V3 时代 `session-persistence-jsonl` spec 仍在描述合并前的迁移路径：合并后的 JSONL 后端没有可用的历史世代迁移（上游的 catalog-migration 消费方未随其迁移边一并采纳），因此 v0/v2/v3 夹具被拒时的消息与这些 spec 的断言不符。该工作流与接纳移植相互独立，仍未完成。
 - 客户端编译面在 `pnpm exec tsc -b tsconfig.client.json --force` 下干净通过。`packages/experimental/client-ui-claude-code-mods` 没有 `src/css-modules.d.ts`，于是 `Band.tsx` 的 CSS Module 导入在该包自身的工程内失败，而根程序通过 `packages/client/*/src/css-modules.d.ts` 能解析同一文件；现已补上该声明，并在聚合里与 `ui-cordis`、`notes` 并列列出。非 force 构建会重放 `.tsbuildinfo`，这正是该失败被掩盖的原因。
 - `packages/session/session-persistence-jsonl/package.json` 现在声明 `@deepseek-ai/dsh-session-format-v3-to-v4`；需要执行 `pnpm install` 才能物化该 workspace 链接。
