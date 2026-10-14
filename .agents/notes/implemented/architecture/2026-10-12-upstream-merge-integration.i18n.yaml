@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-12-upstream-merge-integration.md
-2026-10-12-upstream-merge-integration.md: e71d292e8254708b8823915235d49a1668148eea
-2026-10-12-upstream-merge-integration.zh.md: 69430d27cc20a8013b68c1106a7eb53ef994d45e
+2026-10-12-upstream-merge-integration.md: 4913229ac5434d7957ca69a5e2a077c49d2c496c
+2026-10-12-upstream-merge-integration.zh.md: 6854ff4660da4905d89a186ff993df58f21824d9

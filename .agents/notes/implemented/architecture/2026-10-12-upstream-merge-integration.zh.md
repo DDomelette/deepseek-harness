@@ -84,6 +84,8 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 
 **上游的 `remote-mock`。** gateway 的上游客户端 spec 需要 `@deepseek-ai/dsh-remote-mock`，一个本次合并从未引入的测试支持包；把它声明为 `workspace:*` 依赖会让 `pnpm install` 直接失败。因此保留 fork 的 `gateway.client.spec.ts` 并去掉该依赖；它跑在 spec 自带的 fixture 上，断言的是客户端半边自身的职责——挂载、参数个数、适配器、存活、描述符严格性、载体生命周期、上行成帧——而不是某个替身装配。
 
+**取自上游的包所携带的运行时不变式伴生组件。** 上游退役了整个运行时不变式插件体系，因此本次合并从上游采纳的每个包都失去了 fork 曾为它添加的 `./invariant` 伴生组件：共 29 个，分布在 `core/{agent,agent-loop,scope,session,system-prompt,tools}`、`llm/{llm,llm-retry}`、`settings`、`workspace`、`jobs`、`compaction`、`interaction/*`、`credentials/*`、`goal/*`、`plan-mode`、`sandbox-policy`、`schedule`、`storage-domain`、`subagent/*`、`tool-todo`、`agent-presets`、`hook-protocol` 与 `time-context`。fork 仍自有的包保留各自的伴生组件——共 11 个——而这里采纳上游的退役而不是逆转它，因为恢复其余部分等于重新发布一个上游整体移除的机制。代价是 fork 自己的网关要求的那句省略理由：`verify-package-invariants` 会从每个包的 README 中读取它，而 145 个上游采纳的 README 都没有，因此现在每个都写明自己的包贡献什么、以及它不检查的那层关系由哪个服务持有。
+
 ## Alternatives considered
 
 - **保留 fork 自己的 settings provider 接缝。** 已否决：上游从 Loader 组合派生命名空间，这也正是插件无需注册调用即可出现其 section 的原因；两者并存会让同一个 section 出现两个权威。
