@@ -696,7 +696,7 @@ interface TurnEndReasonMap {
 
 一个轮次包围一次模型循环执行，而不是整个会话日志。AgentLoop 只会在轮次内进入 pre-step 批次时记录注入的 `user/message` 事件；插件所属的纯日志事件仍可出现在 `turn/end` 与下一个 `turn/start` 之间，占用事件 seq 但不递增轮次编号。持久化会将每个连续且已接受的事件纳入有界持久化批次，而崩溃修复只关闭确实仍处于开放状态的尾部轮次。需要即时持久性屏障的生产方会显式等待 `ctx.sessions.flush(session)`。
 
-可选的 `dsh-session/invariant` 配套插件会强制核心拥有的关系：轮次与步骤编号、执行事件封闭，以及同一步骤内的工具调用／结果配对。可合并扩展事件的关系由声明它的插件拥有，因此核心不会仅因没有开放轮次就拒绝未知事件。见[独立事件决策](../../.agents/notes/implemented/simplification/2026-07-28-remove-synthetic-log-only-turns.zh.md)。
+轮次与步骤编号、执行事件封闭，以及同一步骤内的工具调用／结果配对之所以成立，是因为 loop 在写入时建立了它们，而不是因为有任何运行期检查在强制：`append` 只校验候选事件自身的 JSON 载荷与 surface 元数据，构造函数把接受的 seed 校验到同样的「事件自身」规则外加 seq 连续性（[`adoptSessionEvent`](../../packages/core/session/src/index.ts) 写明不检查历史关系），而需要开放轮次的消费方会在自己的入口断言该前置条件。崩溃修复与 fork seed 构造会关闭确实仍处于开放状态的尾部轮次，并补齐其缺失的工具结果。可合并扩展事件的关系由声明它的插件拥有，因此核心不会仅因没有开放轮次就拒绝未知事件。见[独立事件决策](../../.agents/notes/implemented/simplification/2026-07-28-remove-synthetic-log-only-turns.zh.md)。
 
 ## 种子结束边界：`session/end-seed`
 
