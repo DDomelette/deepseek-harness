@@ -54,16 +54,6 @@ const windowsUnsupportedTests = process.platform === 'win32'
       'packages/subprocess/subprocess-local/tests/process-inspector.spec.ts',
       'packages/subprocess/subprocess-local/tests/spawn.spec.ts',
       'packages/subprocess/subprocess-local/tests/terminal.spec.ts',
-      // Both cases need a control child that speaks before the parent writes,
-      // and Windows cannot deliver that: a child's net.Socket over the
-      // inherited fd-7 pipe defers its first write (and that write's callback)
-      // until the endpoint reads, so a paused endpoint never drains and a
-      // child that greets first never exits. Plain child_process.spawn with an
-      // extra pipe reproduces it with no harness code involved, and the
-      // descriptor itself is proven inherited here by control.spec.ts's
-      // managed/fallback transport cases and by an equivalent fs.writeSync(7)
-      // child, so only these two cases are platform-bound.
-      'packages/subprocess/subprocess-local/tests/control-lifecycle.spec.ts',
       // Oracle-diff suites: they compare the worker's POSIX path/url faces
       // against the host Node's own answers, which are win32 semantics on
       // Windows. The worker always speaks POSIX; the Linux lanes hold the diff.
