@@ -32,12 +32,28 @@ const CATALOG: PermissionCatalog = {
     { value: 'workspace-write', name: 'workspace-write' },
     { value: 'danger-full-access', name: 'danger-full-access' },
   ],
-  defaultOptions: [],
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
   defaultPreset: 'workspace-write',
 }
 
 /** The session's own projection value; the catalog carries the selectable set. */
 const SELECT: PermissionSelection = { currentValue: 'workspace-write' }
+
+/** The permission namespace the row reads: no stored value, so the catalog answers. */
+const PERMISSION_VIEW = {
+  ns: 'permission',
+  schema: { uid: 1, refs: {} },
+  value: {},
+  base: {},
+  autoGenerate: true,
+  applies: 'live' as const,
+  secrets: [],
+  revision: 3,
+}
 
 async function bench() {
   const ctx = new Context()
@@ -45,7 +61,7 @@ async function bench() {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('en')
   ctx.provide('locale', locale)
-  const settingsRemote = scriptedSettingsRemote()
+  const settingsRemote = scriptedSettingsRemote([PERMISSION_VIEW])
   const remote = new TestRemote(ctx, { settings: settingsRemote.settings })
   let catalog = CATALOG
   const permissionPresets = { catalog: () => Promise.resolve({ ok: true as const, value: catalog }) }
@@ -88,7 +104,7 @@ async function bench() {
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   return {
-    ctx, fiber, locale, values, commands, remote,
+    ctx, fiber, locale, values, commands, remote, settingsRemote,
     setResult: (r: { ok: boolean; matched?: boolean }) => { commandResult = r },
     setCatalog: (next: PermissionCatalog) => { catalog = next },
     decoration: () => decoration,
@@ -115,7 +131,22 @@ describe('ui-permission browser plugin', () => {
     expect(typeof injected?.load).toBe('function')
     expect(typeof injected?.select).toBe('function')
     await injected!.load()
+    // The row resolved its choices and its effective default from the catalog,
+    // with the write still addressed at the namespace's own revision.
+    expect(injected!.hooks.permission.getSnapshot()).toMatchObject({
+      status: 'ready',
+      writable: true,
+      currentValue: 'workspace-write',
+      revision: 3,
+    })
+    expect(injected!.hooks.permission.getSnapshot().options.map(option => option.id))
+      .toEqual(['read-only', 'workspace-write', 'danger-full-access'])
     await injected!.select('read-only')
+    expect(b.settingsRemote.mutate).toHaveBeenCalledWith(
+      'permission',
+      [{ op: 'set', path: ['defaultPreset'], value: 'read-only' }],
+      3,
+    )
   })
 
   it('availability follows the projection key; options mark the current value active', async () => {

@@ -250,8 +250,11 @@ export class SettingsForms extends Service {
       try {
         await this.update(ns, values)
       } catch (error) {
-        this.ownerContext.logger.warn('settings: section %s of %s was not imported into entry %s', section, imported, ns)
-        this.ownerContext.logger.warn(error)
+        // Error, not warn: cordis drops WARN at an exporter's default INFO
+        // threshold, so a rejected section would reach the user as a renamed
+        // file alone — an upgrade silently missing part of its configuration.
+        this.ownerContext.logger.error('settings: section %s of %s was not imported into entry %s', section, imported, ns)
+        this.ownerContext.logger.error(error)
       }
     }
     this.ownerContext.logger.info('settings: imported %s into profile %s', imported, profile.name)

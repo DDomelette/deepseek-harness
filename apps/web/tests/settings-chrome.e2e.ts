@@ -43,6 +43,32 @@ function profilePatch(harnessHome: string): string {
   return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
 }
 
+/**
+ * One settings-plane row of that patch, as the merged plane writes it: an
+ * entry-id-targeted row whose editable fields live under its `config` key.
+ * @param document - the complete patch document.
+ * @param id - profile entry id the row addresses.
+ * @returns the row's text, or an empty string while the row does not exist.
+ */
+function patchRow(document: string, id: string): string {
+  const start = document.indexOf(`- id: ${id}\n`)
+  if (start < 0) return ''
+  const rest = document.slice(start)
+  const next = rest.indexOf('\n- id: ')
+  return next < 0 ? rest : rest.slice(0, next)
+}
+
+/**
+ * Read one settings row out of the active profile patch, for a poll that waits
+ * for the Host's write to land.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @param id - profile entry id the row addresses.
+ * @returns the row's text, or an empty string while the row does not exist.
+ */
+async function persistedRow(harnessHome: string, id: string): Promise<string> {
+  return patchRow(await readFile(profilePatch(harnessHome), 'utf8'), id)
+}
+
 describe('web e2e: settings modal and General preferences', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -202,8 +228,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await dialog.getByRole('button', { name: '仅可查看' }).waitFor({ timeout: 10_000 })
 
     const document = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
-    expect(document).toContain('permission:')
-    expect(document).toContain('defaultPreset: read-only')
+    expect(document).toContain('- id: permission')
+    expect(patchRow(document, 'permission')).toContain('defaultPreset: read-only')
     expect(existing.snapshotEvents().find(event => event.type === 'permission/preset')?.data)
       .toEqual({ preset: 'workspace-write' })
 
@@ -223,7 +249,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await enable.click()
     await dialog.getByRole('button', { name: '完全权限' }).waitFor({ timeout: 10_000 })
     const confirmedDocument = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
-    expect(confirmedDocument).toContain('defaultPreset: danger-full-access')
+    expect(confirmedDocument).toContain('- id: permission')
+    expect(patchRow(confirmedDocument, 'permission')).toContain('defaultPreset: danger-full-access')
     const confirmed = scaffold.ctx.sessions.create(SessionId('settings-permission-confirmed'))
     expect(confirmed.snapshotEvents().map(event => [event.type, event.data])).toEqual([
       ['permission/preset', { preset: 'danger-full-access' }],
@@ -262,8 +289,8 @@ describe('web e2e: settings modal and General preferences', () => {
     const darkCube = initialDialog.getByRole('button', { name: '深色' })
     await selectTheme(darkCube, 'dark')
     await expect.poll(() => darkCube.getAttribute('aria-pressed'), { timeout: 5_000 }).toBe('true')
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-theme:\n\s+preference: dark/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-theme'), { timeout: 5_000 })
+      .toContain('preference: dark')
     await page.keyboard.press('Escape')
 
     // Hold the real application batch so the shell-owned loading page remains observable.
@@ -364,8 +391,8 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(dark.legacy).toBeNull()
     expect(dark.token).not.toBe(light.token)
     expectThemeColorSynchronized(dark)
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-theme:\n\s+preference: dark/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-theme'), { timeout: 5_000 })
+      .toContain('preference: dark')
     await page.keyboard.press('Escape')
 
     // Reload: the preference survives the background Host read + presenter update.
@@ -453,8 +480,8 @@ describe('web e2e: settings modal and General preferences', () => {
       expect(await response.finished()).toBeNull()
       const envelope = await response.json() as { result: { ok: boolean } }
       expect(envelope.result.ok).toBe(true)
-      await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-        .toMatch(new RegExp(`ui-theme:\n(?:\\s+\\w+: .*\n)*?\\s+fontSize: ${px}`))
+      await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-theme'), { timeout: 5_000 })
+        .toMatch(new RegExp(`^\\s+fontSize: ${px}$`, 'm'))
       await page.getByRole('dialog', { name: '设置' }).getByText(String(px), { exact: true }).waitFor({ timeout: 5_000 })
       await expect.poll(readFontSize, { timeout: 5_000 }).toBe(`${px}px`)
     }
@@ -505,8 +532,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await dialog.getByRole('button', { name: '紧凑', exact: true }).click()
     await page.getByRole('menuitem', { name: '标准', exact: true }).click()
     await dialog.getByRole('button', { name: '标准', exact: true }).waitFor({ timeout: 10_000 })
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-chat:\n\s+transcriptView: normal/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-chat'), { timeout: 5_000 })
+      .toContain('transcriptView: normal')
     await page.keyboard.press('Escape')
 
     const warningStart = tripwire.warnings.length
@@ -520,8 +547,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await reloaded.getByRole('button', { name: '标准', exact: true }).click()
     await page.getByRole('menuitem', { name: '紧凑', exact: true }).click()
     await reloaded.getByRole('button', { name: '紧凑', exact: true }).waitFor({ timeout: 10_000 })
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-chat:\n\s+transcriptView: compact/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-chat'), { timeout: 5_000 })
+      .toContain('transcriptView: compact')
     await page.keyboard.press('Escape')
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
@@ -535,8 +562,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await page.getByRole('menuitem', { name: '插话发送' }).click()
     await dialog.getByRole('button', { name: '插话发送' }).waitFor({ timeout: 10_000 })
     expect(await page.evaluate(() => localStorage.getItem('dsh.conversation.busyEnter'))).toBeNull()
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-conversation:\n\s+busyEnter: steer/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-conversation'), { timeout: 5_000 })
+      .toContain('busyEnter: steer')
     await page.keyboard.press('Escape')
 
     const warningStart = tripwire.warnings.length
@@ -569,8 +596,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await page.getByRole('menuitem', { name: '排队发送' }).click()
     await reloaded.getByRole('button', { name: '排队发送' }).waitFor({ timeout: 10_000 })
     expect(await page.evaluate(() => localStorage.getItem('dsh.conversation.busyEnter'))).toBeNull()
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-conversation:\n\s+busyEnter: queue/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'ui-conversation'), { timeout: 5_000 })
+      .toContain('busyEnter: queue')
     await page.keyboard.press('Escape')
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
@@ -600,8 +627,8 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(await enDialog.getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBe('true')
     await expect.poll(() => enDialog.getByText('Appearance', { exact: true }).count(), { timeout: 5_000 }).toBe(1)
     expect(await page.evaluate(() => localStorage.getItem('dsh.locale'))).toBeNull()
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/locale:\n\s+preference: en/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'locale'), { timeout: 5_000 })
+      .toContain('preference: en')
     // Reload keeps English; then restore zh so shared page state (and the
     // other specs' 设置-anchored selectors + goldens) see the default again.
     const warningStart = tripwire.warnings.length
@@ -636,8 +663,8 @@ describe('web e2e: settings modal and General preferences', () => {
     await page.getByRole('menuitem', { name: '中文' }).click()
     await page.getByRole('dialog', { name: '设置' }).waitFor({ timeout: 10_000 })
     expect(await page.evaluate(() => localStorage.getItem('dsh.locale'))).toBeNull()
-    await expect.poll(async () => readFile(profilePatch(scaffold.harnessHome), 'utf8'), { timeout: 5_000 })
-      .toMatch(/locale:\n\s+preference: zh/)
+    await expect.poll(() => persistedRow(scaffold.harnessHome, 'locale'), { timeout: 5_000 })
+      .toContain('preference: zh')
     await page.keyboard.press('Escape')
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)

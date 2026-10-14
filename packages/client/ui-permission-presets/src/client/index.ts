@@ -27,6 +27,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { CommandUiContract, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { PermissionCatalog, PermissionSelection } from '@deepseek-ai/dsh-permission-presets/client'
+import { readPermissionCatalog } from './catalog.ts'
 import { PermissionRow } from './PermissionRow.tsx'
 import type { PermissionRowInjected } from './PermissionRow.tsx'
 import {
@@ -45,7 +46,7 @@ export type {
 /** Required services (cordis fiber inject). */
 export const inject = [
   'commandUi', 'sessions', 'slots', 'locale', 'remote', 'remote.permissionPresets', 'remote.settings',
-  'settingsScope', 'settingsSchema',
+  'settingsScope',
 ]
 
 const ACCESS_NS = 'permission.access'
@@ -129,8 +130,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register('settings.permission', { zh, en }), 'ui-permission: settings row dictionaries')
 
   // The shared SettingsScope mirror updates after document commits and reconnects.
-  const controller = new PermissionPresetSettingsController(
-    ctx.settingsScope.describe(), ctx, ctx.settingsSchema)
+  const controller = new PermissionPresetSettingsController(ctx.settingsScope.describe(), ctx)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
   const injected = (): PermissionRowInjected => ({
@@ -160,11 +160,7 @@ export function apply(ctx: ClientContext): void {
       options: async (session) => {
         const value = selectOf(sessionFor(session))
         if (value === undefined) throw new Error('permission presets are not available on this host')
-        const catalog = await ctx.remote.permissionPresets.catalog()
-        if (!catalog.ok) {
-          throw new Error(`permission catalog failed: ${catalog.error.code}: ${catalog.error.message}`)
-        }
-        return optionsOf(catalog.value, value.currentValue, t)
+        return optionsOf(await readPermissionCatalog(ctx), value.currentValue, t)
       },
       onSelect: async (option, session) => {
         const live = sessionFor(session)

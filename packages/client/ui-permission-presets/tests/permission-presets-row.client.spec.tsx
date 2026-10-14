@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
+import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
 import { PermissionRow, type PermissionRowProps } from '../src/client/PermissionRow.tsx'
 import { zh } from '../src/client/locales.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -15,31 +14,33 @@ import { PermissionPresetSettingsController } from '../src/client/settings-store
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
-const schema = new SettingsSchemaService(new Context())
+/** The catalog the Host serves beside the settings namespace. */
+const CATALOG: PermissionCatalog = {
+  options: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
+  defaultPreset: 'read-only',
+}
 
 /** Controller over a real mirror derived from the same scripted context. */
 function derivedController(remote: { settings: object }) {
-  const ctx = { remote } as never
-  return new PermissionPresetSettingsController(new SettingsDescribeMirror(ctx), ctx, schema)
+  const ctx = { remote: { ...remote, permissionPresets: { catalog: () => Promise.resolve(ok(CATALOG)) } } } as never
+  return new PermissionPresetSettingsController(new SettingsDescribeMirror(ctx), ctx)
 }
 
 afterEach(cleanup)
 
-const SCHEMA = {
-  uid: 5,
-  refs: {
-    1: { type: 'const', value: 'read-only' },
-    2: { type: 'const', value: 'workspace-write' },
-    3: { type: 'const', value: 'danger-full-access' },
-    4: { type: 'union', list: [1, 2, 3] },
-    5: { type: 'object', dict: { defaultPreset: 4 } },
-  },
-}
-
 function view(defaultPreset: string, revision = 0): SettingsNamespaceView {
   return {
     ns: 'permission',
-    schema: SCHEMA,
+    schema: { uid: 5, refs: {} },
     value: { defaultPreset },
     base: { defaultPreset: 'read-only' },
     autoGenerate: true,

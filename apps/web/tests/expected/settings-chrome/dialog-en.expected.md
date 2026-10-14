@@ -10,8 +10,7 @@
   - button "Open configuration file"
   - button "Close"
   - text: Permission Choose the default permission mode for new sessions
-  - button "Workspace Write":
-    - text: Workspace Write
+  - button "Workspace Write"
   - text: Language
   - button "English"
   - text: Appearance

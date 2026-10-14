@@ -323,6 +323,16 @@ it('imports the removed settings.yaml into the profile once and keeps rejected s
   expect(restored.settings.describe({ redactSecrets: true }).find(row => row.ns === 'first')!.value).toEqual({ count: 2, list: [] })
   expect(existsSync(legacy)).toBe(false)
   expect(readFileSync(`${legacy}.imported`, 'utf8')).toContain('rejected')
+  // The rejection must be reported at a level exporters deliver: cordis drops
+  // WARN at their default INFO threshold, which would leave an upgrade that
+  // could not import a section with no signal beyond the renamed file.
+  const reported = (): unknown[] => restored.logger.buffer
+    .filter(message => message.type === 'error')
+    .map((message): unknown => message.args[0])
+  await vi.waitFor(() => {
+    expect(reported()).toContain('settings: section %s of %s was not imported into entry %s')
+  })
+  expect(reported().some(message => message instanceof Error && message.message.includes('not volatile'))).toBe(true)
   // An empty document is renamed without writes; a document that cannot be renamed is reported, not rethrown into boot.
   await restored.fiber.dispose()
   writeFileSync(legacy, '')

@@ -1,35 +1,35 @@
-import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
+import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   PermissionPresetSettingsController, permissionDefaultOf,
 } from '../src/client/settings-store.ts'
 
-const SCHEMA = {
-  uid: 6,
-  refs: {
-    1: { type: 'const', value: 'read-only' },
-    2: { type: 'const', meta: { description: 'Workspace' }, value: 'workspace-write' },
-    3: { type: 'union', list: [1, 2] },
-    6: { type: 'object', dict: { defaultPreset: 3 } },
-  },
+/** The catalog a shipped Host serves: configured default presets and their effective default. */
+const CATALOG: PermissionCatalog = {
+  options: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+  ],
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+  ],
+  defaultPreset: 'workspace-write',
 }
 
-const schema = new SettingsSchemaService(new Context())
-
-function resolveDefault(view: SettingsNamespaceView) {
-  return permissionDefaultOf(view, schema)
+function resolveDefault(view: SettingsNamespaceView, catalog: PermissionCatalog = CATALOG) {
+  return permissionDefaultOf(view, catalog)
 }
 
-function view(defaultPreset: string, revision = 0, schema: SettingsNamespaceView['schema'] = SCHEMA): SettingsNamespaceView {
+function view(value: SettingsNamespaceView['value'], revision = 0): SettingsNamespaceView {
   return {
     ns: 'permission',
-    schema,
-    value: { defaultPreset },
-    base: { defaultPreset: 'read-only' },
+    schema: { uid: 6, refs: {} },
+    value,
+    base: {},
     autoGenerate: true,
     applies: 'live',
     secrets: [],
@@ -43,74 +43,70 @@ function ok<T>(value: T) {
 }
 
 /** The permission controller over a real mirror and one scripted context. */
-function permissionController(api: object) {
-  const ctx = { remote: { settings: api } } as never
+function permissionController(api: object, catalog: () => Promise<unknown> = () => Promise.resolve(ok(CATALOG))) {
+  const ctx = { remote: { settings: api, permissionPresets: { catalog } } } as never
   const mirror = new SettingsDescribeMirror(ctx)
-  return { mirror, controller: new PermissionPresetSettingsController(mirror, ctx, schema) }
+  return { mirror, controller: new PermissionPresetSettingsController(mirror, ctx), catalog }
 }
 
 describe('permission settings store', () => {
-  it('derives dynamic options and host labels from the descriptor schema', () => {
-    expect(resolveDefault(view('read-only'))).toEqual({
+  it('derives the options from the catalog and the default from the stored value or the catalog', () => {
+    // The Host serves no stored value until one is written, so the effective
+    // default the catalog reports is what the row must show.
+    expect(resolveDefault(view({}))).toEqual({
+      currentValue: 'workspace-write',
+      options: [
+        { id: 'read-only', label: 'Read Only' },
+        { id: 'workspace-write', label: 'Workspace Write' },
+      ],
+    })
+    // A stored value wins over the catalog's effective default.
+    expect(resolveDefault(view({ defaultPreset: 'read-only' }))).toEqual({
       currentValue: 'read-only',
       options: [
         { id: 'read-only', label: 'Read Only' },
-        { id: 'workspace-write', label: 'Workspace' },
+        { id: 'workspace-write', label: 'Workspace Write' },
       ],
     })
-    const single = {
-      uid: 2,
-      refs: {
-        1: { type: 'const', meta: { description: '' }, value: 'read-only' },
-        2: { type: 'object', dict: { defaultPreset: 1 } },
-      },
-    }
-    expect(resolveDefault(view('read-only', 0, single))).toEqual({
-      currentValue: 'read-only',
-      options: [{ id: 'read-only', label: 'Read Only' }],
+    // Host-supplied labels pass through; a non-kebab label stays verbatim.
+    expect(resolveDefault(view({}), {
+      ...CATALOG,
+      defaultOptions: [
+        { value: 'workspace-write', name: 'Project Files' },
+        { value: 'danger-full-access', name: 'danger-full-access' },
+      ],
+      defaultPreset: 'danger-full-access',
+    })).toEqual({
+      currentValue: 'danger-full-access',
+      options: [
+        { id: 'workspace-write', label: 'Project Files' },
+        { id: 'danger-full-access', label: 'Full access' },
+      ],
     })
-    const undescribed = {
-      uid: 2,
-      refs: {
-        1: { type: 'const', meta: { description: 7 }, value: 'read-only' },
-        2: { type: 'object', dict: { defaultPreset: 1 } },
-      },
-    }
-    expect(resolveDefault(view('read-only', 0, undescribed)).options)
-      .toEqual([{ id: 'read-only', label: 'Read Only' }])
   })
 
-  it('rejects malformed values and dynamic enums at the wire boundary', () => {
-    expect(() => resolveDefault({ ...view('read-only'), value: {} })).toThrow(/no defaultPreset value/)
-    expect(() => resolveDefault(view('read-only', 0, {
-      uid: 1, refs: { 1: { type: 'object', dict: {} } },
-    }))).toThrow(/no defaultPreset field/)
-    expect(() => resolveDefault(view('read-only', 0, {
-      uid: 2,
-      refs: {
-        1: { type: 'union' },
-        2: { type: 'object', dict: { defaultPreset: 1 } },
-      },
-    }))).toThrow(/does not advertise/)
-    expect(() => resolveDefault(view('read-only', 0, {
-      uid: 4,
-      refs: {
-        1: { type: 'string' },
-        2: { type: 'const', value: 1 },
-        3: { type: 'union', list: [1, 2] },
-        4: { type: 'object', dict: { defaultPreset: 3 } },
-      },
-    }))).toThrow(/does not advertise/)
-    expect(() => resolveDefault(view('missing'))).toThrow(/does not advertise/)
+  it('rejects a default no source supplies and one the catalog does not advertise', () => {
+    // Neither the namespace value nor the catalog answers: the row must fail
+    // rather than render an empty or invented selector.
+    expect(() => resolveDefault(view({}), { ...CATALOG, defaultPreset: undefined as never }))
+      .toThrow(/both lack a defaultPreset value/)
+    expect(() => resolveDefault(view({}), { ...CATALOG, defaultPreset: '' }))
+      .toThrow(/both lack a defaultPreset value/)
+    expect(() => resolveDefault(view({ defaultPreset: 7 }), { ...CATALOG, defaultPreset: undefined as never }))
+      .toThrow(/both lack a defaultPreset value/)
+    // A default outside the selectable set has nothing to show and nothing to
+    // select: the derived `custom` value and an empty table both land here.
+    expect(() => resolveDefault(view({ defaultPreset: 'custom' }))).toThrow(/does not advertise/)
+    expect(() => resolveDefault(view({}), { ...CATALOG, defaultOptions: [] })).toThrow(/does not advertise/)
   })
 
   it('loads and writes defaultPreset with optimistic concurrency', async () => {
     const describe = vi.fn(() => Promise.resolve(ok({
       writable: true,
       hasDocument: false,
-      namespaces: [view('read-only', 4)],
+      namespaces: [view({ defaultPreset: 'read-only' }, 4)],
     })))
-    const mutate = vi.fn(() => Promise.resolve(ok(view('workspace-write', 5))))
+    const mutate = vi.fn(() => Promise.resolve(ok(view({ defaultPreset: 'workspace-write' }, 5))))
     const { controller } = permissionController({ describe, mutate })
     await controller.load()
     expect(controller.store.getSnapshot()).toMatchObject({
@@ -141,7 +137,9 @@ describe('permission settings store', () => {
     expect(controller.store.getSnapshot().status).toBe('unavailable')
 
     const failing = permissionController({
-      describe: () => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] })),
+      describe: () => Promise.resolve(ok({
+        writable: true, hasDocument: false, namespaces: [view({ defaultPreset: 'read-only' })],
+      })),
       mutate: () => Promise.resolve({
         ok: false as const,
         error: new RemoteError('settings/conflict', 'stale', { ns: 'permission', expected: 1, actual: 2 }),
@@ -156,7 +154,7 @@ describe('permission settings store', () => {
     const mutate = vi.fn()
     const readOnly = permissionController({
       describe: () => Promise.resolve(ok({
-        writable: false, hasDocument: false, namespaces: [view('read-only', 2)],
+        writable: false, hasDocument: false, namespaces: [view({ defaultPreset: 'read-only' }, 2)],
       })),
       mutate,
     }).controller
@@ -188,50 +186,62 @@ describe('permission settings store', () => {
     await thrown.load()
     expect(thrown.store.getSnapshot()).toMatchObject({ status: 'error', error: 'disconnected' })
 
+    // The catalog is the row's other read: its refusal must land in the row,
+    // not as an unhandled rejection, and must never leave a ready snapshot.
     const ctx = {
       remote: {
         settings: {
           describe: () => Promise.resolve(ok({
-            writable: true, hasDocument: false, namespaces: [view('read-only')],
+            writable: true, hasDocument: false, namespaces: [view({})],
           })),
           mutate,
         },
+        permissionPresets: {
+          catalog: async () => { throw 'catalog disconnected' },
+        },
       },
     } as never
-    const mirror = new SettingsDescribeMirror(ctx)
-    const malformed = new PermissionPresetSettingsController(mirror, ctx, {
-      rehydrate: () => { throw 'schema disconnected' },
-    } as never)
-    await malformed.load()
-    expect(malformed.store.getSnapshot()).toMatchObject({
-      status: 'error', error: 'schema disconnected',
+    const unreachableCatalog = new PermissionPresetSettingsController(new SettingsDescribeMirror(ctx), ctx)
+    await unreachableCatalog.load()
+    expect(unreachableCatalog.store.getSnapshot()).toMatchObject({
+      status: 'error', error: 'catalog disconnected',
     })
   })
 
   it('hides the row in a remote browser instead of loading forever', async () => {
     const describeCall = vi.fn()
+    const catalogCall = vi.fn()
     const mutate = vi.fn()
-    const ctx = { remote: { settings: { describe: describeCall, mutate } } } as never
+    const ctx = {
+      remote: { settings: { describe: describeCall, mutate }, permissionPresets: { catalog: catalogCall } },
+    } as never
     const mirror = new SettingsDescribeMirror(ctx, 'memory')
-    const controller = new PermissionPresetSettingsController(mirror, ctx, schema)
+    const controller = new PermissionPresetSettingsController(mirror, ctx)
     await controller.load()
     expect(controller.store.getSnapshot().status).toBe('unavailable')
     await controller.select('workspace-write')
     expect(describeCall).not.toHaveBeenCalled()
+    expect(catalogCall).not.toHaveBeenCalled()
     expect(mutate).not.toHaveBeenCalled()
   })
 
-  it('follows a mirror refresh without an own read once loaded', async () => {
+  it('follows a mirror refresh without a second catalog read once loaded', async () => {
     const describe = vi.fn()
-      .mockResolvedValueOnce(ok({ writable: true, hasDocument: false, namespaces: [view('read-only', 1)] }))
-      .mockResolvedValueOnce(ok({ writable: true, hasDocument: false, namespaces: [view('workspace-write', 2)] }))
-    const { mirror, controller } = permissionController({ describe, mutate: vi.fn() })
+      .mockResolvedValueOnce(ok({
+        writable: true, hasDocument: false, namespaces: [view({ defaultPreset: 'read-only' }, 1)],
+      }))
+      .mockResolvedValueOnce(ok({
+        writable: true, hasDocument: false, namespaces: [view({ defaultPreset: 'workspace-write' }, 2)],
+      }))
+    const catalog = vi.fn(() => Promise.resolve(ok(CATALOG)))
+    const { mirror, controller } = permissionController({ describe, mutate: vi.fn() }, catalog)
     await controller.load()
     expect(controller.store.getSnapshot()).toMatchObject({ currentValue: 'read-only' })
 
     await mirror.load()
 
     expect(controller.store.getSnapshot()).toMatchObject({ currentValue: 'workspace-write', revision: 2 })
+    expect(catalog).toHaveBeenCalledTimes(1)
   })
 
   it('disposal stops deriving and suppresses in-flight writes', async () => {
@@ -249,7 +259,7 @@ describe('permission settings store', () => {
     const { mirror, controller: idle } = permissionController({ describe: () => read.promise, mutate: vi.fn() })
     const loading = idle.load()
     idle.dispose()
-    read.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] }))
+    read.resolve(ok({ writable: true, hasDocument: false, namespaces: [view({ defaultPreset: 'read-only' })] }))
     await Promise.all([loading, mirror.load()])
     expect(idle.store.getSnapshot().status).toBe('loading')
 
@@ -258,14 +268,14 @@ describe('permission settings store', () => {
       describe: () => Promise.resolve(ok({
         writable: true,
         hasDocument: false,
-        namespaces: [view('read-only')],
+        namespaces: [view({ defaultPreset: 'read-only' })],
       })),
       mutate: () => mutation.promise,
     })
     await active.load()
     const saving = active.select('workspace-write')
     active.dispose()
-    mutation.resolve(ok(view('workspace-write', 1)))
+    mutation.resolve(ok(view({ defaultPreset: 'workspace-write' }, 1)))
     await saving
     expect(active.store.getSnapshot().status).toBe('saving')
 
@@ -273,7 +283,9 @@ describe('permission settings store', () => {
       ReturnType<typeof ok<SettingsNamespaceView>> | { ok: false; error: RemoteError }
     >()
     const { controller: disposedWrite } = permissionController({
-      describe: () => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] })),
+      describe: () => Promise.resolve(ok({
+        writable: true, hasDocument: false, namespaces: [view({ defaultPreset: 'read-only' })],
+      })),
       mutate: () => refusedMutation.promise,
     })
     await disposedWrite.load()
