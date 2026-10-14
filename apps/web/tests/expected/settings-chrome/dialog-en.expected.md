@@ -1,56 +1,27 @@
 - dialog "Settings":
   - navigation:
     - text: Settings
-    - button "General":
-      - img
-      - text: General
-    - button "Models":
-      - img
-      - text: Models
-    - button "Plugins":
-      - img
-      - text: Plugins
-    - button "Agent presets":
-      - img
-      - text: Agent presets
-    - button "Skills":
-      - img
-      - text: Skills
-    - button "Archived":
-      - img
-      - text: Archived
+    - button "General"
+    - button "Models"
+    - button "Plugins"
+    - button "Agent presets"
+    - button "Skills"
+    - button "Archived"
   - button "Open configuration file"
-  - button "Close":
-    - img
-    - text: Close
+  - button "Close"
   - text: Permission Choose the default permission mode for new sessions
   - button "Workspace Write":
     - text: Workspace Write
-    - img
   - text: Language
-  - button "English":
-    - text: English
-    - img
+  - button "English"
   - text: Appearance
-  - button "Light":
-    - img
-    - text: Light
-  - button "Dark":
-    - img
-    - text: Dark
-  - button "System" [pressed]:
-    - img
-    - text: System
+  - button "Light"
+  - button "Dark"
+  - button "System" [pressed]
   - text: Font size Only affects conversation content 14
-  - button "Increase font size":
-    - img
-  - button "Decrease font size":
-    - img
+  - button "Increase font size"
+  - button "Decrease font size"
   - text: px Conversation display Controls process content in completed turns
-  - button "Compact":
-    - text: Compact
-    - img
+  - button "Compact"
   - text: Send behavior while busy What Enter and the Send button do while the agent is running; Cmd/Ctrl+Enter uses the other behavior
-  - button "Queue":
-    - text: Queue
-    - img
+  - button "Queue"
