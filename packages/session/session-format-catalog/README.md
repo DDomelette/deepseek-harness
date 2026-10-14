@@ -108,3 +108,5 @@ No direct effect; restored history determines cache identity in its consumer.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This build-static library contributes the generated released-format codec and migration catalog, while `dsh-session` owns the installed current writer format and event vocabulary, and the JSONL persistence backend owns stored generations and direct-child evidence.

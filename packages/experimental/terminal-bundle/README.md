@@ -76,3 +76,5 @@ The layer adds no request content directly; the capability implementation owns c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The bundle carries one static profile patch that inserts the `optional-persistent-terminals` group, so registration ordering and the tool surface remain owned by the profile composer and `@deepseek-ai/dsh-tool-terminal`.

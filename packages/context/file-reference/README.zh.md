@@ -109,3 +109,5 @@ UI 通过 `activeAtToken` 识别活动 `@` token，用查询文本调用 `list`�
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个抽象发现 seam 与 `@file` mention 语法不持有文件系统状态；候选发现与缓存由提供方持有，`fileReferences/list` Remote 由 Session Controller 持有。

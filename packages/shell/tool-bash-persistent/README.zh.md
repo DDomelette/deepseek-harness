@@ -158,3 +158,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该工具注册 `bash`，并为每个 agent 保留一个限定所有者范围的 `ctx.terminals` 会话与一条串行队列；PTY 生命周期与回滚缓冲由 terminal 服务持有，进程行为由 `shell` 后端持有。

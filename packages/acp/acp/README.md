@@ -183,3 +183,5 @@ These limits define when this package is a poor fit or needs special operational
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This transport contributes the stdio ACP server and per-session bridges; durable Session records, committed event ordering, and MCP mount teardown remain owned by `ctx.sessions`, the Session log, and the Agent factory.

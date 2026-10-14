@@ -116,3 +116,5 @@ These limits define when this row needs special care. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This preset row forwards one required `mode` to `ctx.tools.presentAs()` for its mounting scope; the `dsh-tools` registry owns both projections, the generated SDK sections, and the one-declaration-per-scope refusal.

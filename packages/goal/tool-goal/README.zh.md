@@ -160,3 +160,5 @@ schema 的定义与可见性不变时，前缀保持稳定。调用和结果会�
 本开发备注是维护者的工作上下文，明确不具权威性。开放问题：goal 策略章节是否应与工具注册独立限定范围，避免某个范围隐藏工具却保留指引。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这些工具仅贡献 `get_goal`、`create_goal`、`update_goal` 与一个 `tool:goal` 系统提示词章节；goal 状态及其持久 `goal/change` 事件由 `@deepseek-ai/dsh-goal` 持有，Goal Round 准入由续行驱动器持有。

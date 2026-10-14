@@ -150,3 +150,5 @@ This Dev Note is working context for maintainers: undecided directions and open 
 Retention and garbage collection are deferred because resumed and forked sessions may share immutable objects, and a backend serving remote runtimes or shared storage would need its own durability proof. Both directions are undecided; the local storage currently retains every object under `DSH_HOME`.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend contributes content-addressed image and file objects under `DSH_HOME`, while the Session log owns which attachments a conversation still references and nothing reclaims unreferenced objects.

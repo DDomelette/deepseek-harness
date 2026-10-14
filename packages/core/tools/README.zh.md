@@ -248,3 +248,5 @@ Program-only SDK bindings:
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包仅贡献 `ctx.tools` 注册表、参数校验、允许／拒绝／询问策略，以及 pre/guard/around/post/result 执行流水线；循环分发、结果写入会话日志与审批判定分别由 `@deepseek-ai/dsh-agent`、会话日志和 `ctx.get('approval')` 持有。

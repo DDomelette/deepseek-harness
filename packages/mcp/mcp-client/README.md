@@ -227,3 +227,5 @@ This Dev Note is working context for maintainers: open design questions and dire
 - The pinned MCP SDK is still evolving; a breaking upstream change requires updating the bridge.
 
 </details>
+
+**Runtime invariant:** No companion is published. The bridge maps discovery and `tools/call` onto the pinned MCP SDK, whose wire validation stays external, while `ctx.tools` owns the registered generation and the subprocess seam owns the stdio child.

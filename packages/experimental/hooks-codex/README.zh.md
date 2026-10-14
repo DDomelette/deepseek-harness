@@ -188,3 +188,5 @@ hook 不返回上下文时没有成本。Hook 文本取决于数据，会被记�
 上面的延期缺口就是工作队列：按会话的 hook 配置发现、会话启动投递门、stop 循环防护，以及 `continue: false` 的运行级停止。目前均无设计；官方 Codex 参考是实现其中任何一项的基线。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本桥接贡献五个 Codex hook 点及其决策；命令执行与解析由 `@deepseek-ai/dsh-hook-protocol` 持有，每个钩子进程由 `ctx.shell` 持有。

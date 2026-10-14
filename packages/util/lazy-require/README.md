@@ -84,3 +84,5 @@ None.
 ### Dev Note
 
 None.
+
+**Runtime invariant:** No companion is published. The helper caches one resolved module value per instance and never inspects it; Node's module registry owns the module instance, and the calling package owns the specifier it declares.

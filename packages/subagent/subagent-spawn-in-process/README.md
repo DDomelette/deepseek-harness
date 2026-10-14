@@ -146,3 +146,5 @@ These limits define when the backend is the wrong choice; they are current packa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers its `providerName` (default `spawn`) on `ctx.subagents` and returns no seed from `prepareContinuable()`, while child creation, activation depth, result delivery, and disposal remain owned by `@deepseek-ai/dsh-subagent`.

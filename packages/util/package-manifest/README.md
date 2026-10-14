@@ -100,3 +100,5 @@ Type declarations add no model input, so provider cache reuse is unaffected.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The package exports TypeScript declarations only — no runtime module, parser, or default resolution — so each manifest reader owns the JSON validation and file checks it performs.

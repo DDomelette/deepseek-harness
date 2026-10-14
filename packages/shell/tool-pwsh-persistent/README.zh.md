@@ -165,3 +165,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个无状态工具消费方仅贡献 `pwsh` schema，以及基于标记的提取与重置处理；PTY shell 生命周期与按 agent 隔离由 `ctx.terminals` 持有，执行准入由 `@deepseek-ai/dsh-tools` 持有。

@@ -174,3 +174,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 - **Continuable ACP children** — would require persisting the remote session id and a per-child continuation advertisement.
 
 </details>
+
+**Runtime invariant:** No companion is published. This out-of-process provider contributes the `acp` backend with its ACP handshake, stop-reason mapping, and safe diagnostics; the `@deepseek-ai/dsh-subagent` registry owns activation, and `@deepseek-ai/dsh-subprocess` owns each child's spawn and teardown.

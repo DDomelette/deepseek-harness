@@ -150,3 +150,5 @@ These limits define when this executor is a poor fit. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The executor resolves budgets and classifies one spawn's outcome, while the `subprocess` service owns the managed process range, spill-backed output, and termination escalation beneath every call.

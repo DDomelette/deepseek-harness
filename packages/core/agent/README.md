@@ -186,3 +186,5 @@ These limits define when this package needs special care. They are current packa
 This Dev Note is working context for maintainers; it is explicitly non-authoritative. Open, undecided directions: inter-agent channels beyond delegation — shared state, streaming child output, and background or poll semantics remain outside the current delegation seam; and the `SessionStartSource` values `'clear'`/`'compact'` are reserved with no emitter yet, pending the driving subsystems.
 
 </details>
+
+**Runtime invariant:** No companion is published. This package provides the `ctx.agents` registry and the `Agent` handle; the registered driver (`dsh-agent-loop`) owns the loop, model requests, and each agent's Session log, while initiator attribution stays process-local.

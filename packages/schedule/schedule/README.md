@@ -170,3 +170,5 @@ Reminder messages append to the original Session's history and preserve earlier 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Host service contributes the reminder storage domain, recurrence arithmetic, and the `schedule` Remote namespace, while storage backend routing stays with storage-domain and Session restoration and persistence stay with the Host Session controller.

@@ -144,3 +144,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个可选服务仅贡献 mention 解析、在 `agent/pre-step` 准备不可变的跨会话快照，以及候选发现；精确的会话读取由 `ctx.sessionQuery` 持有，全文 spill 存储由 spill 后端持有。

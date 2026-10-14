@@ -122,3 +122,5 @@ Append-only tool result in the turn history; no prompt section is added.
 <summary>Working context for maintainers — click to expand</summary>
 
 </details>
+
+**Runtime invariant:** No companion is published. This read-only query memoizes one validated payload and returns its paths; the carrier that builds and ships that payload owns its contents, and the tool registry owns the registration.

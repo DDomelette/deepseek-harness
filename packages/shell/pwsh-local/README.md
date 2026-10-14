@@ -159,3 +159,5 @@ These limits define when this executor is a poor fit. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. Each command is one argv handed to `pwsh -Command`; process-tree termination, bounded output collection, and spill files remain owned by the `ctx.subprocess` provider this executor spawns through.

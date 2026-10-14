@@ -227,3 +227,5 @@ renderer 输出依数据而定的 stdout 尾部，再输出可选的 `[stderr]` 
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个面向模型的工具只贡献 `bash` schema 与结果渲染；进程执行归已挂载的 `ctx.shell` 执行器，注册到 `@deepseek-ai/dsh-jobs` 的每条命令其等待、输出与终止均由该注册表持有。

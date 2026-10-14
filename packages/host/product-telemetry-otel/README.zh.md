@@ -107,3 +107,5 @@ kind: "package-reference"
 ### 开发备注
 
 无。
+
+**运行时不变式：** 不发布伴生入口。这个 Host 适配器仅贡献 `ctx.productTelemetry.emit()` 以及接收地址路由与退出期限；OTLP 传输、SDK 批量发送与排队由 `ctx.otel` 持有，事件名称与字段语义仍由各消费方持有。

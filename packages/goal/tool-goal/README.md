@@ -160,3 +160,5 @@ These limits define when the goal tools are a poor fit or need special care. The
 This Dev Note is working context for maintainers; it is explicitly non-authoritative. Open question: whether the goal-policy section should be independently scoped from the tool registrations, so a scope cannot hide the tools while keeping the guidance.
 
 </details>
+
+**Runtime invariant:** No companion is published. These tools contribute `get_goal`, `create_goal`, `update_goal`, and one `tool:goal` system-prompt section; goal state and its durable `goal/change` events remain owned by `@deepseek-ai/dsh-goal`, and goal-round admission by the continuation driver.

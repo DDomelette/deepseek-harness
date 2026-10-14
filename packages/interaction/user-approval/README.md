@@ -164,3 +164,5 @@ These limits define when the seam is a poor fit or needs special composition car
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The service dispatches each request through the `approval/request` waterfall and appends the `approval/asked`/`approval/decided` pair; composed answerers own the decision, and the requesting Session log owns the audit record.

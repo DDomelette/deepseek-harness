@@ -174,3 +174,5 @@ spawn、初始化或新建会话失败会在发布前拒绝，通常先证明 ma
 - **可继续执行的 ACP 子 agent**——需要持久化远程会话 id，并为每个子 agent 声明继续执行能力。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个进程外提供方仅贡献 `acp` 后端及其 ACP 握手、结束原因映射与安全诊断；激活由 `@deepseek-ai/dsh-subagent` 注册表持有，每个子 agent 的 spawn 与销毁由 `@deepseek-ai/dsh-subprocess` 持有。

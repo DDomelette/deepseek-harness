@@ -128,3 +128,5 @@ These limits define what the registry stores and rejects; they are current packa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The registry stores generated reflection, lazy Zod factories, and Remote descriptors under fiber-scoped keys, while the generator and loader own their production and registration.

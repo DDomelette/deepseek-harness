@@ -132,3 +132,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The `src/index.ts` FIXME asks to settle a `@deepseek-ai/dsh-timeout-guard` rename; the [naming ledger](../../../.agents/notes/archived/architecture/2026-08-11-repository-naming-contract-and-rename-ledger.md) already records `@deepseek-ai/dsh-tool-call-timeout-policy` as the decided name, so the FIXME is stale pending a code cleanup.
 
 </details>
+
+**Runtime invariant:** No companion is published. The wrapper only arms a deadline on `exec.signal` from the registry's `ToolDefinition.timeoutMs`; `dsh-timeout` owns timing and classification, and each capability still owns terminating its own work.

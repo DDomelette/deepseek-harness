@@ -181,3 +181,5 @@ This Dev Note is working context for maintainers: undecided directions and open 
 An optional `subagent-acp` consumer that confines child agents with an unconfined default, and environment-coherent capability group examples, remain undecided. Windows confinement is provided by the ACL restricted-token backend of `sandbox-local`.
 
 </details>
+
+**Runtime invariant:** No companion is published. This stateless Service Definition owns the confinement vocabulary and the fail-closed error; backends enforce file effects per call, and consumers resolve each call's policy and spawn the returned argv.

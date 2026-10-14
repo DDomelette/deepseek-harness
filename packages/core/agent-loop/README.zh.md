@@ -228,3 +228,5 @@ const handle = await ctx.agents.create({
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本驱动器贡献 `ctx.agents` 工厂与轮次、步骤生命周期；它负责的每条关系，例如每个已进入步骤恰有一条 `step/end`，都在其自身操作中强制，持久化由会话日志持有。

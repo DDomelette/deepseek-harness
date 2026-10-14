@@ -158,3 +158,5 @@ These limits define when the tool is a poor fit or needs special care. They are 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The tool registers `bash` and keeps one owner-scoped `ctx.terminals` session plus a serialized queue per agent; the terminal service owns PTY lifecycle and scrollback, and the `shell` backend owns process behavior.

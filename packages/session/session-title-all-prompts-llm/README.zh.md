@@ -118,3 +118,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该策略注册 `all-prompts` 提供方，并持有两段提示词与输出解析；版本调度、取代与 `session/title` 事件的提交由 `ctx.sessionTitle` 持有，执行由 `dsh-session-title-llm` 持有。

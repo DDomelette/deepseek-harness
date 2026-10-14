@@ -76,3 +76,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本配置层仅在 Host 上贡献 `skill-badge` 提供方条目，而技能的发现、加载与结果由技能注册表持有，profile patch 的顺序由 `@deepseek-ai/dsh-app-boot` 持有。

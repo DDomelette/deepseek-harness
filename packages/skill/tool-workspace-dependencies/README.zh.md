@@ -122,3 +122,5 @@ kind: "package-reference"
 <summary>维护者的工作上下文——点击展开</summary>
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个只读查询只记住一次校验通过的 payload 并返回其路径；构建并随附该 payload 的载体拥有其内容，注册由工具注册表持有。

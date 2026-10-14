@@ -128,3 +128,5 @@ kind: "package-library"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该库仅贡献 `executeSessionTitleLlm` 这一共享的路由、上限、取消、请求记录与流式组装策略；提供方注册与已接纳标题状态由 `ctx.sessionTitle` 持有，适配器路由由 `ctx.llm` 持有。

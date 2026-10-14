@@ -138,3 +138,5 @@ Tokens prefixed with @ are paths the user explicitly referenced. Relative paths 
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方从宿主文件系统为 `@file` mention 排序候选路径，而索引必须匹配的目录由 `read` 工具的文件系统命名空间与 `workingDirectory` 服务持有。

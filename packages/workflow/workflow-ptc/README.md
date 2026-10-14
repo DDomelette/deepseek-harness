@@ -166,3 +166,5 @@ These limits qualify workflow execution and cleanup.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This engine contributes the `WorkflowEngine` implementation that runs workflow scripts in the shared Node PTC process with `agent()` hooks and captures the Session's directory and file policy, while process enforcement and subagent routing stay owned by the PTC runtime and `ctx.subagents`.

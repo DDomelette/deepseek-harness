@@ -184,3 +184,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The `title` parameter has no production caller since the gateway's create-by-name branch was removed; a code TODO proposes dropping the parameter and its `@param` clause together ([note](../../../.agents/notes/archived/simplification/2026-07-31-one-route-to-add-a-workspace.md)).
 
 </details>
+
+**Runtime invariant:** No companion is published. The registry owns durable workspace records, order, and the archive and pin sets; `storageDomain` owns their durability and `sessionPersistence` owns the session headers membership is validated against.

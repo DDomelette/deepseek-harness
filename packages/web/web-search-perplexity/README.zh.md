@@ -163,3 +163,5 @@ kind: "package-reference"
 Perplexity 的域名过滤条件、`web_search_options` 上下文大小与图片支持仍未公开。公开它们需要先有提供方无关的服务字段，让家族以一个协调一致的控制项、而非厂商专有参数的方式新增。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方向 `ctx.web` 注册 Perplexity 搜索后端并把 chat completions 映射为来源，而提供方解析由 web seam 持有，面向模型的工具由 `@deepseek-ai/dsh-tool-web` 持有。

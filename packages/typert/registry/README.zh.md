@@ -128,3 +128,5 @@ Remote 调用通过 `ctx.typert.lookups` 与 `ctx.typert.contexts` 解析 Host �
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该注册表在按 fiber 作用域的键下保存生成的反射、惰性 Zod factory 与 Remote 描述符，这些产物的生成与注册由生成器和 loader 持有。

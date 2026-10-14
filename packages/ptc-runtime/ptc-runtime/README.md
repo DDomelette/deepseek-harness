@@ -146,3 +146,5 @@ A REPL-style kernel that keeps state across `run_code` calls remains undecided; 
 A container-class backend would provide a hard multi-tenant boundary for both code and shell execution; nothing is decided beyond the well-known `isolation` value.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition declares `ctx.ptcRuntime`, its resolution result, and the portable identifier exclusions; backends such as `dsh-ptc-runtime-node` own execution and confinement, and consumers own bindings and sessions.

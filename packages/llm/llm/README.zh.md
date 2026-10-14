@@ -195,3 +195,5 @@ const configure = (maxTokens: number): ConfigureCall =>
 - `llm/adapters-updated` 事件按设计不携带载荷；消费方重新读取注册表，而不是在事件中接收新拓扑。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本服务是提供方中立的模型调用通路：各家提供方的线上转换由适配器持有，重试执行位于 `dsh-llm-retry`，它流式传输的请求与尝试由调用方与会话日志持有。

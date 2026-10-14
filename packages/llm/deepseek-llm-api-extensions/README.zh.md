@@ -57,3 +57,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。此注册表仅贡献附加字段注册、并发准备，以及官方 DeepSeek 请求的 2xx 后回调；请求序列化与发送由 `@deepseek-ai/dsh-llm-deepseek` 持有，各字段语义由贡献该字段的包持有。

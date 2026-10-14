@@ -136,3 +136,5 @@ const userId = getOrCreateAnonymousUserId() // stable for the process lifetime
 持久化约定是没有任何版本标记的裸 UUID 行。在 id 旁边增加第二个值，或用容器包裹该行，对现有文件都没有迁移方案；带版本的行格式是让此类变更安全的一种方式。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本库为 `$DSH_HOME` 下每个解析出的文件生成一个 UUID，因此持久化由该文件持有，而遥测、反馈与 DeepSeek 传输各自持有自己的记录。

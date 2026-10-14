@@ -128,3 +128,5 @@ These limits define the accepted generation shapes. They are current package con
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This library contributes `executeSessionTitleLlm`, the shared route, bound, cancellation, logging, and stream-assembly policy; provider registration and accepted-title state stay with `ctx.sessionTitle`, and adapter routing with `ctx.llm`.

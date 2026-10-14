@@ -109,3 +109,5 @@ These limits define when the seam is a poor fit. They are current package constr
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This abstract discovery seam and its `@file` mention grammar hold no filesystem state; providers own candidate discovery and caching, and the Session Controller owns the `fileReferences/list` Remote.

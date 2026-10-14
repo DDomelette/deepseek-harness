@@ -146,3 +146,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方在 `ctx.subagents` 上注册 `providerName`（默认 `spawn`），且 `prepareContinuable()` 不返回种子；子 agent 创建、activation 深度检查、结果投递与资源释放仍由 `@deepseek-ai/dsh-subagent` 持有。

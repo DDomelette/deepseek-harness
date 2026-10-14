@@ -144,3 +144,5 @@ These limits define what the seam does not provide. They are current package con
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition contributes the `ctx.shell` request/spec vocabulary and result types, while executors own process spawning and `@deepseek-ai/dsh-jobs` owns job ids, polling, and notices.

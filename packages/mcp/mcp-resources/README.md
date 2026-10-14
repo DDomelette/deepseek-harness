@@ -132,3 +132,5 @@ Resource access is explicit and on demand.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This package contributes the three shared resource tools, scoped server resolution, and the server-name prompt section, while connection ownership, cancellation, timeouts, and recovery stay with the MCP client and result recording stays with the tool pipeline.

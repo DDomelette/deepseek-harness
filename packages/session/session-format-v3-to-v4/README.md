@@ -348,3 +348,5 @@ The edge preserves the recorded request prefix. Provider cache availability and 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This library only transforms a replayed V3 generation into V4 and validates the target, while persistence owns file reads, successor publication, and the migration registration itself.

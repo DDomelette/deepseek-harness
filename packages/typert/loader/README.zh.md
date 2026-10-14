@@ -123,3 +123,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。扫描器导入每个已挂载配置项的 `./typert` 产物并只注册一次；配置项生命周期与注册身份仍由 Loader 与 Typert 注册表持有。

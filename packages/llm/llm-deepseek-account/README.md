@@ -77,3 +77,5 @@ Credentials and catalog availability do not enter model input; the protocol tran
 ### Dev Note
 
 Registration and authentication tests also cover the Loader composition in the shared transport package.
+
+**Runtime invariant:** No companion is published. The plugin registers one provider route whose token comes from `deepseekAccount`; credential storage, sign-out cancellation, and request serialization stay with the account service and the shared `llm-deepseek` transport.

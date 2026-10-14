@@ -169,3 +169,5 @@ These limits define when the goal service is a poor fit or needs special care. T
 This Dev Note is working context for maintainers; it is explicitly non-authoritative. Open, undecided directions: an always-visible goal context plugin for deployments that want the objective in every model request, and evaluator-backed certification of completion and blocking claims.
 
 </details>
+
+**Runtime invariant:** No companion is published. This service stores one durable goal by appending `goal/change` events, which the session log alone makes authoritative; scheduling and continuation belong to `dsh-goal-round-driver`, and the armed flag stays process-local.

@@ -166,3 +166,5 @@ assistant 工具调用保留问题。等待期间收到的回答会在下一步�
 [`userQuestions` 投影](../user-questions/src/projection.ts)读取记录的工具 schema，而不是调用参数：timed 调用可以省略 `timeout`，timed `-1` 调用也仍使用 timed schema。改变投影折叠语义时必须提高 `stateVersion`，让持久化缓存从日志重新折叠。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本消费方贡献 `ask_user_question` 的 schema 与限时变体的期限处理；待答问题状态与回答关联由 `ctx.userQuestions` 服务持有。

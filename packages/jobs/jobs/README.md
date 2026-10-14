@@ -134,3 +134,5 @@ These limits define when the contract is a poor fit. They are current package co
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This abstract `JobRegistry` seam owns job ids, owner fencing, lifecycle records, and the output ring, while `@deepseek-ai/dsh-jobs-local` owns the process-local registry and producers own their execution resources.

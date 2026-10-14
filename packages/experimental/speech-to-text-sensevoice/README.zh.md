@@ -84,3 +84,5 @@ Host 在页面和 Session 变化期间拥有准备任务：检查资源、下载
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。此提供方在 `ctx.speechToText` 上注册识别器并驱动一个受管的 sherpa-onnx 工作进程；提供方注册与准备状态由该 seam 持有，进程机制由 `ctx.subprocess` 持有。

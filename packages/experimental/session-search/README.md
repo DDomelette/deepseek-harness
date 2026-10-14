@@ -80,3 +80,5 @@ The layer adds no request content directly; the capability implementation owns c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This bundle only declares the `optional-session-search` patch rows; `@deepseek-ai/dsh-app-boot` owns profile patch ordering and errors, `@deepseek-ai/dsh-session-query-sqlite` the index, and `@deepseek-ai/dsh-tool-session-query` the model-facing tools.

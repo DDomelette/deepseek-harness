@@ -150,3 +150,5 @@ These limits define when this executor is only a partial boundary on Windows. Th
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This `ctx.shell` provider owns the pwsh side only, confining each `pwsh -Command` invocation through `ctx.sandbox.confine()`, while the enforcement and denial facts stamped on results remain owned by the sandbox provider (`@deepseek-ai/dsh-sandbox-windows-acl` on Windows).

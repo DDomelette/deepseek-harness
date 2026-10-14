@@ -153,3 +153,5 @@ fork 会把保留的已完成历史复制到子 agent 的请求中，子 agent �
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该后端只注册一个返回已完成轮次种子的 `fork` 提供方；委派生命周期、子 agent 激活与双方 Session 日志仍由 `@deepseek-ai/dsh-subagent` 持有。

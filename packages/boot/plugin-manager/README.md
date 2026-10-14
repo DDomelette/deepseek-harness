@@ -168,3 +168,5 @@ Restoration rewrites only the two snapshotted files; user-authored patch configu
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The manager rewrites profile files and delegates live entry reconciliation to `dsh-hmr` and the Cordis Loader, which own the running tree it only edits on disk.

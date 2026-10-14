@@ -154,3 +154,5 @@ These limits define what the package does and does not cover; they are current p
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. Each run spawns one CPython child under this provider's fd-3 protocol and forwards argv to `ctx.sandbox.confine()`; the sandbox backend owns enforcement, and the `sandboxPolicy` seam owns the resolved mode.

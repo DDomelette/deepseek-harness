@@ -76,3 +76,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该函数插件仅贡献 `dsh_plugin_packages` 请求字段；活跃配置项属于 Loader 树，包身份属于 `PluginPackages` resolver，字段注册属于 `ctx.deepseekLlmApiExtensions`。

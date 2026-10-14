@@ -108,3 +108,5 @@ await scope.dispose()   // unwinds every registration made through scope.ctx
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个零依赖库仅贡献作用域标签、`scopeTarget` 事件载体与各层存储；按 `scopeOf()` 归档贡献的注册表，以及创建按 agent 作用域的 agent loop，持有它只负责路由的关系。

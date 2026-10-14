@@ -143,3 +143,5 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。插件只向 `ctx.web` 注册一个匿名 `WebFetchProvider`；提供方身份、选择与派发由 web 注册表持有，面向模型的 `web_fetch` 工具及其呈现位于 `dsh-tool-web`。

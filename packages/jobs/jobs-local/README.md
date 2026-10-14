@@ -146,3 +146,5 @@ These limits define when the registry is a poor fit. They are current package co
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This in-process registry contributes `ctx.jobs` with per-owner admission, bounded output rings, and teardown; the `@deepseek-ai/dsh-jobs` Service Definition and the model-facing `@deepseek-ai/dsh-tool-jobs` controls own the relationship it implements.

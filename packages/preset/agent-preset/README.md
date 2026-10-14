@@ -93,3 +93,5 @@ A live Agent’s composition stays stable; new Agents can use an updated definit
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This row contributes one preset definition to `ctx.agentPresets`, which owns definition validation, identity, and the revision each newly created Agent selects.

@@ -187,3 +187,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 - **Version-pinned protocol** — the runtime dependency is pinned to Agent SDK 0.3.263; upgrading pins a new SDK version and requires re-running the keyless real-product and loader-composition evidence.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers a one-shot `claude-code` producer on `ctx.subagents` and maps each native SDK query result, while native Claude settings own permissions and the shared subprocess owner holds the spawned CLI process and its termination tiers.

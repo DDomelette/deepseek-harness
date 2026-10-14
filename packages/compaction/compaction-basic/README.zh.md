@@ -258,3 +258,5 @@ Rules:
 - **规范错误之外的溢出恢复，尚未决定**——恢复仅针对 `CONTEXT_WINDOW_EXCEEDED` 触发；其他提供方侧上下文失败不参与分类。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该后端把摘要替换写入 Session 表面，因此 token 压力与保留范围始终由 `ctx.tokenMeter` 与 replay 折叠唯一持有。

@@ -213,3 +213,5 @@ You are a delegated subagent: your permission scope was fixed when you were star
 - **host-user 投递**——未来的 host 适配器需要具体的经认证交互，该 seam 才能获得用户投递能力。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务定义把每次启动路由到具名提供方，子级执行、结果投递与资源释放由已注册的提供方与 activation manager 持有。

@@ -75,3 +75,5 @@ No direct effect; ordinary submission owns the message content.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The package is a static patch layer that mounts four voice rows, while the speech seam, the SenseVoice provider, and the Remote assembly own recognition and asset provisioning.

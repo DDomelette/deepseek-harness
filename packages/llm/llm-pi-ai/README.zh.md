@@ -249,3 +249,5 @@ pi-ai 事件变成 harness 的推理、文本、工具调用、用量与 finish 
 - `compat` 开关集合由漂移门禁钉在 pi-ai 的 compat 类型上；上游升级若新增字段、为更多协议赋予 compat 类型或扩大值联合，会在有人分类前让构建失败。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本适配器贡献 pi-ai 提供方路由及其按请求解析的 profile；路由注册由 `ctx.llm` 注册表持有，每个密钥由 `ctx.credentials` 按请求解析。

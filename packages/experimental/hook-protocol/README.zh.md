@@ -142,3 +142,5 @@ kind: "package-library"
 请求停止整个运行的 hook（`continue: false`）会被折叠进 `MergedHookOutcome.stop`，但不会在任何地方生效：拦截点缺少硬停止原语，轮次中途的请求改为在 `hook/result` 中记录该停止。运行级停止机制可以让桥接真正应用它；目前尚无设计。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本库不是 Cordis 插件，仅贡献 matcher 选择、经 `ctx.shell` 执行器运行钩子的 `runHook`、退出码与 stdout 解码、最严格合并，以及 `hook/*` 事件辅助函数；全部注册、方言载荷与上下文注入均由 `dsh-hooks-claude-code` 与 `dsh-hooks-codex` 桥接持有。

@@ -138,3 +138,5 @@ These limits define when tmux location context is a poor fit. They are current p
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This request-context plugin contributes one durable, source-attributed message per changed turn, while the read-only query's execution remains owned by the `ctx.shell` executor service and the tmux server owns the pane state it reports.

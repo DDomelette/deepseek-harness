@@ -78,3 +78,5 @@ No direct effect; ordinary submission owns the message content.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Typert Remote controller projects `ctx.speechToText` onto the authenticated gateway; the speech capability seam owns provider readiness and preparation tasks, the gateway owns authentication and cancellation transport, and recordings never enter the Session log.

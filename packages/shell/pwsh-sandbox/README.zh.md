@@ -150,3 +150,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本 `ctx.shell` 提供方只负责 pwsh 侧：把每次 `pwsh -Command` 调用经 `ctx.sandbox.confine()` 隔离，而结果上标记的强制执行与拒绝事实仍由沙箱提供方（Windows 上为 `@deepseek-ai/dsh-sandbox-windows-acl`）持有。

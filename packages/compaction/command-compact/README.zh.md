@@ -153,3 +153,5 @@ kind: "package-reference"
 - **范围与策略参数，尚未决定**——无参数形式的稳定性是有意的；增加参数需要在每个命令适配器间共享语法。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本插件仅贡献一个 `/compact` 命令注册，把 `ManualCompactionError` 错误码映射为结果文本；分发与仅日志的 `command/run` / `command/done` 事件对由 `@deepseek-ai/dsh-commands` 命令注册表持有，压缩事务与 `busy` 分类由 `@deepseek-ai/dsh-compaction` 压缩服务持有。

@@ -57,3 +57,5 @@ None; registry fields are model-hidden provider metadata and do not alter the se
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This registry contributes additive-field registration, concurrent preparation, and post-2xx callbacks for official DeepSeek requests, while request serialization and sending stay owned by `@deepseek-ai/dsh-llm-deepseek` and each field's semantics stay with its contributing package.

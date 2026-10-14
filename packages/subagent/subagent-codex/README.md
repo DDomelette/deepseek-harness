@@ -185,3 +185,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 - **Version-pinned protocol** — the runtime dependency is pinned to `@openai/codex@0.153.4`; upgrading requires regenerating the upstream schema evidence and rerunning the credentialed nonce tests.
 
 </details>
+
+**Runtime invariant:** No companion is published. The provider registers a name on `ctx.subagents` and maps one start request onto a fresh app-server; the seam owns cwd selection and result delivery, and Codex keeps owning its turn lifecycle.

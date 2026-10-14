@@ -218,3 +218,5 @@ These limits describe where a Claude Code mod behaves differently through this b
 The next steps, in order of mod-author value: a docked `Pane` in the Web GUI with `TextInput`, hotkeys, and the toast, status, and log surfaces; `$.model.complete` over `ctx.llm` with a logged request event; and an official mod from `anthropics/claude-code/mods` run by reading, once its license permits a fixture.
 
 </details>
+
+**Runtime invariant:** No companion is published. Mod hooks ride the harness extension points and `$` calls over `ctx.get(...)` services, so the tool pipeline and the Session log keep owning every model-visible relation this bridge relays.

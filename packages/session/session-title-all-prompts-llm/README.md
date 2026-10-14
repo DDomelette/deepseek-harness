@@ -118,3 +118,5 @@ These limits define how the provider treats long and heterogeneous sessions. The
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This strategy registers the `all-prompts` provider and owns both prompt texts and output parsing; `ctx.sessionTitle` owns revision scheduling, supersession, and the committed `session/title` event, while `dsh-session-title-llm` owns execution.

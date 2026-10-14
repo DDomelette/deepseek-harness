@@ -136,3 +136,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The persistence contract is a bare UUID line with no version marker. Adding a second value beside the id, or wrapping the line in a container, has no migration story for existing files; a versioned line format is one way to make such a change safe.
 
 </details>
+
+**Runtime invariant:** No companion is published. The library mints one UUID per resolved file under `$DSH_HOME`, so the file owns persistence, while the consumers that carry the id — session telemetry, feedback acknowledgement, and the DeepSeek transport — own their own records.

@@ -181,3 +181,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本执行器仅贡献 `ctx.shell` 实现，通过 `ctx.sandbox` 包装本地 bash argv 并归类拒绝与 runner 失败事实；隔离 runner、默认模式与工作区根目录，以及审批升权分别由 `ctx.sandbox`、`ctx.sandboxPolicy` 和工具层持有。

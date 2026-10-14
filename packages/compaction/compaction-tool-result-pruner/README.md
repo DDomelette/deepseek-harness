@@ -146,3 +146,5 @@ This Dev Note is working context for maintainers and is explicitly non-authorita
 - **Token-based budgets, deferred** — budgets are Unicode code points; switching to token-based budgets would require an estimator contract the token meter does not expose.
 
 </details>
+
+**Runtime invariant:** No companion is published. The pruner computes a bounded head and tail and appends `compaction/prune` plus replacement `tool/result` events; the Session surface owns their durability and replay, and `dsh-compaction-basic` owns when pruning runs.

@@ -65,3 +65,5 @@ Delivery is best effort.
 ### Dev Note
 
 None.
+
+**Runtime invariant:** No companion is published. This Desktop-only service contributes authenticated event intake, live compaction collection, and the `watchPolicy` stream, while batching and delivery remain owned by `@deepseek-ai/dsh-host-product-telemetry-otel` and identity fields come from `ctx.deepseekAccount`.

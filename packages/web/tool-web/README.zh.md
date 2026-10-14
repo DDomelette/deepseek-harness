@@ -265,3 +265,5 @@ schema 校验会在执行前拒绝缺失或非数组的 `queries` 字段以及�
 把 `max_results` 作为模型参数而非配置上限公开仍被推迟；seam Agent Note 将其列为后续步骤。面向模型的上限会把成本控制移入提示词，因此该决定需要先有部署经验。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本适配器贡献 `web_search` 与 `web_fetch` 的 schema、HTML 转换与呈现；提供方选择与可用性由 `ctx.web` seam 持有。

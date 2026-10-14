@@ -144,3 +144,5 @@ seam 本身不是执行器：每个组合只挂载一个提供方，工具即可
 None.
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本 Service Definition 贡献 `ctx.shell` 的请求/规格词汇与结果类型；进程启动由各执行器持有，job id、轮询与通知由 `@deepseek-ai/dsh-jobs` 持有。

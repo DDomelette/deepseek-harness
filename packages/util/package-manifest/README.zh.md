@@ -100,3 +100,5 @@ const manifest: DshPackageManifest = {
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包只导出 TypeScript 类型声明，不含运行时模块、解析器或默认值解析；每处清单读取方各自持有其执行的 JSON 校验与文件检查。

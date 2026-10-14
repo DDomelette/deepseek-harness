@@ -75,3 +75,5 @@ AccountDetails.balance 就绪时，value 保存充值钱包，bonusWallets 保�
 本地取消具有权威性，账号存在性由提供方存储的、按所有者作用域的授权派生。
 
 PlatformSession 可将仅限 Host 的 requestHeaders 从 Host 传至 Electron 主进程，其中只有部署请求头，因为内嵌文档的客户端身份在其语言、时区和版本可知处组装。消费者必须从渲染层 bootstrap 排除这些请求头，并将其限定于配置来源。userId 同样仅限 Host，绝不进入渲染层 bootstrap。mergePlatformCookies 替换同名 Cookie，同时保留其他 Cookie。
+
+**运行时不变式：** 不发布伴生入口。这个 Service Definition 只声明 `ctx.deepseekAccount` 的操作与事件词汇，不维护凭证索引；登录协议、授权记录及其持久化由所挂载的 Platform 提供者持有。

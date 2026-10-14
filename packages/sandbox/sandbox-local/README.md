@@ -146,3 +146,5 @@ This Dev Note is working context for maintainers: undecided directions and open 
 An environment-coherent capability group example, such as bash plus fs against one container, remains undecided.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend selects a host platform runner and reports each wrap's enforcement; the `ctx.sandbox` seam owns policy resolution, the calling executor owns the spawn, and the operating system owns the confinement the runner requests.

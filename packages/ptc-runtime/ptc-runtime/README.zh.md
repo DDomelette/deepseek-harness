@@ -146,3 +146,5 @@ binding-global 与 error-class 名称是语言可移植的：必须匹配标识�
 容器级后端将为代码与 shell 执行都提供硬性的多租户边界；除已知的 `isolation` 值外，暂无任何决定。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个 Service Definition 只声明 `ctx.ptcRuntime`、其解析结果与可移植标识符排除集；执行与约束由 `dsh-ptc-runtime-node` 等后端持有，绑定与会话由消费方持有。

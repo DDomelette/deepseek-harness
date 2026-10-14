@@ -107,3 +107,5 @@ preset 的服务提供方及其消费方必须共享同一个 `cordis:group` 隔
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本注册表仅贡献 `agentPresets` 服务、每个定义一棵挂载的插件树、一份 Agent scope 绑定，而会话实际运行的 preset 及创建/恢复时对其组合的重建由会话日志和 `dsh-api-session-controller` 持有。

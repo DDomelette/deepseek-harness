@@ -218,3 +218,5 @@ These limits define when the tool is a poor fit or needs special care. They are 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This model-facing Consumer registers the `pwsh` tool and renders results, while the `ctx.shell` executor owns process execution, `@deepseek-ai/dsh-jobs` owns background jobs, and the sandbox policy owns confinement.

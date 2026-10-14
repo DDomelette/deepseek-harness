@@ -145,3 +145,5 @@ This Dev Note is non-authoritative working context: notes for maintainers and op
 - Retry numbers continue only across events with the same provider and complete policy key, so a route replacement with different limits, code membership, or backoff starts its own history; the key includes every behavior-affecting field and sorts normal-mode codes because eligibility uses set membership.
 
 </details>
+
+**Runtime invariant:** No companion is published. This listener reads the provider-resolved `retryPolicy`, appends `llm/retry` and `llm/retry-started`, and returns `retry`; `dsh-llm` owns policy resolution, the Session log owns durable records, and the agent loop re-runs the step.

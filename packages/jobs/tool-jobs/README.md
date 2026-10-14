@@ -185,3 +185,5 @@ These limits define when the tools are a poor fit. They are current package cons
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. These three model-facing tools project and control jobs the `ctx.jobs` registry owns; settlement routing, owner fencing, and read offsets stay with that registry and its producers.

@@ -175,3 +175,5 @@ kind: "package-reference"
 能够避免完整模型轮次的 DeepSeek 原生搜索端点将消除主要成本；在 DeepSeek 公开此类端点之前，本提供方仍是 Messages 调用适配器。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方向 `ctx.web` 注册表注册唯一的 `deepseek-official` 搜索后端；每个解析出的密钥由 `ctx.credentials` 持有，搜索结果以及被本包刻意丢弃的正文由 DeepSeek Messages 端点持有。

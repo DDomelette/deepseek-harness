@@ -227,3 +227,5 @@ These limits define when the tool is a poor fit or needs special care. They are 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This model-facing tool contributes the `bash` schema and result rendering; process execution belongs to the mounted `ctx.shell` executor, and every command registered with `@deepseek-ai/dsh-jobs` has its waiting, output, and termination owned by that registry.

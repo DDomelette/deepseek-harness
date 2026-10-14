@@ -145,3 +145,5 @@ kind: "package-reference"
 - 重试编号只在同一提供方与完整策略键的事件间延续，因此限额、code 成员或退避不同的路由替换会开启自己的历史；该键包含每个影响行为的字段，并因资格判断使用集合成员而对 normal mode code 排序。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该监听器读取提供方解析出的 `retryPolicy`，追加 `llm/retry` 与 `llm/retry-started` 并返回 `retry`；策略解析由 `dsh-llm` 持有，持久记录由会话日志持有，失败的步骤由 agent 循环重跑。

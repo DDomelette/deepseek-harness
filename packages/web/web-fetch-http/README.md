@@ -143,3 +143,5 @@ These limits define when the provider is unsafe or a poor fit. They are current 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The plugin registers one anonymous `WebFetchProvider` with `ctx.web`; the web registry owns provider identity, selection, and dispatch, while the model-facing `web_fetch` tool and its rendering live in `dsh-tool-web`.

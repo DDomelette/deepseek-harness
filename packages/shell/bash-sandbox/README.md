@@ -181,3 +181,5 @@ These limits define when this executor is not a general security boundary. They 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This executor contributes the `ctx.shell` implementation that wraps local bash argv through `ctx.sandbox` and classifies denial and runner-failure facts, while the confinement runner, the default mode and workspace root, and approval escalation stay owned by `ctx.sandbox`, `ctx.sandboxPolicy`, and the tool layer.

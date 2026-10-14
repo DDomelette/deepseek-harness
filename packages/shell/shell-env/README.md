@@ -137,3 +137,5 @@ These limits define when the registry is a poor fit or needs care. They are curr
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The registry collects a frozen `DSH_*` overlay per shell execution from effect-scoped contributors, while the shell tool executors own the calls that inject it.

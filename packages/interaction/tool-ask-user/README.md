@@ -166,3 +166,5 @@ These limits define when the tool is a poor fit. They are current package constr
 The [`userQuestions` projection](../user-questions/src/projection.ts) reads each recorded tool schema rather than the call arguments: timed calls may omit `timeout`, and timed `-1` calls still use the timed schema. Changes to the projection fold require a `stateVersion` bump so stored caches refold from the log.
 
 </details>
+
+**Runtime invariant:** No companion is published. This consumer contributes the `ask_user_question` schemas and the timed variant's deadline handling, while pending-question state and answer correlation stay with the `ctx.userQuestions` service.

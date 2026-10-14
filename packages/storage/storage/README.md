@@ -139,3 +139,5 @@ These limits define what the hub cannot do. They are current package constraints
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This hub is a registration table that holds no data of its own: mounted backends own their storage media, and the domain data form owns record semantics; misconfiguration fails loud at registration rather than drifting.

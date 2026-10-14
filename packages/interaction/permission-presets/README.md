@@ -145,3 +145,5 @@ These limits define what the preset service does not offer. They are current pac
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The service records the selected preset and writes changed knobs through their canonical setters, while `ctx.approval`, the sandbox policy, and the Session projection own enforcement.

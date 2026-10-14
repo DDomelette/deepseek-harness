@@ -106,3 +106,5 @@ accountRequestHeaders overlays requestHeaders for current, balance and embedded 
 The account provider’s `embeddedPageDist` configuration adds a `dist` query parameter to embedded Usage and Top-up URLs. Its default is empty; private frontend branch selectors belong in the local profile patch. It does not change API URLs or credential delivery.
 
 Platform wallet balances accept decimal strings with optional scientific notation (including `0E-16`); the provider preserves the original string for consumers.
+
+**Runtime invariant:** No companion is published. This provider contributes the browser PKCE attempt and the `/oauth/callback` route, while the credential store owns durable grant records and the Host web server owns route disposal.

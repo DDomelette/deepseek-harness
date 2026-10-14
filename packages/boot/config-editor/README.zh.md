@@ -77,3 +77,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务通过 `@deepseek-ai/dsh-atomic-write` 重写当前 profile patch，把 patch 组合交给 `@deepseek-ai/dsh-app-boot`、热重载串行化交给 `@deepseek-ai/dsh-hmr`、配置解析交给 Loader。

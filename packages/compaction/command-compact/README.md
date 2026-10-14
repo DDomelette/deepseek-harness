@@ -153,3 +153,5 @@ This Dev Note is working context for maintainers and is explicitly non-authorita
 - **Range and policy arguments, undecided** — argument-free stability is deliberate; adding arguments would need a shared grammar across every command adapter.
 
 </details>
+
+**Runtime invariant:** No companion is published. This plugin contributes one `/compact` command registration that maps `ManualCompactionError` codes to result text; `@deepseek-ai/dsh-commands` owns dispatch and the log-only `command/run`/`command/done` pair, while `@deepseek-ai/dsh-compaction` owns the compaction transaction and `busy` classification.

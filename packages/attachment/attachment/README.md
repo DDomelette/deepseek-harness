@@ -136,3 +136,5 @@ Resumed and forked sessions may share immutable objects, so any retention policy
 Audio and video would need dedicated lifecycle and provider contracts beyond the verbatim file path, and the role-neutral `ImageBlock` leaves assistant-side image output as forward compatibility — current production adapters declare text-only output, so only user content carries images. Both directions are undecided.
 
 </details>
+
+**Runtime invariant:** No companion is published. The abstract `AttachmentStore` declares `ctx.attachments` admission and reference vocabulary while writing no session event; the Session log owns the durable reference, and the mounted `dsh-attachment-local` backend owns the bytes.

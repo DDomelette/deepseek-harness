@@ -187,3 +187,5 @@ Claude Code 子级会在一个全新的 SDK query 中接收独立文本任务。
 - **版本锁定的协议**——运行时依赖锁定为 Agent SDK 0.3.263；升级会锁定新的 SDK 版本，并需要重新运行无密钥真实产品与 loader 组合证据。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方向 `ctx.subagents` 注册一次性 `claude-code` 生产方并映射每次原生 SDK 查询结果，而权限由 Claude 原生设置持有，被 spawn 的 CLI 进程及其终止层级由共享的子进程归属方持有。

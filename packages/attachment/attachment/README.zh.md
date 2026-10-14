@@ -136,3 +136,5 @@ kind: "package-reference"
 音频与视频需要原样文件路径之外的专门生命周期与提供方约定；角色无关的 `ImageBlock` 也为助手侧图片输出保留向前兼容空间——当前生产适配器声明只输出文本，因此只有用户内容携带图片。两个方向都尚未决定。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。抽象 `AttachmentStore` 只声明 `ctx.attachments` 的准入与引用词汇，不写入任何会话事件；持久引用由会话日志持有，字节由所挂载的 `dsh-attachment-local` 后端持有。

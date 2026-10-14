@@ -107,3 +107,5 @@ Delivery and collection remain limited to the following capabilities.
 ### Dev Note
 
 None.
+
+**Runtime invariant:** No companion is published. This Host adapter contributes `ctx.productTelemetry.emit()` plus the collector routing and shutdown deadline, while OTLP transport, SDK batching, and queueing stay owned by `ctx.otel` and the event names and field semantics remain with each consumer.

@@ -193,3 +193,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The deferred gaps above are the working queue: per-session hook-config discovery, a session-start delivery gate, a stop loop-guard, and a run-level halt for `continue: false`. None has a design yet; the official Claude Code reference is the baseline for closing any of them.
 
 </details>
+
+**Runtime invariant:** No companion is published. The bridge maps Claude Code command hooks onto harness interception points, while shared hook execution, parsing, and shell invocation stay owned by `dsh-hook-protocol` and `ctx.shell`.

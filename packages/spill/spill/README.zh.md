@@ -152,3 +152,5 @@ spill 消费方将后端的定位信息与取回指引渲染给模型，从而�
 远程或数据库后端仍是开放方向。本地后端执行其[启动清理策略](../spill-local/README.zh.md#startup-cleanup)；该服务未定义按会话清理或刷新定位信息的 API。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务定义仅贡献 `SpillStore` 服务、其 `saveText` 约定与共享词汇；私有的会话级写入与定位信息所指的产物由 `@deepseek-ai/dsh-spill-local` 持有。

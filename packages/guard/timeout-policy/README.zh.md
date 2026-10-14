@@ -132,3 +132,5 @@ kind: "package-reference"
 `src/index.ts` 中的 FIXME 要求确定 `@deepseek-ai/dsh-timeout-guard` 改名；[改名台账](../../../.agents/notes/archived/architecture/2026-08-11-repository-naming-contract-and-rename-ledger.md) 已把 `@deepseek-ai/dsh-tool-call-timeout-policy` 记录为既定名称，因此该 FIXME 已陈旧，待代码清理。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。包装层只按注册表中的 `ToolDefinition.timeoutMs` 在 `exec.signal` 上布置截止时间；时序与分类由 `dsh-timeout` 持有，终止自身工作仍由各能力持有。

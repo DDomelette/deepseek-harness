@@ -265,3 +265,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 Exposing `max_results` as a model argument instead of a config bound stays deferred; the seam Agent Note names it a later step. A model-facing bound would move cost control into the prompt, so the decision needs deployment experience first.
 
 </details>
+
+**Runtime invariant:** No companion is published. This adapter contributes the `web_search` and `web_fetch` schemas, HTML conversion, and presentation, while the `ctx.web` seam owns provider selection and availability.

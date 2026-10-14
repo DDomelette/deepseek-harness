@@ -102,3 +102,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。浏览器半边通过 slot 注册 `schedules` 主面板、页头目录入口与 `schedule_create` 卡片；提醒的持久化、调度与删除仍由宿主 `@deepseek-ai/dsh-schedule` 服务持有。

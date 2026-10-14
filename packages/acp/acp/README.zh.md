@@ -183,3 +183,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个传输只贡献 stdio ACP 服务器与按 Session 划分的桥接；持久 Session 记录、已提交事件顺序与 MCP 挂载的拆卸仍由 `ctx.sessions`、Session 日志与 Agent 工厂持有。

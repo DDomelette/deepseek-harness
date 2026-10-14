@@ -108,3 +108,5 @@ These limits define when the primitive needs special care. They are current pack
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This dependency-free library contributes the scope tag, the `scopeTarget` event carrier, and the layer stores; the registries that file contributions by `scopeOf()` and the agent loop that mints per-agent scopes own the relationship it routes.

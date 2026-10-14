@@ -148,3 +148,5 @@ These limits define when clock context is a poor fit. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The plugin contributes one `agent/pre-step` listener and the `timeContext` projection; the Session log owns every injected reading and `sessionProjections` validates the folded state.

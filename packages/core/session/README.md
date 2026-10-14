@@ -213,3 +213,5 @@ These limits define when the session store needs special care. They are current 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This store commits the append-only session log and derives model history in memory, while persistence plugins own durability and the compaction capability owns hiding superseded surface nodes.

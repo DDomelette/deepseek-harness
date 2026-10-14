@@ -183,3 +183,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The [repeat-tool-guard feature note](../../../.agents/notes/archived/feature/2026-07-08-repeat-tool-guard.md) records the original design and alternatives under the former package name; the [naming ledger](../../../.agents/notes/archived/architecture/2026-08-11-repository-naming-contract-and-rename-ledger.md) records the rename to `repeat-tool-reminder` and its reason.
 
 </details>
+
+**Runtime invariant:** No companion is published. This advisory guard counts per-agent repeat chains and adds reminder contexts, while the tools registry owns execution and blocking and the agent loop owns carrying injected context into the request.

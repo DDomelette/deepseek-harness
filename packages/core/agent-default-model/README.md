@@ -124,3 +124,5 @@ These limits define the service's scope. They are current package constraints, n
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The service answers default provider, model, and reasoning effort from live Config references, writes through `ctx.configEditor`, and leaves per-session selection to the entry point.

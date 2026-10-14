@@ -143,3 +143,5 @@ These limits define what the generator cannot model or emit; they are current pa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This build-time generator contributes workspace type analysis, compiler-independent face models, and the artifact emitters wired through `typertPlugin()`, while runtime registration and lookup stay owned by `@deepseek-ai/dsh-typert-registry` and the loader.

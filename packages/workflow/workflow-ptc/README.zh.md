@@ -166,3 +166,5 @@ Host 分别跟踪待完成的启动与已接受的 Activation。取消会中止�
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本引擎仅贡献 `WorkflowEngine` 实现，在共享的 Node PTC 进程中运行带 `agent()` 钩子的工作流脚本，并捕获 Session 的目录与文件策略；进程强制能力与 subagent 路由分别由 PTC 运行时和 `ctx.subagents` 持有。

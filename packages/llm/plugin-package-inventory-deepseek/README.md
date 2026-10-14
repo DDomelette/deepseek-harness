@@ -76,3 +76,5 @@ None; package lifecycle changes do not alter the model-visible prefix.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This function plugin contributes the `dsh_plugin_packages` request field; active entries belong to the Loader tree, package identities to the `PluginPackages` resolver, and the field registration to `ctx.deepseekLlmApiExtensions`.

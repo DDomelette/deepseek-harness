@@ -186,3 +186,5 @@ await handle.agent.whenIdle()
 本开发备注是维护者的工作上下文；它明确不具权威性。尚未决定的开放方向：委派之外的 agent 间通道——共享状态、流式子输出以及后台或轮询语义仍不在当前委派 seam 之内；以及 `SessionStartSource` 的 `'clear'`/`'compact'` 值已保留但尚无发出方，待驱动子系统落地。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包提供 `ctx.agents` 注册表与 `Agent` 句柄；已注册的驱动器（`dsh-agent-loop`）持有循环、模型请求与每个 agent 的会话日志，发起方归因则仅存在于进程内。

@@ -185,3 +185,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 - **Remote runtimes** — a remote runtime would need its own backend and workspace mapping.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider contributes the `dsh-sdk` registration on `ctx.subagents` that drives a child Harness runtime over stdio JSON-RPC and owns only its dispose handshake, while the child's composition, session persistence, and recursion budget stay with that child runtime.

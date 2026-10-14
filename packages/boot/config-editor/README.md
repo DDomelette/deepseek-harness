@@ -77,3 +77,5 @@ Consumers that change request prefixes determine cache effects.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This service rewrites the active profile patch through `@deepseek-ai/dsh-atomic-write` and leaves patch composition to `@deepseek-ai/dsh-app-boot`, hot-reload serialization to `@deepseek-ai/dsh-hmr`, and config resolution to Loader.

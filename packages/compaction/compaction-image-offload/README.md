@@ -105,3 +105,5 @@ This Dev Note is non-authoritative working context: notes for maintainers and op
 - The route-local byte checks that produce `IMAGE_OFFLOAD_REQUIRED` are provisional: once the provider reports uncacheable images itself, the adapters map that report to a count and this executor stays as it is.
 
 </details>
+
+**Runtime invariant:** No companion is published. This executor contributes the `agent/request-error` and `compaction/summary-error` listeners that append one `image/offload` decision, while the Session message-projection registry owns how those logged decisions fold into later requests.

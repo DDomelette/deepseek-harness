@@ -204,3 +204,5 @@ This Dev Note is working context for maintainers: undecided directions and open 
 The warn-only posture for unusually wide directories and FAT-class volumes is documented in the limitations above but not implemented, and a cleanup command that reaps standing workspace ACEs from renamed workspaces is undecided. Both are open directions, not shipped behavior.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Windows backend spawns children under a write-restricted token with per-directory capability ACEs, while `ctx.sandbox` owns mode policy and grant reuse and `@deepseek-ai/dsh-win32-process` owns every process primitive it calls.

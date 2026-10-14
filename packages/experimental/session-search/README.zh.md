@@ -80,3 +80,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该组合包只声明 `optional-session-search` 配置补丁条目；profile 补丁顺序与错误由 `@deepseek-ai/dsh-app-boot` 持有，索引由 `@deepseek-ai/dsh-session-query-sqlite` 持有，面向模型的工具由 `@deepseek-ai/dsh-tool-session-query` 持有。

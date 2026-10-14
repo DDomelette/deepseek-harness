@@ -82,3 +82,5 @@ Consumers that change request prefixes determine cache effects.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This service projects volatile Config fields into revisioned forms and validates each edit, while `@deepseek-ai/dsh-config-editor` owns persistence into the profile patch and each plugin owns its own Config.

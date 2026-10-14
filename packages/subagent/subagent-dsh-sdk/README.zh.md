@@ -185,3 +185,5 @@ kind: "package-reference"
 - **远程运行时**——远程运行时需要独立的后端与工作区映射。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方仅贡献 `ctx.subagents` 上的 `dsh-sdk` 注册，通过 stdio JSON-RPC 驱动子 Harness 运行时，并只持有自身的 dispose 握手；子进程的组合、会话持久化与递归预算仍由该子运行时持有。

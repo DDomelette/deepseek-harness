@@ -76,3 +76,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本组合包是静态 patch 层，其 `cordis.patch.yml` 插入 `optional-ralph` 组；工具注册、提示词指引与子智能体运行由 `dsh-tool-ralph` 持有，patch 顺序由 `dsh-app-boot` 持有。

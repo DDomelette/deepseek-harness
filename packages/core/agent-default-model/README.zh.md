@@ -124,3 +124,5 @@ await ctx.agentDefaultModel.saveSelection({ provider, model, reasoningEffort: 'h
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务从即时 Config 引用回答默认 provider、模型与推理强度，经 `ctx.configEditor` 写入，会话级选择仍由入口持有。

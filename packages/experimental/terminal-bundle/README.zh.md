@@ -76,3 +76,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包只携带一个静态 profile patch，插入 `optional-persistent-terminals` 分组；注册顺序与工具面仍由 profile composer 与 `@deepseek-ai/dsh-tool-terminal` 持有。

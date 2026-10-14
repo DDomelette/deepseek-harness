@@ -146,3 +146,5 @@ kind: "package-reference"
 - **基于 token 的预算，暂缓**——预算以 Unicode 码点计；改为基于 token 的预算需要 token meter 未暴露的估算器约定。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。修剪器计算有界头部与尾部，并追加 `compaction/prune` 与替换用的 `tool/result` 事件；这些事件的持久化与回放由 Session surface 持有，修剪时机由 `dsh-compaction-basic` 持有。

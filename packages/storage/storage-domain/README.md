@@ -156,3 +156,5 @@ These limits define when the domain layer is a poor fit or needs special operati
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The domain form validates every stored record at open and emits `domain/changed` in write order, while `ctx.storage` backends own durability and each caller owns its handle.

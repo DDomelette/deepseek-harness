@@ -195,3 +195,5 @@ This Dev Note is non-authoritative working context: open questions and undecided
 - The `llm/adapters-updated` event is payload-free by design; consumers re-read the registries instead of receiving the new topology in the event.
 
 </details>
+
+**Runtime invariant:** No companion is published. This service is the provider-neutral model-call path: adapters own each provider's wire translation and retry execution lives in `dsh-llm-retry`, while the callers and the session log own the requests and attempts it streams.

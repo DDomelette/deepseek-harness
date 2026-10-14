@@ -79,3 +79,5 @@ Translation records leave original reasoning intact; normal Session activation a
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This bundle carries only a static `cordis.patch.yml` inserting the `translator` and `cot-translation` rows; the translator service and the GUI consumer own every runtime relation.

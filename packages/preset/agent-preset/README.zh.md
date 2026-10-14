@@ -93,3 +93,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该行向 `ctx.agentPresets` 贡献一份 preset 定义，定义的校验、身份，以及新建 Agent 所选的 revision 均由该注册表持有。

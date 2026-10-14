@@ -157,3 +157,5 @@ Current DSH file policy: danger-full-access. The DSH file sandbox does not restr
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务解析逐调用文件操作策略并贡献 `sandbox:policy` 运行时上下文；`sandbox/mode` 的持久化属于会话日志，强制执行属于受限的 bash、文件系统与终端能力。

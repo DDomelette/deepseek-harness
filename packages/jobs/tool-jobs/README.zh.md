@@ -185,3 +185,5 @@ Track every background job id you start. You are notified in-session when a job 
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这三个面向模型的工具只投影和控制由 `ctx.jobs` 注册表持有的任务；结算路由、所有者隔离与读取偏移仍归该注册表及其生产方。

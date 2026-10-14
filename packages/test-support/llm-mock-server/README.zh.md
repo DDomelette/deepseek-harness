@@ -167,3 +167,5 @@ CLI 公开 `--success-text`、`--partial-text`、`--reasoning-text`、`--chunk-s
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本独立脚本化服务器通过 HTTP 与 SSE 重放脚本化的 Messages 行为，而请求重试、恢复策略以及对响应的全部解读都由被测 LLM 适配器持有。

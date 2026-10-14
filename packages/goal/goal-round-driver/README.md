@@ -137,3 +137,5 @@ These limits define when the driver is a poor fit or needs special care. They ar
 This Dev Note is working context for maintainers; it is explicitly non-authoritative. Open, undecided directions: an abnormal-failure retry policy and evaluator-backed round certification; both stay outside this package by design.
 
 </details>
+
+**Runtime invariant:** No companion is published. The driver registers listeners and queues each round as a `<goal_round>` follow-up, holding only a process-local reservation; `ctx.goals` owns arming, round accounting, and blockers, and the Session log owns durability.

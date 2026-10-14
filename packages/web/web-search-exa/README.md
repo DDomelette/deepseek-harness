@@ -140,3 +140,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 Exa's livecrawl, category, domain and date filters, and full-text contents stay unexposed. Exposing them needs provider-neutral service fields first, so the family adds one coordinated control rather than a vendor-specific argument.
 
 </details>
+
+**Runtime invariant:** No companion is published. This adapter contributes the `exa` search provider, request dispatch, abort classification, and source mapping; provider selection and the final `maxResults` bound stay owned by `ctx.web`, and model rendering by `@deepseek-ai/dsh-tool-web`.

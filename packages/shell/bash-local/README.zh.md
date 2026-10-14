@@ -150,3 +150,5 @@ if (result.timedOut) console.log('timed out after', result.timeoutMs)
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。执行器只解析预算并分类单次 spawn 的结果；受管进程范围、spill 支撑的输出与终止升级由 `subprocess` 服务在每次调用之下持有。

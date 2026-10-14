@@ -145,3 +145,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该服务记录所选预设，并通过各自的规范 setter 写入变化的旋钮；执行与审批由 `ctx.approval`、沙箱策略与会话投影持有。

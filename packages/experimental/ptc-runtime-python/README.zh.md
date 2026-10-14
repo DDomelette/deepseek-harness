@@ -154,3 +154,5 @@ Each call runs in a fresh Python process. Relative paths use the supplied workin
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。每次运行都在本提供方的 fd-3 协议下启动一个 CPython 子进程，并把 argv 转发给 `ctx.sandbox.confine()`；强制执行由 sandbox 后端持有，已解析模式由 `sandboxPolicy` seam 持有。

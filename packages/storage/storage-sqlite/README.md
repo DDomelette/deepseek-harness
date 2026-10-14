@@ -139,3 +139,5 @@ These limits define when this backend is a poor fit or needs special operational
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The plugin registers the `sqlite` backend and owns its schema version and per-unit tables; the `ctx.storage` backend registry owns name uniqueness and resolution, and `dsh-storage-domain` owns routing and write ordering.

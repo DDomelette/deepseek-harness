@@ -218,3 +218,5 @@ Non-zero exits are reported as `[exit code: N]` markers; investigate failures be
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本面向模型的消费方注册 `pwsh` 工具并渲染结果，而进程执行由 `ctx.shell` 执行器持有，后台任务由 `@deepseek-ai/dsh-jobs` 持有，隔离由沙箱策略持有。

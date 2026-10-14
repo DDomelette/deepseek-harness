@@ -106,3 +106,5 @@ Reloading a contributing plugin can change later request prefixes; HMR does not 
 <a id="dev-note"></a>
 
 None.
+
+**Runtime invariant:** No companion is published. This reload service serializes module and profile-configuration changes, while Loader entries and the Cordis registry own plugin activation and `@deepseek-ai/dsh-app-boot` owns profile patch precedence and readiness.

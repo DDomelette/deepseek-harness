@@ -165,3 +165,5 @@ These limits define when the tool is a poor fit or needs special care. They are 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This stateless tool consumer contributes the `pwsh` schema with marker-based extraction and reset handling; PTY shell lifecycle and per-agent isolation stay owned by `ctx.terminals`, and execution admission by `@deepseek-ai/dsh-tools`.

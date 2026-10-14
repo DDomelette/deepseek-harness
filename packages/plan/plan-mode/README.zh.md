@@ -200,3 +200,5 @@ You are in plan mode. Explore and design before presenting the complete plan thr
 设计说明拒绝了通用命名模式注册表，因为产品只交付了 `plan`；未来的协作状态只应在出现两个具体用例后建立共享 seam，任何抽取都必须保持 `plan/mode` 的仅记日志折叠、边界追加与经评审的退出不变。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。控制器只贡献 `plan:policy` 段落、`/plan` 命令、`exit_plan_mode` 工具与 `plan` 投影；`plan/mode` 由 Session 日志持有，其折叠由 `sessionProjections` 校验。

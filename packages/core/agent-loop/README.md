@@ -228,3 +228,5 @@ These limits define when the loop needs special care. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This driver contributes the `ctx.agents` factory and the turn and step lifecycle; every relation it owns, such as one `step/end` per entered step, is enforced in its own operations, and the Session log owns durability.

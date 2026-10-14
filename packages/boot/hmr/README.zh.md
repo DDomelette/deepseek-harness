@@ -106,3 +106,5 @@ Loader entry 保留原始导入结果。HMR 为每个 entry 名称与配置树 b
 <a id="dev-note"></a>
 
 无。
+
+**运行时不变式：** 不发布伴生入口。本重载服务串行化模块与 profile 配置变更，而插件激活由 Loader 条目与 Cordis 注册表持有，profile patch 的优先级与就绪状态由 `@deepseek-ai/dsh-app-boot` 持有。

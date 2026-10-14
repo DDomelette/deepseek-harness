@@ -219,3 +219,5 @@ These limits define what this tool does not return or enforce; they are current 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The plugin registers one delegation tool, its prompt section, and the `subagentModelSelectionPolicy` projection; `ctx.subagents` owns activation lifecycle, `ctx.llm` resolves routes, and the Session log owns the recorded policy.

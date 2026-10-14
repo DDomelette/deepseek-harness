@@ -248,3 +248,5 @@ These limits define when the registry needs special care. They are current packa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This package contributes the `ctx.tools` registry, argument validation, allow/deny/ask policy, and the pre/guard/around/post/result pipeline, while loop dispatch, Session logging of results, and approval decisions stay owned by `@deepseek-ai/dsh-agent`, the Session log, and `ctx.get('approval')`.

@@ -82,3 +82,5 @@ Settings 启动后、Loader 完成所有条目的加载时，早期版本留在 
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本服务把 `.volatile()` 声明的 Config 字段投影为带版本号的表单并校验每次编辑，而写入 profile patch 的持久化由 `@deepseek-ai/dsh-config-editor` 持有，各插件自己持有其 Config。

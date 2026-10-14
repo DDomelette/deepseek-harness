@@ -215,3 +215,5 @@ These limits define where the adapter stops and future work begins. They are cur
 None.
 
 `deepseek-official` uses only its configured API-key reference; `deepseek-account` uses only the stored DSH grant for the account provider’s allowed inference origin. Both routes share the Messages transport with independently configured model and file settings. Missing or ineligible account credentials reject the request with a sign-in prompt; neither route falls back to the other. Chat and Files requests reject redirects. The account provider owns sign-out cancellation using running Agents’ logged request contexts, including tool execution; the transport receives the existing request abort signal.
+
+**Runtime invariant:** No companion is published. The adapter owns one Messages transport and file-store behavior, while `@deepseek-ai/dsh-llm` owns route registration and the API-key and account plugins own authentication.

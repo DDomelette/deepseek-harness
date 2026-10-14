@@ -147,3 +147,5 @@ ctx.commands.register({
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包仅贡献 `ctx.commands` 注册表、作用域注册、斜杠解析、直接分派，以及 `command/run` / `command/done` 生命周期事件的追加；二者的配对由会话日志的格式关系校验器持有。

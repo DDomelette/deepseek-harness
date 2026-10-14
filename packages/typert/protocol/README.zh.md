@@ -153,3 +153,5 @@ Host 装配以转发给消费方的 Cordis 事件扩展 `TypertRemoteEventSelect
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本包是声明库，仅贡献 `@Remote` 标记、`bindTypertRemote()` 的 Gateway 绑定、`RemoteError` 错误词汇，以及共享的描述符、codec 与提供方类型；已注册的 `InvocationDescriptor` 与提供方由 `@deepseek-ai/dsh-typert-registry` 持有，供每次调用解析。

@@ -146,3 +146,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个进程内注册表贡献 `ctx.jobs` 及其按所有者准入、有界输出环与销毁逻辑；`@deepseek-ai/dsh-jobs` 约定与面向模型的 `@deepseek-ai/dsh-tool-jobs` 控件持有它所实现的关系。

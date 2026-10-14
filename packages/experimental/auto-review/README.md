@@ -126,3 +126,5 @@ The denial appends an ordinary tool result; it does not rewrite earlier context 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Web layer contributes the Auto preset contribution and one prepended pre-execute listener; `@deepseek-ai/dsh-permission-presets` owns the preset identity, `@deepseek-ai/dsh-tools` the admission pipeline, and `@deepseek-ai/dsh-session` the approval policy.

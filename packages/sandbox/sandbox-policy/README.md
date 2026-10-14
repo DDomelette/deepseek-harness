@@ -157,3 +157,5 @@ Policy-context replacements must be counter-tested on denied-then-escalatable ta
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This service resolves the per-call file-effect policy and contributes the `sandbox:policy` runtime context; `sandbox/mode` durability belongs to the Session log, and enforcement to the confined bash, filesystem, and terminal capabilities.

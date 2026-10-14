@@ -76,3 +76,5 @@ The layer adds no request content directly; the capability implementation owns c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This profile layer contributes only the `skill-badge` provider row on the Host, while the skill registry owns discovery, loading, and results and `@deepseek-ai/dsh-app-boot` owns profile patch ordering.

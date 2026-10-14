@@ -200,3 +200,5 @@ This Dev Note is working context for maintainers: open design questions and dire
 The design note rejected a generic named-mode registry because the product shipped only `plan`; a future collaboration state would establish a shared seam only from two concrete cases, and any extraction must keep `plan/mode`'s log-only fold, the boundary append, and the reviewed exit intact.
 
 </details>
+
+**Runtime invariant:** No companion is published. The controller contributes the `plan:policy` section, the `/plan` command, `exit_plan_mode`, and the `plan` projection; the Session log owns `plan/mode` and `sessionProjections` validates its fold.

@@ -175,3 +175,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 A native DeepSeek search endpoint that avoids the full model turn would remove the dominant cost; until DeepSeek exposes one, this provider stays a Messages-call adapter.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers one `deepseek-official` search backend into the `ctx.web` registry; `ctx.credentials` owns each resolved key, and the DeepSeek Messages endpoint owns the search results and prose this package deliberately discards.

@@ -179,3 +179,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这些面向模型的适配器贡献 `send_message` 与 `interrupt_agent` 的工具定义及参数校验；常驻、冷恢复、收件箱投递与中断授权由 `ctx.subagents` 持有。

@@ -172,3 +172,5 @@ This Dev Note is working context for maintainers and is explicitly non-authorita
 - **Range arguments for `/compact`, undecided** — the argument-free form keeps behavior stable across command adapters; explicit ranges stay the programmatic `compactRegion()` path.
 
 </details>
+
+**Runtime invariant:** No companion is published. This stateless Service Definition publishes the `ctx.compaction` vocabulary and checkpoint marker; the backend subclass that performs each condensation owns the replacement operation, and the Session log owns the history it shadows.

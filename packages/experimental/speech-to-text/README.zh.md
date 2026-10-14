@@ -80,3 +80,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。此服务定义仅贡献 `ctx.speechToText` 注册表、选择解析，以及拒绝已撤销注册的 `transcribe`；音频解码、准备状态与持久化偏好分别由各注册 Provider 和 `ctx.get('settings')` 持有。

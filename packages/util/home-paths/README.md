@@ -121,3 +121,5 @@ These limits define when the helpers are not the right tool. They are current pa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. Every helper derives its answer at call time from the explicit path, `$DSH_HOME`, and the operating-system home, so no cached state exists for a second observer to diverge from; callers own directory creation and permissions for the paths they receive.

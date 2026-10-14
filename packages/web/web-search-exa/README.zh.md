@@ -140,3 +140,5 @@ kind: "package-reference"
 Exa 的 livecrawl、category、域名与日期过滤条件以及全文内容仍未公开。公开它们需要先有提供方无关的服务字段，让家族以一个协调一致的控制项、而非厂商专有参数的方式新增。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该适配器仅贡献 `exa` 搜索提供方、请求分发、中止分类与来源映射；提供方选择与最终 `maxResults` 上限由 `ctx.web` 持有，模型呈现由 `@deepseek-ai/dsh-tool-web` 持有。

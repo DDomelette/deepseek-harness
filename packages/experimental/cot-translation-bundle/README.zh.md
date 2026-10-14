@@ -79,3 +79,5 @@ Bundle 补丁插入 `translator` 和 `cot-translation`，选择 Bing 与界面�
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本组合包只携带静态 `cordis.patch.yml`，插入 `translator` 与 `cot-translation` 两行；全部运行时关系由 translator 服务与 GUI 消费方持有。

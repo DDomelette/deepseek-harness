@@ -164,3 +164,5 @@ Per-tool opt-out or per-tool policy declarations remain deferred; the built-in `
 The policy only sees final accepted content. Earlier provider truncation and tool-owned output limits remain outside its scope.
 
 </details>
+
+**Runtime invariant:** No companion is published. The policy rewrites accepted `tools/post-execute` content in place and stores the full result; the spill backend owns recovery files and the ToolRuntime owns canonical program values.

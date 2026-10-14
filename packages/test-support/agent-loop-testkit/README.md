@@ -136,3 +136,5 @@ These limits define what the utilities do not share. They are current package co
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. These test-only helpers mount the production prerequisite services and expose the loop driver plus process-local Inbox stubs; durable Inbox events, projection recovery, and claim policy remain owned by `@deepseek-ai/dsh-agent-loop` and the Session log.

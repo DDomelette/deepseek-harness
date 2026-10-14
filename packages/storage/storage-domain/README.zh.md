@@ -156,3 +156,5 @@ domain.table('workspaces').update(id, (r) => ({ ...r, path: newPath }))
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。领域数据形式在打开时校验每条已存记录并按写入顺序发出 `domain/changed`，持久性由 `ctx.storage` 后端持有，句柄生命周期由各调用方持有。

@@ -126,3 +126,5 @@ Reviewer 使用最新 `request/header.config` 的 provider 与模型，并沿用
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该 Web 层贡献 Auto preset contribution 与一个置前的 pre-execute listener；preset 身份由 `@deepseek-ai/dsh-permission-presets` 持有，准入流水线由 `@deepseek-ai/dsh-tools` 持有，审批策略由 `@deepseek-ai/dsh-session` 持有。

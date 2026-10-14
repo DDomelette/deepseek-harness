@@ -138,3 +138,5 @@ These limits define when the provider is a poor fit. They are current package co
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider ranks `@file` mention candidates from the host filesystem, while the `read` tool's filesystem namespace and the `workingDirectory` service own the directory the index must match.

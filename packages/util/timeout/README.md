@@ -151,3 +151,5 @@ These limits define what the library deliberately does not do. They are current 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The library holds only the timer handles its callers dispose, and each capability that arms `deadline` or `idleWatchdog` still owns the process, socket, or task termination the signal notifies about.

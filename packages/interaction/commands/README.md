@@ -147,3 +147,5 @@ These limits define what the registry does not offer. They are current package c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This package contributes the `ctx.commands` registry, scoped registration, slash parsing, direct dispatch, and the `command/run`/`command/done` lifecycle appends, while their pairing stays owned by the Session log's format relationship validator.

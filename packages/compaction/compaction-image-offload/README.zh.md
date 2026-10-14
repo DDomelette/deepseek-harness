@@ -105,3 +105,5 @@ kind: "package-reference"
 - 产生 `IMAGE_OFFLOAD_REQUIRED` 的路由本地字节检查是过渡实现：provider 自己报告无法缓存的图片之后，adapter 把该报告换算成数量，本执行器保持不变。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本执行器贡献 `agent/request-error` 与 `compaction/summary-error` 监听器，每次追加一条 `image/offload` 决策；这些已记录决策如何折叠进后续请求，由 Session 消息投影注册表持有。

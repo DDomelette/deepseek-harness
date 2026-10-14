@@ -185,3 +185,5 @@ Workspace 注册不意味着拥有其目录。未来的破坏性文件系统操�
 网关的按名称创建分支移除后，`title` 参数已无生产调用方；代码中的 TODO 提议把该参数与其 `@param` 子句一并移除（参见[笔记](../../../.agents/notes/archived/simplification/2026-07-31-one-route-to-add-a-workspace.md)）。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。注册表持有持久 workspace 记录、顺序以及归档集与固定集；其持久性由 `storageDomain` 持有，成员校验所用的会话头由 `sessionPersistence` 持有。

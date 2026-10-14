@@ -172,3 +172,5 @@ kind: "package-reference"
 - **`/compact` 的范围参数，尚未决定**——无参数形式使各命令适配器的行为保持稳定；显式范围仍由编程接口 `compactRegion()` 处理。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个无状态 Service Definition 只发布 `ctx.compaction` 词汇与检查点标记；执行每次压缩的后端子类持有替换操作，被遮蔽的历史由会话日志持有。

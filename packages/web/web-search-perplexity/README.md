@@ -163,3 +163,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 Perplexity's domain filters, `web_search_options` context size, and image support stay unexposed. Exposing them needs provider-neutral service fields first, so the family adds one coordinated control rather than a vendor-specific argument.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers a Perplexity search backend with `ctx.web` and maps chat completions into sources, while the web seam owns provider resolution and `@deepseek-ai/dsh-tool-web` owns the model-facing tool.

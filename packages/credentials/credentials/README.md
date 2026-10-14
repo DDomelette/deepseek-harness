@@ -188,3 +188,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 The seam shape leaves room for keyring-, helper-command-, and KMS-backed providers; a remote settings provider never needs to carry secrets. None is shipped, and no current consumer requires one.
 
 </details>
+
+**Runtime invariant:** No companion is published. This abstract seam defines reference resolution and record reads, while provider packages own the stored values, their source layering, and the writes.

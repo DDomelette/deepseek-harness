@@ -129,3 +129,5 @@ Append-only; newly visible content follows the reusable request prefix and does 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The adapter registers four model-facing reminder tools in its mounting scope and converts every failure to a code; storage, scheduling, and delivery remain owned by the Host `ctx.schedule` service.

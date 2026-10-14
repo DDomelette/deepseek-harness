@@ -150,3 +150,5 @@ These limits qualify the execution guarantees and retained output.
 Open choices about yielding, total lifetime, approval wait accounting and process-tree CPU/RSS limits do not alter numeric deadline defaults or the explicit no-deadline service option.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider contributes the TypeScript program bootstrap and host binding calls, while `ctx.subprocess` owns each managed process range and `ctx.sandbox` owns confinement.

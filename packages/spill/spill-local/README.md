@@ -139,3 +139,5 @@ This Dev Note is working context for maintainers: open directions. It is explici
 The retrieval model assumes the model's `read`/`grep` tools can inspect the returned path even when the spill directory is outside the session working directory. A future workspace-confinement policy must either allow local spill paths explicitly or use a non-file spill backend.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend contributes the `ctx.spillStore` implementation that writes oversized text to private session-scoped files and runs the startup sweep, while the spill decision and previews stay owned by `@deepseek-ai/dsh-spill-policy` and the seam contract by `@deepseek-ai/dsh-spill`.

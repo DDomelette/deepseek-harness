@@ -150,3 +150,5 @@ kind: "package-reference"
 Agent Note 把整单元重写的规模前提标记为风险：如果在被路由到 SQLite 之前，第二个消费方以千条记录规模落到本后端，重写成本会比预期更早显现。缓解办法是配置——把 `routes` 指向 SQLite 后端——而不是修改本包。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本后端贡献配置根目录下的 `single` 与 `per-record` JSON 布局；后端注册由 storage hub 持有，写入顺序由各领域层自行持有。

@@ -181,3 +181,5 @@ sandbox mode "<mode>" is requested but no sandbox backend is usable on this host
 可选的 `subagent-acp` 消费方（隔离子 agent，默认不隔离）与环境一致的能力组示例仍未决定。Windows 隔离由 `sandbox-local` 的 ACL 受限令牌后端提供。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个无状态 Service Definition 持有隔离词汇与故障关闭错误；后端逐调用强制执行文件操作，消费方解析每次调用的策略并 spawn 返回的 argv。

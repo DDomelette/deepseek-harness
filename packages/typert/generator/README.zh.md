@@ -143,3 +143,5 @@ Host 与 Client 是两个独立的 TypeScript 程序。直接项目引用确定�
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个构建时生成器仅贡献工作区类型分析、与编译器无关的 face 模型，以及通过 `typertPlugin()` 接入的产物生成器；运行时注册与查找由 `@deepseek-ai/dsh-typert-registry` 和 loader 持有。

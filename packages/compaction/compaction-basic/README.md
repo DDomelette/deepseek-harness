@@ -258,3 +258,5 @@ This Dev Note is working context for maintainers and is explicitly non-authorita
 - **Overflow recovery beyond canonical errors, undecided** — recovery triggers on `CONTEXT_WINDOW_EXCEEDED` only; other provider-side context failures are not classified.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend writes summary replacements into the Session surface, so `ctx.tokenMeter` and the replay fold remain the sole authorities on pressure and retention.

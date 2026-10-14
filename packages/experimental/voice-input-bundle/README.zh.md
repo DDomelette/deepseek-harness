@@ -75,3 +75,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该 Bundle 是挂载四条语音行的静态 patch 层，识别执行与缓存资源准备由语音服务定义、SenseVoice Provider 与 Remote 装配持有。

@@ -152,3 +152,5 @@ The seam has only `saveText`; a save-file or link/copy path for existing executo
 Remote or database backends remain open. The local backend applies its [startup-cleanup policy](../spill-local/README.md#startup-cleanup); the service defines no per-session cleanup or locator-refresh API.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition contributes the `SpillStore` service, its `saveText` contract, and the shared vocabulary, while `@deepseek-ai/dsh-spill-local` owns the private session-scoped writes and the artifacts its locators name.

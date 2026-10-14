@@ -183,3 +183,5 @@ The repeated calls are not making progress. Do not call this tool with these exa
 [repeat-tool-guard Agent Note](../../../.agents/notes/archived/feature/2026-07-08-repeat-tool-guard.md) 以旧包名记录了原始设计与备选方案；[改名台账](../../../.agents/notes/archived/architecture/2026-08-11-repository-naming-contract-and-rename-ledger.md) 记录了改名为 `repeat-tool-reminder` 及其原因。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本建议性 guard 统计每个 agent 的重复链并附加提醒上下文，而工具执行与阻断由工具注册表持有，把注入的上下文带入请求由 agent loop 持有。

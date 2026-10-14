@@ -218,3 +218,5 @@ Message from the "<plugin>" mod:
 按模组作者价值排序的后续步骤：Web GUI 中带 `TextInput`、热键以及 toast、status、log 表面的停靠 `Pane`；基于 `ctx.llm` 并带日志请求事件的 `$.model.complete`；以及在许可允许提供夹具后，以阅读方式运行 `anthropics/claude-code/mods` 中的官方模组。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。模组钩子依托 harness 扩展点，`$` 调用落在 `ctx.get(...)` 服务上，因此工具流水线与 Session 日志继续持有本桥接转发的每一项模型可见关系。

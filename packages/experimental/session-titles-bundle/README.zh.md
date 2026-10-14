@@ -76,3 +76,5 @@ kind: "package-bundle"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本配置层禁用 `session-title-llm` 条目并插入全提示标题提供方，而标题生成与刷新触发由 `@deepseek-ai/dsh-session-title-all-prompts-llm` 持有，profile patch 的顺序由 `@deepseek-ai/dsh-app-boot` 持有。

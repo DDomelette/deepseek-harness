@@ -68,3 +68,5 @@ Channels provide best-effort, memory-only delivery with the following limits.
 ### Dev Note
 
 None.
+
+**Runtime invariant:** No companion is published. This service only constructs independent ordinary-event and Session-log channels: each consumer owns its exporter, queue, authorization, and shutdown deadline, and the OTLP collector owns record acceptance, so delivery stays best-effort.

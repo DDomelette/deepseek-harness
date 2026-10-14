@@ -115,3 +115,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个提供方策略只在 `ctx.sessionTitle` 注册表中注册一个 `first-prompt` 条目；节奏、刷新与已保存的标题由该注册表持有，共享执行模块由 `dsh-session-title-llm` 持有。

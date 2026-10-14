@@ -157,3 +157,5 @@ This Dev Note is non-authoritative working context: notes for maintainers and op
 </details>
 
 Usage folds replace samples within each attempt; totals need not be monotone. Composition and measurement share the positional replacement planner and fixed estimator, so their heuristic surface totals agree by construction. Route-priced totals deliberately differ.
+
+**Runtime invariant:** No companion is published. This estimator folds the durable session log into token and context-pressure figures, while the LLM adapter owns model capacity and route pricing and the compaction capability decides what to compact.

@@ -76,3 +76,5 @@ Credentials and catalog availability do not enter model input; the protocol tran
 ### Dev Note
 
 Registration and authentication tests also cover the Loader composition in the shared transport package.
+
+**Runtime invariant:** No companion is published. This plugin contributes the `deepseek-official` route, its `x-api-key` authentication, and credential-gated model discovery, while the `ctx.llm` registry owns route registration and the `ctx.credentials` service resolves the referenced key per request.

@@ -107,3 +107,5 @@ Existing Agents retain their plugins and prompts. New Agents build their prefixe
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This registry contributes the `agentPresets` service, a mounted plugin tree and Agent scope binding per definition, while the preset a Session runs and its create/resume rebuild stay owned by the Session log and `dsh-api-session-controller`.

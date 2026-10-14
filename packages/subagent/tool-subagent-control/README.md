@@ -179,3 +179,5 @@ These limits define what the control tools cannot observe or steer; they are cur
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. These model-facing adapters contribute the `send_message` and `interrupt_agent` tool definitions and their argument validation, while `ctx.subagents` owns residency, cold resume, inbox delivery, and interrupt authorization.

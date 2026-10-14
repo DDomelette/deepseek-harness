@@ -220,3 +220,5 @@ This Dev Note is working context for maintainers: open design questions and dire
 `renderConfigDump` output is a loadable YAML document whose `# ==` source comments and `!!js`-verbatim rendering serve the `--dump-config` diagnostic. Nothing promises byte stability across package versions; decide whether the dump becomes a serialization contract before anything consumes it programmatically. JSON Schema output follows the separate [pre-stable compatibility policy](../../../apps/cli/reference/README.md#config-schema-dump).
 
 </details>
+
+**Runtime invariant:** No companion is published. This boot library loads environment layers and drives the Cordis Loader through profile bundles and patches; plugin settlement, fiber teardown, and the composed entry list remain owned by `@deepseek-ai/cordis-plugin-loader` and the Loader's own include layers.

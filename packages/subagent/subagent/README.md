@@ -213,3 +213,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 - **Host-user delivery** — a future host adapter needs a concrete authenticated interaction before the seam gains a user delivery capability.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition routes each start to a named provider, while the registered providers and the activation manager own child execution, result delivery, and resource release.

@@ -169,3 +169,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 The single-owner scope is a deliberate cut, and cross-agent or shared lists remain a separate future design: they would need per-item log deltas and explicit scope selection, and would change the model-visible contract. No design exists yet.
 
 </details>
+
+**Runtime invariant:** No companion is published. Each call appends one `todo/write` snapshot to the calling agent's Session log, so durability, replay, and ownership stay with that log while the projection registry validates the `todos` unit.

@@ -170,3 +170,5 @@ This is a scheduled message from the user
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。此宿主服务仅贡献提醒存储域、重复规则运算以及 `schedule` Remote 命名空间；存储后端路由由 storage-domain 持有，会话恢复与持久化由 Host Session controller 持有。

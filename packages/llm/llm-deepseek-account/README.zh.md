@@ -77,3 +77,5 @@ kind: "package-reference"
 ### 开发备注
 
 注册与鉴权的测试也覆盖共享传输包中的 Loader 组合场景。
+
+**运行时不变式：** 不发布伴生入口。本插件只注册一条提供方路由，其 token 来自 `deepseekAccount`；凭据存储、登出取消与请求序列化仍由账号服务与共用的 `llm-deepseek` 传输实现持有。

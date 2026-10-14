@@ -157,3 +157,5 @@ const price = ctx.tokenMeter.estimateMessage(message)
 </details>
 
 用量 fold 在每次尝试内替换样本，总量不必单调。构成和测量共享位置替换规划器与固定估算器，因此启发式 surface 总量按构造一致。路由定价总量有意与之不同。
+
+**运行时不变式：** 不发布伴生入口。本估算器把持久会话日志折叠为 token 与上下文压力数值，而模型容量与路由定价由 LLM 适配器持有，压缩取舍由压缩能力决定。

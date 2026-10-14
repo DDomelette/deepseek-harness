@@ -220,3 +220,5 @@ Loader 结算后，app-boot 在仅 optional 条目未激活时输出警告。如
 `renderConfigDump` 的输出是一份可加载的 YAML 文档，其 `# ==` 来源注释与 `!!js` 原样渲染服务于 `--dump-config` 诊断。任何内容都不承诺跨包版本的字节稳定性；在程序化消费该输出之前，请决定 dump 是否成为序列化约定。JSON Schema 输出遵循单独的 [pre-stable 兼容性规则](../../../apps/cli/reference/README.zh.md#config-schema-dump)。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个启动库加载环境层、组合 profile 组合包与 patch，并驱动 Cordis Loader 启动每个插件；插件激活结算、fiber 销毁与最终的入口列表仍由 `@deepseek-ai/cordis-plugin-loader` 及其 include 层持有。

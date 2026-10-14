@@ -219,3 +219,5 @@ Start independent delegations with `subagent` or `subagent_fork` together in one
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。插件注册一个委派工具、其提示词段落与 `subagentModelSelectionPolicy` 投影；激活生命周期由 `ctx.subagents` 持有，路由由 `ctx.llm` 解析，记录的策略由会话日志持有。

@@ -234,3 +234,5 @@ The previously loaded instructions from this file no longer apply.
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该上下文插件为已加载的 `AGENTS.md` 与 `CLAUDE.md` 指令链追加带来源的 `user/message` 事件；消息的持久化、回放与压缩仍由会话日志持有，文件读取由 `ctx.fs` 持有。

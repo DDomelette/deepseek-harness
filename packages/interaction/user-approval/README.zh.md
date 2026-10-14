@@ -164,3 +164,5 @@ Approval prompts are disabled in this session: actions that require approval are
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。服务把每个请求交由 `approval/request` waterfall 分发，并追加 `approval/asked`／`approval/decided` 事件对；决定由所组合的应答者持有，审计记录由发起请求的会话审计日志持有。

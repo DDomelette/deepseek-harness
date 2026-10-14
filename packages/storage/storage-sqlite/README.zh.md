@@ -139,3 +139,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。插件只注册 `sqlite` 后端，并持有其 schema 版本与各单元数据表；后端名称唯一性与解析由 `ctx.storage` 后端注册表持有，路由与写入顺序由 `dsh-storage-domain` 持有。

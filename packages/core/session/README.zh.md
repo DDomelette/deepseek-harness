@@ -213,3 +213,5 @@ session.deriveMessages()         // the derived model history
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本存储提交仅追加的会话日志并在内存中派生模型历史，而持久性由持久化插件持有，隐藏被取代的表面节点由压缩（compaction）能力持有。

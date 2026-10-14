@@ -116,3 +116,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个 preset 行只把必填的 `mode` 转发给挂载作用域的 `ctx.tools.presentAs()`；两种投影、生成的 SDK 段落与「每个作用域只允许一次声明」的拒绝都由 `dsh-tools` 注册表持有。

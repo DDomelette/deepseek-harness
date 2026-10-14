@@ -188,3 +188,5 @@ These limits define when prompt assembly needs special care. They are current pa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. Registration, scoping, and ordering are validated inside this registry on every `assemble()`, while the agent loop owns where the rendered system nodes land in model history.

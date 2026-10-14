@@ -153,3 +153,5 @@ These limits define what the declarations can represent; they are current packag
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This declarations library contributes `@Remote` markers, `bindTypertRemote()` Gateway bindings, the `RemoteError` vocabulary, and the shared descriptor, codec, and provider types, while `@deepseek-ai/dsh-typert-registry` owns the registered `InvocationDescriptor`s and providers each call resolves against.

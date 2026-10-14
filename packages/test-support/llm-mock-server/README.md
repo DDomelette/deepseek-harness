@@ -167,3 +167,5 @@ These limits define when the server needs special care. They are current package
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This standalone scriptable server replays scripted Messages behaviors over HTTP and SSE, while the LLM adapter under test owns request retries, recovery policy, and every interpretation of the responses.

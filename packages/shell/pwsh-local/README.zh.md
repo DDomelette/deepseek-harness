@@ -159,3 +159,5 @@ if (result.timedOut) console.log('timed out after', result.timeoutMs)
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。每条命令都是交给 `pwsh -Command` 的一个 argv；进程树终止、有界输出收集与溢出文件仍由本执行器所经的 `ctx.subprocess` 提供方持有。

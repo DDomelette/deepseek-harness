@@ -153,3 +153,5 @@ These limits define when the backend is the wrong choice; they are current packa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The backend only registers a `fork` provider that returns one completed-turn seed; delegation lifecycle, child activation, and both Session logs remain owned by `@deepseek-ai/dsh-subagent`.

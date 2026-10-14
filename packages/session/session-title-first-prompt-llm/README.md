@@ -115,3 +115,5 @@ These limits define when this provider stops representing the session. They are 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider strategy registers one `first-prompt` entry in the `ctx.sessionTitle` registry; that registry owns cadence, refresh, and the stored title, while `dsh-session-title-llm` owns the shared execution module.

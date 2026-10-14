@@ -76,3 +76,5 @@ The layer adds no request content directly; the capability implementation owns c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This bundle is a static patch layer whose `cordis.patch.yml` inserts the `optional-ralph` group; `dsh-tool-ralph` owns the tool registration, prompt guidance, and child-agent runs, while `dsh-app-boot` owns patch ordering.

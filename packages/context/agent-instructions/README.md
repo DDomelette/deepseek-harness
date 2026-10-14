@@ -234,3 +234,5 @@ These limits define when instruction loading is a poor fit or needs operational 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This context plugin appends sourced `user/message` events for the loaded `AGENTS.md` and `CLAUDE.md` chain; message durability, replay, and compaction stay owned by the Session log, and file reads by `ctx.fs`.

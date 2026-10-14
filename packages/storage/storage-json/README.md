@@ -150,3 +150,5 @@ These limits define when this backend is a poor fit or needs special operational
 The Agent Note flags the whole-unit rewrite scale premise as a risk: if a second consumer lands on this backend at thousand-record scale before being routed to SQLite, rewrite cost surfaces earlier than expected. The mitigation is configuration — point `routes` at the SQLite backend — not a change to this package.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend contributes the `single` and `per-record` JSON layouts under a configured root, while the storage hub owns backend registration and each domain owns its own write ordering.

@@ -148,3 +148,5 @@ Elapsed since the preceding step context: <duration-or-unavailable>.
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本插件只贡献一个 `agent/pre-step` 监听器与 `timeContext` 投影；每一条注入读数由 Session 日志持有，折叠状态由 `sessionProjections` 校验。

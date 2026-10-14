@@ -84,3 +84,5 @@ const requireNative = createLazyRequire<NativeModule>('native-package', import.m
 ### 开发备注
 
 无。
+
+**运行时不变式：** 不发布伴生入口。该辅助函数每个实例只缓存一个已解析的模块值且从不解引用它；模块实例由 Node 模块注册表持有，说明符由调用方包声明并持有。

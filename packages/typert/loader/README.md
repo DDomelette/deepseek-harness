@@ -123,3 +123,5 @@ These limits define what the loader does not discover or register; they are curr
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The scanner imports each mounted entry's `./typert` artifact and registers it once; entry lifecycle and registration identity remain owned by the Loader and the Typert registry.

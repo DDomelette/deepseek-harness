@@ -101,3 +101,5 @@ None.
 </details>
 
 The ./stream-protocol export supplies the shared Remote stream framing and parser to native Desktop callers. These callers use the same authenticated WebSocket endpoint as the browser client.
+
+**Runtime invariant:** No companion is published. This two-sided endpoint contributes `ctx.typertGateway` dispatch, the `/api/remote.mux` upgrade route, and the Client `ctx.remote` projection, while `@deepseek-ai/dsh-typert-registry` owns descriptor, lookup, and Context definitions and `ctx.connection` owns Peer admission, unary request correlation, and the retry schedule.

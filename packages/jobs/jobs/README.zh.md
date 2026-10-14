@@ -134,3 +134,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本抽象 `JobRegistry` seam 持有任务 id、归属隔离、生命周期记录与输出环，而进程内注册表由 `@deepseek-ai/dsh-jobs-local` 持有，执行资源由各生产方自己持有。

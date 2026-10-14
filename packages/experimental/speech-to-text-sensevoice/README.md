@@ -84,3 +84,5 @@ No direct effect; ordinary submission owns the message content.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers a recognizer on `ctx.speechToText` and drives one managed sherpa-onnx worker; the seam owns provider registration and preparation state, and `ctx.subprocess` owns process mechanics.

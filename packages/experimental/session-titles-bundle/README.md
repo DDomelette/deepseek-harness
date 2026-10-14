@@ -76,3 +76,5 @@ The layer adds no request content directly; the capability implementation owns c
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This profile layer disables the `session-title-llm` row and inserts the all-prompts title provider, while `@deepseek-ai/dsh-session-title-all-prompts-llm` owns title generation and refresh triggers and `@deepseek-ai/dsh-app-boot` owns profile patch ordering.

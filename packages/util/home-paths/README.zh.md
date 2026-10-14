@@ -121,3 +121,5 @@ agentsHomeDisplay(agents)            // ~/.agents, or $DSH_AGENTS_HOME for any c
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。每个辅助函数都在调用时根据显式路径、`$DSH_HOME` 与操作系统主目录推导结果，不存在第二观察者可与之背离的缓存状态；调用方持有其获得路径的目录创建与权限。

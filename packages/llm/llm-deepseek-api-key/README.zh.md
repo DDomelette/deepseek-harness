@@ -76,3 +76,5 @@ kind: "package-reference"
 ### 开发备注
 
 注册与鉴权的测试也覆盖共享传输包中的 Loader 组合场景。
+
+**运行时不变式：** 不发布伴生入口。本插件贡献 `deepseek-official` 路由、其 `x-api-key` 鉴权，以及受凭据约束的模型发现；路由注册由 `ctx.llm` 注册表持有，`ctx.credentials` 服务按请求解析所引用的密钥。

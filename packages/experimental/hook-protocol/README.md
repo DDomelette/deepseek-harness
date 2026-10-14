@@ -142,3 +142,5 @@ This Dev Note is working context for maintainers: open questions and directions 
 A hook that asks to halt the whole run (`continue: false`) is folded into `MergedHookOutcome.stop` but not applied anywhere: the interception points lack a hard-halt primitive, and mid-turn requests record the halt in `hook/result` instead. A run-level halt mechanism would let the bridges honor it; no design exists yet.
 
 </details>
+
+**Runtime invariant:** No companion is published. This non-plugin library contributes matcher selection, `ctx.shell`-backed hook execution, exit-code/stdout decoding, most-restrictive merging, and `hook/*` event helpers, while the `dsh-hooks-claude-code` and `dsh-hooks-codex` bridges own every registration, dialect payload, and context injection.

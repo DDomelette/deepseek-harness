@@ -76,3 +76,5 @@ No direct effect.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This browser-only plugin contributes the `conversation.input.dock` band that renders the bridge's serialized `Box`/`Text`/`Button` tree and forwards presses, while band generation, `onPress` execution, and slot declaration stay owned by the `claudeCodeMods` Remote and `ctx.slots`.

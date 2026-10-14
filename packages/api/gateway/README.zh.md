@@ -101,3 +101,5 @@ Client waterfall 的 Context 解析保持同步。解析器可以返回借用的
 </details>
 
 ./stream-protocol 导出为原生桌面调用方提供共享的 Remote 流帧格式和解析器。它们与浏览器客户端使用同一个经过认证的 WebSocket 端点。
+
+**运行时不变式：** 不发布伴生入口。该包为 Host 与 Client 两侧贡献 `ctx.typertGateway` 分发、`/api/remote.mux` 升级路由与 `ctx.remote` 投影，而描述符、lookup 与 Context 定义由 `@deepseek-ai/dsh-typert-registry` 持有，Peer 接纳、一元请求关联与重试调度由 `ctx.connection` 持有。

@@ -80,3 +80,5 @@ No direct effect; ordinary submission owns the message content.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition contributes the `ctx.speechToText` registry, selection resolution, and `transcribe` that rejects withdrawn registrations, while audio decoding, preparation state, and persisted preferences stay owned by each registered provider and `ctx.get('settings')`.
