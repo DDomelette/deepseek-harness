@@ -269,6 +269,26 @@ Volatile config values were committed into the running fiber without a remount. 
 
 Source: [`packages/mcp/mcp-manager/src/index.ts`](../../packages/mcp/mcp-manager/src/index.ts)
 
+<a id="loadervolatile-update--emit"></a>
+
+#### `loader/volatile-update` — emit
+
+Volatile config values were committed into the running fiber without a remount. Declared here because this package does not load the Loader's own event declarations; a Loader that declares it merges as an identical overload.
+
+```ts cordis-catalog
+/**
+ * Volatile config values were committed into the running fiber without a
+ * remount. Declared here because this package does not load the Loader's
+ * own event declarations; a Loader that declares it merges as an identical
+ * overload.
+ * @mode emit
+ * @param paths - changed paths, each an array of object keys.
+ */
+'loader/volatile-update'(paths: readonly (readonly string[])[]): void
+```
+
+Source: [`packages/skill/skill-settings/src/index.ts`](../../packages/skill/skill-settings/src/index.ts)
+
 <a id="plugin-manager-events"></a>
 
 ### `plugin-manager/*` events

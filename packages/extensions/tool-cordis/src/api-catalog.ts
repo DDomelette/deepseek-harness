@@ -4128,6 +4128,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'paths', description: 'changed paths, each an array of object keys.' }],
   },
   {
+    name: 'loader/volatile-update',
+    mode: 'emit',
+    signature: '\'loader/volatile-update\'(paths: readonly (readonly string[])[]): void',
+    summary: 'Volatile config values were committed into the running fiber without a remount.',
+    description: 'Volatile config values were committed into the running fiber without a remount. Declared here because this package does not load the Loader\'s own event declarations; a Loader that declares it merges as an identical overload.',
+    parameters: [{ name: 'paths', description: 'changed paths, each an array of object keys.' }],
+  },
+  {
     name: 'mcp-servers/change',
     mode: 'emit',
     signature: '\'mcp-servers/change\'(): void',
@@ -5190,6 +5198,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FeedbackCategory',
     declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
+  },
+  {
+    name: 'FiberState',
+    declaration: 'export const enum FiberState {\n    PENDING,\n    LOADING,\n    ACTIVE,\n    FAILED,\n    DISPOSED,\n    UNLOADING\n}',
   },
   {
     name: 'FileAttachmentRef',

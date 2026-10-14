@@ -118,8 +118,8 @@ describe('global test invariant host', () => {
   })
 
   it('mounts an owning companion and leaves omitted or non-package roots service-only', () => {
-    expect(testInvariantCompanionPaths('/repo/packages/core/tools/tests/tools.spec.ts'))
-      .toEqual(['../packages/core/tools/src/invariant.ts'])
+    expect(testInvariantCompanionPaths('/repo/packages/fs/fs/tests/fs.spec.ts'))
+      .toEqual(['../packages/fs/fs/src/invariant.ts'])
     expect(testInvariantCompanionPaths('/repo/packages/util/brand/tests/brand.spec.ts')).toEqual([])
     expect(testInvariantCompanionPaths('/repo/apps/cli/tests/profiles/headless/example.spec.ts')).toEqual([])
     expect(testInvariantCompanionPaths('/repo/scripts/test-invariants.spec.ts'))

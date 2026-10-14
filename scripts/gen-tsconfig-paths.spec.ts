@@ -16,10 +16,10 @@ describe('generated tsconfig package aliases', () => {
   it('maps each package to its own source directory', () => {
     const aliases = collectPackageAliases()
     expect(aliases.length).toBeGreaterThan(100)
-    const session = aliases.find(alias => alias.specifier === '@deepseek-ai/dsh-session')
-    expect(session).toEqual({
-      specifier: '@deepseek-ai/dsh-session',
-      source: './packages/core/session/src',
+    const manager = aliases.find(alias => alias.specifier === '@deepseek-ai/dsh-mcp-manager')
+    expect(manager).toEqual({
+      specifier: '@deepseek-ai/dsh-mcp-manager',
+      source: './packages/mcp/mcp-manager/src',
       hasInvariant: true,
     })
     // Sorted, so a package added anywhere lands in a stable spot in the diff.
