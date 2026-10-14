@@ -126,6 +126,17 @@ async function runWindows(
 }
 
 describe('closed runner protocol', () => {
+  it('preserves the explicit control request and rejects other transport values', () => {
+    const files = track(createLinuxLaunchFiles({ cwd: '/target', env: {}, control: 'pipe' }))
+    expect(consumeLinuxLaunchRequest(files.requestPath)).toEqual({ cwd: '/target', env: {}, control: 'pipe' })
+    expect(parseWindowsStartRequest({ type: 'start', cwd: 'C:\\target', env: {}, control: 'pipe' }))
+      .toEqual({ type: 'start', cwd: 'C:\\target', env: {}, control: 'pipe' })
+    const invalid = track(createLinuxLaunchFiles({ cwd: '/target', env: {} }))
+    writeFileSync(invalid.requestPath, JSON.stringify({ cwd: '/target', env: {}, control: 'ipc' }))
+    expect(() => consumeLinuxLaunchRequest(invalid.requestPath)).toThrow('invalid Linux launch request')
+    expect(() => parseWindowsStartRequest({ type: 'start', cwd: 'C:\\target', env: {}, control: 'ipc' })).toThrow()
+  })
+
   it('creates, consumes, reports through, and cleans one private Linux exchange', () => {
     const files = track(createLinuxLaunchFiles({ cwd: '/target', env: { A: '1' } }))
     if (process.platform !== 'win32') {
@@ -263,6 +274,9 @@ describe('runner launch inputs', () => {
     expect(parseRunnerTargetArgv(['--', 'node', 'a'])).toEqual(['node', 'a'])
     expect(() => parseRunnerTargetArgv(['node'])).toThrow('private -- delimiter')
     expect(runnerStdio(spec, false)).toEqual(['pipe', 'pipe', 'inherit'])
+    const withControl = { ...spec, stdio: { ...spec.stdio, control: 'pipe' as const } }
+    expect(runnerStdio(withControl, false)).toEqual(['pipe', 'pipe', 'inherit', 'ignore', 'ignore', 'ignore', 'ignore', 'overlapped'])
+    expect(runnerStdio(withControl, true)).toEqual(['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2, 'overlapped'])
     expect(runnerStdio(spec, true)).toEqual([
       'ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2,
     ])
