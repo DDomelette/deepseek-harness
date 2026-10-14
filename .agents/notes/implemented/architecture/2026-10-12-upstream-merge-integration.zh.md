@@ -88,6 +88,18 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 
 **base 组合中的 `plugin-manager` 行。** 上游的 base 挂载 `@deepseek-ai/dsh-plugin-manager`，并以 `!ctx.get('profileContext')` 守卫。本 fork 的任何 bundle 都从未挂载它——fork 顶点同样是这个缺失，所以这是组合选择而非合并损伤——而它在本树中的消费方是 `packages/api/remotes` 与 `packages/host/plugin-inventory`，二者经 `ctx.get` 取用，在没有 profile 提供时会降级。因此是否挂载属于「默认 profile 提供什么」的产品决定，而不是一次收敛。
 
+## 整树验收发现的问题
+
+`pnpm run build`（exit 0）、`pnpm run test` 与 `pnpm run check:all` 的结果是 59 个文件、424 个单元用例失败，以及 15 个门禁失败。每一个单元失败都对照 `upstream/master`、fork 顶点 `6759bec009` 与共同 merge base `aa8262ec09` 做了定性：除下面五处外，全部是宿主环境所致——本机无开发者模式，凡以 `symlink` 搭台的用例都死在 `EPERM`；无 PowerShell 7；以及 vitest 的 5 秒默认预算对上要 spawn 数十个进程的用例——或者是录制产物需要在 macOS/Linux 刷新。这五处是本次搬运自身造成的损伤，且每一处都按上游那一侧修复：
+
+- `vitest.config.ts` 在 win32 上排除了 fork 改名前的 `packages/experimental/code-runtime-python`，却没有排除上游的 `packages/experimental/ptc-runtime-python`；后者的后端在构造期即拒绝 Windows，于是 294 个上游在本机根本不会调度的用例跑了并失败。两个包都在树上一天，两种拼写就都保持排除：fork 的旧 runtime 仍被 `snapshots/session/ptc-python-turn/cordis.yml` 组合，因此是否退役它是产品决定，不是合并修复。
+- 三个已发布 bundle 的 spec 仍钉着 fork 的 opt-in HMR 行，而 `63587d6197` 早已把它换成上游的 `dsh-hmr` 行，并给每个应用 overlay 加了 `disabled: true` 覆盖。`packages/bundle/{base,sdk-app,acp-app}/tests` 改为上游的断言。
+- `packages/client/ui-theme` 的 scrollbar 三件套与 merge base 逐字节相同，而合并采纳了上游的 `ui-schedule` 样式表，后者会重绑 `--dsh-scrollbar-thumb-border`、`--dsh-scrollbar-track-margin` 与 `--dsh-scrollbar-width`。`src/styles/scrollbar.css`、`tests/scrollbar-styles.client.spec.ts` 与 `tests/stylesheet-scan.ts` 作为一个整体取自上游——spec 断言的正是 CSS 定义的那条路由，只取其一正是它失败的原因。
+- `packages/client/ui-tool/tests/tool-fixtures.client.ts` 在消息模型换成上游的 tool 角色 `ToolResultMessage` 之后，仍在记录已退役的 user 角色 tool-result 信封。Chat 投影直接读 `message.content` 与 `message.isError`，于是 fixture 的 `content[0]` 是 `tool-result` 块，`singleResultText` 取不到文本，terminal 卡片模型返回 null，该行随之失去展开能力。
+- 已构建 bundle 的导入扫描缺少上游的 `529434e1df`。它的 Dockkit `.css` 豁免被钉死在一条样式表路径上，而被扫描的 bundle 经启动器的 tsconfig `paths` 先抵达 `@deepseek-ai/dsh-client-ui-primitives` 的源样式表，于是一次合法的拒绝被报成 unexpected baseline failure。该豁免重新接纳任意 unknown-`.css`-extension 拒绝。
+
+另有两处缺口只记录、不修复。上游的 `packages/ssh/*` 在本树没有对应物：搬运从未引入它，本树没有任何东西引用它，merge base 也从未有过它，因此当前没有路径被破坏——但该能力与上游对应的 win32 排除项一起缺失。以及 present-open 这条路径在上游的 `present-open.ts` 与 fork 版冲突解析中由 fork 版胜出时，丢掉了上游的原生「用其他应用打开」选择器（`packages/client/ui-open-in-app/src/client/*` 与 `workspacePathApplications` Remote）；上游覆盖它的用例随其前置文件一并消失，所以这是自洽的 fork 侧选择，此处写明而不是留作隐含。
+
 ## Alternatives considered
 
 - **保留 fork 自己的 settings provider 接缝。** 已否决：上游从 Loader 组合派生命名空间，这也正是插件无需注册调用即可出现其 section 的原因；两者并存会让同一个 section 出现两个权威。
