@@ -1,9 +1,9 @@
 // Web e2e scenario: the MCP tab in Plugins settings — the settings-managed
 // roster with hot enablement switches, the add/edit/remove forms writing
-// through to `$DSH_HOME/settings.yaml`, search, and the read-only rows the
-// declarative cordis.yml entries produce under an example overlay. Zero model
-// calls: everything is client state plus the settings document on a blank
-// frame, so there is no fixture and a stray stream would fail loud on the
+// through to the active profile's `cordis.patch.yml`, search, and the read-only
+// rows the declarative cordis.yml entries produce under an example overlay.
+// Zero model calls: everything is client state plus the settings document on a
+// blank frame, so there is no fixture and a stray stream would fail loud on the
 // open llm seam.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -45,9 +45,16 @@ describe('web e2e: MCP settings tab', () => {
     await scaffold?.close()
   })
 
-  /** The settings document as the Host has written it so far. */
+  /**
+   * The settings document as the Host has written it so far: the active
+   * profile's Cordis patch, the document `settings.documentPath` resolves to
+   * through `configEditor.documentPath` (`packages/settings/settings/README.md`).
+   * `$DSH_HOME/settings.yaml` is only a legacy one-shot import source, renamed
+   * to `settings.yaml.imported` before the first write, so it is never the
+   * document a scenario may poll. `''` while the Host has not written yet.
+   */
   async function settingsDocument(): Promise<string> {
-    return readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8').catch(() => '')
+    return readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8').catch(() => '')
   }
 
   /**
@@ -89,7 +96,7 @@ describe('web e2e: MCP settings tab', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('writes an added stdio server through to settings.yaml', async () => {
+  it('writes an added stdio server through to the settings document', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-mcp-config-add'))
     const dialog = await openMcp()
     await dialog.getByRole('button', { name: '添加 MCP 服务器' }).click()
@@ -130,7 +137,7 @@ describe('web e2e: MCP settings tab', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('toggles enablement through to settings.yaml', async () => {
+  it('toggles enablement through to the settings document', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-mcp-config-toggle'))
     const dialog = await openMcp()
     const toggle = dialog.getByRole('switch', { name: 'memory' })
@@ -146,11 +153,16 @@ describe('web e2e: MCP settings tab', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('removes a server through the inline editor down to settings.yaml', async () => {
+  it('removes a server through the inline editor down to the settings document', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-mcp-config-remove'))
     const dialog = await openMcp()
     const row = dialog.locator('[data-server-name="web-fetch"]')
     await row.waitFor({ timeout: 10_000 })
+    // Positive control: the previous scenario's server really is in the document
+    // the Host writes, so the absence asserted after the deletion cannot pass on
+    // a document that was never written.
+    await expect.poll(async () => (await settingsDocument()).includes('web-fetch:'), { timeout: 10_000 })
+      .toBe(true)
     await row.getByRole('button', { name: '设置' }).click()
     await dialog.getByRole('button', { name: '删除' }).click()
     await dialog.getByRole('button', { name: '确认删除' }).click()

@@ -78,9 +78,14 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
 
     // Picking a level is the same gesture that saves the default selection, so
     // the effort lands in the Agent default Settings section beside provider/model.
+    // The settings plane writes that section into the active profile's Cordis
+    // patch — the document `settings.documentPath` resolves to through
+    // `configEditor.documentPath` — never the legacy `$DSH_HOME/settings.yaml`
+    // import source, which the first write renames to `settings.yaml.imported`.
+    const documentPath = join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
     await page.getByRole('menuitemradio', { name: 'High' }).click()
     await expect.poll(
-      async () => readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8'),
+      async () => readFile(documentPath, 'utf8'),
       { timeout: 10_000 },
     ).toContain('reasoningEffort: high')
     await expect.poll(() => trigger.getAttribute('aria-label'), { timeout: 10_000 })

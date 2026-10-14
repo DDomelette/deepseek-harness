@@ -48,7 +48,7 @@ None; this package neither assembles nor sends a provider request.
 - **Secret clearing is unsupported** — blank env/headers fields keep the stored values; clearing them requires deleting and re-adding the server. Entering values replaces the stored env/headers map for that field, because the wire never reveals the existing secret keys to merge against.
 - **Renaming is unsupported** — the serverName is the settings key; rename is delete + add.
 - **Args round-trip is lossy for comma-containing arguments** — args split on lines and commas, so an existing argument that itself contains a comma is re-split when the editor saves it.
-- **`failOnStartupError` is not exposed** — the schema supports it, but the panel leaves it at its default; change it in `settings.yaml` instead.
+- **`failOnStartupError` is not exposed** — the schema supports it, but the panel leaves it at its default; change it in `cordis.patch.yml` instead.
 
 <a id="dev-note"></a>
 ### Dev Note

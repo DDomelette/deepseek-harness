@@ -24,7 +24,7 @@
 // assertConsumed for the teardown fixture-consumption check).
 import { existsSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -193,6 +193,19 @@ const BASE_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
 const WEB_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/web-app/cordis.patch.yml')
 /** The installation anchor whose dependency surface the profile module fallback mirrors. */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
+/**
+ * Synthetic profile bundle carrying the scaffold's defaults for the rows the
+ * settings plane owns. It composes above the shipped bundles and below the
+ * profile patch, which is the document the settings plane writes.
+ */
+const SCAFFOLD_DEFAULTS_BUNDLE = 'dsh-web-scaffold-defaults'
+/** Row ids the settings plane writes into the profile patch. */
+const SETTINGS_FORM_ENTRIES = new Set([
+  'agent-default-model', 'agent-loop', 'agent-presets', 'bash-sandbox', 'llm-deepseek',
+  'llm-pi-ai', 'locale', 'permission', 'pwsh-sandbox', 'session-log-deepseek', 'subagent',
+  'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general', 'ui-theme',
+  'web-search-deepseek',
+])
 
 // Replay publishes the provider catalog the gateway routes to (providers
 // mode, never catch-all: with llm-deepseek disabled no adapter exists, so a
@@ -651,6 +664,20 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       ? []
       : [{ id: 'llm-deepseek', disabled: true }],
   ]
+  // Settings-form-owned rows carry their scaffold defaults in the deployment
+  // bundle, under the profile patch, never in the launcher's `--patch` slot:
+  // `configEditor.edit` refuses a value an overlay would override, because that
+  // write could never take effect (`packages/boot/config-editor/src/index.ts`).
+  // Only the process-specific part of such a row (a `disabled` flag, a `name`
+  // assertion) stays in the overlay.
+  const formDefaults: PatchOptions[] = []
+  const processOverlays = scenarioPatches.map((patch) => {
+    if (patch.id === undefined || !SETTINGS_FORM_ENTRIES.has(patch.id) || patch.config === undefined) return patch
+    formDefaults.push({ id: patch.id, config: patch.config })
+    const ordinary = { ...patch }
+    Reflect.deleteProperty(ordinary, 'config')
+    return ordinary
+  })
 
   // Sessions inherit the gateway's process.cwd() default; run the boot from
   // the temp workspace so tool cwd, session cwd, and fixtures agree.
@@ -694,13 +721,28 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // bare specifiers for the installation closure and for the private bundles
     // this synthetic scaffold profile selects, without writing link files.
     const resolution = await createRuntimeResolution({ installAnchor: INSTALL_ANCHOR, home: harnessHome, profile })
+    // The defaults bundle is a real installed bundle: `resolveBundleDir` finds
+    // it through the profile's own node_modules, so every reader of the profile
+    // directory — boot, the configuration editor, HMR — composes the same
+    // layers. JSON is a YAML subset and the patch reader takes either; this
+    // side of the build ships no YAML writer.
+    const defaultsDir = join(profileDir, 'node_modules', SCAFFOLD_DEFAULTS_BUNDLE)
+    await mkdir(defaultsDir, { recursive: true })
+    await writeFile(join(defaultsDir, 'package.json'), JSON.stringify({
+      name: SCAFFOLD_DEFAULTS_BUNDLE,
+      version: '1.0.0',
+      dsh: { bundle: { patch: 'cordis.patch.json' } },
+    }, undefined, 2) + '\n')
+    await writeFile(join(defaultsDir, 'cordis.patch.json'), JSON.stringify(formDefaults, undefined, 2) + '\n')
+    const profileBundles = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', SCAFFOLD_DEFAULTS_BUNDLE]
     // A real profile: its manifest is what makes the composed rows addressable
     // by the configuration editor and rebuildable by the HMR patch layer.
-    initProfile(profileDir, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'])
+    initProfile(profileDir, profileBundles)
     // Profile-backed rows (settings, its config editor, the plugin manager)
     // inject `profileContext`; the scaffold supplies the launcher's own facts.
-    // The hermetic patches ride the launcher's overlay slot, so the profile
-    // composes exactly the tree this scaffold mounts.
+    // The hermetic patches ride the profile's own layers and the launcher's
+    // overlay slot, so the profile composes exactly the tree this scaffold
+    // mounts.
     const profileContext: ProfileContext = {
       name: profile.name,
       dir: profileDir,
@@ -708,8 +750,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       installAnchor: INSTALL_ANCHOR,
       cwd: workspaceCwd,
       home: harnessHome,
-      startedBundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
-      overlays: scenarioPatches,
+      startedBundles: profileBundles,
+      overlays: processOverlays,
       telemetryDisabledEnv: undefined,
     }
     ctx.provide('appReady', { onReady: (listener) => { listener(); return () => {} } })

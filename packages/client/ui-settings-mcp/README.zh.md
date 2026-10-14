@@ -48,7 +48,7 @@ Web 设置「插件」分区的 **MCP** 标签页。浏览器插件注册一个�
 - **不支持清空 secret** — env/headers 留空表示保持已存值；清空它们需要删除并重新添加该服务器。只要在该字段输入内容，就会整体替换已存的 env/headers 映射，因为 wire 永远不会返回现有 secret 键，无法据此合并。
 - **不支持改名** — serverName 即 settings 键；改名等于删除加新增。
 - **含逗号的参数无法无损往返** — 参数按行与逗号拆分，已存参数中本身含逗号的项在编辑器再次保存时会被重新拆分。
-- **未暴露 `failOnStartupError`** — schema 支持该字段，但面板固定使用默认值；需要修改请直接编辑 `settings.yaml`。
+- **未暴露 `failOnStartupError`** — schema 支持该字段，但面板固定使用默认值；需要修改请直接编辑 `cordis.patch.yml`。
 
 <a id="dev-note"></a>
 ### 开发备注
