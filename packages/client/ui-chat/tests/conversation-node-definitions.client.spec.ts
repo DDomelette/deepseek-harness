@@ -20,7 +20,7 @@ import { chatViewDefinition } from '../src/client/conversation-nodes/chat-snapsh
 import { commandDefinition } from '../src/client/conversation-nodes/command.ts'
 import { compactionDefinition } from '../src/client/conversation-nodes/compaction.ts'
 import { unknownFallbackDefinition } from '../src/client/conversation-nodes/fallback.ts'
-import { nextStepInboxDefinition } from '../src/client/conversation-nodes/inbox.ts'
+import { nextStepInboxDefinition, nextTurnInboxDefinition } from '../src/client/conversation-nodes/inbox.ts'
 import { messageDefinition } from '../src/client/conversation-nodes/message.ts'
 import { inspectRequestPrompt } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { requestPromptDefinition, systemMessageDefinition } from '../src/client/conversation-nodes/request-prompt.ts'
@@ -36,6 +36,7 @@ import type {
 
 const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   nextStepInboxDefinition,
+  nextTurnInboxDefinition,
   messageDefinition,
   systemMessageDefinition(inspectSystemPrompt),
   requestPromptDefinition(inspectRequestPrompt),
@@ -2455,5 +2456,81 @@ describe('built-in conversation node Definitions', () => {
       command: { commandId: 'command-1', name: 'compact', outcome: { kind: 'success' } },
       compaction: { summary: 'manual summary', summaryEventSeq: 20 },
     })
+  })
+
+  it('renders a queued non-human message that wakes its Turn as a Turn trigger', () => {
+    const reminder = {
+      ...textMessage('reminder-1', 'Check the deployment log'),
+      source: { kind: 'schedule' },
+    }
+    const value = assembler([
+      at(1, 'agent/inbox/spliced', {
+        target: 'next-turn', start: 0, inserted: [reminder],
+      }),
+      at(2, 'agent/inbox/spliced', {
+        target: 'next-turn', start: 0, removedCount: 1, inserted: [],
+      }),
+      at(3, 'user/message', reminder, { surfaceOp: 'append' }),
+      at(4, 'turn/start', { turn: 1 }),
+      at(5, 'step/start', { turn: 1, step: 1 }),
+    ])
+
+    const trigger = node(snapshot(value), 'turn-trigger')
+    expect(trigger?.anchorSeq).toBe(3)
+    expect(trigger?.data).toMatchObject({ seq: 3, source: { kind: 'schedule' } })
+    expect(node(snapshot(value), 'context')).toBeUndefined()
+  })
+
+  it('renders an unclaimed non-human message as ordinary injected context', () => {
+    const notice = {
+      ...textMessage('notice-1', 'dependency graph refreshed'),
+      source: { kind: 'plugin', plugin: 'context' },
+    }
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'user/message', notice, { surfaceOp: 'append' }),
+    ])
+
+    expect(node(snapshot(value), 'turn-trigger')).toBeUndefined()
+    expect(node(snapshot(value), 'context')?.anchorSeq).toBe(3)
+  })
+
+  it('renders an idle-steer non-human message admitted at Step 1 as a Turn trigger', () => {
+    const notice = {
+      ...textMessage('idle-notice', 'goal round wrapped up'),
+      source: { kind: 'goal' },
+    }
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'agent/inbox/spliced', {
+        target: 'next-step', start: 0, inserted: [notice],
+      }),
+      at(3, 'agent/inbox/spliced', {
+        target: 'next-step', start: 0, removedCount: 1, inserted: [],
+      }),
+      at(4, 'step/start', { turn: 1, step: 1 }),
+      at(5, 'user/message', notice, { surfaceOp: 'append' }),
+    ])
+
+    expect(node(snapshot(value), 'turn-trigger')?.anchorSeq).toBe(5)
+  })
+
+  it('keeps a claimed human message out of the Turn trigger classification', () => {
+    const question = textMessage('human-idle', 'start without a wake')
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'agent/inbox/spliced', {
+        target: 'next-step', start: 0, inserted: [question],
+      }),
+      at(3, 'agent/inbox/spliced', {
+        target: 'next-step', start: 0, removedCount: 1, inserted: [],
+      }),
+      at(4, 'step/start', { turn: 1, step: 1 }),
+      at(5, 'user/message', question, { surfaceOp: 'append' }),
+    ])
+
+    expect(node(snapshot(value), 'turn-trigger')).toBeUndefined()
+    expect(node(snapshot(value), 'steering')?.anchorSeq).toBe(5)
   })
 })

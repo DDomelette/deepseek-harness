@@ -34,8 +34,10 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
       replayRoot = await mkdtemp(join(tmpdir(), 'dsh-present-svg-replay-'))
       replayOverride = join(replayRoot, 'replay.override.json')
       const script = deriveReplayScript(parseSessionLog(await readFile(FIXTURE, 'utf8')))
-      // Recorded absolute paths must follow each isolated Session's working directory.
-      const cwdToken = '{{fromRequest:Your working directory is ([^\\n]+)\\.}}'
+      // Recorded absolute paths must follow each isolated Session's working
+      // directory. `@deepseek-ai/dsh-working-directory` renders the live one as
+      // its `working-directory:current` prompt context, which the request carries.
+      const cwdToken = '{{fromRequest:Current working directory: "([^"]+)"}}'
       await writeFile(replayOverride, JSON.stringify(script).replaceAll('{{cwd}}', JSON.stringify(cwdToken).slice(1, -1)))
     }
     scaffold = await launchWebScaffold({
