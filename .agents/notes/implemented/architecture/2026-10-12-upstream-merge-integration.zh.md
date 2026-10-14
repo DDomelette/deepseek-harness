@@ -86,6 +86,8 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 
 **取自上游的包所携带的运行时不变式伴生组件。** 上游退役了整个运行时不变式插件体系，因此本次合并从上游采纳的每个包都失去了 fork 曾为它添加的 `./invariant` 伴生组件：共 29 个，分布在 `core/{agent,agent-loop,scope,session,system-prompt,tools}`、`llm/{llm,llm-retry}`、`settings`、`workspace`、`jobs`、`compaction`、`interaction/*`、`credentials/*`、`goal/*`、`plan-mode`、`sandbox-policy`、`schedule`、`storage-domain`、`subagent/*`、`tool-todo`、`agent-presets`、`hook-protocol` 与 `time-context`。fork 仍自有的包保留各自的伴生组件——共 11 个——而这里采纳上游的退役而不是逆转它，因为恢复其余部分等于重新发布一个上游整体移除的机制。代价是 fork 自己的网关要求的那句省略理由：`verify-package-invariants` 会从每个包的 README 中读取它，而 145 个上游采纳的 README 都没有，因此现在每个都写明自己的包贡献什么、以及它不检查的那层关系由哪个服务持有。
 
+**base 组合中的 `plugin-manager` 行。** 上游的 base 挂载 `@deepseek-ai/dsh-plugin-manager`，并以 `!ctx.get('profileContext')` 守卫。本 fork 的任何 bundle 都从未挂载它——fork 顶点同样是这个缺失，所以这是组合选择而非合并损伤——而它在本树中的消费方是 `packages/api/remotes` 与 `packages/host/plugin-inventory`，二者经 `ctx.get` 取用，在没有 profile 提供时会降级。因此是否挂载属于「默认 profile 提供什么」的产品决定，而不是一次收敛。
+
 ## Alternatives considered
 
 - **保留 fork 自己的 settings provider 接缝。** 已否决：上游从 Loader 组合派生命名空间，这也正是插件无需注册调用即可出现其 section 的原因；两者并存会让同一个 section 出现两个权威。
