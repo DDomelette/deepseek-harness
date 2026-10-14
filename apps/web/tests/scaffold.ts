@@ -712,6 +712,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       overlays: scenarioPatches,
       telemetryDisabledEnv: undefined,
     }
+    ctx.provide('appReady', { onReady: (listener) => { listener(); return () => {} } })
     ctx.provide('profileContext', profileContext)
     await ctx.plugin(PluginPackages, { resolution })
     const rootConfig = join(profileDir, 'cordis.yml')
@@ -1418,9 +1419,13 @@ const ARIA_AGE =
 
 function normalizeAria(snapshot: string, workspaceCwd: string, age: boolean): string {
   // The session heading renders the workspace's basename, not the full
-  // path, so both spellings must collapse to the token.
-  const base = workspaceCwd.split('/').pop()!
+  // path, so both spellings must collapse to the token. A backslash inside a
+  // double-quoted YAML scalar is escaped, so a Windows path also appears in
+  // that second spelling.
+  const base = basename(workspaceCwd)
+  const escaped = workspaceCwd.replace(/\\/gu, '\\\\')
   return (age ? snapshot.replace(ARIA_AGE, '{{age}}') : snapshot)
+    .split(escaped).join('{{cwd}}')
     .split(workspaceCwd).join('{{cwd}}')
     .split(base).join('{{workspace}}')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{{uuid}}')
