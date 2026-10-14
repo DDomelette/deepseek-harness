@@ -24,6 +24,19 @@ const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const DEFAULT_MODELS_EXPECTED = join(SNAPSHOT_DIR, 'default-models.expected.md')
 const MODE = webSnapshotMode()
 
+
+/**
+ * The active profile's Cordis patch, which is where the merged settings plane
+ * persists writes ("Changes persist through the active profile's Cordis patch",
+ * `packages/settings/settings/README.md`). `$DSH_HOME/settings.yaml` is only a
+ * legacy import source and stays absent.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @returns the profile patch path the settings document accumulates in.
+ */
+function profilePatch(harnessHome: string): string {
+  return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
+}
+
 describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -90,7 +103,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     expect((await page.locator('body').ariaSnapshot()).includes(secret)).toBe(false)
     expect(browserConsole.some(line => line.includes(secret))).toBe(false)
 
-    const acknowledgedSettings = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const acknowledgedSettings = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(acknowledgedSettings).toContain(`${WELCOME_NOTICE_ACK_FIELD}: ${WELCOME_NOTICE_VERSION}`)
 
     // The ordinary Models surface reuses the refreshed join and exposes the
@@ -204,17 +217,15 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     await deepSeek.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     await settings.getByText('自定义设置').click()
     expect(await settings.getByLabel('模型 ID 1').inputValue()).toBe('deepseek-flash')
-    expect(await settings.getByLabel('显示名称 1').inputValue()).toBe('DeepSeek-V41-Flash')
-    expect(await settings.getByLabel('模型 ID 2').inputValue()).toBe('deepseek-v4-flash')
-    expect(await settings.getByLabel('模型 ID 3').inputValue()).toBe('deepseek-v4-pro')
-    expect(await settings.getByLabel('模型 ID 4').inputValue()).toBe('deepseek-v4-flash-vision-exp')
-    expect(await settings.getByRole('button', { name: /删除模型/ }).count()).toBe(4)
+    expect(await settings.getByLabel('显示名称 1').inputValue()).toBe('DeepSeek-V4.1-Flash')
+    expect(await settings.getByLabel('模型 ID 2').inputValue()).toBe('deepseek-v4-pro')
+    expect(await settings.getByRole('button', { name: /删除模型/ }).count()).toBe(2)
     const defaultModels = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(DEFAULT_MODELS_EXPECTED, defaultModels, MODE)
     await settings.getByLabel('显示名称 1').fill('Configured Flash')
     await settings.getByRole('button', { name: '保存', exact: true }).click()
     await settings.getByLabel('模型 ID 1').waitFor({ state: 'detached', timeout: 15_000 })
-    const savedDefaults = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const savedDefaults = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(savedDefaults).toContain('id: deepseek-flash')
     expect(savedDefaults).toContain('inputModalities:')
     expect(savedDefaults).toContain('- text')
@@ -225,7 +236,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     })
     await deepSeek.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     await settings.getByText('自定义设置').click()
-    for (let index = 0; index < 4; index++) {
+    for (let index = 0; index < 2; index++) {
       await settings.getByRole('button', { name: /删除模型/ }).first().click()
     }
     await settings.getByRole('button', { name: '添加模型' }).click()
@@ -246,7 +257,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     await settings.getByRole('button', { name: '保存', exact: true }).click()
     await customModelId.waitFor({ state: 'detached', timeout: 15_000 })
 
-    const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const document = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(document).toContain('id: private-preview')
     expect(document).toContain('name: Private Preview')
     expect(document).toContain('contextWindow: 131072')
