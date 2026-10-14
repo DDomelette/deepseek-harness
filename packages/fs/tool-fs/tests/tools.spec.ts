@@ -5,11 +5,11 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
+import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
 import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { join, sep } from 'node:path'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
@@ -892,7 +892,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await call(ctx, 'write', { file_path: 'a.txt', content: 'x' }, escalationAgent())
     expect(fs.stamped).toEqual([{
       mode: 'workspace-write',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -902,7 +902,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await call(ctx, 'write', { file_path: 'a.txt', content: 'x' }, escalationAgent([{ type: 'sandbox/mode', data: { mode: 'read-only' } }]))
     expect(fs.stamped).toEqual([{
       mode: 'read-only',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -939,7 +939,7 @@ describe('sandbox escalation API (write/edit)', () => {
     })
     expect(fs.stamped).toEqual([{
       mode: 'danger-full-access',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -1048,7 +1048,9 @@ function withPersona(...sections: string[]): string {
 }
 
 /** Schema assembly only: these cases never execute user code. */
-class GuidanceCodeRuntime extends CodeRuntime {
+class GuidancePtcRuntime extends PtcRuntime {
+  resolve(request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest): import('@deepseek-ai/dsh-ptc-runtime').PtcRunSpec { return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs ?? 120_000 } }
+
   readonly language = 'typescript'
   readonly isolation = 'fake'
   run() { return Promise.resolve({ logs: [] }) }
@@ -1059,7 +1061,7 @@ describe('scope-aware PTC guidance', () => {
     const mode = 'ptc'
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GuidanceCodeRuntime)
+    await ctx.plugin(GuidancePtcRuntime)
     await ctx.plugin(ToolRuntime, { mode })
     await ctx.plugin(FakeFs)
     await ctx.plugin(ToolFs)

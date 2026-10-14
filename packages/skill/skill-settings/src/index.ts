@@ -16,6 +16,20 @@ import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-settings'
 import { isSkillName, type SkillInvocationPolicy } from '@deepseek-ai/dsh-skill'
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Volatile config values were committed into the running fiber without a
+     * remount. Declared here because this package does not load the Loader's
+     * own event declarations; a Loader that declares it merges as an identical
+     * overload.
+     * @mode emit
+     * @param paths - changed paths, each an array of object keys.
+     */
+    'loader/volatile-update'(paths: readonly (readonly string[])[]): void
+  }
+}
+
 export const name = 'skill-settings'
 export const inject = ['skills']
 
@@ -75,4 +89,8 @@ export function apply(ctx: Context, config: Config): void {
     assertSkillNames(Config(candidate))
     return candidate
   })
+  // A volatile-only commit replaces the running section reference in place, so
+  // the override's answers change without a re-registration: the registry's own
+  // disposer never runs, and the notification must come from the commit.
+  ctx.on('loader/volatile-update', () => { ctx.skills.notifyInvocationOverrideChange() })
 }

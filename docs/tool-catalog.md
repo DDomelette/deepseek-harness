@@ -990,7 +990,7 @@ The read-before-write/edit policy is added by `@deepseek-ai/dsh-fs-observation-p
 
 ### `glob`
 
-Find files whose paths match a glob pattern. Returns matching file paths — never directories — including hidden and ignored files (VCS metadata directories are excluded). Up to 100 paths come back in modification-time order; a larger result instead returns 100 paths sampled across top-level entries, says so, and reports where the complete sorted list was saved. This tool does not enumerate directory entries.
+Find files, not directories, whose paths match a glob pattern, including hidden and ignored files. Returns up to 100 paths in modification-time order; a larger result is sampled across top-level entries and reports where the complete list was saved.
 
 ```json
 {
