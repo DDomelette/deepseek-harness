@@ -65,12 +65,15 @@ describe('the shipped Web preset declarations', () => {
   })
 
   it('declares the four shipped presets with their roster metadata', () => {
-    expect(declarations.map(row => row.config?.id)).toEqual(['standard', 'ptc', 'minimal', '@deepseek-ai/cordis'])
+    expect(declarations.map(row => row.config?.id)).toEqual(['standard', 'ptc', 'minimal', 'cordis'])
     expect(declarations.map(row => row.config?.order)).toEqual([1, 2, 3, 4])
-    expect(declarations.map(row => row.config?.name)).toEqual(['标准模式', 'PTC 模式', '极简模式', '创造模式'])
+    // A shipped preset publishes no name or description: the roster's copy comes
+    // from the active locale, so a declaration that named itself would freeze one
+    // language into every page.
     for (const row of declarations) {
       expect(row.id).toBe(`preset-${row.config?.id as string}`)
-      expect(typeof row.config?.description).toBe('string')
+      expect(row.config?.name).toBeUndefined()
+      expect(row.config?.description).toBeUndefined()
       // The registry's own validator: what it accepts is what the Loader mounts.
       expect(entryListProblem(row.config?.plugins)).toBeUndefined()
     }
@@ -86,7 +89,7 @@ describe('the shipped Web preset declarations', () => {
   })
 
   it('ships the creator preset the composition-authoring skills it mounts', () => {
-    const cordis = declarations.find(row => row.config?.id === '@deepseek-ai/cordis')
+    const cordis = declarations.find(row => row.config?.id === 'cordis')
     const rows = cordis?.config?.plugins as Row[]
     const skillRow = rows.find(row => row.id === 'skill-filesystem')
     expect(skillRow?.name).toBe('@deepseek-ai/dsh-skill-filesystem')

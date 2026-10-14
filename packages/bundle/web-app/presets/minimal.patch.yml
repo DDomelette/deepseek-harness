@@ -14,8 +14,6 @@
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: minimal
-        name: 极简模式
-        description: 仅提供持久 shell 的单工具编码 Agent。
         order: 3
         plugins:
           - id: persona

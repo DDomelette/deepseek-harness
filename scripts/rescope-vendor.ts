@@ -88,6 +88,11 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   // packages/preset/agent-presets/presets/ — so in these files the bare name is
   // product data, not a package reference. Renaming it changed which preset
   // the creator flow stages and which id the roster reports.
+  // The shipped creator preset is the same case: its header comment and its own
+  // system prompt name the preset a model mounts, so the scoped spelling would
+  // send the model after an id no roster reports.
+  { file: 'packages/bundle/web-app/presets/cordis.patch.yml', upstream: ['cordis'] },
+  { file: 'packages/bundle/web-app/tests/shipped-presets.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/src/client/AgentPresetSection.tsx', upstream: ['cordis'] },
   { file: 'packages/preset/agent-presets/tests/shipped-root.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/src/client/index.ts', upstream: ['cordis'] },
