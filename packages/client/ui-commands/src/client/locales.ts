@@ -26,7 +26,7 @@ export const en = {
   'description.compact': 'Compact older conversation history',
   'description.export': 'Download this Session log as a ZIP archive',
   'description.feedback': 'record feedback about this session',
-  'description.goal': 'set or view the goal for a long-running task',
+  'description.goal': 'Set or view the goal for a long-running task',
   'description.permission': 'Switch the permission preset (sandbox mode + approval policy)',
   'description.plan': 'Enter or leave plan mode',
   'search.placeholder': 'Search…',
