@@ -1469,6 +1469,11 @@ function normalizeAria(snapshot: string, workspaceCwd: string, age: boolean): st
   return (age ? snapshot.replace(ARIA_AGE, '{{age}}') : snapshot)
     .split(escaped).join('{{cwd}}')
     .split(workspaceCwd).join('{{cwd}}')
+    // A path the UI appends to the workspace keeps the host separator, in
+    // whichever spelling the surrounding YAML scalar escaped. The committed
+    // goldens record the POSIX separator, so both collapse to it.
+    .replace(/\{\{cwd\}\}\\\\/gu, '{{cwd}}/')
+    .replace(/\{\{cwd\}\}\\/gu, '{{cwd}}/')
     .split(base).join('{{workspace}}')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{{uuid}}')
     // The optional space in `\d+m ?\d+s` covers both minute spellings: the

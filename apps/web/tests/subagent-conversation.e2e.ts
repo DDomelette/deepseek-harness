@@ -7,7 +7,8 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import {
-  SESSION_FORMAT_VERSION, SessionId as sessionId, SessionLogOffset, type SessionEvent, type SessionHeader, type SessionId,
+  SESSION_FORMAT_VERSION, SessionId as sessionId, SessionLogOffset, SessionSeq,
+  type SessionEvent, type SessionHeader, type SessionId,
 } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-agent'
 import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@deepseek-ai/dsh-subagent'
@@ -199,6 +200,18 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await oneShotHandle.close()
     scaffold.ctx.sessionProjectionCache.coldSnapshot(oneShotHeader, SessionLogOffset(0), oneShotEvents)
     await waitForCacheRow(scaffold, oneShotHeader)
+    // The parent-owned catalog event is what makes a child discoverable; the
+    // activation runtime appends its own child's, and this one-shot child was
+    // authored straight through persistence, so its discovery fact is recorded
+    // here. Catalog order is append order, which is why the one-shot row (the
+    // older session by `createdAt`) follows the spawned child's.
+    parent.session.append('subagent/catalog', {
+      version: 0,
+      childId: oneShotId,
+      childCreatedAt: oneShotAt,
+      mode: 'one-shot',
+      label: ONE_SHOT_LABEL,
+    })
     grandchildId = sessionId('recorded-grandchild')
     const authoredAt = Date.now()
     const grandchildHeader: SessionHeader = {
@@ -250,24 +263,46 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await grandchildHandle.close()
     scaffold.ctx.sessionProjectionCache.coldSnapshot(grandchildHeader, SessionLogOffset(0), grandchildEvents)
     await waitForCacheRow(scaffold, grandchildHeader)
+    // The grandchild's discovery fact belongs to the child's own catalog. The
+    // child is cold here, so the event is appended through the persistence
+    // handle and mirrored into the projection cache exactly as the cold-read
+    // write-back would leave it.
+    const childHandle = await scaffold.ctx.sessionPersistence.open(childId, 'write')
+    const childHeader = childHandle.header
+    const childInheritedEventCount = childHandle.inheritedEventCount
+    const { events: childEvents } = await childHandle.read()
+    const grandchildCatalogEvent: SessionEvent<'subagent/catalog'> = {
+      type: 'subagent/catalog',
+      seq: SessionSeq((childEvents.at(-1)?.seq ?? -1) + 1),
+      time: authoredAt,
+      data: {
+        version: 0,
+        childId: grandchildId,
+        childCreatedAt: authoredAt,
+        mode: 'continuable',
+        label: NESTED_LABEL,
+      },
+    }
+    await childHandle.append([grandchildCatalogEvent])
+    await childHandle.close()
+    scaffold.ctx.sessionProjectionCache.coldSnapshot(
+      childHeader,
+      childInheritedEventCount,
+      [...childEvents, grandchildCatalogEvent],
+    )
+    await waitForCacheRow(scaffold, childHeader)
     expect(scaffold.ctx.agents.get(childId)).toBeUndefined()
     expect(scaffold.ctx.agents.get(oneShotId)).toBeUndefined()
     expect(scaffold.ctx.agents.get(grandchildId)).toBeUndefined()
-    await expect(scaffold.ctx.subagents.listChildren(parent.id)).resolves.toMatchObject([
-      {
-        kind: 'child', id: oneShotId, mode: 'one-shot',
-        label: ONE_SHOT_LABEL, activity: 'inactive', hasChildren: false,
-      },
-      {
-        kind: 'child', id: childId, mode: 'continuable', label: LABEL,
-        activity: 'inactive', hasChildren: true,
-      },
+    // `listChildren` serves the raw parent-owned catalog projection: durable
+    // discovery rows in catalog (append) order, not `createdAt` order and
+    // without the interpreted activity/hasChildren the recursive walk adds.
+    await expect(scaffold.ctx.subagents.listChildren(parent.id)).resolves.toEqual([
+      { id: childId, createdAt: childHeader.createdAt, mode: 'continuable', label: LABEL },
+      { id: oneShotId, createdAt: oneShotAt, mode: 'one-shot', label: ONE_SHOT_LABEL },
     ])
-    await expect(scaffold.ctx.subagents.listChildren(childId)).resolves.toMatchObject([
-      {
-        kind: 'child', id: grandchildId, mode: 'continuable',
-        label: NESTED_LABEL, activity: 'inactive', hasChildren: false,
-      },
+    await expect(scaffold.ctx.subagents.listChildren(childId)).resolves.toEqual([
+      { id: grandchildId, createdAt: authoredAt, mode: 'continuable', label: NESTED_LABEL },
     ])
     // These two cold fixtures were authored after the page's initial
     // session.list and intentionally emitted no api-session/added event. Reload

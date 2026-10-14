@@ -241,8 +241,8 @@ describe('web e2e: seeded history renders through cold resume', () => {
   it.skipIf(MODE === 'record')('serves the projections baseline on the real composition opening snapshot', async () => {
     // Composition regression tripwire: the projection registry must be a row
     // in the SHIPPED cordis.yml — with it absent every domain unit's optional
-    // injection stays silent and this block disappears (no titles/todos on
-    // the web), while fixture-level suites stay green. Assert through the
+    // injection stays silent and this block disappears (no titles on the
+    // web), while fixture-level suites stay green. Assert through the
     // production Session Controller against the booted real host.
     const controller = new AbortController()
     const stream = scaffold.ctx.sessionController.follow({
@@ -259,11 +259,13 @@ describe('web e2e: seeded history renders through cold resume', () => {
     // The seed carries a session/title event: the title unit is host-plane, so
     // it folds the detached log and serves the value with nothing composed.
     expect(typeof projections.values.title).toBe('string')
-    // `todos` is absent because its unit belongs to the agent preset and this
-    // directly seeded session never composed that preset. History computes
-    // the baseline through the standard projection registry without mounting
-    // an Agent composition as a read side effect.
-    expect(projections.values).not.toHaveProperty('todos')
+    // The `todos` unit is registered process-wide by the shipped `tool-todo`
+    // row, so the opening snapshot always serves its key; this directly seeded
+    // log records no `todo/write`, so it folds to the unit's no-value sentinel
+    // rather than a task list. Asserting the key AND the sentinel keeps the
+    // tripwire: a deployment whose projection registry or todo row is missing
+    // serves `undefined` here instead of a silent absence.
+    expect(projections.values).toHaveProperty('todos', null)
     // The session-stats unit is a shipped web-app bundle row: whole-log
     // turn/step counts ride the same tail block (the stats strip's source).
     const sessionStats = projections.values.sessionStats as { turns: number; steps: number } | undefined

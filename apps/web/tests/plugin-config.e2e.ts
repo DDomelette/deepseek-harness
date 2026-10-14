@@ -1,6 +1,6 @@
 // Web e2e scenario: the configurable tab in Plugins settings — the cards a
 // deployment's exposed host-plane namespaces produce, one field edited through the real
-// wire down to `$DSH_HOME/settings.yaml`, and the override badge and reset
+// wire down to the active profile's Cordis patch, and the override badge and reset
 // that layering produces. Zero model calls: everything is client state plus
 // the settings document on a blank frame, so there is no fixture and a stray
 // stream would fail loud on the open llm seam.
@@ -67,9 +67,15 @@ describe('web e2e: plugin configuration section', () => {
     return dialog
   }
 
-  /** The settings document as the Host has written it so far. */
+  /**
+   * The settings document as the Host has written it so far. The settings plane
+   * persists through the active profile's Cordis patch — the load
+   * `packages/settings/settings/README.md` describes as "Changes persist through
+   * the active profile's Cordis patch" — so `$DSH_HOME/settings.yaml` is only a
+   * legacy import source and stays absent.
+   */
   async function settingsDocument(): Promise<string> {
-    return readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8').catch(() => '')
+    return readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8').catch(() => '')
   }
 
   it('shows one card per exposed host-plane namespace', async () => {
@@ -106,7 +112,7 @@ describe('web e2e: plugin configuration section', () => {
 
     const expandSubagent = dialog.getByRole('button', { name: '展开设置: Subagent' })
     await expandSubagent.waitFor({ timeout: 5_000 })
-    await expect.poll(async () => (await settingsDocument()).includes('subagent-model-selection:'), { timeout: 10_000 })
+    await expect.poll(async () => (await settingsDocument()).includes('id: subagent-model-selection'), { timeout: 10_000 })
       .toBe(true)
     expect(await settingsDocument()).toContain('enabled: true')
     expect(await settingsDocument()).toContain('allowedModels:')

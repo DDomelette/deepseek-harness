@@ -61,6 +61,19 @@ async function seedSkills(scaffold: WebScaffold): Promise<void> {
   }
 }
 
+
+/**
+ * The active profile's Cordis patch, which is where the merged settings plane
+ * persists writes ("Changes persist through the active profile's Cordis patch",
+ * `packages/settings/settings/README.md`). `$DSH_HOME/settings.yaml` is only a
+ * legacy import source and stays absent.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @returns the profile patch path the settings document accumulates in.
+ */
+function profilePatch(harnessHome: string): string {
+  return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
+}
+
 describe('web e2e: skills settings panel', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -123,7 +136,7 @@ describe('web e2e: skills settings panel', () => {
       () => row.getByRole('switch').getAttribute('aria-checked'),
       { timeout: 30_000 },
     ).toBe('false')
-    const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const document = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(document).toContain('disabled:')
     expect(document).toContain('panel-grouped-a')
 

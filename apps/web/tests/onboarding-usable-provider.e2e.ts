@@ -21,6 +21,19 @@ const DISMISSED_EXPECTED = join(SNAPSHOT_DIR, 'dismissed.expected.md')
 const MODE = webSnapshotMode()
 const CREDENTIAL_STEP = '添加一个 API Key 开始使用'
 
+
+/**
+ * The active profile's Cordis patch, which is where the merged settings plane
+ * persists writes ("Changes persist through the active profile's Cordis patch",
+ * `packages/settings/settings/README.md`). `$DSH_HOME/settings.yaml` is only a
+ * legacy import source and stays absent.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @returns the profile patch path the settings document accumulates in.
+ */
+function profilePatch(harnessHome: string): string {
+  return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
+}
+
 describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-run onboarding', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -93,7 +106,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     await settings.getByText('已保存 minimax-cn。', { exact: true }).waitFor({ timeout: 15_000 })
 
     // Only minimax-cn is reachable; DeepSeek still holds no credential.
-    const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const document = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(document).toContain('apiKeyEnv: MINIMAX_CN_API_KEY')
     const credentials = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
     expect(credentials).toContain('MINIMAX_CN_API_KEY: sk-e2e-minimax')

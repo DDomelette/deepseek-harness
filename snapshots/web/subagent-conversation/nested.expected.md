@@ -5,18 +5,14 @@
     - 'button "Switch subagent: event-sourcing researcher"': event-sourcing researcher
     - text: /
     - 'button "Switch subagent: example editor"': example editor
-  - button "More actions":
-    - img
-  - button "Open right sidebar":
-    - img
-  - button "Open the notes panel":
-    - img
+  - button "More actions"
+  - button "Open right sidebar"
+  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - text: Give one concrete event sourcing example. {{clock}}
-- button "Copy":
-  - img
+- button "Copy"
 - status:
   - strong: This subagent is read-only for now
   - text: The parent session is offline; reopen it to continue sending messages.
