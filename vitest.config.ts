@@ -42,6 +42,10 @@ const windowsUnsupportedPackages = process.platform === 'win32'
       'packages/experimental/hooks-codex',
       'packages/terminal/terminal-bash',
       'packages/experimental/code-runtime-python',
+      // Upstream's renamed successor of code-runtime-python: the same backend
+      // refuses win32 at runtime (POSIX rlimits, fd-3 stdio, process-group
+      // signals), so both spellings stay excluded while both packages ship.
+      'packages/experimental/ptc-runtime-python',
       'packages/sandbox/sandbox-local',
     ]
   : []
@@ -130,8 +134,9 @@ const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProf
 
 const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
-  'apps/*/tests/**/*.spec.ts',
+  'apps/*/tests/**/*.spec.{ts,tsx}',
   'scripts/**/*.spec.ts',
+  'website/tests/**/*.spec.ts',
 ]
 
 // The instrumented coverage gate sets this env; the exempt heavy suites then

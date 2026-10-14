@@ -106,14 +106,16 @@ export function toolSessionEvents(nodes: readonly ToolResultNode[]): readonly Se
           step: 1,
           message: {
             id: `result-${node.callId}`,
-            role: 'user',
+            // The tool-result message the host logs: tool role, the answering
+            // call id, and the raw blocks directly on the message (see
+            // `createToolResultMessage` in `@deepseek-ai/dsh-llm`). The older
+            // user-role envelope wrapped them in a `tool-result` block, which
+            // the Chat projection no longer unwraps.
+            role: 'tool',
             source: { kind: 'tool', callId: node.callId },
-            content: [{
-              type: 'tool-result',
-              toolCallId: node.callId,
-              content: node.content.map(block => ({ ...block })),
-              isError: node.isError,
-            }],
+            toolCallId: node.callId,
+            content: node.content.map(block => ({ ...block })),
+            isError: node.isError,
           },
           ...(node.error === undefined ? {} : { error: node.error }),
           ...(node.meta === undefined ? {} : { meta: node.meta }),
