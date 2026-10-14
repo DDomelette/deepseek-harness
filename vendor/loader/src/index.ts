@@ -149,12 +149,9 @@ export class Loader extends EntryTree {
       const treeOwner = fiber.entry.parent.tree.ctx.fiber
       if (!treeOwner.uid || treeOwner.state === FiberState.UNLOADING) return
 
-      // case 6: Loader is replacing or removing this exact fiber
-      if (fiber.entry._disposing) return
-
       this.showLog(fiber.entry, 'unload')
 
-      // case 7: fiber is disposed by loader behavior
+      // case 6: fiber is disposed by loader behavior
       // such as inject checker, config file update, ancestor group disable
       if (fiber.entry.disabled) return
 

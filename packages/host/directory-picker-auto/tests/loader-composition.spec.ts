@@ -243,15 +243,22 @@ describe('real Loader composition', () => {
     expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
   })
 
-  it('unmounts the backend when the surface entry fails to load', { timeout: 60_000 }, async () => {
+  it('keeps the mounted backend when the surface entry fails to import', { timeout: 60_000 }, async () => {
     stubAttendedHost()
-    await expect(loadComposition('127.0.0.1', { failSurface: true })).rejects.toThrow(/surface import failed/)
+    const { ctx } = await loadComposition('127.0.0.1', { failSurface: true })
 
-    // Setup owns both entries until it returns its disposer, so a failed surface
-    // must take the mounted backend with it: otherwise a retry collides with the
-    // directoryPicker registration this backend already made.
-    expect(entryNames(context!)).not.toContain(NATIVE)
-    expect(context!.get('directoryPicker')).toBeUndefined()
+    // The merged Loader settles a failing row instead of rejecting the mount:
+    // an entry whose import fails is reported through the Loader's own error
+    // channel and left without a fiber, while the sibling backend it was set up
+    // with keeps running. Startup policy is applied one layer up, by `boot()`'s
+    // activation audit, which turns an inactive row into a `StartupError`.
+    const running = (name: string): boolean => [...ctx.loader.entries()]
+      .some(entry => entry.options.name === name && entry.fiber !== undefined)
+    expect(running(NATIVE)).toBe(true)
+    expect(running(NATIVE_SURFACE)).toBe(false)
+    expect(ctx.get('directoryPicker')).toBeDefined()
+    expect(ctx.logger.buffer.some(message => message.args
+      .some(argument => String(argument).includes('surface import failed')))).toBe(true)
   })
 
   it('tolerates the mounted entry being removed by the tree before the chooser unloads', { timeout: 60_000 }, async () => {

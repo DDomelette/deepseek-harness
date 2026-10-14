@@ -375,7 +375,7 @@ describe('real Loader composition', () => {
       + ' return held })()).resolve()</script>')
   })
 
-  it('fails the fiber when the port is already taken (fail-loud at activation)', { timeout: 60_000 }, async () => {
+  it('settles the webserver fiber as failed when the port is already taken', { timeout: 60_000 }, async () => {
     const first = await loadComposition()
     const takenPort = first.webServer.port
     const firstRoot = root
@@ -383,14 +383,15 @@ describe('real Loader composition', () => {
 
     let second: Context | undefined
     try {
-      let failure: unknown
-      try {
-        await loadComposition(takenPort)
-      } catch (error) {
-        failure = error
-      }
+      // The merged Loader settles a failing row instead of rejecting the mount:
+      // the row keeps a failed fiber whose activation error names EADDRINUSE,
+      // and `boot()`'s activation audit is what turns that into a startup
+      // failure for an application.
+      const loaded = await loadComposition(takenPort)
       second = context
-      expect(String(failure)).toMatch(/failed to apply loader entry.*EADDRINUSE/)
+      const failed = [...loaded.loader.entries()]
+        .find(entry => entry.options.name === '@deepseek-ai/dsh-host-webserver')!
+      await expect(failed.fiber!.await()).rejects.toThrow(/EADDRINUSE/)
     } finally {
       await second?.fiber.dispose()
       context = first

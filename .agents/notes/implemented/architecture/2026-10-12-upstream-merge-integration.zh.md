@@ -12,6 +12,12 @@ Status: implemented
 
 把 fork 的行为移植到合并后的 API 上，在 fork 的代码就是存续实现的包内保留 fork 独有实现，并搁置本树无人挂载的上游表面。以下各节记录塑造了已交付行为的四处移植、settings 与会话格式的迁移，以及刻意未采纳的内容。
 
+## Loader 采用上游版本，fail-loud 移至启动审计
+
+上游的 `packages/boot/**` 被逐字采纳，而它审计的是一棵已定型的树：`mountRootInclude()` 返回后，`inactiveEntries()` 遍历 `ctx.loader.entries()`，`auditStartupEntries()` 再把未激活的必需行变成 `StartupError`。fork 的 vendored `vendor/{loader,include}` 却把配置重载做成了事务式——`EntryGroup.update()` 抛出第一个子项失败——于是启动永远到不了审计，每一行的失败都表现为 `plugin tree failed to load: failed to apply loader entry include (cordis:include): …`，而不是 `startup failed: 1 required plugin did not activate`。仅这一处不匹配就让三十七条启动用例失败。现在 vendored loader 承载上游的生命周期：`entry.ts`、`group.ts`、`tree.ts` 都是上游的，`group.ts` 捕获每个子项 `create()` 的失败并记录日志，导入失败的行保留在树上但没有 fiber。「配置错误在加载时响亮失败」是被移位而非丢弃：Loader 指出它无法启动的那一行，而拒绝启动的是启动审计。两半都由 `packages/boot/app-boot/tests/app-boot.spec.ts` 钉住。
+
+fork 保留上游不提供的 vendor 增量，逐条记录在 `vendor/README.md`：可持久化的去抖 include 写入、按 Include 串行化的写入队列——现在在根停止之前排空，因此被拒的写入仍会让拆卸以拒绝结束——惰性的 `internal/config` 解析、`disabled` 插值、`moduleNamespace`，以及易变配置分支。两个钉住事务式 loader 的 fork host spec 改为按审计行为表述，而不是删除：`packages/host/webserver/tests/webserver.spec.ts` 让 webserver fiber 结算为失败并断言它的 `fiber.await()` 以 `EADDRINUSE` 拒绝；`packages/host/directory-picker-auto/tests/loader-composition.spec.ts` 断言失败的 surface 行不持有 fiber，而它的兄弟行仍保持挂载，且导入失败会到达 loader 的错误通道。
+
 ## Job 变更改走合并后的 jobs 事件流
 
 fork 的 `SessionControlController` 按会话镜像后台 job，`ui-jobs` 在该镜像之上渲染其头部，因此按上游的做法删除接线等于删掉一个已交付特性。合并后的 jobs 服务用经过过滤的事件流取代了 `onJobsChanged(owner)`，于是 `packages/api/session-controller/src/control.ts` 以 `events.subscribe({ owners: 'all' }, …)` 订阅，忽略不改变任何已发布行的 `output` 与 `progress` 事件，并在对应旧通知点的生命周期提交上重新发布。job 查询传入 `SessionId`（`jobs.list(caller)`）而非 `Agent`，与合并后的注册表一致：无属主的 job 对每个调用方可见，有属主的 job 对该会话可见。
@@ -95,9 +101,10 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 - 输入框的 Access 席位读取合并后的权限模型。Host 把当前选择放在 `permissions` 会话投影上、把可选预设放在 `permissionPresets.catalog()` Remote 上，因此 `InputBar` 在席位处合并两者：`PermissionCatalogSeat`（`packages/client/ui-conversation/src/client/permission-catalog.ts`）通过已挂载的 Remote 读取目录，在转发事件 `permission-presets/catalog-changed` 上重读，并把预设发布到输入框的 `hooks` 舱位。投影缺失、目录尚未到达、或会话缺少命令面时，席位都不渲染；读取失败或被拒时保留上一次的预设，而不清空一个正在使用的席位。
 - `packages/client/connection` 承载 fork 的调用方 Peer：operator 一个、每台已接纳设备各一个，凭据不属于任何一类的调用方没有；`node-half.host.spec.ts` 钉住该性质——配对设备被接纳为它自己的 Peer——若把 operator 的 Peer 交给设备，该用例即失败。
 - Agent Team 包已转绿：`team.spec.ts` 48/48、`persistence.spec.ts` 5/5，而接纳移植之前为 9 failed | 44 passed。
-- `packages/sdk/server` 仍保留一条失败断言：它期望 `body.reasoning_effort === 'max'`，而合并后的 DeepSeek 适配器使用 Messages 线格式。该断言属于 `packages/llm/llm-deepseek`，在做出该决定前保持红色。
+- `packages/sdk/server` 在合并后的 Messages 适配器上全绿（3 个文件、39 条测试）；该包与 `llm-deepseek` 都不再出现 `reasoning_effort`。
 - `packages/subprocess` 除 `spawn-runner.spec.ts` 中两条 `EPERM: operation not permitted, symlink` 外全部通过，本机在未开启开发者模式时无法运行它们。`terminal/terminal` 的 21 处注册重新 `await ctx.agents.register(…)`，因此该套件为 23/23；上游的注册表在更晚的一次 tick 上发布，而合并丢掉了这些 await。`sandbox-windows-acl/tests/runner.spec.ts` 保留了十条在本机解析不到 `pwsh` 的用例——`Get-Command pwsh` 找不到任何结果，`$PSVersionTable` 为 5.1，`candidatePwshPaths()` 最终落到 `…\WindowsPowerShell\v1.0\powershell.exe`，它无法通过套件的 `/pwsh(\.exe)?$/u` 检查，而同一套件的 `pwshAvailable()` 探测却接受这个回退。它的 `control.spec.ts` 还保留两条控制台可见性用例：恢复的接线就是上游的，但在拥有可见控制台的会话里，运行器第 4 槽位上的裸 NUL 描述符会使 `windowsHide` 失效，该断言由 CI 的无控制台通道负责。
-- fork 的 V3 时代 `session-persistence-jsonl` spec 仍在描述合并前的迁移路径：合并后的 JSONL 后端没有可用的历史世代迁移（上游的 catalog-migration 消费方未随其迁移边一并采纳），因此 v0/v2/v3 夹具被拒时的消息与这些 spec 的断言不符。该工作流与接纳移植相互独立，仍未完成。
+- `packages/session/session-persistence-jsonl` 承载历史世代迁移：`catalog-migration.ts`、它在 `src/index.ts` 中的消费边，以及 `@deepseek-ai/dsh-session-format-v3-to-v4` 的 manifest 依赖均已就位并安装。该包实测 777 passed | 10 skipped，其中两条失败与主机绑定：`generation.spec.ts` 的碰撞符号链接目标需要开发者模式；`catalog-migration.spec.ts` 的父子延后用例在 `--testTimeout=60000` 下通过——每个参数化约六秒——而五秒默认值会超时；同一文件中的其他用例都在默认值之内。
 - 客户端编译面在 `pnpm exec tsc -b tsconfig.client.json --force` 下干净通过。`packages/experimental/client-ui-claude-code-mods` 没有 `src/css-modules.d.ts`，于是 `Band.tsx` 的 CSS Module 导入在该包自身的工程内失败，而根程序通过 `packages/client/*/src/css-modules.d.ts` 能解析同一文件；现已补上该声明，并在聚合里与 `ui-cordis`、`notes` 并列列出。非 force 构建会重放 `.tsbuildinfo`，这正是该失败被掩盖的原因。
 - `packages/session/session-persistence-jsonl/package.json` 现在声明 `@deepseek-ai/dsh-session-format-v3-to-v4`；需要执行 `pnpm install` 才能物化该 workspace 链接。
-- `packages/workflow/workflow-ptc` 能在本树的组合中执行，但它自己的两个套件在本机仍为红色。`tool-workflow` 的真实引擎用例与 `tool-ralph` 的八轮集成都跑完了一个沙箱化 PTC 进程，而 `packages/ptc-runtime/ptc-runtime-node/tests/runtime.spec.ts` 27 例中 20 例失败、`packages/workflow/workflow-ptc/tests/source-runtime.compat.spec.ts` 3 例全失败——全部是裸的 `Test timed out in 5000ms`，`--testTimeout 60000` 下亦然，没有各自的错误。这两个套件正是本机无法复现其进程可见行为的部分；`packages/subprocess/**` 是与上游分歧最大的表面（63 个文件，含 `subprocess-local/src/spawn.ts`），而上游自己的 Windows 原生通道会运行 `workflow-ptc.spec.ts`。
+- `packages/workflow/workflow-ptc` 与 `packages/ptc-runtime/ptc-runtime-node` 能在本树的组合中执行：19 个文件、317 条测试通过，`tool-workflow` 的真实引擎用例与 `tool-ralph` 的八轮集成都跑完了一个沙箱化 PTC 进程。仍有一条为红——`runtime.spec.ts` 的 `retains console output emitted immediately before a non-yielding program` 得到 `[]`，而它期望 `['before hot loop']`，即先打印再忙等的程序可能在运行时按截止时间终止它之前丢掉那一行。
+- `tool-terminal` 通过已采纳的 `JobSpec.output` 拉取源读取后台发送（`packages/terminal/tool-terminal/src/background.ts`），也就是本树中所有其他生产方使用的那个接缝；它的生产方只返回 `cancel` 与 `done`。
