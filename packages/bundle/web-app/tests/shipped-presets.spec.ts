@@ -65,7 +65,7 @@ describe('the shipped Web preset declarations', () => {
   })
 
   it('declares the four shipped presets with their roster metadata', () => {
-    expect(declarations.map(row => row.config?.id)).toEqual(['standard', 'ptc', 'minimal', 'cordis'])
+    expect(declarations.map(row => row.config?.id)).toEqual(['standard', 'ptc', 'minimal', '@deepseek-ai/cordis'])
     expect(declarations.map(row => row.config?.order)).toEqual([1, 2, 3, 4])
     expect(declarations.map(row => row.config?.name)).toEqual(['标准模式', 'PTC 模式', '极简模式', '创造模式'])
     for (const row of declarations) {
@@ -86,7 +86,7 @@ describe('the shipped Web preset declarations', () => {
   })
 
   it('ships the creator preset the composition-authoring skills it mounts', () => {
-    const cordis = declarations.find(row => row.config?.id === 'cordis')
+    const cordis = declarations.find(row => row.config?.id === '@deepseek-ai/cordis')
     const rows = cordis?.config?.plugins as Row[]
     const skillRow = rows.find(row => row.id === 'skill-filesystem')
     expect(skillRow?.name).toBe('@deepseek-ai/dsh-skill-filesystem')

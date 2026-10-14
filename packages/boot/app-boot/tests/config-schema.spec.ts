@@ -174,7 +174,7 @@ describe('collectConfigSchemas', () => {
     modules.set('null-config', { Config: null })
     modules.set('standard', { Config: { '~standard': { version: 1, vendor: 'other', validate: vi.fn() } } })
     modules.set('primitive', { Config: 1 })
-    modules.set('no-serializer', { Config: { [Symbol.for('schemastery')]: true } })
+    modules.set('no-serializer', { Config: { [Symbol.for('@deepseek-ai/schemastery')]: true } })
     modules.set('getter', { get Config() { throw new Error('getter failed') } })
     modules.set('empty-module', null)
     const result = await collectConfigSchemas(profile, [
