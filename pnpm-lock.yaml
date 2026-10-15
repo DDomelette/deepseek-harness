@@ -12000,6 +12000,9 @@ importers:
       '@deepseek-ai/dsh-subprocess-ssh':
         specifier: workspace:*
         version: link:../subprocess-ssh
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/ssh/subprocess-ssh:
     dependencies:

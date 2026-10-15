@@ -675,7 +675,7 @@ describe('OutputCollector', () => {
   })
 
   it('reassembles multibyte text delivered byte by byte', () => {
-    const collector = new OutputCollector(1024, 1024, 'utf8-stream', spillDir)
+    const collector = new OutputCollector(1024, 'utf8-stream', spillOptions(1024))
     const text = '中文测试数据'
     let offset = 0
     let streamed = ''
@@ -690,7 +690,7 @@ describe('OutputCollector', () => {
   })
 
   it('contains an unopenable spill and keeps the in-memory tail', () => {
-    const collector = new OutputCollector(4, 100, 'open-fail', spillDir)
+    const collector = new OutputCollector(4, 'open-fail', spillOptions(100))
     collector.push(Buffer.from('aaaa'))
     failNextOpen.value = true
     expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
@@ -702,7 +702,7 @@ describe('OutputCollector', () => {
   })
 
   it.each([1, 2])('contains a spill write failure at write %i and removes the unusable file', (failAt) => {
-    const collector = new OutputCollector(4, 100, `write-fail-${failAt}`, spillDir)
+    const collector = new OutputCollector(4, `write-fail-${failAt}`, spillOptions(100))
     collector.push(Buffer.from('aaaa'))
     failWrites.value = failAt
     expect(() => { collector.push(Buffer.from('bbbb')) }).not.toThrow()
@@ -717,7 +717,7 @@ describe('OutputCollector', () => {
 describe('spill failure reporting', () => {
   it('reports one open failure and never unlinks a path it did not create', () => {
     const reports: Array<{ error: unknown; label: string }> = []
-    const collector = new OutputCollector(4, 100, 'planted', spillDir, (error, label) => { reports.push({ error, label }) })
+    const collector = new OutputCollector(4, 'planted', { maxBytes: 100, dir: spillDir, onFailure: (error, label) => { reports.push({ error, label }) } })
     collector.push(Buffer.from('aaaa'))
     failNextOpen.value = true
     failNextOpen.code = 'EEXIST'
@@ -740,7 +740,7 @@ describe('spill failure reporting', () => {
 
   it('reports an append failure once and keeps collecting', () => {
     const reports: Array<{ error: unknown; label: string }> = []
-    const collector = new OutputCollector(4, 100, 'append-fail', spillDir, (error, label) => { reports.push({ error, label }) })
+    const collector = new OutputCollector(4, 'append-fail', { maxBytes: 100, dir: spillDir, onFailure: (error, label) => { reports.push({ error, label }) } })
     collector.push(Buffer.from('aaaa'))
     failWrites.value = 2
 
@@ -757,7 +757,7 @@ describe('spill failure reporting', () => {
       return true
     })
     try {
-      const collector = new OutputCollector(4, 100, 'reporter-throws', spillDir, () => { throw new Error('logger down') })
+      const collector = new OutputCollector(4, 'reporter-throws', { maxBytes: 100, dir: spillDir, onFailure: () => { throw new Error('logger down') } })
       collector.push(Buffer.from('aaaa'))
       failWrites.value = 1
 
@@ -787,7 +787,7 @@ describe('spill failure reporting', () => {
     })
     try {
       const binding = prepareManagedProcessBinding({ spillDir })
-      const collector = new OutputCollector(4, 100, 'stderr-fallback', binding.spillDir, binding.onSpillFailure)
+      const collector = new OutputCollector(4, 'stderr-fallback', { maxBytes: 100, dir: binding.spillDir, onFailure: binding.onSpillFailure })
       collector.push(Buffer.from('aaaa'))
       failWrites.value = 1
 
