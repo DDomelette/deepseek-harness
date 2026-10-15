@@ -3,13 +3,11 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync } 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
+import { logSpillFailure, OutputCollector, prepareManagedProcessBinding } from '../src/output.ts'
 import {
   bindManagedProcess,
   childEnv,
   killGroup,
-  logSpillFailure,
-  OutputCollector,
-  prepareManagedProcessBinding,
   spawnSubprocess,
   taskkillProcessTree,
   validateSubprocessSpec,

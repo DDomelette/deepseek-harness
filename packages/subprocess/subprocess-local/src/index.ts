@@ -25,12 +25,12 @@ import type {
 import {
   bindManagedProcess,
   childEnv,
-  logSpillFailure,
-  prepareManagedProcessBinding,
   spawnSubprocess,
   validateSubprocessSpec,
 } from './spawn.ts'
-import type { LocalSubprocessHandle, SpawnInternals, SpillFailureReporter } from './spawn.ts'
+import { logSpillFailure, prepareManagedProcessBinding } from './output.ts'
+import type { LocalSubprocessHandle, SpawnInternals } from './spawn.ts'
+import type { SpillFailureReporter } from './output.ts'
 import {
   launchLinuxScope,
   prepareLinuxTerminalScope,

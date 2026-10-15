@@ -222,11 +222,12 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
     'lib/protocol-*.js', 'lib/schemas-*.js', 'lib/stream-security-*.js',
   ],
   // Ordinary native containment ships a path-loaded runner and its shared
-  // runner chunk beside the existing node-pty permission repair. This tree has
-  // no `src/output.ts`, so no `lib/output.js` is emitted yet.
+  // runner chunk beside the existing node-pty permission repair, plus the
+  // bounded-output module the SSH providers collect remote streams with.
   '@deepseek-ai/dsh-subprocess-local': [
     'lib/runner.js',
     'lib/runner-*.js',
+    'lib/output.js',
     'scripts/ensure-spawn-helper.mjs',
   ],
   // tsdown shares the repository/pack code between the lib entry and the bin

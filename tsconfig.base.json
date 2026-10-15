@@ -553,6 +553,7 @@
       "@deepseek-ai/dsh-session-flags/types": ["./packages/session/session-flags/src/types.ts"],
       "@deepseek-ai/dsh-session-log-deepseek/types": ["./packages/session/session-log-deepseek/src/types.ts"],
       "@deepseek-ai/dsh-subprocess/control": ["./packages/subprocess/subprocess/src/control.ts"],
+      "@deepseek-ai/dsh-subprocess-local/output": ["./packages/subprocess/subprocess-local/src/output.ts"],
       "@deepseek-ai/dsh-subprocess-local/runner": ["./packages/subprocess/subprocess-local/src/bin.ts"],
       "@deepseek-ai/dsh-typert-generator/tsdown": ["./packages/typert/generator/src/tsdown-plugin.ts"],
       "@fixture/host/models": ["./packages/typert/generator/tests/fixtures/type-model/packages/host/src/models.ts"],
