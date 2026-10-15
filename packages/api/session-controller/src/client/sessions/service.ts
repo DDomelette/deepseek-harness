@@ -56,6 +56,10 @@ interface RetentionRecord {
  * One owned use of a Client session generation. The binding is the shared
  * per-session object; `release()` drops this reference and the final one lets
  * the scope prune run.
+ *
+ * Acquisition is cancellable for the whole wait, not just at entry: an aborted
+ * `signal` rejects `ready` with its reason and releases this reference, while
+ * the shared open continues for every other waiter.
  */
 export class ClientSessionReference implements SessionReference {
   private released = false
@@ -66,17 +70,27 @@ export class ClientSessionReference implements SessionReference {
    * @param bindingOf - current binding lookup; undefined after teardown.
    * @param opening - the shared initial open attempt.
    * @param leave - release bookkeeping owned by the sessions service.
+   * @param signal - optional waiter cancellation, applied until `ready` settles.
    */
   constructor(
     readonly sessionId: SessionId,
     private readonly bindingOf: () => SessionBinding | undefined,
     opening: Promise<unknown>,
     private readonly leave: () => void,
+    signal?: AbortSignal,
   ) {
-    this.opened = opening.then(() => {
+    const settled = signal === undefined ? opening : Promise.race([opening, abortRejection(signal)])
+    this.opened = settled.then(() => {
+      // The shared open outlives this reference: a released waiter still
+      // settles with the binding its scope holds, and only a pruned scope
+      // (no binding left) fails the wait.
       const binding = this.bindingOf()
-      if (binding === undefined) throw new Error(`ui-session: session ${sessionId} was released before it opened`)
+      if (binding === undefined) throw new Error(`ui-session: session ${sessionId} has no binding`)
       return binding
+    }, (cause: unknown) => {
+      // A cancelled waiter gives up its reference; the shared open stays.
+      this.release()
+      throw cause
     })
   }
 
@@ -96,8 +110,24 @@ export class ClientSessionReference implements SessionReference {
   release(): void {
     if (this.released) return
     this.released = true
+    // A caller that releases without awaiting `ready` must not surface an
+    // unhandled rejection when the scope is pruned before the open settles.
+    void this.opened.catch(() => {})
     this.leave()
   }
+}
+
+/** Reject with the signal's own reason once it aborts, so caller cancellation is indistinguishable from any other abort. */
+function abortRejection(signal: AbortSignal): Promise<never> {
+  return new Promise((_resolve, reject) => {
+    const fail = (): void => {
+      reject(signal.reason instanceof Error
+        ? signal.reason
+        : new Error('ui-session: session reference acquisition was aborted', { cause: signal.reason }))
+    }
+    if (signal.aborted) fail()
+    else signal.addEventListener('abort', fail, { once: true })
+  })
 }
 
 /** Session list row projected from the host list RPC plus live stream increments. */
@@ -126,8 +156,8 @@ export interface SessionSummary {
   projectionValues?: Readonly<Partial<SessionProjectionMap>>
   /**
    * Local reference counts by consumer source; absent sources have no references.
-   * Optional so list fixtures that predate retention stay valid; the service
-   * always projects the counts for rows it derives.
+   * Optional until upstream's consumers arrive: their fixtures always set it, so the
+   * field tightens to required in the same change that imports them.
    */
   retainedBy?: Readonly<Partial<Record<SessionReferenceSource, number>>>
 }
@@ -286,6 +316,8 @@ export class ClientSessions implements ISessions {
   private readonly deferredRemovals = new Set<SessionId>()
   /** Local reference counts by source; a session stays scope-materialized while any reference lives. */
   private readonly retention = new Map<SessionId, RetentionRecord>()
+  /** One observe-only source per session id, allocated on firstetainInfo and kept for the client's life. */
+  private readonly retainObservers = new Map<SessionId, ObservableSnapshot<SessionRetainInfo>>()
 
   /**
    * @param ctx - client root context (scope fibers mount under it).
@@ -357,13 +389,13 @@ export class ClientSessions implements ISessions {
     const record = this.resolve(id)
     if (record === undefined) throw new Error(`ui-session: session ${id} is not addressable`)
     this.addReference(id, options.source)
-    const reference = new ClientSessionReference(
+    return new ClientSessionReference(
       id,
       () => this.resolve(id)?.binding,
       record.session.open(),
       () => { this.dropReference(id, options.source) },
+      options.signal,
     )
-    return reference
   }
 
   /**
@@ -389,11 +421,17 @@ export class ClientSessions implements ISessions {
 
   /**
    * Observe local reference counts without retaining or opening history.
+   *
+   * The returned source is allocated once per session id and keeps its identity
+   * across generations and across the zero-count state, so a hook bound to it
+   * stays bound; its snapshot keeps one identity until the counts actually move.
    * @param id - explicit Session identity.
    * @returns a stable read-only source, with zero counts when none is live.
    */
   retainInfo(id: SessionId): ObservableSnapshot<SessionRetainInfo> {
-    return {
+    const held = this.retainObservers.get(id)
+    if (held !== undefined) return held
+    const source: ObservableSnapshot<SessionRetainInfo> = {
       getSnapshot: () => this.retainInfoOf(id),
       subscribe: (listener) => {
         const record = this.retentionRecord(id)
@@ -401,6 +439,8 @@ export class ClientSessions implements ISessions {
         return () => { record.listeners.delete(listener) }
       },
     }
+    this.retainObservers.set(id, source)
+    return source
   }
 
   /** The session id a retain target names: identities pass through, addresses resolve to their child. */
@@ -409,17 +449,9 @@ export class ClientSessions implements ISessions {
     return target.childSessionId
   }
 
-  /** The current counts for one session, frozen so snapshot identity is stable between changes. */
+  /** The counts one session currently reports; the zero snapshot is shared by identity. */
   private retainInfoOf(id: SessionId): SessionRetainInfo {
-    const record = this.retention.get(id)
-    if (record === undefined) return EMPTY_RETAIN_INFO
-    if (record.published.referenceCount !== record.count) {
-      record.published = Object.freeze({
-        referenceCount: record.count,
-        retainedBy: Object.freeze({ ...record.bySource }),
-      })
-    }
-    return record.published
+    return this.retention.get(id)?.published ?? EMPTY_RETAIN_INFO
   }
 
   private retentionRecord(id: SessionId): RetentionRecord {
@@ -435,7 +467,7 @@ export class ClientSessions implements ISessions {
     const record = this.retentionRecord(id)
     record.count += 1
     record.bySource = { ...record.bySource, [source]: (record.bySource[source] ?? 0) + 1 }
-    this.notifyRetention(id, record)
+    this.publishRetention(record)
   }
 
   private dropReference(id: SessionId, source: SessionReferenceSource): void {
@@ -445,13 +477,21 @@ export class ClientSessions implements ISessions {
     const remaining = held - 1
     record.count -= 1
     record.bySource = remaining > 0 ? { ...otherSources, [source]: remaining } : otherSources
-    this.notifyRetention(id, record)
-    if (record.count === 0) this.retention.delete(id)
+    this.publishRetention(record)
+    // A drained record without observers is released; the observe-only source
+    // keeps its identity and zero snapshot for the life of a subscriber.
+    if (record.count === 0 && record.listeners.size === 0) this.retention.delete(id)
     this.projectList()
   }
 
-  private notifyRetention(id: SessionId, record: RetentionRecord): void {
-    this.retainInfoOf(id)
+  /** Replace the published snapshot, then notify: subscribers always read the counts they were told about. */
+  private publishRetention(record: RetentionRecord): void {
+    record.published = record.count === 0 && Object.keys(record.bySource).length === 0
+      ? EMPTY_RETAIN_INFO
+      : Object.freeze({
+        referenceCount: record.count,
+        retainedBy: Object.freeze({ ...record.bySource }),
+      })
     for (const listener of [...record.listeners]) listener()
   }
 

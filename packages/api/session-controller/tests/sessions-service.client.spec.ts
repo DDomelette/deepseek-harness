@@ -1236,4 +1236,68 @@ describe('ClientSessions retention', () => {
     b.svc.retain(id, { source: 'gateway' }).release()
     expect(listener).toHaveBeenCalledTimes(2)
   })
+
+  it('cancels a waiter mid-acquisition and gives up only its own reference', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r7' }])
+    const id = sid('r7')
+    // A second waiter holds the session, so the shared open is not the caller's alone.
+    const keeper = b.svc.retain(id, { source: 'controllerOperation' })
+    const controller = new AbortController()
+    const cancelled = b.svc.retain(id, { source: 'gateway', signal: controller.signal })
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(2)
+
+    controller.abort(new Error('caller left'))
+    await expect(cancelled.ready).rejects.toThrow('caller left')
+    // Only the cancelled waiter's reference is gone; the keeper still holds the scope.
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(1)
+    expect(() => cancelled.binding).toThrow('reference is released')
+    expect(keeper.binding.sessionId).toBe(id)
+    keeper.release()
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(0)
+  })
+
+  it('keeps one observable source and one snapshot identity per session until the counts move', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r8' }])
+    const id = sid('r8')
+    const first = b.svc.retainInfo(id)
+    const second = b.svc.retainInfo(id)
+    expect(second).toBe(first)
+
+    const zero = first.getSnapshot()
+    expect(first.getSnapshot()).toBe(zero)
+
+    const reference = b.svc.retain(id, { source: 'gateway' })
+    const held = first.getSnapshot()
+    expect(held).not.toBe(zero)
+    expect(first.getSnapshot()).toBe(held)
+    expect(held.referenceCount).toBe(1)
+
+    reference.release()
+    expect(first.getSnapshot().referenceCount).toBe(0)
+    // The observe-only source outlives the reference and keeps reporting zero.
+    expect(b.svc.retainInfo(id)).toBe(first)
+  })
+
+  it('bounds a reference to its generation: release ends binding access and a re-retain mints a new scope', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r9' }])
+    const id = sid('r9')
+    const reference = b.svc.retain(id, { source: 'gateway' })
+    const binding = reference.binding
+    reference.release()
+    expect(() => reference.binding).toThrow('reference is released')
+
+    await feedList(b, [])
+    await Promise.resolve()
+    expect(b.svc.binding(id)).toBeUndefined()
+
+    await feedList(b, [{ id: 'r9' }])
+    const again = b.svc.retain(id, { source: 'gateway' })
+    // A new generation resolves its own binding instead of resurrecting the released one.
+    expect(again.binding).not.toBe(binding)
+    expect(again.binding.sessionId).toBe(id)
+    again.release()
+  })
 })
