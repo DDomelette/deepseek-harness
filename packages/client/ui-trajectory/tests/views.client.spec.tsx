@@ -828,6 +828,10 @@ describe('timeline projection', () => {
     expect(view.container.querySelector('[data-timeline-hover-line]')).toBeTruthy()
     fireEvent.pointerEnter(boundary)
     expect(view.container.querySelector('[data-timeline-hover-line]')).toBeNull()
+    // Keyboard focus answers with the tooltip only while the last input was a
+    // key, so re-enter keyboard modality before focusing: earlier cases in this
+    // file drag the plot with pointer events.
+    fireEvent.keyDown(boundary, { key: 'Tab' })
     fireEvent.focus(boundary)
     expect(screen.getByRole('tooltip').textContent)
       .toContain('Click to load earlier history')

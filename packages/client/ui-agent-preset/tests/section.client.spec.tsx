@@ -325,7 +325,10 @@ describe('a long card description', () => {
       fireEvent.mouseEnter(within(rowFor('zh')).getByText(LONG))
       act(() => { vi.advanceTimersByTime(400) })
 
-      expect(screen.getByRole('tooltip').textContent).toBe(LONG)
+      // The bubble carries `role="tooltip"` but stays out of the accessibility
+      // tree until its layout effect reveals it, so read it by selector the way
+      // the Tooltip's own spec does.
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(LONG)
     } finally {
       vi.useRealTimers()
     }
