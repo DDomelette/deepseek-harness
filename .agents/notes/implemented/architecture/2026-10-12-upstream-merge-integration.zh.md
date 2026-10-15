@@ -100,7 +100,9 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 
 另有两处缺口只记录、不修复。上游的 `packages/ssh/*` 在本树没有对应物：搬运从未引入它，本树没有任何东西引用它，merge base 也从未有过它，因此当前没有路径被破坏——但该能力与上游对应的 win32 排除项一起缺失。以及 present-open 这条路径在上游的 `present-open.ts` 与 fork 版冲突解析中由 fork 版胜出时，丢掉了上游的原生「用其他应用打开」选择器（`packages/client/ui-open-in-app/src/client/*` 与 `workspacePathApplications` Remote）；上游覆盖它的用例随其前置文件一并消失，所以这是自洽的 fork 侧选择，此处写明而不是留作隐含。
 
-**fork 的 `code-runtime*` 家族整体退役。** 上游把该接缝改名为 `ptc-runtime*`，而本次搬运把两种拼写都引入了：`packages/code-runtime/{code-runtime,code-runtime-worker-thread}` 与 `packages/experimental/code-runtime-python` 留在树里，并被 headless、web-app 两个 bundle 补丁以及 `ptc-python-turn` 与 SDK `ptc-turn` 两个快照组合挂载，而所有消费方早已读取上游的 `ptcRuntime` 服务。这些包、它们的子系统页、`type-equiv` 清单条目、tsconfig 别名与项目引用、清单行以及挂载点均已移除；两个 bundle 与两个快照组合现在与上游一致地写 `@deepseek-ai/dsh-ptc-runtime-node` 与 `@deepseek-ai/dsh-experimental-ptc-runtime-python`。近似重复的副本消失后，`pnpm run duplication` 从 36 个 clone 降到 0。
+**fork 的 `code-runtime*` 家族整体退役。** 上游把该接缝改名为 `ptc-runtime*`，而本次搬运把两种拼写都引入了：`packages/code-runtime/{code-runtime,code-runtime-worker-thread}` 与 `packages/experimental/code-runtime-python` 留在树里，并被 headless、web-app 两个 bundle 补丁以及 `ptc-python-turn` 与 SDK `ptc-turn` 两个快照组合挂载，而所有消费方早已读取上游的 `ptcRuntime` 服务。这些包、它们的子系统页、`type-equiv` 清单条目、tsconfig 别名与项目引用、清单行以及挂载点均已移除；两个 bundle 与两个快照组合现在与上游一致地写 `@deepseek-ai/dsh-ptc-runtime-node` 与 `@deepseek-ai/dsh-experimental-ptc-runtime-python`。近似重复的副本消失后，
+
+**上游三个能力组已整组采纳。** 合并后的树现在带有 `packages/browser-use/*`、`packages/computer-use/*`（含 7 个 experimental 提供方与驱动包）与 `packages/deliverables/workspace-changes`，各自附带子系统页、组 README、Agent Note；browser-use 还带了两套 `snapshots/session/browser-use-*` 夹具。browser-use 与 computer-use 保持不挂载，与上游姿态一致。workspace-changes 记录器挂在 Web bundle 的 `ui-deliverables` 之后，因此 Session 日志现在会带上仅入日志的 `workspace/changes` 事件，也就是上游"变更文件卡片"读取的事件；那张卡片属于上游的 `ui-deliverables`，而本 fork 用自研交付 UI 取代了它，所以在该界面移植之前事件只被记录、无人渲染。上游的 `packages/ssh/*` 继续搁置：它的提供方要对着子进程终端扩展、文件系统 `watch` 成员与可执行文件打包脚本编译，这三者应先作为独立改动落地。
 
 ## Alternatives considered
 
