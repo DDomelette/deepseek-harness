@@ -14,13 +14,62 @@ import type { SessionSearchResultItem } from '../sessions/manager.ts'
 import type { SessionBinding, SessionListState } from '../sessions/service.ts'
 import type { SessionFace } from './session.ts'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { SessionReferenceSource } from '../index.ts'
 
 export type { AgentContext } from '../scope.ts'
+
+/** Known Session identity or durable direct-parent subagent address; an address owns no lifetime. */
+export type SessionTarget = SessionId | SubagentAddress
+
+/** One independent use of an exact Client generation, without Host Agent ownership. */
+export interface SessionReference {
+  readonly sessionId: SessionId
+  /** Shared binding; access fails after reference release or generation disposal. */
+  readonly binding: SessionBinding
+  /** This reference's wait for the shared initial `open()` attempt to settle. */
+  readonly ready: Promise<SessionBinding>
+  /** Release once; the final reference lets the local scope and history teardown run. */
+  release(): void
+}
+
+/** Consumer identity and optional cancellation of one acquisition waiter. */
+export interface SessionRetainOptions {
+  readonly source: SessionReferenceSource
+  readonly signal?: AbortSignal | undefined
+}
+
+/** Local ownership counts, independent of catalog membership and never persisted. */
+export interface SessionRetainInfo {
+  readonly referenceCount: number
+  /** Positive source counts only; a source without references is absent. */
+  readonly retainedBy: Readonly<Partial<Record<SessionReferenceSource, number>>>
+}
 
 /** The sessions-service face injected as `ctx.sessions`. */
 export interface ISessions {
   /** The useSessions standard feed (list rows + current selection; read face — writes stay inside the domain). */
   readonly list: ObservableSnapshot<SessionListState>
+  /**
+   * Retain an exact Client generation and start its shared initial history opening.
+   * @param target - known identity or durable direct-parent address.
+   * @param options - required consumer source and optional independent waiter cancellation.
+   * @returns an owned reference immediately; await `reference.ready` when the initial open attempt must settle first.
+   */
+  retain(target: SessionTarget, options: SessionRetainOptions): SessionReference
+  /**
+   * Hold one reference through callback settlement, including synchronous and asynchronous failures.
+   * @param target - Session to acquire.
+   * @param options - source and acquisition cancellation.
+   * @param operation - callback using the reference only until its returned value or Promise settles.
+   * @returns the callback result after release; acquisition and callback failures propagate unchanged.
+   */
+  using<T>(target: SessionTarget, options: SessionRetainOptions, operation: (reference: SessionReference) => T | Promise<T>): Promise<T>
+  /**
+   * Observe local reference counts without retaining or opening history.
+   * @param id - explicit Session identity; Host existence is not implied.
+   * @returns a stable read-only source, with zero counts when none is live.
+   */
+  retainInfo(id: SessionId): ObservableSnapshot<SessionRetainInfo>
   /**
    * The `session.search` result bound the wire schema fixes, exposed to
    * presentation as injected data. Not per-connection state: every transport

@@ -23,17 +23,82 @@ import { SESSION_SEARCH_RESULT_LIMIT } from '../../types.ts'
 import type { SessionJob as JobView } from '../../types.ts'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import {
-  createSnapshotStore, type SnapshotStore,
+  createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-store'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionEventSource } from '../contract/events.ts'
 import type { SessionFace } from '../contract/session.ts'
-import type { AgentContext, ISessions } from '../contract/sessions.ts'
+import type {
+  AgentContext, ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
+} from '../contract/sessions.ts'
+import type { SessionReferenceSource } from '../index.ts'
 import { createScope, scopeOf as scopeTagOf } from '../scope.ts'
 import { SessionManager } from './manager.ts'
 import type { SessionRemotes } from './remotes.ts'
 import type { SessionListPhase, SessionSearchResultItem, SubagentCatalogSnapshot } from './manager.ts'
 import type { Session } from './session.ts'
+
+/** The zero reference counts every session without references reports, shared by identity. */
+const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({
+  referenceCount: 0,
+  retainedBy: Object.freeze({}),
+})
+
+/** Local reference counts for one session, plus the observers reading them. */
+interface RetentionRecord {
+  count: number
+  bySource: Partial<Record<SessionReferenceSource, number>>
+  readonly listeners: Set<() => void>
+  published: SessionRetainInfo
+}
+
+/**
+ * One owned use of a Client session generation. The binding is the shared
+ * per-session object; `release()` drops this reference and the final one lets
+ * the scope prune run.
+ */
+export class ClientSessionReference implements SessionReference {
+  private released = false
+  private readonly opened: Promise<SessionBinding>
+
+  /**
+   * @param sessionId - the generation this reference holds.
+   * @param bindingOf - current binding lookup; undefined after teardown.
+   * @param opening - the shared initial open attempt.
+   * @param leave - release bookkeeping owned by the sessions service.
+   */
+  constructor(
+    readonly sessionId: SessionId,
+    private readonly bindingOf: () => SessionBinding | undefined,
+    opening: Promise<unknown>,
+    private readonly leave: () => void,
+  ) {
+    this.opened = opening.then(() => {
+      const binding = this.bindingOf()
+      if (binding === undefined) throw new Error(`ui-session: session ${sessionId} was released before it opened`)
+      return binding
+    })
+  }
+
+  /** @inheritdoc */
+  get binding(): SessionBinding {
+    const binding = this.released ? undefined : this.bindingOf()
+    if (binding === undefined) throw new Error(`ui-session: session ${this.sessionId} reference is released`)
+    return binding
+  }
+
+  /** @inheritdoc */
+  get ready(): Promise<SessionBinding> {
+    return this.opened
+  }
+
+  /** @inheritdoc */
+  release(): void {
+    if (this.released) return
+    this.released = true
+    this.leave()
+  }
+}
 
 /** Session list row projected from the host list RPC plus live stream increments. */
 export interface SessionSummary {
@@ -59,6 +124,12 @@ export interface SessionSummary {
   updatedAt: number
   /** Current host-computed projection values retained by the object layer. */
   projectionValues?: Readonly<Partial<SessionProjectionMap>>
+  /**
+   * Local reference counts by consumer source; absent sources have no references.
+   * Optional so list fixtures that predate retention stay valid; the service
+   * always projects the counts for rows it derives.
+   */
+  retainedBy?: Readonly<Partial<Record<SessionReferenceSource, number>>>
 }
 
 /**
@@ -213,6 +284,8 @@ export class ClientSessions implements ISessions {
   private watched: SessionId | undefined
   /** Removed-while-staged sessions whose teardown waits for the stage to move away. */
   private readonly deferredRemovals = new Set<SessionId>()
+  /** Local reference counts by source; a session stays scope-materialized while any reference lives. */
+  private readonly retention = new Map<SessionId, RetentionRecord>()
 
   /**
    * @param ctx - client root context (scope fibers mount under it).
@@ -255,6 +328,7 @@ export class ClientSessions implements ISessions {
       const scopes = [...this.scopes]
       this.scopes.clear()
       this.deferredRemovals.clear()
+      this.retention.clear()
       this.watched = undefined
       for (const [id, record] of scopes) this.startScopeDrop(id, record)
       await this.drainScopeDrops()
@@ -269,6 +343,116 @@ export class ClientSessions implements ISessions {
    */
   open(id: SessionId): void {
     this.manager.select(id)
+  }
+
+  /**
+   * Retain an exact Client generation and start its shared initial history opening.
+   * @param target - known identity or durable direct-parent address.
+   * @param options - required consumer source and optional waiter cancellation.
+   * @returns an owned reference; await `reference.ready` when the initial open must settle first.
+   */
+  retain(target: SessionTarget, options: SessionRetainOptions): SessionReference {
+    options.signal?.throwIfAborted()
+    const id = this.targetId(target)
+    const record = this.resolve(id)
+    if (record === undefined) throw new Error(`ui-session: session ${id} is not addressable`)
+    this.addReference(id, options.source)
+    const reference = new ClientSessionReference(
+      id,
+      () => this.resolve(id)?.binding,
+      record.session.open(),
+      () => { this.dropReference(id, options.source) },
+    )
+    return reference
+  }
+
+  /**
+   * Hold one reference through callback settlement.
+   * @param target - Session to acquire.
+   * @param options - source and acquisition cancellation.
+   * @param operation - callback using the reference only until its result settles.
+   * @returns the callback result after release.
+   */
+  async using<T>(
+    target: SessionTarget,
+    options: SessionRetainOptions,
+    operation: (reference: SessionReference) => T | Promise<T>,
+  ): Promise<T> {
+    const reference = this.retain(target, options)
+    try {
+      await reference.ready
+      return await operation(reference)
+    } finally {
+      reference.release()
+    }
+  }
+
+  /**
+   * Observe local reference counts without retaining or opening history.
+   * @param id - explicit Session identity.
+   * @returns a stable read-only source, with zero counts when none is live.
+   */
+  retainInfo(id: SessionId): ObservableSnapshot<SessionRetainInfo> {
+    return {
+      getSnapshot: () => this.retainInfoOf(id),
+      subscribe: (listener) => {
+        const record = this.retentionRecord(id)
+        record.listeners.add(listener)
+        return () => { record.listeners.delete(listener) }
+      },
+    }
+  }
+
+  /** The session id a retain target names: identities pass through, addresses resolve to their child. */
+  private targetId(target: SessionTarget): SessionId {
+    if (typeof target === 'string') return target as SessionId
+    return target.childSessionId
+  }
+
+  /** The current counts for one session, frozen so snapshot identity is stable between changes. */
+  private retainInfoOf(id: SessionId): SessionRetainInfo {
+    const record = this.retention.get(id)
+    if (record === undefined) return EMPTY_RETAIN_INFO
+    if (record.published.referenceCount !== record.count) {
+      record.published = Object.freeze({
+        referenceCount: record.count,
+        retainedBy: Object.freeze({ ...record.bySource }),
+      })
+    }
+    return record.published
+  }
+
+  private retentionRecord(id: SessionId): RetentionRecord {
+    let record = this.retention.get(id)
+    if (record === undefined) {
+      record = { count: 0, bySource: {}, listeners: new Set(), published: EMPTY_RETAIN_INFO }
+      this.retention.set(id, record)
+    }
+    return record
+  }
+
+  private addReference(id: SessionId, source: SessionReferenceSource): void {
+    const record = this.retentionRecord(id)
+    record.count += 1
+    record.bySource = { ...record.bySource, [source]: (record.bySource[source] ?? 0) + 1 }
+    this.notifyRetention(id, record)
+  }
+
+  private dropReference(id: SessionId, source: SessionReferenceSource): void {
+    const record = this.retention.get(id)
+    if (record === undefined) return
+    const { [source]: held = 0, ...otherSources } = record.bySource
+    const remaining = held - 1
+    record.count -= 1
+    record.bySource = remaining > 0 ? { ...otherSources, [source]: remaining } : otherSources
+    this.notifyRetention(id, record)
+    if (record.count === 0) this.retention.delete(id)
+    this.projectList()
+  }
+
+  private notifyRetention(id: SessionId, record: RetentionRecord): void {
+    this.retainInfoOf(id)
+    for (const listener of [...record.listeners]) listener()
   }
 
   /**
@@ -585,7 +769,7 @@ export class ClientSessions implements ISessions {
   /** The one aliveness predicate shared by scope mint and prune: host-listed or currently addressed. */
   private eligible(id: SessionId): boolean {
     const { ids, current } = this.list.getSnapshot()
-    return current === id || ids.includes(id)
+    return current === id || ids.includes(id) || (this.retention.get(id)?.count ?? 0) > 0
   }
 
   /** Project the manager's list snapshot into the store (title derivation is display-only). */
@@ -604,6 +788,7 @@ export class ClientSessions implements ISessions {
         ...(entry.completed ? { completed: true } : {}),
         blank: entry.blank,
         updatedAt: entry.updatedAt,
+        retainedBy: this.retainInfoOf(entry.sessionId).retainedBy,
         ...(entry.projectionValues === undefined
           ? {}
           : { projectionValues: entry.projectionValues }),
@@ -633,6 +818,7 @@ export class ClientSessions implements ISessions {
             running: child.activity === 'running',
             blank: false,
             updatedAt: 0,
+            retainedBy: this.retainInfoOf(childId).retainedBy,
           }
         } else if (summary.displayTitle !== displayTitle) {
           byId[childId] = { ...summary, displayTitle }

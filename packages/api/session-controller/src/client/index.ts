@@ -49,6 +49,9 @@ export type {
   SubmissionHandle,
 } from './contract/session.ts'
 export type { ISessions } from './contract/sessions.ts'
+export type {
+  SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
+} from './contract/sessions.ts'
 export { MutableSessionEventSource } from './contract/events.ts'
 export type {
   AssistantLiveChunkEvent,
@@ -80,6 +83,17 @@ declare module '@deepseek-ai/cordis' {
     sessions: import('./contract/sessions.ts').ISessions
   }
 }
+
+/** Consumer-owned reference labels; extend this map through the package's canonical /client entry. */
+export interface SessionReferenceSourceMap {
+  /** Temporary Client Controller work, including fork-title preparation. */
+  controllerOperation: unknown
+  /** A Client Gateway invocation's synchronous Context ownership. */
+  gateway: unknown
+}
+
+/** Declaration-merge-extensible labels carried by independent Client references. */
+export type SessionReferenceSource = Extract<keyof SessionReferenceSourceMap, string>
 
 /** Required Remote and Context projection services. */
 export const inject = [

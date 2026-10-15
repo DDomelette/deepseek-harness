@@ -1152,3 +1152,88 @@ describe('coverage tails (branch duals)', () => {
   })
 
 })
+
+describe('ClientSessions retention', () => {
+  it('counts references by source, projects them into the list, and releases idempotently', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r1' }])
+    const id = sid('r1')
+
+    const first = b.svc.retain(id, { source: 'controllerOperation' })
+    await Promise.resolve()
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(1)
+
+    const second = b.svc.retain(id, { source: 'gateway' })
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(2)
+    expect(b.svc.retainInfo(id).getSnapshot().retainedBy?.gateway).toBe(1)
+
+    second.release()
+    second.release()
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(1)
+    expect(b.svc.retainInfo(id).getSnapshot().retainedBy?.gateway).toBeUndefined()
+
+    first.release()
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(0)
+  })
+
+  it('releases through using() when the operation fails', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r2' }])
+    const id = sid('r2')
+    await expect(b.svc.using(id, { source: 'gateway' }, () => { throw new Error('boom') }))
+      .rejects.toThrow('boom')
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(0)
+  })
+
+  it('resolves through using() and reports the binding to the operation', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r3' }])
+    const id = sid('r3')
+    const seen = await b.svc.using(id, { source: 'gateway' }, reference => reference.sessionId)
+    expect(seen).toBe(id)
+    expect(b.svc.retainInfo(id).getSnapshot().referenceCount).toBe(0)
+  })
+
+  it('refuses an unaddressable target and an already-aborted acquisition', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r4' }])
+    expect(() => b.svc.retain(sid('missing'), { source: 'gateway' })).toThrow('is not addressable')
+    const controller = new AbortController()
+    controller.abort()
+    expect(() => b.svc.retain(sid('r4'), { source: 'gateway', signal: controller.signal })).toThrow()
+    expect(b.svc.retainInfo(sid('r4')).getSnapshot().referenceCount).toBe(0)
+  })
+
+  it('keeps a retained session materialized after the host list drops it, and prunes on release', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r5' }])
+    const id = sid('r5')
+    const reference = b.svc.retain(id, { source: 'gateway' })
+    await reference.ready
+    expect(b.svc.binding(id)).toBeDefined()
+
+    await feedList(b, [])
+    await Promise.resolve()
+    // The reference keeps the scope alive past list membership.
+    expect(b.svc.binding(id)).toBeDefined()
+
+    reference.release()
+    await Promise.resolve()
+    expect(b.svc.binding(id)).toBeUndefined()
+  })
+
+  it('notifies retainInfo observers on every count change', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'r6' }])
+    const id = sid('r6')
+    const listener = vi.fn()
+    const stop = b.svc.retainInfo(id).subscribe(listener)
+    const reference = b.svc.retain(id, { source: 'gateway' })
+    expect(listener).toHaveBeenCalledTimes(1)
+    reference.release()
+    expect(listener).toHaveBeenCalledTimes(2)
+    stop()
+    b.svc.retain(id, { source: 'gateway' }).release()
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+})

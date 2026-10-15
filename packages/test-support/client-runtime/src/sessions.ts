@@ -6,6 +6,7 @@ import {
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
   AgentContext, ISessions, ProjectionsFace, SessionBinding, SessionFace, SessionListState,
+  SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,
   SessionSnapshot, SessionSummary, SubmissionHandle,
 } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -179,6 +180,9 @@ interface SessionRecord {
   binding: SessionBinding | undefined
 }
 
+/** The zero-count retention snapshot the double reports for every id. */
+const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({ referenceCount: 0, retainedBy: Object.freeze({}) })
+
 /**
  * Sessions test double behind the renderer host and feature injects: owns the
  * list/current observable, scope minting through the production `createScope`,
@@ -190,6 +194,7 @@ interface SessionRecord {
  * members (add/updateSessionSnapshot/event-window drivers/setCurrent/remove/
  * behavior/calls/stubs) are bench-only surface.
  */
+
 export class TestSessions implements ISessions {
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>
@@ -389,6 +394,48 @@ export class TestSessions implements ISessions {
       record.scopeFiber = handle.fiber
     }
     return record.scope
+  }
+
+  /**
+   * Retain a fixture Session; the double keeps no teardown, so the reference is bookkeeping only.
+   * @param target - Session identity or addressed child.
+   * @param options - consumer source and optional cancellation.
+   * @returns an owned reference over the fixture binding.
+   */
+  retain(target: SessionTarget, options: SessionRetainOptions): SessionReference {
+    options.signal?.throwIfAborted()
+    const id = (typeof target === 'string' ? target : target.childSessionId) as SessionId
+    const binding = this.binding(id)
+    if (binding === undefined) throw new Error(`test-runtime: session ${id} is not addressable`)
+    return { sessionId: id, binding, ready: Promise.resolve(binding), release: () => {} }
+  }
+
+  /**
+   * Hold one fixture reference through callback settlement.
+   * @param target - Session to acquire.
+   * @param options - source and optional cancellation.
+   * @param operation - callback using the reference until its result settles.
+   * @returns the callback result after release.
+   */
+  async using<T>(
+    target: SessionTarget,
+    options: SessionRetainOptions,
+    operation: (reference: SessionReference) => T | Promise<T>,
+  ): Promise<T> {
+    const reference = this.retain(target, options)
+    try {
+      return await operation(reference)
+    } finally {
+      reference.release()
+    }
+  }
+
+  /**
+   * Report the double's local reference counts: it retains nothing, so every id reads zero.
+   * @returns a stable zero-count source.
+   */
+  retainInfo(): ObservableSnapshot<SessionRetainInfo> {
+    return { getSnapshot: () => EMPTY_RETAIN_INFO, subscribe: () => () => {} }
   }
 
   /**

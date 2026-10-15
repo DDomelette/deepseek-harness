@@ -77,6 +77,9 @@ function fakeSessions(ctx: Context): { sessions: ISessions; binding: SessionBind
     jobsBySession: {},
     currentAddress: undefined,
   })
+  const reference = () => ({
+    sessionId: SESSION_ID, binding, ready: Promise.resolve(binding), release: () => {},
+  })
   const sessions = {
     list,
     deleteSession: async (id: SessionId) => [id],
@@ -94,6 +97,12 @@ function fakeSessions(ctx: Context): { sessions: ISessions; binding: SessionBind
     scope: id => id === SESSION_ID ? binding.ctx : undefined,
     scopeOf: candidate => candidate === binding.ctx ? SESSION_ID : undefined,
     sessionOf: candidate => candidate === binding.ctx ? binding.session : undefined,
+    retain: () => reference(),
+    using: (_target, _options, operation) => Promise.resolve(operation(reference())),
+    retainInfo: () => ({
+      getSnapshot: () => ({ referenceCount: 0, retainedBy: {} }),
+      subscribe: () => () => {},
+    }),
     binding: id => id === SESSION_ID ? binding : undefined,
   } satisfies ISessions
   return { sessions, binding }
