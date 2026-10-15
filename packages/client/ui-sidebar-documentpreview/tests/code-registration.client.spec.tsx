@@ -6,7 +6,7 @@ import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply } from '../src/client/code/index.ts'
 import { CodeBody } from '../src/client/code/CodeBody.tsx'
-import { CODE_HIGHLIGHT_EXTENSIONS as CODE_EXTENSIONS } from '@deepseek-ai/dsh-util-code-language'
+import { CODE_HIGHLIGHT_EXTENSIONS as CODE_EXTENSIONS } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import { documentTabInfoFactory } from '../src/client/document/contract.ts'
 
