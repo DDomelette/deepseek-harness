@@ -1,11 +1,11 @@
 /**
- * Settings-namespace scope contracts owned beside the settings transport.
+ * Client configuration values and atomic write operations.
  */
 
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 
 /** Client-side sync state of one settings namespace. */
-export interface SettingsScopeSnapshot<T> {
+export interface ConfigFormSnapshot<T> {
   /**
    * `loading` until the first accepted section, `ready` while one stands, and
    * `unavailable` when the namespace is not exposed to this client or the
@@ -33,27 +33,12 @@ export interface SettingsScopeSnapshot<T> {
   mode: 'host' | 'memory'
 }
 
-/** Domain-owned description of one settings namespace consumed by a browser plugin. */
-export interface SettingsScopeSpec<T> {
-  /** Settings namespace registered by the owning Host plugin. */
-  namespace: string
-  /**
-   * Narrow one wire section; undefined keeps the last accepted value. The
-   * default validates the section against the namespace's own serialized wire
-   * schema, so domains add a decoder only to narrow beyond that schema.
-   */
-  decode?: (section: unknown) => T | undefined
-}
-
 /**
- * Reactive owner handle over one namespace's durable section — the browser
- * mirror of the Host-side `SettingsScope` owner seam. Domain services read
- * and observe the snapshot and route explicit user choices through its
- * mutation methods.
+ * Accepted values and serialized writes shared by editors of one Host entry.
  */
-export interface SettingsScope<T> {
+export interface ConfigForm<T> {
   /** @returns the current sync snapshot (stable reference until the next change). */
-  getSnapshot(): SettingsScopeSnapshot<T>
+  getSnapshot(): ConfigFormSnapshot<T>
   /**
    * Observe snapshot replacements.
    * @param listener - invoked after each snapshot change.
@@ -67,23 +52,26 @@ export interface SettingsScope<T> {
    * the latest queued or mirrored revision.
    * @param ops - ordered field operations copied when queued.
    * @param expectedRevision - optional fixed revision read by the domain editor.
-   * @returns whether the Host accepted the mutation, after any latest-write recovery read.
+   * @returns true for Host acceptance, false for refusal or skipped writes, after any latest-write recovery.
+   * Transport failures reject.
    */
   mutate(ops: readonly SettingsPathOpView[], expectedRevision?: number): Promise<boolean>
   /**
    * Queue one field write. Rapid writes preserve mutation order, each carries
    * the latest known namespace revision, and only the latest settlement may
-   * publish; a rejected or failed latest write reloads Host state instead.
+   * publish; a Host-refused latest write reloads Host state instead.
    * @param field - scalar field inside the namespace section.
    * @param value - JSON-shaped value selected by the user.
-   * @returns settlement after the write and any latest-write recovery read.
+   * @returns true for Host acceptance, false for refusal or skipped writes, after any latest-write recovery.
+   * Transport failures reject.
    */
-  set(field: string, value: unknown): Promise<void>
+  set(field: string, value: unknown): Promise<boolean>
   /**
    * Queue one field clear, so the field re-inherits the composition layer.
    * Shares {@link set}'s ordering, revision, and recovery contract.
    * @param field - scalar field inside the namespace section.
-   * @returns settlement after the clear and any latest-write recovery read.
+   * @returns true for Host acceptance, false for refusal or skipped writes, after any latest-write recovery.
+   * Transport failures reject.
    */
-  unset(field: string): Promise<void>
+  unset(field: string): Promise<boolean>
 }

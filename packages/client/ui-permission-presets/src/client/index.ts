@@ -46,7 +46,7 @@ export type {
 /** Required services (cordis fiber inject). */
 export const inject = [
   'commandUi', 'sessions', 'slots', 'locale', 'remote', 'remote.permissionPresets', 'remote.settings',
-  'settingsScope',
+  'configForms',
 ]
 
 const ACCESS_NS = 'permission.access'
@@ -129,8 +129,8 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => ctx.locale.register('settings.permission', { zh, en }), 'ui-permission: settings row dictionaries')
 
-  // The shared SettingsScope mirror updates after document commits and reconnects.
-  const controller = new PermissionPresetSettingsController(ctx.settingsScope.describe(), ctx)
+  // The shared ConfigForm mirror updates after document commits and reconnects.
+  const controller = new PermissionPresetSettingsController(ctx.configForms.describe(), ctx)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
   const injected = (): PermissionRowInjected => ({

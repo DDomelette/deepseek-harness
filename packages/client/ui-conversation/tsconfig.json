@@ -84,7 +84,7 @@
       "path": "../../interaction/permission-presets"
     },
     {
-      "path": "../ui-settings"
+      "path": "../ui-settings/tsconfig.client.json"
     },
     {
       "path": "../../util/crypto"

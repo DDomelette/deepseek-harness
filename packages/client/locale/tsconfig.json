@@ -30,7 +30,7 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../ui-settings"
+      "path": "../ui-settings/tsconfig.client.json"
     }
   ]
 }

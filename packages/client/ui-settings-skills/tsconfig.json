@@ -27,7 +27,7 @@
       "path": "../../api/workspace-controller/tsconfig.client.json"
     },
     {
-      "path": "../ui-settings"
+      "path": "../ui-settings/tsconfig.client.json"
     },
     {
       "path": "../locale"

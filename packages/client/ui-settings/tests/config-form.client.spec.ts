@@ -6,9 +6,9 @@ import type {
 } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SettingsSchemaService } from '../src/client/schema.ts'
-import { SettingsScopeController, SettingsScopeBinder } from '../src/client/settings-scope.ts'
+import { ConfigFormController, ConfigForms } from '../src/client/config-form.ts'
 import { SettingsDescribeMirror } from '../src/client/settings-mirror.ts'
 
 const settingsSchema = new SettingsSchemaService(new Context())
@@ -44,10 +44,9 @@ function view(value: JsonValue, revision = 0): SettingsNamespaceView {
     ns: 'ui-test',
     // `toJSON()` already produced the wire envelope; its declared type is the
     // schema builder's, so one cast names what the Host actually sends.
-    schema: ENVELOPE as unknown as JsonValue,
+    schema: JSON.parse(JSON.stringify(ENVELOPE)) as JsonValue,
     value,
-    autoGenerate: true,
-    applies: 'live',
+    autoGenerate: true, applies: 'live',
     secrets: [],
     revision,
   }
@@ -71,12 +70,12 @@ function derivedScope(
 ) {
   const ctx = ctxWith(api)
   const mirror = new SettingsDescribeMirror(ctx)
-  const scope = new SettingsScopeController<UiTestSettings>(ctx, spec, mirror, 'host', settingsSchema)
+  const scope = new ConfigFormController<UiTestSettings>(ctx, spec, mirror, 'host', settingsSchema)
   return { mirror, scope }
 }
 
 /** Record each distinct published section, starting from the current one. */
-function trackValues(scope: SettingsScope<UiTestSettings>): Array<UiTestSettings | undefined> {
+function trackValues(scope: ConfigForm<UiTestSettings>): Array<UiTestSettings | undefined> {
   const seen: Array<UiTestSettings | undefined> = [scope.getSnapshot().value]
   scope.subscribe(() => {
     const value = scope.getSnapshot().value
@@ -85,7 +84,7 @@ function trackValues(scope: SettingsScope<UiTestSettings>): Array<UiTestSettings
   return seen
 }
 
-describe('SettingsScopeController', () => {
+describe('ConfigFormController', () => {
   it('starts loading and derives a schema-valid section with revision and writability', async () => {
     const describeCall = vi.fn().mockResolvedValueOnce(described({ preference: 'dark' }, 3))
     const { mirror, scope } = derivedScope({ describe: describeCall })
@@ -195,7 +194,9 @@ describe('SettingsScopeController', () => {
 
     const write = scope.mutate(ops)
     ops[0] = { op: 'unset', path: ['enabled'] }
-    ;(ops[1] as unknown as { value: Array<{ model: string }> }).value[0]!.model = 'changed'
+    const queued = ops[1]
+    if (queued?.op !== 'set' || !Array.isArray(queued.value)) throw new Error('expected a set operation with a list value')
+    ;(queued.value[0] as { model: string }).model = 'changed'
     await write
 
     expect(mutate).toHaveBeenCalledWith(
@@ -238,8 +239,8 @@ describe('SettingsScopeController', () => {
     const mutate = vi.fn().mockResolvedValueOnce(ok(view({ preference: 'dark' }, 5)))
     const ctx = ctxWith({ describe: describeCall, mutate })
     const mirror = new SettingsDescribeMirror(ctx)
-    const writer = new SettingsScopeController<UiTestSettings>(ctx, { namespace: 'ui-test' }, mirror, 'host', settingsSchema)
-    const sibling = new SettingsScopeController<UiTestSettings>(ctx, { namespace: 'ui-test' }, mirror, 'host', settingsSchema)
+    const writer = new ConfigFormController<UiTestSettings>(ctx, { namespace: 'ui-test' }, mirror, 'host', settingsSchema)
+    const sibling = new ConfigFormController<UiTestSettings>(ctx, { namespace: 'ui-test' }, mirror, 'host', settingsSchema)
     await mirror.load()
     await writer.set('preference', 'dark')
     expect(describeCall).toHaveBeenCalledTimes(1)
@@ -338,8 +339,8 @@ describe('SettingsScopeController', () => {
       throw new Error('write subscriber failed')
     })
 
-    await expect(scope.set('preference', 'dark')).resolves.toBeUndefined()
-    await expect(scope.set('preference', 'light')).resolves.toBeUndefined()
+    await expect(scope.set('preference', 'dark')).resolves.toBe(true)
+    await expect(scope.set('preference', 'light')).resolves.toBe(true)
 
     expect(mutate).toHaveBeenCalledTimes(2)
     expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'light' }, revision: 3 })
@@ -361,7 +362,7 @@ describe('SettingsScopeController', () => {
     })
 
     await expect(scope.set('preference', 'dark')).rejects.toThrow('mirror fold failed')
-    await expect(scope.set('preference', 'light')).resolves.toBeUndefined()
+    await expect(scope.set('preference', 'light')).resolves.toBe(true)
 
     expect(mutate).toHaveBeenCalledTimes(2)
     expect(mutate).toHaveBeenNthCalledWith(2,
@@ -422,7 +423,7 @@ describe('SettingsScopeController', () => {
         return () => {}
       },
     } as never
-    const scope = new SettingsScopeController<UiTestSettings>(
+    const scope = new ConfigFormController<UiTestSettings>(
       ctxWith({}), { namespace: 'ui-test' }, mirror, 'host', settingsSchema)
     expect(scope.getSnapshot()).toMatchObject({ value: { preference: 'dark' }, revision: 1 })
 
@@ -441,7 +442,7 @@ describe('SettingsScopeController', () => {
     const mutate = vi.fn()
     const ctx = ctxWith({ describe: describeCall, mutate })
     const mirror = new SettingsDescribeMirror(ctx, 'memory')
-    const scope = new SettingsScopeController<UiTestSettings>(
+    const scope = new ConfigFormController<UiTestSettings>(
       ctx, { namespace: 'ui-test' }, mirror, 'memory', settingsSchema)
     expect(scope.getSnapshot()).toEqual({
       status: 'unavailable', value: undefined, revision: undefined, writable: false, mode: 'memory',
@@ -513,21 +514,21 @@ describe('SettingsScopeController', () => {
   })
 })
 
-describe('SettingsScopeBinder.bind', () => {
-  it('shares one mirror read across bound scopes and disposes each with its fiber', async () => {
+describe('ConfigForms.get', () => {
+  it('shares accepted values and one write queue across consumers of the same entry', async () => {
     const describeCall = vi.fn().mockResolvedValue(described({ preference: 'dark' }, 1))
     const mirror = new SettingsDescribeMirror(ctxWith({ describe: describeCall }))
     const ctx = new Context()
-    let theme!: SettingsScope<UiTestSettings>
-    let locale!: SettingsScope<UiTestSettings>
+    let theme!: ConfigForm<UiTestSettings>
+    let locale!: ConfigForm<UiTestSettings>
     new TestRemote(ctx, { settings: { describe: describeCall } })
-    await ctx.plugin(SettingsScopeBinder, { mirror, schema: settingsSchema, persistence: 'host' }).await()
-    expect(ctx.settingsScope.describe()).toBe(mirror)
+    await ctx.plugin(ConfigForms, { mirror, schema: settingsSchema, persistence: 'host' }).await()
+    expect(ctx.configForms.describe()).toBe(mirror)
     const fiber = ctx.plugin({
-      inject: ['remote', 'settingsScope'],
+      inject: ['remote', 'configForms'],
       apply: (plugin: Context) => {
-        theme = plugin.settingsScope.bind<UiTestSettings>({ namespace: 'ui-test' })
-        locale = plugin.settingsScope.bind<UiTestSettings>({ namespace: 'ui-test' })
+        theme = plugin.configForms.get<UiTestSettings>('ui-test')
+        locale = plugin.configForms.get<UiTestSettings>('ui-test')
       },
     })
     await fiber.await()
@@ -536,6 +537,7 @@ describe('SettingsScopeBinder.bind', () => {
       expect(locale.getSnapshot()).toMatchObject({ status: 'ready', value: { preference: 'dark' } })
     })
     expect(describeCall).toHaveBeenCalledTimes(1)
+    expect(theme).toBe(locale)
     await fiber.dispose()
     await mirror.load()
     expect(theme.getSnapshot()).toMatchObject({ revision: 1 })
@@ -545,13 +547,13 @@ describe('SettingsScopeBinder.bind', () => {
     const describeCall = vi.fn()
     const mirror = new SettingsDescribeMirror(ctxWith({ describe: describeCall }), 'memory')
     const ctx = new Context()
-    let scope!: SettingsScope<UiTestSettings>
+    let scope!: ConfigForm<UiTestSettings>
     new TestRemote(ctx, { settings: { describe: describeCall } })
-    await ctx.plugin(SettingsScopeBinder, { mirror, schema: settingsSchema, persistence: 'memory' }).await()
+    await ctx.plugin(ConfigForms, { mirror, schema: settingsSchema, persistence: 'memory' }).await()
     const fiber = ctx.plugin({
-      inject: ['remote', 'settingsScope'],
+      inject: ['remote', 'configForms'],
       apply: (plugin: Context) => {
-        scope = plugin.settingsScope.bind<UiTestSettings>({ namespace: 'ui-test' })
+        scope = plugin.configForms.get<UiTestSettings>('ui-test')
       },
     })
     await fiber.await()

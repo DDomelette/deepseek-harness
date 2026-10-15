@@ -9,8 +9,8 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: the wire types plus the ctx.remote Context merge carrying the
 // generated `mcpServers` namespace face.
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
-import { type SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { type SettingsPathOpView as SettingsScopeMutation } from '@deepseek-ai/dsh-api-remotes/client'
+import { type ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import { type SettingsPathOpView as ConfigFormMutation } from '@deepseek-ai/dsh-api-remotes/client'
 import type { McpSettingsTabInjected } from './McpSettingsTab.tsx'
 import type { NewServerDraft } from './AddServerForm.tsx'
 import type { ServerPatch } from './EditServerForm.tsx'
@@ -71,7 +71,7 @@ export class McpTabController {
    * @param remote - the generated `mcpServers` Remote namespace face.
    */
   constructor(
-    private readonly scope: SettingsScope<McpServersSettings>,
+    private readonly scope: ConfigForm<McpServersSettings>,
     private readonly remote: McpServersRemote,
   ) {}
 
@@ -136,7 +136,7 @@ export class McpTabController {
   private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
     if (this.scope.getSnapshot().value?.servers?.[serverName] === undefined) return 'loadFailed'
     const { unsetTimeout, ...fields } = patch
-    const ops: SettingsScopeMutation[] = []
+    const ops: ConfigFormMutation[] = []
     if (unsetTimeout === true) {
       ops.push({ op: 'unset', path: [ROSTER_FIELD, serverName, 'toolCallTimeoutMs'] })
     }

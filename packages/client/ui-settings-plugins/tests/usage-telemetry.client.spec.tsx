@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { bindSnapshotSelector, makeTranslate, stubSettingsScope, workspaceSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate, stubConfigForm, workspaceSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
 import { UsageTelemetryCard, type UsageTelemetryCardProps } from '../src/client/UsageTelemetryCard.tsx'
 import { UsageTelemetryCardController, type UsageTelemetrySettings } from '../src/client/usage-telemetry-card-controller.ts'
 import { en } from '../src/client/locales.ts'
@@ -9,7 +9,7 @@ import { en } from '../src/client/locales.ts'
 afterEach(cleanup)
 
 function bench() {
-  const host = stubSettingsScope<UsageTelemetrySettings>()
+  const host = stubConfigForm<UsageTelemetrySettings>()
   const controller = new UsageTelemetryCardController(host.scope)
   onTestFinished(() => { controller.dispose() })
   const face = controller.inject()

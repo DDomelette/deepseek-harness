@@ -51,7 +51,7 @@
       "path": "../../client/ui-session"
     },
     {
-      "path": "../../client/ui-settings"
+      "path": "../../client/ui-settings/tsconfig.client.json"
     },
     {
       "path": "../../subagent/subagent"

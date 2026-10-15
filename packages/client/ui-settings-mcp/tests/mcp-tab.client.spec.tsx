@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
@@ -11,7 +11,7 @@ import { McpTabController, type McpServersSettings } from '../src/client/mcp-tab
 import type { McpServerSettingsEntry } from '../src/client/mcp-tab-controller.ts'
 import type { NewServerDraft } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 afterEach(cleanup)
 
@@ -373,7 +373,7 @@ describe('McpSettingsTab', () => {
 
 describe('McpTabController', () => {
   function scopeStub(value: McpServersSettings | undefined) {
-    const snapshot: SettingsScopeSnapshot<McpServersSettings> = {
+    const snapshot: ConfigFormSnapshot<McpServersSettings> = {
       status: value === undefined ? 'loading' : 'ready',
       value,
       base: undefined,
@@ -382,10 +382,10 @@ describe('McpTabController', () => {
       writable: true,
       mode: 'host',
     }
-    const set = vi.fn<SettingsScope<McpServersSettings>['set']>().mockResolvedValue()
-    const unset = vi.fn<SettingsScope<McpServersSettings>['unset']>().mockResolvedValue()
-    const mutate = vi.fn<SettingsScope<McpServersSettings>['mutate']>().mockResolvedValue(true)
-    const scope: SettingsScope<McpServersSettings> = {
+    const set = vi.fn<ConfigForm<McpServersSettings>['set']>().mockResolvedValue(true)
+    const unset = vi.fn<ConfigForm<McpServersSettings>['unset']>().mockResolvedValue(true)
+    const mutate = vi.fn<ConfigForm<McpServersSettings>['mutate']>().mockResolvedValue(true)
+    const scope: ConfigForm<McpServersSettings> = {
       getSnapshot: () => snapshot,
       subscribe: () => () => {},
       set,

@@ -3,7 +3,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { type Context as ClientContext } from '@deepseek-ai/cordis'
-// Type-only: the settings surface's ctx.settingsScope Context merge.
+// Type-only: the settings surface's ctx.configForms Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the ctx.remote Context merge and the mcpServers wire types.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
@@ -25,14 +25,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const NS = 'settings.mcp'
 
 /** Services required by the Settings registration and generated Remote face. */
-export const inject = ['slots', 'locale', 'remote', 'remote.mcpServers', 'settingsScope']
+export const inject = ['slots', 'locale', 'remote', 'remote.mcpServers', 'configForms']
 
 /** Contribute the MCP tab to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-mcp: dictionaries')
   const t = ctx.locale.bind(NS)
   const controller = new McpTabController(
-    ctx.settingsScope.bind<McpServersSettings>({ namespace: MCP_SERVERS_NS }),
+    ctx.configForms.get<McpServersSettings>(MCP_SERVERS_NS),
     ctx.remote.mcpServers,
   )
   const face = controller.face()

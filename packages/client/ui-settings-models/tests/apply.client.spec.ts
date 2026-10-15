@@ -1,6 +1,7 @@
 /** Models section registration: slot declaration injection, the locale-following label thunk, and HMR recovery. */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
+import Schema from '@deepseek-ai/schemastery'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -69,7 +70,7 @@ describe('ui-settings-models apply', () => {
   it('declares the services it uses', () => {
     expect(inject).toEqual([
       'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
-      'settingsScope', 'settingsSchema',
+      'configForms', 'settingsSchema',
     ])
   })
 
@@ -268,7 +269,11 @@ describe('pushed invalidations', () => {
           hasDocument: false,
           namespaces: [{
             ns: WELCOME_NOTICE_SETTINGS_NAMESPACE,
-            schema: {},
+            // The form validates every section against the namespace's own
+            // serialized wire schema, so the welcome namespace needs one.
+            schema: JSON.parse(JSON.stringify({
+              ...Schema.object({ [WELCOME_NOTICE_ACK_FIELD]: Schema.string() }).toJSON(),
+            })) as unknown,
             value: acknowledgement.current === undefined ? {} : { [WELCOME_NOTICE_ACK_FIELD]: acknowledgement.current },
             applies: 'live' as const,
             secrets: [],

@@ -5,7 +5,7 @@
  */
 
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CardActions, CardShell } from './card-form.ts'
 
 /** Namespace of the local usage recorder. Spelled here: a client package must not depend on a Host package. */
@@ -46,7 +46,7 @@ export class UsageTelemetryCardController {
   /**
    * @param scope - the bound settings scope for the `usage-telemetry` namespace.
    */
-  constructor(private readonly scope: SettingsScope<UsageTelemetrySettings>) {
+  constructor(private readonly scope: ConfigForm<UsageTelemetrySettings>) {
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = scope.subscribe(() => { this.store.set(this.projection()) })
     this.store.set(this.projection())

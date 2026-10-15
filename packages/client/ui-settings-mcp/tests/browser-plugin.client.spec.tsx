@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
@@ -33,7 +33,7 @@ async function bench() {
   const mcpServers = { list }
   Object.assign(remote, { mcpServers })
   ctx.provide('remote.mcpServers', mcpServers)
-  const set = vi.fn<(field: string, value: unknown) => Promise<void>>().mockResolvedValue()
+  const set = vi.fn<(field: string, value: unknown) => Promise<boolean>>().mockResolvedValue(true)
   const mutate = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
   const scope = {
     getSnapshot: () => ({
@@ -48,11 +48,11 @@ async function bench() {
     subscribe: () => () => {},
     set,
     mutate,
-    unset: vi.fn<() => Promise<void>>().mockResolvedValue(),
+    unset: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   }
-  const bind = vi.fn(() => scope)
-  ctx.provide('settingsScope', { bind } as never)
-  return { ctx, remote, slots: ctx.get('slots') as SlotRegistry, locale, list, bind, set, mutate }
+  const get = vi.fn(() => scope)
+  ctx.provide('configForms', { get } as never)
+  return { ctx, remote, slots: ctx.get('slots') as SlotRegistry, locale, list, get, set, mutate }
 }
 
 function declare(slots: SlotRegistry): () => void {
@@ -64,7 +64,7 @@ function declare(slots: SlotRegistry): () => void {
 
 describe('ui-settings-mcp browser plugin', () => {
   it('declares only the services used by the roster contribution', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.mcpServers', 'settingsScope'])
+    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.mcpServers', 'configForms'])
   })
 
   it('registers a localized tab without reading the Remote eagerly', async () => {
@@ -77,7 +77,7 @@ describe('ui-settings-mcp browser plugin', () => {
     expect(entry.options).toMatchObject({ id: 'mcp', order: 5 })
     expect(entry.locale).toBe(NS)
     expect(resolveSlotLabel(entry.options.label)).toBe('MCP')
-    expect(b.bind).toHaveBeenCalledWith({ namespace: MCP_SERVERS_NS })
+    expect(b.get).toHaveBeenCalledWith(MCP_SERVERS_NS)
     expect(b.list).not.toHaveBeenCalled()
 
     const injected = (entry.inject as unknown as () => McpSettingsTabInjected)()

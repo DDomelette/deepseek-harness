@@ -12,7 +12,7 @@
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the settings shell's SlotMap merge (the 'settings.section' entry)
-// and the ctx.settingsScope Context merge. Cross-plugin collaboration goes
+// and the ctx.configForms Context merge. Cross-plugin collaboration goes
 // through the service, never a value import (client bundle purity gate).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -56,7 +56,7 @@ const NS = 'settings.plugins'
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.credentials', 'remote.session', 'settingsScope',
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.session', 'configForms',
 ]
 
 /**
@@ -67,18 +67,18 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugins: section dictionaries')
 
-  const usageTelemetry = new UsageTelemetryCardController(ctx.settingsScope.bind({ namespace: USAGE_TELEMETRY_NS }))
+  const usageTelemetry = new UsageTelemetryCardController(ctx.configForms.get(USAGE_TELEMETRY_NS))
   ctx.effect(() => () => { usageTelemetry.dispose() }, 'ui-settings-plugins: usage telemetry')
   // One shell card per executor namespace: a host composes exactly one
   // executor per platform, and the tab dispatches only the namespace the Host
   // actually serves.
-  const pwsh = new BashCardController(ctx.settingsScope.bind({ namespace: PWSH_NS }))
-  const bashSandbox = new BashCardController(ctx.settingsScope.bind({ namespace: BASH_NS }))
-  const agentLoop = new AgentLoopCardController(ctx.settingsScope.bind({ namespace: AGENT_LOOP_NS }))
+  const pwsh = new BashCardController(ctx.configForms.get(PWSH_NS))
+  const bashSandbox = new BashCardController(ctx.configForms.get(BASH_NS))
+  const agentLoop = new AgentLoopCardController(ctx.configForms.get(AGENT_LOOP_NS))
   const webSearch = new WebSearchCardController(
-    ctx.settingsScope.bind({ namespace: WEB_SEARCH_NS }), ctx)
+    ctx.configForms.get(WEB_SEARCH_NS), ctx)
   const subagentModelSelection = new SubagentModelSelectionCardController(
-    ctx.settingsScope.bind({ namespace: SUBAGENT_MODEL_SELECTION_NS }),
+    ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS),
     ctx,
   )
 
@@ -103,9 +103,9 @@ export function apply(ctx: ClientContext): void {
   )
   ctx.effect(() => () => { subagentModelSelection.dispose() }, 'ui-settings-plugins: subagent preference')
 
-  // The shared SettingsScope mirror updates after document commits and reconnects.
+  // The shared ConfigForm mirror updates after document commits and reconnects.
   const configurable = new ConfigurablePluginsTabController(
-    ctx.settingsScope.describe(), () => ctx.slots.entries('settings.plugin.item'))
+    ctx.configForms.describe(), () => ctx.slots.entries('settings.plugin.item'))
   ctx.effect(() => () => { configurable.dispose() }, 'ui-settings-plugins: tab directory')
   // A card registered after the first read joins the list without a wire call.
   ctx.effect(
