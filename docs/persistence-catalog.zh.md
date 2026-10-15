@@ -1210,3 +1210,19 @@ Sources: [`packages/core/session/src/types.ts:429`](../packages/core/session/src
 ```
 
 来源：[`packages/session/working-directory/src/index.ts:36`](../packages/session/working-directory/src/index.ts)
+### `workspace/*`
+
+<a id="workspacechanges--log-only"></a>
+
+#### `workspace/changes` — log-only
+
+```ts persistence-catalog
+/**
+ * A completed top-level turn's changed files were summarized; the summary itself stays on the
+ * Host and is served by `workspaceChanges.summary` for the event's sequence while the Session
+ * lives. The latest event for one turn replaces earlier ones.
+ */
+'workspace/changes': { turn: number }
+```
+
+来源：[`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)

@@ -939,6 +939,34 @@
       "doc": "docs/subsystems/ptc-runtime.md",
       "symbol": "PtcRunSpec",
       "source": "packages/ptc-runtime/ptc-runtime/src/types.ts"
+    },    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "PresentedFile",
+      "source": "packages/fs/tool-present/src/types.ts"
+    },    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "WorkspaceChangedFile",
+      "source": "packages/deliverables/workspace-changes/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "WorkspaceChangesSummary",
+      "source": "packages/deliverables/workspace-changes/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "WorkspaceDiffHunk",
+      "source": "packages/deliverables/workspace-changes/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "WorkspaceFileDiff",
+      "source": "packages/deliverables/workspace-changes/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/deliverables.md",
+      "symbol": "WorkspaceChanges",
+      "source": "packages/deliverables/workspace-changes/src/types.ts"
     },
     {
       "doc": "docs/subsystems/sandbox.md",

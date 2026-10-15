@@ -160,6 +160,7 @@
     "@deepseek-ai/dsh-tool-goal": "workspace:*",
     "@deepseek-ai/dsh-tool-jobs": "workspace:*",
     "@deepseek-ai/dsh-tool-present": "workspace:*",
+    "@deepseek-ai/dsh-workspace-changes": "workspace:*",
     "@deepseek-ai/dsh-tool-pwsh": "workspace:*",
     "@deepseek-ai/dsh-tool-pwsh-persistent": "workspace:*",
     "@deepseek-ai/dsh-tool-ralph": "workspace:*",

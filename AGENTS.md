@@ -17,7 +17,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   api/         Remote BFF assembly and Typert RPC gateway
   typert/      type graph generator, loader, and runtime registry
   llm/         LLM capability: Service Definition/Consumer + DeepSeek providers
-  e2b/         E2B POC: sandbox + FS/subprocess adapters
+  e2b/         E2B POC adapters
   shell/        bash capability: Service Definition + local/pwsh providers + shell Consumers
   subprocess/  subprocess capability + local process-tree provider + shared Win32 library
   terminal/         persistent sessions
@@ -26,6 +26,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   skill/       skill provider registry + local impl + catalog/loader tool
   web/         web capability: Service Definition + search/fetch providers + tool Consumer
   computer-use/, browser-use/   exclusive named desktop/browser-provider registration
+  deliverables/ turn deliverables
   compaction/     compaction capability + basic provider
   context/     request-context plugins
   subagent/    subagent capability: Service Definition + providers + delegation Consumers
@@ -35,7 +36,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   todo/        todo_write tool
   plan/        plan mode as logged state
   preset/      per-session agent composition from preset cordis.yml files
-  guard/       loop-hygiene + tool-timeout plugins
+  guard/       loop-hygiene + timeout plugins
   self-modification/  the agent inspects/mounts its own plugins
   hooks/       Claude Code/Codex hook bridges + wire-protocol library
   session/     durable session data: persistence, projection, titles, telemetry

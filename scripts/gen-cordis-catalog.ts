@@ -146,6 +146,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   speechController: 'voice-input.md',
   speechToText: 'voice-input.md',
   translator: 'translation.md',
+  workspaceChanges: 'deliverables.md',
   workingDirectory: 'working-directory.md',
   worktrees: 'worktrees.md' }
 
@@ -300,6 +301,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   PluginSpecInspection: 'boot.md',
   PluginRegistries: 'boot.md',
   InspectOptions: 'boot.md',
+  WorkspaceChangesSummary: 'deliverables.md',
+  WorkspaceFileDiff: 'deliverables.md',
   BrowserUseProviderName: 'browser-use.md',
   ComputerUseProviderName: 'computer-use.md',
   Agent: 'core.md',

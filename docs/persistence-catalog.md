@@ -1208,3 +1208,20 @@ Source: [`packages/web/web-search-deepseek/src/provider.ts:82`](../packages/web/
 ```
 
 Source: [`packages/session/working-directory/src/index.ts:36`](../packages/session/working-directory/src/index.ts)
+
+### `workspace/*`
+
+<a id="workspacechanges--log-only"></a>
+
+#### `workspace/changes` — log-only
+
+```ts persistence-catalog
+/**
+ * A completed top-level turn's changed files were summarized; the summary itself stays on the
+ * Host and is served by `workspaceChanges.summary` for the event's sequence while the Session
+ * lives. The latest event for one turn replaces earlier ones.
+ */
+'workspace/changes': { turn: number }
+```
+
+Source: [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)

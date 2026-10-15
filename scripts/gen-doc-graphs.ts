@@ -776,6 +776,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Runs programs against host-provided async bindings; tools owns PTC presentation and workflow-ptc owns workflow orchestration.',
   },
   {
+    key: 'workspaceChanges',
+    pkg: 'workspace-changes',
+    title: 'Host per-turn changed-file summaries',
+    mode: 'core',
+    note: 'Serves the summary each workspace/changes event announced and each listed file\'s turn-start and turn-end comparison, by Session and event sequence, until that Session is disposed; the log carries only the turn.',
+  },
+  {
     key: 'browserUse',
     pkg: 'browser-use',
     title: 'Browser-use provider registration',

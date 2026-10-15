@@ -355,6 +355,7 @@
     { "path": "./packages/computer-use/computer-use" },
     { "path": "./packages/experimental/computer-use-cua-driver-mcp" },
     { "path": "./packages/experimental/computer-use-cua-driver-native" },
+    { "path": "./packages/deliverables/workspace-changes" },
     { "path": "./packages/host/directory-picker" },
     { "path": "./packages/host/directory-picker-auto" },
     { "path": "./packages/host/directory-picker-browse" },

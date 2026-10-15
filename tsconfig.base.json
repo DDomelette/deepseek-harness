@@ -197,6 +197,7 @@
       "@deepseek-ai/dsh-client-ui-conversation/client": ["./packages/client/ui-conversation/src/client/index.ts"],
       "@deepseek-ai/dsh-client-ui-tool": ["./packages/client/ui-tool/src"],
       "@deepseek-ai/dsh-tool-present/types": ["./packages/fs/tool-present/src/types.ts"],
+      "@deepseek-ai/dsh-workspace-changes/types": ["./packages/deliverables/workspace-changes/src/types.ts"],
       "@deepseek-ai/dsh-client-ui-deliverables": ["./packages/client/ui-deliverables/src"],
       "@deepseek-ai/dsh-client-ui-workflow-run": ["./packages/client/ui-workflow-run/src"],
       "@deepseek-ai/dsh-client-ui-input-trigger": ["./packages/client/ui-input-trigger/src"],
@@ -470,6 +471,7 @@
       "@deepseek-ai/dsh-workflow-ptc": ["./packages/workflow/workflow-ptc/src"],
       "@deepseek-ai/dsh-working-directory": ["./packages/session/working-directory/src"],
       "@deepseek-ai/dsh-workspace": ["./packages/workspace/workspace/src"],
+      "@deepseek-ai/dsh-workspace-changes": ["./packages/deliverables/workspace-changes/src"],
       // END generated package aliases
       "@deepseek-ai/dsh-tool-cordis/host": ["./packages/extensions/tool-cordis/src/host.ts"],
       "@deepseek-ai/dsh-agent-preset-registry/types": ["./packages/preset/agent-preset-registry/src/types.ts"],
