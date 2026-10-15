@@ -111,6 +111,8 @@ class FakeSessions {
   readonly open: ReturnType<typeof vi.fn<(id: SessionId) => void>>
   readonly clear: ReturnType<typeof vi.fn<() => void>>
   readonly fork = vi.fn<ISessions['fork']>(async () => sid('forked'))
+  /** Reference counts by source, so a spec can assert which view holds a session. */
+  readonly refs = new Map<SessionId, Map<string, number>>()
 
   constructor(initial: SessionListState) {
     this.list = new MutableSource(initial)
@@ -122,6 +124,32 @@ class FakeSessions {
     this.clear = vi.fn(() => {
       this.list.update(state => ({ ...state, current: undefined }))
     })
+  }
+
+  /** The number of live references one source holds for a session. */
+  held(id: SessionId, source: string): number {
+    return this.refs.get(id)?.get(source) ?? 0
+  }
+
+  retain(target: string, options: { source: string }): {
+    readonly sessionId: SessionId
+    release: () => void
+  } {
+    const id = target as SessionId
+    const bySource = this.refs.get(id) ?? new Map<string, number>()
+    bySource.set(options.source, (bySource.get(options.source) ?? 0) + 1)
+    this.refs.set(id, bySource)
+    let released = false
+    return {
+      sessionId: id,
+      release: () => {
+        if (released) return
+        released = true
+        const held = bySource.get(options.source) ?? 0
+        if (held <= 1) bySource.delete(options.source)
+        else bySource.set(options.source, held - 1)
+      },
+    }
   }
 }
 
@@ -277,6 +305,37 @@ describe('UiWorkspaceService', () => {
     b.sessions.open.mockImplementationOnce(() => { throw new Error('selection failed') })
     expect(() => { b.uiWorkspace.openSession(sid('target')) }).toThrow('selection failed')
     expect(b.selectPanel).not.toHaveBeenCalled()
+    // The failed selection owns no hold: the main view retains nothing.
+    expect(b.sessions.held(sid('target'), 'mainView')).toBe(0)
+  })
+
+  it('holds the shown Session as the main view and hands the hold over on navigation', () => {
+    const first = sid('first')
+    const second = sid('second')
+    const b = bench({ sessions: sessionState([summary('first'), summary('second')], first) })
+
+    b.uiWorkspace.openSession(first)
+    expect(b.sessions.held(first, 'mainView')).toBe(1)
+
+    b.uiWorkspace.openSession(second)
+    expect(b.sessions.held(second, 'mainView')).toBe(1)
+    // Moving the main view forward releases the session it left behind.
+    expect(b.sessions.held(first, 'mainView')).toBe(0)
+  })
+
+  it('releases the main view hold when its session is archived or the navigation owner is disposed', async () => {
+    const current = sid('current')
+    const b = bench({ sessions: sessionState([summary('current')], current) })
+    b.uiWorkspace.openSession(current)
+    expect(b.sessions.held(current, 'mainView')).toBe(1)
+
+    await b.uiWorkspace.archiveSession(current)
+    expect(b.sessions.held(current, 'mainView')).toBe(0)
+
+    b.uiWorkspace.openSession(current)
+    expect(b.sessions.held(current, 'mainView')).toBe(1)
+    await b.ctx.fiber.dispose()
+    expect(b.sessions.held(current, 'mainView')).toBe(0)
   })
 
   it('leaves a later panel selection in place when New Session finishes', async () => {

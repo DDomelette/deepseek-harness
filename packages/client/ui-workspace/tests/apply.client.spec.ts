@@ -60,6 +60,8 @@ async function bench() {
     searchResultLimit: 20,
     binding,
     fork,
+    // The main view holds the session it shows; the reference echoes its target.
+    retain: vi.fn((id: never) => ({ sessionId: id, release: vi.fn() })),
   } as never)
   const pickDirectory = vi.fn(() => Promise.resolve({ ok: true as const, value: '/projects/picked' }))
   const directoryPicker = { pick: pickDirectory }

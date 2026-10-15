@@ -10,6 +10,7 @@ import type {
   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,
   SessionSnapshot, SessionSummary, SubmissionHandle,
 } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionReferenceSource } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -183,6 +184,14 @@ interface SessionRecord {
 /** The zero-count retention snapshot the double reports for every id. */
 const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({ referenceCount: 0, retainedBy: Object.freeze({}) })
 
+/** Reference counts the double tracks for one session id, plus the observers reading them. */
+interface RetentionRecord {
+  count: number
+  bySource: Partial<Record<SessionReferenceSource, number>>
+  readonly listeners: Set<() => void>
+  published: SessionRetainInfo
+}
+
 /**
  * Sessions test double behind the renderer host and feature injects: owns the
  * list/current observable, scope minting through the production `createScope`,
@@ -199,6 +208,10 @@ export class TestSessions implements ISessions {
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>
   private readonly records = new Map<SessionId, SessionRecord>()
+  /** Local reference counts by source, mirroring the production service. */
+  private readonly retention = new Map<SessionId, RetentionRecord>()
+  /** One observe-only source per id, allocated on firstetainInfo. */
+  private readonly retainSources = new Map<SessionId, ObservableSnapshot<SessionRetainInfo>>()
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
@@ -397,7 +410,8 @@ export class TestSessions implements ISessions {
   }
 
   /**
-   * Retain a fixture Session; the double keeps no teardown, so the reference is bookkeeping only.
+   * Retain a fixture Session and count the reference by source, so a spec can
+   * assert which view holds a session and when the hold ends.
    * @param target - Session identity or addressed child.
    * @param options - consumer source and optional cancellation.
    * @returns an owned reference over the fixture binding.
@@ -407,7 +421,37 @@ export class TestSessions implements ISessions {
     const id = (typeof target === 'string' ? target : target.childSessionId) as SessionId
     const binding = this.binding(id)
     if (binding === undefined) throw new Error(`test-runtime: session ${id} is not addressable`)
-    return { sessionId: id, binding, ready: Promise.resolve(binding), release: () => {} }
+    const record = this.retentionRecord(id)
+    record.count += 1
+    record.bySource = { ...record.bySource, [options.source]: (record.bySource[options.source] ?? 0) + 1 }
+    this.publishRetention(record)
+    let released = false
+    return {
+      sessionId: id,
+      binding,
+      ready: Promise.resolve(binding),
+      release: () => {
+        if (released) return
+        released = true
+        const held = this.retention.get(id)
+        if (held === undefined) return
+        const { [options.source]: sourceCount = 0, ...others } = held.bySource
+        held.count -= 1
+        held.bySource = sourceCount > 1 ? { ...others, [options.source]: sourceCount - 1 } : others
+        this.publishRetention(held)
+      },
+    }
+  }
+
+  /**
+   * Retain a fixture Session through the runtime the caller was composed with.
+   * @param _ctx - the caller's client context (the double ignores it).
+   * @param target - Session identity or addressed child.
+   * @param options - consumer source and optional cancellation.
+   * @returns the owned reference.
+   */
+  retainFor(_ctx: Context, target: SessionTarget, options: SessionRetainOptions): SessionReference {
+    return this.retain(target, options)
   }
 
   /**
@@ -431,11 +475,43 @@ export class TestSessions implements ISessions {
   }
 
   /**
-   * Report the double's local reference counts: it retains nothing, so every id reads zero.
-   * @returns a stable zero-count source.
+   * Report the double's local reference counts.
+   * @param id - explicit Session identity; defaults to the counts of every id.
+   * @returns a stable source, with zero counts when nothing retains the id.
    */
-  retainInfo(): ObservableSnapshot<SessionRetainInfo> {
-    return { getSnapshot: () => EMPTY_RETAIN_INFO, subscribe: () => () => {} }
+  retainInfo(id?: SessionId): ObservableSnapshot<SessionRetainInfo> {
+    const key = id ?? ('' as SessionId)
+    const held = this.retainSources.get(key)
+    if (held !== undefined) return held
+    const source: ObservableSnapshot<SessionRetainInfo> = {
+      getSnapshot: () => this.retention.get(key)?.published ?? EMPTY_RETAIN_INFO,
+      subscribe: (listener) => {
+        const record = this.retentionRecord(key)
+        record.listeners.add(listener)
+        return () => { record.listeners.delete(listener) }
+      },
+    }
+    this.retainSources.set(key, source)
+    return source
+  }
+
+  private retentionRecord(id: SessionId): RetentionRecord {
+    let record = this.retention.get(id)
+    if (record === undefined) {
+      record = { count: 0, bySource: {}, listeners: new Set(), published: EMPTY_RETAIN_INFO }
+      this.retention.set(id, record)
+    }
+    return record
+  }
+
+  private publishRetention(record: RetentionRecord): void {
+    record.published = record.count === 0 && Object.keys(record.bySource).length === 0
+      ? EMPTY_RETAIN_INFO
+      : Object.freeze({
+        referenceCount: record.count,
+        retainedBy: Object.freeze({ ...record.bySource }),
+      })
+    for (const listener of [...record.listeners]) listener()
   }
 
   /**

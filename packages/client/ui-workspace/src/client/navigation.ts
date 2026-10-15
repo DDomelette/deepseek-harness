@@ -7,6 +7,7 @@ import type { ClientRemote, DirectoryListing, RemoteFailure } from '@deepseek-ai
 import type {
   ISessions,
   SessionListState,
+  SessionReference,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceView,
@@ -122,6 +123,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
   private readonly lifetime = new AbortController()
+  /** The main view's own hold on the session it shows; replaced on navigation and released on clear. */
+  private mainReference: SessionReference | undefined
 
   /**
    * @param ctx - Client root Context.
@@ -164,8 +167,32 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   openSession(sessionId: SessionId): void {
-    this.sessions.open(sessionId)
-    this.ctx.layout.selectPanel(null)
+    // The main view holds the session it shows for as long as it shows it:
+    // the reference is what keeps the scope materialized past list membership
+    // and what the layout reads to decide which session owns the browser title.
+    const reference = this.sessions.retain(sessionId, { source: 'mainView' })
+    try {
+      this.sessions.open(reference.sessionId)
+      this.ctx.layout.selectPanel(null)
+    } catch (error: unknown) {
+      reference.release()
+      throw error
+    }
+    this.replaceMain(reference)
+  }
+
+  /** Adopt one retained reference as the main view's hold, releasing the previous one. */
+  private replaceMain(reference: SessionReference): void {
+    const previous = this.mainReference
+    this.mainReference = reference
+    previous?.release()
+  }
+
+  /** Give up the main view's hold without selecting anything else. */
+  private clearMain(): void {
+    const previous = this.mainReference
+    this.mainReference = undefined
+    previous?.release()
   }
 
   async openWorkspace(workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void): Promise<void> {
@@ -195,6 +222,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       : undefined
     const target = workspaceId ?? currentWorkspaceId ?? recent
     if (target === undefined) {
+      this.clearMain()
       this.sessions.clear()
       this.ctx.layout.selectPanel(null)
       return
@@ -205,6 +233,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   async archiveSession(sessionId: SessionId): Promise<void> {
+    if (this.mainReference?.sessionId === sessionId) this.clearMain()
     await this.workspaces.archiveSession(sessionId)
   }
 
@@ -265,6 +294,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     reconcile()
     return () => {
       this.lifetime.abort()
+      this.clearMain()
       disposeSessions()
       disposeWorkspaces()
     }
@@ -275,6 +305,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const current = this.sessions.list.getSnapshot().current
     if (current === undefined
       || !this.workspaces.list.getSnapshot().archivedSessionIds.includes(current)) return false
+    this.clearMain()
     this.sessions.clear()
     return true
   }

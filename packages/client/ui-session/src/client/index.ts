@@ -128,6 +128,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
+declare module '@deepseek-ai/dsh-api-session-controller/client' {
+  interface SessionReferenceSourceMap {
+    /** The main conversation view holds the Session it shows. */
+    mainView: unknown
+  }
+}
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Session Controller adapter and session-scoped source registry. */
