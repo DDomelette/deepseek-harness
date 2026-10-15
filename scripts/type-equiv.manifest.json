@@ -122,41 +122,6 @@
       "source": "packages/client/modules/src/index.ts"
     },
     {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeBindingErrorClass",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeBindingFunction",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeBindingNamespace",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeJsonValue",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeRunFailure",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeRunRequest",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/code-runtime.md",
-      "symbol": "CodeRunResult",
-      "source": "packages/code-runtime/code-runtime/src/types.ts"
-    },
-    {
       "doc": "docs/subsystems/commands.md",
       "symbol": "CommandDefinition",
       "source": "packages/interaction/commands/src/index.ts"

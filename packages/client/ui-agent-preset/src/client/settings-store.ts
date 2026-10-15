@@ -95,6 +95,28 @@ export async function beginRosterRead<S extends { status: string; error: string 
 }
 
 /**
+ * Read the roster and publish the caller's state for it.
+ *
+ * One read serves every roster-backed surface: a read that fails or is already
+ * in flight publishes nothing further, an empty roster is a valid deployment
+ * rather than a failure, and the caller decides what its own snapshot carries
+ * in each case.
+ * @param ctx - the browser plugin context carrying the Remote namespaces.
+ * @param store - the surface's own snapshot store.
+ * @param publish - builds the patch this surface shows for one roster.
+ * @returns once the store reflects the host.
+ */
+export async function loadRoster<S extends { status: string; error: string | null }>(
+  ctx: ClientContext,
+  store: SnapshotStore<S>,
+  publish: (presets: AgentPresetRoster['presets']) => Partial<S>,
+): Promise<void> {
+  const roster = await beginRosterRead(ctx, store)
+  if (roster === undefined) return
+  store.set({ ...store.getSnapshot(), ...publish(roster.presets) })
+}
+
+/**
  * The roster entries as the pickers render them: healthy presets only.
  *
  * The chip exists to choose the NEXT session's composition, and a broken
@@ -144,10 +166,6 @@ export class AgentPresetSettingsController {
     private readonly ctx: ClientContext,
   ) {}
 
-  private set(patch: Partial<AgentPresetSettingsState>): void {
-    this.store.set({ ...this.store.getSnapshot(), ...patch })
-  }
-
   /**
    * Load the roster. An empty roster means the deployment composes no
    * presets, which is a valid deployment rather than a failure — the
@@ -155,18 +173,9 @@ export class AgentPresetSettingsController {
    * @returns once the snapshot reflects the host.
    */
   async load(): Promise<void> {
-    const roster = await beginRosterRead(this.ctx, this.store)
-    if (roster === undefined) return
-    const { presets } = roster
-    if (presets.length === 0) {
-      this.set({ status: 'unavailable', options: [] })
-      return
-    }
-    this.set({
-      status: 'ready',
-      error: null,
-      options: presetOptions(presets),
-    })
+    await loadRoster(this.ctx, this.store, presets => (presets.length === 0
+      ? { status: 'unavailable', options: [] }
+      : { status: 'ready', error: null, options: presetOptions(presets) }))
   }
 
 }

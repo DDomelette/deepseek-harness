@@ -183,7 +183,6 @@ describe('experimental workspace constraints', () => {
     // This fork keeps every experimental capability private, so the set holds
     // the fork's own packages rather than upstream's empty default.
     expect([...PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES].sort()).toEqual([
-      'packages/experimental/code-runtime-python',
       'packages/experimental/inspector',
       'packages/experimental/webworker-packer',
       'packages/experimental/webworker-runtime',
@@ -313,21 +312,39 @@ describe('package payload constraints', () => {
     ])
   })
 
-  it('accepts a declared icon payload and rejects its omission', () => {
-    // The subjects come from the tree so the case covers whichever packages
-    // publish an icon rather than a fixed upstream roster.
-    const withIcon = readWorkspaceManifests(process.cwd()).filter(({ manifest }) =>
-      manifest.icon !== undefined
-      || Object.keys(manifest.exports ?? {}).some(key => /^\.\/(?:.+\/)?icon$/u.test(key)))
-    expect(withIcon.length).toBeGreaterThan(0)
-    for (const { dir, manifest } of withIcon) {
+  /**
+   * Assert that every discovered package publishes its package-specific payload
+   * entry and that dropping that entry is rejected.
+   * @param subject - what the discovery selects, for the failure message.
+   * @param selects - predicate over a manifest's exports and fields.
+   * @param find - locator for the payload entry inside the canonical list.
+   */
+  function expectPayloadPublished(
+    subject: string,
+    selects: (manifest: WorkspaceManifest['manifest']) => boolean,
+    find: (files: readonly string[]) => string | undefined,
+  ): void {
+    const subjects = readWorkspaceManifests(process.cwd()).filter(({ manifest }) => selects(manifest))
+    expect(subjects.length, subject).toBeGreaterThan(0)
+    for (const { dir, manifest } of subjects) {
       expect(checkWorkspaceManifest({ dir, manifest }), dir).toEqual([])
-      const published = expectedDshPackageFiles(manifest).find(file => file.endsWith('.svg'))!
+      const published = find(expectedDshPackageFiles(manifest))
       expect(published, dir).toBeDefined()
       expect(checkWorkspaceManifest({ dir, manifest: {
         ...manifest, files: manifest.files!.filter(file => file !== published),
       } }), dir).toEqual([expect.stringContaining('package.json files must be')])
     }
+  }
+
+  it('accepts a declared icon payload and rejects its omission', () => {
+    // The subjects come from the tree so the case covers whichever packages
+    // publish an icon rather than a fixed upstream roster.
+    expectPayloadPublished(
+      'icon payload',
+      manifest => manifest.icon !== undefined
+        || Object.keys(manifest.exports ?? {}).some(key => /^\.\/(?:.+\/)?icon$/u.test(key)),
+      files => files.find(file => file.endsWith('.svg')),
+    )
   })
 
   it.each([
@@ -358,17 +375,11 @@ describe('package payload constraints', () => {
   it('accepts the published locale files and rejects their omission', () => {
     // Discovered from the tree: every package that exports locale resources
     // must publish them, whatever roster this fork ships.
-    const localized = readWorkspaceManifests(process.cwd()).filter(({ manifest }) =>
-      Object.keys(manifest.exports ?? {}).some(key => /^\.\/(?:.+\/)?locale\/[^/]+\.json$/u.test(key)))
-    expect(localized.length).toBeGreaterThan(0)
-    for (const { dir, manifest } of localized) {
-      expect(checkWorkspaceManifest({ dir, manifest }), dir).toEqual([])
-      const published = expectedDshPackageFiles(manifest).find(file => file.endsWith('.json'))!
-      expect(published, dir).toBeDefined()
-      expect(checkWorkspaceManifest({ dir, manifest: {
-        ...manifest, files: manifest.files!.filter(file => file !== published),
-      } }), dir).toEqual([expect.stringContaining('package.json files must be')])
-    }
+    expectPayloadPublished(
+      'locale payload',
+      manifest => Object.keys(manifest.exports ?? {}).some(key => /^\.\/(?:.+\/)?locale\/[^/]+\.json$/u.test(key)),
+      files => files.find(file => file.endsWith('.json')),
+    )
   })
 
   it('rejects locale publication entries without their resource exports', () => {

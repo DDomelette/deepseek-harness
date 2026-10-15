@@ -435,43 +435,6 @@ Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
 Source: [`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
 
-<a id="deepseek-aidsh-code-runtime-worker-thread"></a>
-
-## `@deepseek-ai/dsh-code-runtime-worker-thread`
-
-```ts config-catalog
-/** Plugin config: every execution cap, changeable from `cordis.yml` (no hardcoded tunables). */
-export interface Config {
-  /**
-   * Busy-time budget in milliseconds: the run fails with kind `'timeout'`
-   * once the worker's MEASURED event-loop active time
-   * (`worker.performance.eventLoopUtilization()`) exceeds this. Metering
-   * measured busy time — not wall time, not host-side pending-call
-   * bookkeeping — is what makes the budget both fair (a program awaiting a
-   * slow tool accrues nothing) and ungameable (a hot loop accrues whether
-   * or not a decoy dispatch is in flight).
-   */
-  computeMs?: number
-  /**
-   * Wall-clock ceiling in milliseconds; never pauses for anything. The
-   * backstop for what busy-time cannot see (a program awaiting a promise
-   * nobody will resolve). At most `2_147_483_647` (Node's maximum
-   * `setTimeout` delay, about 24.9 days): a longer value is rejected at load
-   * because `setTimeout` would clamp it to 1 ms.
-   */
-  maxWallMs?: number
-  /**
-   * Hard cap for serialized log-array, completion-value, and failure-message payloads;
-   * fixed result-envelope syntax is excluded.
-   */
-  maxOutputBytes?: number
-  /** The worker's max old-generation heap in MiB (`resourceLimits`); overflow kills the worker, surfacing as kind `'worker-exit'`. */
-  maxOldGenerationSizeMb?: number
-}
-```
-
-Source: [`packages/code-runtime/code-runtime-worker-thread/src/index.ts:25`](../packages/code-runtime/code-runtime-worker-thread/src/index.ts)
-
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`
@@ -701,73 +664,6 @@ export interface Config {
 ```
 
 Source: [`packages/experimental/claude-code-mods/src/index.ts:53`](../packages/experimental/claude-code-mods/src/index.ts)
-
-<a id="deepseek-aidsh-experimental-code-runtime-python"></a>
-
-## `@deepseek-ai/dsh-experimental-code-runtime-python`
-
-```ts config-catalog
-/** Plugin config: every cap, changeable from `cordis.yml` (no hardcoded tunables). */
-export interface Config {
-  /**
-   * RLIMIT_CPU in whole seconds (a positive integer — `setrlimit` in the child
-   * rejects a float). The child sets the soft limit to `cpuSeconds` and the
-   * hard limit to `cpuSeconds + 1`: the kernel delivers SIGXCPU at the soft
-   * limit, which the host classifies as a `timeout`; the +1s hard limit is a
-   * SIGKILL backstop for a program that traps SIGXCPU. Granularity is seconds —
-   * a coarser counterpart to the worker backend's millisecond `computeMs`.
-   */
-  cpuSeconds?: number
-  /** Wall-clock ceiling in milliseconds; backstops CPU time for programs awaiting a promise nobody resolves. */
-  maxWallMs?: number
-  /**
-   * RLIMIT_AS in mebibytes; caps address space so a runaway allocation fails
-   * cleanly. Not applied on Darwin, where the dyld shared cache mapped into
-   * every process at exec exceeds any practical cap and the kernel rejects
-   * the call; `cpuSeconds` and `maxWallMs` still bound the run there. Bounds
-   * `maxLogBytes`/`maxValueBytes` at load on EVERY platform (this static check
-   * runs on Darwin too, where only the runtime `setrlimit` is skipped): each
-   * budget times a worst-case Unicode expansion must fit this byte count minus a
-   * fixed interpreter baseline, so a near-budget output cannot breach the address
-   * space during the child's build-and-encode.
-   */
-  addressSpaceMb?: number
-  /**
-   * Shared byte budget for captured log text (host-side ledger). Bounded at load
-   * against `addressSpaceMb`: the child builds and encodes a near-budget entry
-   * under RLIMIT_AS with several copies live at once, so this cap times the
-   * worst-case Unicode expansion must fit the address space left after the
-   * interpreter baseline (see `addressSpaceMb`) — a load-time rejection, not a
-   * runtime clamp. Also bounded at load by the host's configured heap like
-   * `maxValueBytes` (see its JSDoc): the effective frame cap minus the frame
-   * envelope.
-   */
-  maxLogBytes?: number
-  /**
-   * Byte cap for the completion value. Bounded at load against `addressSpaceMb`
-   * the same way `maxLogBytes` is: the child builds and encodes a near-budget
-   * value under RLIMIT_AS with several copies live at once, so this cap times the
-   * worst-case Unicode expansion must fit the address space left after the
-   * interpreter baseline. Both budgets are ALSO bounded at load by the host's
-   * configured heap: the effective frame cap (the protocol cap, or a lower
-   * heap-derived ceiling when the host heap cannot safely parse a near-cap
-   * frame — see `hostFrameParseCeiling`) minus the frame envelope, so a budget
-   * whose honest frame could OOM the host's own JSON.parse is rejected up
-   * front.
-   */
-  maxValueBytes?: number
-  /** SIGTERM→SIGKILL grace period on kill, matching bash-local's default. */
-  graceMs?: number
-  /**
-   * Absolute path, relative path, or basename of a CPython 3.10+ interpreter.
-   * Resolved and validated once at plugin load under a five-second force-kill
-   * deadline; a basename searches `PATH`.
-   */
-  pythonBin?: string
-}
-```
-
-Source: [`packages/experimental/code-runtime-python/src/index.ts:42`](../packages/experimental/code-runtime-python/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-inspector"></a>
 
@@ -4265,7 +4161,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 Abstract service classes — a deployment loads a concrete implementation package instead ([capability seams](../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)).
 
 - `@deepseek-ai/dsh-attachment` — abstract `AttachmentStore` ([`packages/attachment/attachment/src/index.ts`](../packages/attachment/attachment/src/index.ts))
-- `@deepseek-ai/dsh-code-runtime` — abstract `CodeRuntime` ([`packages/code-runtime/code-runtime/src/index.ts`](../packages/code-runtime/code-runtime/src/index.ts))
 - `@deepseek-ai/dsh-compaction` — abstract `CompactionEngine` ([`packages/compaction/compaction/src/index.ts`](../packages/compaction/compaction/src/index.ts))
 - `@deepseek-ai/dsh-credentials` — abstract `CredentialProvider` ([`packages/credentials/credentials/src/index.ts`](../packages/credentials/credentials/src/index.ts))
 - `@deepseek-ai/dsh-deepseek-account` — abstract `DeepSeekAccount` ([`packages/credentials/deepseek-account/src/index.ts`](../packages/credentials/deepseek-account/src/index.ts))

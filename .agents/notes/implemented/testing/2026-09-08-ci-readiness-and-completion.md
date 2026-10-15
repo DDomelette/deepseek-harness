@@ -26,7 +26,7 @@ The [ACP disconnect tests](../../../../packages/acp/acp/tests/dispose.spec.ts) a
 
 The [subagent teardown decision](2026-09-07-subagent-teardown-test-budgets.md) owns lifecycle cleanup budgets. The [persistent PowerShell decision](2026-09-07-pwsh-ci-observable-completion.md) owns exact versus inferred terminal readiness; a one-shot process's completion promise has different semantics.
 
-The [worker-runtime binding test](../../../../packages/code-runtime/code-runtime-worker-thread/tests/runtime.spec.ts) allows five seconds of compute for source-worker initialization and delays the binding for 6.5 seconds. Charging that idle delay would still exceed the entire compute allowance. The case retains its 15-second test limit and 30-second wall ceiling, registers Context and reply-timer cleanup, and leaves the hot-loop, decoy-dispatch, wall-ceiling, and abort controls at their existing limits. Production budgets remain unchanged.
+The [PTC binding test](../../../../packages/ptc-runtime/ptc-runtime-node/tests/runtime.spec.ts) allows five seconds of compute for source-process initialization and delays the binding for 6.5 seconds. Charging that idle delay would still exceed the entire compute allowance. The case retains its 15-second test limit and 30-second wall ceiling, registers Context and reply-timer cleanup, and leaves the hot-loop, decoy-dispatch, wall-ceiling, and abort controls at their existing limits. Production budgets remain unchanged.
 
 ## Alternatives considered
 

@@ -55,12 +55,9 @@ export function experimentalPackageRecordNamespace(name: string): string | undef
  * Experimental packages excluded from public releases and npm baselines.
  *
  * Upstream publishes experimental packages by default; this fork keeps them
- * private, so every experimental capability it owns is listed here. The Python
- * runtime is doubly private: it is the fork's pre-rename copy of the PTC
- * runtime and is scheduled for retirement.
+ * private, so every experimental capability it owns is listed here.
  */
 export const PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES: readonly string[] = [
-  'packages/experimental/code-runtime-python',
   'packages/experimental/inspector',
   'packages/experimental/webworker-packer',
   'packages/experimental/webworker-runtime',

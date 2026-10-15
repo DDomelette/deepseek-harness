@@ -60,7 +60,6 @@
     "@deepseek-ai/dsh-user-approval": "workspace:*",
     "@deepseek-ai/cordis": "workspace:~",
     "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-code-runtime": "workspace:*"
+    "@deepseek-ai/dsh-scope": "workspace:*"
   }
 }

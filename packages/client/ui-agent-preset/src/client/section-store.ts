@@ -13,7 +13,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { AgentPresetRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { beginRosterRead, writeDefaultPreset } from './settings-store.ts'
+import { loadRoster, writeDefaultPreset } from './settings-store.ts'
 
 /** One preset row the page renders, exactly as the host reports it. */
 export type PresetRow = AgentPresetRow
@@ -69,19 +69,10 @@ export class AgentPresetSectionController {
    * @returns once the snapshot reflects the host.
    */
   async load(): Promise<void> {
-    const roster = await beginRosterRead(this.ctx, this.store)
-    if (roster === undefined) return
-    const { presets } = roster
-    if (presets.length === 0) {
-      // Nothing to manage leaves nothing to keep a dialog open over.
-      this.set({ status: 'unavailable', rows: [], view: null })
-      return
-    }
-    this.set({
-      status: 'ready',
-      error: null,
-      rows: presets.map(preset => ({ ...preset })),
-    })
+    // Nothing to manage leaves nothing to keep a dialog open over.
+    await loadRoster(this.ctx, this.store, presets => (presets.length === 0
+      ? { status: 'unavailable', rows: [], view: null }
+      : { status: 'ready', error: null, rows: presets.map(preset => ({ ...preset })) }))
   }
 
   /**

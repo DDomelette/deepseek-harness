@@ -193,8 +193,6 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-client-shortcuts': ['lib/protocol.js'],
   // The CPython side ships as source .py files, published as-is rather than built.
   '@deepseek-ai/dsh-experimental-ptc-runtime-python': ['py/**/*.py'],
-  // The fork's pre-rename Python runtime ships its sources the same way.
-  '@deepseek-ai/dsh-experimental-code-runtime-python': ['py/**/*.py'],
   '@deepseek-ai/dsh-experimental-speech-to-text-sensevoice': ['runtime/assets.json'],
   // The isolated Node bootstrap is a separately launched bundle.
   '@deepseek-ai/dsh-ptc-runtime-node': ['lib/process.js'],

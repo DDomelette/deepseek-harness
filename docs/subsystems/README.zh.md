@@ -34,7 +34,6 @@
 | [working-directory.md](working-directory.zh.md) | Session 执行目录、持久化变更、恢复与用户上下文 |
 | [worktrees.md](worktrees.zh.md) | 现有权限下的实验性 Git 分支与检出目录创建 |
 | [sandbox.md](sandbox.zh.md) | 每会话策略解析与进程约束 seam：文件效果模式、执行/提供方策略、`ConfinedArgv`、强制执行与故障关闭错误 |
-| [code-runtime.md](code-runtime.zh.md) | 代码执行 seam：`CodeRunRequest`/`Result`、绑定命名空间、捕获日志、`CodeRunFailure` 分类体系 |
 | [ptc-runtime.md](ptc-runtime.zh.md) | PTC 执行 seam：`PtcRunRequest`/`Result`、绑定命名空间、捕获日志、`PtcRunFailure` 分类体系 |
 | [extensions.md](extensions.zh.md) | 带版本的动态 Cordis 插件与包、Host/Client 激活、审批、运行时检查和生命周期清理 |
 | [boot.md](boot.zh.md) | 当前 profile 插件管理与 launcher 重载协调 |

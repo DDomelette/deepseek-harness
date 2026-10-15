@@ -551,15 +551,6 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'User-facing preset table (`workspace-write`/`danger-full-access`) bundling the sandbox-mode and approval-policy knobs; a switch writes one `permission/preset` event through to both knob events.',
   },
   {
-    key: 'codeRuntime',
-    pkg: 'code-runtime',
-    title: 'Code-execution seam',
-    mode: 'seam',
-    implementations: ['code-runtime-worker-thread', 'experimental-code-runtime-python'],
-    consumers: ['tools'],
-    note: 'Runs one model-written program against host-provided async bindings; backends differ by substrate and language (the tool registry consumes it for PTC mode).',
-  },
-  {
     key: 'fs',
     pkg: 'fs',
     title: 'Filesystem provider seam',

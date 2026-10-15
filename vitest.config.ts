@@ -41,10 +41,8 @@ const windowsUnsupportedPackages = process.platform === 'win32'
       'packages/experimental/hooks-claude-code',
       'packages/experimental/hooks-codex',
       'packages/terminal/terminal-bash',
-      'packages/experimental/code-runtime-python',
-      // Upstream's renamed successor of code-runtime-python: the same backend
-      // refuses win32 at runtime (POSIX rlimits, fd-3 stdio, process-group
-      // signals), so both spellings stay excluded while both packages ship.
+      // The Python PTC backend refuses win32 at runtime (POSIX rlimits, fd-3
+      // stdio, process-group signals), so its suites never run here.
       'packages/experimental/ptc-runtime-python',
       'packages/sandbox/sandbox-local',
     ]

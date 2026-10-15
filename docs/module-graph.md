@@ -195,10 +195,6 @@ flowchart TD
     pkg_client_ui_workspace["client-ui-workspace"]
     pkg_client_web["client-web"]
   end
-  subgraph group_code_runtime["packages/code-runtime"]
-    pkg_code_runtime["code-runtime"]
-    pkg_code_runtime_worker_thread["code-runtime-worker-thread"]
-  end
   subgraph group_compaction["packages/compaction"]
     pkg_command_compact["command-compact"]
     pkg_compaction["compaction"]
@@ -236,7 +232,6 @@ flowchart TD
     pkg_experimental_claude_code_mods["experimental-claude-code-mods"]
     pkg_experimental_client_ui_agent_team["experimental-client-ui-agent-team"]
     pkg_experimental_client_ui_claude_code_mods["experimental-client-ui-claude-code-mods"]
-    pkg_experimental_code_runtime_python["experimental-code-runtime-python"]
     pkg_experimental_cot_translation_bundle["experimental-cot-translation-bundle"]
     pkg_experimental_inspector["experimental-inspector"]
     pkg_experimental_ptc_runtime_python["experimental-ptc-runtime-python"]
@@ -444,9 +439,6 @@ flowchart TD
   pkg_credentials_local --> pkg_home_paths
   pkg_credentials_local --> pkg_launch_environment
   pkg_e2b --> pkg_http_proxy
-  pkg_experimental_code_runtime_python --> pkg_code_runtime
-  pkg_experimental_code_runtime_python --> pkg_timeout
-  pkg_experimental_code_runtime_python --> pkg_util_values
   pkg_experimental_inspector --> pkg_client_modules
   pkg_experimental_inspector --> pkg_host_webserver
   pkg_host_directory_picker_auto --> pkg_client_ui_directory_picker_browse
@@ -480,9 +472,6 @@ flowchart TD
   pkg_app_boot --> pkg_home_paths
   pkg_app_boot --> pkg_launch_environment
   pkg_app_boot --> pkg_system_prompt
-  pkg_code_runtime_worker_thread --> pkg_code_runtime
-  pkg_code_runtime_worker_thread --> pkg_session
-  pkg_code_runtime_worker_thread --> pkg_timeout
   pkg_subprocess_e2b --> pkg_e2b
   pkg_subprocess_e2b --> pkg_subprocess
   pkg_subprocess_e2b --> pkg_timeout
@@ -1442,7 +1431,6 @@ flowchart TD
 | [`client-ui-workflow-run`](../packages/client/ui-workflow-run) | `client` | — |
 | [`client-ui-workspace`](../packages/client/ui-workspace) | `client` | — |
 | [`client-web`](../packages/client/web) | `client` | — |
-| [`code-runtime`](../packages/code-runtime/code-runtime) | `code-runtime` | — |
 | [`credentials`](../packages/credentials/credentials) | `credentials` | — |
 | [`experimental-agent-team-profile`](../packages/experimental/agent-team-profile) | `experimental` | — |
 | [`experimental-agent-team-web-profile`](../packages/experimental/agent-team-web-profile) | `experimental` | — |
@@ -1485,7 +1473,6 @@ flowchart TD
 | [`authorization`](../packages/credentials/authorization) | `credentials` | [`credentials`](../packages/credentials/credentials), [`llm`](../packages/llm/llm) |
 | [`credentials-local`](../packages/credentials/credentials-local) | `credentials` | [`atomic-write`](../packages/util/atomic-write), [`credentials`](../packages/credentials/credentials), [`home-paths`](../packages/util/home-paths), [`launch-environment`](../packages/util/launch-environment) |
 | [`e2b`](../packages/e2b/e2b) | `e2b` | [`http-proxy`](../packages/util/http-proxy) |
-| [`experimental-code-runtime-python`](../packages/experimental/code-runtime-python) | `experimental` | [`code-runtime`](../packages/code-runtime/code-runtime), [`timeout`](../packages/util/timeout), [`util-values`](../packages/util/values) |
 | [`experimental-inspector`](../packages/experimental/inspector) | `experimental` | [`client-modules`](../packages/client/modules), [`host-webserver`](../packages/host/webserver) |
 | [`host-directory-picker-auto`](../packages/host/directory-picker-auto) | `host` | [`client-ui-directory-picker-browse`](../packages/client/ui-directory-picker-browse), [`client-ui-directory-picker-native`](../packages/client/ui-directory-picker-native), [`host-directory-picker-browse`](../packages/host/directory-picker-browse), [`host-directory-picker-native`](../packages/host/directory-picker-native), [`host-webserver`](../packages/host/webserver) |
 | [`anonymous-user-id`](../packages/identity/anonymous-user-id) | `identity` | [`brand`](../packages/util/brand), [`home-paths`](../packages/util/home-paths) |
@@ -1503,7 +1490,6 @@ flowchart TD
 | [`api-gateway`](../packages/api/gateway) | `api` | [`client-connection`](../packages/client/connection) |
 | [`attachment-local`](../packages/attachment/attachment-local) | `attachment` | [`attachment`](../packages/attachment/attachment), [`home-paths`](../packages/util/home-paths) |
 | [`app-boot`](../packages/boot/app-boot) | `boot` | [`home-paths`](../packages/util/home-paths), [`launch-environment`](../packages/util/launch-environment), [`system-prompt`](../packages/core/system-prompt) |
-| [`code-runtime-worker-thread`](../packages/code-runtime/code-runtime-worker-thread) | `code-runtime` | [`code-runtime`](../packages/code-runtime/code-runtime), [`session`](../packages/core/session), [`timeout`](../packages/util/timeout) |
 | [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | `e2b` | [`e2b`](../packages/e2b/e2b), [`subprocess`](../packages/subprocess/subprocess), [`timeout`](../packages/util/timeout) |
 | [`experimental-webworker-runtime`](../packages/experimental/webworker-runtime) | `experimental` | [`client-connection`](../packages/client/connection), [`client-modules`](../packages/client/modules), [`host-webserver`](../packages/host/webserver) |
 | [`host-frontend-static`](../packages/host/frontend-static) | `host` | [`client-connection`](../packages/client/connection), [`host-webserver`](../packages/host/webserver) |

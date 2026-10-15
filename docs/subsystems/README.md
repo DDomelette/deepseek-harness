@@ -34,7 +34,6 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [working-directory.md](working-directory.md) | Session execution directories, durable changes, recovery, and user context |
 | [worktrees.md](worktrees.md) | Experimental Git branch and checkout creation under existing permissions |
 | [sandbox.md](sandbox.md) | per-session policy resolution and the process-confinement seam: file-effect modes, execution/provider policies, `ConfinedArgv`, enforcement and fail-closed errors |
-| [code-runtime.md](code-runtime.md) | the code-execution seam: `CodeRunRequest`/`Result`, binding namespaces, captured logs, the `CodeRunFailure` taxonomy |
 | [ptc-runtime.md](ptc-runtime.md) | the PTC execution seam: `PtcRunRequest`/`Result`, binding namespaces, captured logs, the `PtcRunFailure` taxonomy |
 | [extensions.md](extensions.md) | versioned dynamic Cordis Plugins and Packages, Host/Client activation, approval, runtime inspection, and lifecycle teardown |
 | [boot.md](boot.md) | Current-profile plugin management and launcher reload coordination |
