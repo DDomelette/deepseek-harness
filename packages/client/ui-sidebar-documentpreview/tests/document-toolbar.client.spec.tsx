@@ -95,7 +95,7 @@ describe('document toolbar', () => {
   it('shows the shared loading indicator until a complete read settles', async () => {
     const h = harness()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof h.bytes>>>()
-    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: btoa('all'), bytes: 3, eof: true } }
+    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true } }
     onTestFinished(async () => {
       h.controller.abort()
       pending.resolve(result)
@@ -119,7 +119,7 @@ describe('document toolbar', () => {
 
   it('retries and refreshes complete content and uses the read result path before metadata arrives', async () => {
     const h = harness()
-    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: btoa('all'), bytes: 3, eof: true } }
+    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true } }
     const read = h.bytes.mockResolvedValueOnce({
       ok: false, error: new RemoteError('workspace-file/not-found', 'Missing file', { path: ABSOLUTE_PATH }),
     }).mockResolvedValue(result)

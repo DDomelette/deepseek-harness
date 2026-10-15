@@ -34,8 +34,8 @@ describe('HTML registration', () => {
     const registry = new DocumentPreviewRegistry()
     const dictionaries = new Map<string, unknown>()
     const bodies = new Map<string, unknown>()
-    const readRelated = vi.fn().mockResolvedValue({ ok: true, value: { data: '' } })
-    ctx.provide('remote', { workspaceFiles: { readRelated } } as never)
+    const readBytes = vi.fn().mockResolvedValue({ ok: true, value: { data: new Uint8Array() } })
+    ctx.provide('remote', { workspaceFiles: { readBytes } } as never)
     const register = vi.fn((options: Registration, body: unknown) => {
       bodies.set(options.key, body)
       return () => { bodies.delete(options.key) }
@@ -60,12 +60,12 @@ describe('HTML registration', () => {
     expect(typeof injected?.readRelated).toBe('function')
     const signal = new AbortController().signal
     await injected?.readRelated('dsh-resource://file/session/explicit-session/sub/index.html', '../app.js', signal)
-    expect(readRelated).toHaveBeenLastCalledWith('explicit-session', 'sub/index.html', '../app.js', signal)
+    expect(readBytes).toHaveBeenLastCalledWith('explicit-session', '../app.js', { baseFile: 'sub/index.html' }, signal)
     await injected?.readRelated(sessionFileAddress('absolute-session', '/workspace/index.html'), './app.js', signal)
-    expect(readRelated).toHaveBeenLastCalledWith('absolute-session', '/workspace/index.html', './app.js', signal)
+    expect(readBytes).toHaveBeenLastCalledWith('absolute-session', './app.js', { baseFile: '/workspace/index.html' }, signal)
     expect(() => injected?.readRelated('dsh-resource://file/absolute/workspace/index.html', './app.js', signal))
       .toThrow('not a session file address')
-    expect(readRelated).toHaveBeenCalledTimes(2)
+    expect(readBytes).toHaveBeenCalledTimes(2)
     await dispose()
     expect(registry.getSnapshot()).toEqual([])
     expect(bodies.size).toBe(0)

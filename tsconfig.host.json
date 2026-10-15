@@ -360,6 +360,8 @@
     { "path": "./packages/ssh/fs-ssh" },
     { "path": "./packages/ssh/subprocess-ssh" },
     { "path": "./packages/ssh/sandbox-ssh" },
+    { "path": "./packages/document/office-to-pdf" },
+    { "path": "./packages/test-support/remote-mock" },
     { "path": "./packages/deliverables/workspace-changes" },
     { "path": "./packages/host/directory-picker" },
     { "path": "./packages/host/directory-picker-auto" },

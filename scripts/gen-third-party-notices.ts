@@ -52,6 +52,16 @@ const FIRST_PARTY = new Set([
 export const CLAUDE_AGENT_SDK_PACKAGE = '@anthropic-ai/claude-agent-sdk'
 const CLAUDE_PLATFORM_PACKAGE_PREFIX = `${CLAUDE_AGENT_SDK_PACKAGE}-`
 const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
+const LIBREOFFICE_KIT_PACKAGE = '@deepseek-ai/libreoffice-kit'
+/** Runtime identities whose declared MPL-2.0 the notices check accepts. */
+const LIBREOFFICE_PACKAGES = new Set([
+  LIBREOFFICE_KIT_PACKAGE,
+  '@deepseek-ai/libreoffice-kit-wasm',
+  '@deepseek-ai/libreoffice-kit-darwin-arm64',
+  '@deepseek-ai/libreoffice-kit-darwin-x64',
+  '@deepseek-ai/libreoffice-kit-win32-arm64',
+  '@deepseek-ai/libreoffice-kit-win32-x64',
+])
 
 /**
  * Whether a non-permissive runtime declaration has an identity-scoped owner
@@ -641,7 +651,9 @@ export function isPermissive(license: string): boolean {
  * @throws When a runtime package has no permissive license or exact owner authorization.
  */
 export function assertRuntimeLicenses(dependencies: readonly { name: string; license: string }[]): void {
-  const rejected = dependencies.filter(dep => !isPermissive(dep.license) && !isOwnerAuthorizedRuntime(dep.name))
+  const rejected = dependencies.filter(dep => !isPermissive(dep.license)
+    && !isOwnerAuthorizedRuntime(dep.name)
+    && !(LIBREOFFICE_PACKAGES.has(dep.name) && dep.license === 'MPL-2.0'))
   if (rejected.length > 0) {
     throw new Error(`gen-third-party-notices: runtime ${rejected.map(dep => `${dep.name} (${dep.license})`).join(', ')} is not a permissive license; review the distribution terms and record the decision before regenerating.`)
   }
@@ -709,6 +721,7 @@ export async function render(): Promise<string> {
     ? collectClaudeDistribution(manifests)
     : undefined
   const nonPermissiveDev = devDeps.filter(dep => !isPermissive(dep.license))
+  const kitRuntime = runtimeDeps.some(dep => dep.name === LIBREOFFICE_KIT_PACKAGE)
   assertRuntimeLicenses(runtimeDeps)
   const patchedLines = patched.map(({ spec, patch }) => `- \`${spec}\` — [\`${patch}\`](${patch})`)
 
@@ -740,7 +753,13 @@ ${renderNpmTable(runtimeDeps)}
 pnpm applies local patches to the following packages at install time, so shipped artifacts carry modified copies; each patch file is the complete record of the modification:
 
 ${patchedLines.join('\n')}
-${renderClaudeDistribution(claudeDistribution)}
+${renderClaudeDistribution(claudeDistribution)}${kitRuntime ? `
+## LibreOffice conversion kit
+
+${[...LIBREOFFICE_PACKAGES].map(name => `\`${name}\``).join(', ')} declare MPL-2.0, which remains outside the permissive-license allowlist; the notices check accepts only these package identities at those terms. The [distribution decision](.agents/notes/implemented/architecture/2026-09-14-independent-libreoffice-kit.md) records the source obligations.
+
+The [kit repository](https://github.com/deepseek-ai/dsh-libreoffice-kit) supplies the corresponding LibreOffice source pin, modifications, build instructions, Node API, and artifact validation. Its engine packages retain their license and third-party notices; the Node API retains its MPL-2.0 declaration and NOTICE. Recipients must have access to those corresponding sources and notices.
+` : ''}
 
 ## Development-only npm dependencies
 

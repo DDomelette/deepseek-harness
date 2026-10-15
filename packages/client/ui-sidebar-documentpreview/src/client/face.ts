@@ -80,12 +80,12 @@ interface TabReads {
 /**
  * Bind the preview's face to one paged read and one complete-byte read.
  * @param read - the bound `workspaceFiles.read` call.
- * @param readAll - ordinary complete-byte Remote read.
+ * @param readBytes - ordinary complete-byte Remote read.
  * @returns the Slot `inject` factory: bound actions in, face out. The slot's session id is unused because the address carries its own.
  */
 export function textFace(
   read: ReadWorkspaceFilePage,
-  readAll: ReadDocumentBytes,
+  readBytes: ReadDocumentBytes,
 ): (sessionId: SessionId, actions: BoundActions<TextStore>) => TextInjected {
   return (_sessionId: SessionId, actions: BoundActions<TextStore>): TextInjected => {
     const tabs = new Map<TabId, TabReads>()
@@ -138,7 +138,7 @@ export function textFace(
       const reads = modeOf(tabId, signal, 'bytes-complete')
       const { generation } = reads
       actions.loading(tabId, 'bytes-complete', observedVersion)
-      void readAll(file, signal).then((result) => {
+      void readBytes(file, signal).then((result) => {
         if (signal.aborted || reads.generation !== generation) return
         if (!result.ok) {
           actions.failed(tabId, result.error)
@@ -149,7 +149,7 @@ export function textFace(
           file = documentFileBytes(result.value)
         } catch (error) {
           actions.failed(tabId, Object.assign(
-            new Error('document file byte response has malformed base64 data', { cause: error }),
+            new Error('document file byte response carries no byte array', { cause: error }),
             { name: 'RemoteError', isDSHRemoteError: true as const, code: 'gateway/internal' as const, details: {} },
           ))
           return

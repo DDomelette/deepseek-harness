@@ -119,7 +119,7 @@ describe('HtmlBody', () => {
     const signal = new AbortController().signal
     const bytes = vi.fn().mockResolvedValue({
       ok: true,
-      value: { absolutePath: '/workspace/app.js', data: btoa('window.ready=true'), version: 'v1', offset: 0, eof: true },
+      value: { absolutePath: '/workspace/app.js', data: new TextEncoder().encode('window.ready=true'), version: 'v1', offset: 0, eof: true },
     })
     const useResource = vi.fn().mockReturnValue({ value: undefined })
     const initial = {
@@ -142,7 +142,7 @@ describe('HtmlBody', () => {
     const signal = new AbortController().signal
     const bytes = vi.fn().mockResolvedValue({
       ok: true,
-      value: { absolutePath: '/workspace/app.js', version: 'v1', bytes: 16, offset: 0, data: btoa('window.ready=1'), eof: true },
+      value: { absolutePath: '/workspace/app.js', version: 'v1', bytes: 16, offset: 0, data: new TextEncoder().encode('window.ready=1'), eof: true },
     })
     const useResource = vi.fn(() => ({ value: { version: 'v1' } }))
     const initial = {

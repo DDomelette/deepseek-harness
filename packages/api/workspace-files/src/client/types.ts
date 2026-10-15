@@ -41,16 +41,10 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   }
 }
 
-/** One Host-reported write inside the session's workspace. */
+/** One Host-reported target change in the Session's filesystem. */
 export type WorkspaceFileEdit =
   | { readonly kind: 'changed'; readonly version: string }
   | { readonly kind: 'absent' }
 
-/**
- * What one follower of a path receives: a Host write, or the Client's own
- * request to read an opened file again after a reconnected stream generation,
- * which replays nothing observed while the stream was gone.
- */
-export type WorkspaceFileNotice =
-  | WorkspaceFileEdit
-  | { readonly kind: 'resync' }
+/** A target change or a request to restat after reconnection. */
+export type WorkspaceFileNotice = WorkspaceFileEdit | { readonly kind: 'refresh' }

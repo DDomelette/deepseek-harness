@@ -8,7 +8,7 @@ const ADDRESS = 'dsh-resource://file/session/html/sub/index.html'
 
 describe('HTML relative file reader', () => {
   it('decodes a relative URL once and converts the Remote result to native bytes', async () => {
-    const value = { absolutePath: '/workspace/a b.js', data: btoa('x'), version: 'v1', offset: 0, bytes: 1, eof: true }
+    const value = { absolutePath: '/workspace/a b.js', data: new TextEncoder().encode('x'), version: 'v1', offset: 0, bytes: 1, eof: true }
     const readRelated = vi.fn<ReadHtmlRelated>().mockResolvedValue({ ok: true, value })
     const tab = new AbortController()
     const loading = new AbortController()
@@ -51,7 +51,7 @@ describe('HTML relative file reader', () => {
     const result = read('./late.js', loading.signal)
     const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
     loading.abort()
-    pending.resolve({ ok: true, value: { absolutePath: '/workspace/late.js', version: 'v1', bytes: 1, offset: 0, data: 'AQ==', eof: true } })
+    pending.resolve({ ok: true, value: { absolutePath: '/workspace/late.js', version: 'v1', bytes: 1, offset: 0, data: new Uint8Array([1]), eof: true } })
     await rejected
   })
 })

@@ -1,14 +1,20 @@
 /**
- * The paged read this type performs, bound to the Client Remote.
+ * The paged and complete-byte reads this type performs, bound to the Client Remote.
  *
  * Content is the consumer's business: the `file` resource carries metadata only,
- * and the text arrives here one page of lines at a time. The endpoint takes a
- * session and a workspace path while a tab carries a `dsh-resource://file/`
- * session address, so this module also owns that translation.
+ * so the text arrives here one page of lines at a time and a whole document or
+ * one related asset arrives as bytes. The endpoint takes a session and a
+ * workspace path while a tab carries a `dsh-resource://file/` session address,
+ * so this module also owns that translation.
  */
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceFileBytes, WorkspaceFileRange, WorkspaceFileText } from '@deepseek-ai/dsh-api-workspace-files/types'
+import type {
+  WorkspaceByteReadOptions,
+  WorkspaceFileBytes,
+  WorkspaceFileRange,
+  WorkspaceFileText,
+} from '@deepseek-ai/dsh-api-workspace-files/types'
 import { parseFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 
 /** The slice of the Client Remote this package calls. */
@@ -28,6 +34,20 @@ export interface WorkspaceFilesReadRemote {
       range: WorkspaceFileRange,
       signal?: AbortSignal,
     ): Promise<RemoteResult<WorkspaceFileText>>
+    /**
+     * Read a complete file, or one byte window of it, without text decoding.
+     * @param sessionId - the session whose workspace resolves `path`.
+     * @param path - target path, absolute or workspace-relative; resolved from `options.baseFile`'s directory when provided.
+     * @param options - optional base file and byte range; without a range the Host's complete-file cap applies.
+     * @param signal - cancels the call.
+     * @returns the file's native bytes with its version, byte offset, and EOF marker, or the failure the Host declares.
+     */
+    readBytes(
+      sessionId: SessionId,
+      path: string,
+      options: WorkspaceByteReadOptions,
+      signal?: AbortSignal,
+    ): Promise<RemoteResult<WorkspaceFileBytes>>
   }
 }
 
@@ -82,7 +102,7 @@ export function createReadPage(remote: WorkspaceFilesReadRemote): ReadWorkspaceF
 }
 
 /** Complete document bytes borrowed read-only by renderers; copy before transferring to a Worker. */
-export type DocumentFileBytes = Omit<WorkspaceFileBytes, 'data'> & { readonly data: Uint8Array<ArrayBuffer> }
+export type DocumentFileBytes = WorkspaceFileBytes<Uint8Array<ArrayBuffer>>
 
 /**
  * Read a complete file through the Host endpoint.
@@ -93,10 +113,27 @@ export type DocumentFileBytes = Omit<WorkspaceFileBytes, 'data'> & { readonly da
 export type ReadDocumentBytes = (file: SessionFile, signal: AbortSignal) => Promise<RemoteResult<WorkspaceFileBytes>>
 
 /**
- * Decode one successful Remote byte result for document renderers.
- * @param file - Host byte result with base64 data.
- * @returns the same metadata with native bytes; malformed base64 throws.
+ * Bind the complete-file read to one Remote face. The related-asset reader
+ * passes the document as `baseFile`, so the Host resolves a relative reference
+ * from that file's own directory.
+ * @param remote - the Client Remote carrying the `workspaceFiles` namespace.
+ * @returns the read the face performs.
+ */
+export function createReadBytes(remote: WorkspaceFilesReadRemote): ReadDocumentBytes {
+  return (file, signal) => remote.workspaceFiles.readBytes(file.sessionId, file.path, {}, signal)
+}
+
+/**
+ * Accept one successful Remote byte result for document renderers.
+ * @param file - Host byte result carrying the file's native bytes.
+ * @returns the same metadata with bytes narrowed to a transferable buffer.
+ * @throws TypeError when the wire carried something other than bytes.
  */
 export function documentFileBytes(file: WorkspaceFileBytes): DocumentFileBytes {
-  return { ...file, data: Uint8Array.from(atob(file.data), character => character.charCodeAt(0)) }
+  // The Remote result is a wire boundary, and a test realm's `Uint8Array` is
+  // not this program's: accept any byte view instead of one realm's class.
+  if (!ArrayBuffer.isView(file.data)) {
+    throw new TypeError('ui-sidebar-documentpreview: remote file result carries no byte array')
+  }
+  return file as DocumentFileBytes
 }

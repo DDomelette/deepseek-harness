@@ -226,6 +226,9 @@ flowchart TD
   subgraph group_deliverables["packages/deliverables"]
     pkg_workspace_changes["workspace-changes"]
   end
+  subgraph group_document["packages/document"]
+    pkg_office_to_pdf["office-to-pdf"]
+  end
   subgraph group_e2b["packages/e2b"]
     pkg_e2b["e2b"]
     pkg_fs_e2b["fs-e2b"]
@@ -423,6 +426,7 @@ flowchart TD
     pkg_llm_mock_server["llm-mock-server"]
     pkg_llm_replay["llm-replay"]
     pkg_loader_smoke["loader-smoke"]
+    pkg_remote_mock["remote-mock"]
     pkg_session_snapshot["session-snapshot"]
   end
   subgraph group_typert["packages/typert"]
@@ -478,6 +482,7 @@ flowchart TD
   pkg_storage_json --> pkg_storage
   pkg_storage_sqlite --> pkg_storage
   pkg_subprocess --> pkg_http_proxy
+  pkg_remote_mock --> pkg_typert_protocol
   pkg_typert_loader --> pkg_typert_registry
   pkg_skill_badge --> pkg_skill
   pkg_web_fetch_http --> pkg_http_proxy
@@ -1506,6 +1511,7 @@ flowchart TD
 | [`client-ui-workspace`](../packages/client/ui-workspace) | `client` | — |
 | [`client-web`](../packages/client/web) | `client` | — |
 | [`credentials`](../packages/credentials/credentials) | `credentials` | — |
+| [`office-to-pdf`](../packages/document/office-to-pdf) | `document` | — |
 | [`experimental-agent-team-profile`](../packages/experimental/agent-team-profile) | `experimental` | — |
 | [`experimental-agent-team-web-profile`](../packages/experimental/agent-team-web-profile) | `experimental` | — |
 | [`experimental-badge-skill-bundle`](../packages/experimental/badge-skill-bundle) | `experimental` | — |
@@ -1558,6 +1564,7 @@ flowchart TD
 | [`storage-json`](../packages/storage/storage-json) | `storage` | [`storage`](../packages/storage/storage) |
 | [`storage-sqlite`](../packages/storage/storage-sqlite) | `storage` | [`storage`](../packages/storage/storage) |
 | [`subprocess`](../packages/subprocess/subprocess) | `subprocess` | [`http-proxy`](../packages/util/http-proxy) |
+| [`remote-mock`](../packages/test-support/remote-mock) | `test-support` | [`typert-protocol`](../packages/typert/protocol) |
 | [`typert-loader`](../packages/typert/loader) | `typert` | [`typert-registry`](../packages/typert/registry) |
 | [`skill-badge`](../packages/skill/skill-badge) | `skill` | [`skill`](../packages/skill/skill) |
 | [`web-fetch-http`](../packages/web/web-fetch-http) | `web` | [`http-proxy`](../packages/util/http-proxy), [`timeout`](../packages/util/timeout), [`web`](../packages/web/web) |

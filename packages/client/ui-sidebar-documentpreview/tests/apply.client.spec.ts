@@ -62,8 +62,8 @@ async function boot() {
   }
   const workspaceFiles = {
     read: vi.fn().mockResolvedValue(page(1, ['first'], true)),
-    readAll: vi.fn().mockResolvedValue({
-      ok: true, value: { absolutePath: '/workspace/notes.md', version: 'v1', offset: 0, data: 'AAH/', eof: true },
+    readBytes: vi.fn().mockResolvedValue({
+      ok: true, value: { absolutePath: '/workspace/notes.md', version: 'v1', offset: 0, data: new Uint8Array([0, 1, 255]), eof: true },
     }),
   }
   ctx.provide('sidebarRightTabs', tabs as never)
@@ -124,8 +124,8 @@ describe('ui-sidebar-documentpreview apply', () => {
     expect(workspaceFiles.read).toHaveBeenCalledExactlyOnceWith(FILE.sessionId, FILE.path, { offset: 1 }, controller.signal)
     expect(instance.getSnapshot().byTab[TAB_ID]?.pages[1]?.text).toBe('first')
     face.loadAll(TAB_ID, FILE, controller.signal, 'v1')
-    await workspaceFiles.readAll.mock.results[0]?.value
-    expect(workspaceFiles.readAll).toHaveBeenCalledExactlyOnceWith(FILE.sessionId, FILE.path, controller.signal)
+    await workspaceFiles.readBytes.mock.results[0]?.value
+    expect(workspaceFiles.readBytes).toHaveBeenCalledExactlyOnceWith(FILE.sessionId, FILE.path, {}, controller.signal)
     expect(instance.getSnapshot().byTab[TAB_ID]?.complete?.data).toEqual(new Uint8Array([0, 1, 255]))
   })
 })

@@ -44,10 +44,10 @@ tab 使用 `fileAddressFor` 构造的 Session 地址，携带相对或绝对路�
 
 - 资源快照仅包含 `status`、`value` 和 `failure`；`value` 是 `WorkspaceFileStat` 元数据。提供方可用后，内容读取无需等待首个元数据帧。观察失败优先于 Preview 的变更提示显示；两者都不会自动替换已加载内容。
 - **文本页** —— 纯文本、Markdown 和代码通过 inject 回调调用 `remote.workspaceFiles.read(sessionId, path, { offset }, signal)`。首次挂载读取第一页；滚动到正文末尾或点击 **加载更多** 会读取下一页，直到 `eof`。owner 以 `{ kind: 'text', text, pages, eof }` 提供累计前缀，包含源码偏移和行数。Markdown 和代码增量渲染此前缀，不把每页当成独立文档。第一页之后到达的更新版本页会使读取从头开始，避免混合版本。尚无内容时，失败会以文件类型图标、说明与重试按钮填满正文；较晚的失败保留已有内容并在其下提供重试。
-- **完整字节** —— PDF、HTML 和常见图片通过 inject 回调调用 `remote.workspaceFiles.readAll(sessionId, path, signal)`。`rpc.ts` 将线路上的 base64 解码为 `data: Uint8Array<ArrayBuffer>`，供 `{ kind: 'bytes', data }` 使用。Host 的 `maxFileBytes` 上限拒绝超大文件，不截断。PDF 在传给 worker 前复制保留的字节，使 Preview 缓冲区仍可使用。字节仅保存在临时视图状态中，绝不进入持久布局或 Session JSONL。加载模式变化会淘汰先前结果。
+- **完整字节** —— PDF、HTML 和常见图片通过 inject 回调调用 `remote.workspaceFiles.readBytes(sessionId, path, {}, signal)`，其 `data` 以 `Uint8Array<ArrayBuffer>` 到达，供 `{ kind: 'bytes', data }` 使用。Host 的 `maxFileBytes` 上限拒绝超大文件，不截断。PDF 在传给 worker 前复制保留的字节，使 Preview 缓冲区仍可使用。字节仅保存在临时视图状态中，绝不进入持久布局或 Session JSONL。加载模式变化会淘汰先前结果。
 - **重新载入** —— 仅当前 Preview tab 通过自己的 Remote 回调重读，保留滚动偏好并淘汰旧请求。变更提示将读取版本及起读时的观察版本与后续 `resource.value.version` 比较；刷新前已观察到的版本不会被当成新变化。读取既不刷新共享元数据，也不清除其它 tab 的提示。
 
-HTML 以贴合正文四边的 Blob iframe 运行，沙箱属性严格为 `sandbox="allow-scripts"`，不含 `allow-same-origin`；脚本无法访问父应用的源或文件读取接口。渲染器通过普通 inject 回调调用 `remote.workspaceFiles.readRelated`，加载直接声明的相对 `.js` 经典脚本和 `.css` 样式表；固定安全上限为单个资源 4 MiB、总计 32 MiB、64 个不同资源。Host 代码解析关联路径，`rpc.ts` 解码返回的字节。在渲染器内部，base64 仅用于把 iframe 引导载荷嵌入脚本文本。`<base href>` 将依赖解析交给浏览器，HTTPS 资源也由浏览器处理。本地模块 import、CSS `url()`/`@import` 和动态 `fetch` 不使用 Host 文件访问。读取失败、无效 UTF-8 或超出上限都使预览失败，不发布部分资源包。替换或卸载文档会释放其 Blob URL。
+HTML 以贴合正文四边的 Blob iframe 运行，沙箱属性严格为 `sandbox="allow-scripts"`，不含 `allow-same-origin`；脚本无法访问父应用的源或文件读取接口。渲染器通过普通 inject 回调调用 `remote.workspaceFiles.readBytes`，把文档作为 `baseFile` 传入，由 Host 从该文件所在目录解析引用，加载直接声明的相对 `.js` 经典脚本和 `.css` 样式表；固定安全上限为单个资源 4 MiB、总计 32 MiB、64 个不同资源。在渲染器内部，base64 仅用于把 iframe 引导载荷嵌入脚本文本。`<base href>` 将依赖解析交给浏览器，HTTPS 资源也由浏览器处理。本地模块 import、CSS `url()`/`@import` 和动态 `fetch` 不使用 Host 文件访问。读取失败、无效 UTF-8 或超出上限都使预览失败，不发布部分资源包。替换或卸载文档会释放其 Blob URL。
 
 PNG、JPEG、GIF、WebP、BMP、ICO 和 SVG 通过 Blob URL 在 `<img>` 静态图片上下文中渲染。图片保持固有 CSS 像素尺寸；小图在共享滚动区内居中，大图可沿任一轴滚动。渲染器既不提供缩放，也不提供拖拽平移。SVG 标记绝不进入应用 DOM 或 iframe，因此其中的脚本无法执行，也无法访问父页面。替换或卸载图片会撤销其 Blob URL。
 

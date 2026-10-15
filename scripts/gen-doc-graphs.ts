@@ -777,6 +777,11 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Runs programs against host-provided async bindings; tools owns PTC presentation and workflow-ptc owns workflow orchestration.',
   },
   {
+    key: 'officeToPdf', pkg: 'office-to-pdf', title: 'Office to PDF conversion',
+    mode: 'core', consumers: ['client-ui-sidebar-documentpreview'],
+    note: 'Authorized Office bytes are converted on the Host using the declared native target engine, or Node WASM when no native target is declared.',
+  },
+  {
     key: 'workspaceChanges',
     pkg: 'workspace-changes',
     title: 'Host per-turn changed-file summaries',

@@ -25,7 +25,7 @@ import type { TextPreviewInjected } from './TextPreview.tsx'
 import { TextTitle } from './TextTitle.tsx'
 import { TEXTPREVIEW_ID, textDefinition } from './definition.ts'
 import { textFace } from './face.ts'
-import { createReadPage } from './rpc.ts'
+import { createReadBytes, createReadPage } from './rpc.ts'
 import { createTextStore } from './store.ts'
 import { en, zh } from './locales.ts'
 import { DocumentPreviewRegistry } from './document/registry.ts'
@@ -92,7 +92,7 @@ export function apply(ctx: ClientContext): void {
   const store = createTextStore()
   const face = textFace(
     createReadPage(ctx.remote),
-    (file, signal) => ctx.remote.workspaceFiles.readAll(file.sessionId, file.path, signal),
+    createReadBytes(ctx.remote),
   )
   const source = { getSnapshot: previews.getSnapshot, subscribe: previews.subscribe }
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(

@@ -1514,6 +1514,37 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'officeToPdf',
+    summary: 'A provider lifetime owns all converters, queued calls, and temporary files.',
+    description: 'A provider lifetime owns all converters, queued calls, and temporary files.',
+    methods: [
+      {
+        signature: 'readonly generation: OfficeToPdfGeneration = OfficeToPdfGeneration(randomUUID())',
+        description: 'Changes whenever engine, font, or conversion configuration is replaced.',
+        parameters: [],
+      },
+      {
+        signature: 'convert(request: OfficeToPdfRequest, signal?: AbortSignal): Promise<OfficeToPdfResult>',
+        description: 'Convert Office bytes without modifying the source or writing Session events.',
+        parameters: [{ name: 'request', description: 'authorized metadata and deferred bounded source read.' }, { name: 'signal', description: 'caller cancellation; provider disposal also stops active work.' }],
+        returns: 'caller-owned PDF bytes after conversion and scratch cleanup settle; canceled readers reject independently.',
+        throws: ['{OfficeToPdfError} Invalid input, unusable output, or engine failure; cancellation rejects with its reason.'],
+      },
+      {
+        signature: '@Remote async render( workspaceFileScope: WorkspaceFileScope, path: string, priority: OfficeToPdfPriority, signal: AbortSignal, ): Promise<RenderedDocumentBytes>',
+        description: 'Read and convert one Office file using the Session\'s ordinary filesystem authorization.',
+        parameters: [{ name: 'workspaceFileScope', description: 'Session header lookup shared with workspaceFiles.' }, { name: 'path', description: 'absolute or workspace-relative Office path.' }, { name: 'priority', description: 'foreground preview or speculative background work.' }, { name: 'signal', description: 'Remote cancellation; disposal also cancels outstanding reads and conversions.' }],
+        returns: 'complete PDF bytes with original source identity and missing font families.',
+      },
+      {
+        signature: '@Remote(\'generation\') getGeneration(signal: AbortSignal): OfficeToPdfGeneration',
+        description: 'Read the current rendering generation before reusing a Client PDF.',
+        parameters: [{ name: 'signal', description: 'Remote caller cancellation.' }],
+        returns: 'provider lifetime, replaced with rendering, font, or engine configuration.',
+      },
+    ],
+  },
+  {
     key: 'otel',
     summary: 'Shared transport provider.',
     description: 'Shared transport provider. Mounting creates no queue, identity, or network connection.',
@@ -3683,22 +3714,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the page, the file\'s version at the stat before it, and whether it reaches the last line.',
       },
       {
-        signature: '@Remote async readBytes( workspaceFileScope: WorkspaceFileScope, path: string, range: WorkspaceByteRange, signal: AbortSignal, ): Promise<WorkspaceFileBytes>',
-        description: 'Read one byte window of a regular file readable by the filesystem backend: raw bytes, no text decoding and no binary rejection.',
-        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'path', description: 'absolute path or path relative to the workspace root; files outside it are allowed.' }, { name: 'range', description: 'the byte window; omitted fields take the window defaults.' }, { name: 'signal', description: 'caller cancellation.' }],
-        returns: 'the window in base64, the file\'s version and size at the stat before it, and whether it reaches the last byte.',
-      },
-      {
-        signature: '@Remote async readAll(workspaceFileScope: WorkspaceFileScope, path: string, signal: AbortSignal): Promise<WorkspaceFileBytes>',
-        description: 'Read a complete regular file as bytes, subject to the configured full-file cap.',
-        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'path', description: 'absolute or workspace-relative file path.' }, { name: 'signal', description: 'caller cancellation.' }],
-        returns: 'one complete base64 window with offset zero and eof true; oversized files fail with too-large.',
-      },
-      {
-        signature: '@Remote async readRelated( workspaceFileScope: WorkspaceFileScope, path: string, relativePath: string, signal: AbortSignal, ): Promise<WorkspaceFileBytes>',
-        description: 'Read a complete file relative to another file\'s directory, including outside the workspace.',
-        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'path', description: 'base file, absolute or workspace-relative.' }, { name: 'relativePath', description: 'relative filesystem path, not a URL or absolute path.' }, { name: 'signal', description: 'caller cancellation.' }],
-        returns: 'the complete related file using the ordinary file-size and access checks.',
+        signature: '@Remote async readBytes( workspaceFileScope: WorkspaceFileScope, path: string, options: WorkspaceByteReadOptions, signal: AbortSignal, ): Promise<WorkspaceFileBytes>',
+        description: 'Read a complete regular file or one byte range without text decoding.',
+        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'path', description: 'target path, absolute or workspace-relative; relative to the base file\'s directory when provided.' }, { name: 'options', description: 'optional base file and range; without a range the complete-file cap applies.' }, { name: 'signal', description: 'caller cancellation.' }],
+        returns: 'native bytes with the file\'s version and size at the preceding stat, byte offset, and EOF marker.',
       },
       {
         signature: '@Remote async stat(workspaceFileScope: WorkspaceFileScope, path: string, signal: AbortSignal): Promise<WorkspaceFileStat>',
@@ -3713,10 +3732,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the directory\'s children in the backend\'s stable name order, bounded by the entry cap.',
       },
       {
-        signature: '@Remote({ mode: \'stream\' }) changes(workspaceFileScope: WorkspaceFileScope, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame>',
-        description: 'Stream every `fs/observed` observation of a file inside the Session\'s workspace. Only instrumented filesystem operations report here; the OS is not watched.',
-        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'signal', description: 'generation cancellation.' }],
-        returns: '`ready` once the Host observation queue is active and the workspace root is resolved, then queued and live observations in emission order.',
+        signature: '@Remote({ mode: \'stream\' }) changes(workspaceFileScope: WorkspaceFileScope, path: string, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame>',
+        description: 'Watch one file or a directory\'s direct entries in the Session\'s filesystem. Files use the backend\'s read authority; directories remain workspace-scoped.',
+        parameters: [{ name: 'workspaceFileScope', description: 'header-derived workspace root for the Session identity on the wire.' }, { name: 'path', description: 'target path; the Host determines its type and confines directories to the workspace.' }, { name: 'signal', description: 'generation cancellation.' }],
+        returns: '`ready` once the target watch is active, then current metadata for queued and live invalidations.',
+        throws: ['RemoteError when watching is unavailable or a directory is outside the workspace.'],
       },
     ],
   },
@@ -5953,6 +5973,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ObjectJsonSchema = JsonSchemaNode & {\n    type: \'object\';\n};',
   },
   {
+    name: 'OfficeExtension',
+    declaration: 'export type OfficeExtension = \'doc\' | \'docx\' | \'xls\' | \'xlsx\' | \'ppt\' | \'pptx\';',
+  },
+  {
+    name: 'OfficeSourceKey',
+    declaration: 'export type OfficeSourceKey = Branded<\'OfficeSourceKey\'>;',
+  },
+  {
+    name: 'OfficeToPdfGeneration',
+    declaration: 'export type OfficeToPdfGeneration = Branded<\'OfficeToPdfGeneration\'>;',
+  },
+  {
+    name: 'OfficeToPdfKey',
+    declaration: 'export type OfficeToPdfKey = Branded<\'OfficeToPdfKey\'>;',
+  },
+  {
+    name: 'OfficeToPdfPriority',
+    declaration: 'export type OfficeToPdfPriority = \'foreground\' | \'background\';',
+  },
+  {
+    name: 'OfficeToPdfRequest',
+    declaration: 'export interface OfficeToPdfRequest {\n    readonly extension: OfficeExtension;\n    readonly priority: OfficeToPdfPriority;\n    readonly source: {\n        readonly key: OfficeSourceKey;\n        readonly version: string;\n        readonly bytes?: number;\n        read(signal: AbortSignal, maxBytes: number): Promise<{\n            readonly bytes: Uint8Array;\n            readonly version: string;\n        }>;\n    };\n}',
+  },
+  {
+    name: 'OfficeToPdfResult',
+    declaration: 'export interface OfficeToPdfResult {\n    readonly pdf: Uint8Array;\n    readonly missingFonts: string[];\n    readonly cacheKey: OfficeToPdfKey;\n    readonly generation: OfficeToPdfGeneration;\n}',
+  },
+  {
     name: 'OnboardingPage',
     declaration: 'export type OnboardingPage = \'onboarding_welcome\' | \'onboarding_recharge\' | \'onboarding_use_case\' | \'onboarding_process\';',
   },
@@ -6299,6 +6347,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RemoteEventHostInfo',
     declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n}',
+  },
+  {
+    name: 'RenderedDocumentBytes',
+    declaration: 'export interface RenderedDocumentBytes extends WorkspaceFileBytes {\n    readonly missingFonts: string[];\n    readonly generation: OfficeToPdfGeneration;\n}',
   },
   {
     name: 'ReplayEnvelope',
@@ -8261,6 +8313,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface WorkspaceByteRange {\n    readonly offset?: number;\n    readonly length?: number;\n}',
   },
   {
+    name: 'WorkspaceByteReadOptions',
+    declaration: 'export interface WorkspaceByteReadOptions {\n    readonly range?: WorkspaceByteRange;\n    readonly baseFile?: string;\n}',
+  },
+  {
     name: 'WorkspaceChangedFile',
     declaration: 'export interface WorkspaceChangedFile {\n    path: string;\n    display: string;\n    added: number;\n    deleted: number;\n    binary?: true;\n    oversized?: true;\n}',
   },
@@ -8298,7 +8354,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceFileBytes',
-    declaration: 'export interface WorkspaceFileBytes extends WorkspaceFileStat {\n    readonly offset: number;\n    readonly data: string;\n    readonly eof: boolean;\n}',
+    declaration: 'export interface WorkspaceFileBytes<Data extends Uint8Array = Uint8Array> extends WorkspaceFileStat {\n    readonly offset: number;\n    readonly data: Data;\n    readonly eof: boolean;\n}',
   },
   {
     name: 'WorkspaceFileChange',

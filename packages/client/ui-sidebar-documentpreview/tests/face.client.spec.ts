@@ -105,9 +105,7 @@ function bench(sessionId = 'other-session' as SessionId) {
   }
   return {
     instance, read, face, forget, settle, bytes, controller,
-    settleAll: (result: RemoteResult<DocumentFileBytes>, key?: number) => whole.settle(result.ok
-      ? { ok: true, value: { ...result.value, data: btoa(String.fromCharCode(...result.value.data)) } }
-      : result, key),
+    settleAll: (result: RemoteResult<DocumentFileBytes>, key?: number) => whole.settle(result, key),
     settleAllWire: whole.settle,
     outstandingAll: whole.outstanding,
     outstanding: () => pending.map(call => call.offset),
@@ -240,16 +238,16 @@ describe('textFace', () => {
     expect(tab()).toMatchObject({ loading: false, failure: undefined, complete: complete().value })
   })
 
-  it('records malformed complete-byte wire data as a failed read', async () => {
+  it('records a complete-byte wire result without a byte array as a failed read', async () => {
     const { face, settleAllWire, tab, controller } = bench()
     face.loadAll(TAB_1, FILE, controller.signal)
     await settleAllWire({
       ok: true,
-      value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: '!!!', eof: true, bytes: 3 },
+      value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: '!!!', eof: true, bytes: 3 } as never,
     })
     expect(tab()).toMatchObject({
       mode: 'bytes-complete', loading: false, version: undefined,
-      failure: { code: 'gateway/internal', message: 'document file byte response has malformed base64 data' },
+      failure: { code: 'gateway/internal', message: 'document file byte response carries no byte array' },
     })
     expect(tab()?.complete).toBeUndefined()
   })

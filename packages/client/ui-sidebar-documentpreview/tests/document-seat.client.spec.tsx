@@ -50,10 +50,10 @@ async function boot() {
     ok: true,
     value: { absolutePath: '/host/notes', version: 'v1', bytes: 18, offset: range.offset ?? 1, text: range.offset === 3 ? 'third' : 'first\nsecond', lines: range.offset === 3 ? 1 : 2, eof: range.offset === 3 },
   }))
-  const bytes = vi.fn<ClientRemote['workspaceFiles']['readAll']>().mockResolvedValue({
-    ok: true, value: { absolutePath: '/host/notes', version: 'v1', offset: 0, data: btoa('all'), bytes: 3, eof: true },
+  const bytes = vi.fn<ClientRemote['workspaceFiles']['readBytes']>().mockResolvedValue({
+    ok: true, value: { absolutePath: '/host/notes', version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true },
   })
-  const workspaceFiles = { read, readAll: bytes }
+  const workspaceFiles = { read, readBytes: bytes }
   rt.ctx.provide('remote', { workspaceFiles } as never)
   rt.ctx.provide('remote.workspaceFiles', workspaceFiles as never)
   rt.ctx.effect(() => rt.ctx.resources.register({
