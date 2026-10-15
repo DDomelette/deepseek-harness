@@ -2374,6 +2374,9 @@ importers:
       '@deepseek-ai/dsh-notes':
         specifier: workspace:*
         version: link:../../notes/notes
+      '@deepseek-ai/dsh-office-to-pdf':
+        specifier: workspace:*
+        version: link:../../document/office-to-pdf
       '@deepseek-ai/dsh-persona':
         specifier: workspace:*
         version: link:../../preset/persona
@@ -2510,6 +2513,9 @@ importers:
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@deepseek-ai/libreoffice-kit':
+        specifier: ^0.1.5
+        version: 0.1.5
 
   packages/client/connection:
     dependencies:

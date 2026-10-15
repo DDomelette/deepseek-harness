@@ -61,6 +61,8 @@ dsh --profile web --no-open --port 8080
 
 每个浏览器会话都从随发行版交付的 preset（默认 `standard`）组合自己的 agent，而不是共享一套进程级工具集。这四份声明随本组合包以 patch 列表中的 `presets/<id>.patch.yml` 文件交付；想要不同 agent 的 Profile 在自己的 patch 层里重新声明 `preset-<id>` 行，或安装一个自带 preset 的组合包。
 
+`office-to-pdf` 宿主行以 `ctx.officeToPdf` 挂载一个延迟创建的 [Office 转换提供方](../../document/office-to-pdf/README.zh.md)：该行注册服务及其有界队列，其背后的 LibreOffice 引擎在首次转换时才加载。右侧边栏的文档标签页是它当前的消费方，使用本组合包的 Desktop 组合也共享同一个提供方。
+
 -----
 
 <a id="understand-the-implementation"></a>

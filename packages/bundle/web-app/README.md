@@ -61,6 +61,8 @@ When you launch `dsh --profile web` over SSH, the URL line still prints but the 
 
 Each browser session composes its own agent from the shipped presets (the `standard` preset by default), instead of sharing one process-wide tool set. The four declarations travel with this bundle as `presets/<id>.patch.yml` files of its patch list; a Profile that wants a different agent changes one by declaring the `preset-<id>` row again in its own patch layer, or installs a bundle that adds a preset of its own.
 
+The `office-to-pdf` Host row mounts one lazy [Office conversion provider](../../document/office-to-pdf/README.md) as `ctx.officeToPdf`: the row registers the service and its bounded queue, while the LibreOffice engine behind it loads on the first conversion. The right Sidebar's document tab is its current consumer, and Desktop compositions using this bundle share the same provider.
+
 -----
 
 <a id="understand-the-implementation"></a>
