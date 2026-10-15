@@ -23,9 +23,10 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   terminal/         persistent sessions
   fs/          filesystem capability + policy
   lsp/         language-server capability
-  skill/       skill provider registry + local impl + catalog/loader tool
-  web/         web capability: Service Definition + search/fetch providers + tool Consumer
+  skill/       skill provider registry + local impl + loader tool
+  web/         web capability: search/fetch providers + tool Consumer
   computer-use/, browser-use/   exclusive named desktop/browser-provider registration
+  ssh/         POSIX remote connection
   deliverables/ turn deliverables
   compaction/     compaction capability + basic provider
   context/     request-context plugins

@@ -45,6 +45,8 @@ const windowsUnsupportedPackages = process.platform === 'win32'
       // stdio, process-group signals), so its suites never run here.
       'packages/experimental/ptc-runtime-python',
       'packages/sandbox/sandbox-local',
+      // OpenSSH multiplexing and Unix-socket helper streams require POSIX endpoints.
+      'packages/ssh/*',
     ]
   : []
 

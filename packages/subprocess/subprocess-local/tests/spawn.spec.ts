@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { logSpillFailure, OutputCollector, prepareManagedProcessBinding } from '../src/output.ts'
+import type { SpillOptions } from '../src/output.ts'
 import {
   bindManagedProcess,
   childEnv,
@@ -112,6 +113,11 @@ vi.mock('node:fs', async (importOriginal) => {
 })
 
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-subprocess-spec-'))
+
+/** Spill options for one collector test; failures are collected for assertions. */
+function spillOptions(maxBytes: number, dir = spillDir): SpillOptions {
+  return { maxBytes, dir, onFailure: () => {} }
+}
 
 /** The per-process default spill dir captured by the default-spill test. */
 let defaultSpillDir: string | undefined
@@ -553,7 +559,7 @@ describe('output truncation and spill', () => {
 
 describe('OutputCollector', () => {
   it('keeps the tail of a single oversized chunk', () => {
-    const collector = new OutputCollector(10, 100, 'test', spillDir)
+    const collector = new OutputCollector(10, 'test', spillOptions(100))
     collector.push(Buffer.from('0123456789abcdef'))
     const out = collector.finalize()
     expect(out.text).toBe('6789abcdef')
@@ -564,7 +570,7 @@ describe('OutputCollector', () => {
   it('retains a byte-exact tail across uneven chunk boundaries', () => {
     // A diagnostic tail must be exactly the LAST maxBytes regardless of
     // chunking; dropping only whole chunks would under-retain.
-    const collector = new OutputCollector(10, undefined, 'exact-tail', spillDir)
+    const collector = new OutputCollector(10, 'exact-tail', undefined)
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbbbb'))
     collector.push(Buffer.from('cc'))
@@ -575,7 +581,7 @@ describe('OutputCollector', () => {
   })
 
   it('readFrom returns increments and flags lossy reads', () => {
-    const collector = new OutputCollector(10, 100, 'test', spillDir)
+    const collector = new OutputCollector(10, 'test', spillOptions(100))
     collector.push(Buffer.from('aaaaa'))
     const first = collector.readFrom(0)
     expect(first.text).toBe('aaaaa')
@@ -596,7 +602,7 @@ describe('OutputCollector', () => {
   })
 
   it('contains close failures and drops the spill path', () => {
-    const collector = new OutputCollector(4, 100, 'closefail', spillDir)
+    const collector = new OutputCollector(4, 'closefail', spillOptions(100))
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
     expect(collector.readFrom(0).spillPath).toBeDefined()
@@ -612,7 +618,7 @@ describe('OutputCollector', () => {
   })
 
   it('discards a spill that exceeds its configured cap', () => {
-    const collector = new OutputCollector(4, 8, 'bounded', spillDir)
+    const collector = new OutputCollector(4, 'bounded', spillOptions(8))
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
     const spillPath = collector.readFrom(0).spillPath!
@@ -628,7 +634,7 @@ describe('OutputCollector', () => {
   })
 
   it('does not create a spill when the first overflowing chunk exceeds the cap', () => {
-    const collector = new OutputCollector(4, 4, 'no-spill', spillDir)
+    const collector = new OutputCollector(4, 'no-spill', spillOptions(4))
     collector.push(Buffer.from('abcdefgh'))
     const out = collector.finalize()
     expect(out.text).toBe('efgh')
@@ -637,7 +643,7 @@ describe('OutputCollector', () => {
   })
 
   it('contains cleanup failures while disabling an oversize spill', () => {
-    const collector = new OutputCollector(4, 8, 'cleanup-fail', spillDir)
+    const collector = new OutputCollector(4, 'cleanup-fail', spillOptions(8))
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
     const spillPath = collector.readFrom(0).spillPath!
@@ -652,7 +658,7 @@ describe('OutputCollector', () => {
   })
 
   it('stops an incremental read at a complete UTF-8 character', () => {
-    const collector = new OutputCollector(64, 100, 'utf8-split', spillDir)
+    const collector = new OutputCollector(64, 'utf8-split', spillOptions(100))
     const bytes = Buffer.from('中')
     collector.push(bytes.subarray(0, 1))
     // The remaining bytes of the character have not arrived: advancing the
