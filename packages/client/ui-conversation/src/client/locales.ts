@@ -170,9 +170,6 @@ export const zh = {
   'terminal.session': '终端 {sessionId}',
   'terminal.noExitCode': '未正常退出',
   'terminal.commandLine': '命令第 {n} 行',
-  'codeBlock.title': '代码块',
-  'codeBlock.wrap': '自动换行',
-  'codeBlock.unwrap': '取消自动换行',
 } satisfies Record<string, string>
 
 /** The conversation namespace key union. */
@@ -343,7 +340,4 @@ export const en = {
   'terminal.session': 'Terminal {sessionId}',
   'terminal.noExitCode': 'no exit code',
   'terminal.commandLine': 'Command line {n}',
-  'codeBlock.title': 'Code block',
-  'codeBlock.wrap': 'Wrap lines',
-  'codeBlock.unwrap': 'Do not wrap lines',
 } satisfies Record<ConversationKey, string>
