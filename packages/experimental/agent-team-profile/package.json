@@ -34,15 +34,15 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
-    "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:^"
+    "@deepseek-ai/dsh-experimental-agent-team": "workspace:*",
+    "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis-plugin-include": "workspace:^",
-    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/cordis-plugin-include": "workspace:~",
+    "@deepseek-ai/cordis": "workspace:~",
     "js-yaml": "^4.2.0"
   }
 }
