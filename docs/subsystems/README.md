@@ -35,6 +35,8 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [worktrees.md](worktrees.md) | Experimental Git branch and checkout creation under existing permissions |
 | [sandbox.md](sandbox.md) | per-session policy resolution and the process-confinement seam: file-effect modes, execution/provider policies, `ConfinedArgv`, enforcement and fail-closed errors |
 | [ptc-runtime.md](ptc-runtime.md) | the PTC execution seam: `PtcRunRequest`/`Result`, binding namespaces, captured logs, the `PtcRunFailure` taxonomy |
+| [computer-use.md](computer-use.md) | exclusive named computer-use provider registration and Cua Driver integration choices |
+| [browser-use.md](browser-use.md) | exclusive named browser-use registration, provider choices, and per-Session browser ownership |
 | [extensions.md](extensions.md) | versioned dynamic Cordis Plugins and Packages, Host/Client activation, approval, runtime inspection, and lifecycle teardown |
 | [boot.md](boot.md) | Current-profile plugin management and launcher reload coordination |
 | [claude-code-mods.md](claude-code-mods.md) | Claude Code mods through the experimental bridge: every event, `$` member, chain rule, drawing feature, and example mod that differs from Claude Code |
