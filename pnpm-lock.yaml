@@ -1706,6 +1706,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@deepseek-ai/dsh-llm-deepseek-account':
+        specifier: workspace:*
+        version: link:../../llm/llm-deepseek-account
       '@deepseek-ai/dsh-llm-deepseek-api-key':
         specifier: workspace:*
         version: link:../../llm/llm-deepseek-api-key
