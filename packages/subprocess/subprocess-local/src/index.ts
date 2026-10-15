@@ -9,6 +9,7 @@
  */
 
 import { constants } from 'node:fs'
+import { userInfo } from 'node:os'
 import { access, stat } from 'node:fs/promises'
 import { delimiter, extname, isAbsolute, resolve } from 'node:path'
 import type { Duplex } from 'node:stream'
@@ -19,6 +20,7 @@ import { SubprocessExecutableNotFoundError, SubprocessRuntime } from '@deepseek-
 import type {
   SubprocessHandle,
   SubprocessSpawnSpec,
+  SubprocessTerminalEnvironment,
   SubprocessTerminalHandle,
   SubprocessTerminalSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
@@ -42,6 +44,7 @@ import { targetEnvironment } from './runner-launch.ts'
 import { createProcessInspector } from './process-inspector.ts'
 import type { ProcessInspector } from './process-inspector.ts'
 import { LocalTerminalHandle } from './terminal.ts'
+import { prepareShellActivity } from './shell-activity.ts'
 
 /**
  * Local subprocess service: platform-selected managed ranges, Node-shaped stdio
@@ -247,6 +250,15 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     )
   }
 
+  /** @inheritdoc */
+  // oxlint-disable-next-line typescript/require-await -- Keep the provider promise rejection semantics for cancelled inspection.
+  async terminalEnvironment(signal?: AbortSignal): Promise<SubprocessTerminalEnvironment> {
+    signal?.throwIfAborted()
+    const platform = process.platform === 'win32' ? 'windows' : 'posix'
+    const defaultShell = platform === 'windows' ? process.env.ComSpec || undefined : process.env.SHELL || userInfo().shell || undefined
+    return { platform, ...defaultShell === undefined ? {} : { defaultShell } }
+  }
+
   // Local PTY allocation is synchronous, but the provider contract permits remote asynchronous allocation.
   // oxlint-disable-next-line typescript/require-await -- Preserve promise rejection semantics at the async provider contract.
   async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
@@ -255,36 +267,37 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       throw new Error('subprocess-local: terminal argv must contain a program')
     }
     spec.signal?.throwIfAborted()
+    const inspector = this.terminalInspector ?? createProcessInspector()
+    const containmentMode = this.selectContainmentMode('terminal')
     const env = targetEnvironment(spec)
+    const platform = this.internals.platform ?? process.platform
+    const activity = prepareShellActivity(spec, env, platform)
+    const launch: SubprocessTerminalSpawnSpec = activity === undefined ? spec : { ...spec, argv: activity.argv, env: activity.env }
     const options: IPtyForkOptions = {
-      name: 'dumb',
+      name: spec.terminalType,
       rows: spec.rows,
       cols: spec.cols,
       cwd: spec.cwd,
-      env,
+      env: { ...activity?.env ?? env, TERM: spec.terminalType },
     }
-    const inspector = this.terminalInspector ?? createProcessInspector()
-    const containmentMode = this.selectContainmentMode('terminal')
-    const scope = containmentMode === 'linux-scope'
-      ? prepareLinuxTerminalScope(spec, {
-        ...env,
-        PWD: spec.cwd,
-        TERM: 'dumb',
-      })
-      : undefined
-    if (scope !== undefined) {
-      options.cwd = scope.cwd
-      options.env = scope.env
-    }
+    let scope: ReturnType<typeof prepareLinuxTerminalScope> | undefined
     let terminal: nodePty.IPty
     try {
+      scope = containmentMode === 'linux-scope'
+        ? prepareLinuxTerminalScope(launch, { ...activity?.env ?? env, PWD: spec.cwd, TERM: spec.terminalType })
+        : undefined
+      if (scope !== undefined) {
+        options.cwd = scope.cwd
+        options.env = scope.env
+      }
       terminal = nodePty.spawn(
         scope?.command ?? file,
-        scope?.args ?? [...spec.argv.slice(1)],
+        scope?.args ?? [...launch.argv.slice(1)],
         options,
       )
     } catch (error) {
       scope?.cleanup()
+      activity?.dispose()
       throw error
     }
     // oxlint-disable-next-line eslint/prefer-const -- The owner can query readiness before the handle is published.
@@ -299,9 +312,12 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       terminal,
       inspector,
       spec.graceMs,
-      this.internals.platform ?? process.platform,
+      platform,
       owner,
       scope?.resolveOutcome,
+      activity,
+      () => { this.terminals.delete(handle as LocalTerminalHandle) },
+      spec.shellActivity === true,
     )
     this.terminals.add(handle)
     const release = async (): Promise<void> => {

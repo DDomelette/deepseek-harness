@@ -12,7 +12,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { proxyEnvironmentForChild } from '@deepseek-ai/dsh-http-proxy'
 import { DSH_ENV_PREFIX } from './types.ts'
 import type { SubprocessHandle, SubprocessSpawnSpec } from './types.ts'
-import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from './types.ts'
+import type { SubprocessTerminalEnvironment, SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from './types.ts'
 
 export { DSH_ENV_PREFIX } from './types.ts'
 export type {
@@ -29,6 +29,8 @@ export type {
   SubprocessSpawnSpec,
   SubprocessStdinMode,
   SubprocessStdio,
+  SubprocessTerminalActivity,
+  SubprocessTerminalEnvironment,
   SubprocessTerminalForeground,
   SubprocessTerminalHandle,
   SubprocessTerminalSignal,
@@ -167,6 +169,12 @@ export abstract class SubprocessRuntime extends Service {
     signal?: AbortSignal,
   ): Promise<string>
 
+  /**
+   * Inspect shell-selection facts in the provider's execution environment.
+   * @param signal - cancellation of remote environment inspection.
+   * @returns platform and preferred shell; executable lookup and allocation remain separate operations.
+   */
+  abstract terminalEnvironment(signal?: AbortSignal): Promise<SubprocessTerminalEnvironment>
   /**
    * Start one managed child process from a fully-specified spec; this seam
    * applies no defaults.

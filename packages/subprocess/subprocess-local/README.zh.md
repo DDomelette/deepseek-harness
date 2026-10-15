@@ -44,6 +44,8 @@ kind: "package-reference"
 
 收集模式在内存中保留一条流的最后 `maxBytes`——错误与最终结果通常聚集在末尾——并在配置了 `spill` 上限时把完整流追加到 OS 临时目录下每进程目录中的私有文件（`0700` 目录、`0600` 随机命名文件）。某条流大于 spill 上限时，会丢弃不完整的 spill，只返回带截断标记的尾部。spill 无法创建或写入时（磁盘写满、描述符耗尽、spill 目录被移除）同样会丢弃它，因此收集退化为内存尾部，而不会让喂给它的这条流失败；提供方会通过自身 logger 上报这一次降级，插件之外的 spawn 则写一行 stderr。spill 路径只在文件成功打开之后才公布，因此打开失败（包括该路径被预置了条目）绝不会 unlink 一个本进程没有创建的文件。读取基于偏移量且从不消费，因此后台读取与批量读取在退出前后都可以共存。一次读取停在最后一个完整 UTF-8 字符处，因此仍在逐字节到达的文本会由补全它的那次读取整体返回。
 
+<a id="running-terminal-sessions"></a>
+
 ### 运行终端会话
 
 `spawnTerminal` 分配真实 PTY 并桥接 UTF-8 文本；你可以检查当前前台进程组并向其发送信号，还可以等待一次 `terminate()` 操作。在受支持的 Linux 宿主上，原始终端 argv 直接在 user-systemd scope 内运行；node-pty PID、会话 leader、控制终端、前台 `inputWaiting` 与就绪状态保持不变，而 scope 会拥有已重新设定父进程或调用 `setsid` 的后代。在 fallback 宿主上，清理会保留根进程树和可观察会话中的精确身份，但无法重新发现每个已经逃逸的后代。Linux 的精确输入等待要求前台线程的 fd 0 标识 shell 的控制终端，且线程当前的 syscall 正在等待该 fd；如果内核拒绝 syscall 探测，上层 PTY 后端会改用空闲推断。在 Windows 上，SIGINT 以 Ctrl-C 输入写入投递，SIGTSTP 与 SIGHUP 不受支持，拆卸会通过进程表验证 shell 已终止，因为被外部终止的 shell 可能永远不会触发 PTY 退出通知。

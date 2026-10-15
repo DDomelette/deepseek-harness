@@ -24,6 +24,8 @@ function fakeTerminal(pid: number): { handle: SubprocessTerminalHandle; state: F
     output: new Readable({ read() {} }),
     done: new Promise<SubprocessOutcome>(() => {}),
     async write(data: string) { writes.push(data) },
+    async resize() {},
+    async inspectActivity() { return { state: 'unknown' as const, revision: 0 } },
     async inspectForeground() {
       if (state.inspectError !== undefined) throw state.inspectError
       return state.foreground

@@ -246,7 +246,11 @@ interface SubprocessOutcome {
 
 `spawnTerminal(spec)` 是非管道进程原语。提供方分配控制终端，并负责 UTF-8 文本传输、前台进程组检查与信号发送，以及一项须等待的 TERM→KILL 操作；该操作会使提供方仍可观察到的每个会话成员完全停稳，提供方则会记录执行基底特有的可观察性限制。PTY 后端仍负责提示符检测、就绪推断、scrollback、沙箱策略和持久会话所有权；普通 `spawn()` 无法重建控制终端语义。
 
-终端 spec 完全指定 argv、cwd、环境覆盖、尺寸、清理宽限期与可选的分配取消。其句柄公开 `pid`、有序输出、`done`、`write`、`inspectForeground`、`signalForeground` 和须等待的 `terminate`；确切的公共形状生成到 [`ctx.subprocess` 服务目录](#ctxsubprocess--subprocessruntime-abstract-seam)中。
+终端 spec 完全指定 argv、cwd、环境覆盖、终端类型、尺寸、清理宽限期，以及可选的分配取消与 shell 活动观察。其句柄公开 `pid`、有序输出、`done`、`write`、`resize`、`inspectForeground`、`inspectActivity`、`signalForeground` 和须等待的 `terminate`；这些字段与操作由 [`SubprocessTerminalSpawnSpec` 与 `SubprocessTerminalHandle`](../../packages/subprocess/subprocess/src/types.ts) 定义。`resize(cols, rows)` 更新活动 PTY 的尺寸，并在进程退出后拒绝。
+
+`inspectActivity()` 返回 `SubprocessTerminalActivity`：`state` 为 `idle`、`busy` 或 `unknown`，`revision` 随提供方观察到的活动或输入变化。终端请求用 `shellActivity` opt-in 受支持的 shell 生命周期观察；各提供方的具体支持与保守的 unknown 情形记录在 [subprocess-local](../../packages/subprocess/subprocess-local/README.zh.md#running-terminal-sessions)。
+
+`terminalEnvironment(signal?)` 返回 `SubprocessTerminalEnvironment`：执行环境的平台（`posix` 或 `windows`）与可选的 `defaultShell`。这些事实来自提供方，而不是 Web 服务器或浏览器。`resolveExecutable` 校验 shell 候选；`SubprocessExecutableNotFoundError` 标识缺失的可执行文件，提供方与传输故障仍作为错误上报。
 
 ## 服务行为
 
@@ -305,6 +309,13 @@ Implementations must honor these semantics:
  * @returns a canonical executable path.
  */
 abstract resolveExecutable( command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal, ): Promise<string>
+
+/**
+ * Inspect shell-selection facts in the provider's execution environment.
+ * @param signal - cancellation of remote environment inspection.
+ * @returns platform and preferred shell; executable lookup and allocation remain separate operations.
+ */
+abstract terminalEnvironment(signal?: AbortSignal): Promise<SubprocessTerminalEnvironment>
 
 /**
  * Start one managed child process from a fully-specified spec; this seam

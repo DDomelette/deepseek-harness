@@ -14,6 +14,7 @@ import {
 import type { CommandHandle, CommandResult, Sandbox } from '@deepseek-ai/dsh-e2b'
 import type {
   SubprocessOutcome,
+  SubprocessTerminalActivity,
   SubprocessTerminalForeground,
   SubprocessTerminalHandle,
   SubprocessTerminalSignal,
@@ -308,6 +309,23 @@ export class E2BTerminalHandle implements SubprocessTerminalHandle {
       if (this.topLevelExited) throw new Error('terminal process has exited')
       await this.sandbox.pty.sendInput(this.pid, Buffer.from(data, 'utf8'), { signal })
     })
+  }
+
+  /** @inheritdoc */
+  resize(cols: number, rows: number): Promise<void> {
+    return this.trackOperation(async (signal) => {
+      if (this.topLevelExited) throw new Error('terminal process has exited')
+      await this.sandbox.pty.resize(this.pid, { cols, rows }, { signal })
+    })
+  }
+
+  /**
+   * The sandbox image exposes no shell-lifecycle observation, so every request reports unknown.
+   * @returns the unsupported observation this provider can honestly make.
+   */
+  // oxlint-disable-next-line typescript/require-await -- Provider operations share promise rejection semantics.
+  async inspectActivity(): Promise<SubprocessTerminalActivity> {
+    return { state: 'unknown', revision: 0 }
   }
 
   /** @inheritdoc */
