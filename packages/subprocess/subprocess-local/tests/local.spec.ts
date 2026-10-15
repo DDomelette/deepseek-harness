@@ -402,7 +402,7 @@ describe('LocalSubprocessRuntime', () => {
       const service = ctx.subprocess as InstanceType<typeof IsolatedLocalSubprocessRuntime>
       service.internals = { platform: 'darwin' }
       const handle = await ctx.subprocess.spawnTerminal({
-        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, graceMs: 1,
+        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, terminalType: 'dumb', graceMs: 1,
       })
       expect((service as unknown as { terminals: Set<SubprocessTerminalHandle> }).terminals.size).toBe(1)
       exitListener?.({ exitCode: 0 })
@@ -494,6 +494,7 @@ describe('LocalSubprocessRuntime', () => {
         cwd: targetCwd,
         rows: 24,
         cols: 80,
+        terminalType: 'dumb',
         graceMs: 10,
         env: { PWD: '/stale-parent-cwd', TERM: 'xterm-256color', TARGET_VALUE: 'preserved' },
       })
@@ -574,7 +575,7 @@ describe('LocalSubprocessRuntime', () => {
       runtime.terminalInspector = inspector
 
       await expect(runtime.spawnTerminal({
-        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, graceMs: 10,
+        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, terminalType: 'dumb', graceMs: 10,
       })).rejects.toBe(launchFailure)
       expect(cleanup).toHaveBeenCalledOnce()
     } finally {
@@ -623,7 +624,7 @@ describe('LocalSubprocessRuntime', () => {
         signalProcess: () => {},
       }
       const handle = await ctx.subprocess.spawnTerminal({
-        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, graceMs: 1,
+        argv: ['shell'], cwd: process.cwd(), rows: 24, cols: 80, terminalType: 'dumb', graceMs: 1,
       })
       exitListener?.({ exitCode: 0 })
       await handle.done

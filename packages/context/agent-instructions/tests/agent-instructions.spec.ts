@@ -118,7 +118,7 @@ function pinAgentsHome(home: string): void {
 }
 
 class RecordingFileSystem extends FileSystem {
-  watch(): never { throw new Error('Fixture does not support watching') }
+  override watch(): never { throw new Error('Fixture does not support watching') }
   entries = new Map<string, { type: FsInfo['type']; content?: string; version?: FsVersion }>()
   missingOnResolve = new Set<string>()
   throwOnStat = new Set<string>()
