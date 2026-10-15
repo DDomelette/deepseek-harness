@@ -2,7 +2,7 @@ import { useMemo, useState, type KeyboardEvent } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import clsx from 'clsx'
 import {
-  IconApiOutline14, IconChevronDownOutline14, IconInspectOutline12, StateDot, TerminalBlock,
+  IconApiOutlineMedium, IconChevronDownOutlineMedium, IconInspectOutlineMedium, StateDot, TerminalBlock,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '../../contract/slots.ts'
@@ -25,7 +25,7 @@ function leadingFor(state: ToolRowState) {
     case 'error': return <StateDot state="error" />
     case 'stopped': return <StateDot state="warning" />
     // Running keeps the icon — the row sweep carries the in-flight signal.
-    default: return <IconApiOutline14 size={14} />
+    default: return <IconApiOutlineMedium size={14} />
   }
 }
 
@@ -77,12 +77,12 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
     toggleExpand()
   }
   const leading = open
-    ? <IconChevronDownOutline14 className={css.chevron} />
+    ? <IconChevronDownOutlineMedium className={css.chevron} />
     : expandable
       ? (
         <>
           <span className={css.iconIdle}>{leadingFor(state)}</span>
-          <IconChevronDownOutline14 className={clsx(css.chevron, css.chevronHover)} />
+          <IconChevronDownOutlineMedium className={clsx(css.chevron, css.chevronHover)} />
         </>
       )
       : leadingFor(state)
@@ -142,7 +142,7 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
             )}
           {inspect !== undefined && (
             <button type="button" className={css.inspectButton} onClick={inspect}>
-              <IconInspectOutline12 />
+              <IconInspectOutlineMedium />
               {t('row.inspect')}
             </button>
           )}

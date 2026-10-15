@@ -4,7 +4,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { parseFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import type { DocumentPreviewProps } from '../document/contract.ts'
-import { languageForPath } from './languages.ts'
+import { languageForPath } from '@deepseek-ai/dsh-util-code-language'
 import type {} from './locales.ts'
 import css from './CodeBody.module.css'
 

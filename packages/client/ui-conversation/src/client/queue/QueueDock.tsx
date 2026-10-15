@@ -4,9 +4,9 @@ import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-att
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
-  IconCheckOutline16, IconChevronDownOutline14, IconChevronUpOutline14, IconCloseOutline16,
-  FileTypeIcon, fileSizeText, IconEditOutline16, IconQueueOutline14, IconSendOutline14,
-  IconTrashOutline16, projectUserText, Tooltip,
+  IconCheckOutlineMedium, IconChevronDownOutlineMedium, IconChevronUpOutlineMedium, IconCloseOutlineMedium,
+  FileTypeIcon, fileSizeText, IconEditOutlineMedium, IconQueueOutlineMedium, IconSendOutlineMedium,
+  IconTrashOutlineMedium, projectUserText, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { QueueAction, QueueItemId, QueueRow } from '../contract/queue.ts'
 import { NS } from '../locales.ts'
@@ -154,13 +154,13 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
             disabled={interactionActive}
             onClick={() => { setCollapsed(value => !value) }}
           >
-            <span className={css.lead} aria-hidden><IconQueueOutline14 /></span>
+            <span className={css.lead} aria-hidden><IconQueueOutlineMedium /></span>
             <span className={css.count}>{t('queue.count', { n: rowCount })}</span>
             {!listVisible && pendingQueue.length > 0 && (
               <span className={css.status} role="status">{t('queue.sending')}</span>
             )}
             <span className={css.chevron} aria-hidden>
-              {expanded ? <IconChevronDownOutline14 /> : <IconChevronUpOutline14 />}
+              {expanded ? <IconChevronDownOutlineMedium /> : <IconChevronUpOutlineMedium />}
             </span>
           </button>
         )}
@@ -170,7 +170,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
             return (
               <li key={row.id} className={css.row}>
                 {/* Single-item strip has no count header, so the row itself carries the queue glyph. */}
-                {rowCount === 1 && <span className={css.lead} aria-hidden><IconQueueOutline14 /></span>}
+                {rowCount === 1 && <span className={css.lead} aria-hidden><IconQueueOutlineMedium /></span>}
                 {editing?.id === row.id
                   ? (
                     <input
@@ -229,7 +229,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                             disabled={busy !== null || editing.text.trim() === ''}
                             onClick={() => { void saveEdit() }}
                           >
-                            <IconCheckOutline16 size={14} />
+                            <IconCheckOutlineMedium size={14} />
                           </button>
                         </Tooltip>
                         <Tooltip label={t('queue.cancelEdit')} side="bottom" delayMs={500}>
@@ -240,7 +240,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                             disabled={busy !== null}
                             onClick={() => { setEditing(null) }}
                           >
-                            <IconCloseOutline16 size={14} />
+                            <IconCloseOutlineMedium size={14} />
                           </button>
                         </Tooltip>
                       </>
@@ -260,7 +260,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                               if (row.text !== null) setEditing({ id: row.id, text: row.text })
                             }}
                           >
-                            <IconEditOutline16 size={14} />
+                            <IconEditOutlineMedium size={14} />
                           </button>
                         </Tooltip>
                         <Tooltip label={t('queue.remove')} side="bottom" delayMs={500}>
@@ -277,7 +277,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                               )
                             }}
                           >
-                            <IconTrashOutline16 size={14} />
+                            <IconTrashOutlineMedium size={14} />
                           </button>
                         </Tooltip>
                         <Tooltip label={t('queue.steer')} side="bottom" delayMs={500} disabled={!running}>
@@ -295,7 +295,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                               )
                             }}
                           >
-                            <IconSendOutline14 />
+                            <IconSendOutlineMedium />
                           </button>
                         </Tooltip>
                       </>
@@ -307,7 +307,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
           {listVisible && pendingQueue.map((submission) => {
             return (
               <li key={submission.requestId} className={`${css.row} ${css.pendingRow}`} data-submission-echo="">
-                {rowCount === 1 && <span className={css.lead} aria-hidden><IconQueueOutline14 /></span>}
+                {rowCount === 1 && <span className={css.lead} aria-hidden><IconQueueOutlineMedium /></span>}
                 {submission.attachments.length > 0 && (
                   <span className={css.attachments}>
                     {submission.attachments.map((attachment, index) => attachment.type === 'image'
@@ -338,7 +338,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                     title={t('queue.sending')}
                     disabled
                   >
-                    <IconEditOutline16 size={14} />
+                    <IconEditOutlineMedium size={14} />
                   </button>
                   <button
                     type="button"
@@ -347,7 +347,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                     title={t('queue.sending')}
                     disabled
                   >
-                    <IconTrashOutline16 size={14} />
+                    <IconTrashOutlineMedium size={14} />
                   </button>
                   <button
                     type="button"
@@ -356,7 +356,7 @@ export function QueueDock({ useSession, updateQueue, notify, loadImage, t }: Que
                     title={t('queue.sending')}
                     disabled
                   >
-                    <IconSendOutline14 />
+                    <IconSendOutlineMedium />
                   </button>
                 </div>}
               </li>

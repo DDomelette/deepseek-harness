@@ -15,7 +15,7 @@ import type { ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import { FileTypeIcon, IconRefreshOutline16, Menu, Tooltip, classifyFileType } from '@deepseek-ai/dsh-client-ui-primitives'
+import { FileTypeIcon, IconRefreshOutlineMedium, Menu, Tooltip, classifyFileType } from '@deepseek-ai/dsh-client-ui-primitives'
 import { pathPartsOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { TextInjected } from './face.ts'
 import { failureLine } from './failure-line.ts'
@@ -275,7 +275,7 @@ export function TextPreview({
             data-textpreview-tool="reload"
             onClick={reload}
           >
-            <IconRefreshOutline16 />
+            <IconRefreshOutlineMedium />
           </button>
         </Tooltip>
       </div>
@@ -329,7 +329,7 @@ export function TextPreview({
                 data-textpreview-retry
                 onClick={reload}
               >
-                <IconRefreshOutline16 size={14} />
+                <IconRefreshOutlineMedium size={14} />
                 {t('retry')}
               </button>
             </div>

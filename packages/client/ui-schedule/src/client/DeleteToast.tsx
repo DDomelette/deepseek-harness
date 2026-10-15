@@ -8,7 +8,7 @@
  * tab that asked for it.
  */
 import type { ReactNode } from 'react'
-import { IconCheckOutline16, IconWarningOutline16, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineMedium, IconWarningOutlineMedium, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { CatalogDeleteOutcome } from './catalog-source.ts'
@@ -82,14 +82,14 @@ export function ScheduleDeleteToast({ useToast, dismiss, t }: ScheduleDeleteToas
       <Toast
         key={`schedule-delete-${String(toast.seq)}`}
         text={t('toast.deleted')}
-        icon={<IconCheckOutline16 />}
+        icon={<IconCheckOutlineMedium />}
         onDone={dismiss}
       />
     )
     : <Toast
       key={`schedule-delete-${String(toast.seq)}`}
       text={t('toast.deleteFailed')}
-      icon={<IconWarningOutline16 />}
+      icon={<IconWarningOutlineMedium />}
       onDone={dismiss}
     />
 }

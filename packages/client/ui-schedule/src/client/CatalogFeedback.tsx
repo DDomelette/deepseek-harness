@@ -1,6 +1,6 @@
 /** Catalog query states shared by the task list, the detail, and the task tab. */
 import type { ReactNode } from 'react'
-import { Button, IconWarningOutline16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconWarningOutlineMedium, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './TaskManagerPage.module.css'
 
@@ -39,7 +39,7 @@ export function CatalogFeedback({ status, populated, onRetry, t }: CatalogFeedba
         <Button variant="outline" size="sm" onClick={() => { void onRetry() }}>{t('list.retry')}</Button>
       </div>
       : <div className={css.empty}>
-        <IconWarningOutline16 size={24} className={css.emptyGlyph} />
+        <IconWarningOutlineMedium size={24} className={css.emptyGlyph} />
         <p role="alert" className={css.emptyTitle}>{t('list.error')}</p>
         <Button variant="outline" className={css.emptyAction} onClick={() => { void onRetry() }}>{t('list.retry')}</Button>
       </div>)}

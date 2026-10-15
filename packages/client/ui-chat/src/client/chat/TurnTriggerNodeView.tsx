@@ -1,9 +1,9 @@
 /** An independent, expandable notice explaining a non-human Turn trigger. */
 import { useId, useState, type ComponentType } from 'react'
 import {
-  IconAgentPresetOutline16, IconBranchOutline16, IconChevronDownOutline14,
-  IconClockOutline16, IconContextInjectionOutline16, IconCordisPluginOutline14,
-  IconGlobeOutline14, IconGoalOutline16, IconQueueOutline14, IconSendOutline16,
+  IconAgentPresetOutlineMedium, IconBranchOutlineMedium, IconChevronDownOutlineMedium,
+  IconClockOutlineMedium, IconContextInjectionOutlineMedium, IconCordisPluginOutlineMedium,
+  IconGlobeOutlineMedium, IconGoalOutlineMedium, IconQueueOutlineMedium, IconSendOutlineMedium,
   type IconProps,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps } from '../contract/slots.ts'
@@ -13,16 +13,16 @@ import { turnTriggerDetails, type TurnTriggerIcon } from './turn-trigger.ts'
 import css from './TurnTriggerNodeView.module.css'
 
 const TRIGGER_ICONS: Record<TurnTriggerIcon, ComponentType<IconProps>> = {
-  request: IconContextInjectionOutline16,
-  goal: IconGoalOutline16,
-  agent: IconSendOutline16,
-  team: IconAgentPresetOutline16,
-  subagent: IconAgentPresetOutline16,
-  github: IconBranchOutline16,
-  webhook: IconGlobeOutline14,
-  schedule: IconClockOutline16,
-  job: IconQueueOutline14,
-  plugin: IconCordisPluginOutline14,
+  request: IconContextInjectionOutlineMedium,
+  goal: IconGoalOutlineMedium,
+  agent: IconSendOutlineMedium,
+  team: IconAgentPresetOutlineMedium,
+  subagent: IconAgentPresetOutlineMedium,
+  github: IconBranchOutlineMedium,
+  webhook: IconGlobeOutlineMedium,
+  schedule: IconClockOutlineMedium,
+  job: IconQueueOutlineMedium,
+  plugin: IconCordisPluginOutlineMedium,
 }
 
 /** Render recorded trigger attribution above the whole-Turn disclosure. */
@@ -39,7 +39,7 @@ export function TurnTriggerNodeView({ node, t }: Pick<ChatNodeViewProps<'turn-tr
         <span className={css.icon} aria-hidden><TriggerIcon /></span>
         <span className={css.title}>{t(details.title)}</span>
         <time className={css.time} dateTime={date.toISOString()}>{time}</time>
-        <IconChevronDownOutline14 className={open ? css.openChevron : css.chevron} />
+        <IconChevronDownOutlineMedium className={open ? css.openChevron : css.chevron} />
       </button>
       {open && <div id={bodyId} className={css.body}>
         <p className={css.explanation}>{t('message.trigger.explanation')}</p>

@@ -188,6 +188,9 @@ describe('SettingsRoot trigger', () => {
     act(() => { vi.advanceTimersByTime(1_999) })
     expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
     act(() => { vi.advanceTimersByTime(1) })
+    expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
+    // The primitive fades the confirmation out before it unmounts.
+    act(() => { vi.advanceTimersByTime(150) })
     expect(screen.queryByRole('status')).toBeNull()
   })
 
@@ -198,26 +201,23 @@ describe('SettingsRoot trigger', () => {
 
   it('names the reason and keeps the carrier detail on the outage indicator', () => {
     const mounted = mount({ connectionState: 'connecting' })
-    const indicator = screen.getByRole('button', { name: 'Reconnecting automatically, reconnect now' })
-    expect(indicator.textContent).not.toContain('Sign-in expired')
+    expect(screen.queryByText(en['connection.failure.auth'])).toBeNull()
 
     mounted.setConnectionFailure({
       reason: 'auth',
       detail: 'transport failure for /api/settings/describe: HTTP 401',
     })
-    expect(indicator.textContent).toContain(en['connection.failure.auth'])
-    expect(indicator.textContent).toContain('HTTP 401')
-    expect(indicator.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
+    const reason = screen.getByText(en['connection.failure.auth'])
+    expect(reason.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
 
     mounted.setConnectionFailure(undefined)
-    expect(indicator.textContent).not.toContain(en['connection.failure.auth'])
+    expect(screen.queryByText(en['connection.failure.auth'])).toBeNull()
   })
 
   it('localizes the failure reason', () => {
     const mounted = mount({ connectionState: 'connecting', dictionary: zh })
     mounted.setConnectionFailure({ reason: 'unreachable', detail: 'upgrade refused' })
-    expect(screen.getByRole('button', { name: '连接中断，正在自动重试，点击立即重连' }).textContent)
-      .toContain(zh['connection.failure.unreachable'])
+    expect(screen.getByText(zh['connection.failure.unreachable'])).toBeTruthy()
   })
 })
 

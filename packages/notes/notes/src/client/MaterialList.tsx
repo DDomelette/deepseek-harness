@@ -12,7 +12,7 @@
  */
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, IconEllipsisOutline16, Input, Menu, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconEllipsisOutlineMedium, Input, Menu, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MaterialId, NotesActionView, NotesMaterialSummary } from '../types.ts'
 import { actionBadge } from './actions.ts'
@@ -153,7 +153,7 @@ export function MaterialList({
                     data-notes-row-menu={row.id}
                     onClick={() => { setMenuFor(open => (open === row.id ? null : row.id)) }}
                   >
-                    <IconEllipsisOutline16 />
+                    <IconEllipsisOutlineMedium />
                   </Button>
                 )}
                 items={[{ id: 'rename', label: t('list.rename') }]}

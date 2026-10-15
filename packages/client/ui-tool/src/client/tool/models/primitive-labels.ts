@@ -30,13 +30,15 @@ export function markdownLabels(t: T): MarkdownLabels {
  */
 export function diffBlockLabels(t: T): DiffBlockLabels {
   return {
+    codeLabel: t('codeBlock.title'),
+    wrapLabel: t('codeBlock.wrap'),
+    unwrapLabel: t('codeBlock.unwrap'),
     copy: t('copy'),
     copied: t('copied'),
     collapseAria: t('diff.collapseAria'),
     expandAria: count => t('diff.expandAria', { count }),
     collapse: t('collapse'),
     expand: count => t('diff.expandRest', { count }),
-    files: count => t(count === 1 ? 'diff.files.one' : 'diff.files.other', { count }),
   }
 }
 
@@ -47,6 +49,9 @@ export function diffBlockLabels(t: T): DiffBlockLabels {
  */
 export function readBlockLabels(t: T): ReadBlockLabels {
   return {
+    codeLabel: t('codeBlock.title'),
+    wrapLabel: t('codeBlock.wrap'),
+    unwrapLabel: t('codeBlock.unwrap'),
     window: (shown, total) => t('read.window', { shown, total }),
     copy: t('copy'),
     copied: t('copied'),

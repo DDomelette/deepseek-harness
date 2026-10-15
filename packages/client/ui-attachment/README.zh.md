@@ -55,7 +55,7 @@ Chat 中的一条用户消息把文件与图片放在同一个靠右、可换行
 | [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | 附件横向溢出、滚轮转换、边缘箭头 |
 | [`src/client/MessageImages.tsx`](src/client/MessageImages.tsx) | 每消息画廊＋灯箱的组装 |
 | [`src/MessageImage.tsx`](src/MessageImage.tsx) | 单图尺寸、加载／重试、点击打开；本地提交回显预览直接显示其 object URL |
-| [`src/ImageLightbox.tsx`](src/ImageLightbox.tsx) | 铺在共享遮罩上的文档级模态预览 |
+| `ui-primitives` 的 `ImageLightbox` | 铺在共享遮罩上的文档级模态预览（[组件目录](../../client/ui-primitives/README.zh.md#component-catalog)） |
 | [`src/DropOverlay.tsx`](src/DropOverlay.tsx) | 不接收指针事件的拖放提示 portal |
 
 </details>

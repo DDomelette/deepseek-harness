@@ -10,8 +10,8 @@ import type {
 } from '@deepseek-ai/dsh-experimental-agent-team/client'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  IconCheckOutline14, IconCloseOutline16, IconEditOutline16, IconPlusOutline16,
-  IconRefreshOutline14, IconTrashOutline16, IconUserOutline16, StateDot,
+  IconCheckOutlineMedium, IconCloseOutlineMedium, IconEditOutlineMedium, IconPlusOutlineMedium,
+  IconRefreshOutlineMedium, IconTrashOutlineMedium, IconUserOutlineMedium, StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -255,7 +255,7 @@ export function TeamAction({
           if (next) void refresh()
         }}
       >
-        <IconUserOutline16 size={14} />
+        <IconUserOutlineMedium size={14} />
         <span>{t('trigger')}</span>
         {teammates.length > 0 && <span className={css.count}>{teammates.length}</span>}
       </button>
@@ -265,10 +265,10 @@ export function TeamAction({
             <strong>{t('trigger')}</strong>
             <span className={css.spacer} />
             <button type="button" className={css.iconButton} aria-label={t('refresh')} onClick={() => { void refresh() }}>
-              <IconRefreshOutline14 />
+              <IconRefreshOutlineMedium />
             </button>
             <button type="button" className={css.iconButton} aria-label={t('close')} onClick={() => { setOpen(false) }}>
-              <IconCloseOutline16 size={14} />
+              <IconCloseOutlineMedium size={14} />
             </button>
           </div>
           {error !== null && <div className={css.error} role="alert">{error}</div>}
@@ -303,7 +303,7 @@ export function TeamAction({
                 <div className={css.sectionTitle}>
                   <h3>{t('tasks')}</h3>
                   <button type="button" className={css.smallButton} onClick={() => { setCreating(true) }}>
-                    <IconPlusOutline16 size={13} /> {t('create')}
+                    <IconPlusOutlineMedium size={13} /> {t('create')}
                   </button>
                 </div>
                 {creating && (
@@ -365,14 +365,14 @@ export function TeamAction({
                             </select>
                           </label>
                           <button type="button" onClick={() => { startEdit(task) }} disabled={pendingTasks.has(task.id)}>
-                            <IconEditOutline16 size={13} /> {t('edit')}
+                            <IconEditOutlineMedium size={13} /> {t('edit')}
                           </button>
                           {task.status === 'in_progress' && (
                             <button type="button" disabled={pendingTasks.has(task.id)} onClick={() => {
                               void settleTask(task.id, () => updateTask(sessionId, {
                                 taskId: task.id, expectedRevision: task.revision, action: 'complete',
                               }))
-                            }}><IconCheckOutline14 /> {t('complete')}</button>
+                            }}><IconCheckOutlineMedium /> {t('complete')}</button>
                           )}
                           {task.status === 'completed' && (
                             <button type="button" disabled={pendingTasks.has(task.id)} onClick={() => {
@@ -385,7 +385,7 @@ export function TeamAction({
                             void settleTask(task.id, () => updateTask(sessionId, {
                               taskId: task.id, expectedRevision: task.revision, action: 'delete',
                             }))
-                          }}><IconTrashOutline16 size={13} /> {t('delete')}</button>
+                          }}><IconTrashOutlineMedium size={13} /> {t('delete')}</button>
                         </div>
                       </article>
                     ))}

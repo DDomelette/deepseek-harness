@@ -14,8 +14,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import clsx from 'clsx'
 import {
   ConnectionIndicator,
-  IconAgentPresetOutline16, IconChevronLeftOutline14, IconCloseOutline16, IconDataOutline16,
-  IconPersonalizationOutline16, IconSettingsOutline16,
+  IconAgentPresetOutlineMedium, IconChevronLeftOutlineMedium, IconCloseOutlineMedium, IconDataOutlineMedium,
+  IconPersonalizationOutlineMedium, IconSettingsOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionFailureReason } from '@deepseek-ai/dsh-client-connection/client'
@@ -26,7 +26,11 @@ import css from './SettingsRoot.module.css'
 
 const RECOVERY_CONFIRMATION_MS = 2_000
 
-/** Localized reason line for each published connection failure. */
+/**
+ * Localized reason line for each published connection failure. The primitive's
+ * indicator carries only its own state labels, so this owner renders the
+ * carrier-reported reason beside it.
+ */
 const FAILURE_LABEL = {
   auth: 'connection.failure.auth',
   forbidden: 'connection.failure.forbidden',
@@ -37,10 +41,10 @@ const FAILURE_LABEL = {
 
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
-  if (id === 'models') return <IconDataOutline16 className={css.navIcon} size={16} />
-  if (id === 'agent-presets') return <IconAgentPresetOutline16 className={css.navIcon} size={16} />
-  if (id === 'plugins') return <IconPersonalizationOutline16 className={css.navIcon} size={16} />
-  return <IconSettingsOutline16 className={css.navIcon} size={16} />
+  if (id === 'models') return <IconDataOutlineMedium className={css.navIcon} size={16} />
+  if (id === 'agent-presets') return <IconAgentPresetOutlineMedium className={css.navIcon} size={16} />
+  if (id === 'plugins') return <IconPersonalizationOutlineMedium className={css.navIcon} size={16} />
+  return <IconSettingsOutlineMedium className={css.navIcon} size={16} />
 }
 
 type PanelProps = {
@@ -118,12 +122,12 @@ function SettingsPanel({ rows, renderSlot, activeId, backLabel, onSelect, onBack
         <div className={css.content}>
           <div className={css.header}>
             <button type="button" className={css.back} aria-label={backLabel} onClick={onBack}>
-              <IconChevronLeftOutline14 size={14} />
+              <IconChevronLeftOutlineMedium size={14} />
             </button>
             {selected !== undefined && <div className={css.detailTitle} data-detail-title>{selected.label}</div>}
             <div className={css.actions}>{renderSlot('settings.action', {})}</div>
             <button ref={closeButton} type="button" className={css.close} onClick={onClose}>
-              <IconCloseOutline16 size={14} />
+              <IconCloseOutlineMedium size={14} />
               <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
             </button>
           </div>
@@ -234,15 +238,17 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
         <ConnectionIndicator
           state={wide ? connectionIndicator : undefined}
           disconnectedLabel={t('connection.error')}
-          reconnectLabel={t('connection.retry')}
           connectingLabel={t('connection.connecting')}
           recoveredLabel={t('connection.connected')}
           reconnectActionLabel={t('connection.reconnect')}
           restartActionLabel={t('connection.restart')}
-          failureLabel={connectionFailure === undefined ? undefined : t(FAILURE_LABEL[connectionFailure.reason])}
-          failureDetail={connectionFailure?.detail}
           onReconnect={reconnect}
         />
+        {wide && connectionFailure !== undefined && (
+          <span className={css.failureReason} title={connectionFailure.detail}>
+            {t(FAILURE_LABEL[connectionFailure.reason])}
+          </span>
+        )}
       </div>
       {open && (
         <SettingsPanel

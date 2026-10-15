@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconChevronDownOutline14, Menu, Tooltip, type MenuItem } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineMedium, Menu, Tooltip, type MenuItem } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -219,7 +219,7 @@ export function OpenInAppAction(props: OpenInAppActionProps): React.JSX.Element 
             aria-label={t('menu.toggle')}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconChevronDownOutline14 size={11} />
+            <IconChevronDownOutlineMedium size={11} />
           </button>
         </div>
       )}

@@ -30,7 +30,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { IconPanelLeftOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPanelLeftOutlineMedium, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -276,7 +276,7 @@ function PanelChrome({ sessionId, fullscreen, autoFullscreen, actions, t }: Pick
           data-sidebar-right-toggle
           onClick={() => { actions.toggleExpanded(sessionId) }}
         >
-          <IconPanelLeftOutline16 className={css.collapseGlyph} />
+          <IconPanelLeftOutlineMedium className={css.collapseGlyph} />
         </button>
       </Tooltip>
     </>

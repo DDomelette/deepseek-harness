@@ -1,5 +1,5 @@
 /** Decorative occupant for the task-manager sidebar entry. */
-import { IconClockOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 
@@ -12,5 +12,5 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
  * @returns decorative clock icon.
  */
 export function TaskManagerIcon({ size }: PropsRuntime<'sidebar.panellist'>) {
-  return <IconClockOutline16 size={size} />
+  return <IconClockOutlineMedium size={size} />
 }

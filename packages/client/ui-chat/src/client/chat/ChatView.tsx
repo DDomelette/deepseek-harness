@@ -6,7 +6,7 @@ import type {
   ConversationTimelineSnapshot, RenderMessageImages,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
-import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutlineMedium, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps, OpenFileOptions } from '../contract/slots.ts'
 import type { ChatSnapshot } from '../contract/snapshot.ts'
 import { PendingSteeringBubble, PendingSubmissionBubble } from './MessageItem.tsx'
@@ -834,7 +834,7 @@ export function ChatView({
                 if (local !== null) toBottom(scrollerOf(local))
               }}
             >
-              <IconChevronDownOutline14 />
+              <IconChevronDownOutlineMedium />
             </button>
           </div>
         )}

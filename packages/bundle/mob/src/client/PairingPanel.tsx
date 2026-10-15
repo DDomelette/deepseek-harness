@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode/lib/browser.js'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, IconEditOutline16, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineMedium, IconEditOutlineMedium, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './PairingPanel.module.css'
 import {
   createPairingApi, deviceLabelFrom, pairingUrlOf,
@@ -424,7 +424,7 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
                             }}
                           >
                             <span className={css.deviceLabel}>{device.label}</span>
-                            <IconEditOutline16 className={css.editIcon} size={12} />
+                            <IconEditOutlineMedium className={css.editIcon} size={12} />
                           </button>
                         )}
                       <span className={css.chip}>{lifetimeOf(device)}</span>
@@ -452,7 +452,7 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
                             {device.lifetimeDays === undefined
                               ? t('panel.lifetimeUnknown')
                               : t('panel.lifetimePreset', { days: device.lifetimeDays })}
-                            <IconChevronDownOutline14 />
+                            <IconChevronDownOutlineMedium />
                           </button>
                         )}
                         items={LIFETIME_PRESETS.map(days => ({ id: String(days), label: t('panel.lifetimePreset', { days }) }))}

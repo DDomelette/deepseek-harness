@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
 import { CodeBody } from './CodeBody.tsx'
-import { CODE_EXTENSIONS } from './languages.ts'
+import { CODE_HIGHLIGHT_EXTENSIONS as CODE_EXTENSIONS } from '@deepseek-ai/dsh-util-code-language'
 import { en, zh } from './locales.ts'
 
 const ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code'

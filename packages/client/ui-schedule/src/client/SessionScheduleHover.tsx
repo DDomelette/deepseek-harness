@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react'
-import { IconClockOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { formatScheduleFrequency, nextRunParts, orderScheduleRecords, taskName } from './schedule-format.ts'
@@ -56,7 +56,7 @@ export function SessionScheduleHover({
         const nextRun = nextRunParts(record.scheduledAt, t('time.locale'), now, t)
         return (
           <div className={css.task} key={record.id} data-session-schedule-task="">
-            <span className={css.taskIcon} aria-hidden="true"><IconClockOutline16 size={12} /></span>
+            <span className={css.taskIcon} aria-hidden="true"><IconClockOutlineMedium size={12} /></span>
             <span className={css.taskBody}>
               <span className={css.taskName}>{taskName(record)}</span>
               {/* The same next-run shape the list rows, the detail, and the chat

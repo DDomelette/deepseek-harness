@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
 import {
-  IconChevronLeftOutline14, IconChevronRightOutline14,
+  IconChevronLeftOutlineMedium, IconChevronRightOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { PickerPopover } from './PickerPopover.tsx'
@@ -184,14 +184,14 @@ export function DatePicker({ open, anchorRef, value, onPick, onClose, t }: DateP
         className={css.nav}
         aria-label={t('timing.prevMonth')}
         onClick={() => { setView(current => shiftMonth(current, -1)) }}
-      ><IconChevronLeftOutline14 /></button>
+      ><IconChevronLeftOutlineMedium /></button>
       <span className={css.title} aria-live="polite">{monthTitle}</span>
       <button
         type="button"
         className={css.nav}
         aria-label={t('timing.nextMonth')}
         onClick={() => { setView(current => shiftMonth(current, 1)) }}
-      ><IconChevronRightOutline14 /></button>
+      ><IconChevronRightOutlineMedium /></button>
     </div>
     <div className={css.grid} role="grid" aria-label={monthTitle}>
       <div role="row" className={css.week}>

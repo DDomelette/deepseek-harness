@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Button, IconCodeOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconCodeOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsDocumentStore } from './settings-document-store.ts'
 import css from './SettingsDocumentAction.module.css'
@@ -48,7 +48,7 @@ export function SettingsDocumentAction({ controller, useSnapshot, t }: SettingsD
         {/* Single-pane handsets swap the label for the glyph (the header also
             holds back, the section title, and close); the name stays on the
             button's aria-label either way. */}
-        <span className={css.actionIcon} aria-hidden><IconCodeOutline16 size={16} /></span>
+        <span className={css.actionIcon} aria-hidden><IconCodeOutlineMedium size={16} /></span>
         <span className={css.actionLabel}>{t('openDocument')}</span>
       </Button>
     </div>

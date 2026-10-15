@@ -63,7 +63,7 @@
 }
 
 /* Stand-in for the whole text below the icon-only cut: the settings page's
-   Models glyph (IconDataOutline16), hidden while any text fits. */
+   Models glyph (IconDataOutlineMedium), hidden while any text fits. */
 .triggerIcon {
   display: none;
   flex: 0 0 auto;

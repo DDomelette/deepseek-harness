@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ComposerAttachment, ComposerAttachmentsProps, ComposerImageAttachment,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { IconCloseFill14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseFillMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AttachmentRail } from '../AttachmentRail.tsx'
 import type { AttachmentRailItem } from '../AttachmentRail.tsx'
 import { DropOverlay } from '../DropOverlay.tsx'
 import { FileCard } from '../FileCard.tsx'
-import { ImageLightbox } from '../ImageLightbox.tsx'
+import { ImageLightbox } from '@deepseek-ai/dsh-client-ui-primitives'
 import { attachmentRailLabels, dropOverlayLabels, fileCardLabels, lightboxLabels } from './labels.ts'
 import css from './ComposerAttachments.module.css'
 
@@ -133,7 +133,7 @@ export function ComposerAttachments({
                     aria-label={t('image.remove', { name: attachment.file.name })}
                     onClick={() => { onRemoveAttachment(attachment.id) }}
                   >
-                    <IconCloseFill14 size={12} />
+                    <IconCloseFillMedium size={12} />
                   </button>
                 </div>
               )

@@ -174,6 +174,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/test-support/llm-mock-server': { kind: 'none', reason: 'The test server substitutes provider wire behavior without invoking a real model.' },
   'packages/test-support/llm-replay': { kind: 'none', reason: 'The keyless adapter invokes no provider model.' },
   'packages/test-support/remote-mock': { kind: 'none', reason: 'Browser-side test infrastructure; nothing here reaches a model request.' },
+  'packages/util/code-language': { kind: 'none', reason: 'Extension-to-language lookup consumed by Client rendering; nothing here reaches a model request.' },
   'packages/api/gateway': { kind: 'none', reason: 'Remote dispatch infrastructure; invoked business methods own any model-visible effect.' },
   'packages/api/session-controller': { kind: 'none', reason: 'Session API and transport owner; invoked Agent commands own any model-visible effect.' },
   'packages/api/settings-controller': { kind: 'none', reason: 'Configuration-surface API owner; it registers no prompt, tool, or session event.' },

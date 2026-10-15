@@ -23,7 +23,7 @@
 import { Fragment, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
-import { IconCloseFill14, IconPlusOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseFillMedium, IconPlusOutlineMedium, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DockZone, LayoutState, PaneNode, TabId } from '../contract/types.ts'
 import { getTab } from '../engine/tree.ts'
 import type { PaneCallbacks, SplitBlock } from './render.ts'
@@ -336,7 +336,7 @@ export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
                         callbacks.onCloseTab(tabId)
                       }}
                     >
-                      <IconCloseFill14 size={14} />
+                      <IconCloseFillMedium size={14} />
                     </button>
                   )}
                   {menu?.tabId === tabId && (
@@ -366,7 +366,7 @@ export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
                 callbacks.onAddTab(pane.id)
               }}
             >
-              <IconPlusOutline16 size={14} />
+              <IconPlusOutlineMedium size={14} />
             </button>
           </Tooltip>
         )}

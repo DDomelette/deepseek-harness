@@ -1,4 +1,4 @@
-import { LinkIcon, classifyLinkPath } from '@deepseek-ai/dsh-client-ui-primitives'
+import { LinkIconRegular, classifyLinkPath } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { basename } from './turn-deliverables.ts'
@@ -40,7 +40,7 @@ export function ProducedFiles({ matched: paths, openFile, t }: ProducedFilesProp
               aria-label={t('produced.open', { name: path })}
               onClick={() => { openFile(path) }}
             >
-              <LinkIcon kind={classifyLinkPath(path)} className={css.fileIcon} />
+              <LinkIconRegular kind={classifyLinkPath(path)} className={css.fileIcon} />
               <span className={css.fileName}>{basename(path)}</span>
             </button>
           ))}

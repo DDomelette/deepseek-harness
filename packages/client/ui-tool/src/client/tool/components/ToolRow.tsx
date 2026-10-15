@@ -1,7 +1,7 @@
 import { useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, StateDot, TerminalBlock, WebBlock,
+  CodeBlock, DiffBlock, DisclosureRow, IconInspectOutlineMedium, ReadBlock, SearchBlock, StateDot, TerminalBlock, WebBlock,
   diffTotals,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsRenderSlots, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -324,7 +324,7 @@ export function ToolRow({
               className={css.inspectButton}
               onClick={inspect}
             >
-              <IconInspectOutline12 />
+              <IconInspectOutlineMedium />
               {t('row.inspect')}
             </button>
           )}

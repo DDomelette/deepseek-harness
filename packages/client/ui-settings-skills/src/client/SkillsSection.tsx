@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { IconFolderClose16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFolderCloseMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import { type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { groupSkills } from './grouping.ts'
@@ -93,7 +93,7 @@ export function SkillsSection({ useSkills, load, setEnabled, t }: SkillsSectionP
                     className={styles.groupIcon}
                     onClick={() => { setOpenKey(group.key) }}
                   >
-                    <IconFolderClose16 size={24} className={styles.groupGlyph} />
+                    <IconFolderCloseMedium size={24} className={styles.groupGlyph} />
                     <span className={styles.groupLabel}>{group.label}</span>
                     <span className={styles.groupCount}>
                       {group.skills.length === 1

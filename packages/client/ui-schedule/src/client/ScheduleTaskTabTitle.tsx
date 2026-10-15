@@ -8,7 +8,7 @@
  * same provider-owned binding its body does and keeps naming the shown task.
  */
 import type { ReactNode } from 'react'
-import { IconClockOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { taskName } from './schedule-format.ts'
 import type { ScheduleTaskBindingInjected, ScheduleTaskCatalogInjected } from './ScheduleTaskTab.tsx'
@@ -32,7 +32,7 @@ export function ScheduleTaskTabTitle({ sessionId, useTabInfo, useCatalog, taskBi
   const record = params === undefined ? undefined : records.find(item => item.id === params.id)
   return (
     <>
-      <IconClockOutline16 size={16} className={css.tabTitleIcon} />
+      <IconClockOutlineMedium size={16} className={css.tabTitleIcon} />
       {record === undefined ? t('detail.label') : taskName(record)}
     </>
   )

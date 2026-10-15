@@ -4,7 +4,7 @@
  * needs no state of its own.
  */
 import type { ReactNode } from 'react'
-import { IconListPenOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconListPenOutlineMedium, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import css from './NotesButton.module.css'
@@ -36,7 +36,7 @@ export function NotesButton({ open, t }: NotesButtonProps): ReactNode {
         data-notes-open
         onClick={open}
       >
-        <IconListPenOutline16 className={css.icon} />
+        <IconListPenOutlineMedium className={css.icon} />
       </button>
     </Tooltip>
   )

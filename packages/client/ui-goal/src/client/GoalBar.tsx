@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GoalActivation, GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
 import {
-  IconCheckOutline16, IconCloseOutline16, IconEditOutline16, IconGoalOutline16,
-  IconPauseOutline16, IconPlayOutline16, IconTrashOutline16, Tooltip,
+  IconCheckOutlineMedium, IconCloseOutlineMedium, IconEditOutlineMedium, IconGoalOutlineMedium,
+  IconPauseOutlineMedium, IconPlayOutlineMedium, IconTrashOutlineMedium, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GoalActionResult, GoalBarActions, GoalBarInjected } from './slots.ts'
@@ -114,7 +114,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
                 disabled={pending || draft.trim() === ''}
                 aria-label={t('action.save')}
               >
-                <IconCheckOutline16 size={14} />
+                <IconCheckOutlineMedium size={14} />
               </button>
             </Tooltip>
             <Tooltip label={t('action.cancel')} side="bottom" delayMs={500}>
@@ -125,7 +125,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
                 disabled={pending}
                 aria-label={t('action.cancel')}
               >
-                <IconCloseOutline16 size={14} />
+                <IconCloseOutlineMedium size={14} />
               </button>
             </Tooltip>
           </div>
@@ -141,7 +141,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
   return (
     <div className={css.dock} data-goal-bar>
       <div className={css.bar} title={title}>
-        <span className={css.goalGlyph}><IconGoalOutline16 size={14} /></span>
+        <span className={css.goalGlyph}><IconGoalOutlineMedium size={14} /></span>
         <span className={css.label}>{label}</span>
         <span className={css.objective}>{goal.objective}</span>
         {actionError !== null && <span className={css.error} role="alert">{actionError}</span>}
@@ -149,14 +149,14 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
           {goal.phase === 'active' && activation === 'armed' && (
             <Tooltip label={t('action.pause')} side="bottom" delayMs={500}>
               <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onPause) }} aria-label={t('action.pause')}>
-                <IconPauseOutline16 size={14} />
+                <IconPauseOutlineMedium size={14} />
               </button>
             </Tooltip>
           )}
           {showResume && (
             <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
               <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
-                <IconPlayOutline16 size={14} />
+                <IconPlayOutlineMedium size={14} />
               </button>
             </Tooltip>
           )}
@@ -168,12 +168,12 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
               onClick={() => { setDraft(goal.objective); setEditing(true) }}
               aria-label={t('action.edit')}
             >
-              <IconEditOutline16 size={14} />
+              <IconEditOutlineMedium size={14} />
             </button>
           </Tooltip>
           <Tooltip label={t('action.clear')} side="bottom" delayMs={500}>
             <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void handleClear(goal.id) }} aria-label={t('action.clear')}>
-              <IconTrashOutline16 size={14} />
+              <IconTrashOutlineMedium size={14} />
             </button>
           </Tooltip>
         </div>

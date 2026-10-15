@@ -12,7 +12,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconBrowseOutline16, IconPlusOutline16, Modal, Tag, Tooltip,
+  Button, IconBrowseOutlineMedium, IconPlusOutlineMedium, Modal, Tag, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -128,7 +128,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
           props.close()
         }}
       >
-        <IconPlusOutline16 size={14} />
+        <IconPlusOutlineMedium size={14} />
         {t('creatorDraft')}
       </button>
     )
@@ -233,7 +233,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                             aria-label={`${t('view')}: ${text.name}`}
                             onClick={() => { void props.view(row.id) }}
                           >
-                            <IconBrowseOutline16 />
+                            <IconBrowseOutlineMedium />
                           </button>
                         )
                         : null}

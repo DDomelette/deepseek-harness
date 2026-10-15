@@ -8,9 +8,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  HoverCard, IconArchiveOutline20, IconBranchOutline16,
-  IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
-  IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
+  HoverCard, IconArchiveOutlineMedium, IconBranchOutlineMedium,
+  IconEditOutlineMedium, IconEllipsisOutlineMedium, IconFolderCloseMedium, IconFolderOpenOutlineMedium,
+  IconPlusOutlineMedium, IconTrashOutlineMedium, IconTriangleRightFillMedium, Menu, relativeTime,
   StateDot, StatusDots,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -139,8 +139,8 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
   const active = group.expanded && group.containsCurrent
   const [menuOpen, setMenuOpen] = useState(false)
   const workspaceMenuItems = [
-    { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
-    { id: 'delete', label: t('delete.workspace'), icon: <IconTrashOutline16 />, danger: true },
+    { id: 'rename', label: t('rename'), icon: <IconEditOutlineMedium /> },
+    { id: 'delete', label: t('delete.workspace'), icon: <IconTrashOutlineMedium />, danger: true },
   ]
   const ownRow = (
     <div
@@ -159,10 +159,10 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
       onDragEnd={drag?.end}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+        {row.expanded ? <IconFolderOpenOutlineMedium /> : <IconFolderCloseMedium />}
       </span>
       <span className={clsx(css.slot, css.chevron)}>
-        <IconTriangleRightFill14 className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+        <IconTriangleRightFillMedium className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
@@ -191,7 +191,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
                 aria-label={t('actions.workspace.aria', { name: label })}
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
               >
-                <IconEllipsisOutline16 />
+                <IconEllipsisOutlineMedium />
               </button>
             )}
           />
@@ -202,7 +202,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
           aria-label={t('actions.newSession.aria', { name: label })}
           onClick={(e) => { e.stopPropagation(); onCreate() }}
         >
-          <IconPlusOutline16 />
+          <IconPlusOutlineMedium />
         </button>
       </span>
     </div>
@@ -409,10 +409,10 @@ export function SessionNodeItem({
   // touches the session log, so it is not styled as destructive and needs no
   // confirmation dialog.
   const sessionMenuItems = [
-    { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
-    { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
+    { id: 'rename', label: t('rename'), icon: <IconEditOutlineMedium /> },
+    { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutlineMedium /> },
     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
-    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
+    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutlineMedium size={16} /> },
   ]
   // Figma session cell: pad 8, status slot 16, then a 4px title gap.
   const ownRow = (
@@ -491,7 +491,7 @@ export function SessionNodeItem({
                 aria-label={t('actions.session.aria', { name: title })}
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
               >
-                <IconEllipsisOutline16 />
+                <IconEllipsisOutlineMedium />
               </button>
             )}
           />

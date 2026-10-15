@@ -17,7 +17,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  IconPaperclipOutline16, IconPlusOutline16, IconWarningOutline16, Toast, Tooltip,
+  IconPaperclipOutlineMedium, IconPlusOutlineMedium, IconWarningOutlineMedium, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -427,7 +427,7 @@ export const InputBar = memo(function InputBar({
         <Toast
           key={toast.seq}
           text={toast.text}
-          icon={<IconWarningOutline16 />}
+          icon={<IconWarningOutlineMedium />}
           anchor={cardRef.current}
           onDone={dismissToast}
         />
@@ -509,7 +509,7 @@ export const InputBar = memo(function InputBar({
                 onMouseDown={keepFocus}
                 onClick={onToggleCommandMenu}
               >
-                <IconPlusOutline16 size={14} />
+                <IconPlusOutlineMedium size={14} />
               </button>
             </Tooltip>
             <Tooltip label={t('file.attach')} side="top" delayMs={500}>
@@ -521,7 +521,7 @@ export const InputBar = memo(function InputBar({
                 onMouseDown={keepFocus}
                 onClick={() => { fileInputRef.current?.click() }}
               >
-                <IconPaperclipOutline16 size={14} />
+                <IconPaperclipOutlineMedium size={14} />
               </button>
             </Tooltip>
             <input

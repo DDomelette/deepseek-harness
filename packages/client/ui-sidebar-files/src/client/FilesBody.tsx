@@ -16,7 +16,7 @@ import clsx from 'clsx'
 import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale, PropsRuntime, PropsStore, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  FileTypeIcon, IconFolderClose16, IconFolderOpen16, IconRefreshOutline16, classifyFileType,
+  FileTypeIcon, IconFolderCloseMedium, IconFolderOpenOutlineMedium, IconRefreshOutlineMedium, classifyFileType,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { fileAddressFor, pathPartsOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceDirectoryEntry } from '@deepseek-ai/dsh-api-workspace-files/types'
@@ -116,7 +116,7 @@ function Entry({ parent, entry, tree }: { parent: string; entry: WorkspaceDirect
     return (
       <li className={css.item} data-files-entry="directory" data-files-path={path}>
         <button type="button" className={css.row} aria-expanded={expanded} onClick={() => { tree.onToggle(path) }}>
-          {expanded ? <IconFolderOpen16 className={css.icon} /> : <IconFolderClose16 className={css.icon} />}
+          {expanded ? <IconFolderOpenOutlineMedium className={css.icon} /> : <IconFolderCloseMedium className={css.icon} />}
           <span className={css.name}>{entry.name}</span>
         </button>
         {expanded && <ul className={css.level}><Level path={path} tree={tree} /></ul>}
@@ -224,7 +224,7 @@ export function FilesBody({
           data-files-reload
           onClick={reload}
         >
-          <IconRefreshOutline16 />
+          <IconRefreshOutlineMedium />
         </button>
       </div>
       {/* jscpd:ignore-end */}

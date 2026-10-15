@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  Button, IconCloseFill14, IconInfoOutline16, IconRefreshOutline16, Modal, Tooltip,
+  Button, IconCloseFillMedium, IconInfoOutlineMedium, IconRefreshOutlineMedium, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { countDescendants, deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
@@ -186,7 +186,7 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                                     aria-label={t('row.details', { name: row.title })}
                                     onClick={() => { setDetail({ row, groupTitle }) }}
                                   >
-                                    <IconInfoOutline16 />
+                                    <IconInfoOutlineMedium />
                                   </Button>
                                 </span>
                               </Tooltip>
@@ -199,7 +199,7 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                                     disabled={busy.has(row.id)}
                                     onClick={() => { void onRestore(row.id) }}
                                   >
-                                    <IconRefreshOutline16 />
+                                    <IconRefreshOutlineMedium />
                                   </Button>
                                 </span>
                               </Tooltip>
@@ -214,7 +214,7 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                                     disabled={row.running || busy.has(row.id)}
                                     onClick={() => { openDelete(row) }}
                                   >
-                                    <IconCloseFill14 />
+                                    <IconCloseFillMedium />
                                   </Button>
                                 </span>
                               </Tooltip>

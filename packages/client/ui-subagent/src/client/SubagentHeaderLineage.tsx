@@ -9,7 +9,7 @@ import {
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
-  IconChevronDownOutline14, IconChevronRightOutline14, IconRefreshOutline14, StateDot,
+  IconChevronDownOutlineMedium, IconChevronRightOutlineMedium, IconRefreshOutlineMedium, StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { NS } from './locales.ts'
@@ -262,7 +262,7 @@ function CatalogRows({
             className={css.refresh}
             onClick={() => { refresh(parentSessionId) }}
           >
-            <IconRefreshOutline14 />
+            <IconRefreshOutlineMedium />
             {t('retry')}
           </button>
         </div>
@@ -374,7 +374,7 @@ function CatalogRows({
                     aria-label={t(isExpanded ? 'branch.collapse' : 'branch.expand', { label })}
                     onClick={toggle}
                   >
-                    <IconChevronRightOutline14 />
+                    <IconChevronRightOutlineMedium />
                   </button>
                 )}
               <div className={css.clickarea}>
@@ -766,7 +766,7 @@ function CatalogDropdown({
           )}
         {variant === 'switcher'
           ? <SubagentSwitcherIcon />
-          : <IconChevronDownOutline14 className={open ? css.triggerOpen : undefined} />}
+          : <IconChevronDownOutlineMedium className={open ? css.triggerOpen : undefined} />}
       </button>
       {open && createPortal((
         <div

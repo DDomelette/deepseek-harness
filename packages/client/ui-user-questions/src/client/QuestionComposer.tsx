@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconCheckOutline14, IconChevronDownOutline14, IconChevronLeftOutline14,
-  IconChevronRightOutline14, IconChevronUpOutline14, IconCloseOutline16,
-  IconEditOutline16, MarkdownText,
+  Button, IconCheckOutlineMedium, IconChevronDownOutlineMedium, IconChevronLeftOutlineMedium,
+  IconChevronRightOutlineMedium, IconChevronUpOutlineMedium, IconCloseOutlineMedium,
+  IconEditOutlineMedium, MarkdownText,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   planReviewOf,
@@ -297,14 +297,14 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
               disabled={busy !== null}
               onClick={() => { setMinimized(current => !current) }}
             >
-              {minimized ? <IconChevronUpOutline14 /> : <IconChevronDownOutline14 />}
+              {minimized ? <IconChevronUpOutlineMedium /> : <IconChevronDownOutlineMedium />}
             </button>
             <button
               type="button" className={css.iconButton} aria-label={t('nav.cancel')}
               title={t('nav.cancel')}
               disabled={busy !== null} onClick={cancelFlow}
             >
-              <IconCloseOutline16 />
+              <IconCloseOutlineMedium />
             </button>
           </div>
         </header>
@@ -340,7 +340,7 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
                       {question.multiSelect === true
                         ? (
                           <span className={clsx(css.checkbox, selected && css.checkboxChecked)} aria-hidden="true">
-                            {selected && <IconCheckOutline14 size={12} />}
+                            {selected && <IconCheckOutlineMedium size={12} />}
                           </span>
                         )
                         : <span className={css.number}>{optionIndex + 1}</span>}
@@ -385,12 +385,12 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
                         className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)}
                         aria-hidden="true"
                       >
-                        {draft.custom !== '' && <IconCheckOutline14 size={12} />}
+                        {draft.custom !== '' && <IconCheckOutlineMedium size={12} />}
                       </span>
                     )
                     : (
                       <span className={css.number} aria-hidden="true">
-                        <IconEditOutline16 size={12} />
+                        <IconEditOutlineMedium size={12} />
                       </span>
                     )}
                   <AnswerField
@@ -413,7 +413,7 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
                     disabled={index === 0 || busy !== null}
                     onClick={() => { replaceProgress(index - 1, drafts); setError(null) }}
                   >
-                    <IconChevronLeftOutline14 />
+                    <IconChevronLeftOutlineMedium />
                   </button>
                   <span className={css.progress}>{index + 1} / {questions.length}</span>
                   <button
@@ -421,7 +421,7 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
                     disabled={index === questions.length - 1 || busy !== null}
                     onClick={() => { replaceProgress(index + 1, drafts); setError(null) }}
                   >
-                    <IconChevronRightOutline14 />
+                    <IconChevronRightOutlineMedium />
                   </button>
                 </div>
               )}

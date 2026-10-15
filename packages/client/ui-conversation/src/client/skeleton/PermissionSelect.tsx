@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import type { PresetOption } from '@deepseek-ai/dsh-permission-presets/client'
-import { IconChevronDownOutline14, Menu, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineMedium, Menu, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { en } from '../locales.ts'
@@ -180,7 +180,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
             )}
             <span className={css.triggerLabel}>{currentLabel}</span>
             <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
-              <IconChevronDownOutline14 />
+              <IconChevronDownOutlineMedium />
             </span>
           </button>
         }

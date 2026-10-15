@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconClockOutline16, IconCloseOutline16, IconPlusOutline16, IconSearchOutline16, Input,
+  Button, IconClockOutlineMedium, IconCloseOutlineMedium, IconPlusOutlineMedium, IconSearchOutlineMedium, Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -117,7 +117,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
             <div className={css.pageHeading}>
               <h1 ref={headingRef} tabIndex={-1}>{t('title')}</h1>
               <div className={css.creationActions}>
-                <Button variant="primary" size="sm" className={css.newButton} icon={<IconPlusOutline16 size={13} />} onClick={onNewTask}>{t('new.action')}</Button>
+                <Button variant="primary" size="sm" className={css.newButton} icon={<IconPlusOutlineMedium size={13} />} onClick={onNewTask}>{t('new.action')}</Button>
               </div>
             </div>
             <div className={css.filters}>
@@ -138,20 +138,20 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
             <div className={css.searchField}>
               <Input
                 type="search"
-                icon={<IconSearchOutline16 />}
+                icon={<IconSearchOutlineMedium />}
                 aria-label={t('search.label')}
                 placeholder={t('search.placeholder')}
                 value={search}
                 onChange={(event) => { setSearch(event.target.value) }}
               />
               {search !== '' && <Button size="sm" className={css.searchClear} aria-label={t('search.clear')} onClick={() => { setSearch('') }}>
-                <IconCloseOutline16 />
+                <IconCloseOutlineMedium />
               </Button>}
             </div>
             <div className={css.list}>
               {selected === undefined && <CatalogFeedback status={status} populated={rows.length > 0} onRetry={onRetry} t={t} />}
               {status === 'ready' && rows.length === 0 && <div className={css.empty} role="status">
-                <IconClockOutline16 size={24} className={css.emptyGlyph} />
+                <IconClockOutlineMedium size={24} className={css.emptyGlyph} />
                 <h2>{t(emptyTitle)}</h2>
                 <Button variant="outline" className={css.emptyAction} onClick={onNewTask}>
                   {t('empty.action')}
@@ -177,7 +177,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                           setTab('rule')
                         }}
                       >
-                        <IconClockOutline16 className={css.rowGlyph} />
+                        <IconClockOutlineMedium className={css.rowGlyph} />
                         <span className={css.rowContent}>
                           <span className={css.rowTitle}>{taskName(record)}</span>
                           <span className={css.rowSummary} id={`${detailId}-metadata-${record.id}`}>

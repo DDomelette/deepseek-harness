@@ -3,7 +3,7 @@ import {
   type FocusEvent, type MouseEvent, type ReactNode,
 } from 'react'
 import {
-  DisclosureRow, IconChevronRightOutline14, StateDot,
+  DisclosureRow, IconChevronRightOutlineMedium, StateDot,
   type DisclosureRowProps, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -212,7 +212,7 @@ function RunHeader({ children, count, name, onToggle, open, status, t }: {
 }) {
   return (
     <StatusDisclosure
-      icon={<IconChevronRightOutline14 />}
+      icon={<IconChevronRightOutlineMedium />}
       title={t('run.title', { name })}
       open={open}
       onToggle={onToggle}
@@ -295,7 +295,7 @@ function PhaseSection({
       onMouseDownCapture={pendingCleanCollapse ? preventPendingHeaderFocus : undefined}
     >
       <StatusDisclosure
-        icon={<IconChevronRightOutline14 />}
+        icon={<IconChevronRightOutlineMedium />}
         title={readablePhase(phase.phase, t)}
         open={open}
         onToggle={onToggle}

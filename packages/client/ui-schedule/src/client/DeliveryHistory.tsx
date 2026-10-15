@@ -3,8 +3,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  Button, IconChevronDownOutline14, IconChevronUpOutline14, IconClockOutline16, IconInfoOutline16,
-  IconWarningOutline16, StateDot, Tooltip,
+  Button, IconChevronDownOutlineMedium, IconChevronUpOutlineMedium, IconClockOutlineMedium, IconInfoOutlineMedium,
+  IconWarningOutlineMedium, StateDot, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ScheduleDeliveryHistoryRequest, ScheduleDeliveryHistoryResult } from '@deepseek-ai/dsh-schedule/client'
 import { formatScheduleNextRun } from './schedule-format.ts'
@@ -56,7 +56,7 @@ function SavedPrompt({ prompt, t }: { prompt: string } & PropsLocale<'schedule.m
     {clamped && <button type="button" className={css.savedPromptToggle} aria-expanded={expanded} aria-controls={id}
       onClick={() => { setExpanded(open => !open) }}>
       {t(expanded ? 'delivery.collapse' : 'delivery.expand')}
-      {expanded ? <IconChevronUpOutline14 size={14} /> : <IconChevronDownOutline14 size={14} />}
+      {expanded ? <IconChevronUpOutlineMedium size={14} /> : <IconChevronDownOutlineMedium size={14} />}
     </button>}
   </>
 }
@@ -137,7 +137,7 @@ export function DeliveryHistory({ id, sessionId, latestMessageId, timeZone, load
           </Button>
         </div>
         : <div className={css.empty}>
-          <IconWarningOutline16 size={24} className={css.emptyGlyph} />
+          <IconWarningOutlineMedium size={24} className={css.emptyGlyph} />
           <p role="alert" className={css.emptyTitle}>{t(failure.key)}</p>
           <Button variant="outline" className={css.emptyAction} onClick={() => { void load(failure.before) }}>
             {t(failure.key === 'delivery.cursorError' ? 'delivery.refresh' : 'delivery.retry')}
@@ -145,11 +145,11 @@ export function DeliveryHistory({ id, sessionId, latestMessageId, timeZone, load
         </div>)}
       {!loading && failure === undefined && page?.records.length === 0
         && <div className={css.empty} role="status">
-          <IconClockOutline16 size={24} className={css.emptyGlyph} />
+          <IconClockOutlineMedium size={24} className={css.emptyGlyph} />
           <h3>{t('delivery.empty')}</h3>
         </div>}
       {page?.records.map(record => <section key={record.messageId} className={css.delivery} aria-label={t('delivery.label')}>
-        <IconClockOutline16 className={css.deliveryGlyph} />
+        <IconClockOutlineMedium className={css.deliveryGlyph} />
         <div className={css.deliveryBody}>
           <div className={css.deliveryHead}>
             <time className={css.deliveryTime} dateTime={record.scheduledAt}>{formatOccurrence(record.scheduledAt)}</time>
@@ -170,7 +170,7 @@ export function DeliveryHistory({ id, sessionId, latestMessageId, timeZone, load
             <button type="button" className={css.retentionInfo}
               aria-label={t('delivery.retention')} aria-expanded={retentionOpen} aria-controls={retentionId}
               onClick={() => { setRetentionOpen(open => !open) }}>
-              <IconInfoOutline16 size={14} />
+              <IconInfoOutlineMedium size={14} />
             </button>
           </Tooltip>
         </div>

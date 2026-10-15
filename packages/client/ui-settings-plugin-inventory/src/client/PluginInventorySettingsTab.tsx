@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  IconChevronDownOutline14,
-  IconSearchOutline16,
+  IconChevronDownOutlineMedium,
+  IconSearchOutlineMedium,
   Menu,
   StateDot,
   Tag,
@@ -125,7 +125,7 @@ function PluginCard({ rowKey, moduleName, entryId, trailing, ariaLabel, failed, 
           <MarqueeTitle title={moduleShortName(moduleName)} moduleName={moduleName} />
           <span className={css.cardTrailing}>
             {trailing}
-            <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+            <IconChevronDownOutlineMedium className={css.chevron} size={12} aria-hidden="true" />
           </span>
         </span>
         {entryId === null ? null : <code className={css.cardIdentity} title={entryId}>{entrySubtitle(entryId)}</code>}
@@ -461,7 +461,7 @@ export function PluginInventorySettingsTab({ list, presetName, t, useStore, acti
             ]}
           />
           <label className={css.search}>
-            <IconSearchOutline16 aria-hidden="true" />
+            <IconSearchOutlineMedium aria-hidden="true" />
             <span className={css.visuallyHidden}>{t('search')}</span>
             <input
               type="search"
@@ -484,7 +484,7 @@ export function PluginInventorySettingsTab({ list, presetName, t, useStore, acti
                   aria-controls={`${sectionId}-preset`}
                   onClick={() => { setPresetOpen(!presetEffectiveOpen) }}
                 >
-                  <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+                  <IconChevronDownOutlineMedium className={css.chevron} size={12} aria-hidden="true" />
                   <span className={css.groupTitle}>{t('presetTitle')}</span>
                 </button>
                 <div className={css.headerEnd}>
@@ -509,7 +509,7 @@ export function PluginInventorySettingsTab({ list, presetName, t, useStore, acti
                         onClick={() => { setSwitcherOpen(value => !value) }}
                       >
                         <span className={css.switcherLabel}>{presetLabel(selected, t, presetName)}</span>
-                        <IconChevronDownOutline14 className={css.chevron} aria-hidden="true" />
+                        <IconChevronDownOutlineMedium className={css.chevron} aria-hidden="true" />
                       </button>
                     )}
                   />
@@ -561,7 +561,7 @@ export function PluginInventorySettingsTab({ list, presetName, t, useStore, acti
                   aria-controls={`${sectionId}-global`}
                   onClick={() => { setGlobalOpen(!globalEffectiveOpen) }}
                 >
-                  <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+                  <IconChevronDownOutlineMedium className={css.chevron} size={12} aria-hidden="true" />
                   <span className={css.groupTitle}>{t('globalTitle')}</span>
                 </button>
               </div>

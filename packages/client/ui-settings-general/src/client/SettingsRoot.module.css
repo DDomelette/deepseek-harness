@@ -367,3 +367,12 @@
     margin-right: auto;
   }
 }
+
+.failureReason {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

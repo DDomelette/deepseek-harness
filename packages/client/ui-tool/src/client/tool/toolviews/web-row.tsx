@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { IconBrowseOutline16, IconGlobeOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBrowseOutlineMedium, IconGlobeOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '../../contract/slots.ts'
 import { webCardModel } from '../models/web-card-model.ts'
@@ -18,7 +18,7 @@ const WEB_TITLE_KEYS = {
 export function WebRow({ toolName, block, inspect, t }: WebRowProps) {
   const model = toolRowModel(toolName, block)
   const web = webCardModel(block)
-  const icon = toolName === 'web_fetch' ? <IconBrowseOutline16 size={14} /> : <IconGlobeOutline14 size={14} />
+  const icon = toolName === 'web_fetch' ? <IconBrowseOutlineMedium size={14} /> : <IconGlobeOutlineMedium size={14} />
   return (
     <ToolRow
       t={t}

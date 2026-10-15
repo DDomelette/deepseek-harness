@@ -9,7 +9,7 @@
  * rest of the panel earlier would only invite the `workspace-missing` refusal.
  */
 import type { ReactNode } from 'react'
-import { IconFolderOpenOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFolderOpenOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NotesInjected } from './face.ts'
 import { WorkspaceField } from './WorkspaceField.tsx'
@@ -31,7 +31,7 @@ export interface WorkspaceGateProps {
 export function WorkspaceGate({ commands, t }: WorkspaceGateProps): ReactNode {
   return (
     <div className={css.gate} data-notes-gate>
-      <IconFolderOpenOutline16 size={24} />
+      <IconFolderOpenOutlineMedium size={24} />
       <p className={css.title}>{t('gate.title')}</p>
       <p className={css.hint}>{t('gate.hint')}</p>
       <div className={css.field}>

@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { IconClockOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNode } from '../src/client/contract/chat-nodes.ts'
 import { TurnTriggerNodeView } from '../src/client/chat/TurnTriggerNodeView.tsx'
 import { turnTriggerDetails } from '../src/client/chat/turn-trigger.ts'
@@ -65,7 +65,7 @@ describe('Turn trigger notices', () => {
     const node = trigger({ kind: 'schedule' })
     const view = render(<TurnTriggerNodeView node={node} t={makeTranslate(locale, common)} />)
     expect(view.getByRole('button').textContent).toContain(title)
-    const reference = render(<IconClockOutline16 />)
+    const reference = render(<IconClockOutlineMedium />)
     expect(view.getByRole('button').querySelector('svg')?.outerHTML)
       .toBe(reference.container.querySelector('svg')?.outerHTML)
     expect(node.data.source).toEqual({ kind: 'schedule' })

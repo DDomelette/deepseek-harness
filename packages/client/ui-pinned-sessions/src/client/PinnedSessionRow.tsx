@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  HoverCard, IconArchiveOutline20, IconBranchOutline16, IconEditOutline16,
-  IconEllipsisOutline16, Menu, relativeTime, StateDot, StatusDots,
+  HoverCard, IconArchiveOutlineMedium, IconBranchOutlineMedium, IconEditOutlineMedium,
+  IconEllipsisOutlineMedium, Menu, relativeTime, StateDot, StatusDots,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
@@ -78,9 +78,9 @@ export function PinnedSessionRow({
   const showStatus = primaryStatus.state !== 'done' || node.completed
   const [menuOpen, setMenuOpen] = useState(false)
   const menuItems = [
-    { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
-    { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
-    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
+    { id: 'rename', label: t('rename'), icon: <IconEditOutlineMedium /> },
+    { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutlineMedium /> },
+    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutlineMedium size={16} /> },
   ]
   const row = (
     <div
@@ -143,7 +143,7 @@ export function PinnedSessionRow({
                 aria-label={t('actions.session.aria', { name: node.title })}
                 onClick={(event) => { event.stopPropagation(); setMenuOpen(value => !value) }}
               >
-                <IconEllipsisOutline16 />
+                <IconEllipsisOutlineMedium />
               </button>
             )}
           />
