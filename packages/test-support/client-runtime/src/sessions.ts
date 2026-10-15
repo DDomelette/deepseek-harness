@@ -10,7 +10,11 @@ import type {
   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,
   SessionSnapshot, SessionSummary, SubmissionHandle,
 } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SessionReferenceSource } from '@deepseek-ai/dsh-api-session-controller/client'
+// The double mirrors the production retention bookkeeping instead of copying
+// it, so the record, zero snapshot, and publication rule have one home.
+import {
+  EMPTY_RETAIN_INFO, publishRetention, retentionRecordOf, type RetentionRecord,
+} from '@deepseek-ai/dsh-api-session-controller/src/client/sessions/retention.ts'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -179,17 +183,6 @@ interface SessionRecord {
   scope: AgentContext | undefined
   scopeFiber: { dispose(): Promise<void> } | undefined
   binding: SessionBinding | undefined
-}
-
-/** The zero-count retention snapshot the double reports for every id. */
-const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({ referenceCount: 0, retainedBy: Object.freeze({}) })
-
-/** Reference counts the double tracks for one session id, plus the observers reading them. */
-interface RetentionRecord {
-  count: number
-  bySource: Partial<Record<SessionReferenceSource, number>>
-  readonly listeners: Set<() => void>
-  published: SessionRetainInfo
 }
 
 /**
@@ -421,10 +414,10 @@ export class TestSessions implements ISessions {
     const id = (typeof target === 'string' ? target : target.childSessionId) as SessionId
     const binding = this.binding(id)
     if (binding === undefined) throw new Error(`test-runtime: session ${id} is not addressable`)
-    const record = this.retentionRecord(id)
+    const record = retentionRecordOf(this.retention, id)
     record.count += 1
     record.bySource = { ...record.bySource, [options.source]: (record.bySource[options.source] ?? 0) + 1 }
-    this.publishRetention(record)
+    publishRetention(record)
     let released = false
     return {
       sessionId: id,
@@ -438,7 +431,7 @@ export class TestSessions implements ISessions {
         const { [options.source]: sourceCount = 0, ...others } = held.bySource
         held.count -= 1
         held.bySource = sourceCount > 1 ? { ...others, [options.source]: sourceCount - 1 } : others
-        this.publishRetention(held)
+        publishRetention(held)
       },
     }
   }
@@ -486,7 +479,7 @@ export class TestSessions implements ISessions {
     const source: ObservableSnapshot<SessionRetainInfo> = {
       getSnapshot: () => this.retention.get(key)?.published ?? EMPTY_RETAIN_INFO,
       subscribe: (listener) => {
-        const record = this.retentionRecord(key)
+        const record = retentionRecordOf(this.retention, key)
         record.listeners.add(listener)
         return () => { record.listeners.delete(listener) }
       },
@@ -495,24 +488,7 @@ export class TestSessions implements ISessions {
     return source
   }
 
-  private retentionRecord(id: SessionId): RetentionRecord {
-    let record = this.retention.get(id)
-    if (record === undefined) {
-      record = { count: 0, bySource: {}, listeners: new Set(), published: EMPTY_RETAIN_INFO }
-      this.retention.set(id, record)
-    }
-    return record
-  }
 
-  private publishRetention(record: RetentionRecord): void {
-    record.published = record.count === 0 && Object.keys(record.bySource).length === 0
-      ? EMPTY_RETAIN_INFO
-      : Object.freeze({
-        referenceCount: record.count,
-        retainedBy: Object.freeze({ ...record.bySource }),
-      })
-    for (const listener of [...record.listeners]) listener()
-  }
 
   /**
    * Session assembly binding (inject factories and provide resolvers receive it).

@@ -34,23 +34,12 @@ import type {
 import type { SessionReferenceSource } from '../index.ts'
 import { createScope, scopeOf as scopeTagOf } from '../scope.ts'
 import { SessionManager } from './manager.ts'
+import {
+  EMPTY_RETAIN_INFO, publishRetention, retentionRecordOf, type RetentionRecord,
+} from './retention.ts'
 import type { SessionRemotes } from './remotes.ts'
 import type { SessionListPhase, SessionSearchResultItem, SubagentCatalogSnapshot } from './manager.ts'
 import type { Session } from './session.ts'
-
-/** The zero reference counts every session without references reports, shared by identity. */
-const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({
-  referenceCount: 0,
-  retainedBy: Object.freeze({}),
-})
-
-/** Local reference counts for one session, plus the observers reading them. */
-interface RetentionRecord {
-  count: number
-  bySource: Partial<Record<SessionReferenceSource, number>>
-  readonly listeners: Set<() => void>
-  published: SessionRetainInfo
-}
 
 /**
  * One owned use of a Client session generation. The binding is the shared
@@ -434,7 +423,7 @@ export class ClientSessions implements ISessions {
     const source: ObservableSnapshot<SessionRetainInfo> = {
       getSnapshot: () => this.retainInfoOf(id),
       subscribe: (listener) => {
-        const record = this.retentionRecord(id)
+        const record = retentionRecordOf(this.retention, id)
         record.listeners.add(listener)
         return () => { record.listeners.delete(listener) }
       },
@@ -454,20 +443,12 @@ export class ClientSessions implements ISessions {
     return this.retention.get(id)?.published ?? EMPTY_RETAIN_INFO
   }
 
-  private retentionRecord(id: SessionId): RetentionRecord {
-    let record = this.retention.get(id)
-    if (record === undefined) {
-      record = { count: 0, bySource: {}, listeners: new Set(), published: EMPTY_RETAIN_INFO }
-      this.retention.set(id, record)
-    }
-    return record
-  }
 
   private addReference(id: SessionId, source: SessionReferenceSource): void {
-    const record = this.retentionRecord(id)
+    const record = retentionRecordOf(this.retention, id)
     record.count += 1
     record.bySource = { ...record.bySource, [source]: (record.bySource[source] ?? 0) + 1 }
-    this.publishRetention(record)
+    publishRetention(record)
   }
 
   private dropReference(id: SessionId, source: SessionReferenceSource): void {
@@ -477,23 +458,13 @@ export class ClientSessions implements ISessions {
     const remaining = held - 1
     record.count -= 1
     record.bySource = remaining > 0 ? { ...otherSources, [source]: remaining } : otherSources
-    this.publishRetention(record)
+    publishRetention(record)
     // A drained record without observers is released; the observe-only source
     // keeps its identity and zero snapshot for the life of a subscriber.
     if (record.count === 0 && record.listeners.size === 0) this.retention.delete(id)
     this.projectList()
   }
 
-  /** Replace the published snapshot, then notify: subscribers always read the counts they were told about. */
-  private publishRetention(record: RetentionRecord): void {
-    record.published = record.count === 0 && Object.keys(record.bySource).length === 0
-      ? EMPTY_RETAIN_INFO
-      : Object.freeze({
-        referenceCount: record.count,
-        retainedBy: Object.freeze({ ...record.bySource }),
-      })
-    for (const listener of [...record.listeners]) listener()
-  }
 
   /**
    * Open a healthy catalog child through its direct-parent address.
