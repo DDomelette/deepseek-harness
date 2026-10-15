@@ -167,3 +167,5 @@ stagehand_act, stagehand_observe, and stagehand_extract use the separately confi
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。提供方在自己的连接 Worker 后嵌入 Stagehand SDK；按 Agent 的获取、串行化与拆卸由共享浏览器运行时持有，结果接纳由 MCP 结果适配器持有，因此本包不新增需要断言的关系。

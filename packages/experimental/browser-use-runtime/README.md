@@ -94,3 +94,5 @@ Providers remain responsible for the browser operations they supply.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This library owns per-Session browser resources and MCP activation for the providers that mount it; the provider keeps the model-visible tools, results, and Session log entries, so the runtime library adds no relationship of its own to assert.

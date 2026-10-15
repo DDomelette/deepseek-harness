@@ -113,3 +113,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。提供方只转发一个固定版本的 Playwright MCP 服务器；连接生命周期、工具发布与拆卸由 `@deepseek-ai/dsh-mcp-client` 与共享浏览器运行时持有，因此本包没有自身可观察的关系。

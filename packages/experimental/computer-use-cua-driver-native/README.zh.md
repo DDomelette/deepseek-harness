@@ -142,3 +142,5 @@ On macOS, cursor-overlay operations may return facility_unavailable even when sc
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。子插件拥有发现、模型工具、指引与原生运行时；父插件保留共享注册，镜像接纳与诊断由 MCP 结果适配器持有，因此本包不新增需要断言的关系。

@@ -124,3 +124,5 @@ pnpm run test:e2e packages/experimental/computer-use-cua-driver-mcp/tests/instal
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。提供方通过 `@deepseek-ai/dsh-mcp-client` 转发已安装的 Cua Driver；连接、工具发布、结果接纳与拆卸由 MCP 客户端持有，因此本包没有自身可观察的关系。

@@ -142,3 +142,5 @@ The package preserves the upstream driver's platform and application limits.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. A child plugin owns discovery, model tools, guidance, and the native runtime; the parent retains the shared registration, and the MCP result adapter owns image admission and diagnostics, so this package adds no relationship of its own.

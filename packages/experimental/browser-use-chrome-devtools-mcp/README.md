@@ -114,3 +114,5 @@ The integration retains the pinned server's browser and tool restrictions.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The provider forwards one pinned Chrome DevTools MCP server; `@deepseek-ai/dsh-mcp-client` and the shared browser runtime own connection lifecycle, tool publication, and teardown, so this package observes no relationship of its own.

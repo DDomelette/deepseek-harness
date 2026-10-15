@@ -85,3 +85,5 @@ The service limits registrations within its Cordis service instance.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This registry only reserves one provider name per service instance; each provider owns its operations, model tools, guidance, and platform requirements, and the registration reports no relationship this package could observe diverging.

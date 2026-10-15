@@ -86,3 +86,5 @@ The service limits registrations within its Cordis service instance.
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This registry only reserves one provider name per service instance; the mounted provider owns its own tools and browser sessions, and the registration itself reports no relationship this package could observe diverging.

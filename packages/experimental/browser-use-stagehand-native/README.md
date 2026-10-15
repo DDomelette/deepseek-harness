@@ -167,3 +167,5 @@ The provider inherits the pinned Stagehand SDK's browser and extension requireme
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The provider embeds the Stagehand SDK behind its own connection Worker; the shared browser runtime owns per-Agent acquisition, serialization, and teardown, and the MCP result adapter owns result admission, so this package adds no relationship of its own.

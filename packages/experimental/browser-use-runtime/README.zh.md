@@ -94,3 +94,5 @@ MCP 提供方使用 `@deepseek-ai/dsh-experimental-browser-use-runtime/mcp` 中�
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个库为挂载它的提供方维护按 Session 的浏览器资源与 MCP 激活；模型可见的工具、结果与 Session 日志条目由提供方保留，因此运行时库自身没有需要断言的关系。

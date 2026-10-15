@@ -124,3 +124,5 @@ This provider relies on the installed driver and the MCP bridge's supported capa
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The provider forwards an installed Cua Driver through `@deepseek-ai/dsh-mcp-client`; the MCP client owns connection, tool publication, result admission, and teardown, so this package observes no relationship of its own.
