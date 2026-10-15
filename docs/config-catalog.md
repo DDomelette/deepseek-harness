@@ -414,6 +414,20 @@ Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
 Source: [`packages/client/product-analytics/src/index.ts:14`](../packages/client/product-analytics/src/index.ts)
 
+<a id="deepseek-aidsh-client-shortcuts"></a>
+
+## `@deepseek-ai/dsh-client-shortcuts`
+
+```ts config-catalog
+/** Fixed shortcut sequence settings. */
+export interface Config {
+  /** Maximum interval between independent Escape presses for stopping a reply, in milliseconds. */
+  stopSequenceMs: number
+}
+```
+
+Source: [`packages/client/shortcuts/src/config.ts:5`](../packages/client/shortcuts/src/config.ts)
+
 <a id="deepseek-aidsh-client-ui-theme"></a>
 
 ## `@deepseek-ai/dsh-client-ui-theme`

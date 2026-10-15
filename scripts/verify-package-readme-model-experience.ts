@@ -44,6 +44,7 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  * blocks. A package moves on or off this list with its context behavior.
  */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
+  'packages/client/shortcuts': { kind: 'none', reason: 'Browser keyboard registry; it binds commands its consumers own and reaches no model request.' },
   'packages/client/ui-settings-mcp': { kind: 'none', reason: 'Browser settings editor; the Host MCP consumer owns model tool publication.' },
   'packages/client/ui-settings-skills': { kind: 'none', reason: 'Settings writes delegate invocation policy to skill-settings and the skill catalog consumers.' },
   'packages/skill/skill-settings': { kind: 'indirect', reason: 'Registry overrides are read by skill catalog and invocation consumers, which own logged model inputs.' },

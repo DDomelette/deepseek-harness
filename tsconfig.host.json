@@ -147,6 +147,7 @@
   "references": [
     { "path": "./packages/client/ui-deliverables/tsconfig.host.json" },
     { "path": "./packages/client/ui-settings/tsconfig.host.json" },
+    { "path": "./packages/client/shortcuts/tsconfig.host.json" },
     { "path": "./vendor/cosmokit" },
     { "path": "./vendor/schemastery" },
     { "path": "./vendor/cordis" },
