@@ -15,8 +15,10 @@ import { type ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the `mainView` retention source the panel addresses.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { SkillsSection } from './SkillsSection.tsx'
 import type { SkillsSectionInjected } from './SkillsSection.tsx'
 import { SkillsSettingsStore } from './store.ts'
@@ -46,6 +48,16 @@ function refreshIfLoaded(controller: SkillsSettingsStore): void {
 }
 
 /**
+ * Session the main view retains: the catalog address of the open Skills page.
+ * @param sessions - client sessions service.
+ * @returns the retained session id, or undefined while no session is open.
+ */
+function currentSessionId(sessions: ISessions): SessionId | undefined {
+  return Object.values(sessions.list.getSnapshot().byId)
+    .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+}
+
+/**
  * Required services (cordis fiber inject). The target slot is declared by
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
@@ -63,10 +75,10 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-skills: copy dictionaries')
 
   const sessions = ctx.get('sessions') as ISessions
-  let currentSessionId = sessions.list.getSnapshot().current
+  let current = currentSessionId(sessions)
   const controller = new SkillsSettingsStore(
     ctx.remote,
-    () => sessions.list.getSnapshot().current,
+    () => currentSessionId(sessions),
   )
   // Registration-time text follows the locale revision; render-time copy
   // rides the framework's standard locale seat.
@@ -85,15 +97,15 @@ export function apply(ctx: ClientContext): void {
   // namespace, so one channel covers both registry and override updates.
   ctx.effect(() => {
     const refreshForCurrentSession = (): void => {
-      const next = sessions.list.getSnapshot().current
-      if (next === currentSessionId) return
-      currentSessionId = next
+      const next = currentSessionId(sessions)
+      if (next === current) return
+      current = next
       refreshIfLoaded(controller)
     }
     const disposers = [
       ctx.remote.$on('skills/change', () => { refreshIfLoaded(controller) }),
       ctx.remote.$on('agent-preset/selected', (sessionId) => {
-        if (sessionId === currentSessionId) refreshIfLoaded(controller)
+        if (sessionId === current) refreshIfLoaded(controller)
       }),
       ctx.on('connection/reset', () => { refreshIfLoaded(controller) }),
       sessions.list.subscribe(refreshForCurrentSession),

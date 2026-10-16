@@ -26,10 +26,10 @@ export interface LocaleSettings {
   preference?: LocaleId
 }
 
-/** Field schemas shared by the durable section and the plugin's live Config. */
+/** Durable locale schema; also the wire envelope the browser scope validates against. */
 export const LocaleSettingsFields = {
   [LOCALE_PREFERENCE_FIELD]: z.string().pattern(LOCALE_ID_PATTERN).required(false),
 }
 
-/** Durable locale schema; also the wire envelope the browser scope validates against. */
-export const LocaleSettingsSchema: z<LocaleSettings> = z.object(LocaleSettingsFields)
+/** Schema for the shared locale preference. */
+export const LocaleSettingsSchema = z.object(LocaleSettingsFields)

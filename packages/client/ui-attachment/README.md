@@ -29,15 +29,17 @@ Mount this plugin alongside [`ui-conversation`](../ui-conversation/README.md) an
 
 ### Draft attachments
 
-Images and generic files retain pick order in one non-wrapping horizontal rail. Every item is 64px high: an image is a 64px square thumbnail, while a generic file is a 240px-wide DeepSeek Web card with a 16px radius, blue gradient document glyph, filename, and uppercase extension plus byte size. Edge arrows page hidden overflow, the scrollbar stays hidden, and a newly added item is revealed at the rail's end. Uploading replaces a file glyph with a spinner and shows byte progress when the carrier reports it, with an indeterminate bar before the first report; failure shows retry, and removal controls appear on hover or keyboard focus while remaining visible on touch devices. The composer's coarse-pointer 44px touch floor does not inflate this chrome: the removal badge keeps its drawn 18px size and carries a transparent 44px hit zone, the rail's paging arrows keep their 24px size the same way, and a failed upload's inline retry text keeps its natural size. Clicking an image opens the original.
+Images and generic files retain pick order in one non-wrapping horizontal rail. Every item is 64px high: an image is a 64px square thumbnail, while a generic file is a 240px-wide DeepSeek Web card with a 16px radius, blue gradient document glyph, filename, and uppercase extension plus byte size. Edge arrows page hidden overflow, the scrollbar stays hidden, and a newly added item is revealed at the rail's end. Uploading replaces a file glyph with a spinner and shows byte progress when the carrier reports it, with an indeterminate bar before the first report; failure shows retry, and removal controls appear on hover or keyboard focus while remaining visible on touch devices. Clicking an image opens the original.
 
 ### Message images and the lightbox
 
 In Chat, one user message presents files and images in a right-aligned wrapping flow that preserves source order. A lone image without another attachment renders at 240px on its longer edge (aspect clamped to [0.25, 4], never upscaled); when the message has more than one attachment, each image is a fixed 64px square beside 240×64px file cards. A loaded image opens the document-level lightbox on click; a failed load shows a retry control instead. The lightbox closes on Escape, a mask press, or its close control, and restores focus to its opener.
 
+Trajectory attachment rows request 48px square thumbnails that contain the complete image without cropping. Loading and retry icons keep the same box, with localized tooltips and accessible names; the image opens the same lightbox. A slot owner may supply a presentation-only image label for the thumbnail and lightbox without changing the durable reference or the cache lookup.
+
 ### Drop overlay
 
-While a file drag is over the page, the full-viewport overlay announces the drop: illustration, title, and a limits line when drops are accepted. The overlay only shows state — the owner's document-level listeners decide accept or reject.
+While a file drag is over the page, the full-viewport overlay announces the drop: illustration, title, and a limits line when drops are accepted. The overlay only shows state — the owner's document-level listeners decide accept or reject, and the drop handler reports which dropped members are directories through the entry API so the owner can cite or refuse them.
 
 -----
 
@@ -52,10 +54,11 @@ The plugin waits for `conversation.input.attachments`, `conversation.message.ima
 | File | Role |
 |---|---|
 | [`src/client/ComposerAttachments.tsx`](src/client/ComposerAttachments.tsx) | Ordered image/file rail + drop overlay assembly |
+| [`src/client/drop-events.ts`](src/client/drop-events.ts) | Document drag-and-drop listeners installed by each mounted attachment view's effect |
 | [`src/AttachmentRail.tsx`](src/AttachmentRail.tsx) | Horizontal attachment overflow, wheel translation, edge arrows |
 | [`src/client/MessageImages.tsx`](src/client/MessageImages.tsx) | Per-message gallery + lightbox assembly |
 | [`src/MessageImage.tsx`](src/MessageImage.tsx) | Single image sizing, load/retry, click-to-open; local submission-echo previews render their object URL directly |
-| `ui-primitives` `ImageLightbox` | Document-level modal preview over the shared mask ([component catalog](../../client/ui-primitives/README.md#component-catalog)) |
+| [`ImageLightbox`](../ui-primitives/src/ImageLightbox.tsx) | Document-level modal preview over the shared mask |
 | [`src/DropOverlay.tsx`](src/DropOverlay.tsx) | Pointer-inert drag invitation portal |
 
 </details>
@@ -68,7 +71,7 @@ The plugin waits for `conversation.input.attachments`, `conversation.message.ima
 Read these pages when the attachment surface is not enough. They move from the slots this package fills to the conversation shell that owns the input flow.
 
 - [ui-conversation](../ui-conversation/README.md) — declares the attachment slots and owns the composer and image intake.
-- [Web client architecture](../../../.agents/notes/implemented/architecture/2026-07-19-gui-web-client-architecture.md) — how browser plugin rows load and register slots.
+- [Web client architecture](../../../docs/subsystems/web-client.md) — how browser plugin rows load and register slots.
 - [Client package map](../README.md) — adjacent browser UI packages.
 
 -----
@@ -101,5 +104,3 @@ These limits define the current attachment surface. They are package constraints
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. The package contributes only effect-owned slot entries; the slot registry owns their lifecycle and validates their declarations.

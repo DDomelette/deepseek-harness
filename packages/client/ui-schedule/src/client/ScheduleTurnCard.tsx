@@ -1,32 +1,26 @@
 import { useEffect, useRef } from 'react'
 import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ScheduleCatalogEntry, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import type { CatalogInjected } from './catalog-source.ts'
 import { ScheduleCreateCard, type ScheduleCreateCardInput, type ScheduleCreateCardProps } from './ScheduleCreateCard.tsx'
 import { scheduleCreateCardModel } from './schedule-create-card.ts'
-import { SCHEDULE_CREATE_TOOL, type ScheduleTurnData } from './schedule-turn.ts'
+import { SCHEDULE_CREATE_TOOL, selectScheduleTasks } from './schedule-turn.ts'
 import css from './ScheduleTurnCard.module.css'
 
-/** Task navigation the turn row receives from its chain registration. */
+/** Task navigation the turn row receives from its list registration. */
 export interface ScheduleTurnCardInjected extends Pick<CatalogInjected<ScheduleCatalogEntry>, 'hooks' | 'onRetry'> {
   /**
    * Show one created task's detail in the right Sidebar.
-   * @param sessionId - Session the closing Turn belongs to.
    * @param id - Task created by this Turn.
    */
-  readonly openTaskDetail: (sessionId: SessionId, id: ScheduleId) => void
+  readonly openTaskDetail: (id: ScheduleId) => void
 }
 
 /** Props of the created-task row of one Turn tail. */
 export type ScheduleTurnCardProps = PropsRuntime<'conversation.chat.turnTail'>
   & InjectFace<ScheduleTurnCardInjected>
   & PropsLocale<'schedule.manager'>
-  & {
-    /** The Turn's created tasks the chain selector claimed. */
-    readonly matched: ScheduleTurnData
-  }
 
 /**
  * Props of one card rendered from the Turn tail.
@@ -41,7 +35,7 @@ export type ScheduleTurnCardProps = PropsRuntime<'conversation.chat.turnTail'>
  */
 function cardProps(
   block: ToolResultNode,
-  openTaskDetail: (id: ScheduleId) => void,
+  openTaskDetail: ScheduleTurnCardInjected['openTaskDetail'],
   t: ScheduleCreateCardProps['t'],
   currentTask: ScheduleCatalogEntry | null | undefined,
 ): ScheduleCreateCardInput {
@@ -58,7 +52,7 @@ function cardProps(
 
 interface CurrentScheduleCardsProps {
   readonly created: readonly ToolResultNode[]
-  readonly openTaskDetail: (id: ScheduleId) => void
+  readonly openTaskDetail: ScheduleTurnCardInjected['openTaskDetail']
   readonly t: ScheduleCreateCardProps['t']
   readonly useCatalog: ScheduleTurnCardProps['useCatalog']
   readonly onRetry: ScheduleTurnCardInjected['onRetry']
@@ -100,20 +94,20 @@ function CurrentScheduleCards({ created, openTaskDetail, t, useCatalog, onRetry 
  * Render the tasks one Turn created as standalone cards beneath its closing
  * prose.
  *
- * The Turn tail is a chain seat independent of the Turn's process disclosure,
- * so the cards stay visible while the Tool group is collapsed. The selector
- * claims a Turn only when it created tasks, so the component reads its own
- * match rather than narrowing the Turn here again.
- * @param props - matched created tasks, turn-tail navigation, and copy.
+ * The Turn tail is a list seat independent of the Turn's process disclosure,
+ * so the cards stay visible while the Tool group is collapsed. Every list entry
+ * renders for every Turn, so this one narrows its own Turn here.
+ * @param props - closing Turn owner currency, turn-tail navigation, and copy.
  * @returns one created-task card per settled `schedule_create` result, or null when the Turn created none.
  */
 export function ScheduleTurnCard(props: ScheduleTurnCardProps) {
-  const { matched, openTaskDetail, sessionId } = props
+  const matched = selectScheduleTasks(props)
+  if (matched === null) return null
   return (
     <div className={css.list}>
       <CurrentScheduleCards
         created={matched.created}
-        openTaskDetail={(id) => { openTaskDetail(sessionId, id) }}
+        openTaskDetail={props.openTaskDetail}
         t={props.t}
         useCatalog={props.useCatalog}
         onRetry={props.onRetry}

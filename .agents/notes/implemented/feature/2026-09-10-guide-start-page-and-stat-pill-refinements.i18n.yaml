@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-10-guide-start-page-and-stat-pill-refinements.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-10-guide-start-page-and-stat-pill-refinements.md
-2026-09-10-guide-start-page-and-stat-pill-refinements.md: 987e46fd597b11046843a943c60187fdb1a769d0
-2026-09-10-guide-start-page-and-stat-pill-refinements.zh.md: 590f18a2963507a8918a0aca30997aac23c6e477
+/agent-note-guide-start-page-and-stat-pill-refinements:
+  en: 717caf91226efb1d
+  zh: 06fcd0c0bde3cdaa
+/agent-note-guide-start-page-and-stat-pill-refinements/problem:
+  en: 0bf48420912dfbc7
+  zh: ea0e9585f06601fd
+/agent-note-guide-start-page-and-stat-pill-refinements/decision:
+  en: b52c3ee64d451dd8
+  zh: 9691938517c41b70
+/agent-note-guide-start-page-and-stat-pill-refinements/alternatives-considered:
+  en: 4a85950d858a864d
+  zh: 8c7f4fccae9c1394
+/agent-note-guide-start-page-and-stat-pill-refinements/consequences:
+  en: ffda061776333cd5
+  zh: 1ab62bc759716222

@@ -38,6 +38,7 @@ export { observeComposition } from './keyboard-composition.ts'
 export { focusWithoutRing } from './focus.ts'
 export { closeTopModal, isBehindModal, modalSelector, useModalLayer } from './useModalLayer.ts'
 export { Modal } from './Modal.tsx'
+export { OnboardingSurface } from './OnboardingSurface.tsx'
 export { RiskConfirmation } from './RiskConfirmation.tsx'
 export type { RiskConfirmationProps } from './RiskConfirmation.tsx'
 export { ConnectionIndicator } from './ConnectionIndicator.tsx'
@@ -66,6 +67,15 @@ export { pointerModality } from './input-modality.ts'
 export { Toast } from './Toast.tsx'
 export { fileSizeText } from './file-size.ts'
 export { writeClipboard } from './clipboard.ts'
+export { SettingsForm } from './settings-form/SettingsForm.tsx'
+export type { SettingsFormLabels, SettingsFormProps } from './settings-form/SettingsForm.tsx'
+export { SettingsSecretField, SettingsValueField } from './settings-form/fields.tsx'
+export type { SettingsFieldProps } from './settings-form/fields.tsx'
+export { SettingsFormModel, settingsNumberField, settingsTextField } from './settings-form/form-model.ts'
+export type {
+  SettingsFieldSpec, SettingsFieldState, SettingsFieldWrite, SettingsFormActions, SettingsFormPathOp, SettingsFormScope,
+  SettingsFormScopeSnapshot, SettingsFormShell, SettingsSecretSpec,
+} from './settings-form/form-model.ts'
 export { CODE_HIGHLIGHT_EXTENSIONS, languageForPath, useCodeHighlighter } from './code-highlighting.ts'
 export type { CodeHighlighter, HighlightSpan } from './code-highlighting.ts'
 export { relativeTime } from './relative-time.ts'
@@ -107,8 +117,3 @@ export {
 export { GuideArtworkBrowser, GuideArtworkFiles } from './guide-artwork.tsx'
 export { ImageLightbox } from './ImageLightbox.tsx'
 export type { ImageLightboxLabels } from './ImageLightbox.tsx'
-
-// Fork-owned primitives without an upstream counterpart; their existing consumers keep using them.
-export { StatusDots } from './StatusDots.tsx'
-export type { DotStatus } from './StatusDots.tsx'
-export { OnboardingSurface } from './OnboardingSurface.tsx'

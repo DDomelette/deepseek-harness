@@ -30,7 +30,12 @@ async function bench(settings: object = {}): Promise<{
   let currentSession: string | undefined
   ctx.provide('sessions', {
     list: {
-      getSnapshot: () => ({ current: currentSession }),
+      // The panel addresses its catalog with the session the main view retains.
+      getSnapshot: () => ({
+        byId: currentSession === undefined
+          ? {}
+          : { [currentSession]: { id: currentSession, retainedBy: { mainView: 1 } } },
+      }),
       subscribe: (listener: () => void) => {
         sessionsListeners.add(listener)
         return () => { sessionsListeners.delete(listener) }

@@ -25,7 +25,6 @@ function sessions(rows: Array<[string, number]>): SessionListState {
 function workspaces(
   archived: string[],
   rows: Array<[string, string[]]>,
-  archivedAts: Record<string, string> = {},
 ): WorkspaceListState {
   return {
     items: rows.map(([id, sessionIds]) => ({
@@ -37,9 +36,6 @@ function workspaces(
       updatedAt: '0',
     })),
     archivedSessionIds: archived.map(sid),
-    archivedSessionAts: Object.fromEntries(
-      Object.entries(archivedAts).map(([id, at]) => [sid(id), at]),
-    ),
     state: 'idle',
     phase: 'ready',
     error: null,
@@ -72,13 +68,12 @@ describe('deriveArchivedGroups', () => {
     expect(groups[0]?.rows.map(row => row.id)).toEqual([sid('a1')])
   })
 
-  it('carries the archive instant when the host recorded one and omits it otherwise', () => {
+  it('carries the session row fields the panel renders', () => {
     const groups = deriveArchivedGroups(
-      sessions([['a1', 1], ['a2', 2]]),
-      workspaces(['a1', 'a2'], [['ws-a', ['a1', 'a2']]], { a1: '2026-08-21T08:00:00.000Z' }),
+      sessions([['a1', 7]]),
+      workspaces(['a1'], [['ws-a', ['a1']]]),
     )
-    expect(groups[0]?.rows[0]?.archivedAt).toBe('2026-08-21T08:00:00.000Z')
-    expect(groups[0]?.rows[1]).not.toHaveProperty('archivedAt')
+    expect(groups[0]?.rows[0]).toMatchObject({ id: sid('a1'), title: 'title-a1', updatedAt: 7 })
   })
 })
 

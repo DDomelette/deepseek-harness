@@ -35,7 +35,7 @@ Feature adapters use `ctx.configForms.get(entryId)` to obtain accepted values an
 
 ### Following served namespaces
 
-A page that edits a namespace another plugin owns registers through `ctx.configForms.whileServed(namespaces, register)`: `register` runs once any listed namespace is in the shared mirror, receives the set of namespaces the Host serves, and returns the registration's disposer, which runs when none of them is served any more or when the disposer `whileServed` returns runs. The caller owns that returned disposer and wraps it in `ctx.effect`; unlike `get`, the service registers nothing on the caller's context. A deployment that never composed the owner therefore shows no trace of the page, and a namespace the Host stops serving withdraws it. The Plugins page tabs ride it whenever the page that owns their namespace is composed.
+A page that edits a namespace another plugin owns registers through `ctx.configForms.whileServed(namespaces, register)`: `register` runs once any listed namespace is in the shared mirror, receives the set of namespaces the Host serves, and returns the registration's disposer, which runs when none of them is served any more or when the disposer `whileServed` returns runs. The caller owns that returned disposer and wraps it in `ctx.effect`; unlike `get`, the service registers nothing on the caller's context. A deployment that never composed the owner therefore shows no trace of the page, and a namespace the Host stops serving withdraws it. The four official pages on the Plugins page ride it, one companion package each.
 
 ### Filling the settings slots
 
@@ -80,7 +80,7 @@ These pages cover the settings surface family and the durable seam behind it.
 
 - [ui-settings-general](../ui-settings-general/README.md) — the settings shell: trigger chrome, navigation, General section, onboarding projection.
 - [ui-settings-plugins](../ui-settings-plugins/README.md) — the Built-in plugins section shell around the inventory tab.
-- [ui-settings-mcp](../ui-settings-mcp/README.md), [ui-settings-plugin-inventory](../ui-settings-plugin-inventory/README.md), [ui-settings-skills](../ui-settings-skills/README.md) — the Plugins page tabs built on this base.
+- [ui-settings-shell](../ui-settings-shell/README.md), [ui-settings-agent-loop](../ui-settings-agent-loop/README.md), [ui-settings-subagent](../ui-settings-subagent/README.md), [ui-settings-web-search](../ui-settings-web-search/README.md) — the official configuration pages on the Plugins page, each following its namespaces through `whileServed`.
 - [ui-settings-models](../ui-settings-models/README.md) — the Models page and DeepSeek onboarding over this base.
 - [settings](../../settings/README.md) — the durable user-settings seam and its file provider.
 - [ui-sidebar](../ui-sidebar/README.md) — the sidebar shell whose bottom seat hosts the settings trigger.
@@ -114,5 +114,3 @@ These limits define where the settings transport cannot reach; they are current 
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. This plugin provides the shared configuration-form service over the describe mirror and declares the settings slot types; its own state is that mirror plus the per-entry form queue, both owned and disposed with the providing fiber, and it publishes no cross-plugin relationship whose independent observations could diverge.

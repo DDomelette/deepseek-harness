@@ -46,21 +46,22 @@ export function resolveSubmitMode(
 export class ComposerSubmissionPolicy {
   /** Reactive preference source for the composer bar and the Settings row. */
   readonly busyEnter: SnapshotStore<BusyEnterBehavior> = createSnapshotStore(DEFAULT_BUSY_ENTER_BEHAVIOR)
+  private readonly unsubscribe: (() => void) | undefined
   private readonly host: ConfigForm<ConversationSettings> | undefined
 
   /**
-   * @param host - durable preference scope owned by the providing plugin;
-   * absent compositions stay process-local. The adoption subscription shares
-   * the scope's plugin lifetime — a disposed scope never publishes again, so
-   * the policy needs no release hook.
+   * @param host Shared configuration form; omitted keeps the browser-local default.
    */
   constructor(host?: ConfigForm<ConversationSettings>) {
     this.host = host
     if (host !== undefined) {
-      host.subscribe(() => { this.adopt(host) })
+      this.unsubscribe = host.subscribe(() => { this.adopt(host) })
       this.adopt(host)
     }
   }
+
+  /** Release the preference subscription. */
+  dispose(): void { this.unsubscribe?.() }
 
   /**
    * Change the busy-state submission behavior; the live value publishes

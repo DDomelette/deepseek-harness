@@ -26,14 +26,14 @@ afterEach(async () => {
   for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
   for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
   Reflect.deleteProperty(globalThis, '__dshMobApply')
-  Reflect.deleteProperty(globalThis, '__dshMobWebRuntime')
+  Reflect.deleteProperty(globalThis, '__dshMobWebStartup')
   Reflect.deleteProperty(globalThis, '__dshMobRoutes')
 })
 
 interface BenchFacts {
   /** The bind host the webServer fixture reports. */
   host: string
-  /** The fence snapshot the webRuntime fixture provides. */
+  /** The declared trusted hosts the webStartup fixture provides. */
   lanAddresses: string[]
 }
 
@@ -57,7 +57,7 @@ export const apply = ctx => ctx.provide('webServer', {
 `)
   writeFileSync(join(root, 'runtime.mjs'), `
 export const inject = ['webServer']
-export const apply = ctx => ctx.provide('webRuntime', globalThis.__dshMobWebRuntime)
+export const apply = ctx => ctx.provide('webStartup', globalThis.__dshMobWebStartup)
 `)
   writeFileSync(join(root, 'connection.mjs'), `
 export const inject = ['webServer']
@@ -97,11 +97,11 @@ export const apply = ctx => globalThis.__dshMobApply(ctx)
 
   const globals = globalThis as unknown as {
     __dshMobApply: typeof apply
-    __dshMobWebRuntime: { lanAddresses: string[]; trustedHosts: string[] }
+    __dshMobWebStartup: { trustedHosts: string[] }
     __dshMobRoutes: string[]
   }
   globals.__dshMobApply = apply
-  globals.__dshMobWebRuntime = { lanAddresses: facts.lanAddresses, trustedHosts: facts.lanAddresses }
+  globals.__dshMobWebStartup = { trustedHosts: facts.lanAddresses }
   globals.__dshMobRoutes = []
 
   const ctx = new Context()
@@ -131,19 +131,19 @@ function failureOf(ctx: Context): unknown {
 }
 
 describe('mob join namespace over a Loader tree', () => {
-  it('returns the token-free LAN origin from the fence snapshot', async () => {
+  it('returns the token-free origin from the declared trusted host', async () => {
     const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: ['192.168.1.5'] })
     expect(joinController(ctx).joinUrl()).toBe(LAN_URL)
   })
 
-  it('classifies a loopback bind as mob/loopback-only', async () => {
+  it('classifies a deployment that declared no origin as mob/no-advertised-origin', async () => {
     const ctx = await bootTree({ host: '127.0.0.1', lanAddresses: [] })
-    expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/loopback-only', details: {} })
+    expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-advertised-origin', details: {} })
   })
 
-  it('classifies an all-interfaces bind with no derived address as mob/no-lan-address', async () => {
+  it('classifies an all-interfaces bind with no declared origin the same way', async () => {
     const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: [] })
-    expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-lan-address', details: {} })
+    expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-advertised-origin', details: {} })
   })
 
   it('registers every pairing route through the real Loader tree', async () => {

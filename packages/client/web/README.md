@@ -131,5 +131,3 @@ These limits define what the boot kernel does not support. They are current pack
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. The browser boot reads and writes process-local page state — the boot manifest, the module loader queue, and the window-drag marks it installs — and owns no durable or cross-process relationship whose independent observations could diverge.

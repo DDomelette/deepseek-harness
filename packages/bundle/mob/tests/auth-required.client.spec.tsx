@@ -35,7 +35,8 @@ function mount(options: {
   render(<AuthRequiredScreen
     usePanelInfo={unused as never}
     useResource={unused as never}
-    useSessionPendingInteraction={unused as never}
+    useSessionStatus={unused as never}
+    useSessionRetainInfo={unused as never}
     useSessions={unused as never}
     useWorkspaces={unused as never}
     t={t}

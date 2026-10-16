@@ -1,4 +1,5 @@
 import { createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
+import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionLogOffset, SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
@@ -17,7 +18,6 @@ import type {
 } from '@deepseek-ai/dsh-session-persistence'
 import { type SessionQueryErrorCode } from '@deepseek-ai/dsh-session-query'
 import { TestSessionQueryEngine } from './test-service.ts'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -45,7 +45,7 @@ function appendEvent(seq: number, sources?: readonly number[]): SessionEvent {
       content: [{ type: 'text', text: `event ${seq}` }], source: { kind: 'user' },
     }),
     surfaceOp: 'append',
-    ...sources === undefined ? {} : { sourceEventSeqs: sources as unknown as SessionSeq[] },
+    ...sources === undefined ? {} : { sourceEventSeqs: sources as SessionSeq[] },
   }
 }
 
@@ -83,7 +83,6 @@ class TraceHandle implements SessionHandle {
 }
 
 class TracePersistence extends SessionPersistence {
-  delete(): Promise<void> { return Promise.reject(new Error('deletion is outside this persistence fixture')) }
   static entries = new Map<SessionIdType, { meta: SessionHeader; events: SessionEvent[] }>()
   static listCalls = 0
   static readCalls = 0
@@ -121,6 +120,11 @@ class TracePersistence extends SessionPersistence {
       header: structuredClone(entry.meta),
       revision: SessionPersistenceRevision(`events:${entry.events.length}`),
     })
+  }
+
+  delete(id: SessionIdType): Promise<void> {
+    TracePersistence.entries.delete(id)
+    return Promise.resolve()
   }
 
   list(): Promise<readonly SessionPersistenceSnapshot[]> {
@@ -485,7 +489,7 @@ describe('session event tracing', () => {
       { ...appendEvent(SessionSeq(2), [0]), surfaceOp: { op: 'replace', startSeq: 1, endSeq: 1 } },
     ]],
   ] as const)('rejects an invalid surface log: %s', async (_name, rawEvents) => {
-    const durable = header('invalid-provenance')
+    const durable = header('invalid-source-reference')
     const events = structuredClone(rawEvents) as unknown as SessionEvent[]
     TracePersistence.reset([{ meta: durable, events }])
     const ctx = await queryContext()

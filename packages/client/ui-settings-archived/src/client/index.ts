@@ -1,5 +1,5 @@
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 /**
  * Archived settings plugin, browser half: the Archived page of the settings
@@ -27,26 +27,24 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 const NS = 'settings.archived'
 
-export const inject = ['slots', 'locale', 'sessions', 'workspaces']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace']
 
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-archived: copy dictionaries')
   const sessions = ctx.get('sessions') as ISessions
   const workspaces = ctx.get('workspaces') as IWorkspaces
+  const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspace
   const t = ctx.locale.bind(NS)
   const injected = (): ArchivedSectionInjected => ({
     restore: async (sessionId) => {
       await workspaces.unarchiveSession(sessionId)
       if (sessions.list.getSnapshot().byId[sessionId] !== undefined) {
-        sessions.open(sessionId)
+        uiWorkspace.openSession(sessionId)
         return true
       }
       return false
     },
-    deleteSession: async (sessionId) => { await sessions.deleteSession(sessionId) },
-    refresh: async () => {
-      await Promise.all([sessions.refresh(), workspaces.refresh()])
-    },
+    refresh: async () => { await sessions.refresh() },
   })
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

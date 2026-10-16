@@ -7,7 +7,6 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { foldSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
-import type { SubagentActivation } from '@deepseek-ai/dsh-subagent'
 import { errorMessage, TeamError } from './error.ts'
 import type { TeamJournal } from './journal.ts'
 import type { TeamRuntimeLifecycle } from './lifecycle.ts'
@@ -56,8 +55,6 @@ export function resolveActiveMember(
 
 /** Owns Team identities and the lifecycle of rostered continuable children. */
 export class TeamRoster {
-  private readonly inFlightCreations = new Set<Promise<unknown>>()
-
   /**
    * @param ctx - Team service context with Agent, Session, persistence, and subagent services.
    * @param journal - authoritative Lead-log transaction owner.
@@ -133,8 +130,7 @@ export class TeamRoster {
       id: root.id,
       name: 'lead',
       role: 'lead',
-      // The Lead row reports the Lead's own Agent status; teammate rows report turn availability.
-      status: root.status,
+      status: availability(root),
       ...root.options.model === undefined ? {} : { model: root.options.model },
       diagnostics: [],
     }]
@@ -168,21 +164,7 @@ export class TeamRoster {
    */
   async spawn(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult> {
     if (this.lifecycle.disposed) throw new TeamError('Agent Teams service is disposing', 'TEAM_DISPOSED')
-    const operation = this.spawnAdmitted(caller, request)
-    this.inFlightCreations.add(operation)
-    try {
-      return await operation
-    } finally {
-      this.inFlightCreations.delete(operation)
-    }
-  }
-
-  /**
-   * Return admitted creation operations captured for ordered disposal.
-   * @returns detached snapshot ordered only by Set insertion.
-   */
-  pendingCreations(): readonly Promise<unknown>[] {
-    return [...this.inFlightCreations]
+    return await this.lifecycle.track(this.spawnAdmitted(caller, request))
   }
 
   /**
@@ -202,7 +184,7 @@ export class TeamRoster {
    * @param targetName - durable teammate name.
    * @returns the target status sampled before cancellation.
    */
-  interrupt(caller: Agent, targetName: string): { previousStatus: 'running' | 'idle' | 'inactive' } {
+  interrupt(caller: Agent, targetName: string): { previousStatus: 'running' | 'inactive' } {
     const membership = this.membership(caller)
     if (membership.role !== 'lead') throw new TeamError('only the Team Lead can interrupt teammates', 'TEAM_LEAD_REQUIRED')
     const state = this.journal.state(membership.root)
@@ -278,9 +260,9 @@ export class TeamRoster {
       await this.journal.appendAndFlush(root, 'team/member', { version: 2, teamId: TeamId(root.id), member })
     })
 
-    let started: SubagentActivation & { readonly messageId: MessageId }
     try {
-      started = await this.ctx.subagents.startActivation({
+      const started = await this.ctx.subagents.startActivation({
+        delivery: 'parent',
         childId,
         provider: request.provider,
         label: description,
@@ -289,7 +271,6 @@ export class TeamRoster {
           parent: root,
         },
         signal,
-        delivery: 'parent',
       })
       await this.checkpointInitialPrompt(childId, started.messageId, signal)
     } catch (error: unknown) {
@@ -377,6 +358,7 @@ export class TeamRoster {
       try {
         signal.throwIfAborted()
         await this.ctx.sessions.flush(session)
+        // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
         const suffix = session.snapshotEvents(session.inheritedEventCount)
         if (messageAccepted(suffix, message => message.id === messageId)) return
         if (this.ctx.sessions.get(childId) !== session) continue
@@ -441,7 +423,7 @@ export class TeamRoster {
       id: member.id,
       name: member.name,
       role: 'teammate',
-      status: live?.status ?? 'inactive',
+      status: availability(live),
       description: member.description,
       provider: member.provider,
       context: member.context,
@@ -484,6 +466,7 @@ export class TeamRoster {
 
   /** Whether a Session's own suffix identifies a provider-owned subagent child. */
   private subagentDescriptor(agent: Agent): boolean {
+    // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     return foldSubagentDescriptor(agent.session.snapshotEvents(agent.session.inheritedEventCount)) !== undefined
   }
 }

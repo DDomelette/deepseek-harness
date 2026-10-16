@@ -1,4 +1,4 @@
-import { Button, IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconClockOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
@@ -62,7 +62,7 @@ export function ScheduleCreateCard({ block, toolName, openTaskDetail, t, current
         )
         : null}
       <div className={css.row}>
-        <span className={css.leading}><IconClockOutlineMedium size={18} /></span>
+        <span className={css.leading}><IconClockOutlineRegular size={18} /></span>
         <span className={css.body}>
           <span className={css.title}>{title}</span>
           {task !== undefined

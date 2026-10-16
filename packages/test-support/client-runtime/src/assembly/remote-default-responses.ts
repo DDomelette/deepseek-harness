@@ -13,8 +13,6 @@ export const remoteDefaultResponses: RemoteTable = {
   unary: {
     // api-session-controller `sessions.handleConnected()` on `connection/reset`.
     'session/list': ok({ items: [] }),
-    // ui-pinned-sessions first read at apply and again on `connection/reset`.
-    'sessionPins/list': ok({ pinnedSessionIds: [], groupOrder: {}, flatOrder: [] }),
     // ui-workspace startup with no entries; first-use initialization is ineligible.
     'workspace/initializeDefault': ok(undefined),
     // ui-settings `mirror.ensure()` at apply and again on `connection/reset`.

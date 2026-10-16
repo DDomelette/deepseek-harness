@@ -11,7 +11,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import {
-  IconCheckOutlineMedium, useAnchoredPosition, useDismissOnOutsidePointer,
+  IconCheckOutlineRegular, useAnchoredPosition, useDismissOnOutsidePointer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './TaskMenu.module.css'
 
@@ -135,7 +135,7 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
   const dismiss = useCallback(() => { closeRef.current() }, [])
 
   const position = useAnchoredPosition({
-    open: open && portal, anchorRef: rootRef, panelRef: listRef, gap: ANCHOR_GAP, margin: VIEWPORT_MARGIN,
+    open: open && portal, anchorRef: rootRef, panelRef: listRef, align, gap: ANCHOR_GAP, margin: VIEWPORT_MARGIN,
   })
   useDismissOnOutsidePointer(rootRef, open, dismiss, listRef)
 
@@ -302,7 +302,7 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
           {entry.icon !== undefined && <span className={css.itemIcon}>{entry.icon}</span>}
           <span className={css.itemLabel}>{entry.label}</span>
           {/* Selection marker is a trailing check, figma .Menu_cell. */}
-          {selected && <IconCheckOutlineMedium className={css.check} />}
+          {selected && <IconCheckOutlineRegular className={css.check} />}
           {/* jscpd:ignore-end */}
         </button>
       </div>

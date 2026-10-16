@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-20-question-card-handset-layout.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-question-card-handset-layout.md
-2026-09-20-question-card-handset-layout.md: 9e9164d0eddad0e940b5849a20690a1b8a3d8b23
-2026-09-20-question-card-handset-layout.zh.md: 7813cae9e8d956e87e7affa8c3d14ccfbea6101b
+/agent-note-question-card-handset-layout:
+  en: eab374bf5b518795
+  zh: dda19a1da9322066
+/agent-note-question-card-handset-layout/problem:
+  en: 0d9b2ede335a5da4
+  zh: 0c33c75785b82efe
+/agent-note-question-card-handset-layout/decision:
+  en: a8e2d8a353a45937
+  zh: 35670bdc3db1dbc5
+/agent-note-question-card-handset-layout/alternatives-considered:
+  en: 8fc3fef3f93f2b55
+  zh: 0e6188cb827f92fd
+/agent-note-question-card-handset-layout/consequences:
+  en: c7fc5beddf8b9314
+  zh: bfa18aa28c394b48

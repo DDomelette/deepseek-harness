@@ -73,6 +73,9 @@
       "path": "../../interaction/user-questions"
     },
     {
+      "path": "../job-controller/tsconfig.client.json"
+    },
+    {
       "path": "../session-controller/tsconfig.client.json"
     },
     {
@@ -91,16 +94,16 @@
       "path": "../../feedback/command-feedback"
     },
     {
-      "path": "../../session/session-pins"
-    },
-    {
-      "path": "../../mcp/mcp-manager"
-    },
-    {
-      "path": "../../skill/skill"
+      "path": "../terminal-controller/tsconfig.client.json"
     },
     {
       "path": "../../boot/plugin-manager"
+    },
+    {
+      "path": "../../document/office-to-pdf"
+    },
+    {
+      "path": "../account-controller"
     },
     {
       "path": "../../credentials/deepseek-account"

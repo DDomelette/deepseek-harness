@@ -91,8 +91,6 @@ Historical `stat` and `list` revisions require metadata work proportional to the
 
 -----
 
-`delete(id)` permanently removes a Session by explicit request: it refuses existing writers, holds the same OS write lease, and removes attachments and generations from oldest to newest, deleting the current generation last. On POSIX, the lease file and empty directory retain their lock identity. Read-only migration preparation preserves source generations without acquiring the write lease; successor publication and explicit deletion require it.
-
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
@@ -163,7 +161,7 @@ These limits define when this backend is a poor fit or needs special operational
 - **Format migration preserves the configured encoding and supports only the catalogued chain** — this build migrates supported historical generations to the current format; changing compression requires a separate root, and retained predecessors do not provide automatic fallback or downgrade support.
 - **The flat-file storage layout does not load** — use a separate root or move pre-release artifacts into the project/session directory layout before loading.
 - **Compressed files are not directly line-readable** — use the backend to load them, or select `compression: 'none'` before writing a fresh root when external line readers are required.
-- **No automatic retention policy** — logs accumulate under `root` until explicitly deleted.
+- **Nothing deletes session files** — logs accumulate under `root` until removed externally; the seam has no deletion API.
 - **One live writer per session** — the write-handle claim excludes a second writer inside the owning backend instance, and a kernel lock (non-blocking `flock(2)` on `session.lock`; on Windows a named kernel semaphore derived from that path, with no filesystem footprint) excludes every other instance and process; the lock is taken at write-open of an existing artifact and, for a created session, only right before its first materializing write, so an unmaterialized session leaves no filesystem footprint. A crashed holder's lock dies with its process, so its session is writable again immediately, while a live-but-wedged holder blocks writers until its process exits (on POSIX, removing the lock file forfeits that exclusion; release itself never removes it). Advisory `flock` is unreliable on some network filesystems (NFSv3), and the Windows semaphore name is per login session.
 - **POSIX materialization requires hard-link support** — first append uses `link()` so same-id races fail instead of overwriting a committed log; Windows uses write-through rename without replacement.
 - **POSIX writes require the matching prebuilt system addon** — [`node-addon-system`](../../../native/system/README.md) supplies asynchronous flock without consumer-side compilation. A missing addon rejects write ownership; Windows retains its semaphore implementation.
@@ -177,5 +175,3 @@ These limits define when this backend is a poor fit or needs special operational
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. This backend contributes the JSONL generations and the handle-based read/write path, while `@deepseek-ai/dsh-session-format-catalog` owns which stored generations are interpretable and the persistence seam owns the handle contract.

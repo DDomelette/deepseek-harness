@@ -70,7 +70,7 @@ export const SessionMediaReferences = {
     ctx.effect(() => ctx.connection.fetch.register({
       path: '/api/file',
       methods: ['GET', 'HEAD'],
-      requestBody: 'none',
+      requestBody: 'buffered',
       fetch: request => serveFile(request, ctx.fs, maxBytes),
     }), 'session-controller: /api/file')
   },

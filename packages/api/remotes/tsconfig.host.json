@@ -48,6 +48,15 @@
       "path": "../../settings/settings"
     },
     {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
+      "path": "../../notes/notes/tsconfig.host.json"
+    },
+    {
+      "path": "../../skill/skill"
+    },
+    {
       "path": "../../core/scope"
     },
     {
@@ -75,22 +84,16 @@
       "path": "../../typert/protocol"
     },
     {
-      "path": "../../session/session-pins"
-    },
-    {
-      "path": "../../mcp/mcp-manager"
-    },
-    {
-      "path": "../../notes/notes/tsconfig.host.json"
-    },
-    {
-      "path": "../../skill/skill"
+      "path": "../terminal-controller/tsconfig.host.json"
     },
     {
       "path": "../../boot/plugin-manager"
     },
     {
       "path": "../../host/plugin-inventory"
+    },
+    {
+      "path": "../account-controller"
     },
     {
       "path": "../../credentials/deepseek-account"

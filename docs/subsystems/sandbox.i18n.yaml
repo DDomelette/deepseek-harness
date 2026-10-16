@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for sandbox.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/sandbox.md
-sandbox.md: 3b23f57ebf0ab8ff08e5b42aa07a88023924de5a
-sandbox.zh.md: c5f86277e1e7737edd26f1bd758c3658b7b538b4
+/process-sandbox:
+  en: 02c8418dce93610c
+  zh: 9caff9f35443716e
+/process-sandbox/modes-and-enforcement:
+  en: fb9120bd559064bd
+  zh: 1c1d521273ce0b47
+/process-sandbox/per-call-policy:
+  en: dd541c351a00e537
+  zh: 87b06d82674c9ed0
+/process-sandbox/wrapped-argv-and-classification-dialects:
+  en: 2ba8930762e92e40
+  zh: 220f64da1a9e5d57
+/process-sandbox/provider-and-fail-closed-errors:
+  en: 13e8b81bbc16f55d
+  zh: 2ae2f64fc5685157

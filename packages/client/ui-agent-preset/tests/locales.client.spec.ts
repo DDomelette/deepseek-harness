@@ -1,4 +1,4 @@
-/** Web-localized copy for the four shipped presets and declaration copy for every other row. */
+/** Web-localized copy for the four shipped presets and declared copy for every other row. */
 
 import { describe, expect, it } from 'vitest'
 import { en, presetDisplayText, zh } from '../src/client/locales.ts'
@@ -12,7 +12,6 @@ describe('preset display copy', () => {
     ['minimal', 'presetMinimalName', 'presetMinimalDescription'],
     ['cordis', 'presetCordisName', 'presetCordisDescription'],
   ] as const)('localizes the shipped %s preset in English and Chinese', (id, nameKey, descriptionKey) => {
-    // A shipped preset publishes no display metadata: the dictionaries own it.
     const preset = { id }
 
     expect(presetDisplayText(preset, translate(en)))
@@ -21,13 +20,13 @@ describe('preset display copy', () => {
       .toEqual({ name: zh[nameKey], description: zh[descriptionKey] })
   })
 
-  it('keeps declaration metadata for every preset that names itself', () => {
-    const ownCopy = { name: '我的标准', description: '团队自己的 preset。' }
+  it('keeps declared metadata untranslated for named and unknown presets', () => {
+    const fileCopy = { name: '我的标准', description: '团队自己的 preset。' }
 
-    expect(presetDisplayText({ id: 'standard', ...ownCopy }, translate(en)))
-      .toEqual(ownCopy)
-    expect(presetDisplayText({ id: 'deployment-extra', ...ownCopy }, translate(en)))
-      .toEqual(ownCopy)
+    expect(presetDisplayText({ id: 'standard', ...fileCopy }, translate(en)))
+      .toEqual(fileCopy)
+    expect(presetDisplayText({ id: 'deployment-extra', ...fileCopy }, translate(en)))
+      .toEqual(fileCopy)
     expect(presetDisplayText({ id: 'bare' }, translate(en)))
       .toEqual({ name: 'bare' })
   })

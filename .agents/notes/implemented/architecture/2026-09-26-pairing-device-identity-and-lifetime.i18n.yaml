@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-26-pairing-device-identity-and-lifetime.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-26-pairing-device-identity-and-lifetime.md
-2026-09-26-pairing-device-identity-and-lifetime.md: e2bc39a6cb2e06d600fc30d64d1fe13df3c51e39
-2026-09-26-pairing-device-identity-and-lifetime.zh.md: ed8686ba7fd93b2410c45e28c966f888388dc67f
+/agent-note-paired-device-identity-rename-and-one-day-default-lifetime:
+  en: 94c19a3a65ef8bc3
+  zh: 2954dbce8b84889e
+/agent-note-paired-device-identity-rename-and-one-day-default-lifetime/problem:
+  en: 1073aba1db83096e
+  zh: 190da9ff239bbfdd
+/agent-note-paired-device-identity-rename-and-one-day-default-lifetime/decision:
+  en: f4aa20599d4ecdcb
+  zh: 14556a134dc1e329
+/agent-note-paired-device-identity-rename-and-one-day-default-lifetime/alternatives-considered:
+  en: 362b26294e8973c4
+  zh: f0d4533edadae0c9
+/agent-note-paired-device-identity-rename-and-one-day-default-lifetime/consequences:
+  en: 45f7d36322fc4a78
+  zh: 4993ec63a83e7ed9

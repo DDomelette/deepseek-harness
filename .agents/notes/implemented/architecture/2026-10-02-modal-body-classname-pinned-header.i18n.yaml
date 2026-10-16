@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-02-modal-body-classname-pinned-header.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-02-modal-body-classname-pinned-header.md
-2026-10-02-modal-body-classname-pinned-header.md: 21e2cadba54ed3d33f34d91dfc094da78aa4f949
-2026-10-02-modal-body-classname-pinned-header.zh.md: 262ec4a13bc39f736d1621b7f723bbeaa6e23963
+/agent-note-modal-bodyclassname-pins-the-pairing-dialog-header:
+  en: 818fb906e4ab58d6
+  zh: 38802b2f3238d5cc
+/agent-note-modal-bodyclassname-pins-the-pairing-dialog-header/problem:
+  en: 94faf84007001884
+  zh: 002c0a6081078af8
+/agent-note-modal-bodyclassname-pins-the-pairing-dialog-header/decision:
+  en: 529621fcb948ced8
+  zh: 83836828d009c2a9
+/agent-note-modal-bodyclassname-pins-the-pairing-dialog-header/alternatives-considered:
+  en: 7201ce0e0463ee2e
+  zh: 66b263f727203975
+/agent-note-modal-bodyclassname-pins-the-pairing-dialog-header/consequences:
+  en: 529cb1cf446ef126
+  zh: f7e238cdfc6e699f

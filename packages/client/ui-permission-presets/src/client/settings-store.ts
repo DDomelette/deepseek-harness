@@ -1,9 +1,8 @@
 /**
- * Permission default-settings controller. The selectable presets and the
- * effective default come from the process catalog the Host serves; the shared
- * describe mirror supplies the namespace's writability, revision, and the
- * stored value once one exists. Writes target only `defaultPreset`, carry the
- * descriptor revision, and fold their answer back into the mirror.
+ * Permission default-settings controller. The permission descriptor comes
+ * from the shared describe mirror and choices from the permission catalog; writes target
+ * only `defaultPreset`, carry the descriptor revision, and fold their answer
+ * back into the mirror.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -13,7 +12,7 @@ import {
 } from '@deepseek-ai/dsh-client-store'
 import type { SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
-import { readPermissionCatalog } from './catalog.ts'
+import type { PermissionCatalogDirectory } from './catalog.ts'
 import { displayPermissionPreset } from './presentation.ts'
 
 /** Permission's settings namespace on the host wire. */
@@ -37,33 +36,20 @@ export interface PermissionSettingsState {
   revision: number
 }
 
-/**
- * Resolve the row's current default and its selectable options. The stored
- * value wins when the namespace publishes one; otherwise the catalog's
- * effective default for new sessions is what the row shows and what a
- * selection replaces.
- * @param view - permission namespace descriptor.
- * @param catalog - the process catalog the Host serves.
- * @returns current value and selectable options.
- * @throws when neither source supplies a default, or the catalog does not
- * advertise the one that applies — a row that cannot name its own value is an
- * error, never an empty selector.
+/** Resolve the new-session choices from the permission domain's catalog.
+ * @param view Live configuration descriptor.
+ * @param catalog Configured permission options and effective default.
+ * @returns Current choice and labels for its allowed options.
  */
 export function permissionDefaultOf(view: SettingsNamespaceView, catalog: PermissionCatalog): {
   currentValue: string
   options: PermissionDefaultOption[]
 } {
-  const stored = (view.value as { defaultPreset?: unknown } | null)?.defaultPreset
-  const currentValue = stored ?? catalog.defaultPreset
-  if (typeof currentValue !== 'string' || currentValue.length === 0) {
-    throw new Error('permission settings and the permission catalog both lack a defaultPreset value')
-  }
+  const currentValue = (view.value as { defaultPreset?: string }).defaultPreset ?? catalog.defaultPreset
   const options = catalog.defaultOptions.map(option => ({
     id: option.value, label: displayPermissionPreset(option.value, option.name),
   }))
-  if (options.length === 0 || !options.some(option => option.id === currentValue)) {
-    throw new Error('permission catalog does not advertise its current default')
-  }
+  if (!options.some(option => option.id === currentValue)) throw new Error('permission catalog does not advertise its current default')
   return { currentValue, options }
 }
 
@@ -80,43 +66,37 @@ export class PermissionPresetSettingsController {
   })
 
   private following: (() => void) | undefined
+  private followingCatalog: (() => void) | undefined
   private saving = false
   private disposed = false
-  /** Catalog read by {@link load}; the row derives nothing until one arrives. */
-  private catalog: PermissionCatalog | undefined
 
   /**
    * @param describeFace - the shared mirror's read/fold face (descriptor and schema source).
    * @param ctx - the row plugin's context, whose `remote.settings` namespace
-   * carries the `defaultPreset` write and whose permission Remote serves the catalog.
+   * carries the `defaultPreset` write.
+   * @param catalog - configured permission choices and their effective default.
    */
   constructor(
     private readonly describeFace: SettingsDescribeFace,
     private readonly ctx: ClientContext,
+    private readonly catalog: Pick<PermissionCatalogDirectory, 'store' | 'load'>,
   ) {}
 
   /**
-   * Begin following the mirror (idempotent), read the permission catalog, and
-   * reflect the result.
-   * @returns settlement once the snapshot reflects the mirror and the catalog.
+   * Begin following the mirror (idempotent) and reflect its current answer.
+   * @returns settlement once the snapshot reflects the mirror.
    */
   async load(): Promise<void> {
     if (this.disposed) return
     this.following ??= this.describeFace.subscribe(() => { this.derive() })
+    this.followingCatalog ??= this.catalog.store.subscribe(() => { this.derive() })
     this.store.update((state) => {
       state.status = 'loading'
       state.error = null
     })
     await this.describeFace.ensure()
-    // A terminal non-loopback client keeps persistence off, so the row hides
-    // itself without reading a catalog no surface would render.
     if (this.describeFace.getSnapshot().status !== 'unavailable') {
-      try {
-        this.catalog = await readPermissionCatalog(this.ctx)
-      } catch (error) {
-        this.fail(error)
-        return
-      }
+      try { await this.catalog.load() } catch (error) { this.fail(error); return }
     }
     this.derive()
   }
@@ -166,6 +146,8 @@ export class PermissionPresetSettingsController {
     this.disposed = true
     this.following?.()
     this.following = undefined
+    this.followingCatalog?.()
+    this.followingCatalog = undefined
   }
 
   private derive(): void {
@@ -198,11 +180,9 @@ export class PermissionPresetSettingsController {
       })
       return
     }
-    const catalog = this.catalog
-    // A publish that reaches this row before the catalog read settles leaves it
-    // loading: naming a choice set it has not read would render a wrong row.
-    if (catalog === undefined) return
     try {
+      const catalog = this.catalog.store.getSnapshot().value
+      if (catalog === null) return
       const resolved = permissionDefaultOf(view, catalog)
       const { writable } = mirrored.view
       this.store.update((state) => {

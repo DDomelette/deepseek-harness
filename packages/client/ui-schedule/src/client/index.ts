@@ -47,7 +47,7 @@ import { createDeleteToastSource, ScheduleDeleteToast } from './DeleteToast.tsx'
 import { SCHEDULE_TASK_ID, SCHEDULE_TASK_KIND, scheduleTaskDefinition } from './definition.ts'
 import { ScheduleCatalogAction } from './ScheduleCatalogAction.tsx'
 import { ScheduleTurnCard, type ScheduleTurnCardInjected } from './ScheduleTurnCard.tsx'
-import { scheduleTurnDefinition, selectScheduleTasks } from './schedule-turn.ts'
+import { scheduleTurnDefinition } from './schedule-turn.ts'
 import { ScheduleTaskTab, type ScheduleTaskBindingInjected, type ScheduleTaskCatalogInjected, type ScheduleTaskTabInjected } from './ScheduleTaskTab.tsx'
 import { ScheduleTaskTabTitle } from './ScheduleTaskTabTitle.tsx'
 import { SessionScheduleHover } from './SessionScheduleHover.tsx'
@@ -188,12 +188,13 @@ export function apply(ctx: ClientContext): void {
   ctx.uiConversation.events.register(scheduleTurnDefinition)
   ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
     name: 'conversation.chat.turnTail',
-    select: selectScheduleTasks,
+    id: 'schedule-created',
+    order: 20,
     locale: MANAGER_NS,
-    inject: (): ScheduleTurnCardInjected => ({
+    inject: (sessionId: SessionId): ScheduleTurnCardInjected => ({
       hooks: { catalog: manager.hooks.catalog },
       onRetry: manager.onRetry,
-      openTaskDetail: (sessionId, id) => {
+      openTaskDetail: (id) => {
         ctx.sidebarRight.openTab(SCHEDULE_TASK_KIND, { params: { sessionId, id } })
       },
     }),

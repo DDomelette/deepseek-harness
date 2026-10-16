@@ -6,8 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
-import { createReadBytes, createReadPage, documentFileBytes, hostFileOf } from '../src/client/rpc.ts'
-import type { ReadDocumentBytes } from '../src/client/rpc.ts'
+import { createReadPage, hostFileOf } from '../src/client/rpc.ts'
 import type { ReadWorkspaceFilePage, WorkspaceFilesReadRemote } from '../src/client/index.ts'
 import { ADDRESS, FILE, PATH, SESSION, page } from './fixtures.client.ts'
 
@@ -35,36 +34,8 @@ describe('createReadPage', () => {
   it('binds the paged read to the Remote with the offset as the only range', async () => {
     const read = vi.fn<WorkspaceFilesReadRemote['workspaceFiles']['read']>(() => Promise.resolve(page(4, ['d'], true)))
     const signal = new AbortController().signal
-    const readPage: ReadWorkspaceFilePage = createReadPage({ workspaceFiles: { read, readBytes: vi.fn() } })
+    const readPage: ReadWorkspaceFilePage = createReadPage({ workspaceFiles: { read } })
     await expect(readPage(SESSION, PATH, 4, signal)).resolves.toEqual(page(4, ['d'], true))
     expect(read).toHaveBeenCalledWith(SESSION, PATH, { offset: 4 }, signal)
-  })
-})
-
-describe('createReadBytes', () => {
-  it('binds the complete-byte read to the Remote with no range and no base file', async () => {
-    const value = { absolutePath: '/workspace/a.bin', version: 'v1', bytes: 3, offset: 0, data: new Uint8Array([0, 1, 255]), eof: true }
-    const readBytes = vi.fn<WorkspaceFilesReadRemote['workspaceFiles']['readBytes']>(() => Promise.resolve({ ok: true, value }))
-    const read = vi.fn<WorkspaceFilesReadRemote['workspaceFiles']['read']>()
-    const signal = new AbortController().signal
-    const readDocument: ReadDocumentBytes = createReadBytes({ workspaceFiles: { read, readBytes } })
-    await expect(readDocument(FILE, signal)).resolves.toEqual({ ok: true, value })
-    expect(readBytes).toHaveBeenCalledWith(FILE.sessionId, FILE.path, {}, signal)
-  })
-})
-
-describe('documentFileBytes', () => {
-  it('passes one complete Remote byte result through for a renderer', () => {
-    const data = new Uint8Array([0, 1, 255])
-    const file = { absolutePath: '/workspace/a.bin', version: 'v1', bytes: 3, offset: 0, data, eof: true }
-    const result = documentFileBytes(file)
-    expect(result).toEqual(file)
-    expect(result.data).toBe(data)
-    expect(result.data.buffer).toBeInstanceOf(ArrayBuffer)
-  })
-
-  it('rejects a wire result whose data is not a byte array', () => {
-    const malformed = { absolutePath: '/workspace/a.bin', version: 'v1', offset: 0, data: '!!!', eof: true }
-    expect(() => documentFileBytes(malformed as never)).toThrow(TypeError)
   })
 })

@@ -142,7 +142,7 @@ export function scheduleCreateCardModel(block: ToolBlock, toolName: string): Sch
   // A call still preparing carries no arguments, so its title falls back to the tool name.
   const argsRaw = settled
     ? block.call?.argsRaw ?? ''
-    : block.argsRaw
+    : block.phase === 'start' ? block.argsRaw : ''
   const output = settled ? resultText(block) : null
   const task = settled ? narrowScheduleRecord(parseJson(output ?? '')) : undefined
   return {

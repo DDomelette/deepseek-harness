@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-20-touch-pointer-affordances.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-touch-pointer-affordances.md
-2026-09-20-touch-pointer-affordances.md: 9bb7a84481044d4e8b455828c1eb778168ccbfdc
-2026-09-20-touch-pointer-affordances.zh.md: eb7610e60f9feb7141dfc52659c0aebdb9967495
+/agent-note-touch-pointer-affordances-for-tooltips-and-collapsed-selectors:
+  en: e3a1911371ed1a6e
+  zh: 27271736a0b224c4
+/agent-note-touch-pointer-affordances-for-tooltips-and-collapsed-selectors/problem:
+  en: 83bc3c18a15da9b6
+  zh: 10d15c02176b5b1b
+/agent-note-touch-pointer-affordances-for-tooltips-and-collapsed-selectors/decision:
+  en: 89c43fb6c92ba9fe
+  zh: 3f3a7bfb6fdf1eab
+/agent-note-touch-pointer-affordances-for-tooltips-and-collapsed-selectors/alternatives-considered:
+  en: cb1970dcf838a918
+  zh: ae87373d6edadf0e
+/agent-note-touch-pointer-affordances-for-tooltips-and-collapsed-selectors/consequences:
+  en: 2c71c987fffce111
+  zh: cd40acd606b4756a

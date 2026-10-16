@@ -36,9 +36,7 @@ export interface InboxState {
   readonly pending: PendingState
   /** Message ids in the current claim, shared until the next claim. */
   readonly currentClaimed: ReadonlySet<string>
-  /** Sequence of the durable splice that entered the current claim. */
   readonly claimSeq: number
-  /** Whether the current claim carries a human-authored message. */
   readonly claimedHuman: boolean
 }
 

@@ -28,7 +28,7 @@ function namespace(value: unknown = {}, revision = 0) {
     ns: WELCOME_NOTICE_SETTINGS_NAMESPACE,
     schema: {},
     value,
-    applies: 'live' as const,
+    autoGenerate: true, applies: 'live' as const,
     secrets: [],
     revision,
   }

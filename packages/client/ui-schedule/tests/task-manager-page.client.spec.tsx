@@ -22,6 +22,7 @@ import { zoneDifferingFrom, zoneOffsetMinutes } from './zone-fixture.ts'
 import css from '../src/client/TaskManagerPage.module.css'
 import taskMenuCss from '../src/client/TaskMenu.module.css'
 import modalCss from '../../ui-primitives/src/Modal.module.css'
+import pluginsCss from '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'
 
 /** The Modal layer's own padding, which the delete dialog's cap has to clear. */
 const MODAL_LAYER_PADDING = 24
@@ -91,17 +92,11 @@ const records = [at, every, after]
 const sessions: SessionListState = {
   ids: [...records, daily, weekly].map(record => record.sessionId),
   byId: Object.fromEntries([...records, daily, weekly].map(record => [record.sessionId, {
-    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0,
+    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0, retainedBy: {},
   }] as const)),
-  current: undefined,
-  phase: 'ready',
-  subagentsByParent: {},
-  jobsBySession: {},
-  currentAddress: undefined,
+  phase: 'ready', projectionsBySession: {},
 }
-const workspaces: WorkspaceSnapshot = {
-  items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
-}
+const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
 
 /**
  * Session list whose catalog rows carry the given titles.
@@ -176,7 +171,8 @@ function mount(
     useSessions: select => select(sessions),
     useWorkspaces: select => select(workspaces),
     usePanelInfo: select => select({ activePanelId: null }),
-    useSessionPendingInteraction: select => select(new Map()),
+    useSessionStatus: select => select(new Map()),
+    useSessionRetainInfo: () => undefined,
     useResource: () => { throw new Error('The task manager does not load document resources') },
     onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'deleted'),
     onRetry: vi.fn(async () => {}),
@@ -1598,9 +1594,10 @@ describe('Task manager details', () => {
       active={false}
       usePanelInfo={unread}
       useSessions={unread}
-      useSessionPendingInteraction={unread}
       useWorkspaces={unread}
       useResource={unread}
+      useSessionStatus={unread}
+      useSessionRetainInfo={unread}
     />)
   }
 
@@ -3863,9 +3860,41 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(stylesheet.match(/\.pageHeading h1\s*\{/g)).toHaveLength(1)
   })
 
-  // The page title's typography parity check against the first-level Plugins
-  // page is retired: ui-plugin-manager is shelved, so the check has no
-  // counterpart left to compare against.
+  it('sizes the page title exactly like the first-level Plugins page title', () => {
+    // Both pages are first-level sidebar entries, so their titles must resolve
+    // to one step. jsdom loads no CSS, so both sheets are installed under their
+    // Vite module names and the computed declarations are compared: the Plugins
+    // page owns `pageTitle`, and this page's heading has to keep matching it.
+    const ourSheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
+      .replaceAll('.pageHeading', `.${css.pageHeading}`)
+    const pluginsSheet = readFileSync(
+      resolve(import.meta.dirname, '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'), 'utf8',
+    ).replaceAll('.pageTitle', `.${pluginsCss.pageTitle}`)
+    const sheet = document.createElement('style')
+    sheet.textContent = `${ourSheet}\n${pluginsSheet}`
+    document.head.append(sheet)
+    const oursWrapper = document.createElement('div')
+    oursWrapper.className = css.pageHeading as string
+    const ours = document.createElement('h1')
+    oursWrapper.append(ours)
+    const theirs = document.createElement('h1')
+    theirs.className = pluginsCss.pageTitle as string
+    document.body.append(oursWrapper, theirs)
+    try {
+      const oursStyle = getComputedStyle(ours)
+      const theirsStyle = getComputedStyle(theirs)
+      expect(oursStyle.fontSize).toBe(theirsStyle.fontSize)
+      expect(oursStyle.lineHeight).toBe(theirsStyle.lineHeight)
+      expect(oursStyle.fontWeight).toBe(theirsStyle.fontWeight)
+      expect(oursStyle.fontSize).toBe('20px')
+      expect(oursStyle.lineHeight).toBe('28px')
+      expect(oursStyle.fontWeight).toBe('500')
+    } finally {
+      sheet.remove()
+      oursWrapper.remove()
+      theirs.remove()
+    }
+  })
 
   it('states the mock run-time card heading and the l4 panel edge', () => {
     expect(rule('ruleCard h3')).toMatch(/color:\s*var\(--dsw-alias-label-tertiary\);/)

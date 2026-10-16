@@ -89,8 +89,11 @@ export function apply(ctx: ClientContext): void {
     }),
   }, NotesPanel)), 'notes: panel body')
 
-  ctx.effect(() => ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({
-    name: 'conversation.session.header.corner',
+  // The header's corner seat holds one control and upstream's sidebar expand
+  // button owns it; this package's control belongs to the right-aligned
+  // utilities list beside it.
+  ctx.effect(() => ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
+    name: 'conversation.session.header.utilities',
     id: NOTES_ID,
     locale: NS,
     inject: (): NotesButtonInjected => ({

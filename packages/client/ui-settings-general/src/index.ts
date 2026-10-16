@@ -1,27 +1,24 @@
-/** Host loader entry for the browser implementation exported from `./client`. */
-
-import type { Context, Volatile } from '@deepseek-ai/cordis'
+/** Welcome acknowledgement stored in the plugin configuration. */
 import type {} from '@deepseek-ai/dsh-settings'
+
+import type { Volatile, Context } from '@deepseek-ai/cordis'
+
 import z from '@deepseek-ai/schemastery'
 
-/** Runtime preference projected to the browser. */
+/** Runtime preferences projected to the browser. */
 export interface Config {
   /** Last acknowledged welcome notice version. */
   welcomeNoticeVersion: Volatile<string | undefined>
 }
 
-/** Live onboarding facts; the entry id `ui-settings-general` is the settings namespace. */
+/** Live welcome preference. */
 export const Config = z.object({
   welcomeNoticeVersion: z.string().volatile(),
 })
 
-/**
- * Keep this instance off the generated Settings pages: the shell owns its own
- * screens.
- * @param ctx - Host context that may acquire the settings service.
+/** The browser consumes the configuration form projection.
+ * @param ctx Plugin context used for optional settings presentation.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (child) => {
-    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
-  })
+  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
 }

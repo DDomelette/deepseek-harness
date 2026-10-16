@@ -1,3 +1,4 @@
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -90,7 +91,7 @@ async function baseContext(
   await ctx.plugin(SlotRegistry).await()
   new UiConversation(ctx, { binding: () => undefined } as never)
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
-  ctx.provide('configForms', { get: () => stubConfigForm().scope } as never)
+  ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
   // `RemoteStub` registers the `remote` service itself, so this harness must not also
   // provide one: the second registration is rejected as a duplicate at <root>.
   new RemoteStub(ctx, remote.$on)
@@ -102,17 +103,10 @@ async function baseContext(
   ctx.provide('sidebarRight', { openTab: sidebar.openTab, tabsIn: sidebar.tabsIn } as never)
   const id = 'cold-original' as SessionId
   const sessions: SessionListState = {
-    ids: [id],
-    byId: { [id]: { id, displayTitle: id, running: false, blank: false, updatedAt: 0 } },
-    current: undefined,
-    phase: 'ready',
-    subagentsByParent: {},
-    jobsBySession: {},
-    currentAddress: undefined,
+    ids: [id], byId: { [id]: { id, displayTitle: id, running: false, blank: false, updatedAt: 0, retainedBy: {} } },
+    phase: 'ready', projectionsBySession: {},
   }
-  const workspaces: WorkspaceSnapshot = {
-    items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
-  }
+  const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
   ctx.provide('sessions', {
     list: { getSnapshot: () => sessions, subscribe: () => () => {} },
     binding: () => undefined,
@@ -137,7 +131,7 @@ function declareTranscriptSeats(ctx: Context): () => void {
     name: 'root',
     children: {
       'tool.call.toolview': { kind: 'keyed', scope: 'session' },
-      'conversation.chat.turnTail': { kind: 'chain', scope: 'session' },
+      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
     },
   } as never, Empty)
 }
@@ -381,10 +375,10 @@ describe('ui-schedule browser half', () => {
       expect(ctx.slots.entries('tool.call.toolview')).toHaveLength(0)
       const entry = ctx.slots.entries('conversation.chat.turnTail')[0]!
       expect(entry.component).toBe(ScheduleTurnCard)
-      expect(entry.inject).toBeDefined()
+      expect(entry.options).toMatchObject({ id: 'schedule-created', order: 20 })
       expect(entry.locale).toBe('schedule.manager')
       const face = injectedFace(entry, 'card-session' as never) as ScheduleTurnCardInjected
-      face.openTaskDetail('card-session' as never, 'created-reminder' as ScheduleId)
+      face.openTaskDetail('created-reminder' as ScheduleId)
       expect(sidebar.openTab).toHaveBeenCalledExactlyOnceWith(
         SCHEDULE_TASK_KIND, { params: { sessionId: 'card-session', id: 'created-reminder' } },
       )

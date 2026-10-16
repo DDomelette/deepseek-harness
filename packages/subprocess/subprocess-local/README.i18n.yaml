@@ -1,6 +1,67 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/subprocess/subprocess-local/README.md
-README.md: e2ff3d606af799b375d31e735e9fcbd272f96f5f
-README.zh.md: 206dcbf563ee040686a578dafeca179f4b43438c
+/:
+  en: 6569fcd132144a11
+  zh: 2f632189747feb07
+/deepseek-ai-dsh-subprocess-local:
+  en: 5b4986ccda3a5135
+  zh: 3aac611780972806
+/deepseek-ai-dsh-subprocess-local/summary:
+  en: ea90a41d1f8feca7
+  zh: a44f4b25ba0bdd48
+/deepseek-ai-dsh-subprocess-local/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-subprocess-local/use-this-package:
+  en: a26b360a0d1b847a
+  zh: c0e1139451e51fc8
+/deepseek-ai-dsh-subprocess-local/use-this-package/mounting-the-provider:
+  en: f558f6f41543ff1b
+  zh: fa4f8de2ae29f287
+/deepseek-ai-dsh-subprocess-local/use-this-package/resolving-executables:
+  en: fcf623cd4d24f250
+  zh: abad5cd84436ae2e
+/deepseek-ai-dsh-subprocess-local/use-this-package/collecting-output:
+  en: d2e3400a2e908030
+  zh: a124a65fba4a717a
+/deepseek-ai-dsh-subprocess-local/use-this-package/running-terminal-sessions:
+  en: da726cfc3bba0e5c
+  zh: d8f9b39286584bfb
+/deepseek-ai-dsh-subprocess-local/use-this-package/shutdown-behavior:
+  en: f54c1765ac5b72c6
+  zh: ffb3b0b5ec5fffda
+/deepseek-ai-dsh-subprocess-local/use-this-package/what-can-go-wrong:
+  en: 1e1ce532b004c92b
+  zh: ca7274b7a9207a5d
+/deepseek-ai-dsh-subprocess-local/understand-the-implementation:
+  en: 531a48766c666ea0
+  zh: b40df533a2fd7244
+/deepseek-ai-dsh-subprocess-local/understand-the-implementation/design-concept:
+  en: 01a641ce46816a78
+  zh: 49d38149b305d78d
+/deepseek-ai-dsh-subprocess-local/understand-the-implementation/source-map:
+  en: 155e6b83a97de7a2
+  zh: b8a2c29bb1635d7d
+/deepseek-ai-dsh-subprocess-local/understand-the-implementation/main-flow:
+  en: 88b4ab14384159d2
+  zh: bdd185cc0f1a7f36
+/deepseek-ai-dsh-subprocess-local/understand-the-implementation/safety-invariants:
+  en: 31f697efe6c2c359
+  zh: a652ec1ad6bb4a5a
+/deepseek-ai-dsh-subprocess-local/further-exploration:
+  en: ea72e982642234f9
+  zh: de3c2fd6d2b436a5
+/deepseek-ai-dsh-subprocess-local/model-experience:
+  en: a39b4c2a8755aff2
+  zh: 1c13e5e0f7db3dab
+/deepseek-ai-dsh-subprocess-local/model-experience/kv-cache-effect:
+  en: e290ccc9b3c92c08
+  zh: d75d48f485447a74
+/deepseek-ai-dsh-subprocess-local/known-limitations-and-deferred-work:
+  en: ab6222d032d73341
+  zh: 501a0060b3392d27
+/deepseek-ai-dsh-subprocess-local/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

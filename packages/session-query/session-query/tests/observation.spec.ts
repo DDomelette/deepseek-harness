@@ -489,7 +489,6 @@ describe('SessionObservationReader cold path', () => {
     }
 
     class SwapPersistence extends SessionPersistence {
-      delete(): Promise<void> { return Promise.reject(new Error('deletion is outside this persistence fixture')) }
       static readCalls = 0
 
       create(): Promise<SessionHandle> {
@@ -512,6 +511,10 @@ describe('SessionObservationReader cold path', () => {
 
       list(): Promise<readonly SessionPersistenceSnapshot[]> {
         return Promise.resolve([])
+      }
+
+      delete(): Promise<void> {
+        return Promise.resolve()
       }
     }
 

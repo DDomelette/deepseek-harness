@@ -84,7 +84,7 @@
 
 .search input:focus-visible {
   border-color: var(--dsw-alias-state-business-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);
+  box-shadow: 0 0 0 var(--dsw-focus-ring-width) var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
 }
 
 /* Icon-only square; the radius matches the roster cards below it. */
@@ -295,7 +295,7 @@
 .switch:focus-visible,
 .gearButton:focus-visible,
 .failure button:focus-visible {
-  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 

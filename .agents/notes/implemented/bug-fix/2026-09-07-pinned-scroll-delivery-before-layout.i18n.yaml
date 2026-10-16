@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-07-pinned-scroll-delivery-before-layout.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-07-pinned-scroll-delivery-before-layout.md
-2026-09-07-pinned-scroll-delivery-before-layout.md: f3b428dbe0d2fdc7cbaedf0383d2ab80ea1bfd45
-2026-09-07-pinned-scroll-delivery-before-layout.zh.md: 9b200f45535c67cfbbb75feaf3025c5a3b5c1fa2
+/agent-note-settle-pinned-scroll-deliveries-before-layout-changes:
+  en: f232fb8672fae58e
+  zh: a82c46e7934c9965
+/agent-note-settle-pinned-scroll-deliveries-before-layout-changes/problem:
+  en: 8f552e9f3935b0eb
+  zh: 9d72eabb5848996f
+/agent-note-settle-pinned-scroll-deliveries-before-layout-changes/decision:
+  en: 385c931cace7b204
+  zh: b3621d67709e79d7
+/agent-note-settle-pinned-scroll-deliveries-before-layout-changes/alternatives-considered:
+  en: 4ef69113b4923da7
+  zh: eb8ec89cc591b5a3
+/agent-note-settle-pinned-scroll-deliveries-before-layout-changes/consequences:
+  en: 2d204f4662f7d873
+  zh: 423c9d1b8f4f0689

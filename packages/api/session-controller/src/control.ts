@@ -1,27 +1,23 @@
-/** Live Session queue, jobs, and projection state with reconnect baselines. */
+/** Live Session projection state with reconnect baselines. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent, InboxState } from '@deepseek-ai/dsh-agent'
 import { Deque } from '@deepseek-ai/dsh-deque'
-import type { JobEvent, JobView } from '@deepseek-ai/dsh-jobs'
 import type {
-  Session, SessionId, UserMessage,
+  Session, SessionId,
 } from '@deepseek-ai/dsh-session'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type {
   SessionControlBaseline,
   SessionControlFrame,
-  SessionJob,
   SessionProjectionBaseline,
   SessionProjectionValues,
-  SessionQueuedItem,
 } from './types.ts'
 
 /** Owns the Host-wide Session control stream. */
 export class SessionControlController {
   private readonly streams = new Set<ControlQueue>()
 
-  /** @param ctx - Host context carrying live Agent, projection, and jobs services. */
+  /** @param ctx - Host context carrying live Agent and projection services. */
   constructor(private readonly ctx: Context) {
     ctx.sessionProjections.onChanged((session, key, value, seq) => {
       this.broadcast({
@@ -31,23 +27,6 @@ export class SessionControlController {
         value: value as JsonValue,
         seq,
       })
-      if (key !== 'inbox') return
-      const agent = this.ctx.agents.get(session.id)
-      if (agent?.session !== session) return
-      this.broadcast({
-        type: 'queue',
-        sessionId: session.id,
-        items: queueItemsFromInbox(value as InboxState),
-      })
-    })
-    ctx.inject(['jobs'], (jobsCtx) => {
-      // Lifecycle commits move the visible set this stream projects; `output`
-      // and `progress` commits leave every published row unchanged.
-      jobsCtx.jobs.events.subscribe({ owners: 'all' }, (event) => { this.onJobEvent(event) })
-    })
-    ctx.on('session/created', (session) => {
-      const jobs = this.jobsFor(session.id)
-      if (jobs.length > 0) this.broadcast({ type: 'jobs', sessionId: session.id, jobs })
     })
     ctx.effect(() => () => {
       for (const stream of this.streams) stream.end()
@@ -75,16 +54,7 @@ export class SessionControlController {
 
   private baseline(): SessionControlBaseline {
     const sessions = this.ctx.sessions.list()
-    const queues = Object.create(null) as Record<SessionId, readonly SessionQueuedItem[]>
-    const jobs = Object.create(null) as Record<SessionId, readonly SessionJob[]>
-    for (const session of sessions) {
-      const agent = this.ctx.agents.get(session.id)
-      queues[session.id] = agent?.session === session ? queueItems(agent) : []
-      jobs[session.id] = this.jobsFor(session.id)
-    }
     return {
-      queues,
-      jobs,
       projections: this.projectionBaseline(sessions),
     }
   }
@@ -102,32 +72,6 @@ export class SessionControlController {
       }
     }
     return blocks
-  }
-
-  /**
-   * Republish the visible set a job lifecycle commit moved.
-   * @param event - the registry's lifecycle or output event.
-   */
-  private onJobEvent(event: JobEvent): void {
-    if (event.type === 'output' || event.type === 'progress') return
-    const owner = event.job.owner
-    if (owner !== undefined) {
-      this.broadcast({ type: 'jobs', sessionId: owner, jobs: this.jobsFor(owner) })
-      return
-    }
-    for (const session of this.ctx.sessions.list()) {
-      this.broadcast({ type: 'jobs', sessionId: session.id, jobs: this.jobsFor(session.id) })
-    }
-  }
-
-  /**
-   * The jobs one caller can see.
-   * @param caller - reading session; an unowned job is visible to every caller.
-   * @returns browser-safe rows, empty while no registry is composed.
-   */
-  private jobsFor(caller: SessionId | undefined): SessionJob[] {
-    const jobs = this.ctx.get('jobs')
-    return jobs === undefined ? [] : jobs.list(caller).map(jobView)
   }
 
   private broadcast(frame: SessionControlFrame): void {
@@ -173,47 +117,5 @@ class ControlQueue {
       signal.removeEventListener('abort', onAbort)
       this.end()
     }
-  }
-}
-
-function queueItems(agent: Agent): SessionQueuedItem[] {
-  return queueItemsFromInbox({
-    'next-turn': agent.inbox.nextTurn,
-    'next-step': agent.inbox.nextStep,
-  })
-}
-
-function queueItemsFromInbox(inbox: InboxState): SessionQueuedItem[] {
-  return [
-    ...inbox['next-turn'].map(message => ({
-      id: message.id,
-      placement: 'queued' as const,
-      ...promptRpcId(message),
-      message: { id: message.id, content: message.content as unknown as JsonValue[] },
-    })),
-    ...inbox['next-step'].map(message => ({
-      id: message.id,
-      placement: message.source.kind === 'user' ? 'steering' as const : 'context' as const,
-      ...promptRpcId(message),
-      message: { id: message.id, content: message.content as unknown as JsonValue[] },
-    })),
-  ]
-}
-
-/** Prompt-RPC identity carried by a browser-submitted message's user source. */
-function promptRpcId(message: UserMessage): Pick<SessionQueuedItem, 'rpcId'> {
-  const source = message.source
-  return source.kind === 'user' && 'rpcId' in source ? { rpcId: source.rpcId } : {}
-}
-
-function jobView(job: JobView): SessionJob {
-  return {
-    id: job.id,
-    kind: job.kind,
-    label: job.label,
-    status: job.status,
-    ...(job.detail === undefined ? {} : { detail: job.detail }),
-    startedAt: job.startedAt,
-    ...(job.finishedAt === undefined ? {} : { finishedAt: job.finishedAt }),
   }
 }

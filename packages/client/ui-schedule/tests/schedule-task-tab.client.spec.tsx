@@ -26,16 +26,10 @@ const at: ScheduleCatalogEntry = {
 const other: ScheduleCatalogEntry = { ...at, id: 'task-other' as ScheduleId, title: 'Other metrics' }
 const sessions: SessionListState = {
   ids: [SESSION],
-  byId: { [SESSION]: { id: SESSION, displayTitle: SESSION, running: false, blank: false, updatedAt: 0 } },
-  current: undefined,
-  phase: 'ready',
-  subagentsByParent: {},
-  jobsBySession: {},
-  currentAddress: undefined,
+  byId: { [SESSION]: { id: SESSION, displayTitle: SESSION, running: false, blank: false, updatedAt: 0, retainedBy: {} } },
+  phase: 'ready', projectionsBySession: {},
 }
-const workspaces: WorkspaceSnapshot = {
-  items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
-}
+const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
 
 /**
  * Session list whose catalog row for this tab's Session carries a title.
@@ -67,7 +61,7 @@ const RESTORED = Symbol('restored record without navigation parameters')
 
 function tabInfo(params: unknown, revision = 1): SidebarRightTabInfo {
   const actions: SidebarRightTabActions = {
-    openResource: vi.fn(), openTab: vi.fn(), close: vi.fn(),
+    bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab: vi.fn(), close: vi.fn(),
   }
   return {
     sidebar: { expanded: true, fullscreen: false },

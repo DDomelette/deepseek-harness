@@ -59,15 +59,10 @@ const MEMBER_VIEW_SCHEMA = {
   },
 } as const
 
-/** Model-facing statuses report a live but idle member as `inactive`. */
-function modelStatus(status: TeamMemberView['status']): 'running' | 'inactive' | 'provisioning' | 'failed' {
-  return status === 'idle' ? 'inactive' : status
-}
-
 /** Expose the member name as its model-facing target. */
 function modelMember(member: TeamMemberView): InferValue<typeof MEMBER_VIEW_SCHEMA> {
-  const { id: _id, name, status, ...details } = member
-  return { target: name, status: modelStatus(status), ...details }
+  const { id: _id, name, ...details } = member
+  return { target: name, ...details }
 }
 
 /** One shared task, matching the public `TeamTaskView`. */
@@ -123,12 +118,11 @@ const WAIT_VALUE_SCHEMA = {
   },
 } as const
 
-/** `previousStatus` mirrors the Team service's sampled target status. */
 const INTERRUPT_VALUE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    previousStatus: { type: 'string', required: true, enum: ['running', 'idle', 'inactive'] },
+    previousStatus: { type: 'string', required: true, enum: ['running', 'inactive'] },
   },
 } as const
 

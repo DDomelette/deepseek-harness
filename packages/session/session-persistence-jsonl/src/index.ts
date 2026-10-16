@@ -260,8 +260,6 @@ class JsonlSessionPersistence extends SessionPersistence {
   private root: string
   private compression: JsonlCompression
   private rootEncodingCheck: Promise<void> | undefined
-  private readonly deletions = new Set<Promise<void>>()
-  private deletionClosing = false
   private readonly tracker = new JsonlBackendTracker(this.name)
   private readonly generationFormat: Omit<JsonlGenerationFormatAdapter, 'createRestore'>
   /**
@@ -274,6 +272,9 @@ class JsonlSessionPersistence extends SessionPersistence {
   private readonly coldLogMemo = new Map<SessionId, StoredLog>()
   /** One joinable decode/migration operation per selected historical Session file revision. */
   private readonly migrationPreparations = new Map<SessionId, MigrationPreparation>()
+  /** In-flight removals, awaited before the Host closes the backend. */
+  private readonly deletions = new Set<Promise<void>>()
+  private deletionClosing = false
 
   constructor(ctx: Context, public config: Config) {
     super(ctx)

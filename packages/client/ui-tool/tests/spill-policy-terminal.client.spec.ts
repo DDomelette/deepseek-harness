@@ -2,15 +2,17 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
+import type { PtcRunRequest, PtcRunSpec, PtcRunResult } from '@deepseek-ai/dsh-ptc-runtime'
+import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { PtcRuntime, type PtcRunRequest, type PtcRunResult, type PtcRunSpec } from '@deepseek-ai/dsh-ptc-runtime'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SpillLocator, SpillStore, type SaveTextSpill, type SpillRef } from '@deepseek-ai/dsh-spill'
 import * as SpillPolicy from '@deepseek-ai/dsh-spill-policy'
 import { formatSpillNotice } from '@deepseek-ai/dsh-spill-policy/notice'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
 import ToolRuntime, { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
+import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { describe, expect, it } from 'vitest'
 import { isSpilledShellCall, terminalCardModel } from '../src/client/tool/models/terminal-card-model.ts'
 
@@ -43,9 +45,7 @@ async function executeShell(text: string, nested: boolean, name = 'bash', maxInl
     await ctx.plugin(MemorySpillStore)
     await ctx.plugin(SpillPolicy, { maxInlineTokens })
     if (nested) {
-      // The real registry and spill policy own the nested output; the program
-      // evaluator has its own process suite, so this backend runs the fixture
-      // binding directly instead of spawning a worker.
+      // The real registry and spill policy own nested output; evaluator execution has its own process suite.
       class BindingRuntime extends PtcRuntime {
         readonly language = 'typescript'
         readonly isolation = 'fixture'
@@ -97,6 +97,7 @@ async function executeShell(text: string, nested: boolean, name = 'bash', maxInl
       block = {
         kind: 'tool-result', seq: event.seq, time: event.time, callTime: null,
         callId: event.data.subCallId, parentCallId: event.data.parentCallId,
+        name: event.data.name, args: PartialArguments.fromText(JSON.stringify(event.data.arguments)),
         call: { name: event.data.name, argsRaw: JSON.stringify(event.data.arguments) },
         content: event.data.content, isError: event.data.isError, subCalls: [],
       }
@@ -104,6 +105,7 @@ async function executeShell(text: string, nested: boolean, name = 'bash', maxInl
       expect(result.value).toEqual([{ type: 'text', text }])
       block = {
         kind: 'tool-result', seq: 1, time: 1, callTime: null, callId,
+        name, args: PartialArguments.fromText(JSON.stringify(shellArgs)),
         call: { name, argsRaw: JSON.stringify(shellArgs) },
         content: result.content, isError: result.isError, subCalls: [],
       }
@@ -139,8 +141,6 @@ describe.each([
       expect(block.content).toHaveLength(1)
       const preview = block.content[0]!
       if (preview.type !== 'text') throw new Error('expected a plain-text spill preview')
-      // The budget is priced in tokens, including the omission notice the
-      // retained preview carries.
       expect(estimateContent(block.content)).toBeLessThanOrEqual(256)
       expect(preview.text).toContain('HEAD')
       if (marker !== '') expect(preview.text).toContain(marker)

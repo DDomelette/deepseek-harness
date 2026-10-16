@@ -1,6 +1,49 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/telemetry/usage-telemetry/README.md
-README.md: 56826216239db38de704496c5233a04d7cc8d720
-README.zh.md: da929df79acf13016043fe4a782dc378445fb407
+/:
+  en: ee03a149d67b4fb0
+  zh: 9d3cb3bc847da185
+/deepseek-ai-dsh-usage-telemetry:
+  en: e6133e3edb2a6445
+  zh: 4bbae638d0978a96
+/deepseek-ai-dsh-usage-telemetry/summary:
+  en: a3ab5caaf01a0960
+  zh: 2c7e1f05f29d8d12
+/deepseek-ai-dsh-usage-telemetry/table-of-contents:
+  en: cf96b0fd80b7e585
+  zh: be4964b95f0d7369
+/deepseek-ai-dsh-usage-telemetry/configuration-and-composition:
+  en: 185c65f9922da1dd
+  zh: 55c37aff6b9d8bde
+/deepseek-ai-dsh-usage-telemetry/v1-jsonl-rows:
+  en: f92a3ddc93141735
+  zh: 825ee08a5415e6ff
+/deepseek-ai-dsh-usage-telemetry/data-and-lifecycle:
+  en: 5d25f0943b39bc54
+  zh: 739e67060830a92a
+/deepseek-ai-dsh-usage-telemetry/replay-token-meter:
+  en: e28ea79852450378
+  zh: 7c82188be01f5bde
+/deepseek-ai-dsh-usage-telemetry/model-experience:
+  en: 215e7ba838619b7b
+  zh: 215e7ba838619b7b
+/deepseek-ai-dsh-usage-telemetry/model-experience/local-usage-capture:
+  en: e9da418fb4921cda
+  zh: c2c57ba05697a0e9
+/deepseek-ai-dsh-usage-telemetry/model-experience/local-usage-capture/what-the-model-sees:
+  en: 367f8326f3544b66
+  zh: bbc8918586c92d0a
+/deepseek-ai-dsh-usage-telemetry/model-experience/local-usage-capture/token-effect:
+  en: 2ddbceeeae8124e4
+  zh: 3d314567c8d4038a
+/deepseek-ai-dsh-usage-telemetry/model-experience/local-usage-capture/kv-cache-effect:
+  en: f1285b68c2b0cffb
+  zh: 8af0a158ec2b0bed
+/deepseek-ai-dsh-usage-telemetry/known-limitations-and-deferred-work:
+  en: 756a8136d6b1f91f
+  zh: 2842b8777cb5d2f4
+/deepseek-ai-dsh-usage-telemetry/known-limitations-and-deferred-work/dev-note:
+  en: 5adf62134d9290d2
+  zh: 73fa7a9460774cad

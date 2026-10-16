@@ -88,7 +88,6 @@ function record(
 function sessionSnapshot(openState: SessionSnapshot['openState']): SessionSnapshot {
   return {
     sessionId: SESSION,
-    queue: [],
     pendingSubmissions: [],
     running: false,
     subagent: null,

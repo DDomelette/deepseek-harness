@@ -15,9 +15,9 @@ const useResource = (() => ({ status: 'none' as const, value: undefined, failure
 let selectedSession: SessionId | undefined
 let selectedSessionTitle: string | undefined
 let workspacesReady = true
-type AttentionSnapshot = Parameters<Parameters<AppFrameProps['useSessionPendingInteraction']>[0]>[0]
+type AttentionSnapshot = Parameters<Parameters<AppFrameProps['useSessionStatus']>[0]>[0]
 const noAttention: AttentionSnapshot = new Map()
-const useSessionPendingInteraction: AppFrameProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+const useSessionStatus: AppFrameProps['useSessionStatus'] = selector => selector(noAttention)
 
 let observers: ResizeObserverStub[]
 class ResizeObserverStub {
@@ -72,18 +72,15 @@ function mountFrame(windowWidth = frameWidth) {
     ids: selectedSession === undefined ? [] : [selectedSession],
     byId: selectedSession === undefined ? {} : {
       [selectedSession]: {
-        id: selectedSession, displayTitle: 'Test', running: false, blank: false, updatedAt: 1,
+        id: selectedSession, displayTitle: 'Test', running: false, retainedBy: { mainView: 1 }, blank: false, updatedAt: 1,
         ...(selectedSessionTitle === undefined ? {} : { title: selectedSessionTitle }),
       },
     },
-    current: selectedSession,
     phase: 'ready',
-    subagentsByParent: {},
-    jobsBySession: {},
-    currentAddress: undefined,
+    projectionsBySession: {},
   })
   const workspaceState: WorkspaceSnapshot = {
-    items: [], archivedSessionIds: [], archivedSessionAts: {}, state: 'idle', phase: 'ready', error: null,
+    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
     ...(workspacesReady ? {} : { state: 'loading' as const, phase: 'pending' as const }),
   }
   const useStore = bindSnapshotSelector(instance)
@@ -98,7 +95,8 @@ function mountFrame(windowWidth = frameWidth) {
       renderSlot={renderSlot}
       useSessions={useSessions}
       usePanelInfo={usePanelInfo}
-      useSessionPendingInteraction={useSessionPendingInteraction}
+      useSessionStatus={useSessionStatus}
+      useSessionRetainInfo={() => undefined}
       useResource={useResource}
       useWorkspaces={sel => sel(workspaceState)}
       t={key => key === 'brand.localBuild' ? 'DSH Local Build' : key}
@@ -114,10 +112,15 @@ function mountFrame(windowWidth = frameWidth) {
   }
 }
 
+/* The template delegates the squeeze to the grid (jsdom does no layout, so
+   specs read the specified tracks): [sidebar px, rightbar growth limit].
+   The centre's protected minimum must accompany an open right track. */
 function tracks(frame: HTMLElement): number[] {
-  const match = /^([\d.]+)px minmax\(0, 1fr\) ([\d.]+)px$/.exec(frame.style.gridTemplateColumns)
+  const match = /^([\d.]+)px minmax\((0|400)px, 1fr\) minmax\(0px, ([\d.]+)px\)$/.exec(frame.style.gridTemplateColumns)
   if (match === null) throw new Error(`unexpected template: ${frame.style.gridTemplateColumns}`)
-  return [Number(match[1]), Number(match[2])]
+  const rightbar = Number(match[3])
+  if ((match[2] === '400') !== (rightbar > 0)) throw new Error(`centre minimum out of step: ${frame.style.gridTemplateColumns}`)
+  return [Number(match[1]), rightbar]
 }
 
 function handleFor(frame: HTMLElement, side: 'sidebar' | 'rightbar'): HTMLElement {
@@ -135,11 +138,6 @@ function drag(handle: Element, fromX: number, toX: number): void {
   pointer(handle, 'pointermove', toX)
   act(flushFrames)
   pointer(handle, 'pointerup', toX)
-}
-
-/** Dispatch one drawer-swipe pointer event on the frame with both coordinates. */
-function swipe(frame: Element, type: string, clientX: number, clientY = 0, pointerId = 1, button = 0, pointerType = 'touch'): void {
-  act(() => { frame.dispatchEvent(new PointerEvent(type, { pointerId, clientX, clientY, button, pointerType, bubbles: true })) })
 }
 
 beforeEach(() => {
@@ -175,9 +173,9 @@ afterEach(() => {
   try {
     cleanup()
   } finally {
+    delete document.documentElement.dataset.platform
     for (const restore of restoreProperties.splice(0).reverse()) restore()
     document.title = originalTitle
-    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
@@ -211,12 +209,25 @@ describe('AppFrame', () => {
     expect(slotCalls.find(c => c.key === 'main')).toEqual({ key: 'main', props: {}, options: { entryKey: 'conversation' } })
   })
 
-  it('renders the main, sidebar, and root-scoped rightbar outlets without a current Session', () => {
+  it('hands the overlay band to the sidebar and marks the frame below 768px', () => {
+    // Below the overlay breakpoint the closed rail owns no track: the occupant
+    // renders the floating brand button instead, and the frame carries the
+    // attribute the content packages key their handset rules on.
+    frameWidth = 700
+    const { frame, sidebarOwner } = mountFrame()
+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(frame.getAttribute('data-sidebar-fab')).toBe('true')
+    expect(frame.getAttribute('data-sidebar-collapsed')).toBe('true')
+  })
+
+  it('renders the column and bottom outlets without a current Session', () => {
     selectedSession = undefined
     const { frame, getByTestId } = mountFrame()
     expect(getByTestId('main-content').getAttribute('data-entry-key')).toBe('conversation')
     expect(getByTestId('sidebar-content')).toBeTruthy()
     expect(getByTestId('rightbar-content')).toBeTruthy()
+    expect(getByTestId('shell.bottom-content').parentElement?.hasAttribute('data-shell-bottom')).toBe(true)
     expect(tracks(frame)).toEqual([280, 0])
   })
 
@@ -227,184 +238,48 @@ describe('AppFrame', () => {
     expect(getByTestId('rightbar-content')).toBeTruthy()
   })
 
-  it('renders the expanded sidebar as a drawer with a scrim below the overlay breakpoint', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance, sidebarOwner } = mountFrame()
-    // The closed sidebar owns no track below the breakpoint: the floating
-    // brand button (fab) replaces the rail, and the frame carries the
-    // cross-package attribute the conversation header pads against.
-    expect(tracks(frame)).toEqual([0, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
-    expect(frame.dataset.sidebarFab).toBe('true')
-    expect(frame.dataset.drawer).toBeUndefined()
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-    act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([0, 0])
-    expect(frame.dataset.drawer).toBe('true')
-    const drawerCol = frame.querySelector('[data-drawer]')
-    expect(drawerCol?.querySelector('[data-testid="sidebar-content"]')).toBeTruthy()
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
-    expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
-    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) })
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
-    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
-    expect(frame.dataset.drawer).toBeUndefined()
-    // The store is closed but the slide-out window keeps both mounted under
-    // data-closing, still on the wide owner parameters; the window's end
-    // unmounts them.
-    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
-    expect(frame.querySelector('[data-drawer-scrim][data-closing]')).toBeTruthy()
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
-    act(() => { vi.advanceTimersByTime(300) })
-    expect(frame.dataset.drawer).toBeUndefined()
-    expect(frame.querySelector('[data-drawer]')).toBeNull()
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
-    act(() => { instance.actions.toggleSidebar() })
-    const scrim = frame.querySelector('[data-drawer-scrim]')!
-    act(() => { scrim.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
-    expect(frame.querySelector('[data-drawer-scrim][data-closing]')).toBeTruthy()
-    act(() => { vi.advanceTimersByTime(300) })
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-    // A desktop-dragged preference (up to the 420px maximum) stays stored into
-    // the handset band; the drawer caps the rendered width at the viewport.
-    act(() => { instance.actions.setSidebar(420) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.dataset.drawer).toBe('true')
-    expect(sidebarOwner().width).toBeLessThanOrEqual(390)
-  })
-
-  it('lets a reopen cancel the slide-out unmount and ends the window on a band exit', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
-    // A reopen inside the window clears the closing marker and the drawer
-    // stays mounted past the would-be unmount.
-    act(() => { vi.advanceTimersByTime(150) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-closing]')).toBeNull()
-    act(() => { vi.advanceTimersByTime(1000) })
-    expect(frame.dataset.drawer).toBe('true')
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
-    // Closing again, then leaving the overlay band: the window ends at once.
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
-    resize(800)
-    expect(frame.querySelector('[data-closing]')).toBeNull()
-    expect(frame.querySelector('[data-drawer]')).toBeNull()
-    expect(tracks(frame)).toEqual([56, 0])
-    act(() => { vi.advanceTimersByTime(1000) })
-    expect(frame.querySelector('[data-drawer]')).toBeNull()
-  })
-
-  it('arms the enter keyframe only on fresh non-gesture mounts', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance } = mountFrame()
-    // A tap-open is a fresh mount: the column and the scrim ride the enter
-    // keyframe until its own duration clears the flag.
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
-    expect(frame.querySelector('[data-drawer-scrim][data-entering]')).toBeTruthy()
-    act(() => { vi.advanceTimersByTime(300) })
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-    // A reopen inside the slide-out window does not re-arm the keyframe: the
-    // column transitions back from its mid-slide position instead.
-    act(() => { instance.actions.toggleSidebar() })
-    act(() => { vi.advanceTimersByTime(150) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.dataset.drawer).toBe('true')
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-    act(() => { vi.advanceTimersByTime(1000) })
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-  })
-
-  it('drops the enter keyframe when a close swipe engages mid-enter and on a band exit', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
-    swipe(frame, 'pointerdown', 300)
-    swipe(frame, 'pointermove', 250)
-    // The engaged swipe owns the position from its first frame: the keyframe
-    // flag clears with the engage rather than fighting the inline tracking.
-    expect(frame.querySelector('[data-drawer][data-entering]')).toBeNull()
-    swipe(frame, 'pointerup', 250)
-    // 50/280 ≈ 18%: the swipe snaps back open; no keyframe re-arms.
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-    // Close fully, then leave the overlay band right after a fresh mount: the
-    // flag clears with the drawer presentation.
-    act(() => { instance.actions.toggleSidebar() })
-    act(() => { vi.advanceTimersByTime(300) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.querySelector('[data-drawer][data-entering]')).toBeTruthy()
-    resize(800)
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-    expect(frame.querySelector('[data-drawer]')).toBeNull()
-  })
-
-  it('ignores an Escape a higher surface already consumed', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.dataset.drawer).toBe('true')
-    // A surface above the drawer closes itself on Escape and consumes the key;
-    // the drawer is the lowest-priority owner and must stay open.
-    const consumer = (event: KeyboardEvent) => { event.preventDefault() }
-    document.addEventListener('keydown', consumer)
+  it('keeps Windows caption controls mounted with a zero-width collapsed column', () => {
+    document.documentElement.setAttribute('data-windows-titlebar', '')
     try {
-      const consumed = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-      act(() => { document.body.dispatchEvent(consumed) })
-      expect(consumed.defaultPrevented).toBe(true)
+      const { frame, instance, sidebarOwner, getByTestId, queryByTestId } = mountFrame()
+      act(() => { instance.actions.toggleSidebar() })
+      expect(tracks(frame)[0]).toBe(0)
+      expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0 })
+      expect(getByTestId('sidebar-content')).toBeTruthy()
+      // The caption row keeps the reopen controls; the darwin-only
+      // shell.leading seat must not mount a duplicate set.
+      expect(queryByTestId('shell.leading-content')).toBeNull()
     } finally {
-      document.removeEventListener('keydown', consumer)
+      document.documentElement.removeAttribute('data-windows-titlebar')
     }
-    expect(frame.dataset.drawer).toBe('true')
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
-    // An unconsumed Escape still closes it.
-    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })) })
-    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
-    expect(frame.dataset.drawer).toBeUndefined()
-  })
-
-  it('keeps the drawer floating above an open right panel', () => {
-    frameWidth = 390
-    const { frame, instance, rightOwner, sidebarOwner } = mountFrame()
-    act(() => { instance.actions.openRightbar(true, false) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(frame.dataset.drawer).toBe('true')
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
-    expect(rightOwner().canShow).toBe(false)
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
-  })
-
-  it('keeps the squeeze rendering between the overlay and auto-collapse breakpoints', () => {
-    frameWidth = 800
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([280, 0])
-    expect(frame.dataset.drawer).toBeUndefined()
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-    expect(handleFor(frame, 'sidebar').style.left).toBe('280px')
   })
 
   it('keeps the closed sidebar mounted at its 56px rail without a handle', () => {
-    const { frame, instance, sidebarOwner, getByTestId } = mountFrame()
+    const { frame, instance, sidebarOwner, getByTestId, queryByTestId } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([56, 0])
     expect(sidebarOwner()).toEqual({ collapsed: true, width: 56, fab: false })
-    expect(frame.dataset.sidebarFab).toBeUndefined()
     expect(getByTestId('sidebar-content')).toBeTruthy()
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
+    // The rail keeps the window chrome housed: no shell.leading seat.
+    expect(queryByTestId('shell.leading-content')).toBeNull()
+    expect(frame.querySelector('[data-shell-leading-band]')).toBeNull()
+  })
+
+  it('mounts the shell.leading seat only while the darwin collapse hides the column', () => {
+    document.documentElement.dataset.platform = 'darwin'
+    const { frame, instance, sidebarOwner, queryByTestId } = mountFrame()
+    // The frame declares no window drag of its own: every chrome row owns its
+    // run (ui-sidebar, ui-dockkit, ui-conversation, ui-plugin-manager).
+    expect(frame.querySelector('[data-shell-leading-band]')).toBeNull()
+    expect(queryByTestId('shell.leading-content')).toBeNull()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: false })
+    expect(frame.querySelector('[data-shell-leading]')).not.toBeNull()
+    expect(queryByTestId('shell.leading-content')).toBeTruthy()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(queryByTestId('shell.leading-content')).toBeNull()
   })
 
   it('switches only the keyed main outlet when the active panel changes', () => {
@@ -442,10 +317,12 @@ describe('AppFrame normal width concessions', () => {
     const { frame, instance, rightOwner } = mountFrame()
     act(() => { instance.actions.setSidebar(420); instance.actions.openRightbar(true, false) })
     resize(1200)
-    expect(tracks(frame)).toEqual([420, 380])
+    // The template carries the ratio-clamped preference; the panel (rightOwner
+    // width) reports the resolved squeeze.
+    expect(tracks(frame)).toEqual([420, 840])
     expect(rightOwner()).toEqual({ width: 380, viewportWidth: 1200, canShow: true })
     resize(1120)
-    expect(tracks(frame)).toEqual([420, 300])
+    expect(tracks(frame)).toEqual([420, 784])
     resize(1119)
     expect(tracks(frame)).toEqual([420, 0])
     expect(rightOwner()).toEqual({ width: 0, viewportWidth: 1119, canShow: false })
@@ -453,6 +330,8 @@ describe('AppFrame normal width concessions', () => {
     expect(instance.getSnapshot().layoutInfo).toMatchObject({ rightbarShown: true, rightbar: 864 })
     act(() => { instance.actions.closeRightbar() })
     resize(455)
+    // 455px is inside the overlay band: the closed sidebar owns no rail track
+    // there, because the floating brand button replaces it.
     expect(tracks(frame)).toEqual([0, 0])
     resize(1920)
     expect(tracks(frame)).toEqual([420, 0])
@@ -465,7 +344,7 @@ describe('AppFrame normal width concessions', () => {
     expect(tracks(frame)).toEqual([280, 0])
     expect(rightOwner()).toEqual({ width: 344, viewportWidth: 800, canShow: true })
     act(() => { instance.actions.openRightbar(true, false) })
-    expect(tracks(frame)).toEqual([56, 344])
+    expect(tracks(frame)).toEqual([56, 360])
     expect(instance.getSnapshot().layoutInfo).toMatchObject({ narrowExpanded: false, rightbar: 360 })
     expect(rightOwner().canShow).toBe(true)
   })
@@ -552,6 +431,52 @@ describe('AppFrame right panel presentation', () => {
     expect(frame.dataset.rightbarFullscreen).toBeUndefined()
   })
 
+  it('eases tracks only across a discrete toggle, never for viewport updates', () => {
+    const { frame, instance } = mountFrame()
+    expect(frame.dataset.animating).toBeUndefined()
+    // Window-driven track updates follow the frame edge instantly.
+    resize(1600)
+    expect(frame.dataset.animating).toBeUndefined()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.animating).toBe('true')
+    // Foreign transition ends (e.g. the handle's left) do not settle it...
+    act(() => {
+      frame.dispatchEvent(Object.assign(new Event('transitionend'), { propertyName: 'left' }))
+    })
+    expect(frame.dataset.animating).toBe('true')
+    // ...the track transition's own end does.
+    act(() => {
+      frame.dispatchEvent(Object.assign(new Event('transitionend'), { propertyName: 'grid-template-columns' }))
+    })
+    expect(frame.dataset.animating).toBeUndefined()
+  })
+
+  it('lands the responsive auto-collapse instantly, keeping user toggles eased', () => {
+    const { frame, instance } = mountFrame()
+    // Shrinking across the breakpoint flips the collapse in the same update as
+    // the viewport change: no easing, the tracks land with the window edge.
+    resize(900)
+    expect(frame.dataset.sidebarCollapsed).toBe('true')
+    expect(frame.dataset.animating).toBeUndefined()
+    // A user toggle at the now-stable viewport still eases.
+    act(() => { instance.actions.toggleSidebar() })
+    expect(frame.dataset.animating).toBe('true')
+  })
+
+  it('animates the rightbar track flip and settles by timeout without a transition end', () => {
+    vi.useFakeTimers()
+    try {
+      const { frame, instance } = mountFrame()
+      act(() => { instance.actions.openRightbar(true, false) })
+      expect(frame.dataset.animating).toBe('true')
+      // Covered or reduced-motion frames fire no transitionend; the timeout settles.
+      act(() => { vi.advanceTimersByTime(600) })
+      expect(frame.dataset.animating).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps fullscreen suppression independent from resetting the instant marker', () => {
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openRightbar(true, true) })
@@ -597,6 +522,8 @@ describe('AppFrame right panel presentation', () => {
     frameWidth = 700
     const { frame, instance, rightOwner } = mountFrame()
     act(() => { instance.actions.openRightbar(false, true) })
+    // Fullscreen keeps its own semantics; 700px is inside the overlay band, so
+    // the closed sidebar contributes no rail track either way.
     expect(tracks(frame)).toEqual([0, 0])
     expect(rightOwner()).toEqual({ width: 0, viewportWidth: 700, canShow: false })
     expect(instance.getSnapshot().layoutInfo.rightbarShown).toBe(true)
@@ -642,7 +569,7 @@ describe('AppFrame pointer resizing', () => {
     resize(1100)
     const handle = handleFor(frame, 'rightbar')
     expect(rightOwner().width).toBe(420)
-    expect(tracks(frame)[1]).toBe(420)
+    expect(tracks(frame)[1]).toBe(770)
     expect(handle.style.left).toBe('680px')
     drag(handle, 680, 690)
     expect(instance.getSnapshot().layoutInfo.rightbar).toBe(410)
@@ -725,262 +652,6 @@ describe('AppFrame pointer resizing', () => {
     expect(animationFrames.size).toBe(0)
     expect(handle.hasPointerCapture(1)).toBe(false)
     if (change !== 'unmount') expect(frame.dataset.dragging).toBeUndefined()
-  })
-})
-
-describe('AppFrame drawer edge swipe', () => {
-  const drawerCol = (frame: HTMLElement) => frame.querySelector<HTMLElement>('[data-drawer]')!
-  const scrimOf = (frame: HTMLElement) => frame.querySelector<HTMLElement>('[data-drawer-scrim]')!
-  const expanded = (instance: ReturnType<typeof mountFrame>['instance']) =>
-    instance.getSnapshot().layoutInfo.narrowExpanded
-
-  it('opens the drawer from a left-edge swipe, tracks the pointer, and stays open past 35%', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30, 100)
-    // Sub-slop travel schedules nothing; a diagonal move with horizontal
-    // dominance engages the gesture and mounts the drawer.
-    swipe(frame, 'pointermove', 38, 104)
-    expect(animationFrames.size).toBe(0)
-    swipe(frame, 'pointermove', 60, 120)
-    expect(expanded(instance)).toBe(true)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(true)
-    // A gesture-driven mount never arms the enter keyframe: the gesture's own
-    // inline tracking owns the position from the first frame.
-    expect(frame.querySelector('[data-drawer][data-gesture-driven]')).toBeTruthy()
-    expect(frame.querySelector('[data-entering]')).toBeNull()
-    swipe(frame, 'pointermove', 120, 130)
-    expect(animationFrames.size).toBe(1)
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('translateX(-190px)')
-    expect(scrimOf(frame).style.opacity).toBe(String(90 / 280))
-    swipe(frame, 'pointerup', 160, 140)
-    // 130/280 ≈ 46% of the travel: the drawer stays open, inline styles clear.
-    expect(expanded(instance)).toBe(true)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-    expect(drawerCol(frame).style.transform).toBe('')
-    expect(scrimOf(frame).style.opacity).toBe('')
-    expect(frame.hasPointerCapture(1)).toBe(false)
-  })
-
-  it('snaps a short open swipe back closed', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 80)
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('translateX(-230px)')
-    swipe(frame, 'pointerup', 80)
-    // 50/280 ≈ 18%: the drawer slides back out under data-closing; the
-    // cleanup frame then drops the tracked inline position.
-    expect(expanded(instance)).toBe(false)
-    expect(frame.querySelector('[data-drawer][data-closing][data-gesture-driven]')).toBeTruthy()
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('')
-    act(() => { vi.advanceTimersByTime(300) })
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-  })
-
-  it('cancels the pending tracking frame when the swipe releases', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 100)
-    expect(animationFrames.size).toBe(1)
-    swipe(frame, 'pointerup', 100)
-    // The tracking frame is canceled; the settling toggle queues only the
-    // cleanup frame that drops the inline position.
-    expect(animationFrames.size).toBe(1)
-    act(flushFrames)
-    expect(animationFrames.size).toBe(0)
-    // 70/280 = 25%: the short swipe snaps back.
-    expect(expanded(instance)).toBe(false)
-  })
-
-  it('ignores a swipe that starts outside the left-edge strip', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 100)
-    swipe(frame, 'pointermove', 300)
-    act(flushFrames)
-    swipe(frame, 'pointerup', 300)
-    expect(expanded(instance)).toBe(false)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-    expect(frame.hasPointerCapture(1)).toBe(false)
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-  })
-
-  it('lets a mouse drag select text instead of driving the drawer either way', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    // A mouse drag from the left edge arms no open gesture: text selection
-    // keeps the drag, the drawer stays closed, the pointer goes uncaptured.
-    swipe(frame, 'pointerdown', 30, 100, 1, 0, 'mouse')
-    swipe(frame, 'pointermove', 300, 100, 1, 0, 'mouse')
-    act(flushFrames)
-    swipe(frame, 'pointerup', 300, 100, 1, 0, 'mouse')
-    expect(expanded(instance)).toBe(false)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-    expect(frame.hasPointerCapture(1)).toBe(false)
-    // A touch swipe opens the drawer; a full-travel mouse drag then closes
-    // nothing either.
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 300)
-    swipe(frame, 'pointerup', 300)
-    expect(expanded(instance)).toBe(true)
-    swipe(frame, 'pointerdown', 300, 100, 1, 0, 'mouse')
-    swipe(frame, 'pointermove', 50, 100, 1, 0, 'mouse')
-    act(flushFrames)
-    swipe(frame, 'pointerup', 50, 100, 1, 0, 'mouse')
-    expect(expanded(instance)).toBe(true)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-  })
-
-  it('ignores a secondary button and a second pointer', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30, 0, 1, 2)
-    swipe(frame, 'pointermove', 200)
-    expect(expanded(instance)).toBe(false)
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointerdown', 50, 0, 9)
-    swipe(frame, 'pointermove', 300, 0, 9)
-    swipe(frame, 'pointerup', 300, 0, 9)
-    expect(expanded(instance)).toBe(false)
-    swipe(frame, 'pointermove', 100)
-    act(flushFrames)
-    expect(expanded(instance)).toBe(true)
-    swipe(frame, 'pointerup', 100)
-    // 70/280 = 25%: the first pointer's short swipe snaps back.
-    expect(expanded(instance)).toBe(false)
-  })
-
-  it('cedes vertical-dominant travel to scrolling', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30, 100)
-    swipe(frame, 'pointermove', 34, 200)
-    swipe(frame, 'pointermove', 200, 210)
-    act(flushFrames)
-    swipe(frame, 'pointerup', 200, 210)
-    expect(expanded(instance)).toBe(false)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-  })
-
-  it('closes the drawer on a left swipe that travels past 35%', () => {
-    frameWidth = 390
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    swipe(frame, 'pointerdown', 300)
-    swipe(frame, 'pointermove', 250)
-    // A close swipe keeps the drawer mounted and settles only at release.
-    expect(expanded(instance)).toBe(true)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(true)
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('translateX(-50px)')
-    expect(scrimOf(frame).style.opacity).toBe(String(1 - 50 / 280))
-    swipe(frame, 'pointerup', 150)
-    // 150/280 ≈ 54% of the closing travel: the drawer slides out under
-    // data-closing; the cleanup frame drops the tracked inline position.
-    expect(expanded(instance)).toBe(false)
-    expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('')
-    expect(scrimOf(frame).style.opacity).toBe('')
-    act(() => { vi.advanceTimersByTime(300) })
-    expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-  })
-
-  it('keeps the drawer open when a close swipe falls short', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    swipe(frame, 'pointerdown', 300)
-    swipe(frame, 'pointermove', 260)
-    act(flushFrames)
-    expect(drawerCol(frame).style.transform).toBe('translateX(-40px)')
-    swipe(frame, 'pointerup', 260)
-    // 40/280 ≈ 14%: the drawer swings back and stays open.
-    expect(expanded(instance)).toBe(true)
-    expect(drawerCol(frame).style.transform).toBe('')
-    expect(scrimOf(frame).style.opacity).toBe('')
-  })
-
-  it('restores the drawer when the pointer cancels mid-swipe', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    swipe(frame, 'pointerdown', 300)
-    swipe(frame, 'pointermove', 200)
-    act(flushFrames)
-    swipe(frame, 'pointercancel', 200)
-    expect(expanded(instance)).toBe(true)
-    expect(drawerCol(frame).style.transform).toBe('')
-    expect(frame.hasPointerCapture(1)).toBe(false)
-  })
-
-  it('closes the drawer again when an open swipe loses pointer capture', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 100)
-    act(flushFrames)
-    expect(expanded(instance)).toBe(true)
-    swipe(frame, 'lostpointercapture', 100)
-    expect(expanded(instance)).toBe(false)
-  })
-
-  it('settles a cancelled swipe without reopening a drawer Escape already closed', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 100)
-    expect(expanded(instance)).toBe(true)
-    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })) })
-    expect(expanded(instance)).toBe(false)
-    // The queued tracking frame runs against the unmounted scrim and no-ops.
-    act(flushFrames)
-    swipe(frame, 'pointercancel', 100)
-    expect(expanded(instance)).toBe(false)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-  })
-
-  it('stays inert above the overlay breakpoint', () => {
-    frameWidth = 800
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 200)
-    act(flushFrames)
-    swipe(frame, 'pointerup', 200)
-    expect(expanded(instance)).toBe(false)
-    expect(tracks(frame)).toEqual([56, 0])
-  })
-
-  it('leaves an edge tap to the click handlers', () => {
-    frameWidth = 390
-    const { frame, instance } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointerup', 32)
-    expect(expanded(instance)).toBe(false)
-    expect(frame.hasPointerCapture(1)).toBe(false)
-    expect(frame.hasAttribute('data-sidebar-gesture')).toBe(false)
-  })
-
-  it('drops a queued swipe frame on unmount', () => {
-    frameWidth = 390
-    const { frame, unmount } = mountFrame()
-    swipe(frame, 'pointerdown', 30)
-    swipe(frame, 'pointermove', 100)
-    expect(animationFrames.size).toBe(1)
-    unmount()
-    expect(animationFrames.size).toBe(0)
-    // A candidate that never moved carries no frame either.
-    const second = mountFrame()
-    swipe(second.frame, 'pointerdown', 30)
-    second.unmount()
   })
 })
 

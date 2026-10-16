@@ -106,7 +106,7 @@ describe('notes browser half', () => {
 
     expect(registered.map(entry => [entry.name, entry.key, entry.locale, entry.component])).toEqual([
       ['sidebar.right.pane.tab', NOTES_ID, 'notes', NotesPanel],
-      ['conversation.session.header.corner', undefined, 'notes', NotesButton],
+      ['conversation.session.header.utilities', undefined, 'notes', NotesButton],
       ['conversation.session.overlay', undefined, 'notes', SelectionBubble],
     ])
     const panel = registered[0]

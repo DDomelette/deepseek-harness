@@ -5,6 +5,7 @@ import {
   type RemoteStreamOptions,
 } from '@deepseek-ai/dsh-api-gateway/client'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { streamHandle } from '@deepseek-ai/dsh-remote-mock'
 import { LlmAttemptId } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult, RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
@@ -73,21 +74,6 @@ function assistantFrame(frame: SessionAssistantStreamFrame): SessionFollowFrame 
   return { type: 'assistant-stream', frame }
 }
 
-/**
- * Adapt a scripted downlink to the handle a generated Client stream method returns.
- * The uplink members are inert: these scripts drive the downlink only.
- * @param source - frames the fake yields.
- * @returns a handle that iterates `source`.
- */
-function streamHandle<Out>(source: AsyncIterable<Out>): RemoteStreamHandle<Out, never> {
-  return {
-    [Symbol.asyncIterator]: () => source[Symbol.asyncIterator](),
-    send: () => undefined,
-    end: () => undefined,
-    dispose: () => undefined,
-  }
-}
-
 function sessionClient(remote: SessionTransportRemote): SessionRemotes {
   return {
     session: remote as SessionRemote,
@@ -96,7 +82,6 @@ function sessionClient(remote: SessionTransportRemote): SessionRemotes {
     ),
     commands: { execute: () => Promise.reject(new Error('stream tests never run commands')) },
     subagents: {
-      list: () => Promise.reject(new Error('stream tests never read the subagent catalog')),
       prompt: () => Promise.reject(new Error('stream tests never prompt a subagent')),
       interruptByParent: () => Promise.reject(new Error('stream tests never interrupt a subagent')),
     },
@@ -122,10 +107,7 @@ class ScriptedSessionRemote implements SessionTransportRemote {
     private readonly holdControl = true,
   ) {}
 
-  follow(
-    request: SessionFollowRequest,
-    signal = new AbortController().signal,
-  ): RemoteStreamHandle<SessionFollowFrame, never> {
+  follow(request: SessionFollowRequest, signal = new AbortController().signal): RemoteStreamHandle<SessionFollowFrame, never> {
     return streamHandle(this.followFrames(request, signal))
   }
 
@@ -221,7 +203,7 @@ const invalidWireEvents: [string, unknown][] = [
   ...[false, undefined].map((isError): [string, unknown] => [
     `contradictory tool error ${String(isError)}`,
     { ...surfaceEvent('tool/result'), data: {
-      message: { content: [{ type: 'tool-result', content: [], ...(isError === undefined ? {} : { isError }) }] },
+      message: { role: 'tool', content: [], ...(isError === undefined ? {} : { isError }) },
       error: { name: 'Error', code: 'FAILURE' },
     } },
   ]),
@@ -560,15 +542,15 @@ describe('Session Client stream adapters', () => {
       failed: vi.fn(),
     })
 
-    await stream.open({ maxMessages: 50 })
+    await stream.open({ maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } })
     await vi.waitFor(() => { expect(changes).toHaveLength(2) })
-    await stream.prepend({ beforeSeq: 2, maxMessages: 50 })
+    await stream.prepend({ beforeSeq: 2, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } })
 
     expect(remote.followRequests).toEqual([{
-      address: ADDRESS, assistantStream: true, maxMessages: 50,
+      address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 },
     }])
     expect(remote.pageRequests).toEqual([
-      { address: ADDRESS, throughSeq: 4, beforeSeq: 2, maxMessages: 50 },
+      { address: ADDRESS, throughSeq: 4, beforeSeq: 2, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
     ])
     expect(changes).toMatchObject([
       { type: 'replace', entries: [entry(2), entry(3)], hasMore: true },
@@ -599,12 +581,12 @@ describe('Session Client stream adapters', () => {
       failed: vi.fn(),
     })
 
-    await stream.open({ maxMessages: 50 })
+    await stream.open({ maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } })
     await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
 
     expect(remote.followRequests).toEqual([
-      { address: ADDRESS, assistantStream: true, maxMessages: 50 },
-      { address: ADDRESS, assistantStream: true, maxMessages: 50 },
+      { address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
+      { address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
     ])
     expect(remote.pageRequests).toEqual([])
     expect(changes.map(change => change.type)).toEqual(['replace', 'append', 'replace'])
@@ -641,7 +623,7 @@ describe('Session Client stream adapters', () => {
     await stream.dispose()
   })
 
-  it.each([{}, { maxMessages: 50 }])('repairs a live gap preserving message limit %j', async (request) => {
+  it.each([{}, { maxMessages: 50 }, { maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } }])('repairs a live gap preserving history limits %j', async (request) => {
     const remote = new ScriptedSessionRemote(
       [{ frames: [snapshot(0, [entry(0)]), entry(2)], hold: true }],
       [{ ok: true, value: page([entry(0), entry(1), entry(2)]) }],
@@ -684,10 +666,10 @@ describe('Session Client stream adapters', () => {
   it('maps the Host-wide control baseline and deltas into one snapshot stream', async () => {
     const baseline: SessionControlFrame = {
       type: 'baseline',
-      value: { queues: {}, jobs: {}, projections: {} },
+      value: { projections: {} },
     }
     const update: SessionControlFrame = {
-      type: 'queue', sessionId: 'session-1' as never, items: [],
+      type: 'projection', sessionId: 'session-1' as never, key: 'title', value: 'updated', seq: 1,
     }
     const remote = new ScriptedSessionRemote([], [], [baseline, update])
     const accept = vi.fn<(frame: SessionControlFrame) => void>()
@@ -719,7 +701,7 @@ describe('Session Client stream adapters', () => {
 
     const baseline: SessionControlFrame = {
       type: 'baseline',
-      value: { queues: {}, jobs: {}, projections: {} },
+      value: { projections: {} },
     }
     const carrierFailed = vi.fn()
     const failed = vi.fn()

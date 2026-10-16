@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-12-connection-failure-surfacing.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-12-connection-failure-surfacing.md
-2026-09-12-connection-failure-surfacing.md: 21a7d3f7d771bc4eff4b4966ee5b476bb9e43bc8
-2026-09-12-connection-failure-surfacing.zh.md: dd1e86c28d7d46059c7edcf215c7840d2ad33a17
+/agent-note-connection-failures-name-their-cause:
+  en: 80e00b4c43fa69bd
+  zh: 347e681ea3df9120
+/agent-note-connection-failures-name-their-cause/problem:
+  en: 04650e8886d05b3b
+  zh: 20f3d033fe4dcd53
+/agent-note-connection-failures-name-their-cause/decision:
+  en: 54624de0e5cc4b73
+  zh: cfe5117332e2ef23
+/agent-note-connection-failures-name-their-cause/alternatives-considered:
+  en: 74d6f2a00bbcc699
+  zh: 8ba283b31badcc4f
+/agent-note-connection-failures-name-their-cause/consequences:
+  en: bd1febf746d630f6
+  zh: e7535c8b3f522ba1

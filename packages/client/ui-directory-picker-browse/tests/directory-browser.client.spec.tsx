@@ -1594,9 +1594,7 @@ describe('DirectoryBrowser', () => {
     fireEvent.change(input, { target: { value: 'x' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('taken already') })
-    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-    fireEvent(screen.getByLabelText('browser.folderName'), escape)
-    expect(escape.defaultPrevented).toBe(true)
+    fireEvent.keyDown(screen.getByLabelText('browser.folderName'), { key: 'Escape' })
     await waitFor(() => { expect(screen.queryByLabelText('browser.folderName')).toBeNull() })
 
     // The nested Cancel button and the nested mask both close only the child dialog.

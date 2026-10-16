@@ -64,11 +64,6 @@
   white-space: nowrap;
 }
 
-.rowMeta {
-  font-size: 12px;
-  color: var(--dsw-color-text-secondary, #6b7280);
-}
-
 .details {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -101,15 +96,6 @@
   align-items: center;
   gap: 8px;
   margin-left: 12px;
-}
-
-.deleteButton {
-  color: var(--dsw-color-danger, #dc2626);
-}
-
-.dangerButton {
-  color: #ffffff;
-  background: var(--dsw-color-danger, #dc2626);
 }
 
 .error {

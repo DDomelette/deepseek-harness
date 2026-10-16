@@ -4,9 +4,9 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconChevronDownOutlineMedium, IconChevronRightOutlineMedium, IconChevronUpOutlineMedium,
-  IconClockOutlineMedium, IconCloseOutlineMedium,
-  IconEllipsisOutlineMedium, IconTrashOutlineMedium, Modal, Pill, ReferenceIconRegular, Tooltip,
+  Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconChevronUpOutlineRegular,
+  IconClockOutlineRegular, IconCloseOutlineRegular,
+  IconEllipsisOutlineRegular, IconTrashOutlineRegular, Modal, Pill, ReferenceIconRegular, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
@@ -448,7 +448,7 @@ export function TaskDetail({
     {
       id: 'delete',
       label: t(deleting.includes(task.id) ? 'delete.pending' : 'delete.action'),
-      icon: <IconTrashOutlineMedium />,
+      icon: <IconTrashOutlineRegular />,
       danger: true,
       disabled: busy || !authoritative,
     },
@@ -754,7 +754,7 @@ export function TaskDetail({
                     <span className={css.linkedSessionLabel}>{linkedText}</span>
                     <span className={css.linkedSessionTarget}>
                       {linkedName}
-                      <IconChevronRightOutlineMedium />
+                      <IconChevronRightOutlineRegular />
                     </span>
                   </>}
               </Button>
@@ -791,12 +791,12 @@ export function TaskDetail({
                   setMenuOpen(open => !open)
                 }}
               >
-                <IconEllipsisOutlineMedium />
+                <IconEllipsisOutlineRegular />
               </Button>}
             />
           </span>
           {onClose !== undefined && <Button size="sm" className={css.detailIconButton} aria-label={t('detail.close')} onClick={onClose}>
-            <IconCloseOutlineMedium />
+            <IconCloseOutlineRegular />
           </Button>}
         </div>
       </div>
@@ -1634,7 +1634,7 @@ function RuleCard({
               <span className={css.ruleCurrent}>{shown.kind === 'every'
                 ? t(intervalRuleLabel(intervalUnit))
                 : repeatValue(task, shown.kind, t, frequencyZone)}</span>
-              <IconChevronDownOutlineMedium />
+              <IconChevronDownOutlineRegular />
             </span>
           </button>}
         />
@@ -1691,7 +1691,7 @@ function RuleCard({
                 disabled={disabled}
                 onClick={() => { stepInterval(1) }}
               >
-                <IconChevronUpOutlineMedium size={9} />
+                <IconChevronUpOutlineRegular size={9} />
               </button>
               <button
                 type="button"
@@ -1700,7 +1700,7 @@ function RuleCard({
                 disabled={disabled || (intervalValue !== undefined && intervalValue <= intervalMin)}
                 onClick={() => { stepInterval(-1) }}
               >
-                <IconChevronDownOutlineMedium size={9} />
+                <IconChevronDownOutlineRegular size={9} />
               </button>
             </span>
           </span>
@@ -1769,7 +1769,7 @@ function RuleCard({
               onClick={() => { setTimeOpen(open => !open) }}
             >
               <span>{secondPrecision(shown.draft.time)}</span>
-              <IconClockOutlineMedium className={css.pickerIcon} />
+              <IconClockOutlineRegular className={css.pickerIcon} />
             </button>
             <ClockPicker
               open={timeOpen}
@@ -1840,7 +1840,7 @@ function RuleCard({
               <span className={css.ruleLabel}>{t('timing.zone')}</span>
               <span className={clsx(css.ruleValueFace, css.ruleControl)}>
                 <span className={css.ruleCurrent}>{zoneName(shown.draft.timeZone, systemZone, t)}</span>
-                <IconChevronDownOutlineMedium />
+                <IconChevronDownOutlineRegular />
               </span>
             </button>}
           />
@@ -2045,7 +2045,7 @@ function CronRows({ task, disabled, expression, timeZone, hintId, onEditExpressi
           <span className={css.ruleLabel}>{t('cronForm.frequency')}</span>
           <span className={clsx(css.ruleValueFace, css.ruleControl)}>
             <span className={css.ruleCurrent}>{t(builder === undefined ? 'rule.cronLabel' : CRON_SHAPE_LABELS[builder.kind])}</span>
-            <IconChevronDownOutlineMedium />
+            <IconChevronDownOutlineRegular />
           </span>
         </button>}
       />
@@ -2125,7 +2125,7 @@ function CronRows({ task, disabled, expression, timeZone, hintId, onEditExpressi
           onClick={() => { setTimeOpen(open => !open) }}
         >
           <span>{clock}</span>
-          <IconClockOutlineMedium className={css.pickerIcon} />
+          <IconClockOutlineRegular className={css.pickerIcon} />
         </button>
         <ClockPicker
           open={timeOpen}
@@ -2215,7 +2215,7 @@ function CronStepper({ id, min, max, value, disabled, increaseLabel, decreaseLab
         disabled={disabled || value >= max}
         onClick={() => { onChange(clamp(value + 1)) }}
       >
-        <IconChevronUpOutlineMedium size={9} />
+        <IconChevronUpOutlineRegular size={9} />
       </button>
       <button
         type="button"
@@ -2224,7 +2224,7 @@ function CronStepper({ id, min, max, value, disabled, increaseLabel, decreaseLab
         disabled={disabled || value <= min}
         onClick={() => { onChange(clamp(value - 1)) }}
       >
-        <IconChevronDownOutlineMedium size={9} />
+        <IconChevronDownOutlineRegular size={9} />
       </button>
     </span>
   </span>

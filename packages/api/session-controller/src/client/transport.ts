@@ -124,9 +124,7 @@ export function createSessionControlStream(
       : new Error('session control stream ended before its opening snapshot'),
     ...(options.carrierFailed === undefined ? {} : { carrierFailed: options.carrierFailed }),
   })
-  // Both halves are named: the options object cannot infer Snapshot and Delta
-  // separately, so the stream's SessionControlFrame union would fix both of them.
-  return new RemoteSnapshotStream<SessionControlBaselineFrame, SessionControlDeltaFrame>(stream, {
+  return new RemoteSnapshotStream(stream, {
     name: 'session control stream',
     isSnapshot: (frame): frame is SessionControlBaselineFrame => frame.type === 'baseline',
     replace: options.accept,
@@ -181,7 +179,7 @@ export class SessionEventStream extends RemoteJournalStream<
     for await (const frame of this.remote.session.follow({
       address: this.address,
       assistantStream: true,
-      ...(request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }),
+      ...this.repairRequest(request),
     }, signal)) {
       if (frame.type === 'snapshot') {
         for (const record of frame.records) assertSessionWireEvent(record.event)
@@ -240,6 +238,9 @@ export class SessionEventStream extends RemoteJournalStream<
   protected override repairRequest(
     request: ClientSessionPageRequest,
   ): ClientSessionPageRequest {
-    return request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }
+    return {
+      ...(request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }),
+      ...(request.turnWindow === undefined ? {} : { turnWindow: request.turnWindow }),
+    }
   }
 }

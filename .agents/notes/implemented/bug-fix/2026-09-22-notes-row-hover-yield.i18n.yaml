@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-22-notes-row-hover-yield.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-22-notes-row-hover-yield.md
-2026-09-22-notes-row-hover-yield.md: dc604ab3c39ff73aae01df222d63c1c7de5a5f70
-2026-09-22-notes-row-hover-yield.zh.md: a0ea439e02dd68acb586290c24327f4be72313a8
+/agent-note-row-tail-controls-open-in-flow-and-the-text-yields:
+  en: fa40d547e404b567
+  zh: 516ef23baa2e5b95
+/agent-note-row-tail-controls-open-in-flow-and-the-text-yields/problem:
+  en: d00d79084c607fc7
+  zh: c6890e26a25b3f25
+/agent-note-row-tail-controls-open-in-flow-and-the-text-yields/decision:
+  en: 5a2c5803d8cce56d
+  zh: 15b0255c6d14e545
+/agent-note-row-tail-controls-open-in-flow-and-the-text-yields/alternatives-considered:
+  en: 1207081ee095879c
+  zh: 701fac43d12ca96b
+/agent-note-row-tail-controls-open-in-flow-and-the-text-yields/consequences:
+  en: 0b2189431213b43e
+  zh: 0d64ea64d22a2f0b

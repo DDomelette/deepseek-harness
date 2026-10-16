@@ -2,18 +2,19 @@
  * Agent-preset roster store shared by the display surfaces.
  *
  * Options come from one `agentPresets.list` call. Writes target the settings
- * namespace's `default` field, which is what the host resolves at creation;
- * the management section is the surface that writes it.
+ * namespace fields the host resolves at creation; the management section is
+ * the surface that writes them.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { AgentPresetRoster, AgentPresetRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
+import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-preset-registry/types'
+import { isBuiltInPreset } from './locales.ts'
 
 /** The agent-preset settings namespace on the host wire. */
-export const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
+export const AGENT_PRESET_SETTINGS_NS = 'agent-preset-registry'
 
 /**
  * Persist one preset as the default for sessions created later.
@@ -23,17 +24,15 @@ export const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
  * the host resolves at session creation.
  * @param ctx - the browser plugin context carrying the Remote namespaces.
  * @param id - the preset to make default.
+ * @param expectedRevision - optional fence for an automatic correction based on a previous settings read.
  * @returns the failure message, or undefined once the write landed.
  */
 export async function writeDefaultPreset(
   ctx: ClientContext,
   id: string,
+  expectedRevision?: number,
 ): Promise<string | undefined> {
-  const response = await ctx.remote.settings.update(
-    AGENT_PRESET_SETTINGS_NS,
-    { default: id },
-    undefined,
-  )
+  const response = await ctx.remote.settings.update(AGENT_PRESET_SETTINGS_NS, { selectedDefault: id }, expectedRevision)
   return response.ok ? undefined : response.error.message
 }
 
@@ -45,6 +44,14 @@ export interface AgentPresetOption {
   name?: string
   /** One sentence on what the preset is for. */
   description?: string
+}
+
+/** Whether a shipped preset requires the Coding Tools preference.
+ * @param preset Roster entry; named custom overrides keep their own behavior.
+ * @returns True only for the built-in PTC and Minimal presets.
+ */
+export function requiresCodingTools(preset: AgentPresetOption | undefined): boolean {
+  return preset !== undefined && isBuiltInPreset(preset) && (preset.id === 'ptc' || preset.id === 'minimal')
 }
 
 /** One roster entry exactly as the host reports it. */
@@ -95,28 +102,6 @@ export async function beginRosterRead<S extends { status: string; error: string 
 }
 
 /**
- * Read the roster and publish the caller's state for it.
- *
- * One read serves every roster-backed surface: a read that fails or is already
- * in flight publishes nothing further, an empty roster is a valid deployment
- * rather than a failure, and the caller decides what its own snapshot carries
- * in each case.
- * @param ctx - the browser plugin context carrying the Remote namespaces.
- * @param store - the surface's own snapshot store.
- * @param publish - builds the patch this surface shows for one roster.
- * @returns once the store reflects the host.
- */
-export async function loadRoster<S extends { status: string; error: string | null }>(
-  ctx: ClientContext,
-  store: SnapshotStore<S>,
-  publish: (presets: AgentPresetRoster['presets']) => Partial<S>,
-): Promise<void> {
-  const roster = await beginRosterRead(ctx, store)
-  if (roster === undefined) return
-  store.set({ ...store.getSnapshot(), ...publish(roster.presets) })
-}
-
-/**
  * The roster entries as the pickers render them: healthy presets only.
  *
  * The chip exists to choose the NEXT session's composition, and a broken
@@ -132,7 +117,7 @@ export async function loadRoster<S extends { status: string; error: string | nul
  * @returns one option per selectable preset, in roster order.
  */
 export function presetOptions(
-  presets: readonly AgentPresetRow[],
+  presets: readonly { id: string; name?: string; description?: string; broken?: string }[],
 ): AgentPresetOption[] {
   return presets.filter(preset => preset.broken === undefined).map(preset => ({
     id: preset.id,
@@ -166,6 +151,10 @@ export class AgentPresetSettingsController {
     private readonly ctx: ClientContext,
   ) {}
 
+  private set(patch: Partial<AgentPresetSettingsState>): void {
+    this.store.set({ ...this.store.getSnapshot(), ...patch })
+  }
+
   /**
    * Load the roster. An empty roster means the deployment composes no
    * presets, which is a valid deployment rather than a failure — the
@@ -173,9 +162,18 @@ export class AgentPresetSettingsController {
    * @returns once the snapshot reflects the host.
    */
   async load(): Promise<void> {
-    await loadRoster(this.ctx, this.store, presets => (presets.length === 0
-      ? { status: 'unavailable', options: [] }
-      : { status: 'ready', error: null, options: presetOptions(presets) }))
+    const roster = await beginRosterRead(this.ctx, this.store)
+    if (roster === undefined) return
+    const { presets } = roster
+    if (presets.length === 0) {
+      this.set({ status: 'unavailable', options: [] })
+      return
+    }
+    this.set({
+      status: 'ready',
+      error: null,
+      options: presetOptions(presets),
+    })
   }
 
 }

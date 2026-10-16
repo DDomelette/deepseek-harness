@@ -1,14 +1,14 @@
 /** Host registration for the browser theme preference and pre-plugin palette. */
-
-import type { Context, Volatile } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
+
+import type { Volatile } from '@deepseek-ai/cordis'
+import type { ThemePreference } from './theme-settings.ts'
 import z from '@deepseek-ai/schemastery'
-import { bootThemeInjection } from './boot-theme.ts'
-import {
-  FONT_SIZE_FIELD, THEME_PREFERENCE_FIELD, ThemeSettingsFields,
-  type ThemePreference,
-} from './theme-settings.ts'
+
+import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-host-webserver'
+import { bootThemeInjections } from './boot-theme.ts'
+import { DEFAULT_PREFERENCE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES } from './theme-settings.ts'
 
 export {
   DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
@@ -20,28 +20,46 @@ export {
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
-  /** Conversation content font size in pixels. */
+  /** Browser font size in pixels. */
   fontSize: Volatile<number>
+  /** Code-block font size in pixels. */
+  codeFontSize: Volatile<number>
+  /** Sidebar terminal font size in pixels. */
+  terminalFontSize: Volatile<number>
+  /** Interface and body text font list; `''` keeps the built-in stack. */
+  textFontFamily: Volatile<string>
+  /** Code font list; `''` keeps the built-in stack. */
+  codeFontFamily: Volatile<string>
+  /** Sidebar terminal font list; `''` keeps the built-in stack. */
+  terminalFontFamily: Volatile<string>
 }
 
-/** Live theme preferences; the entry id `ui-theme` is the settings namespace. */
+/** Live theme and typography preferences. */
 export const Config = z.object({
-  preference: ThemeSettingsFields[THEME_PREFERENCE_FIELD].volatile(),
-  fontSize: ThemeSettingsFields[FONT_SIZE_FIELD].volatile(),
+  preference: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE).volatile(),
+  fontSize: fontSizeSchema(FONT_SIZE_SPECS.text).volatile(),
+  codeFontSize: fontSizeSchema(FONT_SIZE_SPECS.code).volatile(),
+  terminalFontSize: fontSizeSchema(FONT_SIZE_SPECS.terminal).volatile(),
+  textFontFamily: z.string().default('').volatile(),
+  codeFontFamily: z.string().default('').volatile(),
+  terminalFontFamily: z.string().default('').volatile(),
 })
 
-/**
- * Keep this instance off the generated Settings pages (the theme feature owns
- * its own Appearance and font-size rows) and answer every index injection
- * collection with the live theme bootstrap row.
- * @param ctx - Host context that may acquire the settings service.
- * @param config - the entry's live theme preferences.
+/** Supply the current palette before browser plugins start.
+ * @param ctx Host plugin context.
+ * @param config Validated live theme preferences.
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.inject(['settings'], (child) => {
-    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
-  })
+  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   ctx.on('webserver/index-inject', (table) => {
-    table.push(bootThemeInjection(config.preference.get(), config.fontSize.get()))
+    table.push(...bootThemeInjections(config.preference.get(), {
+      text: config.fontSize.get(),
+      code: config.codeFontSize.get(),
+      terminal: config.terminalFontSize.get(),
+    }, {
+      text: config.textFontFamily.get(),
+      code: config.codeFontFamily.get(),
+      terminal: config.terminalFontFamily.get(),
+    }))
   }, { prepend: true })
 }

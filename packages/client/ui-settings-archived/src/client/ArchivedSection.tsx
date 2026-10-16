@@ -1,14 +1,14 @@
 /**
  * Archived conversations settings section: workspace groups, one row per
- * archived session with its archive instant, details/restore/delete actions,
- * and the details and delete confirmation modals.
+ * archived session with its details and restore actions, and the details
+ * modal.
  */
 
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  Button, IconCloseFillMedium, IconInfoOutlineMedium, IconRefreshOutlineMedium, Modal, Tooltip,
+  Button, IconInfoOutlineMedium, IconRefreshOutlineMedium, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { countDescendants, deriveArchivedGroups, UNGROUPED_KEY } from './derive.ts'
@@ -17,7 +17,6 @@ import css from './ArchivedSection.module.css'
 
 export interface ArchivedSectionInjected {
   restore(sessionId: SessionId): Promise<boolean>
-  deleteSession(sessionId: SessionId): Promise<void>
   refresh(): Promise<void>
 }
 
@@ -25,12 +24,6 @@ export type ArchivedSectionProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.archived'>
   & InjectFace<ArchivedSectionInjected>
-
-interface DeleteTarget {
-  sessionId: SessionId
-  title: string
-  descendantCount: number
-}
 
 interface DetailTarget {
   row: ArchivedRow
@@ -62,14 +55,11 @@ function formatInstant(value: string | number, t: Translate): string {
 export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
   const { useSessions, useWorkspaces, close, t } = props
   const restore = (sessionId: SessionId): Promise<boolean> => props.restore(sessionId)
-  const deleteSession = (sessionId: SessionId): Promise<void> => props.deleteSession(sessionId)
   const refresh = (): Promise<void> => props.refresh()
   const sessions = useSessions(state => state)
   const workspaces = useWorkspaces(state => state)
   const [busy, setBusy] = useState<ReadonlySet<SessionId>>(new Set())
-  const [target, setTarget] = useState<DeleteTarget | undefined>(undefined)
   const [detail, setDetail] = useState<DetailTarget | undefined>(undefined)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [restoreErrors, setRestoreErrors] = useState<Readonly<Record<string, string>>>({})
 
   const groups = useMemo(
@@ -112,34 +102,6 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
     }
   }
 
-  const openDelete = (row: { id: SessionId; title: string }): void => {
-    setDeleteError(null)
-    setTarget({ sessionId: row.id, title: row.title, descendantCount: descendantCounts(row.id) })
-  }
-
-  const onDelete = async (sessionId: SessionId): Promise<void> => {
-    setDeleteError(null)
-    markBusy(sessionId, true)
-    try {
-      await deleteSession(sessionId)
-      setTarget(undefined)
-    } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : String(error))
-    } finally {
-      markBusy(sessionId, false)
-    }
-  }
-
-  const confirmBusy = target !== undefined && busy.has(target.sessionId)
-  const confirmTitle = t('confirm.title')
-  const confirmDescription = target === undefined
-    ? ''
-    : target.descendantCount > 0
-      ? t('confirm.bodyWithDescendants')
-        .replace('{title}', target.title)
-        .replace('{count}', String(target.descendantCount))
-      : t('confirm.bodyNoDescendants').replace('{title}', target.title)
-
   return (
     <div className={css.section}>
       <h2 className={css.title}>{t('title')}</h2>
@@ -170,11 +132,6 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                           <li key={row.id} className={css.row}>
                             <span className={css.rowMain}>
                               <span className={css.rowTitle} title={row.title}>{row.title}</span>
-                              <span className={css.rowMeta}>
-                                {row.archivedAt === undefined
-                                  ? t('row.archivedAtUnknown')
-                                  : t('row.archivedAt', { date: formatDate(row.archivedAt, t) })}
-                              </span>
                             </span>
                             {row.running ? <span className={css.running}>{t('row.running')}</span> : null}
                             <span className={css.actions}>
@@ -200,21 +157,6 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                                     onClick={() => { void onRestore(row.id) }}
                                   >
                                     <IconRefreshOutlineMedium />
-                                  </Button>
-                                </span>
-                              </Tooltip>
-                              <Tooltip label={row.running ? t('row.runningDeleteDisabled') : t('row.delete').replace('{name}', row.title)}>
-                                <span className={css.actionAnchor}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={css.deleteButton}
-                                    aria-label={t('row.delete').replace('{name}', row.title)}
-                                    aria-disabled={row.running || busy.has(row.id)}
-                                    disabled={row.running || busy.has(row.id)}
-                                    onClick={() => { openDelete(row) }}
-                                  >
-                                    <IconCloseFillMedium />
                                   </Button>
                                 </span>
                               </Tooltip>
@@ -258,12 +200,6 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                     <dd>{detail.row.agentPreset}</dd>
                   </>
                 )}
-              <dt>{t('details.archivedAt')}</dt>
-              <dd>
-                {detail.row.archivedAt === undefined
-                  ? t('row.archivedAtUnknown')
-                  : formatInstant(detail.row.archivedAt, t)}
-              </dd>
               <dt>{t('details.updatedAt')}</dt>
               <dd>{detail.row.updatedAt > 0 ? formatInstant(detail.row.updatedAt, t) : '—'}</dd>
               <dt>{t('details.status')}</dt>
@@ -274,26 +210,6 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
               <dd>{detail.row.id}</dd>
             </dl>
           )}
-      </Modal>
-      <Modal
-        open={target !== undefined}
-        title={confirmTitle}
-        closeLabel={t('confirm.cancel')}
-        description={confirmDescription}
-        onClose={() => { if (!confirmBusy) setTarget(undefined) }}
-        footer={(
-          <>
-            <Button variant="outline" disabled={confirmBusy} onClick={() => { setTarget(undefined) }}>
-              {t('confirm.cancel')}
-            </Button>
-            <Button variant="primary" className={css.dangerButton} disabled={confirmBusy}
-              onClick={target === undefined ? undefined : () => { void onDelete(target.sessionId) }}>
-              {t('confirm.delete')}
-            </Button>
-          </>
-        )}
-      >
-        {deleteError === null ? null : <p className={css.error} role="alert">{deleteError}</p>}
       </Modal>
     </div>
   )

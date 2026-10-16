@@ -1,6 +1,16 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for permission-presets.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/permission-presets.md
-permission-presets.md: 7595ee2f47215f6e11be8104e6552c859923a556
-permission-presets.zh.md: 665c667f1c8ace1916afd36af2b622c4c13e44a1
+/permission-presets:
+  en: 254a9bceb7e7d307
+  zh: 8c57c57b79ad2a97
+/permission-presets/the-preset-table:
+  en: b5f7230d3bc1b14b
+  zh: f0ce6c2c7e049a70
+/permission-presets/current-preset-and-the-derived-custom:
+  en: 37a04b897b8f4a13
+  zh: 866598e46b164e1d
+/permission-presets/switching-and-the-permission-preset-event:
+  en: 871e3bd827e5a536
+  zh: 769e7d770c1dd27d

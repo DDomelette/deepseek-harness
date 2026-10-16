@@ -175,7 +175,10 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
     }
     const joined = await joinUrl()
     if (!joined.ok) {
-      setNotice(joined.error.code === 'mob/loopback-only' ? 'lan' : 'failed')
+      // The 'lan' notice tells the operator to reach this deployment over the
+      // network; a deployment that declared no advertised origin cannot be
+      // reached that way until it names one.
+      setNotice(joined.error.code === 'mob/no-advertised-origin' ? 'lan' : 'failed')
       return
     }
     const url = pairingUrlOf(joined.value, answer.value.code)

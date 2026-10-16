@@ -17,7 +17,7 @@
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { IconClockOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ScheduleCatalogEntry } from '@deepseek-ai/dsh-schedule/client'
 import type { CatalogSnapshot } from './catalog-source.ts'
@@ -118,7 +118,7 @@ export function ScheduleTaskTab(props: ScheduleTaskTabProps): ReactNode {
     return <div className={css.tabBody}>
       {answered
         ? <div className={css.empty} role="status">
-          <IconClockOutlineMedium size={24} className={css.emptyGlyph} />
+          <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
           <h3>{t('detail.missing')}</h3>
         </div>
         : <CatalogFeedback status={pending ? 'loading' : catalog.status} populated={false} onRetry={onRetry} t={t} />}

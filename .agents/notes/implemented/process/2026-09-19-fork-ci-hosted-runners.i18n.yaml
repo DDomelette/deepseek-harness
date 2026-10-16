@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-19-fork-ci-hosted-runners.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-19-fork-ci-hosted-runners.md
-2026-09-19-fork-ci-hosted-runners.md: 1c011e70e70f74f986933cf83fc25506ec5db937
-2026-09-19-fork-ci-hosted-runners.zh.md: 89c7f82c3f507b5c3377344baf7b5d3312e1ec6c
+/agent-note-standard-hosted-runners-for-fork-ci:
+  en: 6da829e11aab2808
+  zh: 0465391226b69399
+/agent-note-standard-hosted-runners-for-fork-ci/problem:
+  en: 6fd68bbe0b2a21a9
+  zh: 11cd08a5b3ef8f5b
+/agent-note-standard-hosted-runners-for-fork-ci/decision:
+  en: 4ece3330c5e816b0
+  zh: 52bd0fea113bae56
+/agent-note-standard-hosted-runners-for-fork-ci/alternatives-considered:
+  en: 81a823b3d5a7f6c5
+  zh: 0321284c1d14ad21
+/agent-note-standard-hosted-runners-for-fork-ci/consequences:
+  en: 3a075b841c4c2295
+  zh: eb3d7b346ee67025

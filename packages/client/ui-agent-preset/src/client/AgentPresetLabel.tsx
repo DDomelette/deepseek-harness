@@ -11,7 +11,7 @@
 import { useEffect } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconAgentPresetOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconAgentPresetOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the header actions).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
@@ -61,7 +61,7 @@ export function AgentPresetLabel({
   const text = option === undefined ? undefined : presetDisplayText(option, t)
   return (
     <span className={css.label} title={text?.description ?? t('headerHint')}>
-      <IconAgentPresetOutlineMedium size={14} className={css.icon} />
+      <IconAgentPresetOutlineRegular size={14} className={css.icon} />
       {text?.name ?? preset}
     </span>
   )

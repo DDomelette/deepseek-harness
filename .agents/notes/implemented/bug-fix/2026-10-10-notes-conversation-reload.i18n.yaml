@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-10-notes-conversation-reload.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-10-notes-conversation-reload.md
-2026-10-10-notes-conversation-reload.md: 374a4dab03c052d93f2c7c310f0786b5b6d70424
-2026-10-10-notes-conversation-reload.zh.md: 12c234a3833c9e09c597da03921e3f041e1fe497
+/agent-note-loading-a-recorded-notes-conversation-again:
+  en: a07283099ebf7d47
+  zh: bd8efad69a0b1b75
+/agent-note-loading-a-recorded-notes-conversation-again/problem:
+  en: ff00cb62def5e35a
+  zh: 53e3dd214c2a6675
+/agent-note-loading-a-recorded-notes-conversation-again/decision:
+  en: e733864cb7d7ab29
+  zh: 5764f2b0ddd4573c
+/agent-note-loading-a-recorded-notes-conversation-again/alternatives-considered:
+  en: 79fb2165a74df483
+  zh: d10b88c7e5650f93
+/agent-note-loading-a-recorded-notes-conversation-again/consequences:
+  en: e9c18e13739bcc88
+  zh: 8b36b884c55c8d55

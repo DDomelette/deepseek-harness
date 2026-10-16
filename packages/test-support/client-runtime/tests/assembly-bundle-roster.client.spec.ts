@@ -22,10 +22,8 @@ describe('webApp (the real web profile)', () => {
     expect(dangling).toEqual([])
     expect(bundleRoster(WEB_PROFILE_BUNDLES, undefined, profileScope('web')).rows).toEqual(webApp.rows)
     expect(names).not.toContain('@deepseek-ai/dsh-client-ui-sidebar-browser')
-    // TODO: restore this assertion when `ui-sidebar-browser` and its desktop row
-    // reach this tree; without the package the desktop profile has no such row.
-    // expect(bundleRoster(WEB_PROFILE_BUNDLES, undefined, profileScope('desktop')).rows.map(row => row.name))
-    //   .toContain('@deepseek-ai/dsh-client-ui-sidebar-browser')
+    expect(bundleRoster(WEB_PROFILE_BUNDLES, undefined, profileScope('desktop')).rows.map(row => row.name))
+      .toContain('@deepseek-ai/dsh-client-ui-sidebar-browser')
   })
 
   it('keeps browser rows with their declarations and drops Host-only, disabled, and subpath rows', () => {

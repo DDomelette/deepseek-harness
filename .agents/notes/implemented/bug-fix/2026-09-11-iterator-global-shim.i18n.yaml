@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-11-iterator-global-shim.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-11-iterator-global-shim.md
-2026-09-11-iterator-global-shim.md: beccfa9da6cca43b6816e9fb6cab6c478f8dad5e
-2026-09-11-iterator-global-shim.zh.md: 991213cf1dcae41cab5e7fbcc3663b47a9fbc825
+/agent-note-iterator-global-shim-for-pdfjs-dist-on-pre-es2025-browsers:
+  en: a1ae874c4dff0e19
+  zh: 70027441566c8fde
+/agent-note-iterator-global-shim-for-pdfjs-dist-on-pre-es2025-browsers/problem:
+  en: 29af53bf9807789c
+  zh: abba97e816c3eb42
+/agent-note-iterator-global-shim-for-pdfjs-dist-on-pre-es2025-browsers/decision:
+  en: 1ec58654e76cb15a
+  zh: 88c5dc5aee2d8a9e
+/agent-note-iterator-global-shim-for-pdfjs-dist-on-pre-es2025-browsers/alternatives-considered:
+  en: d679c436b09b0282
+  zh: 2437fdb88623dcf3
+/agent-note-iterator-global-shim-for-pdfjs-dist-on-pre-es2025-browsers/consequences:
+  en: 839d5b056213a1ea
+  zh: 98989181957bcfb5

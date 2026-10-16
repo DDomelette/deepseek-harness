@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-03-resume-headers-do-not-repeat-system-prompts.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-03-resume-headers-do-not-repeat-system-prompts.md
-2026-09-03-resume-headers-do-not-repeat-system-prompts.md: de5e509c9e57af35bc36c24004457f02b63fd99d
-2026-09-03-resume-headers-do-not-repeat-system-prompts.zh.md: 008e25d8d507aac8fbaec7230bad433732f0efd0
+/agent-note-resume-headers-do-not-repeat-system-prompts:
+  en: 0e22a2f7487d53cf
+  zh: ce83104c862f8695
+/agent-note-resume-headers-do-not-repeat-system-prompts/problem:
+  en: 2bba1935f187f5ed
+  zh: 896d2174639765d6
+/agent-note-resume-headers-do-not-repeat-system-prompts/decision:
+  en: 5bfbfd4931bc21bd
+  zh: cf9d775927ffad74
+/agent-note-resume-headers-do-not-repeat-system-prompts/alternatives-considered:
+  en: 9b710a1803edb398
+  zh: 5703217f1c27e003
+/agent-note-resume-headers-do-not-repeat-system-prompts/consequences:
+  en: 61bbab653bef1cdc
+  zh: d55a74a607b0fb7c

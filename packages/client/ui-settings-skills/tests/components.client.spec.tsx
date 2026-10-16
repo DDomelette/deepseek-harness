@@ -31,7 +31,8 @@ const enT: TranslateNS<'settings.skills'> = (key): string => {
 const unusedHook = (() => { throw new Error('unused by SkillsSection') }) as never
 const kit = {
   usePanelInfo: unusedHook, useResource: unusedHook,
-  useSessionPendingInteraction: unusedHook, useSessions: unusedHook, useWorkspaces: unusedHook,
+  useSessions: unusedHook, useWorkspaces: unusedHook,
+  useSessionStatus: unusedHook, useSessionRetainInfo: unusedHook,
 }
 
 function skillsNamespace() {

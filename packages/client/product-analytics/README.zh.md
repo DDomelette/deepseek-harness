@@ -65,5 +65,3 @@ Electron 将构建内联的 `DSH_CLIENT_VERSION` 传给 Host；埋点与导出�
 ### 开发备注
 
 无。
-
-**运行时不变式：** 不发布伴生入口。这个仅限桌面端的服务仅贡献已认证的事件接收、实时压缩采集与 `watchPolicy` 流；批量发送与交付由 `@deepseek-ai/dsh-host-product-telemetry-otel` 持有，身份字段来自 `ctx.deepseekAccount`。

@@ -20,12 +20,11 @@ async function bench(): Promise<{
   slots: SlotRegistry
   locale: LocaleRuntime
   sessions: {
-    open: ReturnType<typeof vi.fn>
-    deleteSession: ReturnType<typeof vi.fn>
     refresh: ReturnType<typeof vi.fn>
     list: { getSnapshot(): { byId: Record<string, unknown> }; subscribe(listener: () => void): () => void }
   }
-  workspaces: { unarchiveSession: ReturnType<typeof vi.fn>; refresh: ReturnType<typeof vi.fn> }
+  workspaces: { unarchiveSession: ReturnType<typeof vi.fn> }
+  uiWorkspace: { openSession: ReturnType<typeof vi.fn> }
 }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
@@ -33,8 +32,6 @@ async function bench(): Promise<{
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   const sessions = {
-    open: vi.fn(),
-    deleteSession: vi.fn(async () => {}),
     refresh: vi.fn(async () => {}),
     list: {
       getSnapshot: () => ({ byId: {} }),
@@ -43,20 +40,22 @@ async function bench(): Promise<{
   }
   const workspaces = {
     unarchiveSession: vi.fn(async () => {}),
-    refresh: vi.fn(async () => {}),
     list: {
-      getSnapshot: () => ({ archivedSessionAts: {}, items: [], archivedSessionIds: [] }),
+      getSnapshot: () => ({ items: [], archivedSessionIds: [] }),
       subscribe: () => () => {},
     },
   }
+  const uiWorkspace = { openSession: vi.fn() }
   ctx.provide('sessions', sessions as never)
   ctx.provide('workspaces', workspaces as never)
+  ctx.provide('uiWorkspace', uiWorkspace as never)
   return {
     ctx,
     slots: ctx.get('slots') as SlotRegistry,
     locale,
     sessions,
     workspaces,
+    uiWorkspace,
   }
 }
 
@@ -72,7 +71,7 @@ describe('ui-settings-archived apply', () => {
   })
 
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces'])
+    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace'])
   })
 
   it('registers the archived nav entry with order 40 and locale copy', async () => {
@@ -95,23 +94,19 @@ describe('ui-settings-archived apply', () => {
     const injected = entry.inject as unknown as () => import('../src/client/ArchivedSection.tsx').ArchivedSectionInjected
     await expect(injected().restore('s1' as never)).resolves.toBe(false)
     expect(b.workspaces.unarchiveSession).toHaveBeenCalledWith('s1')
-    expect(b.sessions.open).not.toHaveBeenCalled()
+    expect(b.uiWorkspace.openSession).not.toHaveBeenCalled()
 
     b.sessions.list.getSnapshot = () => ({ byId: { s1: {} } })
     await expect(injected().restore('s1' as never)).resolves.toBe(true)
-    expect(b.sessions.open).toHaveBeenCalledWith('s1')
+    expect(b.uiWorkspace.openSession).toHaveBeenCalledWith('s1')
   })
 
-  it('refresh fans out to both baselines and deleteSession delegates', async () => {
+  it('refresh reloads the session list', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const injected = entryInjected(b)
-    await injected.refresh()
+    await entryInjected(b).refresh()
     expect(b.sessions.refresh).toHaveBeenCalledOnce()
-    expect(b.workspaces.refresh).toHaveBeenCalledOnce()
-    await injected.deleteSession('s1' as never)
-    expect(b.sessions.deleteSession).toHaveBeenCalledWith('s1')
   })
 })
 

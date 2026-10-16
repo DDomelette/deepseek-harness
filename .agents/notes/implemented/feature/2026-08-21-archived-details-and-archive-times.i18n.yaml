@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-21-archived-details-and-archive-times.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-21-archived-details-and-archive-times.md
-2026-08-21-archived-details-and-archive-times.md: ec2850e3219096655ba983f2568a87278e9971e2
-2026-08-21-archived-details-and-archive-times.zh.md: f11f883f3a923452cf146f35ff7e8a256c96c7c1
+/agent-note-archived-settings-details-dialog-and-archive-timestamps:
+  en: dbf85633109fc5a8
+  zh: 51b80502178018cf
+/agent-note-archived-settings-details-dialog-and-archive-timestamps/problem:
+  en: c75957e74fa7a35b
+  zh: 9fa33c928efc2feb
+/agent-note-archived-settings-details-dialog-and-archive-timestamps/decision:
+  en: a8cc5cd18e6f032e
+  zh: 40f9e5c1d4a3a0c7
+/agent-note-archived-settings-details-dialog-and-archive-timestamps/alternatives-considered:
+  en: bae947b1f045738f
+  zh: c7617dc312860a34
+/agent-note-archived-settings-details-dialog-and-archive-timestamps/consequences:
+  en: 222792ff6b2014ea
+  zh: 66d34ae1ab9b3771

@@ -9,7 +9,7 @@
 
 import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -90,9 +90,24 @@ afterEach(async () => {
   renameControl.remainingFailures = 0
 })
 
+/**
+ * The first non-internal IPv4 literal this machine exposes: the concrete
+ * address a network-serving deployment must name, because the webserver rejects
+ * the unspecified address at load.
+ * @returns the literal, or undefined on a machine with no such interface.
+ */
+function firstLanAddress(): string | undefined {
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family === 'IPv4' && !address.internal) return address.address
+    }
+  }
+  return undefined
+}
+
 /** Write a two-row cordis.yml (webserver + chooser), then boot it through the real Loader. */
 async function loadComposition(
-  bindHost: '127.0.0.1' | '0.0.0.0',
+  bindHost: string,
   options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot } = {},
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
@@ -233,9 +248,16 @@ describe('real Loader composition', () => {
     expect(picker.capability().kind).toBe('browse')
   })
 
-  it('mounts the browse backend for an all-interfaces bind even on an attended host', { timeout: 60_000 }, async () => {
+  it('mounts the browse backend for a network bind even on an attended host', { timeout: 60_000 }, async (context) => {
     stubAttendedHost()
-    const { ctx } = await loadComposition('0.0.0.0')
+    // The webserver rejects the unspecified address at load, so a deployment
+    // that serves the network names one concrete interface instead.
+    const lan = firstLanAddress()
+    if (lan === undefined) {
+      context.skip()
+      return
+    }
+    const { ctx } = await loadComposition(lan)
 
     expect(entryNames(ctx)).toContain(BROWSE)
     expect(entryNames(ctx)).toContain(BROWSE_SURFACE)

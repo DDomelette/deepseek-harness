@@ -90,5 +90,3 @@ None; this package neither assembles nor sends a provider request.
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. The registry snapshot and the shortcut document are this plugin's own state, owned and disposed with the providing fiber; the observable surface other plugins read is that same snapshot through `ctx.shortcuts`, so a separate companion would restate the service's state instead of checking an independently observable relationship.

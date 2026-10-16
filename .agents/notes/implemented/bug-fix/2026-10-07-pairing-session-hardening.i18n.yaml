@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-pairing-session-hardening.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-pairing-session-hardening.md
-2026-10-07-pairing-session-hardening.md: bad871d82ffd8402f5789eb706c7e23aaa5c571b
-2026-10-07-pairing-session-hardening.zh.md: 79d5ed884b318474cce34cedf208ce150c0d6d0b
+/agent-note-pairing-sessions-survive-their-own-traffic:
+  en: c382f09c56abbf91
+  zh: 53f6fb0257d6b1b4
+/agent-note-pairing-sessions-survive-their-own-traffic/problem:
+  en: fac896bd74bb56ff
+  zh: c2a2b01597a21624
+/agent-note-pairing-sessions-survive-their-own-traffic/decision:
+  en: 9a57e6c3173740bf
+  zh: e0ca3c4bc130d6f8
+/agent-note-pairing-sessions-survive-their-own-traffic/alternatives-considered:
+  en: 006294b52bb1c476
+  zh: 32b978d6249f5bc6
+/agent-note-pairing-sessions-survive-their-own-traffic/consequences:
+  en: 80f990a0641d3d59
+  zh: 54655d1b7ab4352f

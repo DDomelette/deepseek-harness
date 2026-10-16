@@ -88,5 +88,3 @@ None.
 </details>
 
 The Client assembly includes the account namespace for login commands and reconnectable account snapshots.
-
-**Runtime invariant:** No companion is published. The Host entry registers one allowlisted Cordis event source per Client, while `ctx.typertGateway` owns the physical stream, carriers, endpoints, cancellation, and reconnection.

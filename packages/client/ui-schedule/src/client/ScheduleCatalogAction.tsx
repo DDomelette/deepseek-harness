@@ -3,8 +3,8 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  IconClockOutlineMedium,
-  IconTrashOutlineMedium,
+  IconClockOutlineRegular,
+  IconTrashOutlineRegular,
   useAnchoredPosition,
   useDismissOnOutsidePointer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -121,7 +121,7 @@ export function ScheduleCatalogAction({
         openTask(soleTask.id)
       }}
     >
-      <IconClockOutlineMedium size={16} />
+      <IconClockOutlineRegular size={16} />
     </button>
   )
   const catalog = open
@@ -182,7 +182,7 @@ export function ScheduleCatalogAction({
                 disabled={deleting.includes(record.id)}
                 onClick={() => { void onDelete(record.id) }}
               >
-                <IconTrashOutlineMedium size={14} />
+                <IconTrashOutlineRegular size={14} />
               </button>
             </li>
           )

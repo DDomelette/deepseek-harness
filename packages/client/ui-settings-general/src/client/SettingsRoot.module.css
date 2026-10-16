@@ -1,4 +1,5 @@
 .triggerRow {
+  position: relative;
   flex: none;
   display: flex;
   align-items: center;
@@ -24,7 +25,7 @@
   padding: 0 10px 0 8px;
   box-sizing: border-box;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   cursor: pointer;
   overflow: hidden;
@@ -38,7 +39,8 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-/* Rail trigger: the same 36x36 circle box as the other rail controls. */
+/* Rail trigger: the same 36x36 box and 12px rounding as the other rail
+   controls. */
 .trigger.rail {
   flex: none;
   width: 36px;
@@ -47,8 +49,6 @@
   justify-content: center;
   gap: 0;
   padding: 0;
-  border-radius: 50%;
-  corner-shape: round;
 }
 
 .triggerLabel {
@@ -67,27 +67,29 @@
   justify-content: center;
 }
 
+/* The full-viewport overlay blocks background clicks above the painted mask too. */
 .mask {
   position: absolute;
-  inset: 0;
+  inset: var(--dsh-frame-chrome-top, 0px) 0 0;
   background: var(--dsw-alias-bg-mask-1);
   backdrop-filter: var(--dsw-mask-blur);
 }
 
-/* Panel (figma Settings 501:29947): r24, white; the figma lv3 effects are
-   superseded by the shared elevation treatment; figma's 1080x700 is shrunk to 800 wide.
-   One height for every section, taken from the viewport rather than the
-   content: sections differ by hundreds of pixels (a settings list against the
-   composition editor), and a content-sized panel would resize under the
-   pointer on every nav click. Whatever does not fit scrolls in `.options`. */
+/* Settings uses a shared 800×800 panel; longer sections scroll
+   inside the options column; the navigation scrolls independently. One height for
+   every section, taken from the viewport rather than the content, because a
+   content-sized panel would resize under the pointer on every nav click.
+   The viewport height leaves 24px of air above and below, widened to the
+   frame's published overlay inset on both sides, so the panel sits centered
+   and clear of the strip. */
 .panel {
   position: relative;
   z-index: 1;
   display: flex;
   width: 800px;
-  height: min(800px, calc(100vh - 48px));
+  height: min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px))));
   max-width: calc(100vw - 48px);
-  border-radius: 32px;
+  border-radius: var(--dsw-radius-panel);
   overflow: hidden;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-prominent);
@@ -98,6 +100,10 @@
      styles/scrollbar.css for the rebinding contract). */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.panel:focus {
+  outline: none;
 }
 
 /* Nav rail (figma .Setting-nav 501:29958): 188 wide, pad (12,22,12,0),
@@ -126,6 +132,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
 }
 
 /* Nav cell (figma .Setting-nav-cell 501:29962): 164x40, r12, pad
@@ -138,7 +145,7 @@
   padding: 9px 16px 9px 12px;
   box-sizing: border-box;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
@@ -198,7 +205,7 @@
   margin-left: auto;
 }
 
-/* Close button (figma .Icon_container 501:29982): 28x28, r28, 14px glyph. */
+/* Compact close control. */
 .close {
   display: inline-flex;
   align-items: center;
@@ -207,7 +214,7 @@
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 28px;
+  border-radius: var(--dsw-radius-sm);
   background: transparent;
   cursor: pointer;
   color: var(--dsw-alias-label-primary);
@@ -215,42 +222,6 @@
 
 .close:hover {
   background: var(--dsw-alias-interactive-bg-hover);
-}
-
-/* Back and section-name seats of the handset header: one pane at a time means
-   the content column needs a way back to the list and a name for what it
-   shows. Both stay out of the two-column layout, which keeps the nav rail's
-   own heading and the figma header as they are. */
-.back {
-  display: none;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 28px;
-  background: transparent;
-  cursor: pointer;
-  color: var(--dsw-alias-label-primary);
-}
-
-.back:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.detailTitle {
-  display: none;
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary);
 }
 
 /* Options area (figma Options 501:29983): pad (24,0,24,24), scrolls. */
@@ -271,108 +242,7 @@
   white-space: nowrap;
 }
 
-/* Handset layout: one pane at a time. Below the breakpoint the panel fills the
-   viewport, and the section list and the chosen section never share it. The nav
-   and content columns stop generating boxes, so their children become grid
-   items: row 1 is one bar holding either the settings title or the back control
-   and section name, beside the shell-owned close control; row 2 is whichever
-   pane the chosen section selects. The breakpoint stays in step with
-   SETTINGS_PANE_BREAKPOINT. */
-@media (max-width: 767px) {
-  .overlay {
-    align-items: stretch;
-  }
-
-  .panel {
-    display: grid;
-    grid-template-rows: 60px 1fr;
-    grid-template-columns: 1fr;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    max-width: none;
-    border-radius: 0;
-    /* The sheet spans the raw viewport, so the safe-area insets become its
-       padding: the top bar clears an installed PWA's status bar and a landscape
-       notch, and the scrolling pane stops above the home indicator. */
-    box-sizing: border-box;
-    padding:
-      env(safe-area-inset-top)
-      env(safe-area-inset-right)
-      env(safe-area-inset-bottom)
-      env(safe-area-inset-left);
-  }
-
-  .nav,
-  .content {
-    display: contents;
-  }
-
-  .navTitle {
-    grid-area: 1 / 1;
-    align-self: center;
-    padding: 0 12px 0 20px;
-  }
-
-  .header {
-    grid-area: 1 / 1;
-    height: 60px;
-    padding: 10px 14px 10px 10px;
-    justify-content: flex-end;
-  }
-
-  .navList {
-    grid-area: 2 / 1;
-    min-height: 0;
-    padding: 0 12px 16px;
-    overflow-y: auto;
-  }
-
-  .options {
-    grid-area: 2 / 1;
-    padding: 0 16px 24px;
-  }
-
-  .navCell {
-    height: 48px;
-  }
-
-  /* While the list is the pane nothing is open yet, so the projected row keeps
-     no highlight. */
-  .panel[data-pane='list'] .navCell.active {
-    background: transparent;
-  }
-
-  .panel[data-pane='list'] .back,
-  .panel[data-pane='list'] .detailTitle,
-  .panel[data-pane='list'] .actions,
-  .panel[data-pane='list'] .options,
-  .panel[data-pane='detail'] .navTitle,
-  .panel[data-pane='detail'] .navList {
-    display: none;
-  }
-
-  .back,
-  .close {
-    width: 40px;
-    height: 40px;
-  }
-
-  .panel[data-pane='detail'] .back {
-    display: inline-flex;
-  }
-
-  .panel[data-pane='detail'] .detailTitle {
-    display: block;
-    margin-right: auto;
-  }
-}
-
-.failureReason {
-  max-width: 220px;
-  overflow: hidden;
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* No app-region rule here: the overlay portals beside #root (SettingsRoot), so
+   ui-web base.css's `body > :not(#root)` subtraction covers it wherever it
+   overlaps a chrome row's drag — including above every column, which an in-root
+   overlay could not promise once a chrome row declares drag itself. */

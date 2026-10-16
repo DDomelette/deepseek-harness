@@ -10,7 +10,7 @@
  */
 
 import {
-  IconClockOutlineMedium,
+  IconClockOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -50,7 +50,7 @@ export function SessionScheduleMark({
       // own click target; the row keeps every other cell as its activation area.
       onClick={(event) => { event.stopPropagation() }}
     >
-      <IconClockOutlineMedium size={14} />
+      <IconClockOutlineRegular size={14} />
       {/* The glyph is aria-hidden, so the count reaches assistive technology
           only through this label, as the row's status dots do. */}
       <span className={css.visuallyHidden}>{t('mark.aria', { count: facts.records.length })}</span>

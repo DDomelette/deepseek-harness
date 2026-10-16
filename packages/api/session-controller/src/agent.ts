@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type {
-  Agent, AgentHandle, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef,
+  Agent, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef,
 } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
@@ -58,7 +58,7 @@ export class ApiSessionPresetConflict extends Error {
 }
 
 /** Failures produced while resolving one ordinary Session identity to its live Agent. */
-export type ApiSessionAgentError = RemoteError<'session/not-found' | 'session/agent-busy' | 'gateway/internal'>
+export type ApiSessionAgentError = RemoteError<'session/not-found' | 'session/agent-busy' | 'session/writer-held' | 'gateway/internal'>
 
 /** Result of resolving one ordinary Session identity to its live Agent. */
 export type ApiSessionAgentResult =
@@ -138,7 +138,6 @@ export async function inspectApiSession(
 
 /** Owns every operation that may create, resume, or configure a Web Agent. */
 export class ApiSessionAgentController {
-  private readonly handles = new Map<SessionId, AgentHandle>()
   private readonly resumes = new Map<SessionId, Promise<Agent>>()
   private readonly creations = new Map<SessionId, Promise<Agent>>()
   private readonly selections = new WeakMap<Agent, InstalledSelection>()
@@ -146,9 +145,6 @@ export class ApiSessionAgentController {
 
   /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
   constructor(private readonly ctx: Context) {
-    ctx.on('agent/disposed', ({ agent }) => {
-      if (this.handles.get(agent.id)?.agent === agent) this.handles.delete(agent.id)
-    })
     ctx.typert.lookups.configure('agent', async (sessionId: SessionId) => {
       const found = await this.resolveAgent(sessionId)
       if ('error' in found) throw found.error
@@ -201,7 +197,11 @@ export class ApiSessionAgentController {
       this.resumes.set(sessionId, resume)
     }
     try {
-      return { agent: await resume }
+      const agent = await resume
+      // A shared resume can publish an identity that subagent routing adopts
+      // before every waiter observes it; apply the live ownership policy again.
+      const published = this.liveAgent(sessionId)
+      return published ?? { agent }
     } catch (error: unknown) {
       if (error instanceof ApiSessionNotFound) {
         return { error: new RemoteError('session/not-found', error.message, { sessionId }) }
@@ -214,6 +214,9 @@ export class ApiSessionAgentController {
       const racedSession = this.ctx.sessions.get(sessionId)
       if (racedSession !== undefined && hasApiSessionSubagentOwner(this.ctx, racedSession, undefined)) {
         return { error: apiSessionSubagentOwnershipError(sessionId) }
+      }
+      if (error instanceof Error && error.name === 'SessionAlreadyOwnedError') {
+        return { error: new RemoteError('session/writer-held', error.message, { sessionId }) }
       }
       return {
         error: new RemoteError(
@@ -431,11 +434,11 @@ export class ApiSessionAgentController {
     if (published !== undefined && hasApiSessionSubagentOwner(this.ctx, published, live)) {
       throw new ApiSessionSubagentOwnership(sessionId)
     }
-    return this.own(await this.ctx.agents.resume({
+    return (await this.ctx.agents.resume({
       resumeSessionId: sessionId,
       agentOptions: this.agentOptions(),
       setup: composition.setup,
-    }))
+    })).agent
   }
 
   private async createOrAdopt(
@@ -463,11 +466,11 @@ export class ApiSessionAgentController {
         const storedPreset = this.presetForObservation(observation)
         this.assertPresetUnchanged(sessionId, presetId, storedPreset)
         const composition = await this.composeAgent(storedPreset)
-        return this.own(await this.ctx.agents.resume({
+        return (await this.ctx.agents.resume({
           resumeSessionId: sessionId,
           agentOptions: this.agentOptions(),
           setup: composition.setup,
-        }))
+        })).agent
       } catch (error: unknown) {
         if (!(error instanceof SessionQueryError)
           || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
@@ -480,7 +483,7 @@ export class ApiSessionAgentController {
       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
     }
     const composition = await this.composeAgent(presetId)
-    return this.own(await this.ctx.agents.create({
+    return (await this.ctx.agents.create({
       sessionId,
       agentOptions: this.agentOptions(),
       meta: {
@@ -488,33 +491,7 @@ export class ApiSessionAgentController {
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
       },
       setup: composition.setup,
-    }))
-  }
-
-  private own(handle: AgentHandle): Agent {
-    this.handles.set(handle.agent.id, handle)
-    return handle.agent
-  }
-
-  /**
-   * Close idle Agents created by this API owner before deleting their logs.
-   * @param ids - complete deletion plan; every member is checked before disposal.
-   * @returns after each owned Agent and its write handle has closed.
-   */
-  async detachForDeletion(ids: readonly SessionId[]): Promise<void> {
-    const handles: AgentHandle[] = []
-    for (const id of ids) {
-      const live = this.ctx.agents.get(id)
-      const handle = this.handles.get(id)
-      if (this.creations.has(id) || this.resumes.has(id)
-        || (live !== undefined && (live.status === 'running' || handle?.agent !== live))) {
-        throw new RemoteError('session/agent-busy', `session "${id}" is running, activating, or owned by another component`, { reason: 'deletion requires idle API-owned Agents' })
-      }
-      if (live !== undefined && handle !== undefined) handles.push(handle)
-    }
-    for (const handle of handles) {
-      await handle.dispose()
-    }
+    })).agent
   }
 
   private agentOptions(): AgentOptions {

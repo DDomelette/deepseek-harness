@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-12-browser-floor-for-the-web-shell.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-12-browser-floor-for-the-web-shell.md
-2026-09-12-browser-floor-for-the-web-shell.md: 6de8f508d3834ddb2f8655dc81a8466e31c5a851
-2026-09-12-browser-floor-for-the-web-shell.zh.md: d0b8bee53ba2bc3093dcc5580efd0976299179a9
+/agent-note-browser-floor-for-the-web-shell:
+  en: 95b5d6d7183e9ca5
+  zh: 39d290db298f6d4c
+/agent-note-browser-floor-for-the-web-shell/problem:
+  en: ea55d729d558bfaa
+  zh: 08bf928717b2e7a0
+/agent-note-browser-floor-for-the-web-shell/decision:
+  en: ed1fa8c43aff48e9
+  zh: b26a68ec35fedcd9
+/agent-note-browser-floor-for-the-web-shell/alternatives-considered:
+  en: 1ac88f4207e06d05
+  zh: 7125332026802564
+/agent-note-browser-floor-for-the-web-shell/consequences:
+  en: ddcbec239c369953
+  zh: 9d4e63fdd4507ddb

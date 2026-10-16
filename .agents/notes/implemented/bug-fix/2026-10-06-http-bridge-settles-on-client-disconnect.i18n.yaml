@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-http-bridge-settles-on-client-disconnect.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-http-bridge-settles-on-client-disconnect.md
-2026-10-06-http-bridge-settles-on-client-disconnect.md: f7246ae7fe5f348876fbaa6e18a5b55ec580d02e
-2026-10-06-http-bridge-settles-on-client-disconnect.zh.md: d03614af8772be29d94a75b446b321deb3c3ee00
+/agent-note-the-response-bridge-settles-when-its-client-disconnects:
+  en: c7c9da215aada512
+  zh: 409229fcd1c93cf2
+/agent-note-the-response-bridge-settles-when-its-client-disconnects/problem:
+  en: 8bc6ae7ee761dc6a
+  zh: a2c313846c847773
+/agent-note-the-response-bridge-settles-when-its-client-disconnects/decision:
+  en: da743d409a1dc48a
+  zh: 4eb0e77582ab84ad
+/agent-note-the-response-bridge-settles-when-its-client-disconnects/alternatives-considered:
+  en: 18c395feaa826dc6
+  zh: 3d8928a805756b20
+/agent-note-the-response-bridge-settles-when-its-client-disconnects/consequences:
+  en: 57ebcfc59e2bda44
+  zh: 5a3c5bfa5718730b
+/agent-note-the-response-bridge-settles-when-its-client-disconnects/testing:
+  en: 0d4b0b3c041c8a7a
+  zh: fda3b8b7ad75cd9d

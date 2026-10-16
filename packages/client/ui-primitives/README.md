@@ -62,6 +62,8 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `HoverCard` | Hover preview the pointer can rest on and select from; optional copy button. |
 | `ImageLightbox` | Shared image modal with focus restoration and Escape dismissal. |
 | `Toast` | Transient top-center banner held for the owner's `holdMs`. |
+| `SettingsForm`, `SettingsValueField`, `SettingsSecretField` | The frame and the controls of a plugin's settings page: the frame takes its copy as `labels`, saves only on its button, and discards on unmount; a value field shows staged text with the overridden badge and reset; a secret field starts blank, requests no saved-password autofill, and reports only whether a value is configured. |
+| `SettingsFormModel`, `settingsNumberField`, `settingsTextField` | The staged-edit model behind such a page over a settings scope: drafts are staged and written on save, a field is overridden by its presence in the user layer, and a save that did not land keeps its drafts. |
 | `JsonTree`, `JsonBlock` | Read-only JSON inspection. |
 | `MarkdownText`, `MarkdownDelegateProvider`, `CodeBlock` | Untrusted GFM with TeX math, owner-delegated HTTP(S) navigation, and highlighted code. `CodeBlock` accepts opt-in `lineNumbers`; copied source excludes the gutter, and `contentRef` exposes its stable source wrapper to an owner that uses it as a scrollport. Set `showHeader={false}` when the owner supplies its own language and copy toolbar. |
 | `CommandText` | Selectable command or argument text; only horizontal overflow adds a named keyboard focus target. |
@@ -115,7 +117,7 @@ The atoms cannot read the application locale, so every piece of user-facing copy
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
-`Button` uses H36/R12 for `md` and H28/R8 for `sm`, including outlined controls. Menus and cards follow the [shared radius rules](../../../docs/web-styling.md#component-rules); feature classes preserve control geometry.
+`Button` uses H36/R12 for `md` and H28/R8 for `sm`, including outlined controls. Menus and cards follow the [shared radius rules](../../../docs/web-styling.md#corner-radii-and-settings-cards); feature classes preserve control geometry.
 
 `Menu.listClassName` styles the menu card independently of the anchor wrapper, including in portal mode. Leading icons use the `--dsw-alias-menu-icon` color; destructive icons retain their error color.
 
@@ -214,5 +216,3 @@ These limits define how the atoms behave at the edges; they are current package 
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. These components render the props their owners pass and own no durable state beyond per-mount view state, so no relationship here diverges under an independent observation.

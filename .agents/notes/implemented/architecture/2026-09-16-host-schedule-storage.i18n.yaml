@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-16-host-schedule-storage.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-host-schedule-storage.md
-2026-09-16-host-schedule-storage.md: cd295da24995c1d7a1736d01d4d52c37278b5cdb
-2026-09-16-host-schedule-storage.zh.md: c5ee3ac455890b5fbd2bd7908cb304851f0af346
+/agent-note-host-owned-scheduled-messages:
+  en: 11854b220af809ea
+  zh: 0f0575de37107ed8
+/agent-note-host-owned-scheduled-messages/problem:
+  en: 2c774d05ae75784f
+  zh: 619ba7f281b13233
+/agent-note-host-owned-scheduled-messages/decision:
+  en: 1210b3975fd26bb3
+  zh: 3322e6d0aa63fdb0
+/agent-note-host-owned-scheduled-messages/alternatives-considered:
+  en: 21d7ec9a9ff3cbf2
+  zh: 93d03b8b3012aa7e
+/agent-note-host-owned-scheduled-messages/consequences:
+  en: 3ae0cd93ed95431e
+  zh: 25a0a2bc25863651

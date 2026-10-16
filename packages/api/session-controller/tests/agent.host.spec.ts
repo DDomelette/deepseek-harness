@@ -7,6 +7,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionLogOffset, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
+import { SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -237,6 +238,37 @@ describe('ApiSession Agent lookup and recovery', () => {
     })
   })
 
+  it('identifies a held Session writer without classifying other resume failures as contention', async () => {
+    const { ctx, agents } = await harness()
+    const meta = header('owned-session')
+    providePersistence(ctx, {
+      list: () => Promise.resolve([meta]),
+      inspect: () => Promise.resolve({ meta, events: [] }),
+    })
+    const resume = vi.spyOn(ctx.agents, 'resume').mockRejectedValue(new SessionAlreadyOwnedError(meta.id))
+    await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({
+      error: { code: 'session/writer-held', details: { sessionId: meta.id } },
+    })
+    resume.mockRejectedValue(Object.assign(new Error('another module copy'), { name: 'SessionAlreadyOwnedError' }))
+    await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({
+      error: { code: 'session/writer-held', details: { sessionId: meta.id } },
+    })
+    resume.mockRejectedValue(new Error('unrelated failure'))
+    await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({
+      error: { code: 'gateway/internal' },
+    })
+  })
+
+  it('retains resume diagnostics without a persistence service', async () => {
+    const { ctx, agents } = await harness()
+    const meta = header('memory-only-resume')
+    ctx.sessions.create(meta.id, { meta })
+    vi.spyOn(ctx.agents, 'resume').mockRejectedValue(new Error('factory unavailable'))
+    await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({
+      error: { code: 'gateway/internal', message: expect.stringContaining('factory unavailable') as string },
+    })
+  })
+
   it('requires projected observations before activation', async () => {
     const { agents } = await harness()
     const meta = header('unprojected-observation')
@@ -298,51 +330,6 @@ describe('ApiSession model selection', () => {
 })
 
 describe('ApiSession create or adoption', () => {
-  it('checks the whole deletion plan before closing idle owned Agents', async () => {
-    const { ctx, agents } = await harness()
-    const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-delete-'))
-    tempDirs.push(cwd)
-    const meta = header('owned-delete', cwd)
-    const dispose = vi.fn<() => Promise<void>>()
-    vi.spyOn(ctx.agents, 'create').mockImplementation(async () => {
-      const live = agent(ctx, meta)
-      const unregister = await ctx.agents.register(live)
-      dispose.mockImplementation(async () => { await unregister() })
-      return { agent: live, dispose }
-    })
-    const owned = await agents.ensureSession(meta.id, cwd, false)
-    const foreign = agent(ctx, header('foreign-delete', cwd))
-    await ctx.agents.register(foreign)
-    await expect(agents.detachForDeletion([owned.id, foreign.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
-    expect(dispose).not.toHaveBeenCalled()
-    Object.assign(owned, { status: 'running' })
-    await expect(agents.detachForDeletion([owned.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
-    Object.assign(owned, { status: 'idle' })
-    await agents.detachForDeletion([SessionId('cold-delete'), owned.id])
-    expect(dispose).toHaveBeenCalledOnce()
-    expect(ctx.agents.get(owned.id)).toBeUndefined()
-    await agents.detachForDeletion([owned.id])
-    expect(dispose).toHaveBeenCalledOnce()
-  })
-
-  it('refuses deletion while an Agent is being created or resumed', async () => {
-    const { ctx, agents } = await harness()
-    const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-delete-busy-'))
-    tempDirs.push(cwd)
-    const created = unpublishedAgent(ctx, header('creating-delete', cwd))
-    vi.spyOn(ctx.agents, 'create').mockResolvedValue({ agent: created, dispose: async () => {} })
-    const creation = agents.ensureSession(created.id, cwd, false)
-    await expect(agents.detachForDeletion([created.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
-    await creation
-
-    const meta = header('resuming-delete', cwd)
-    providePersistence(ctx, { list: async () => [meta], inspect: async () => ({ meta, events: [] }) })
-    vi.spyOn(ctx.agents, 'resume').mockResolvedValue({ agent: unpublishedAgent(ctx, meta), dispose: async () => {} })
-    const resume = agents.resolveAgent(meta.id)
-    await expect(agents.detachForDeletion([meta.id])).rejects.toMatchObject({ code: 'session/agent-busy' })
-    await expect(resume).resolves.toHaveProperty('agent')
-  })
-
   it('shares one in-flight creation between concurrent callers', async () => {
     const { ctx, agents } = await harness()
     const cwd = mkdtempSync(join(tmpdir(), 'dsh-session-controller-concurrent-'))

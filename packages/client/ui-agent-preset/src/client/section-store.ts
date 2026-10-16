@@ -1,113 +1,122 @@
-/**
- * Agent-preset management controller: the roster as a list and a read-only
- * viewer over the shipped compositions.
- *
- * A deployment's presets are declared in its own composition files, outside
- * the browser, so this page offers no way to create, edit, or remove one. The
- * host stays the single fact source; every write goes through the wire and the
- * page re-reads the roster afterwards.
- */
-
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-// Type-only: pulls the ctx.remote merge into this program.
+/** Preset roster, the new-task default and the read-only composition viewer for the settings section. */
+import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AgentPresetRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { loadRoster, writeDefaultPreset } from './settings-store.ts'
+import type { AgentPresetRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
+import { AGENT_PRESET_SETTINGS_NS, requiresCodingTools, writeDefaultPreset } from './settings-store.ts'
 
-/** One preset row the page renders, exactly as the host reports it. */
-export type PresetRow = AgentPresetRow
-
-/** The read-only composition viewer over one shipped preset. */
+/** The read-only composition viewer over one preset. */
 export interface PresetView {
-  /** The preset whose composition is shown. */
+  /** The preset being read. */
   id: string
-  /** Display name, for the dialog title. */
+  /** Display name the preset published, or its id. */
   title: string
-  /** Composition text exactly as stored. */
+  /** The declared child plugin list as YAML. */
   content: string
 }
-
-/** Page snapshot. */
+/** Settings page state. */
 export interface AgentPresetSectionState {
-  status: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
-  /** Whole-load failure text. */
+  status: 'idle' | 'loading' | 'ready' | 'error'
   error: string | null
-  /** Every preset the deployment currently supplies. */
-  rows: readonly PresetRow[]
-  /** The open read-only viewer, or null. */
+  saving: boolean
+  rows: readonly AgentPresetRow[]
+  /** The open viewer, or null. */
   view: PresetView | null
 }
+const INITIAL: AgentPresetSectionState = { status: 'idle', error: null, saving: false, rows: [], view: null }
+const message = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
-const INITIAL: AgentPresetSectionState = {
-  status: 'idle',
-  error: null,
-  rows: [],
-  view: null,
-}
-
-/** Reads the roster and drives the viewer. */
+/** Loads the roster, writes the default, and reads one composition at a time. */
 export class AgentPresetSectionController {
-  /** Page snapshot the renderer subscribes to. */
+  /** Observable roster, selection and viewer state. */
   readonly store: SnapshotStore<AgentPresetSectionState> = createSnapshotStore(INITIAL)
+  private loading: Promise<void> | undefined
+  private pendingSave: Promise<void> | undefined
+  private viewRequest = 0
+  constructor(private readonly ctx: Context) {}
 
-  /**
-   * @param ctx - the browser plugin context.
+  private set(patch: Partial<AgentPresetSectionState>): void { this.store.set({ ...this.store.getSnapshot(), ...patch }) }
+
+  /** Refresh the roster; concurrent calls share one read.
+   * @returns Once the roster read settles.
    */
-  constructor(
-    private readonly ctx: ClientContext,
-  ) {}
-
-  private set(patch: Partial<AgentPresetSectionState>): void {
-    this.store.set({ ...this.store.getSnapshot(), ...patch })
+  load(): Promise<void> {
+    return this.loading ??= this.readRoster().finally(() => { this.loading = undefined })
+  }
+  private async readRoster(): Promise<void> {
+    try {
+      const result = await this.ctx.remote.agentPresets.list()
+      if (!result.ok) throw new Error(result.error.message)
+      this.set({ status: 'ready', error: null, rows: result.value.presets })
+    } catch (error) { this.set({ status: 'error', error: message(error) }) }
   }
 
-  /**
-   * Load the roster. An empty roster means the deployment composes no
-   * presets, which is a valid deployment rather than a failure — the section
-   * reports `unavailable` and renders nothing.
-   * @returns once the snapshot reflects the host.
-   */
-  async load(): Promise<void> {
-    // Nothing to manage leaves nothing to keep a dialog open over.
-    await loadRoster(this.ctx, this.store, presets => (presets.length === 0
-      ? { status: 'unavailable', rows: [], view: null }
-      : { status: 'ready', error: null, rows: presets.map(preset => ({ ...preset })) }))
-  }
-
-  /**
-   * Open one shipped preset's composition in the read-only viewer.
-   * @param id - the preset to view.
-   * @returns once the composition loaded or the failure is on the page.
+  /** Open one preset's declared composition in the viewer.
+   * @param id Preset to read.
+   * @returns Once the read settles; a current failure lands in `error`, while a read superseded by close or another read is ignored.
    */
   async view(id: string): Promise<void> {
-    this.set({ error: null })
-    const result = await this.ctx.remote.agentPresets.read(id)
-    if (!result.ok) {
-      this.set({ error: result.error.message })
-      return
-    }
-    const { name, content } = result.value
-    this.set({ view: { id, title: name ?? id, content } })
+    const request = ++this.viewRequest
+    this.set({ error: null, view: null })
+    try {
+      const result = await this.ctx.remote.agentPresets.read(id)
+      if (request !== this.viewRequest) return
+      if (!result.ok) throw new Error(result.error.message)
+      const { name, content } = result.value
+      this.set({ view: { id, title: name ?? id, content } })
+    } catch (error) { if (request === this.viewRequest) this.set({ error: message(error) }) }
   }
+  /** Close the viewer. */
+  closeView(): void { this.viewRequest++; this.set({ view: null }) }
 
-  /** Close the read-only viewer. */
-  closeView(): void {
-    this.set({ view: null })
-  }
-
-  /**
-   * Make one preset the default for sessions created later. Running sessions
-   * keep the composition they began with, so this never disturbs work.
-   * @param id - the preset to make default.
-   * @returns once the write settled and the roster was re-read.
+  /** Set the default and synchronize the current blank task when supplied.
+   * @param id Selected default.
+   * @param sync Blank-session synchronization callback.
+   * @returns Once saved and refreshed.
    */
-  async makeDefault(id: string): Promise<void> {
-    const failure = await writeDefaultPreset(this.ctx, id)
-    if (failure !== undefined) {
-      this.set({ error: failure })
+  async makeDefault(id: string, sync?: (id: string) => Promise<string | undefined>): Promise<void> {
+    await this.save(() => writeDefaultPreset(this.ctx, id), sync)
+  }
+
+  /** Replace a hidden built-in default after accepted Coding Tools changes.
+   * @param shouldReset Rechecked after waiting; false when tools are enabled or this owner is disposed.
+   * @returns Once the conditional save settles; errors remain visible in the section.
+   */
+  async reconcileCodingTools(shouldReset: () => boolean): Promise<void> {
+    while (this.pendingSave !== undefined) await this.pendingSave
+    if (!shouldReset()) return
+    const settings = this.ctx.configForms.get(AGENT_PRESET_SETTINGS_NS).getSnapshot()
+    if (settings.mode !== 'host' || settings.status !== 'ready' || !settings.writable || settings.revision === undefined) return
+    await this.load()
+    if (!shouldReset() || this.store.getSnapshot().status !== 'ready') return
+    const rows = this.store.getSnapshot().rows
+    if (!requiresCodingTools(rows.find(row => row.isDefault))) return
+    if (!rows.some(row => row.id === 'standard' && row.broken === undefined)) {
+      this.set({ error: this.ctx.locale.bind('settings.agentPreset')('standardUnavailable') })
       return
     }
-    await this.load()
+    await this.save(() => writeDefaultPreset(this.ctx, 'standard', settings.revision))
+  }
+
+  private async save(write: () => Promise<string | undefined>, sync?: (id: string) => Promise<string | undefined>): Promise<void> {
+    if (this.store.getSnapshot().saving) return
+    const completion = Promise.withResolvers<void>()
+    this.pendingSave = completion.promise
+    this.set({ saving: true, error: null })
+    try {
+      const error = await write()
+      await this.load()
+      if (error !== undefined) throw new Error(error)
+      const selected = this.store.getSnapshot().rows.find(row => row.isDefault)
+      if (selected !== undefined) {
+        const error = await sync?.(selected.id)
+        if (error !== undefined) throw new Error(error)
+      }
+    } catch (error) { this.set({ error: message(error) }) }
+    finally {
+      this.pendingSave = undefined
+      this.set({ saving: false })
+      completion.resolve()
+    }
   }
 }

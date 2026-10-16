@@ -108,7 +108,7 @@ function fakeApi(script: Script = {}): FakeApi {
 
 const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
 const refusedJoin = (code: string): ConnectPhoneRowInjected['joinUrl'] =>
-  async () => ({ ok: false, error: new RemoteError(code as 'mob/loopback-only', 'refused', {}) })
+  async () => ({ ok: false, error: new RemoteError(code as 'mob/no-advertised-origin', 'refused', {}) })
 
 function mount(options: {
   api?: FakeApi
@@ -390,13 +390,13 @@ describe('PairingPanel', () => {
     })
     cleanup()
 
-    mount({ joinUrl: refusedJoin('mob/no-lan-address') })
+    mount({ joinUrl: refusedJoin('mob/no-advertised-origin') })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
   })
 
-  it('shows the LAN-off copy when the join URL reports a loopback-only deployment', async () => {
-    mount({ joinUrl: refusedJoin('mob/loopback-only') })
+  it('shows the LAN-off copy when the join URL reports no advertised origin', async () => {
+    mount({ joinUrl: refusedJoin('mob/no-advertised-origin') })
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
