@@ -644,7 +644,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
 
 ### `present`
 
-声明交付 Session 文件系统可访问的已有文件。如果你创建或更新的文件是用户要求接收的成果，则必须在写入完成后、最终回复前调用 present，包括通过 Bash 或代码执行创建的文件。在回复中提到文件路径不能替代这次调用。文件必须已存在。用户打开当前源文件；不复制或保存其内容。
+把已有文件声明为面向用户的最终交付物。当用户需要一份独立文件时使用它，尤其是 Office 文档、电子表格和幻灯片；最终回复本身足够时优先使用最终回复。用户打开的是当前文件；其内容不会被复制。
 
 ```json
 {
@@ -652,6 +652,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
   "properties": {
     "files": {
       "type": "array",
+      "description": "Usually the 1-2 most important deliverables; at most 4 per call.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -677,7 +678,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
 }
 ```
 
-来源： [`packages/fs/tool-present/src/index.ts`](../packages/fs/tool-present/src/index.ts)
+来源：[`packages/fs/tool-present/src/index.ts`](../packages/fs/tool-present/src/index.ts)
 
 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。
 

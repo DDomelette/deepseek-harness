@@ -115,10 +115,10 @@ listMembers(agent: Agent): TeamMemberView[]
 async spawnTeammate(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult>
 
 /**
- * Queue one durable peer message, then attempt immediate delivery.
+ * Steer one peer message into the target inbox or reject the attempt.
  * @param caller - exact live sending Team member.
- * @param request - target name, content, and pre-queue cancellation.
- * @returns durable message identity and immediate-delivery observation.
+ * @param request - target name, content, and cancellation before acceptance.
+ * @returns accepted inbox identity; acceptance follows normal Agent persistence and does not await model processing.
  */
 async sendMessage(caller: Agent, request: SendTeamMessageRequest): Promise<SendTeamMessageResult>
 
@@ -168,7 +168,7 @@ async waitForChange(caller: Agent, timeoutMs: number, signal: AbortSignal): Prom
  * @param targetName - durable teammate name.
  * @returns the target status sampled before cancellation.
  */
-interrupt(caller: Agent, targetName: string): { previousStatus: 'running' | 'idle' | 'inactive' }
+interrupt(caller: Agent, targetName: string): { previousStatus: 'running' | 'inactive' }
 
 /**
  * Resolve a caller without throwing, used by scoped-tool installation and observers.
@@ -176,29 +176,6 @@ interrupt(caller: Agent, targetName: string): { previousStatus: 'running' | 'idl
  * @returns Team membership, or undefined for non-Team subagents and stale identities.
  */
 tryMembership(agent: Agent): TeamMembership | undefined
-
-/**
- * Read the current roster and non-deleted task board through the generated Remote API.
- * @param agent - exact live Team member used as the authority credential.
- * @returns detached current roster and task views.
- */
-@Remote('view') remoteView(agent: Agent): TeamView
-
-/**
- * Create one shared task through the generated Remote API.
- * @param agent - exact live Team member creating the task.
- * @param request - task text, blockers, and advisory write scopes.
- * @returns the revision-one task or a typed Team rejection.
- */
-@Remote('createTask') remoteCreateTask(agent: Agent, request: CreateTeamTaskRequest): Promise<TeamTaskMutationResult>
-
-/**
- * Apply one task mutation and preserve Team rejections as business results.
- * @param agent - exact live Team member authorizing the mutation.
- * @param request - task identity, expected revision, action, and action fields.
- * @returns the committed task or a typed Team rejection.
- */
-@Remote('updateTask') remoteUpdateTask(agent: Agent, request: UpdateTeamTaskRequest): Promise<TeamTaskMutationResult>
 ```
 
 Types: [Agent](core.md)

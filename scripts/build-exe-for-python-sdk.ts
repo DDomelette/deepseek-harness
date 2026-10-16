@@ -243,13 +243,13 @@ function pnpmInvocation(args: string[]): [command: string, args: string[]] {
 }
 
 /**
- * Render a command for logs and errors, quoting arguments with spaces.
+ * Render a command for logs and errors.
  * @param command - the executable.
  * @param args - its arguments.
  * @returns the printable command line.
  */
 function formatCommand(command: string, args: string[]): string {
-  return [command, ...args].map(part => (part.includes(' ') ? JSON.stringify(part) : part)).join(' ')
+  return [command, ...args].join(' ')
 }
 
 /**

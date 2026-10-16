@@ -170,6 +170,12 @@ const processBoundTests = [
   'packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts',
 ]
 
+// Claude Code's test-kit module names, served by the mods bridge's test support so the example mods' tests import them unchanged.
+const claudeCodeTestingAliases = {
+  'claude-code/testing': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code-testing.ts', import.meta.url)),
+  'claude-code': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code.ts', import.meta.url)),
+}
+
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
   // Vite 8's native tsconfig `paths` lookup, alongside the plugin above. For an
@@ -177,7 +183,7 @@ export default defineConfig({
   // that package's own tsconfig, misses the root-relative mappings, and leaves
   // node resolution to load the built lib/ — a second module copy beside the
   // src/ module the test files get.
-  resolve: { tsconfigPaths: true },
+  resolve: { tsconfigPaths: true, alias: claudeCodeTestingAliases },
   test: {
     ...coverageTiming,
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
@@ -189,7 +195,7 @@ export default defineConfig({
     projects: [
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
-        resolve: { tsconfigPaths: true },
+        resolve: { tsconfigPaths: true, alias: claudeCodeTestingAliases },
         test: {
           ...coverageTiming,
           name: 'thread-safe',
@@ -209,7 +215,7 @@ export default defineConfig({
       },
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
-        resolve: { tsconfigPaths: true },
+        resolve: { tsconfigPaths: true, alias: claudeCodeTestingAliases },
         test: {
           ...coverageTiming,
           name: 'process-bound',

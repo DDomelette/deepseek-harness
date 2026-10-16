@@ -213,17 +213,17 @@
   en: a640800a38b3c874
   zh: a640800a38b3c874
 /session-persistence-event-catalog/events/team/team-member-log-only:
-  en: 9fdc30b4ee311684
-  zh: 7f916df2eef5f07e
+  en: a2fe5b8582ef5f46
+  zh: 92061312958e105a
 /session-persistence-event-catalog/events/team/team-message-delivered-log-only:
-  en: ceff690e805e1cc5
-  zh: bfdf4680f939ec81
+  en: 4a716b14e33eab18
+  zh: a231ad7efe9dfd27
 /session-persistence-event-catalog/events/team/team-message-queued-log-only:
-  en: 28104aa1826bab2a
-  zh: a0e4799c643c3d4a
+  en: 05bf873244099da5
+  zh: f667be83979a2b85
 /session-persistence-event-catalog/events/team/team-task-log-only:
-  en: 5b0ccd6289b63683
-  zh: bfaf27f1e7ad7472
+  en: 5ffeb64225feda2a
+  zh: 3d12449a3ef28382
 /session-persistence-event-catalog/events/todo:
   en: 308d4bb4b6b96e35
   zh: 308d4bb4b6b96e35

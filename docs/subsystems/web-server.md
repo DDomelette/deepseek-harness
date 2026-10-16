@@ -60,11 +60,73 @@ A request whose handling throws (a malformed %-escape hitting `decodeURIComponen
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxconnection--hostconnectionhandle"></a>
+
+### `ctx.connection` — `HostConnectionHandle`
+
+Host `ctx.connection` shape consumed by transport-independent adapters.
+
+```ts cordis-catalog
+/**
+ * Compose exact Fetch routes and the shared-channel RPC interceptor.
+ * @param channel - shared channel mounted by Connection.
+ * @param peer - Peer the admitted request speaks for, from {@link admit}.
+ * @returns Fetch handler for trusted, authenticated requests.
+ */
+createSharedFetchHandler(channel: '/api', peer: PeerScope): ConnectionFetchHandler
+
+/**
+ * Apply Connection's Host/Origin checks and browser authentication to
+ * another Web route.
+ * @param request - request headers from the HTTP or upgrade request.
+ * @returns rejection status, or undefined when the route may accept the request.
+ */
+requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
+
+/**
+ * Admit one request as the caller its credential names. A request that fails
+ * the Host/Origin fence or carries no accepted credential is refused with the
+ * same status {@link requestRejection} returns; every admitted request gets
+ * the Peer of its own authority class — the operator Peer for the loopback
+ * launch-token credential, that device's Peer for a paired-device cookie.
+ * @param request - request headers from the HTTP or upgrade request.
+ * @returns the admitted caller's Peer, or the rejection status.
+ */
+admit(request: ConnectionTrustRequest): PeerAdmission
+
+/**
+ * Authenticate one frontend index request. A valid loopback launch-token
+ * exchange or an existing accepted cookie is decided here; a client that
+ * holds none is told what it may serve instead.
+ * @param request - root or configured-index HTTP request.
+ * @param response - response owned when the result is `answered`.
+ * @returns whether the caller serves the shell, and under which marking.
+ */
+authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess
+
+/**
+ * Add the fresh process token to an ordinary Web application URL.
+ * @param baseUrl - clean canonical browser origin.
+ * @returns root URL accepted by {@link authorizeIndex} for initial login.
+ */
+authenticatedUrl(baseUrl: string): string
+
+/**
+ * Whether a request authenticates the local operator for device management.
+ * @param request - HTTP headers and the actual TCP peer supplied by the server.
+ * @returns true for a loopback peer and authority with a valid launch-token cookie;
+ *   paired-device cookies never authorize management.
+ */
+isLocalOperatorRequest(request: ConnectionTrustRequest): boolean
+```
+
+Source: [`packages/client/connection/src/rpc.ts`](../../packages/client/connection/src/rpc.ts)
+
 <a id="ctxwebserver--webserver"></a>
 
 ### `ctx.webServer` — `WebServer`
 
-The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A listen failure rejects initialization, and the boot process reports the failed fiber.
+The browser HTTP carrier service. Activation loads any configured TLS material, then listens immediately; a material or listen failure rejects initialization, and the boot process reports the failed fiber. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers.
 
 ```ts cordis-catalog
 /**

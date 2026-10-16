@@ -640,7 +640,7 @@ The bash tool is the model-facing consumer of the bash executor seam. A `run_in_
 
 ### `present`
 
-Declare existing files accessible through the Session filesystem as final deliverables. When a file you create or update is an output the user asked to receive, you must call present after writing it and before your final response, including files created through Bash or code execution. Mentioning its path in your reply does not replace this call. The files must already exist. The user opens the current source files; their contents are not copied or preserved.
+Declare existing files as final deliverables for the user. Use it when the user needs a separate file, especially Office documents, spreadsheets, and slide decks; prefer your final response when that suffices. The user opens the current files; their contents are not copied.
 
 ```json
 {
@@ -648,6 +648,7 @@ Declare existing files accessible through the Session filesystem as final delive
   "properties": {
     "files": {
       "type": "array",
+      "description": "Usually the 1-2 most important deliverables; at most 4 per call.",
       "items": {
         "type": "object",
         "additionalProperties": false,
