@@ -1,15 +1,18 @@
 /**
- * Connection plugin browser-half apply: ctx.connection handle mounting, mode
- * selection off the page URL, and single-consumer connection-loop ownership.
+ * Connection plugin browser-half: ctx.connection handle mounting from page mode
+ * or explicit install inputs, and single-consumer connection-loop ownership.
  */
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   apply,
+  type ClientConnectionRpc,
   type ClientTransportHooks,
   type ConnectionGenerationSource,
   type ConnectionHandle,
+  type ConnectionInstallOptions,
   type ConnectionState,
+  installConnection,
 } from '../src/client/index.ts'
 
 type Win = {
@@ -70,7 +73,30 @@ async function mount(): Promise<ConnectionHandle> {
   return handle
 }
 
+async function mountWith(options: ConnectionInstallOptions): Promise<ConnectionHandle> {
+  const ctx = new Context()
+  await ctx.plugin({
+    apply: (inner: Context) => { installConnection(inner, options) },
+    inject: [],
+  })
+  const handle = ctx.get('connection') as ConnectionHandle | undefined
+  if (handle === undefined) throw new Error('ctx.connection not provided')
+  return handle
+}
+
 describe('connection client apply', () => {
+  it('carries explicit inputs instead of the page globals', async () => {
+    const call = vi.fn<ClientConnectionRpc['call']>().mockResolvedValue({ ok: true, value: { ref: 'goal-9' } })
+    const handle = await mountWith({
+      transport: { rpc: { call } },
+      location: { hostname: 'harness.example' },
+    })
+
+    await expect(handle.rpc.call('/api', 'goals/create', { args: { agentId: 'agent-9' } }))
+      .resolves.toEqual({ ok: true, value: { ref: 'goal-9' } })
+    expect(call.mock.calls).toEqual([['/api', 'goals/create', { args: { agentId: 'agent-9' } }, undefined]])
+    expect(handle.isLoopback).toBe(false)
+  })
   it('does not publish a late source failure after its owner stops', async () => {
     const handle = await mount()
     let fail!: (error: Error) => void
@@ -518,7 +544,7 @@ describe('connection client apply', () => {
       })(),
     )
     ;(globalThis as Win).__DSH_TRANSPORT__ = {
-      fetch: vi.fn<ClientTransportHooks['fetch']>(),
+      fetch: vi.fn<NonNullable<ClientTransportHooks['fetch']>>(),
       openStream,
       ownsHost: true,
     }
