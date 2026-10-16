@@ -91,6 +91,19 @@ describe('normalizeStdout', () => {
     })
   })
 
+  it('scrubs a Windows cwd that a nested encoding spells with escaped separators', () => {
+    const windowsCtx: NormalizeContext = {
+      sessionIds: [],
+      cwd: String.raw`C:\Users\runner\AppData\Local\Temp\acp-snapshot`,
+    }
+    // A log value can carry a nested JSON encoding of prompt text, where the
+    // cwd's separators appear doubled; the token replaces that spelling too.
+    const inner = `Current working directory: "${windowsCtx.cwd}".`
+    const raw = JSON.stringify({ jsonrpc: '2.0', method: 'session/update', params: { nested: JSON.stringify(inner) } })
+    const frame = JSON.parse(normalizeStdout(raw, windowsCtx)) as { params: { nested: string } }
+    expect(frame.params.nested).toBe(JSON.stringify('Current working directory: "{{cwd}}".'))
+  })
+
   it('scrubs cwd at file URI and chained-punctuation boundaries', () => {
     const raw = JSON.stringify({
       jsonrpc: '2.0',

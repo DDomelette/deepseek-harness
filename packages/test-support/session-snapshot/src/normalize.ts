@@ -112,7 +112,11 @@ function cwdSpellings(ctx: NormalizeContext): string[] {
   const macAliases = spellings
     .filter(spelling => spelling.startsWith('/') && !spelling.startsWith('/private/'))
     .map(spelling => `/private${spelling}`)
-  return [...new Set([...spellings, ...macAliases])]
+  // A log value can carry a nested JSON encoding of prompt text, where the cwd's
+  // separators appear escaped. The token has no separators, so replacing that
+  // spelling keeps the nested region valid.
+  const escaped = spellings.map(spelling => spelling.replaceAll('\\', '\\\\'))
+  return [...new Set([...spellings, ...macAliases, ...escaped])]
     .sort((left, right) => right.length - left.length)
 }
 
