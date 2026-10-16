@@ -133,11 +133,12 @@ clientPath(id: string): string | undefined
 /**
  * Serve an advertised revisioned bundle or source map without a Web server.
  * Unknown URLs return 404, unsupported methods return 405, and `HEAD`
- * returns the same immutable headers without a body.
+ * returns the same immutable headers without materializing a body. Each body
+ * is built once on its first `GET`; script construction never reads maps.
  * @param request - shell-carrier request for a `/plugins` resource.
  * @returns the exact response also exposed by the optional Web route.
  */
-fetchBundle(request: Request): Response
+async fetchBundle(request: Request): Promise<Response>
 
 /**
  * Filesystem baseline captured before an entry's current bytes were read.
@@ -150,15 +151,16 @@ fetchBundle(request: Request): Response
 artifactBaseline(id: string): ClientArtifactBaseline | undefined
 
 /**
- * Re-hash one bundle (the HMR watch's registration hook — the only entry
- * point through which bundle content changes reach the graph).
+ * Publish one completed bundle generation (the HMR watch's registration
+ * hook — the only entry point through which build changes reach the graph).
+ * Unchanged mtime, ctime and size preserve the graph without reading the bundle.
  * @param id - entry id (package name).
- * @returns the new rev, or undefined for an unknown id.
+ * @returns the current artifact rev, or undefined for an unknown id.
  */
 rebuilt(id: string): string | undefined
 
 /**
- * Subscribe to bundle rebuilds; fires only when the re-hash changed the rev.
+ * Subscribe to bundle rebuilds; fires only when artifact metadata changes the rev.
  * @param listener - receives the entry id and its new bundle rev.
  * @returns the unsubscriber.
  */

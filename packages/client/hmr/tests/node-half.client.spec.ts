@@ -31,7 +31,7 @@ interface FakeHostOptions {
 
 function artifactBaseline(path: string): ClientArtifactBaseline {
   const bundle = statSync(path)
-  return { path, mtimeMs: bundle.mtimeMs, size: bundle.size }
+  return { path, mtimeMs: bundle.mtimeMs, ctimeMs: bundle.ctimeMs, size: bundle.size }
 }
 
 function fakeClientModuleHost(rows: Map<string, string>, options: FakeHostOptions = {}): FakeHost {

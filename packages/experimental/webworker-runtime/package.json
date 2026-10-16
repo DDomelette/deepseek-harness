@@ -39,6 +39,7 @@
     "@deepseek-ai/cordis-plugin-loader": "workspace:~",
     "@deepseek-ai/dsh-client-connection": "workspace:*",
     "@deepseek-ai/dsh-client-modules": "workspace:*",
+    "@deepseek-ai/dsh-client-web": "workspace:*",
     "@deepseek-ai/dsh-host-webserver": "workspace:*"
   },
   "devDependencies": {
