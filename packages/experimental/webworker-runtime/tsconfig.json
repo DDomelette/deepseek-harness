@@ -39,6 +39,9 @@
       "path": "../../util/crypto"
     },
     {
+      "path": "../../client/web"
+    },
+    {
       "path": "../../boot/app-boot"
     }
   ]
