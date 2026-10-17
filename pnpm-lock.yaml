@@ -815,6 +815,9 @@ importers:
       playwright:
         specifier: ^1.49.0
         version: 1.61.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   native/system:
     devDependencies:
@@ -7504,6 +7507,9 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:*
+        version: link:../../runtime-diagnostics/invariants
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm

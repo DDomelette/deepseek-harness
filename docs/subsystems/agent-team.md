@@ -73,6 +73,54 @@ interface TeamTaskSnapshot {
 
 `pending` is unstarted or released, `in_progress` carries an owner, `completed` satisfies blockers, and `deleted` is a retained tombstone. Views add owner name, readiness, and write-scope overlap warnings without changing the durable snapshot.
 
+<a id="web-projection"></a>
+
+## Web projection
+
+The Lead Session publishes `SessionProjectionMap.agentTeam` with durable roster rows and non-deleted task views. `failure` reports a rejected persisted record beside the last valid state. Member activity comes from Session status; model labels come from each member's `modelSelection` projection.
+
+```ts type-equiv
+/** One durable roster row published through the `agentTeam` Session projection. */
+interface TeamMemberProjection {
+  readonly id: SessionId
+  readonly name: string
+  readonly role: 'lead' | 'teammate'
+  /** Durable lifecycle; the Lead row is always `active`. Turn activity comes from Session status. */
+  readonly phase: TeamMemberPhase
+  readonly error?: string
+}
+```
+
+```ts type-equiv
+/** Runtime-enriched task view returned to tools and hosts. */
+interface TeamTaskView {
+  readonly id: TeamTaskId
+  readonly revision: number
+  readonly subject: string
+  readonly description: string
+  readonly status: TeamTaskStatus
+  readonly blockedBy: TeamTaskId[]
+  readonly writeScopes: string[]
+  readonly ownerName?: string
+  readonly ready: boolean
+  readonly writeScopeWarnings: string[]
+}
+```
+
+```ts type-equiv
+/**
+ * Durable Team state published to browser clients through the Lead Session's
+ * `agentTeam` projection. `failure` names the first rejected persisted Team
+ * record; members and tasks then stay at the last valid state.
+ */
+interface TeamProjection {
+  readonly members: TeamMemberProjection[]
+  readonly tasks: TeamTaskView[]
+  readonly failure?: string
+}
+```
+
+
 ## Replay
 
 `foldTeam()` replays one root Session into the roster, task board, and queued-minus-delivered mailbox that every Team operation reads. It selects records by `TeamId`, so events inherited by an ordinary fork retain the ancestor id and never enter the new root's state. Session event `seq` and `time` remain the ordering and timing record; Team snapshots do not duplicate them. Roster and task reads reach callers as views; pending mail stays internal to delivery and recovery. The package [README](../../packages/experimental/agent-team/README.md) owns operation, authorization, recovery, and limit behavior.

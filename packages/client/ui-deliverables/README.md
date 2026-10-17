@@ -97,7 +97,7 @@ The guidance prefers primary results in the final reply: inline images support e
 
 #### Token effect
 
-One fixed paragraph containing output-selection, rendering, and file-reference guidance whenever this package is loaded. The [present tool](../fs/tool-present/README.md#model-experience) owns the delivery schema and result text.
+One fixed paragraph containing output-selection, rendering, and file-reference guidance whenever this package is loaded. The [present tool](../../fs/tool-present/README.md#model-experience) owns the delivery schema and result text.
 
 #### KV Cache effect
 

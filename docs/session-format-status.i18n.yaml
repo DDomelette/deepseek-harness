@@ -12,8 +12,11 @@
   en: 7a59e937ff8ad761
   zh: 0e7f19f81ecd9fad
 /session-format-version-and-release-status/sources-of-truth:
-  en: 4bb15cb5bb51bb1c
-  zh: 06663f3344d7af81
+  en: 93c60ce9130e5445
+  zh: 9862af31eb9e6146
+/session-format-version-and-release-status/finalization-record:
+  en: c84a45a0489804c9
+  zh: 4f4474a678c90ffe
 /session-format-version-and-release-status/release-record:
   en: ad6ec14c91c9a3f4
   zh: 2d8d0da1a4292b2c

@@ -97,7 +97,7 @@ Node 半部注册[模型体验](#model-experience)所述的静态 `ui:deliverabl
 
 #### Token 影响
 
-加载本包时增加一段包含产出选择、渲染效果和文件引用指导的固定提示词。[present 工具](../fs/tool-present/README.md#model-experience)拥有交付 schema 和结果文本。
+加载本包时增加一段包含产出选择、渲染效果和文件引用指导的固定提示词。[present 工具](../../fs/tool-present/README.zh.md#model-experience)拥有交付 schema 和结果文本。
 
 #### KV Cache 影响
 

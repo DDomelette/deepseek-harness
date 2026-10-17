@@ -107,6 +107,56 @@ Append-only, prefix-stable, replacing, or independent behavior, including the ex
 
 没有上下文效果或仅有消费方拥有路径的包使用 [`SENTENCE_MODEL_EXPERIENCE`](../../scripts/verify-package-readme-model-experience.ts) 中经过审计的 `None, as ` 或 `Indirectly, through ` 语句，随后添加 `KV Cache effect` H4 和一个非空正文段落；与模型无关的通用包可以改为加入 `NO_MODEL_EXPERIENCE_SECTION`。两种情况都不要展开为对另一个包工作的描述。limitations [allowlist](../../scripts/verify-package-readme-limitations.ts) 独立管理。[Model Experience Agent Note](../../.agents/notes/implemented/process/2026-07-12-package-model-experience-contract.zh.md) 记录了设计动机。
 
+<a id="plugin-display-metadata"></a>
+
+## 5. 添加可选的插件展示元信息
+
+对于 npm 包插件，在 `locale/en.json` 中定义标题和描述。其他语言文件（如 `locale/zh.json`）使用相同字段：
+
+```json
+{
+  "meta": {
+    "title": "Workspace Tools",
+    "description": "Tools for your workspace."
+  }
+}
+```
+
+将以下条目合并进 `package.json`，保留已有的运行时 exports 和发布文件：
+
+```json
+{
+  "exports": {
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["locale/*.json"]
+}
+```
+
+语言文件统一放在 `locale/`，并保留 `en.json` 作为发现入口。字段可选，填写时必须是非空字符串。文件或字段缺失时允许回退，JSON 损坏或字段无效时显示单插件诊断。
+
+各字段先独立回退，再按页面规则格式化技术名称；回退优先经过现有 locale 语言链：
+
+- 标题：locale `meta.title` → 包根插件的 `package.json.name` → 完整 Cordis 插件名。
+- 描述：locale `meta.description` → 包根插件的 `package.json.description` → 不显示描述。
+
+导出 `<包名>/locale/en.json` 供 locale 查询；需要包字段回退或声明图标时，开放 `<包名>/package.json`。`<包名>/search` 这样的子路径插件不是包，从不读取 `package.json`，即使导出了 `./search/package.json`；它用 `./search/locale/*.json` 提供文本，用 `./search/icon` 提供图片。
+
+要在组合包卡片、详情和组件行显示图片，包根插件在导出清单顶层设置 `"icon": "./icon.svg"`，或在省略该字段时导出 `./icon`。子路径插件导出自己的图标，例如 `"./search/icon": "./search.svg"`。将每张图片加入 `files`。清单 `icon` 相对于清单所在目录；绝对路径、URL、目录外路径，以及解析到目录外的符号链接均被拒绝。导出的图标像 locale 资源一样经 Node exports 解析，且必须位于所属包内。支持不超过 256 KiB 的 SVG、PNG、JPEG（`.jpg`/`.jpeg`）和 WebP 文件。图片必须自包含；SVG 作为图片渲染，不作为内联 HTML。Host 返回 data URL，不激活插件。声明无效或文件不可读时，显示元信息诊断并保留有效文本，不再尝试导出的图标；图片缺失或无法解码时使用面板的默认插画。
+
+已安装 bundle 的卡片和详情、组件列表与配置详情、设置中的插件清单都展示这些元信息，包括禁用插件和预设内插件。读取时不激活插件。
+
+仅设置页会移除字面包名和模块名回退值的 npm scope 与 Cordis/DSH 前缀；插件管理页保留完整名称。locale 标题和描述保持原样。插件没有展示描述时，行配置页可以使用注册组件的摘要。
+
+Install 界面仍使用 `pnpm view` 返回的 npm registry 信息，不用 locale 元信息替换。
+
+验证结果：
+
+1. 在仓库根目录运行 `pnpm run verify-package-meta`，检查字段、资源 exports 和发布文件覆盖。
+2. 对已安装插件，在适用的插件管理页与设置条目中切换中英文，检查标题、描述、逐字段回退，以及仅设置页使用的技术短名。
+
+
 ## 5. 验证
 
 ```sh
