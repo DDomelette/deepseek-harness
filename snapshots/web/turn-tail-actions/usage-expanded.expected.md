@@ -1,31 +1,27 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Begin your reply with the" [disabled]
+  - navigation "Session hierarchy": Begin your reply with the
   - text: Standard mode
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
-- button "System prompt"
 - text: Begin your reply with the plain sentence "Reading the workspace now." as text, and in that same message call the bash tool with the command "echo alpha". After the tool result, reply with the single word DONE and stop. {{clock}}
 - button "Copy"
-- button "1 tool call · 1 message"
+- status: Completed
+- button "Completed in {{duration}}"
 - paragraph: DONE
 - button "Copy"
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
 - button "Usage 15.8K tok" [expanded]
-- button "Ran for {{duration}}"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
-- button "6% of context used"
 - button "Send message" [disabled]
 - button "1 turns 2 steps · {{throughput}} tok/s": 1 turns 2 steps{{throughput}} tok/s
 - button "15.8K tok · Cache hit 50%": 15.8K tokCache hit 50%
+- button "6% of context used": 6%

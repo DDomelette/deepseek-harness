@@ -42,6 +42,8 @@ The companion contributes a `settings.general.item` row while `session-log-deeps
 -----
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the pane registers one settings slot contribution and reads its values from the settings service, so no independent observation can diverge.
 ## Further Exploration
 
 - [Settings forms](../ui-settings/README.md) — accepted Host values and ordered writes.

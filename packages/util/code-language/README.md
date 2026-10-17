@@ -28,14 +28,7 @@ The set is curated for common source, config, script, data, and markup extension
 
 -----
 
-<a id="model-experience"></a>
-## Model Experience
-
-None, as this package is a pure extension-to-language table; nothing here reaches a model request.
-
-#### KV Cache effect
-
-None: the table only selects a syntax-highlighting grammar for Client rendering.
+No runtime invariant companion is published; the package maps a filename suffix to a syntax-highlighting language id and owns no mutable relation.
 
 ## Known Limitations and Deferred Work
 
@@ -55,5 +48,3 @@ None: the table only selects a syntax-highlighting grammar for Client rendering.
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. The table maps a file extension to a highlight language and owns no state beyond that lookup, so no relationship here diverges under an independent observation.

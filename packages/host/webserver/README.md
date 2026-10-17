@@ -93,6 +93,7 @@ The package is a plain route registry with no harness vocabulary: `WebServer` ex
 | [`src/index.ts`](src/index.ts) | `WebServer` service: route tables, fallback seat, index rendering, matching, TLS listener, lifecycle |
 | [`src/injections.ts`](src/injections.ts) | Structured `IndexInjection` rows and `renderIndexInjections` row rendering |
 | [`tests/tls-fixture.ts`](tests/tls-fixture.ts) | Generated TLS material for TLS-listener tests; another suite may materialize the same pair |
+| — | No runtime invariant companion is published; route registration and disposal mutate one route table through the same service, so a register/dispose probe only re-executes the implementation. Real routing and HMR tests own the behavior. |
 
 </details>
 

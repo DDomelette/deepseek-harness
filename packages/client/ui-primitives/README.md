@@ -215,4 +215,6 @@ These limits define how the atoms behave at the edges; they are current package 
 
 None.
 
+
+**Runtime invariant:** No companion is published. These components render the props their owners pass and own no durable state beyond per-mount view state, so no relationship here diverges under an independent observation.
 </details>

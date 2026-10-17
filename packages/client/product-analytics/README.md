@@ -41,6 +41,8 @@ Only `plugin_toggle` carries `plugin_type`: plugin rows use `plugin`, and packag
 
 Presentational components receive callbacks. Shared Client services resolve the optional Desktop analytics sender, which requires both the native preload marker and the synchronized Host policy. The sender retains its own RPC context when called by other plugins. Native actions use the authenticated Host API; its generated Typert validator accepts only the typed event fields. The Host enriches identity immediately before queueing. It observes live compaction events without replaying Session history.
 
+
+**Runtime invariant:** No companion is published. This Desktop-only service contributes authenticated event intake, live compaction collection, and the `watchPolicy` stream, while batching and delivery remain owned by `@deepseek-ai/dsh-host-product-telemetry-otel` and identity fields come from `ctx.deepseekAccount`.
 </details>
 
 <a id="model-experience"></a>

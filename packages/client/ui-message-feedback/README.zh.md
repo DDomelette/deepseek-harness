@@ -88,4 +88,6 @@ kind: "package-reference"
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。插件持有两个 slot 注册、一个命令装饰，以及一个按 Session 划分的控制器对 map；它们都由插件 fiber 的同一个 effect disposer 释放。生命周期规格测试证明，所属 fiber 释放时会撤销所有注册并丢弃所有控制器，因此不存在需要在运行时检查的第二权威来源。
 </details>

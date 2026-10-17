@@ -87,4 +87,6 @@ These limits define how brand presentation is supplied. They are current package
 
 None.
 
+
+**Runtime invariant:** No companion is published. The package retains no mutable state, and its three slot occupants install and leave through one transactional effect.
 </details>

@@ -195,4 +195,6 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点，并且�
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。Conversation 与 slot 注册已经强制 Chat target 一致。
 </details>

@@ -578,11 +578,6 @@
 - id: tool-workflow
   disabled: true
 
-# Fresh-agent Ralph iteration ships with the profile but stays off until a
-# deployment names it in its own preset.
-- id: tool-ralph
-  disabled: true
-
 - id: agent-instructions
   disabled: true
 

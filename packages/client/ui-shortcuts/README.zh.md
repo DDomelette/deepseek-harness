@@ -52,6 +52,8 @@ Web 应用 bundle 将此包与 `shortcuts` 一同挂载。速查仅展示已注�
 -----
 
 <a id="further-exploration"></a>
+
+**运行时不变式：** 不发布伴生入口；快捷键覆盖由 shortcut 服务持有，面板只通过其声明的动作渲染与提交。
 ## 进一步阅读
 
 - [Web Client](../../../docs/subsystems/web-client.zh.md)

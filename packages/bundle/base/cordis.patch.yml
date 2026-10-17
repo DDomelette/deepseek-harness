@@ -461,12 +461,8 @@
     - id: tool-goal
       name: '@deepseek-ai/dsh-tool-goal'
 
-    # Fresh-agent Ralph iteration over a build-time-fixed script.
-    - id: tool-ralph
-      name: '@deepseek-ai/dsh-tool-ralph'
-      config:
-        subagentProvider: spawn
-        maxRounds: 64
+    # Fresh-agent Ralph iteration ships off: the optional
+    # `@deepseek-ai/dsh-experimental-ralph-bundle` switches it on.
 
     # Consecutive-repeat reminders on the tool chain.
     - id: repeat-tool-reminder

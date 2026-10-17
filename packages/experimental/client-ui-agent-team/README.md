@@ -99,4 +99,6 @@ No direct effect; the Team tools and ordinary conversation submission own any la
 
 None.
 
+
+**Runtime invariant:** No companion is published. RPC is authoritative and the package owns only one disposable slot registration.
 </details>

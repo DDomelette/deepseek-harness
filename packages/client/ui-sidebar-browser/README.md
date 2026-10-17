@@ -77,6 +77,8 @@ The page refresh shortcut calls the same reload operation as the toolbar. Its to
 -----
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the pane renders session state it receives through framework hooks and declares no relation of its own.
 ## Further Exploration
 
 - [Right Sidebar](../../../docs/subsystems/sidebar-right.md) — tab composition, navigation, and lifecycle.

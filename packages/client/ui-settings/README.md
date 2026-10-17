@@ -113,4 +113,6 @@ These limits define where the settings transport cannot reach; they are current 
 
 None.
 
+
+**Runtime invariant:** No companion is published. This plugin provides the shared configuration-form service over the describe mirror and declares the settings slot types; its own state is that mirror plus the per-entry form queue, both owned and disposed with the providing fiber, and it publishes no cross-plugin relationship whose independent observations could diverge.
 </details>

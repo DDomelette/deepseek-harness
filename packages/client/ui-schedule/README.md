@@ -101,4 +101,6 @@ None. Catalog presentation does not enter model requests.
 
 None.
 
+
+**Runtime invariant:** No companion is published. The browser half registers the `schedules` panel, header catalog entry, and `schedule_create` card through slots; reminder persistence, dispatch, and deletion stay with the Host `@deepseek-ai/dsh-schedule` service.
 </details>

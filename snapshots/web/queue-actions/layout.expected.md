@@ -1,24 +1,19 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "workspace" [disabled]
+  - navigation "Session hierarchy": workspace
   - text: Standard mode
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - group "Command input": /goal Keep the composer context panels aligned
 - 'button "goal Goal created Status: active Objective: Keep the composer context panels aligned Rounds: 0/256 Activation: armed Commands: /goal edit <objective>, /goal pause, /goal clear"'
-- button "System prompt"
 - button "Continuing goal {{clock}}":
   - text: Continuing goal
   - time: {{clock}}
-- button "Context injection runtime-context"
-- button "Context injection skill-catalog"
-- button "Context injection time-context"
 - paragraph: partial
-- status: Deep diving...
+- status: Deep diving
+- text: Deep diving for {{duration}} ···
 - region "To-dos":
   - button "To-dos 1 completed · 1 in progress"
 - text: Ongoing Goal Keep the composer context panels aligned
@@ -27,8 +22,7 @@
 - button "Clear goal"
 - button "2 queued messages"
 - textbox "Cmd/Ctrl+Enter steers all queued messages"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
 - button "Stop generating"

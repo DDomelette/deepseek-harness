@@ -66,6 +66,8 @@ Closing saves an unfinished cleanup request before releasing the tab, then await
 </details>
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; terminal sessions live in the terminal registry; the controller projects them per call and keeps no relation of its own.
 ## Further Exploration
 
 - [Subprocess](../../subprocess/subprocess/README.md)

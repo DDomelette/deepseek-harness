@@ -46,6 +46,8 @@ The Host half is an empty `apply`, present only so the package holds a Loader ro
 -----
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the pane registers one settings slot contribution and reads its values from the settings service, so no independent observation can diverge.
 ## Further Exploration
 
 - [ui-plugin-manager](../ui-plugin-manager/README.md) — the Plugins page and the `plugins.item` slot the page registers into.

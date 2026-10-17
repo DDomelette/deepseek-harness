@@ -7,12 +7,13 @@
     - 'button "Switch subagent: example editor"': example editor
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - text: Give one concrete event sourcing example. {{clock}}
 - button "Copy"
+- status: Completed
+- button "Completed in {{duration}}" [disabled]
 - status:
   - strong: This subagent is read-only for now
   - text: The parent session is offline; reopen it to continue sending messages.

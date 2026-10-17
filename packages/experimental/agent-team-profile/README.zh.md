@@ -64,6 +64,7 @@ dsh plugin --profile web add @deepseek-ai/dsh-experimental-agent-team-profile
 |---|---|
 | [`cordis.patch.yml`](cordis.patch.yml) | 叠加在 `dsh-base` 之上的有序 patch |
 | [`src/index.ts`](src/index.ts) | 空模块入口；patch 是运行时内容 |
+| — | 不发布运行时不变式伴生入口；本包是静态 bundle，不持有可独立观察的运行时关系。 |
 
 </details>
 

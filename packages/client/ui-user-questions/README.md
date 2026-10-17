@@ -126,6 +126,8 @@ These limits define question-card ownership and cross-client behavior; they are 
 
 None.
 
+
+**Runtime invariant:** No companion is published. Tool and slot registrations are effects owned and observed by their respective registries; the host pending table is exercised through the public wire protocol.
 </details>
 
 The Host Session projection is authoritative for durable timed questions. Browser storage only preserves unfinished input and never creates or keeps a question open.

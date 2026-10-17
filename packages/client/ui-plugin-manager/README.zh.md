@@ -129,6 +129,8 @@ Host 入口通过生成的 Remote 接口暴露 `pluginRegistryProbe.fastest()`�
 -----
 
 <a id="further-exploration"></a>
+
+**运行时不变式：** 不发布伴生入口；面板渲染通过 inject 面收到的宿主插件清单，所有视图都是该已发布清单的纯函数。
 ## 进一步探索
 
 这些页面覆盖侧栏、Remote 调用与 Host 侧管理器。

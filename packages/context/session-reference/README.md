@@ -144,4 +144,6 @@ These limits define when cross-session references are a poor fit. They are curre
 
 None.
 
+
+**Runtime invariant:** No companion is published. This opt-in service contributes mention parsing, immutable cross-session snapshot preparation at `agent/pre-step`, and candidate discovery, while exact session reads stay owned by `ctx.sessionQuery` and full-text spill storage by the spill backend.
 </details>

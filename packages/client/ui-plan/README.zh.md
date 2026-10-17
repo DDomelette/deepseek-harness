@@ -99,4 +99,6 @@ kind: "package-reference"
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。plan state 与 boundary 的所有权由 dsh-plan-mode 审计；本包的 control 是一种 slot effect，其声明、注册与清理由本包执行。
 </details>

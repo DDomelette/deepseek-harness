@@ -108,4 +108,6 @@ These limits define when the native interaction is unavailable or fragile. They 
 
 None.
 
+
+**Runtime invariant:** No companion is published. Each pick is one stateless subprocess round trip; the chooser outcome is only the returned path.
 </details>

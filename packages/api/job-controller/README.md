@@ -42,11 +42,12 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as job observation is browser and Host control state; it registers no prompt, tool, or session event. The model's own view of the same work stays with [`dsh-tool-jobs`](../../jobs/tool-jobs/README.md).
+None, as job observation is browser and Host control state that registers no prompt, tool, or session event, and every model-visible job view stays with [dsh-tool-jobs](../../jobs/tool-jobs/README.md).
 
 #### KV Cache effect
 
 No direct effect; observation reads never touch model requests.
+
 
 ## Known Limitations and Deferred Work
 
@@ -64,4 +65,5 @@ No direct effect; observation reads never touch model requests.
 
 None.
 
+**Runtime invariant:** No companion is published; job state is owned by `ctx.jobs`, which this controller projects per call and never mirrors.
 </details>

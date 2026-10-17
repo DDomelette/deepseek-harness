@@ -79,4 +79,6 @@ Selection changes affect only later tasks; existing plugins and prompts remain u
 
 None.
 
+
+**Runtime invariant:** No companion is published. This is a browser-side surface plugin whose node half owns no event stream or mutable runtime data; the roster and the settings write are host contracts covered there.
 </details>

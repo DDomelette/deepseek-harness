@@ -103,4 +103,6 @@ These limits define when the reference source cannot help; they are current pack
 
 None.
 
+
+**Runtime invariant:** No companion is published. A single slash-source registration whose disposal is proven by the HMR-safety spec — it emits no cordis events and owns no cross-plugin mutable state.
 </details>

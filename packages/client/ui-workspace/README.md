@@ -225,4 +225,6 @@ These limits define the search depth, the archive surface, and the picking carri
 
 None.
 
+
+**Runtime invariant:** No companion is published. This is a pure-consumer plugin that registers presentational components into two host-declared slots and registers its locale dictionaries; its inject face consists of stateless RPC wrappers plus a create-and-open call. It emits no Cordis events and owns no cross-plugin mutable state.
 </details>

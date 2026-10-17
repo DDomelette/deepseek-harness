@@ -42,6 +42,8 @@ kind: "package-reference"
 -----
 
 <a id="further-exploration"></a>
+
+**运行时不变式：** 不发布伴生入口；该设置面板只注册一个设置槽位贡献并从 settings 服务读取取值，没有独立观察会与它分歧。
 ## 进一步探索
 
 - [ui-plugin-manager](../ui-plugin-manager/README.zh.md)——插件页以及本页注册进去的 `plugins.item` slot。

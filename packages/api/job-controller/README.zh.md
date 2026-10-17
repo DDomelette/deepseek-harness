@@ -42,11 +42,12 @@ Client 入口安装 `ctx.jobs`（`IJobs`），由包内部的 `ClientJobsModel` 
 <a id="model-experience"></a>
 ## 模型体验
 
-无。job 观测是浏览器与 Host 的控制状态；它不注册任何提示词、工具或会话事件。模型对同一工作的视图仍在 [`dsh-tool-jobs`](../../jobs/tool-jobs/README.zh.md)。
+无。job 观测属于浏览器与 Host 的控制状态，本控制器不注册提示词、工具或会话事件，模型可见的任务视图全部由 [`dsh-tool-jobs`](../../jobs/tool-jobs/README.zh.md) 提供。
 
 #### KV 缓存影响
 
 无直接影响；观测读取从不触碰模型请求。
+
 
 ## 已知限制与延期工作
 
@@ -64,4 +65,5 @@ Client 入口安装 `ctx.jobs`（`IJobs`），由包内部的 `ClientJobsModel` 
 
 无。
 
+**运行时不变式：** 不发布伴生入口；任务状态由 `ctx.jobs` 持有，本控制器每次调用都只做投影，从不镜像。
 </details>

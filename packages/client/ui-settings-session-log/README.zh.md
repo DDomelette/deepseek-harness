@@ -42,6 +42,8 @@ Host 提供 `session-log-deepseek` 时，配套插件贡献一个 `settings.gene
 -----
 
 <a id="further-exploration"></a>
+
+**运行时不变式：** 不发布伴生入口；该设置面板只注册一个设置槽位贡献并从 settings 服务读取取值，没有独立观察会与它分歧。
 ## 进一步探索
 
 - [设置表单](../ui-settings/README.zh.md)——Host 已接受的值与有序写入。

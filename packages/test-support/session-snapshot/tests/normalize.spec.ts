@@ -157,6 +157,31 @@ describe('normalizeStdout', () => {
     })
   })
 
+  it('scrubs the JSON-escaped spelling of a Windows cwd in model-visible text', () => {
+    const windowsCtx: NormalizeContext = {
+      sessionIds: [],
+      cwd: String.raw`C:\Users\runner\AppData\Local\Temp\acp-snapshot`,
+    }
+    // Model-visible text quotes the directory with JSON.stringify, so a Windows
+    // spelling reaches the transcript with every separator doubled.
+    const escaped = windowsCtx.cwd.replaceAll('\\', '\\\\')
+    const raw = JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'session/update',
+      params: {
+        context: `Current working directory: ${JSON.stringify(windowsCtx.cwd)}.`,
+        marker: `<path>${escaped}\\escalated.md</path>`,
+      },
+    })
+    const frame = JSON.parse(normalizeStdout(raw, windowsCtx)) as {
+      params: { context: string; marker: string }
+    }
+    expect(frame.params).toEqual({
+      context: 'Current working directory: "{{cwd}}".',
+      marker: '<path>{{cwd}}/escalated.md</path>',
+    })
+  })
+
   it('canonicalizes generated relative path fields and text markers without rewriting other text', () => {
     const raw = JSON.stringify({
       path: String.raw`nested\AGENTS.md`,

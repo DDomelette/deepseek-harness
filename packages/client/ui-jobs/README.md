@@ -91,4 +91,6 @@ These limits define current package constraints, not a task backlog.
 
 None.
 
+
+**Runtime invariant:** No companion is published. This package is a read-only projection of the `jobsBySession` mirror onto one header slot entry. It emits no Cordis events, owns no cross-plugin mutable state, and its single slot registration proves disposal through the HMR-safety spec.
 </details>

@@ -174,4 +174,6 @@ These limits define when this backend is a poor fit or needs special operational
 
 None.
 
+
+**Runtime invariant:** No companion is published. This backend contributes the JSONL generations and the handle-based read/write path, while `@deepseek-ai/dsh-session-format-catalog` owns which stored generations are interpretable and the persistence seam owns the handle contract.
 </details>

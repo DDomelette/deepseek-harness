@@ -174,4 +174,6 @@ JSONL 存储不修改实时请求前缀。只有重建历史、当前 envelope �
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。本后端贡献 JSONL generation 与基于句柄的读写路径；哪些已存 generation 可被解释由 `@deepseek-ai/dsh-session-format-catalog` 持有，句柄约定由持久化 seam 持有。
 </details>

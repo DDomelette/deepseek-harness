@@ -1,31 +1,27 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Reply with the single word" [disabled]
+  - navigation "Session hierarchy": Reply with the single word
   - text: Standard mode
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
-- button "System prompt"
 - text: Reply with the single word LIGHTHOUSE and stop. {{clock}}
 - button "Copy"
-- button "Thought for a while"
+- status: Completed
+- button "Completed in {{duration}}"
 - paragraph: LIGHTHOUSE
 - button "Copy"
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: {{clock}}
 - 'button "feedback Feedback recorded for session session-{{uuid}} Anonymous user: {{uuid}}."'
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
-- button "6% of context used"
 - button "Send message" [disabled]
 - button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s
 - button "7.8K tok · Cache hit 99%": 7.8K tokCache hit 99%
+- button "6% of context used": 6%

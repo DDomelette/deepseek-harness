@@ -41,6 +41,8 @@ Electron 将构建内联的 `DSH_CLIENT_VERSION` 传给 Host；埋点与导出�
 
 展示组件接收回调。共享 Client 服务读取可选的桌面埋点发送器，后者要求同时存在原生 preload 标识和 同步的 Host 采集策略。发送器在被其他插件调用时保留自身的 RPC 上下文。原生操作使用已认证的 Host API，其生成的 Typert 校验器只接受类型中声明的事件字段。Host 在入队前补充身份信息，并监听实时压缩事件，不重放会话历史。
 
+
+**运行时不变式：** 不发布伴生入口。这个仅限桌面端的服务仅贡献已认证的事件接收、实时压缩采集与 `watchPolicy` 流；批量发送与交付由 `@deepseek-ai/dsh-host-product-telemetry-otel` 持有，身份字段来自 `ctx.deepseekAccount`。
 </details>
 
 <a id="model-experience"></a>

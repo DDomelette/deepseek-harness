@@ -120,7 +120,12 @@ function cwdSpellings(ctx: NormalizeContext): string[] {
   const macAliases = spellings
     .filter(spelling => spelling.startsWith('/') && !spelling.startsWith('/private/'))
     .map(spelling => `/private${spelling}`)
-  return [...new Set([...spellings, ...macAliases])]
+  // Model-visible text quotes the directory with JSON.stringify, so a Windows
+  // spelling appears with every separator doubled. Cover that spelling too.
+  const escapedAliases = spellings
+    .filter(spelling => spelling.includes('\\'))
+    .map(spelling => spelling.replaceAll('\\', '\\\\'))
+  return [...new Set([...spellings, ...macAliases, ...escapedAliases])]
     .sort((left, right) => right.length - left.length)
 }
 
@@ -183,6 +188,8 @@ function scrubString(
   // token.
   out = out.split(`/private${CWD}`).join(CWD)
   if (cwdPathMode === 'canonical') {
+    // An escaped spelling leaves its own doubled separators after the token.
+    out = out.replaceAll(`${CWD}\\\\`, `${CWD}/`)
     // Restrict separator conversion to paths rooted at the cwd token. A global
     // backslash rewrite would corrupt regexes, commands, and model-authored text.
     out = out.replace(CWD_ROOTED_PATH_RE, path => path.replaceAll('\\', '/'))

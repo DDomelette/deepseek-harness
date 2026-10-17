@@ -93,6 +93,7 @@ index 启动输入分两层。`collectIndexInjections()` 收集一张全新的�
 | [`src/index.ts`](src/index.ts) | `WebServer` 服务：路由表、回退席位、index 渲染、匹配、TLS 监听、生命周期 |
 | [`src/injections.ts`](src/injections.ts) | 结构化 `IndexInjection` 行与 `renderIndexInjections` 行渲染 |
 | [`tests/tls-fixture.ts`](tests/tls-fixture.ts) | 为 TLS 监听测试生成的 TLS 材料；其他测试套件可物化同一套材料 |
+| — | 不发布运行时不变式伴生入口；路由注册与释放通过同一服务修改同一张路由表，register/dispose 探针只会重复执行实现。真实路由与 HMR 测试负责验证该行为。 |
 
 </details>
 

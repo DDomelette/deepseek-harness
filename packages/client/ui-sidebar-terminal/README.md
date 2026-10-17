@@ -52,6 +52,8 @@ At plugin startup, terminal-kind entries in the sidebar's complete open-tab inve
 </details>
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the pane renders terminal state it receives through framework hooks and declares no relation of its own.
 ## Further Exploration
 
 - [Subprocess](../../subprocess/subprocess/README.md)

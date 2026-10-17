@@ -74,4 +74,6 @@ None.
 
 The page refresh shortcut refreshes the focused file tree through its ordinary directory reader. The reload control displays the effective binding on hover and keyboard focus.
 
+
+**Runtime invariant:** No companion is published. The tree's only runtime state is one Slot store per tab, written by the body that owns it and forgotten on the tab's abort signal; there is no second observation of it to compare against.
 </details>

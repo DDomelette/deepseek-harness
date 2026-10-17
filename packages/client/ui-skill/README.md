@@ -111,4 +111,6 @@ These limits define where the reference and the row fall back to generic behavio
 
 None.
 
+
+**Runtime invariant:** No companion is published. The slash source, locale dictionaries, and keyed toolview are registry-owned registrations whose disposal is proven by the HMR-safety spec. They emit no Cordis events and own no cross-plugin mutable state.
 </details>

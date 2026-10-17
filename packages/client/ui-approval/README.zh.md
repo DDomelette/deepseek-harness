@@ -44,4 +44,6 @@ kind: "package-reference"
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。Remote listener 与临时 Slot entry 由各自注册表持有并观察。
 </details>

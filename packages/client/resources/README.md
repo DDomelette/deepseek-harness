@@ -102,4 +102,6 @@ None; resource streams do not assemble model requests.
 
 None.
 
+
+**Runtime invariant:** No companion is published. Provider ownership and holder counts have one owner, the registry, with no independent runtime source to compare against; registration disposal and the open/close lifecycle are asserted by behavior specs.
 </details>

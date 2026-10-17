@@ -97,6 +97,7 @@ The patch gates the two shell stacks by platform on its own rows: `bash-sandbox`
 | [`src/index.ts`](src/index.ts) | Package entry; carries no runtime API |
 | [`tests/base.spec.ts`](tests/base.spec.ts) | Manifest declaration and platform-gating checks |
 
+No runtime invariant companion is published because the package is a static patch-list carrier: each inserted row's own package carries that invariant, and the bundle itself mounts no service, emits no events, and owns no mutable relation to audit.
 </details>
 
 -----

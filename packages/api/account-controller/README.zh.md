@@ -34,6 +34,8 @@ account 命名空间提供 getState、getProfile / getBalance、getUnnotifiedBon
 控制器向账号服务转发操作，不维护独立的账号状态。
 
 <a id="further-exploration"></a>
+
+**运行时不变式：** 不发布伴生入口；控制器每次调用都从注入的账户服务取答案，唯一需要审计的线路关系由生成的 remote 装配持有。
 ## 深入探索
 
 [凭证子系统](../../../docs/subsystems/credentials.zh.md)定义存储接口；[架构](../../../docs/architecture.zh.md)说明应用组合。

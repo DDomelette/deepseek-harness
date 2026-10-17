@@ -129,6 +129,8 @@ The page's `main` registration declares `plugins.item`, `plugins.bundle.config`,
 -----
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the panel renders the host plugin inventory it receives through the inject face, so every view is a pure function of that published inventory.
 ## Further Exploration
 
 These pages cover the sidebar, the Remote calls, and the Host-side manager.

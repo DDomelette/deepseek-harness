@@ -15,7 +15,7 @@ import * as spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import PtcWorkflowEngine from '@deepseek-ai/dsh-workflow-ptc'
 import { MockAdapter, maxTokensResponse, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as toolRalph from '../src/index.ts'
-import { mountWorkflowRuntime } from '../../workflow-ptc/tests/setup.ts'
+import { mountWorkflowRuntime } from '../../../workflow/workflow-ptc/tests/setup.ts'
 
 type MockScript = ConstructorParameters<typeof MockAdapter>[0]
 const testToolSignal = new AbortController().signal

@@ -67,6 +67,7 @@ kind: "package-reference"
 
 无；终端输出只在浏览器与 Host 之间传输。
 
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -85,4 +86,5 @@ kind: "package-reference"
 
 无。
 
+**运行时不变式：** 不发布伴生入口；该侧边面板渲染通过框架钩子收到的终端状态，自身不声明任何关系。
 </details>

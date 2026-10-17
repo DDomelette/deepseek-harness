@@ -76,4 +76,6 @@ kind: "package-reference"
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。这是浏览器端设置界面，node half 不持有事件流或可变运行时数据；分层与写入拒绝是 Host 约定，由相应插件和 api-proxy 覆盖。
 </details>

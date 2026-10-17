@@ -34,6 +34,8 @@ Every operation that reaches Platform takes the calling UI's `AccountClientMetad
 The controller forwards operations to the account service and maintains no independent account state.
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; the controller answers every call from the injected account services, so the generated remote assembly owns the only wire relation to audit.
 ## Further Exploration
 
 The [credentials subsystem](../../../docs/subsystems/credentials.md) owns storage APIs; the [architecture](../../../docs/architecture.md) explains application composition.

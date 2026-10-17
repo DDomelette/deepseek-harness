@@ -98,4 +98,6 @@ These limits define which runs produce records and what the node exposes; they a
 
 None.
 
+
+**Runtime invariant:** No companion is published. The browser plugin contributes one effect-owned Conversation Definition, keyed renderer, and dictionary; tests prove their disposal and the Host tool package owns the durable event invariant.
 </details>

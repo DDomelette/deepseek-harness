@@ -110,4 +110,6 @@ These limits define the current model surface. They are current package constrai
 
 None.
 
+
+**Runtime invariant:** No companion is published. The plugin registers a single command contribution, and the HMR-safety spec proves that the registration is disposed correctly. The plugin emits no Cordis events and owns no cross-plugin mutable state.
 </details>

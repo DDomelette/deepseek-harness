@@ -107,4 +107,6 @@ Production 历史读取使用 `{ recovery: 'recoverable', validation: 'transform
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。本构建期静态库仅贡献生成的已发布格式编解码器与迁移目录；已安装的当前写入格式与事件词表由 `dsh-session` 持有，已存储的 generation 与直属子 Session 证据由 JSONL 持久化后端持有。
 </details>

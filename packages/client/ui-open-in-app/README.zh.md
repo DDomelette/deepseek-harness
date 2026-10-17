@@ -92,4 +92,6 @@ Host 在打开或定位前通过当前文件系统验证路径。没有对应 Ho
 
 功能层面的各项决定，包括拆分为主机包与本表面包，记录在[历史转正 Agent Note](../../../.agents/notes/archived/feature/2026-08-25-promote-open-anywhere-plugin.md)；文档预览的文件控件记录在[历史默认应用 Agent Note](../../../.agents/notes/archived/feature/2026-09-16-open-in-default-app-for-sidebar-files.md)。
 
+
+**运行时不变式：** 不发布伴生入口。插件注册一个词典 effect 和一个 header slot 条目，HMR 安全性 spec 证明二者都会在资源释放时撤销；可用性与选择存储在控制器的快照存储中，不存在可能与之分歧的第二份副本。
 </details>

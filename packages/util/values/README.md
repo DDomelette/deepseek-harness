@@ -69,6 +69,7 @@ The JSON validator uses an explicit work stack and tracks only the active ancest
 |---|---|
 | [`src/index.ts`](src/index.ts) | JSON value type, validation and snapshot traversal, structural equality, deep freezing, weak-key/strong-value associations, and exhaustive-union failure |
 | [`src/partial-json.ts`](src/partial-json.ts) | Lazy top-level argument scanning and observed-answer change detection |
+| — | No runtime invariant companion is published; every exported operation is a pure function over its arguments, so no independent observation can diverge from an owned relation. |
 
 </details>
 

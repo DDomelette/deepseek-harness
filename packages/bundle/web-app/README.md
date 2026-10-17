@@ -124,6 +124,7 @@ The URL line and browser handoff are readiness signals: supervisors RPC as soon 
 | [`tests/public-url.spec.ts`](tests/public-url.spec.ts) | Advertised-root parsing and normalization |
 | [`tests/browser-open.spec.ts`](tests/browser-open.spec.ts) | Default-browser handoff after the page is reachable |
 
+No runtime invariant companion is published because every contribution — the frontend-static child plugin, prompt sections, and bash env registrations — is disposed with its fiber by the owning registry, and each of those registries carries its own invariant; the bundle holds no mutable state of its own to audit.
 </details>
 
 -----

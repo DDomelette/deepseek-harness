@@ -76,4 +76,6 @@ None; this package neither assembles nor sends a provider request.
 
 None.
 
+
+**Runtime invariant:** No companion is published. This is a browser-side settings surface whose node half owns no event stream or mutable runtime data; the layering and write refusals are Host contracts covered by the owning plugins and the api-proxy.
 </details>

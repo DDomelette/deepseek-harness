@@ -99,4 +99,6 @@ kind: "package-reference"
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。工具与事件注册归 effect 所有，Session 日志拥有文件声明；插件不维护独立的文件内容存储。
 </details>

@@ -75,4 +75,6 @@ None, as 横幅由宿主状态绘制，从不进入模型请求；按钮的效�
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。这个仅浏览器的插件仅贡献 `conversation.input.dock` 横幅，用于渲染桥接序列化的 `Box`/`Text`/`Button` 树并转发按下事件；横幅代数、`onPress` 执行与槽位声明分别由 `claudeCodeMods` Remote 和 `ctx.slots` 持有。
 </details>

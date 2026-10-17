@@ -154,4 +154,6 @@ None; this package neither assembles nor sends a provider request.
 
 None.
 
+
+**Runtime invariant:** No companion is published. The two services (`sidebarRight`, `sidebarRightTabs`) are provided through `ctx.reflect.provide` inside one effect and torn down with it; the seat's binding and the Tab domain's occurrence lifetimes are asserted directly by this package's specs, and no independent observation exists to diverge from them.
 </details>

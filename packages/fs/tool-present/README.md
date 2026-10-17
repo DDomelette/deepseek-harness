@@ -99,4 +99,6 @@ The tool schema is static for the mount lifetime. Delivery result text extends t
 
 None.
 
+
+**Runtime invariant:** No companion is published. Tool and event registrations are effect-owned, and the Session log owns file declarations; the plugin maintains no independent file-content store.
 </details>

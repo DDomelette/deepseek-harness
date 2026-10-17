@@ -52,6 +52,8 @@ All fixed actions come from the service's observable fixed catalog. Conversation
 -----
 
 <a id="further-exploration"></a>
+
+**Runtime invariant:** No companion is published; shortcut overrides are owned by the shortcut service; the panel renders and commits them only through its declared actions.
 ## Further Exploration
 
 - [Web Client](../../../docs/subsystems/web-client.md)

@@ -195,4 +195,6 @@ None; Chat presentation does not assemble or mutate provider requests.
 
 None.
 
+
+**Runtime invariant:** No companion is published. Conversation and Slot registration enforce Chat target consistency.
 </details>

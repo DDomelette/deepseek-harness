@@ -2,22 +2,24 @@
 - button "Collapse sidebar"
 - button "New session": New Session
 - navigation "Global panels":
+  - button "Plugins"
   - button "Automation tasks"
 - text: Workspaces
 - button "Search sessions"
-- textbox "Search sessions..."
+- textbox "Search session names"
 - button "View options"
 - button "Add workspace"
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
 - button "Settings"
+- banner:
+  - button "Open right sidebar"
 - text: Into the Unknown Preview
 - button "Choose workspace": workspace
 - button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Plan mode on, press to turn off": Plan
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash

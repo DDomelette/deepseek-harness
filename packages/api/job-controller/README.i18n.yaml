@@ -21,8 +21,8 @@
   en: e9099f7e4b35e24c
   zh: e4069155f10b3b66
 /job-controller/model-experience:
-  en: 45162a45bf535f11
-  zh: 3eeae8c7a02bbef5
+  en: bbaa10fe6fee2808
+  zh: c6f33c364af6e13f
 /job-controller/model-experience/kv-cache-effect:
   en: e71bac9439326121
   zh: 9f1a50f452658818
@@ -30,5 +30,5 @@
   en: c0f98753f7ba6b9b
   zh: 4022148512051bfe
 /job-controller/known-limitations-and-deferred-work/dev-note:
-  en: e67f633dc6fe7773
-  zh: 3bb0c20c93f16f98
+  en: 5af2c1148152ff02
+  zh: 1000ffbdbf898fd1

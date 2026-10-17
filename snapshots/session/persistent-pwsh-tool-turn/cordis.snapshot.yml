@@ -78,10 +78,6 @@
   name: '@deepseek-ai/dsh-skill'
   disabled: true
 
-- id: skill-settings
-  name: '@deepseek-ai/dsh-skill-settings'
-  disabled: true
-
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
   disabled: true
@@ -92,10 +88,6 @@
 
 - id: tool-bash
   name: '@deepseek-ai/dsh-tool-bash'
-  disabled: true
-
-- id: tool-pwsh
-  name: '@deepseek-ai/dsh-tool-pwsh'
   disabled: true
 
 - insert:

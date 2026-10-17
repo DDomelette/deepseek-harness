@@ -1,31 +1,28 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Use the read tool twice" [disabled]
+  - navigation "Session hierarchy": Use the read tool twice
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"
-- button "System prompt"
 - text: "Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop. {{clock}}"
 - button "Copy"
-- button "2 tool calls"
+- status: Completed
+- button "Completed in {{duration}}"
 - paragraph: DONE
 - button "Copy"
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: {{clock}}
 - button "compact Compacted 5 history items (~{{tokens}} tokens)"
-- button "Context injection AGENTS.md"
+- status: Completed
+- button "Completed in {{duration}}" [disabled]
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
 - button "Send message" [disabled]

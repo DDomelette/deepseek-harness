@@ -85,6 +85,8 @@ Host entry 为每条 Client 流独立注册一组 allowlist listener 和一个�
 
 无。
 
+
+**运行时不变式：** 不发布伴生入口。Host 入口为每个 Client 注册一个名单内的 Cordis 事件源，物理流、carrier、endpoint、取消与重连均由 `ctx.typertGateway` 持有。
 </details>
 
 客户端组装包含 account 命名空间，用于登录操作和可重连的账号快照。
