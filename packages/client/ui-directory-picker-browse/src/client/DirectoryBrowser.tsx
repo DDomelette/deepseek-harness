@@ -362,6 +362,17 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    */
   const previewSuspended = useRef(false)
 
+  /**
+   * Whether Enter's navigation is still in flight. The dialog has no focus
+   * trap, and the shell behind it re-focuses its own composer whenever that
+   * surface renders, so a submitted navigation can lose focus while it walks
+   * its parent leg. That focus move is not the operator abandoning the edit:
+   * cancelling there withdraws the navigation, leaves the stale level on
+   * screen, and makes Open adopt the level the editor was seeded with. Escape
+   * still cancels explicitly, and settlement clears this flag either way.
+   */
+  const submittedLanding = useRef(false)
+
   // The panes as the draft-following scan must read them when its wait
   // fires: current, but NOT a dependency of the wait (see the effect below).
   const viewRef = useRef<{ parent: DirectoryListing | null; child: DirectoryListing | null }>({ parent: null, child: null })
@@ -416,6 +427,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     // What every landing does once its panes are committed, whichever shape
     // committed them.
     const settle = (): void => {
+      submittedLanding.current = false
       setLoading(false)
       if (options.closeEditor) {
         setPathDraft(null)
@@ -473,6 +485,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       // moves on first.
       if (options.closeEditor) window.setTimeout(landSingle, PARENT_LEG_WAIT_MS)
     }, (reason: unknown) => {
+      submittedLanding.current = false
       if (seq !== requestSeq.current) return
       setLoading(false)
       if (options.announce) setError(failureText(reason))
@@ -548,6 +561,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     // Cancel also withdraws a navigation the editor already launched: its
     // late success must not jump to the cancelled path, so the pending
     // request is superseded and the view leaves the loading state.
+    submittedLanding.current = false
     supersede()
     setLoading(false)
     setPathDraft(null)
@@ -594,9 +608,11 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     setFolderDraft(null)
     setCreateError(null)
     // A close mid-flight (failed Enter, then Cancel) may leave refocus
-    // flags armed; retire them so a later render cannot consume them.
+    // flags armed; retire them so a later render cannot consume them, and
+    // drop any submission hold with the dialog that owned it.
     refocusPick.current = false
     refocusEditZone.current = false
+    submittedLanding.current = false
   }, [open, navigate, supersede])
 
   /** The folder a create or Open acts on: the selection, else the listed level. */
@@ -795,15 +811,17 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         // Focus leaving THIS dialog card while editing cancels like Escape.
         // Guarded non-cancel paths: window/tab focus loss (document no
         // longer focused); a focus move that stays inside the card (Tab
-        // onto the filtered rows or the footer toggle); and pointer paths,
-        // where rows and the toggle suppress focus steal on mousedown while
-        // editing so their click lands first. Enter keeps focus in the
-        // input while its navigation is in flight, so a submitted path is
-        // never withdrawn here. Anchored to this card via closest, not any
+        // onto the filtered rows or the footer toggle); pointer paths, where
+        // rows and the toggle suppress focus steal on mousedown while
+        // editing so their click lands first; and a submitted landing still
+        // walking its legs, where the surrounding shell re-focuses its own
+        // composer and would otherwise withdraw the navigation the operator
+        // just asked for. Anchored to this card via closest, not any
         // [role="dialog"], so focus escaping into a sibling overlay cancels.
         onBlur={(event) => {
           if (pathDraft === null) return
           if (!document.hasFocus()) return
+          if (submittedLanding.current) return
           const card = event.currentTarget.closest('[role="dialog"]')
           /* v8 ignore next -- narrowing guard: this scope always renders inside the Modal card. */
           if (card === null) return
@@ -915,6 +933,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                         // otherwise supersede this navigation and land the
                         // draft's parent directory instead.
                         previewSuspended.current = true
+                        submittedLanding.current = true
                         navigate(pathDraft)
                       }
                     }
