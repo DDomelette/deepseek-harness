@@ -187,6 +187,24 @@ class EventSourceStub {
   close(): void {}
 }
 
+/**
+ * jsdom implements no FontFaceSet, yet the composer's control-row layout
+ * re-measures when the document's fonts finish loading. This stands in for the
+ * loading-done subscription only: no font ever loads here, so the listener set
+ * stays empty and measurement happens through the observers instead.
+ */
+class FontFaceSetStub {
+  private readonly listeners = new Set<EventListener>()
+
+  addEventListener(_type: string, listener: EventListener): void {
+    this.listeners.add(listener)
+  }
+
+  removeEventListener(_type: string, listener: EventListener): void {
+    this.listeners.delete(listener)
+  }
+}
+
 const win = window as FixtureWindow
 let unmount: (() => Promise<void>) | undefined
 
@@ -222,6 +240,11 @@ export function installAssembledBootEnv(): void {
     document.title = 'DeepSeek Harness'
     vi.stubGlobal('ResizeObserver', ResizeObserverStub)
     vi.stubGlobal('EventSource', EventSourceStub)
+    if (document.fonts === undefined) {
+      Object.defineProperty(document, 'fonts', {
+        value: new FontFaceSetStub(), configurable: true, writable: true,
+      })
+    }
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
       setTimeout(() => { callback(0) }, 0) as unknown as number)
     vi.stubGlobal('cancelAnimationFrame', (id: number) => { clearTimeout(id) })
