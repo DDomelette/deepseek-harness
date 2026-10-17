@@ -10,7 +10,7 @@ import {
 } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
-import { isTrustedApiRequest } from './api-request-trust.ts'
+import { isDeclaredAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
 import { requestAuthority } from './request-authority.ts'
@@ -108,7 +108,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
   admit(request: ConnectionTrustRequest): PeerAdmission {
     const rejection = this.requestRejection(request)
     if (rejection !== undefined) return { rejection }
-    if (this.browserAuth.isLocalOperator(request)) return { peer: this.operatorPeer }
+    if (this.browserAuth.isLocalOperator(request, this.redeemsToken)) return { peer: this.operatorPeer }
     const deviceId = this.browserAuth.deviceIdOf(request)
     if (deviceId !== undefined) return { peer: this.devicePeer(deviceId) }
     // `accepts` admits exactly the launch-token credential and device cookies,
@@ -189,7 +189,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
       touch: deviceId => touchDevice(credentials, deviceId),
       issueCookie: (request, deviceId) => {
         const authority = requestAuthority(request.headers)
-        return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)
+        return authority === undefined
+          ? undefined
+          : this.browserAuth.issueDeviceCookie(authority, deviceId, this.servesTls())
       },
     }
   }
@@ -223,23 +225,54 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Apply the configured Host/Origin fence, then browser authentication. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
-    return this.browserAuth.isAuthenticated(request) ? undefined : 401
+    if (!isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return 403
+    return this.browserAuth.isAuthenticated(request, this.redeemsToken) ? undefined : 401
+  }
+
+  /** The exact address this process bound, as a fence authority, when a listener is up. */
+  private boundAuthority(): string | undefined {
+    const webServer = this.ctx.get('webServer')
+    return webServer === undefined ? undefined : `${webServer.host}:${String(webServer.port)}`
   }
 
   /**
    * Authenticate an index request through the process-token exchange or cookie.
    * The Host/Origin fence keeps the application shell away from an authority
    * this Host does not trust, so only a trusted client without a session is
-   * told how to pair.
+   * told how to pair. A TLS listener mints `Secure` cookies, and the launch
+   * token redeems on loopback plus every authority this deployment declared.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
-    const access = this.browserAuth.authorizeIndex(request, response)
-    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts)) return access
+    const access = this.browserAuth.authorizeIndex(request, response, this.servesTls(), this.redeemsToken)
+    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return access
     this.browserAuth.refuseIndexInText(request, response)
     return 'answered'
   }
 
+  /** Whether the listener carrying browser requests serves TLS. */
+  private servesTls(): boolean {
+    return this.ctx.get('webServer')?.protocol === 'https:'
+  }
+
+  /** Bound function form of {@link declaresAuthority}, for the browser-auth predicates. */
+  private readonly redeemsToken = (authority: string, hostname: string): boolean => this.declaresAuthority(authority, hostname)
+
+  /**
+   * Whether the operator declared this authority: the address the launcher
+   * bound, or a `--trusted-host` entry. An undeclared name stays refused, so a
+   * token-bearing address a phone receives still grants that phone nothing.
+   * @param authority - canonical `host:port` of the request redeeming the token.
+   * @param hostname - hostname of that request.
+   * @returns true when this authority redeems the process launch token.
+   */
+  private declaresAuthority(authority: string, hostname: string): boolean {
+    const webServer = this.ctx.get('webServer')
+    if (webServer !== undefined
+      && (hostname === webServer.host || authority === `${webServer.host}:${String(webServer.port)}`)) {
+      return true
+    }
+    return isDeclaredAuthority(authority, this.trustedHosts)
+  }
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
@@ -259,7 +292,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
    *   nothing, and a failed last-seen write is reported rather than thrown.
    */
   noteDeviceRequest(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
-    const renewed = this.browserAuth.renewedDeviceCookie(request)
+    const renewed = this.browserAuth.renewedDeviceCookie(request, this.servesTls())
     if (renewed !== undefined) response.setHeader('set-cookie', renewed)
     const deviceId = this.browserAuth.deviceIdOf(request)
     if (deviceId === undefined) return
@@ -270,7 +303,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Whether the local operator's launch-token cookie authorizes device management. */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
-    return this.browserAuth.isLocalOperator(request)
+    return this.browserAuth.isLocalOperator(request, this.redeemsToken)
   }
 
   /**

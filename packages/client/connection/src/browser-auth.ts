@@ -122,8 +122,15 @@ function cookieValue(headerValue: string, name: string): string | undefined {
 }
 
 /** Serialize the fixed browser-session attributes; generated names and values are cookie-safe base64url. */
-function sessionCookie(name: string, value: string, expiresAt: number, maxAgeSeconds: number): string {
-  return `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
+function sessionCookie(
+  name: string,
+  value: string,
+  expiresAt: number,
+  maxAgeSeconds: number,
+  secure: boolean,
+): string {
+  const attributes = `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
+  return secure ? `${attributes}; Secure` : attributes
 }
 
 function signature(secret: Buffer, body: string): Buffer {
@@ -265,15 +272,12 @@ export class BrowserAuth {
   }
 
   /**
-   * Add this process's launch token to the ordinary application root URL.
-   * @param baseUrl - canonical browser origin without credentials.
-   * @returns root URL carrying the process token as its sole authentication input.
+   * Add this process's launch token to the caller's application URL.
+   * @param baseUrl - clean browser URL whose authority and mount are preserved.
+   * @returns the same URL carrying the process token as its sole authentication input.
    */
   authenticatedUrl(baseUrl: string): string {
     const url = new URL(baseUrl)
-    url.pathname = '/'
-    url.search = ''
-    url.hash = ''
     url.searchParams.set(TOKEN_QUERY, this.launchToken)
     return url.href
   }
@@ -284,11 +288,12 @@ export class BrowserAuth {
    * carries no window gets the configured default.
    * @param authority - canonical `host:port` the cookie is bound to.
    * @param deviceId - registry id of the approved device.
+   * @param secure - whether the listener minting this cookie serves TLS; only that listener's own cookie carries `Secure`.
    * @returns the complete `Set-Cookie` value.
    */
-  issueDeviceCookie(authority: string, deviceId: PairedDeviceId): string {
+  issueDeviceCookie(authority: string, deviceId: PairedDeviceId, secure = false): string {
     const issuedAt = Date.now()
-    return this.mintDeviceCookie(authority, deviceId, issuedAt, this.deviceWindowEnd(deviceId, issuedAt))
+    return this.mintDeviceCookie(authority, deviceId, issuedAt, this.deviceWindowEnd(deviceId, issuedAt), secure)
   }
 
   /**
@@ -312,6 +317,7 @@ export class BrowserAuth {
     deviceId: PairedDeviceId,
     issuedAt: number,
     expiresAt: number,
+    secure: boolean,
   ): string {
     const value = encodeCookie({
       version: DEVICE_COOKIE_PAYLOAD_VERSION,
@@ -322,7 +328,7 @@ export class BrowserAuth {
     }, this.secret)
     this.reportDeviceCookie(deviceId, expiresAt)
     return sessionCookie(
-      cookieName(authority), value, expiresAt, Math.max(0, Math.floor((expiresAt - issuedAt) / 1000)),
+      cookieName(authority), value, expiresAt, Math.max(0, Math.floor((expiresAt - issuedAt) / 1000)), secure,
     )
   }
 
@@ -347,9 +353,17 @@ export class BrowserAuth {
    * use, so pairing is the only way in.
    * @param req - incoming root or configured-index request.
    * @param res - response owned when this method returns `answered`.
+   * @param secure - whether the listener receiving this request serves TLS; the minted cookie carries `Secure` when it does.
+   * @param redeemsToken - whether this request's authority may redeem the launch token: the operator's
+   *   own machine always may, and the caller adds the authorities it declared (`--trusted-host`, the bound address).
    * @returns what the caller may serve for this request.
    */
-  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): ConnectionIndexAccess {
+  authorizeIndex(
+    req: ConnectionIndexRequest,
+    res: ConnectionIndexResponse,
+    secure = false,
+    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+  ): ConnectionIndexAccess {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
@@ -358,10 +372,12 @@ export class BrowserAuth {
       const hostname = requestHostname(req.headers)
       // The process launch token is the computer's own credential: it is
       // exchanged only where the operator's own machine reached this Host, so a
-      // token-bearing LAN URL a phone opens grants that phone nothing.
+      // token-bearing LAN URL a phone opens grants that phone nothing. The
+      // operator can declare further authorities (a reverse proxy, the bound
+      // address) and those redeem it too.
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
-        && authority !== undefined && hostname !== undefined && isLoopbackHostname(hostname)
-        && isLoopbackPeer(req)
+        && authority !== undefined && hostname !== undefined
+        && (isLoopbackHostname(hostname) && isLoopbackPeer(req) || redeemsToken(authority, hostname))
         && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
         const expiresAt = issuedAt + this.maxAgeMilliseconds
@@ -376,13 +392,13 @@ export class BrowserAuth {
           'location': '/',
           'referrer-policy': 'no-referrer',
           'set-cookie': sessionCookie(
-            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000),
+            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
           ),
         })
         res.end()
         return 'answered'
       }
-      if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
+      if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req, redeemsToken)) {
         res.writeHead(303, {
           'cache-control': 'no-store',
           'location': '/',
@@ -393,7 +409,7 @@ export class BrowserAuth {
       }
       return this.refuseIndex(req, res)
     }
-    if (this.authorizeIndexCookie(req, res)) return 'serve'
+    if (this.authorizeIndexCookie(req, res, secure, redeemsToken)) return 'serve'
     return this.refuseIndex(req, res)
   }
 
@@ -430,32 +446,45 @@ export class BrowserAuth {
    * entry records one; a launch-token cookie requires a loopback authority and
    * TCP peer.
    * @param request - HTTP headers carrying Host and Cookie, and the TCP peer.
+   * @param redeemsToken - authorities the caller declared besides loopback, as in {@link authorizeIndex}.
    * @returns true only for a cookie this activation still accepts.
    */
-  isAuthenticated(request: ConnectionTrustRequest): boolean {
+  isAuthenticated(
+    request: ConnectionTrustRequest,
+    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+  ): boolean {
     const payload = this.cookiePayload(request)
-    return payload !== undefined && this.accepts(payload, request)
+    return payload !== undefined && this.accepts(payload, request, redeemsToken)
   }
 
   /**
    * Authenticate the computer's operator, excluding paired-device credentials.
    * @param request - HTTP headers and the server-observed TCP peer.
-   * @returns true for an accepted launch-token cookie on a loopback connection.
+   * @param redeemsToken - authorities the caller declared besides loopback, as in {@link authorizeIndex}.
+   * @returns true for an accepted launch-token cookie on a loopback or declared connection.
    */
-  isLocalOperator(request: ConnectionTrustRequest): boolean {
+  isLocalOperator(
+    request: ConnectionTrustRequest,
+    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+  ): boolean {
     const payload = this.cookiePayload(request)
-    return payload?.version === COOKIE_PAYLOAD_VERSION && this.accepts(payload, request)
+    return payload?.version === COOKIE_PAYLOAD_VERSION && this.accepts(payload, request, redeemsToken)
   }
 
   /**
    * Authenticate one index request and stage the aligned device cookie when the
    * registry window outlives the payload's expiry.
    */
-  private authorizeIndexCookie(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+  private authorizeIndexCookie(
+    req: ConnectionIndexRequest,
+    res: ConnectionIndexResponse,
+    secure: boolean,
+    redeemsToken: (authority: string, hostname: string) => boolean,
+  ): boolean {
     const payload = this.cookiePayload(req)
-    if (payload === undefined || !this.accepts(payload, req)) return false
+    if (payload === undefined || !this.accepts(payload, req, redeemsToken)) return false
     if (payload.version === DEVICE_COOKIE_PAYLOAD_VERSION) {
-      const renewed = this.alignedCookie(payload)
+      const renewed = this.alignedCookie(payload, secure)
       if (renewed !== undefined) res.setHeader('set-cookie', renewed)
     }
     return true
@@ -469,12 +498,13 @@ export class BrowserAuth {
    * whose own payload already lapsed is refused before this point, so nothing
    * here revives one.
    * @param request - headers and TCP peer of an authenticated request.
+   * @param secure - whether the listener serving this request uses TLS, so the replacement cookie keeps `Secure`.
    * @returns the `Set-Cookie` value this request is owed, or undefined when its
    *   credential already matches the registry window.
    */
-  renewedDeviceCookie(request: ConnectionTrustRequest): string | undefined {
+  renewedDeviceCookie(request: ConnectionTrustRequest, secure = false): string | undefined {
     const payload = this.acceptedDevicePayload(request)
-    return payload === undefined ? undefined : this.alignedCookie(payload)
+    return payload === undefined ? undefined : this.alignedCookie(payload, secure)
   }
 
   /**
@@ -502,14 +532,18 @@ export class BrowserAuth {
    * Stage the replacement cookie for a device cookie whose payload lags its
    * registry window.
    */
-  private alignedCookie(payload: DeviceCookiePayload): string | undefined {
+  private alignedCookie(payload: DeviceCookiePayload, secure: boolean): string | undefined {
     const expiresAt = this.pairedDevices.get(payload.deviceId)?.expiresAt
     if (expiresAt === undefined || expiresAt <= payload.expiresAt) return undefined
-    return this.mintDeviceCookie(payload.authority, payload.deviceId, Date.now(), expiresAt)
+    return this.mintDeviceCookie(payload.authority, payload.deviceId, Date.now(), expiresAt, secure)
   }
 
   /** Whether one decoded cookie payload is still inside its lifetime for this request. */
-  private accepts(payload: BrowserCookiePayload, request: ConnectionTrustRequest): boolean {
+  private accepts(
+    payload: BrowserCookiePayload,
+    request: ConnectionTrustRequest,
+    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+  ): boolean {
     const now = Date.now()
     if (!(payload.issuedAt <= now
       && payload.expiresAt > now
@@ -519,7 +553,9 @@ export class BrowserAuth {
       return device !== undefined && device.revokedAt === undefined && now < (device.expiresAt ?? payload.expiresAt)
     }
     const hostname = requestHostname(request.headers)
-    return isLoopbackPeer(request) && hostname !== undefined && isLoopbackHostname(hostname)
+    if (hostname === undefined) return false
+    const declared = payload.authority !== undefined && redeemsToken(payload.authority, hostname)
+    return (isLoopbackPeer(request) && isLoopbackHostname(hostname) || declared)
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }
 
