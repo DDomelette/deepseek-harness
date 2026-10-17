@@ -27,6 +27,11 @@
 - 使用中性 `--dsw-alias-border-*` token 的平面边框与分割线一律 `0.5px`——按钮、输入框、卡片、行分割线，以及以填充盒绘制的分隔线（菜单分隔、对话标题栏接缝、markdown `hr`、竖向轨道线）共用发丝线粗细，Chromium 将其绘制为一个设备像素。dashed 记号与状态色 border 保持 1px；spinner 圆环经 spec 的显式豁免保留原宽度。更宽的中性 solid border 会被 ui-theme elevation spec 拒绝。
 - 可点击产物链接（Markdown 锚点、正文文件引用、网页来源与抓取链接、产物 chips、workflow 成员链接）经 `--dsw-alias-link` 着色、`font-weight: 500`，默认无下划线，hover/focus 时为 3px offset 的点状下划线。带文字的锚点另以 ui-primitives 的 `LinkIcon` 分类图形（随 `currentColor`）作前置；workflow 成员链接与只包图片的锚点不带图形，工具行文件链接保持其灰色点线示能（[可点击链接 Agent Note](../.agents/notes/implemented/feature/2026-09-04-web-clickable-link-styles.zh.md)）。
 
+<a id="corner-radii-and-settings-cards"></a>
+## 圆角与设置卡片
+
+[DSH 统一圆角标准](ui-radius.zh.md)定义了圆角刻度、组件尺寸映射、圆形与胶囊例外、嵌套悬停几何，以及设置卡片的填充与描边。
+
 <a id="changing-the-system"></a>
 ## 变更系统
 

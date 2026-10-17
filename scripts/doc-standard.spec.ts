@@ -42,6 +42,9 @@ const KIND_TEMPLATES: Readonly<Record<string, string>> = {
   'package-reference': '.agents/skills/dsh-doc/templates/package-reference.md',
   'package-library': '.agents/skills/dsh-doc/templates/package-library.md',
   'package-bundle': '.agents/skills/dsh-doc/templates/package-bundle.md',
+  'persistence-change': '.agents/skills/dsh-doc/templates/persistence-change.md',
+  'persistence-format': '.agents/skills/dsh-doc/templates/persistence-format.md',
+  'persistence-release': '.agents/skills/dsh-doc/templates/persistence-release.md',
 }
 
 /**

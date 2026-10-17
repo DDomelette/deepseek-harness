@@ -25,6 +25,11 @@ Global style sheets belong in `ui-theme/src/styles/`. Component styles live besi
 - Flat borders and separators that use a neutral `--dsw-alias-border-*` token draw at `0.5px` — buttons, inputs, cards, row dividers, and separators drawn as filled boxes (menu separators, the conversation header seam, markdown `hr`, vertical rails) share the hairline weight, which Chromium paints as one device pixel. Dashed affordances and state-colored borders keep 1px; spinner ring tracks keep their width through the spec's explicit allowlist. The ui-theme elevation spec rejects wider neutral solid borders.
 - Clickable artifact links (markdown anchors, prose file mentions, web source and fetch links, produced-file chips, workflow member links) color through `--dsw-alias-link` at `font-weight: 500`, with no underline at rest and a dotted 3px-offset underline on hover/focus. Text-leading anchors also lead with the ui-primitives `LinkIcon` category glyph riding `currentColor`; workflow member links and image-only anchors carry no glyph, and tool-row file links keep their grey dotted affordance ([clickable-link Agent Note](../.agents/notes/implemented/feature/2026-09-04-web-clickable-link-styles.md)).
 
+<a id="corner-radii-and-settings-cards"></a>
+## Corner radii and settings cards
+
+The [DSH unified corner-radius standard](ui-radius.md) defines the radius scale, component size mapping, circle and capsule exceptions, nested hover geometry, and settings-card fills and strokes.
+
 ## Changing the system
 
 Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md); the [styling-system Agent Note](../.agents/notes/implemented/process/2026-07-19-web-styling-system.md) records framework rationale.

@@ -13,9 +13,21 @@ The experimental group contains prototype capabilities whose contracts can chang
 
 ## Table of Contents
 
+- [Experimental, optional, and Official](#status)
 - [Packages](#packages)
 - [Related documentation](#related-documentation)
 - [Dev Note](#dev-note)
+
+-----
+
+<a id="status"></a>
+## Experimental, optional, and Official
+
+**Experimental** means the complete public capability remains under evaluation and is not a product-support commitment. Its behavior or API may change, and the capability may be withdrawn; engineering, security, documentation, testing, and released-data obligations still apply. A package belongs here only when its entire public contract is experimental or internal-only; an experimental option inside a product package stays with that product role.
+
+**Optional** means a user explicitly selects the capability. **Official** means the project maintains and lists the package in the Plugins page. Neither describes maturity; publication, default installation, and GUI visibility do not determine maturity either. Product packages outside this group have maintained product roles, while their public APIs still follow the repository's pre-stable policy.
+
+Promotion requires a named product role, documented public behavior and limitations, current consumers, release contents, and test evidence. Move the package to its product group, apply that group's naming rules, and update affected consumers together. The [subtree rules](AGENTS.md) govern dependency isolation and publication.
 
 -----
 
