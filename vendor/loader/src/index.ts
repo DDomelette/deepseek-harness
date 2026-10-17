@@ -32,7 +32,13 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'loader/volatile-update'(paths: readonly (readonly string[])[]): void
-    'loader/patch-context'(entry: Entry, next: () => void | Promise<void>): void | Promise<void>
+    /**
+     * Refresh entry context before applying config.
+     * @param entry - entry containing the new raw config and optional current fiber.
+     * @param next - continue context refresh and Loader's config update.
+     * @mode waterfall
+     */
+    'loader/patch-context'(entry: Entry, next: () => void): void
   }
 
   interface Context {
@@ -106,12 +112,12 @@ export class Loader extends EntryTree {
       return interpolate(this.ctx, config)
     }, { global: true })
 
-    ctx.on('internal/update', async function (config, noSave, next) {
+    ctx.on('internal/update', function (config, noSave, next) {
       if (!this.entry || noSave || this.parent.fiber?.entry === this.entry) return next()
-      await next()
       const unparse = this.runtime?.Config?.['simplify']
       this.entry.options.config = unparse ? unparse.call(this.runtime!.Config, config) : config
       this.entry.parent.tree.write()
+      return next()
     }, { global: true, prepend: true })
 
     ctx.on('internal/update', function (config, _, next) {
