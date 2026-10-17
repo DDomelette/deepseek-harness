@@ -143,9 +143,17 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
       + `Current working directory: ${JSON.stringify(cwd)}.\n\n`
       + 'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\n'
       + 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
+    /** Drop the platform-only skill catalog block so the offload block sequence is comparable. */
+    const withoutSkillCatalog = (content: unknown): unknown =>
+      (content as Array<Record<string, unknown>>).filter((block) => {
+        const text = String(block.text ?? '')
+        return !text.includes('<available_skills>') && !text.includes('diagnose-windows-sandbox-acl')
+      })
     const messages = requests[0]?.messages as { content?: unknown }[] | undefined
     const offloaded = messages?.find(message => JSON.stringify(message.content).includes('[image omitted'))
-    expect(offloaded?.content).toEqual([
+    // The Windows sandbox provider appends its ACL diagnosis skill to the same
+    // user message; the offload contract under test is the block sequence below.
+    expect(withoutSkillCatalog(offloaded?.content)).toEqual([
       { type: 'text', text: 'Compare the older image ' },
       { type: 'text', text: offloadedImage },
       { type: 'text', text: ' with the newer image ' },
@@ -196,7 +204,7 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
     const fallbackMessages = requests[2]?.messages as { content?: unknown }[] | undefined
     const fallbackInput = fallbackMessages?.find(message => JSON.stringify(message.content).includes('[image omitted'))
     const fallbackAccess = accessText(fallback.cwd)
-    expect(fallbackInput?.content).toEqual([
+    expect(withoutSkillCatalog(fallbackInput?.content)).toEqual([
       { type: 'text', text: 'Compare the older image ' },
       { type: 'text', text: `[image omitted to fit request image limits; ${attachmentId}.${fallbackAccess}]` },
       { type: 'text', text: ' with the newer image ' },
