@@ -4607,6 +4607,7 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team`（[`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods`（[`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` — 需要 `computerUse` · `tools` · `systemPrompt`（[`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts)）
+- `@deepseek-ai/dsh-experimental-session-inspector`（[`packages/experimental/session-inspector/src/index.ts`](../packages/experimental/session-inspector/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-tool-worktree` — 需要 `tools` · `worktrees`（[`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts)）
 - `@deepseek-ai/dsh-fs-e2b` — 需要 `e2b`（[`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts)）
 - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
@@ -4689,6 +4690,7 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-badge-skill-bundle`（[`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-browser-use-runtime`（[`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-cot-translation-bundle`（[`packages/experimental/cot-translation-bundle/src/index.ts`](../packages/experimental/cot-translation-bundle/src/index.ts)）
+- `@deepseek-ai/dsh-experimental-inspector-profile`（[`packages/experimental/inspector-profile/src/index.ts`](../packages/experimental/inspector-profile/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-ralph-bundle`（[`packages/experimental/ralph-bundle/src/index.ts`](../packages/experimental/ralph-bundle/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-session-search`（[`packages/experimental/session-search/src/index.ts`](../packages/experimental/session-search/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-session-titles-bundle`（[`packages/experimental/session-titles-bundle/src/index.ts`](../packages/experimental/session-titles-bundle/src/index.ts)）

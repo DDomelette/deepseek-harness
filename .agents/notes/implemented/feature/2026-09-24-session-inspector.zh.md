@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-`experimental/session-inspector` 注册 `session-inspector-log` Sidebar 页面及其 Session 作用域正文。已有 Sidebar 管理 Session 引用。检查器不增加资源提供方、Conversation header slot、composer 或产品包导航 API。[Session Inspector README](../../../../packages/experimental/session-inspector/README.md) 描述表格操作与展示行为。
+`experimental/session-inspector` 注册 `session-inspector-log` Sidebar 页面及其 Session 作用域正文。已有 Sidebar 管理 Session 引用。检查器不增加资源提供方、Conversation header slot、composer 或产品包导航 API。[Session Inspector README](../../../../packages/experimental/session-inspector/README.zh.md) 描述表格操作与展示行为。
 
 - Session Controller 和 Chat 保留数据所有权。只有当前选中的表格订阅；日志使用现有已加载窗口和分页，不增加 Session 流或持久化格式。
 - 虚拟表格按 Turn → Step → 事件 → Assistant block/delta 分组。未闭合 block 展开，闭合后折叠。自动折叠通过尾部留白保留可见行或仍存在的祖先位置；手动折叠锚定被点击组头并暂停跟随。吸顶祖先在表头和前面吸顶行之下选择。

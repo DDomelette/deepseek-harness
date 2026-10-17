@@ -238,6 +238,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/skill/skill-settings': { kind: 'indirect', reason: 'Registry overrides are read by skill catalog and invocation consumers, which own logged model inputs.' },
   'packages/skill/skill-badge': { kind: 'indirect', reason: 'The bundled provider delegates model rendering to dsh-tool-skill.' },
   'packages/runtime-diagnostics/invariants': { kind: 'none', reason: 'The observer validates requests but never rewrites their context.' },
+  'packages/experimental/inspector-profile': { kind: 'none', reason: 'The bundle mounts developer inspection plugins and contributes no prompt section, tool, or Session event.' },
+  'packages/experimental/session-inspector': { kind: 'none', reason: 'The Inspector renders Host and Client inspection state; it adds no model-facing input.' },
   'packages/experimental/agent-team-web-profile': { kind: 'indirect', reason: 'The Web layer delegates model composition to the Host-side Agent Teams profile.' },
   'packages/e2b/subprocess-e2b': { kind: 'indirect', reason: 'The remote spawn backend delegates model rendering to consumer seams such as the bash executor family.' },
   'packages/e2b/fs-e2b': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-fs.' },
