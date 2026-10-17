@@ -2131,12 +2131,21 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-fs':
+        specifier: workspace:*
+        version: link:../../fs/fs
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@deepseek-ai/dsh-session-query':
+        specifier: workspace:*
+        version: link:../../session-query/session-query
+      '@deepseek-ai/dsh-subagent':
+        specifier: workspace:*
+        version: link:../../subagent/subagent
 
   packages/bundle/mob:
     dependencies:
@@ -13860,6 +13869,9 @@ importers:
 
   packages/subprocess/win32-process:
     dependencies:
+      '@deepseek-ai/dsh-lazy-require':
+        specifier: workspace:*
+        version: link:../../util/lazy-require
       koffi:
         specifier: 3.1.1
         version: 3.1.1
@@ -14908,18 +14920,21 @@ importers:
       '@deepseek-ai/dsh-agent':
         specifier: workspace:*
         version: link:../../core/agent
-      '@deepseek-ai/dsh-invariants':
+      '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
-        version: link:../../runtime-diagnostics/invariants
+        version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-jobs':
+        specifier: workspace:*
+        version: link:../../jobs/jobs
+      '@deepseek-ai/dsh-jobs-local':
+        specifier: workspace:*
+        version: link:../../jobs/jobs-local
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@deepseek-ai/dsh-session-persistence-jsonl':
-        specifier: workspace:*
-        version: link:../../session/session-persistence-jsonl
       '@deepseek-ai/dsh-session-projection':
         specifier: workspace:*
         version: link:../../session/session-projection
@@ -14929,6 +14944,9 @@ importers:
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tool-jobs':
+        specifier: workspace:*
+        version: link:../../jobs/tool-jobs
       '@deepseek-ai/dsh-tools':
         specifier: workspace:*
         version: link:../../core/tools

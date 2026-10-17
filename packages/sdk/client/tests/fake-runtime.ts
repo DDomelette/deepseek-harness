@@ -180,9 +180,7 @@ function runTurn(sessionId: string): void {
     if (!Array.isArray(scripted)) throw new Error('FAKE_SESSION_EVENTS must be a JSON event array')
     const events: unknown[] = scripted
     for (const value of events) {
-      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('FAKE_SESSION_EVENTS contains a non-object event')
-      }
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('FAKE_SESSION_EVENTS contains a non-object event')
       notify('session.event', { sessionId, event: { ...value, seq: seq++, time: 0 } })
     }
   }

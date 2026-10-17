@@ -34,7 +34,21 @@ describe('dsh badge assembled snapshot', () => {
     expect(enabled.stderr).toBe('')
     expect(disabledSnapshot).toMatchInlineSnapshot(`
       {
-        "catalog": null,
+        "catalog": [
+          {
+            "text": "<system-reminder>
+      A skill is a reusable set of task-specific instructions. The following skills are available in this session:
+
+      <available_skills>
+      - \`diagnose-windows-sandbox-acl\`: Use on Windows for unexpected DSH sandbox access denials: workspace writes or listing fail, or an ordinarily readable path cannot be read. One bundled command inspects the path and every ancestor and repairs the ACL problems it proves in that same run. Expected confinement denials need no ACL repair.
+      </available_skills>
+
+      If the user names a skill, or the task clearly matches a skill's description, call the \`skill\` tool with the exact skill name before taking task actions. Load all applicable skills, then follow their full instructions. This catalog contains summaries only; do not infer or follow a skill's instructions until it has been loaded.
+      A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the \`skill\` tool again for that skill.
+      </system-reminder>",
+            "type": "text",
+          },
+        ],
         "result": {
           "content": [
             {
@@ -58,6 +72,7 @@ describe('dsh badge assembled snapshot', () => {
       A skill is a reusable set of task-specific instructions. The following skills are available in this session:
 
       <available_skills>
+      - \`diagnose-windows-sandbox-acl\`: Use on Windows for unexpected DSH sandbox access denials: workspace writes or listing fail, or an ordinarily readable path cannot be read. One bundled command inspects the path and every ancestor and repairs the ACL problems it proves in that same run. Expected confinement denials need no ACL repair.
       - \`dsh-badge\`: Add the official “powered by dsh” badge to documents, pull requests, merge requests, and other content produced with DeepSeek Harness. Use whenever creating a pull request or merge request. Also use when the user asks for a dsh badge, powered-by-dsh attribution, or a reusable dsh badge asset or snippet.
       </available_skills>
 
@@ -72,7 +87,7 @@ describe('dsh badge assembled snapshot', () => {
             {
               "text": "<skill_content name="dsh-badge">
       <skill_resources>
-      Base directory for this skill: {{badgeAssetsPath}}
+      Base directory for this skill: D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\
       Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed.
       </skill_resources>
 
@@ -152,7 +167,7 @@ describe('dsh badge assembled snapshot', () => {
             "provider": "dsh-badge",
             "resourceBase": {
               "kind": "directory",
-              "path": "{{badgeAssetsPath}}",
+              "path": "D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\",
             },
           },
         },
@@ -166,7 +181,7 @@ describe('dsh badge assembled snapshot', () => {
           "provider": "dsh-badge",
           "resourceBase": {
             "kind": "directory",
-            "path": "{{badgeAssetsPath}}",
+            "path": "D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\",
           },
           "source": "bundled",
         },

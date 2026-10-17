@@ -1,29 +1,25 @@
+import { MESSAGES_RESPONSE } from './messages-response.ts'
+import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { createUserMessage, LlmAdapter, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
-import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
+import { randomUUID } from 'node:crypto'
 import AgentRegistry, { type Agent, type AgentHandle } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
-import SubagentRuntime, {
-  SubagentRunId,
-  type SubagentResult,
-  type SubagentRun,
-  type SubagentRunEndInfo,
-  type SubagentStartRequest,
-} from '@deepseek-ai/dsh-subagent'
-import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
+import SubagentRuntime, { SubagentRunId, type SubagentStartRequest, type SubagentRun, type SubagentResult, type SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
 import type { JsonRpcTransportPeer } from '@deepseek-ai/dsh-sdk-protocol'
 import { HarnessSdkJsonRpcServer } from '../src/index.ts'
 
@@ -56,11 +52,7 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
       requests.push(JSON.parse(body))
       headers.push(request.headers)
       response.writeHead(200, { 'content-type': 'text/event-stream' })
-      response.write('data: {"choices":[{"delta":{"role":"assistant","content":null,"reasoning_content":""}}]}\n\n')
-      response.write('data: {"choices":[{"delta":{"content":"done"}}]}\n\n')
-      response.write('data: {"choices":[{"delta":{"content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1}}\n\n')
-      response.write('data: [DONE]\n\n')
-      response.end()
+      response.end(MESSAGES_RESPONSE)
     })
   })
   servers.push(server)
@@ -70,9 +62,9 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
   return { url: `http://127.0.0.1:${address.port}`, requests, headers }
 }
 
-async function makeHarness(storageDir: string) {
+async function makeHarness(storageDir: string, workingDirectory = false) {
   const ctx = new Context()
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory })
   await ctx.plugin(AgentLoop, { agents: [] })
   await mountWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
@@ -81,15 +73,7 @@ async function makeHarness(storageDir: string) {
   return ctx
 }
 
-/**
- * Feed SDK lifecycle inputs without coupling protocol projection tests to
- * activation admission.
- * @param ctx - harness context with the subagent runtime mounted.
- * @param providerName - registered provider whose `start` supplies the handle.
- * @param request - delegation request; `cwd` defaults to this process's directory.
- * @param local - whether the published run owns an in-process child Agent.
- * @returns the provider's run handle.
- */
+/** Feed SDK lifecycle inputs without coupling protocol projection tests to activation admission. */
 async function startLifecycleFixture(
   ctx: Context, providerName: string, request: SubagentStartRequest, local = false,
 ): Promise<SubagentRun> {
@@ -100,23 +84,17 @@ async function startLifecycleFixture(
   const carrier = scopeTarget(ctx.subagents, request.parent)
   ctx.emit(carrier, 'subagent/start', identity)
   void run.result.then(
-    (result) => {
-      ctx.emit(carrier, 'subagent/end', {
-        ...identity,
-        stopReason: result.stopReason,
-        ...result.output.length > 0 ? { lastAssistantMessage: result.output } : {},
-      })
-    },
+    (result) => { ctx.emit(carrier, 'subagent/end', { ...identity, stopReason: result.stopReason, ...result.output.length > 0 ? { lastAssistantMessage: result.output } : {} }) },
     () => { ctx.emit(carrier, 'subagent/end', { ...identity, stopReason: 'error' }) },
   )
   return run
 }
 
-/** Drive the owning service so test lifecycle events carry the real parent scope. */
+/** Settle a scoped lifecycle fixture after the requested registry change. */
 async function settleSubagent(
   ctx: Context,
   parent: Agent,
-  info: Omit<SubagentRunEndInfo, 'runId' | 'local'> & { localAgent: Agent | undefined },
+  info: Omit<SubagentRunEndInfo, 'runId' | 'local'> & { localAgent?: Agent },
   beforeSettle?: () => Promise<void>,
 ): Promise<void> {
   const result = Promise.withResolvers<SubagentResult>()
@@ -152,6 +130,89 @@ async function settleSubagent(
 }
 
 describe('HarnessSdkJsonRpcServer', () => {
+  it('waits only for an existing SDK-owned session and includes a child-triggered root turn', async () => {
+    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-wait-'))
+    const ctx = await makeHarness(storageDir)
+    const transport = new FakeTransport()
+    const server = new HarnessSdkJsonRpcServer(ctx, transport)
+    class Adapter extends LlmAdapter {
+      override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
+        return Promise.resolve({ provider, id: model, name: model })
+      }
+      async * stream(): AsyncIterable<StreamChunk> {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'text-delta', index: 0, text: 'answer' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'answer' } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      }
+    }
+    ctx.llm.registerAdapter(['mock'], new Adapter())
+    try {
+      await expect(server.handleRequest('session/wait', { sessionId: 'missing' })).rejects.toThrow('not initialized')
+      await server.initialize({ cwd: storageDir, provider: 'mock', model: 'mock' })
+      await expect(server.handleRequest('session/wait', {})).rejects.toThrow('sessionId string')
+      await expect(server.handleRequest('session/wait', { sessionId: 'missing' })).rejects.toThrow('unknown SDK session')
+      expect(ctx.agents.get(SessionId('missing'))).toBeUndefined()
+      await server.prompt({ sessionId: 'main', contentBlocks: [{ type: 'text', text: 'delegate' }] })
+      const parent = ctx.agents.get(SessionId('main'))!
+      const observed = Promise.withResolvers<undefined>()
+      const children = Promise.withResolvers<boolean>()
+      vi.spyOn(ctx.subagents, 'waitForChildren')
+        .mockImplementationOnce(() => { observed.resolve(undefined); return children.promise })
+        .mockResolvedValue(false)
+      let settled = false
+      const waiting = server.handleRequest('session/wait', { sessionId: 'main' }).then((result) => { settled = true; return result })
+      await observed.promise
+      expect(settled).toBe(false)
+      parent.followup(createUserMessage({ content: [{ type: 'text', text: 'child result' }], source: { kind: 'user' } }))
+      children.resolve(true)
+      await expect(waiting).resolves.toEqual({})
+      expect(transport.notifications.filter(notification => notification.method === 'session.event'
+        && notification.params?.sessionId === 'main'
+        && (notification.params.event as SessionEvent).type === 'turn/end')).toHaveLength(2)
+      await server.shutdown()
+      await expect(server.handleRequest('session/wait', { sessionId: 'main' })).rejects.toThrow('unknown SDK session')
+    } finally {
+      await server.shutdown()
+      await ctx.fiber.dispose()
+      await rm(storageDir, { recursive: true, force: true })
+    }
+  })
+
+  it('changes effective directories through RPC while preserving Session origins and replayable context', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-sdk-directory-'))
+    const child = join(root, 'child')
+    await mkdir(child)
+    const ctx = await makeHarness(join(root, 'sessions'), true)
+    ctx.llm.registerAdapter(['mock'], new MockAdapter([textResponse('directory observed')]))
+    const transport = new FakeTransport()
+    const server = new HarnessSdkJsonRpcServer(ctx, transport)
+    try {
+      await expect(server.handleRequest('session/working-directory/get', { sessionId: 'a' }))
+        .rejects.toThrow('SDK server is not initialized')
+      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: child }))
+        .rejects.toThrow('SDK server is not initialized')
+      expect(ctx.agents.list()).toEqual([])
+      await server.initialize({ cwd: root, provider: 'mock', model: 'mock' })
+      await expect(server.handleRequest('session/working-directory/get', { sessionId: 'a' })).resolves.toEqual({ cwd: root })
+      const selected = await realpath(child)
+      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: 'child' })).resolves.toEqual({ cwd: selected })
+      await expect(server.handleRequest('session/working-directory/get', { sessionId: 'b' })).resolves.toEqual({ cwd: root })
+      const agent = ctx.agents.get(SessionId('a'))!
+      expect(agent.session.header.cwd).toBe(root)
+      await server.prompt({ sessionId: 'a', contentBlocks: [{ type: 'text', text: 'where' }] })
+      await agent.whenIdle()
+      expect(agent.session.snapshotEvents().some(event => event.type === 'user/message'
+        && event.data.content.some(block => block.type === 'text'
+          && block.text.includes(JSON.stringify(selected))))).toBe(true)
+      await expect(server.handleRequest('session/working-directory/get', {})).rejects.toThrow('sessionId')
+      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: 3 })).rejects.toThrow('path string')
+    } finally {
+      await server.shutdown()
+      await ctx.fiber.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   it('creates a harness agent and calls the configured OpenAI-compatible endpoint', { timeout: 15_000 }, async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-'))
     const llmServer = await mockCompletionServer()
@@ -561,7 +622,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       await settleSubagent(ctx, parentHandle.agent, {
         provider: 'remote',
         id: SessionId('remote-run-id'),
-        localAgent: undefined,
         stopReason: 'completed',
         lastAssistantMessage: [],
       })
@@ -885,7 +945,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       await settleSubagent(ctx, parentHandle.agent, {
         provider: 'fork',
         id: SessionId('missing-child-agent'),
-        localAgent: undefined,
         stopReason: 'error',
       })
 
@@ -960,7 +1019,9 @@ describe('HarnessSdkJsonRpcServer', () => {
       await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'new-model' }))
         .rejects.toThrow('no adapter registered for provider "private"')
 
-      expect(ctx.get('llm')?.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+      expect(ctx.get('llm')?.listProviders()).toEqual([
+        { id: 'deepseek-official', name: 'DeepSeek' },
+      ])
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -1165,41 +1226,39 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('resolves a relative cwd before creating the session', async () => {
-    const create = vi.fn<(options: unknown) => Promise<AgentHandle>>()
-      .mockResolvedValue({ agent: {} as Agent, dispose: () => Promise.resolve() })
-    const resolveCallConfig = vi.fn(async (config: unknown) => config)
-    const ctx = {
-      on: vi.fn(() => () => undefined),
-      agents: { create, get: () => undefined },
-      get: (name: string) => name === 'llm'
-        ? { listProviders: () => [{ id: 'mock', name: 'Mock' }], resolveCallConfig }
-        : undefined,
-    } as unknown as Context
-    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport()) as unknown as {
-      initialize(params: { cwd: string; provider: string; model: string; reasoningEffort?: string; maxTokens?: number }): Promise<unknown>
-      getOrCreateSession(sessionId: string): Promise<unknown>
-      shutdown(): Promise<Record<string, never>>
-    }
+    const ctx = new Context()
+    await mountAgentLoopTestDependencies(ctx)
+    await ctx.plugin(AgentLoop, { agents: [] })
+    ctx.llm.registerAdapter(['mock'], new MockAdapter([textResponse('answer')], {
+      efforts: [{ id: ReasoningEffortId('high'), name: 'High' }],
+    }))
+    const create = vi.spyOn(ctx.agents, 'create')
+    const resolveCallConfig = vi.spyOn(ctx.llm, 'resolveCallConfig')
+    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
+    try {
+      await server.initialize({ cwd: '.', provider: 'mock', model: 'model', reasoningEffort: ReasoningEffortId('high'), maxTokens: 123 })
+      await server.prompt({ sessionId: 'relative', contentBlocks: [{ type: 'text', text: 'test relative cwd' }] })
+      await server.wait({ sessionId: 'relative' })
 
-    await server.initialize({ cwd: '.', provider: 'mock', model: 'model', reasoningEffort: 'high', maxTokens: 123 })
-    await server.getOrCreateSession('relative')
-
-    expect(resolveCallConfig).toHaveBeenCalledWith({
-      provider: 'mock',
-      model: 'model',
-      reasoningEffort: ReasoningEffortId('high'),
-      maxTokens: 123,
-    })
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({
-      meta: { cwd: process.cwd() },
-      agentOptions: {
+      expect(resolveCallConfig).toHaveBeenCalledWith({
         provider: 'mock',
         model: 'model',
         reasoningEffort: ReasoningEffortId('high'),
         maxTokens: 123,
-      },
-    }))
-    await server.shutdown()
+      })
+      expect(create).toHaveBeenCalledWith(expect.objectContaining({
+        meta: { cwd: process.cwd() },
+        agentOptions: {
+          provider: 'mock',
+          model: 'model',
+          reasoningEffort: ReasoningEffortId('high'),
+          maxTokens: 123,
+        },
+      }))
+    } finally {
+      await server.shutdown()
+      await ctx.fiber.dispose()
+    }
   })
 
   it('settles every teardown and aggregates multiple failures', async () => {
