@@ -88,7 +88,7 @@ export type SnapshotSessionFormatCoverage =
 export interface SnapshotSessionFormatManifest {
   /** Selected fixture generation; absent manifest metadata tracks the current writer. */
   readonly version: number
-  /** Migration behaviors that require this historical fixture. */
+  /** Migration or retired-tool behavior that requires this immutable fixture. */
   readonly coverage: readonly SnapshotSessionFormatCoverage[]
 }
 
