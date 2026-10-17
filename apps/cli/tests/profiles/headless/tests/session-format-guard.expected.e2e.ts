@@ -75,7 +75,10 @@ function closedTurn(): SessionEvent[] {
   ]
 }
 
-describe('session format guard through the assembled app', () => {
+// `session.lock` is the POSIX write handle's kernel lock file. Windows leases
+// through a named mutex instead and never materializes the file, so these
+// directory assertions describe the POSIX lane only.
+describe.skipIf(process.platform === 'win32')('session format guard through the assembled app', () => {
   it('migrates v0 before resume, preserves its source, and appends only to the current generation', async () => {
     let sourcePath = ''
     let source = Buffer.alloc(0)
