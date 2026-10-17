@@ -20,7 +20,6 @@ import {
   presentStopCall, presentUndefineCall,
 } from './present.ts'
 import { CORDIS_SYSTEM_PROMPT } from './prompt.ts'
-import { hostInspectProviders } from './providers.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -50,9 +49,6 @@ export function apply(ctx: Context): void {
     order: ctx.systemPrompt.getSectionOrder('TOOL_CORDIS'),
     text: CORDIS_SYSTEM_PROMPT,
   })
-  for (const provider of hostInspectProviders(ctx)) {
-    ctx.effect(() => ctx.cordisInspect.register(provider), `tool-cordis: inspect ${provider.manifest.id}`)
-  }
 
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_list',

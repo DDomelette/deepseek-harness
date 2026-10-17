@@ -22,7 +22,7 @@ export function apply(ctx, config) {
     }, { prepend: true })
     const make = async id => {
       const handle = await ctx.agents.create({ sessionId: id, cwd: process.cwd(),
-        setup: scope => ctx.agentPresets.mount(scope, '@deepseek-ai/cordis').then(() => undefined) })
+        setup: scope => ctx.agentPresets.mount(scope, 'cordis').then(() => undefined) })
       handles.push(handle)
       return handle.agent
     }
