@@ -38,6 +38,7 @@
     "locale/*.json",
     "lib/index.js",
     "lib/invariant.js",
+    "lib/projection-*.js",
     "lib/types/**/*.js",
     "lib/types/**/*.d.ts"
   ],

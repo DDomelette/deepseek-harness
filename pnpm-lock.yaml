@@ -15451,6 +15451,9 @@ importers:
       '@deepseek-ai/dsh-session-checkpoint-policy':
         specifier: workspace:*
         version: link:../../packages/session/session-checkpoint-policy
+      '@deepseek-ai/dsh-session-deletion':
+        specifier: workspace:*
+        version: link:../../packages/session/session-deletion
       '@deepseek-ai/dsh-session-log-deepseek':
         specifier: workspace:*
         version: link:../../packages/session/session-log-deepseek

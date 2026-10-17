@@ -232,13 +232,14 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // through a hashed chunk. The committed bin.js is the link target pnpm can
   // resolve at install time, before the build produces lib/bin.js.
   '@deepseek-ai/dsh-experimental-webworker-packer': ['bin.js', 'lib/repository-*.js'],
-  // Startup and runtime share the advertised URL parser. This tree has not
-  // ported `src/public-url.ts` yet, so the bundle emits no such chunk.
-  // '@deepseek-ai/dsh-web-app': ['lib/public-url-*.js'],
+  // The entry and the invariant companion share one hashed projection chunk.
+  '@deepseek-ai/dsh-experimental-agent-team': ['lib/projection-*.js'],
+  // Startup and runtime share the advertised URL parser through one hashed
+  // tsdown chunk, which both import by relative path.
+  '@deepseek-ai/dsh-web-app': ['lib/public-url-*.js'],
   // The headless entry and its startup row share the JSON projection code
-  // through a hashed tsdown chunk; both import it by relative path. This tree
-  // has not ported `src/json-stream.ts` yet.
-  // '@deepseek-ai/dsh-headless': ['lib/json-stream-*.js'],
+  // through a hashed tsdown chunk; both import it by relative path.
+  '@deepseek-ai/dsh-headless': ['lib/json-stream-*.js'],
 }
 
 function sameStringList(actual: readonly string[] | undefined, expected: readonly string[]): boolean {
