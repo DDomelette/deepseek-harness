@@ -436,7 +436,7 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     // Grouping and ordering moved into the View options menu.
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'In one list' }).click()
+    await page.getByRole('menuitem', { name: 'In one list', exact: true }).click()
     // Flat mode: the section label flips and the seeded session is a
     // top-level row with no group headers above it.
     await expect.poll(() => page.getByText('Sessions', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
@@ -450,7 +450,14 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 15_000 }).toBe(0)
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    // Accessible-name matching is a case-insensitive substring search, so
+    // "WorkSpace" also matches "Workspace Tree": pin the exact label and wait
+    // for the one menu item rather than resolving amid the open transition.
+    await expect.poll(
+      () => page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).count(),
+      { timeout: 10_000 },
+    ).toBe(1)
+    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
@@ -682,7 +689,7 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
 
-  it('persists pinned reordering in grouped and flat views across reload', async () => {
+  it('persists pinned rows and their dragged order in grouped and flat views across reload', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-pinned-order'))
     const ids = ['pinned-order-one', 'pinned-order-two', 'pinned-order-three'].map(SessionId)
     const titles = ['Pinned One', 'Pinned Two', 'Pinned Three']
@@ -690,44 +697,52 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     for (const [index, id] of ids.entries()) {
       await seedSession(scaffold, seed, id)
       await scaffold.ctx.sessionController.rename({ sessionId: id, title: titles[index]! })
-      await scaffold.ctx.sessionPins.setPinned({ sessionId: id, pinned: true })
+      // Pinning lives in the Workspace registry; the most recently pinned id leads.
+      await scaffold.ctx.workspaceRegistry.pinSession(id)
     }
-    await scaffold.ctx.sessionPins.reorderGroup({ groupKey: '', orderedIds: ids })
-    await scaffold.ctx.sessionPins.reorderFlat({ orderedIds: ids })
+    expect([...scaffold.ctx.workspaceRegistry.pinnedSessionIds]).toEqual([ids[2], ids[1], ids[0]])
     const reload = async (): Promise<void> => {
       const warningStart = tripwire.warnings.length
       await page.reload({ waitUntil: 'load' })
       await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       acknowledgeReloadConnectionLoss(tripwire, warningStart)
     }
+    const pinnedRows = (): Locator => page.getByRole('treeitem').filter({ hasText: /Pinned (One|Two|Three)/ })
+    const visibleTitles = async (): Promise<string[]> => (await pinnedRows().allTextContents())
+      .map(text => (/Pinned (One|Two|Three)/.exec(text)?.[0] ?? ''))
+      .filter(title => title !== '')
+    // Pinned rows lead their group, so the group they belong to must be open.
+    const expandUngrouped = async (): Promise<void> => {
+      const group = page.getByRole('treeitem').filter({ hasText: 'Ungrouped' }).first()
+      await group.waitFor({ timeout: 15_000 })
+      if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
+    }
+    const groupOrder = ['Pinned Three', 'Pinned Two', 'Pinned One']
     await reload()
-    await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
-    const pinned = page.locator('[class*="pinnedRoot"]')
-    const visibleTitles = (): Promise<string[]> => pinned.getByText(/^Pinned (One|Two|Three)$/).allTextContents()
-    const pinRow = (title: string): Locator => pinned.getByRole('treeitem').filter({ hasText: title })
-    await expect.poll(visibleTitles).toEqual(titles)
-    await pinRow('Pinned One').dragTo(pinRow('Pinned Three'), { targetPosition: { x: 20, y: 4 } })
-    const grouped = ['Pinned Two', 'Pinned One', 'Pinned Three']
-    await expect.poll(() => scaffold.ctx.sessionPins.list().groupOrder['']).toEqual([ids[1], ids[0], ids[2]])
-    await expect.poll(visibleTitles).toEqual(grouped)
+    await expandUngrouped()
+    await expect.poll(visibleTitles).toEqual(groupOrder)
+    // One drag re-orders the pinned block; the saved view order keeps it across reloads.
+    await pinnedRows().nth(2).dragTo(pinnedRows().nth(0), { targetPosition: { x: 20, y: 4 } })
+    const dragged = ['Pinned One', 'Pinned Three', 'Pinned Two']
+    await expect.poll(visibleTitles, { timeout: 10_000 }).toEqual(dragged)
     await reload()
-    await expect.poll(visibleTitles).toEqual(grouped)
+    await expandUngrouped()
+    await expect.poll(visibleTitles).toEqual(dragged)
     const output = [`Grouped after reload: ${(await visibleTitles()).join(' → ')}`]
 
+    // The flat list keeps its own saved account order: reorder it here too.
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'In one list' }).click()
-    await expect.poll(visibleTitles).toEqual(titles)
-    await pinRow('Pinned Three').dragTo(pinRow('Pinned One'), { targetPosition: { x: 20, y: 28 } })
-    const flat = ['Pinned One', 'Pinned Three', 'Pinned Two']
-    await expect.poll(() => scaffold.ctx.sessionPins.list().flatOrder).toEqual([ids[0], ids[2], ids[1]])
-    await expect.poll(visibleTitles).toEqual(flat)
+    await page.getByRole('menuitem', { name: 'In one list', exact: true }).click()
+    await expect.poll(() => visibleTitles(), { timeout: 10_000 }).toEqual(groupOrder)
+    await pinnedRows().nth(2).dragTo(pinnedRows().nth(0), { targetPosition: { x: 20, y: 28 } })
+    const flat = ['Pinned Three', 'Pinned One', 'Pinned Two']
+    await expect.poll(visibleTitles, { timeout: 10_000 }).toEqual(flat)
     await reload()
-    await expect.poll(visibleTitles).toEqual(flat)
+    await expect.poll(visibleTitles, { timeout: 10_000 }).toEqual(flat)
     output.push(`Flat after reload: ${(await visibleTitles()).join(' → ')}`)
     await compareOrRefreshGolden(PIN_ORDER_EXPECTED, output.join('\n'), MODE)
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
     expect(tripwire.pageErrors).toEqual([])
   })
 
@@ -751,8 +766,13 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
 
   it.skipIf(MODE === 'record')('issued zero model calls and stayed clean', async () => {
     expect(tripwire.warnings).toEqual([])
-    // The directory-browser aria golden is this spec's one owned artifact;
-    // the seed it reuses is owned (and inventory-guarded) by seeded-history.
-    await assertFixtureInventory(SNAPSHOT_DIR, ['.gitkeep', 'directory-browser.expected.md'])
+    // The directory holds the scenario's session-driven golden beside this
+    // spec's directory-browser aria golden; the seed it reuses is owned (and
+    // inventory-guarded) by seeded-history.
+    await assertFixtureInventory(SNAPSHOT_DIR, [
+      '.gitkeep',
+      'directory-browser.expected.md',
+      'new-session.expected.md',
+    ])
   })
 })
