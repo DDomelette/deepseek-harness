@@ -75,13 +75,14 @@ export interface SnapshotSessionReference {
   source: string
 }
 
-/** Historical-format behavior one retained scenario permanently exercises. */
+/** Historical format or retired capability one retained scenario permanently exercises. */
 export type SnapshotSessionFormatCoverage =
   | 'multi-hop'
   | 'packed-row'
   | 'retry-failure'
   | 'shipped-profile'
   | 'adjacent-migration'
+  | 'retired-tools'
 
 /** Explicit historical generation retained by an owning scenario. */
 export interface SnapshotSessionFormatManifest {
@@ -152,6 +153,7 @@ const SESSION_FORMAT_COVERAGE = new Set<SnapshotSessionFormatCoverage>([
   'retry-failure',
   'shipped-profile',
   'adjacent-migration',
+  'retired-tools',
 ])
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 

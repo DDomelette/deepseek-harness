@@ -3,5 +3,8 @@ scenario: handshake
 profile: acp
 composition: acp-default
 recording: authored
+sessionFormat:
+  version: 3
+  coverage: [adjacent-migration]
 header:
   class: acp-default
