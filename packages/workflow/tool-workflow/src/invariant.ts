@@ -135,6 +135,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
 
   const seed = (session: Session): WorkflowTrace => {
     const trace: WorkflowTrace = new Map()
+    // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
     for (const event of session.snapshotEvents().filter(isWorkflowRecordEvent)) applyEvent(trace, event, fail)
     traces.set(session, trace)
     return trace

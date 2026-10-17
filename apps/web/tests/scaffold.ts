@@ -673,6 +673,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const formDefaults: PatchOptions[] = []
   const processOverlays = scenarioPatches.map((patch) => {
     if (patch.id === undefined || !SETTINGS_FORM_ENTRIES.has(patch.id) || patch.config === undefined) return patch
+    // The authored patch type keeps `config` open; the settings form owns the concrete shape.
+    // oxlint-disable-next-line typescript/no-unsafe-assignment -- the authored or generated face is untyped
     formDefaults.push({ id: patch.id, config: patch.config })
     const ordinary = { ...patch }
     Reflect.deleteProperty(ordinary, 'config')

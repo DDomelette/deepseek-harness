@@ -73,14 +73,14 @@ export async function apply(ctx: Context): Promise<void> {
     // backend lands first: the surface's browser half drives the capability
     // the backend registers.
     const ids: string[] = []
-    const unmount = async () => {
+    const unmount = (): void => {
       for (const id of [...ids].reverse()) {
         // Tree teardown (group.stop) can have removed the entry already;
-        // nothing is left to unmount or await then.
+        // nothing is left to unmount then.
         if (ctx.loader.store[id] === undefined) continue
         // remove() disposes the entry transactionally, so the chooser's unload
         // signals completion only after that face quiesced.
-        await ctx.loader.remove(id)
+        ctx.loader.remove(id)
       }
     }
     try {
@@ -91,7 +91,7 @@ export async function apply(ctx: Context): Promise<void> {
       // Setup owns the entries it created until it returns the disposer: leaving
       // the backend mounted would make a retry collide with its own
       // directoryPicker registration.
-      await unmount()
+      unmount()
       throw cause
     }
     return unmount

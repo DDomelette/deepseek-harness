@@ -96,12 +96,13 @@ export class SettingsController extends TypertRemoteService {
   @Remote
   describe(): SettingsDescribeValue {
     const settings = this.provider()
-    // A settings service that owns no document reports no path; the Remote
-    // answers the page's `hasDocument` question without exposing that path.
-    const documentPath: string | undefined = settings.documentPath
+    // A provider that owns no document reports no path; the Remote answers the
+    // page's `hasDocument` question without exposing that path.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- a document-less provider reports no path at runtime
+    const hasDocument = settings.documentPath !== undefined
     return {
       writable: settings.writable,
-      hasDocument: documentPath !== undefined,
+      hasDocument,
       namespaces: settings.describe({ redactSecrets: true }).map(namespaceView),
     }
   }
@@ -176,6 +177,7 @@ export class SettingsController extends TypertRemoteService {
       if (isAborted(signal)) throw new RemoteError('gateway/cancelled', 'settings document preparation was aborted', {})
       throw new RemoteError('gateway/internal', `settings document preparation failed: ${messageOf(error)}`, {}, { cause: error })
     }
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- a document-less provider resolves no path at runtime
     if (path === undefined) {
       throw new RemoteError('gateway/internal', 'settings provider has no local document to open', {})
     }

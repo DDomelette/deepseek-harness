@@ -459,7 +459,7 @@ function bootPatches(
   // The image's app-boot owns the profile type; this host hands it the plain data
   // it seeded, so the loaded face stays generic over that value.
   const appBoot = loader.load(loader.resolve('@deepseek-ai/dsh-app-boot', root)) as {
-    readProfilePatches<T>(binName: string, profile: T): unknown[]
+    readProfilePatches(binName: string, profile: unknown): unknown[]
   }
   return { patches: appBoot.readProfilePatches('dsh-webworker', profile), profile, presetOverlay }
 }

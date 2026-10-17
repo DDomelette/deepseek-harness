@@ -84,10 +84,10 @@ export function apply(ctx: Context, config: Config): void {
   // whatever the composition stores, because a section that predates this
   // owner is the stored-section backstop's case.
   ctx.on('internal/config', function (this: Fiber, _raw, next) {
-    const candidate = next()
-    if (this.state !== FiberState.ACTIVE) return candidate
-    assertSkillNames(Config(candidate))
-    return candidate
+    const raw: unknown = next()
+    if (this.state !== FiberState.ACTIVE) return raw
+    assertSkillNames(Config(raw as Config))
+    return raw
   })
   // A volatile-only commit replaces the running section reference in place, so
   // the override's answers change without a re-registration: the registry's own

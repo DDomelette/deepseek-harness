@@ -554,7 +554,8 @@ export class BrowserAuth {
     }
     const hostname = requestHostname(request.headers)
     if (hostname === undefined) return false
-    const declared = payload.authority !== undefined && redeemsToken(payload.authority, hostname)
+    // A malformed or pre-authority cookie carries an empty authority and declares nothing.
+    const declared = payload.authority.length > 0 && redeemsToken(payload.authority, hostname)
     return (isLoopbackPeer(request) && isLoopbackHostname(hostname) || declared)
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }

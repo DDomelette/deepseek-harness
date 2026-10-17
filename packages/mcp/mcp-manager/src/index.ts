@@ -105,19 +105,19 @@ export class McpServersGateway extends TypertRemoteService {
     // restarts this fiber and reconciles again through this method.
     ctx.on('loader/volatile-update', () => { supervisor.sync(this.section()) })
     ctx.on('internal/config', function (this: Fiber, _raw, next) {
-      const candidate = next()
+      const raw: unknown = next()
       // Activation accepts whatever the composition stores — a section that
       // predates this owner is the package invariant's case. An edit to the
       // running instance is the settings seam's write, and that is refused.
-      if (this !== ctx.fiber || this.state !== FiberState.ACTIVE) return candidate
-      assertNoDeclarativeCollision(ctx, McpServersSchema(candidate).servers.get() ?? {})
-      return candidate
+      if (this !== ctx.fiber || this.state !== FiberState.ACTIVE) return raw
+      assertNoDeclarativeCollision(ctx, McpServersSchema(raw as McpServersConfig).servers.get())
+      return raw
     })
   }
 
   /** Current roster, or an empty one before the first commit. */
   private section(): McpServersSnapshot {
-    return this.config.servers.get() ?? {}
+    return this.config.servers.get()
   }
 
   /**

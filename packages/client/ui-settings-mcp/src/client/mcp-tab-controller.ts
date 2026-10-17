@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bridge between the MCP roster tab and its two data sources: the
  * `mcp-servers` settings scope (enablement writes) and the `mcpServers`
  * Remote (roster reads). The tab never sees ctx; this controller is the
@@ -84,6 +84,7 @@ export class McpTabController {
       list: () => this.list(),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
       addServer: draft => this.addServer(draft),
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
       readEntry: serverName => this.scope.getSnapshot().value?.servers?.[serverName],
       updateServer: (serverName, patch) => this.updateServer(serverName, patch),
       removeServer: serverName => this.removeServer(serverName),
@@ -107,6 +108,7 @@ export class McpTabController {
    * next publication re-syncs the roster.
    */
   private async setEnabled(serverName: string, enabled: boolean): Promise<void> {
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
     if (this.scope.getSnapshot().value?.servers?.[serverName] === undefined) return
     await this.scope.mutate([{ op: 'set', path: [ROSTER_FIELD, serverName, 'enabled'], value: enabled }])
   }
@@ -134,6 +136,7 @@ export class McpTabController {
    * @returns null when the Host accepted every edit, otherwise the failure key.
    */
   private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
     if (this.scope.getSnapshot().value?.servers?.[serverName] === undefined) return 'loadFailed'
     const { unsetTimeout, ...fields } = patch
     const ops: ConfigFormMutation[] = []

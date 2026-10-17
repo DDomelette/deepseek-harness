@@ -277,8 +277,8 @@ describe('JsonRpcLineTransport', () => {
     aToB.end()
     await once(aToB, 'end')
     const outcome = await Promise.race([
-      b.request('too-late', {}).then(() => 'resolved', (error: Error) => error.message),
-      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+      b.request('too-late', {}).then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error)),
+      new Promise((resolve) => { setTimeout(() => { resolve('still pending') }, 50) }),
     ])
 
     expect(outcome).toBe('JSON-RPC input closed')
@@ -290,8 +290,8 @@ describe('JsonRpcLineTransport', () => {
     b.close()
 
     const outcome = await Promise.race([
-      b.request('after-close', {}).then(() => 'resolved', (error: Error) => error.message),
-      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+      b.request('after-close', {}).then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error)),
+      new Promise((resolve) => { setTimeout(() => { resolve('still pending') }, 50) }),
     ])
 
     expect(outcome).toBe('JSON-RPC transport closed')

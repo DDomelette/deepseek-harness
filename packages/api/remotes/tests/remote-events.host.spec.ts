@@ -52,6 +52,8 @@ function sourceOf(gateway: GatewayProbe): TypertRemoteEventSource {
 }
 
 function emitRaw(ctx: Context, event: string, args: readonly unknown[]): void {
+  // Raw event names bypass the typed payload map by design in this harness.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- the untyped face is the point here
   const emit = ctx.emit.bind(ctx) as (name: string, ...values: readonly unknown[]) => void
   emit(event, ...args)
 }

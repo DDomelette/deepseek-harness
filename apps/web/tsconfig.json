@@ -26,6 +26,8 @@
     "tests/skills-settings.e2e.ts",
     "tests/mcp-config.e2e.ts",
 
+    "tests/default-product-isolation.e2e.ts",
+    "tests/draft-initialization.e2e.ts",
     "tests/scaffold.ts",
     "tests/scaffold-generation.spec.ts",
     "tests/scaffold-hermetic.e2e.ts",

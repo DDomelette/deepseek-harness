@@ -105,8 +105,11 @@ describe('ordinary Job process operations', () => {
     expect(() => spawnCurrentTokenJobProcess(bindings, options({
       stdio: { stdin: 4, stdout: 5, stderr: 6, control: 7 },
     }))).toThrow('not a Windows pipe')
+    // oxlint-disable-next-line typescript/unbound-method -- the injected binding is a test mock
     expect(bindings.createProcessW).not.toHaveBeenCalled()
+    // oxlint-disable-next-line typescript/unbound-method -- the injected binding is a test mock
     expect(bindings.closeHandle).toHaveBeenCalledWith(50n)
+    // oxlint-disable-next-line typescript/unbound-method -- the injected binding is a test mock
     expect(bindings.setHandleInformation).toHaveBeenCalledWith(107n, 1, 0)
   })
 

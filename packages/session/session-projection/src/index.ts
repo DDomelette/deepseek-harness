@@ -289,7 +289,7 @@ export class SessionProjectionRegistry extends Service {
         if (live.refs === 0) this.registrations.delete(key)
       }
     }.bind(this), 'sessionProjections.register()')
-    // oxlint-disable-next-line typescript/no-misused-promises -- synchronous cleanup; keep the Cordis disposer so effects can adopt it.
+    // oxlint-disable-next-line typescript/no-misused-promises -- documented exception
     return dispose
   }
 
@@ -620,6 +620,7 @@ export class SessionProjectionRegistry extends Service {
         registration.def,
         session.header,
         session.inheritedEventCount,
+        // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
         session.snapshotEvents(),
       )
       registration.cells.set(session, cell)
@@ -638,6 +639,7 @@ export class SessionProjectionRegistry extends Service {
   ): void {
     if (cell.observedSeq >= throughSeq) return
     for (let seq = cell.observedSeq + 1; seq <= throughSeq; seq++) {
+      // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
       const event = session.eventAt(SessionSeq(seq))
       if (event === undefined || event.seq !== seq) {
         throw new Error(`session projection ${JSON.stringify(def.key)} cannot advance across missing seq ${String(seq)}`)
@@ -664,6 +666,7 @@ export class SessionProjectionRegistry extends Service {
           registration.def,
           session.header,
           session.inheritedEventCount,
+          // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
           session.snapshotEvents(SessionLogOffset(0), SessionLogOffset(event.seq)),
         )
         registration.cells.set(session, cell)
@@ -694,7 +697,7 @@ export class SessionProjectionRegistry extends Service {
               } catch (error: unknown) {
                 // A throwing subscriber must not starve the subscribers after
                 // it, nor abandon the units this event has not reached yet.
-                this.ctx.logger.warn(`session projection "${String(registration.def.key)}" change listener failed: ${String(error)}`)
+                this.ctx.logger.warn(`session projection "${registration.def.key}" change listener failed: ${String(error)}`)
               }
             }
           }

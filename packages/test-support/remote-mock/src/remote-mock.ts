@@ -124,7 +124,7 @@ export class RemoteMock {
   private readonly streamMocks = new Map<string, Mock<UnaryRuleFn>>()
   /** The carrier's uplink for the open in progress through {@link open}; a direct call has none. */
   private carrierUplink: AsyncIterable<unknown> | undefined
-  private readonly proxy = createRemoteProxy(endpoint => this.modeOf(endpoint) === 'stream'
+  private readonly proxy: unknown = createRemoteProxy(endpoint => this.modeOf(endpoint) === 'stream'
     ? this.streamMock(endpoint)
     : this.unaryMock(endpoint))
 
@@ -134,8 +134,8 @@ export class RemoteMock {
    * Native overrides belong to this instance; `mockReset()` restores the implementation reading current defaults.
    * Generated declarations provide exact signatures; absent declarations weaken only this test-owned proxy.
    */
-  // This test proxy becomes `any` without generated namespaces, so the double cast is the whole point.
-  readonly remote: MockedRemote = this.proxy as unknown as MockedRemote
+  // This test proxy is `any` until generated namespaces exist; `MockedRemote` is that same generated face.
+  readonly remote: MockedRemote = this.proxy
 
   /** Everything observed so far. */
   readonly log: MockLog = this.logStore
@@ -235,7 +235,7 @@ export class RemoteMock {
   endpoints(): readonly string[] {
     const names = new Set<string>(this.scripts.keys())
     for (const endpoint of this.unaryDefaults.keys()) names.add(endpoint)
-    for (const [namespace, methods] of Object.entries(this.proxy)) {
+    for (const [namespace, methods] of Object.entries(this.proxy as Record<string, Record<string, unknown>>)) {
       for (const method of Object.keys(methods)) names.add(`${namespace}/${method}`)
     }
     return [...names].sort()

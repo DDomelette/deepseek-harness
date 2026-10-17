@@ -146,7 +146,7 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
     /** Drop the platform-only skill catalog block so the offload block sequence is comparable. */
     const withoutSkillCatalog = (content: unknown): unknown =>
       (content as Array<Record<string, unknown>>).filter((block) => {
-        const text = String(block.text ?? '')
+        const text = typeof block.text === 'string' ? block.text : ''
         return !text.includes('<available_skills>') && !text.includes('diagnose-windows-sandbox-acl')
       })
     const messages = requests[0]?.messages as { content?: unknown }[] | undefined

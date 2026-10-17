@@ -95,6 +95,7 @@ export class Analysis extends Service {
   ): Promise<void> {
     const noteIds = this.noteIdsFor(session.id)
     if (noteIds.length === 0) return
+    // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
     const ids = turnMessages(session.snapshotEvents(), event.data.turn)
     if (ids.length === 0) return
     const outcome = turnOutcome(event.data)
@@ -206,6 +207,7 @@ export class Analysis extends Service {
     if (current.messageIds.length === 0) return { ok: true, rows: [] }
     const target = await this.targetFor(current.noteId)
     if (!target.live) return { ok: false, failure: target.failure }
+    // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
     return { ok: true, rows: projectThread(target.agent.session.snapshotEvents(), current.messageIds) }
   }
 
