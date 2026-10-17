@@ -14,6 +14,7 @@ import type {
   WorkspaceFollowFrame,
   WorkspaceView,
 } from './types.ts'
+import { sameArchiveInstants } from './archive-instants.ts'
 
 /**
  * Project one authoritative Workspace entity into its Remote value.
@@ -49,6 +50,7 @@ export class WorkspaceFeed {
   private knownIds: Set<string>
   private order: readonly string[]
   private archived: readonly string[]
+  private archivedAts: Readonly<Record<string, string>>
   private pinned: readonly string[]
 
   /** @param ctx - Host context containing the authoritative Workspace registry. */
@@ -57,6 +59,7 @@ export class WorkspaceFeed {
     this.knownIds = new Set(baseline.map(workspace => String(workspace.id)))
     this.order = baseline.map(workspace => String(workspace.id))
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
+    this.archivedAts = { ...ctx.workspaceRegistry.archivedSessionAts }
     this.pinned = ctx.workspaceRegistry.pinnedSessionIds.map(String)
     ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
     ctx.effect(() => () => {
@@ -73,6 +76,7 @@ export class WorkspaceFeed {
     return {
       items: this.ctx.workspaceRegistry.list().map(workspaceView),
       archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
+      archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
       pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds],
     }
   }
@@ -114,9 +118,17 @@ export class WorkspaceFeed {
       this.order = nextOrder
       if (orderChanged) this.publish({ type: 'order', workspaceIds: [...state.workspaceIds] })
       const nextArchived = state.archivedSessionIds.map(String)
-      if (!sameStrings(this.archived, nextArchived)) {
+      const nextArchivedAts = { ...state.archivedSessionAts }
+      // The registry stamps every archived id, so the id list and the instant
+      // map change together; comparing the ids alone would miss a re-stamp.
+      if (!sameStrings(this.archived, nextArchived) || !sameArchiveInstants(this.archivedAts, nextArchivedAts)) {
         this.archived = nextArchived
-        this.publish({ type: 'archived', archivedSessionIds: [...state.archivedSessionIds] })
+        this.archivedAts = nextArchivedAts
+        this.publish({
+          type: 'archived',
+          archivedSessionIds: [...state.archivedSessionIds],
+          archivedSessionAts: { ...state.archivedSessionAts },
+        })
       }
       const nextPinned = state.pinnedSessionIds.map(String)
       if (!sameStrings(this.pinned, nextPinned)) {

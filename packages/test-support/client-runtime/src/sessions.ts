@@ -311,7 +311,7 @@ export class TestSessions implements ISessions {
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
-    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork'
+    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork' | 'deleteSession'
     args: unknown[]
   }[] = []
 
@@ -648,6 +648,18 @@ export class TestSessions implements ISessions {
   refresh(): Promise<void> {
     this.calls.push({ method: 'refresh', args: [] })
     return Promise.resolve()
+  }
+
+  /**
+   * Recorded deletion stub: this runtime has no durable rows, so the default
+   * reports the addressed Session as deleted. A scenario asserting a refusal
+   * drives the production service.
+   * @param sessionId - Session to delete.
+   * @returns one successful deletion of that identity.
+   */
+  deleteSession(sessionId: SessionId): ReturnType<ISessions['deleteSession']> {
+    this.calls.push({ method: 'deleteSession', args: [sessionId] })
+    return Promise.resolve({ ok: true, value: { deletedSessionIds: [sessionId] } })
   }
 
   /**

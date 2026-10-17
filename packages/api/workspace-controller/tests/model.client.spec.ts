@@ -48,6 +48,16 @@ function remoteOk<T>(value: T): RemoteResult<T> {
   return { ok: true, value }
 }
 
+/** One deterministic archive instant per archived id, key-equal to the id list. */
+const ARCHIVE_AT = '2026-10-17T00:00:00.000Z'
+
+function archiveValue(ids: readonly SessionId[], instant = ARCHIVE_AT): WorkspaceArchiveValue {
+  return {
+    archivedSessionIds: [...ids],
+    archivedSessionAts: Object.fromEntries(ids.map(id => [id, instant])),
+  }
+}
+
 function workspaceError(error: RemoteFailure): RemoteResult<never> {
   return { ok: false, error }
 }
@@ -89,11 +99,11 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
   onArchiveSession: (
     request: WorkspaceArchiveSessionRequest,
   ) => Promise<RemoteResult<WorkspaceArchiveValue>> = request =>
-    Promise.resolve(remoteOk({ archivedSessionIds: [request.sessionId] }))
+    Promise.resolve(remoteOk(archiveValue([request.sessionId])))
   onUnarchiveSession: (
     request: WorkspaceUnarchiveSessionRequest,
   ) => Promise<RemoteResult<WorkspaceArchiveValue>> = request =>
-    Promise.resolve(remoteOk({ archivedSessionIds: [request.sessionId] }))
+    Promise.resolve(remoteOk(archiveValue([request.sessionId])))
   onPinSession: (
     request: WorkspacePinSessionRequest,
   ) => Promise<RemoteResult<WorkspacePinValue>> = request =>
@@ -167,7 +177,12 @@ function baseline(
   archivedSessionIds: readonly SessionId[] = [],
   pinnedSessionIds: readonly SessionId[] = [],
 ): void {
-  model.replaceBaseline({ items, archivedSessionIds, pinnedSessionIds })
+  model.replaceBaseline({
+    items,
+    archivedSessionIds,
+    archivedSessionAts: archiveValue(archivedSessionIds).archivedSessionAts,
+    pinnedSessionIds,
+  })
 }
 
 describe('ClientWorkspaceModel', () => {
@@ -197,9 +212,14 @@ describe('ClientWorkspaceModel', () => {
     baseline(model, [workspace('old'), workspace('kept')])
     model.upsertView(workspace('new'))
     model.replaceOrder([wid('kept'), wid('new'), wid('old')])
-    model.replaceArchived([sid('hidden')])
+    model.replaceArchived([sid('hidden')], { [sid('hidden')]: ARCHIVE_AT })
     model.removeView(wid('old'))
-    expect(model.getSnapshot()).toMatchObject({ phase: 'ready', state: 'idle', archivedSessionIds: ['hidden'] })
+    expect(model.getSnapshot()).toMatchObject({
+      phase: 'ready',
+      state: 'idle',
+      archivedSessionIds: ['hidden'],
+      archivedSessionAts: { [sid('hidden')]: ARCHIVE_AT },
+    })
     expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['kept', 'new'])
 
     baseline(model, [workspace('fresh')])
@@ -359,16 +379,18 @@ describe('ClientWorkspaceModel', () => {
     ))
     await expect(model.archiveSession(sid('missing'))).resolves.toMatchObject({ ok: false })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['archived'])
-    remote.onArchiveSession = request => Promise.resolve(remoteOk({ archivedSessionIds: [request.sessionId] }))
+    remote.onArchiveSession = request => Promise.resolve(remoteOk(archiveValue([request.sessionId])))
     await expect(model.archiveSession(sid('fresh'))).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['fresh'])
+    expect(model.getSnapshot().archivedSessionAts).toEqual({ [sid('fresh')]: ARCHIVE_AT })
 
     remote.onUnarchiveSession = () => Promise.resolve(workspaceError(
       new RemoteError('session/not-found', 'missing', { sessionId: sid('missing') }),
     ))
     await expect(model.unarchiveSession(sid('missing'))).resolves.toMatchObject({ ok: false })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['fresh'])
-    remote.onUnarchiveSession = () => Promise.resolve(remoteOk({ archivedSessionIds: [] }))
+    expect(model.getSnapshot().archivedSessionAts).toEqual({ [sid('fresh')]: ARCHIVE_AT })
+    remote.onUnarchiveSession = () => Promise.resolve(remoteOk(archiveValue([])))
     await expect(model.unarchiveSession(sid('fresh'))).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual([])
     expect(remote.calls).toContainEqual({ method: 'unarchiveSession', request: { sessionId: 'fresh' } })
@@ -385,10 +407,10 @@ describe('ClientWorkspaceModel', () => {
 
     const first = model.unarchiveSession(sid('first'))
     const second = model.unarchiveSession(sid('second'))
-    secondGate.resolve(remoteOk({ archivedSessionIds: [] }))
+    secondGate.resolve(remoteOk(archiveValue([])))
     await expect(second).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual([])
-    firstGate.resolve(remoteOk({ archivedSessionIds: [sid('second')] }))
+    firstGate.resolve(remoteOk(archiveValue([sid('second')])))
     await expect(first).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual([])
   })
@@ -401,8 +423,11 @@ describe('ClientWorkspaceModel', () => {
     remote.onUnarchiveSession = () => gate.promise
 
     const pending = model.unarchiveSession(sid('first'))
-    model.replaceArchived([sid('first'), sid('second')])
-    gate.resolve(remoteOk({ archivedSessionIds: [] }))
+    model.replaceArchived(
+      [sid('first'), sid('second')],
+      archiveValue([sid('first'), sid('second')]).archivedSessionAts,
+    )
+    gate.resolve(remoteOk(archiveValue([])))
     await expect(pending).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['first', 'second'])
   })
@@ -417,10 +442,10 @@ describe('ClientWorkspaceModel', () => {
 
     const first = model.archiveSession(sid('first'))
     const second = model.archiveSession(sid('second'))
-    secondGate.resolve(remoteOk({ archivedSessionIds: [sid('first'), sid('second')] }))
+    secondGate.resolve(remoteOk(archiveValue([sid('first'), sid('second')])))
     await expect(second).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['first', 'second'])
-    firstGate.resolve(remoteOk({ archivedSessionIds: [sid('first')] }))
+    firstGate.resolve(remoteOk(archiveValue([sid('first')])))
     await expect(first).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['first', 'second'])
   })
@@ -434,7 +459,7 @@ describe('ClientWorkspaceModel', () => {
 
     const pending = model.unarchiveSession(sid('first'))
     baseline(model, [], [sid('second')])
-    gate.resolve(remoteOk({ archivedSessionIds: [] }))
+    gate.resolve(remoteOk(archiveValue([])))
     await expect(pending).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual(['second'])
   })

@@ -586,6 +586,17 @@ export class SessionManager {
   }
 
   /**
+   * Delete one Session and its subagent descendants on the Host. Rows leave
+   * the list on the caller's subsequent baseline pull, after the Host has
+   * removed the persisted logs, archive entries, and workspace accounting.
+   * @param sessionId - Session to delete.
+   * @returns the deleted identities, or the Remote failure.
+   */
+  deleteSession(sessionId: SessionId): Promise<RemoteResult<{ deletedSessionIds: readonly SessionId[] }>> {
+    return this.remote.session.delete({ sessionId, recursive: true })
+  }
+
+  /**
    * Merge a Host summary, replacing live state and filling missing metadata.
    * Local create/fork placeholders only fill metadata on an existing row.
    */

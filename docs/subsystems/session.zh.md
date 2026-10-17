@@ -876,6 +876,16 @@ workspaceDesktop(): { name: string; available: boolean; fileManager: 'finder' | 
 @Remote('cancel') cancel(request: SessionCancelRequest): SessionCancelValue
 
 /**
+ * Permanently delete one Session and, when `recursive`, its subagent
+ * descendants leaves-first. The optional `ctx.sessionDeletion` service owns
+ * the durable plan, persistence cleanup, and workspace accounting removal;
+ * this method only maps its failures onto the Remote error vocabulary.
+ * @param request - Session to delete and whether descendants go with it.
+ * @returns every Session the completed deletion removed.
+ */
+@Remote('delete') async delete(request: SessionDeleteRequest): Promise<SessionDeleteValue>
+
+/**
  * Read one cold-safe, message-aligned Session history page.
  * @param request - durable address, backward cursor, and page budget.
  * @param signal - cancellation for persistence reads.

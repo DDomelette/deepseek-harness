@@ -9,6 +9,7 @@ import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-
 import type { ProjectionSnapshot } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { SessionQueryError, type SessionRecord, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
+import type {} from '@deepseek-ai/dsh-workspace'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { z } from 'zod'
 import {
@@ -133,6 +134,10 @@ export class ApiSessionList {
     signal?.throwIfAborted()
     const records = await this.ctx.sessionQuery.listSessions(signal)
     signal?.throwIfAborted()
+    // An archived Session stays listed so the Archived settings page can
+    // restore or delete it; a durable header without `cwd` is invisible
+    // everywhere else because no workspace can claim it.
+    const archived = new Set(this.ctx.get('workspaceRegistry')?.archivedSessionIds ?? [])
     const items: SessionSummary[] = []
     const cold: SessionRecord[] = []
     let yieldDeadline = performance.now() + this.workSliceMs
@@ -141,7 +146,7 @@ export class ApiSessionList {
       const live = this.ctx.sessions.get(record.header.id)
       if (live !== undefined) {
         items.push(this.summaryFor(live))
-      } else if (record.header.cwd !== undefined) {
+      } else if (record.header.cwd !== undefined || archived.has(record.header.id)) {
         cold.push(record)
       }
       if (performance.now() >= yieldDeadline) {

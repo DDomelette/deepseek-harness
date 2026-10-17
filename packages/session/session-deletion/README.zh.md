@@ -31,6 +31,8 @@ DeepSeek Harness 的递归会话删除编排插件。
 
 该服务依赖 `storageDomain`，为每个 root id 保存一条 `session_deletion` 计划。
 
+Web bundle 挂载这一行，[Session Controller](../../api/session-controller/README.zh.md) 才能回答 `session.delete`，[已归档设置页](../../client/ui-settings-archived/README.zh.md)在用户确认后调用它。两者都不挂载的 profile 就没有删除入口：Remote 方法会返回 `session/deletion-unavailable`。
+
 <a id="behavior"></a>
 ## 行为
 

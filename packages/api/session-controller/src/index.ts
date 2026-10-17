@@ -11,6 +11,8 @@ import type {} from '@deepseek-ai/dsh-client-file-upload'
 import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativeFileApplication, openNativeAssociatedPath, revealNativePath } from '@deepseek-ai/dsh-native-command'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
+import { SessionDeletionError } from '@deepseek-ai/dsh-session-deletion'
+import type {} from '@deepseek-ai/dsh-session-deletion'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -39,6 +41,8 @@ import type {
   SessionControlFrame,
   SessionCreateRequest,
   SessionCreateValue,
+  SessionDeleteRequest,
+  SessionDeleteValue,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionForkRequest,
@@ -472,6 +476,59 @@ export class SessionController extends TypertRemoteService {
   @Remote('cancel')
   cancel(request: SessionCancelRequest): SessionCancelValue {
     return this.commands.cancel(request)
+  }
+
+  /**
+   * Permanently delete one Session and, when `recursive`, its subagent
+   * descendants leaves-first. The optional `ctx.sessionDeletion` service owns
+   * the durable plan, persistence cleanup, and workspace accounting removal;
+   * this method only maps its failures onto the Remote error vocabulary.
+   * @param request - Session to delete and whether descendants go with it.
+   * @returns every Session the completed deletion removed.
+   */
+  @Remote('delete')
+  async delete(request: SessionDeleteRequest): Promise<SessionDeleteValue> {
+    const deletion = this.ctx.get('sessionDeletion')
+    if (deletion === undefined) {
+      throw new RemoteError(
+        'session/deletion-unavailable',
+        'session deletion is unavailable: this deployment does not mount @deepseek-ai/dsh-session-deletion',
+        {},
+      )
+    }
+    try {
+      const { deletedSessionIds } = await deletion.delete({
+        sessionId: request.sessionId,
+        recursive: request.recursive === true,
+      })
+      return { deletedSessionIds: [...deletedSessionIds] }
+    } catch (error) {
+      if (error instanceof SessionDeletionError) {
+        if (error.code === 'session-not-found') {
+          throw new RemoteError(
+            'session/not-found',
+            error.message,
+            { sessionId: request.sessionId },
+            { cause: error },
+          )
+        }
+        if (error.code === 'session-running') {
+          throw new RemoteError(
+            'session/running',
+            error.message,
+            { runningSessionIds: [...error.runningSessionIds ?? []] },
+            { cause: error },
+          )
+        }
+        throw new RemoteError(
+          'session/has-descendants',
+          error.message,
+          { sessionId: request.sessionId },
+          { cause: error },
+        )
+      }
+      throw error
+    }
   }
 
   /**

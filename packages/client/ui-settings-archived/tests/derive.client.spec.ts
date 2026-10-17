@@ -7,6 +7,9 @@ import { countDescendants, deriveArchivedGroups } from '../src/client/derive.ts'
 const sid = (value: string): SessionId => value as SessionId
 const wid = (value: string): WorkspaceId => value as WorkspaceId
 
+/** Deterministic instant the archive set stamps on the rows these cases derive. */
+const ARCHIVED_AT = '2026-08-19T08:00:00.000Z'
+
 function sessions(rows: Array<[string, number]>): SessionListState {
   return {
     ids: rows.map(([id]) => sid(id)),
@@ -25,6 +28,7 @@ function sessions(rows: Array<[string, number]>): SessionListState {
 function workspaces(
   archived: string[],
   rows: Array<[string, string[]]>,
+  instants: Record<string, string> = Object.fromEntries(archived.map(id => [id, ARCHIVED_AT])),
 ): WorkspaceListState {
   return {
     items: rows.map(([id, sessionIds]) => ({
@@ -36,6 +40,9 @@ function workspaces(
       updatedAt: '0',
     })),
     archivedSessionIds: archived.map(sid),
+    archivedSessionAts: Object.fromEntries(
+      Object.entries(instants).map(([id, instant]) => [sid(id), instant]),
+    ),
     state: 'idle',
     phase: 'ready',
     error: null,
@@ -73,7 +80,17 @@ describe('deriveArchivedGroups', () => {
       sessions([['a1', 7]]),
       workspaces(['a1'], [['ws-a', ['a1']]]),
     )
-    expect(groups[0]?.rows[0]).toMatchObject({ id: sid('a1'), title: 'title-a1', updatedAt: 7 })
+    expect(groups[0]?.rows[0]).toMatchObject({
+      id: sid('a1'), title: 'title-a1', updatedAt: 7, archivedAt: ARCHIVED_AT,
+    })
+  })
+
+  it('leaves the archive instant absent for a Session archived before instants were recorded', () => {
+    const groups = deriveArchivedGroups(
+      sessions([['a1', 7]]),
+      workspaces(['a1'], [['ws-a', ['a1']]], {}),
+    )
+    expect(groups[0]?.rows[0]?.archivedAt).toBeUndefined()
   })
 })
 

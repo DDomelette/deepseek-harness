@@ -179,7 +179,10 @@ export class WorkspaceCommands {
       }
       throw error
     }
-    return { archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds] }
+    return {
+      archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
+      archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
+    }
   }
 
   /**
@@ -191,7 +194,10 @@ export class WorkspaceCommands {
    */
   async unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue> {
     await this.ctx.workspaceRegistry.unarchiveSession(request.sessionId)
-    return { archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds] }
+    return {
+      archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
+      archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
+    }
   }
 
   /**

@@ -108,7 +108,7 @@ function acceptIncrement(accept: WorkspaceFollowSink, frame: WorkspaceFollowIncr
       accept.replaceOrder(frame.workspaceIds)
       return
     case 'archived':
-      accept.replaceArchived(frame.archivedSessionIds)
+      accept.replaceArchived(frame.archivedSessionIds, frame.archivedSessionAts)
       return
     case 'pinned':
       accept.replacePinned(frame.pinnedSessionIds)

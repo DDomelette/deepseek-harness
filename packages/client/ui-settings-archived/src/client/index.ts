@@ -44,6 +44,10 @@ export function apply(ctx: ClientContext): void {
       }
       return false
     },
+    remove: async (sessionId) => {
+      const result = await sessions.deleteSession(sessionId)
+      if (!result.ok) throw new Error(result.error.message)
+    },
     refresh: async () => { await sessions.refresh() },
   })
   ctx.slots.inject('settings.section', () => ctx.slots.register({

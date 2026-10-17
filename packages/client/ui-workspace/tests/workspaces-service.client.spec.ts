@@ -95,6 +95,7 @@ function workspaceState(
   return {
     items,
     archivedSessionIds,
+    archivedSessionAts: {},
     pinnedSessionIds: [],
     phase,
     state: phase === 'ready' ? 'idle' : 'loading',
@@ -163,6 +164,7 @@ class FakeSessions implements ISessions {
   declare readonly retainInfo: ISessions['retainInfo']
   declare readonly searchResultLimit: ISessions['searchResultLimit']
   declare readonly refresh: ISessions['refresh']
+  declare readonly deleteSession: ISessions['deleteSession']
   declare readonly search: ISessions['search']
   declare readonly scope: ISessions['scope']
   declare readonly scopeOf: ISessions['scopeOf']
@@ -183,7 +185,7 @@ class FakeWorkspaces implements IWorkspaces {
   onArchive: IWorkspaces['archiveSession'] = async (sessionId) => {
     this.list.update(state => ({
       ...state,
-      archivedSessionIds: [...state.archivedSessionIds, sessionId],
+      archivedSessionIds: [...state.archivedSessionIds, sessionId], archivedSessionAts: {},
     }))
   }
 

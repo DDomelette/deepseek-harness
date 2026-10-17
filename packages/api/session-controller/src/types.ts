@@ -227,6 +227,12 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'session/title-invalid': { readonly sessionId: SessionId }
     'session/fork-unavailable': { readonly sessionId: SessionId }
     'session/migration-required': { readonly sessionId: SessionId }
+    /** Recursive deletion needs the `ctx.sessionDeletion` service, which this deployment does not mount. */
+    'session/deletion-unavailable': Record<string, never>
+    /** The Session or one of its descendants still has an attached Agent. */
+    'session/running': { readonly runningSessionIds: readonly SessionId[] }
+    /** A non-recursive delete was requested for a Session that has subagent descendants. */
+    'session/has-descendants': { readonly sessionId: SessionId }
     'subagent/not-found': {
       readonly parentSessionId: SessionId
       readonly childSessionId: SessionId
@@ -411,6 +417,22 @@ export interface SessionCancelRequest {
 /** Receipt after cancellation is admitted to the live Agent. */
 export interface SessionCancelValue {
   readonly accepted: true
+}
+
+/** Recursive-deletion request for one Session. */
+export interface SessionDeleteRequest {
+  readonly sessionId: SessionId
+  /**
+   * Delete the Session's subagent descendants in the same operation. Without
+   * it, a Session that still has descendants is refused as
+   * `session/has-descendants` rather than leaving orphaned children behind.
+   */
+  readonly recursive?: boolean
+}
+
+/** Every Session removed by one deletion, leaves first. */
+export interface SessionDeleteValue {
+  readonly deletedSessionIds: readonly SessionId[]
 }
 
 /** Request to open one path prepared by a Session-aware caller on the Host desktop. */

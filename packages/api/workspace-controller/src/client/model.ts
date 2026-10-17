@@ -21,6 +21,7 @@ import type {
   WorkspaceId,
   WorkspaceView,
 } from '../types.ts'
+import { sameArchiveInstants } from '../archive-instants.ts'
 
 /** Complete generated `ctx.remote.workspace` namespace. */
 export type WorkspaceRemote = TypertClientRemote['workspace']
@@ -33,6 +34,8 @@ export interface WorkspaceSnapshot {
   readonly items: readonly WorkspaceView[]
   /** Complete registry-global archive set in Host order. */
   readonly archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds']
+  /** ISO-8601 archive instants keyed by Session id; key-equal to {@link archivedSessionIds}. */
+  readonly archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts']
   /** Complete registry-global pin set, most recently pinned first. */
   readonly pinnedSessionIds: WorkspacePinValue['pinnedSessionIds']
   readonly state: 'idle' | 'loading' | 'error'
@@ -50,8 +53,11 @@ export interface WorkspaceFollowSink {
   removeView(workspaceId: WorkspaceId): void
   /** Replace the Host-confirmed Workspace order. */
   replaceOrder(workspaceIds: readonly WorkspaceId[]): void
-  /** Replace the complete archived Session set. */
-  replaceArchived(sessionIds: WorkspaceArchiveValue['archivedSessionIds']): void
+  /** Replace the complete archived Session set and its instants. */
+  replaceArchived(
+    sessionIds: WorkspaceArchiveValue['archivedSessionIds'],
+    instants: WorkspaceArchiveValue['archivedSessionAts'],
+  ): void
   /** Replace the complete pinned Session set. */
   replacePinned(pinnedSessionIds: WorkspacePinValue['pinnedSessionIds']): void
 }
@@ -62,6 +68,7 @@ export interface WorkspaceFollowSink {
 export class ClientWorkspaceModel implements WorkspaceFollowSink {
   private items: readonly WorkspaceView[] = []
   private archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds'] = []
+  private archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts'] = {}
   private pinnedSessionIds: WorkspacePinValue['pinnedSessionIds'] = []
   private state: WorkspaceSnapshot['state'] = 'loading'
   private phase: WorkspaceListPhase = 'pending'
@@ -198,7 +205,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
       ...(options.stopActivity === true ? { stopActivity: true } : {}),
     })
     if (result.ok && requestSeq === this.archiveRequestSeq) {
-      this.installArchived(result.value.archivedSessionIds)
+      this.installArchived(result.value.archivedSessionIds, result.value.archivedSessionAts)
       // The Host drops an archived session's pin in the same durable write;
       // mirror that locally so no frame shows the row both archived and pinned.
       this.installPinned(this.pinnedSessionIds.filter(id => id !== sessionId))
@@ -218,7 +225,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     const requestSeq = ++this.archiveRequestSeq
     const result = await this.remote.unarchiveSession({ sessionId })
     if (result.ok && requestSeq === this.archiveRequestSeq) {
-      this.installArchived(result.value.archivedSessionIds)
+      this.installArchived(result.value.archivedSessionIds, result.value.archivedSessionAts)
     }
     return result
   }
@@ -266,7 +273,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     this.archiveRequestSeq++
     this.pinRequestSeq++
     this.installViews(baseline.items)
-    this.installArchived(baseline.archivedSessionIds)
+    this.installArchived(baseline.archivedSessionIds, baseline.archivedSessionAts)
     this.installPinned(baseline.pinnedSessionIds)
     this.state = 'idle'
     this.phase = 'ready'
@@ -291,12 +298,16 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   }
 
   /**
-   * Replace the archived Session set from the current follow generation.
+   * Replace the archived Session set and its instants from the current follow generation.
    * @param archivedSessionIds - complete Host-confirmed archive set.
+   * @param archivedSessionAts - ISO-8601 archive instants keyed by Session id.
    */
-  replaceArchived(archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds']): void {
+  replaceArchived(
+    archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds'],
+    archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts'],
+  ): void {
     this.archiveRequestSeq++
-    this.installArchived(archivedSessionIds)
+    this.installArchived(archivedSessionIds, archivedSessionAts)
   }
 
   /**
@@ -349,6 +360,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     return {
       items: this.items,
       archivedSessionIds: this.archivedSessionIds,
+      archivedSessionAts: this.archivedSessionAts,
       pinnedSessionIds: this.pinnedSessionIds,
       state: this.state,
       phase: this.phase,
@@ -356,10 +368,15 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     }
   }
 
-  private installArchived(archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds']): void {
+  private installArchived(
+    archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds'],
+    archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts'],
+  ): void {
     if (archivedSessionIds.length === this.archivedSessionIds.length
-      && archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])) return
+      && archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])
+      && sameArchiveInstants(archivedSessionAts, this.archivedSessionAts)) return
     this.archivedSessionIds = [...archivedSessionIds]
+    this.archivedSessionAts = { ...archivedSessionAts }
     this.invalidate()
   }
 

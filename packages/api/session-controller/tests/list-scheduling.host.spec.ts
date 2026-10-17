@@ -276,6 +276,19 @@ describe('Session-list work slices', () => {
     expect(h.trace).toEqual([])
   })
 
+  it('keeps a cwd-less archived Session listed so the Archived page can act on it', async () => {
+    const h = await harness([
+      { id: 'archived-cold', phase: 'cold', cwd: false },
+      { id: 'omitted-cold', phase: 'cold', cwd: false },
+    ])
+    h.ctx.provide('workspaceRegistry', { archivedSessionIds: [SessionId('archived-cold')] } as never)
+
+    const items = await h.list.list()
+
+    expect(h.trace).toEqual(['cold:archived-cold'])
+    expect(items.map(item => item.sessionId)).toEqual(['archived-cold'])
+  })
+
   it('omits cwd-less cold rows but retains cwd-less attached Sessions', async () => {
     const h = await harness([
       { id: 'omitted-first', phase: 'cold', cwd: false },

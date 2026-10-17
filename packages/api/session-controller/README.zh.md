@@ -72,6 +72,10 @@ Client 的首次 `follow`、重连首屏与 `loadOlder()` 至少请求 50 条以
 
 本控制器通过 `ctx.plugin` 组合 `ArchivedSessionGate`：在 Agent 注册表、Session store 与 Workspace 注册表就绪后加载，随控制器一起释放。它的 `agent/pre-step` 监听器会拒绝为已归档会话或其子代理子孙——从 Session header 的血缘字段读出，从不包括 fork——提出的步骤，因此迟到的唤醒投递会让该回合以 `blocked` 收口而不发出模型请求；取消归档即为整条血缘解除门禁。已归档会话仍在跑的工作由各自的 owner 通过 Workspace 注册表的归档准入（[接缝](../../workspace/workspace/README.zh.md)）报告与停止：运行中的回合由 [Agent 注册表](../../core/agent/README.zh.md)负责，所属任务由[任务注册表接缝](../../jobs/jobs/README.zh.md)负责，子代理子孙由 [Subagent](../../subagent/subagent/README.zh.md) runtime 负责，提醒由 [Schedule](../../schedule/schedule/README.zh.md) 插件负责；本控制器自己不报告任何内容。
 
+冷列表会隐藏 header 中没有 `cwd` 的已存储会话，因为任何 Workspace 都无法认领它；但 Workspace 注册表已归档的会话除外：已归档设置页读取同一份列表，必须能恢复或删除该行。
+
+`session.delete` 委托给可选的 `ctx.sessionDeletion` 服务（[递归删除](../../session/session-deletion/README.zh.md)），并返回被删除的全部身份。未挂载该服务的部署回答 `session/deletion-unavailable`，而不是传输失败。持久删除计划、持久化清理与 Workspace 账目移除都由该服务负责，因此 Remote 方法只映射它的封闭失败码：已附加的会话或子孙给出 `session/running` 并携带 `runningSessionIds`，非递归删除会留下孤儿子孙时给出 `session/has-descendants` 并携带所请求的 id，`session-not-found` 与其他一元动词一致。`recursive` 需显式开启；已归档设置页发送 `true`，因为一次确认删除要移除整个子代理子树。其他失败保持为内部 Remote 错误，因此存储故障不会被读成业务拒绝。
+
 <a id="client-references"></a>
 ## Client 引用
 

@@ -108,6 +108,14 @@ export interface ISessions {
    */
   refresh(): Promise<void>
   /**
+   * Permanently delete one Session and its subagent descendants through the
+   * Host's recursive-deletion service, then drop the removed rows from the list.
+   * Archived Sessions are detached, so they delete without a running-work refusal.
+   * @param sessionId - Session to delete.
+   * @returns the deleted identities, or the business or transport failure.
+   */
+  deleteSession(sessionId: SessionId): Promise<RemoteResult<{ deletedSessionIds: readonly SessionId[] }>>
+  /**
    * Search the Host's visible message-content index. Results stay
    * request-local; the list snapshot remains the metadata authority.
    * @param query - non-blank literal phrase.

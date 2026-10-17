@@ -86,6 +86,23 @@ async function nextFrame(
   return next.value
 }
 
+/**
+ * Archive identities that carry a parseable ISO-8601 instant, in set order.
+ * Asserting through this helper keeps the instant assertion typed; an
+ * `expect.any(...)` matcher would assign `any` into the expected object.
+ * @param value - an archive response or `archived` increment.
+ * @returns the ids whose instant parses.
+ */
+function stampedInstants(value: {
+  readonly archivedSessionIds: readonly SessionId[]
+  readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+}): readonly SessionId[] {
+  return value.archivedSessionIds.filter((id) => {
+    const instant = value.archivedSessionAts[id]
+    return instant !== undefined && !Number.isNaN(Date.parse(instant))
+  })
+}
+
 describe('WorkspaceController commands', () => {
   it('serializes concurrent path adoption and preserves an existing title', async () => {
     const { controller, root } = await harness()
@@ -255,23 +272,23 @@ describe('WorkspaceController commands', () => {
     // the stop providers first.
     const stops: string[] = []
     const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
-    await expect(controller.archiveSession({ sessionId: session.id, stopActivity: true }))
-      .resolves.toEqual({ archivedSessionIds: [session.id] })
+    expect(stampedInstants(await controller.archiveSession({ sessionId: session.id, stopActivity: true })))
+      .toEqual([session.id])
     expect(stops).toEqual([String(session.id)])
     stopListening()
     await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
     stopReporting()
 
-    await expect(controller.archiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [session.id] })
+    expect(stampedInstants(await controller.archiveSession({ sessionId: session.id })))
+      .toEqual([session.id])
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
     await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
     // Unarchive is idempotent: an id that is not archived is not an error.
     await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
   })
 
   it('pins only known unarchived Sessions and unpins idempotently', async () => {
@@ -321,6 +338,7 @@ describe('WorkspaceController follow', () => {
           initialized: true,
           workspaceIds: ['missing'],
           archivedSessionIds: [],
+          archivedSessionAts: {},
           pinnedSessionIds: [],
         },
       })
@@ -352,7 +370,7 @@ describe('WorkspaceController follow', () => {
     const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
     await expect(nextFrame(iterator)).resolves.toEqual({
       type: 'baseline',
-      value: { items: [], archivedSessionIds: [], pinnedSessionIds: [] },
+      value: { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [] },
     })
 
     const first = await controller.create({ path: stageDir(root, 'first') })
@@ -387,13 +405,14 @@ describe('WorkspaceController follow', () => {
       meta: { cwd: first.workspace.path },
     })
     await controller.archiveSession({ sessionId: session.id })
-    await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [session.id],
-    })
+    const archivedFrame = await nextFrame(iterator)
+    expect(archivedFrame).toMatchObject({ type: 'archived', archivedSessionIds: [session.id] })
+    expect(archivedFrame.type === 'archived' && stampedInstants(archivedFrame))
+      .toEqual([session.id])
     // Unarchive rides the same complete-set increment: no new frame type.
     await controller.unarchiveSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [],
+      type: 'archived', archivedSessionIds: [], archivedSessionAts: {},
     })
     await controller.pinSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({

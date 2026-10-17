@@ -31,6 +31,8 @@ An optional detach callback receives the complete reserved plan before durable c
 
 The service requires `storageDomain` and stores one `session_deletion` plan per root id.
 
+The Web bundle mounts this row so the [Session Controller](../../api/session-controller/README.md) can answer `session.delete`, which the [Archived settings page](../../client/ui-settings-archived/README.md) calls after its confirmation. A profile that mounts neither simply has no deletion surface: the Remote method reports `session/deletion-unavailable`.
+
 <a id="behavior"></a>
 ## Behavior
 

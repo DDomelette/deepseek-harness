@@ -358,6 +358,19 @@ export class ClientSessions implements ISessions {
   }
 
   /**
+   * Permanently delete one Session and its subagent descendants, then pull the
+   * list so the removed rows leave every surface.
+   * @param sessionId - Session to delete.
+   * @returns the deleted identities, or the business or transport failure.
+   */
+  async deleteSession(sessionId: SessionId): Promise<RemoteResult<{ deletedSessionIds: readonly SessionId[] }>> {
+    const result = await this.manager.deleteSession(sessionId)
+    if (!result.ok) return result
+    await this.manager.refreshList()
+    return result
+  }
+
+  /**
    * Search the Host's visible message-content index. Results stay
    * request-local; the list snapshot remains the metadata authority.
    * @param query - non-blank literal phrase.

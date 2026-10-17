@@ -365,7 +365,10 @@ interface WorkspaceInsertSessionBeforeRequest {
   readonly beforeSessionId?: SessionId
 }
 interface WorkspaceArchiveSessionRequest { readonly sessionId: SessionId }
-interface WorkspaceArchiveValue { readonly archivedSessionIds: readonly SessionId[] }
+interface WorkspaceArchiveValue {
+  readonly archivedSessionIds: readonly SessionId[]
+  readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+}
 
 type WorkspaceFollowFrame =
   | {
@@ -373,12 +376,17 @@ type WorkspaceFollowFrame =
     readonly value: {
       readonly items: readonly WorkspaceView[]
       readonly archivedSessionIds: readonly SessionId[]
+      readonly archivedSessionAts: Readonly<Record<SessionId, string>>
     }
   }
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
   | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
-  | { readonly type: 'archived'; readonly archivedSessionIds: readonly SessionId[] }
+  | {
+    readonly type: 'archived'
+    readonly archivedSessionIds: readonly SessionId[]
+    readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+  }
 
 interface FixtureWorkspaceApi {
   create(request: WorkspaceCreateRequest): Promise<ConnectionRpcResult<WorkspaceCreateValue>>
@@ -1989,6 +1997,13 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   const archivedSessionIds: SessionId[] = []
+  // The fixture stamps the archive instant it reports, the same relation the
+  // Workspace registry keeps between the set and `archivedSessionAts`.
+  const archivedSessionAts: Record<SessionId, string> = {}
+  const archiveValue = (): WorkspaceArchiveValue => ({
+    archivedSessionIds: [...archivedSessionIds],
+    archivedSessionAts: { ...archivedSessionAts },
+  })
   const workspaceSnapshot = (workspace: FixtureWorkspace): WorkspaceView => ({
     ...workspace,
     sessionIds: [...workspace.sessionIds],
@@ -1998,6 +2013,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     value: {
       items: workspaces.map(workspaceSnapshot),
       archivedSessionIds: [...archivedSessionIds],
+      archivedSessionAts: { ...archivedSessionAts },
     },
   })
 
@@ -3781,9 +3797,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }
       if (!archivedSessionIds.includes(request.sessionId)) {
         archivedSessionIds.push(request.sessionId)
-        emitWorkspace({ type: 'archived', archivedSessionIds: [...archivedSessionIds] })
+        archivedSessionAts[request.sessionId] = new Date().toISOString()
+        emitWorkspace({
+          type: 'archived',
+          archivedSessionIds: [...archivedSessionIds],
+          archivedSessionAts: { ...archivedSessionAts },
+        })
       }
-      return sessionOk({ archivedSessionIds: [...archivedSessionIds] })
+      return sessionOk(archiveValue())
     },
   }
 

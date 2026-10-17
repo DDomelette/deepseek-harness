@@ -19,6 +19,11 @@ export interface ArchivedRow {
   readonly cwd?: string
   /** Agent preset the session's agent was composed from, when the deployment labels it. */
   readonly agentPreset?: string
+  /**
+   * ISO-8601 archive instant; absent for a Session archived before the registry
+   * recorded instants, which the row renders as unknown.
+   */
+  readonly archivedAt?: string
 }
 
 /** Archived sessions collected under one workspace or the ungrouped section. */
@@ -45,6 +50,7 @@ export function deriveArchivedGroups(
   const rowFor = (id: SessionId): ArchivedRow | undefined => {
     const summary = sessions.byId[id]
     if (summary === undefined) return undefined
+    const archivedAt = workspaces.archivedSessionAts[id]
     return {
       id,
       title: summary.displayTitle,
@@ -52,6 +58,7 @@ export function deriveArchivedGroups(
       updatedAt: summary.updatedAt,
       ...(summary.cwd === undefined ? {} : { cwd: summary.cwd }),
       ...(summary.projectionValues?.agentPreset == null ? {} : { agentPreset: summary.projectionValues.agentPreset }),
+      ...(archivedAt === undefined ? {} : { archivedAt }),
     }
   }
   const groups: ArchivedGroup[] = []

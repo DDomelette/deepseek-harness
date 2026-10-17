@@ -154,7 +154,7 @@ describe('Workspace state stream', () => {
       { type: 'upsert', workspace: view },
       { type: 'remove', workspaceId: view.workspaceId },
       { type: 'order', workspaceIds: [view.workspaceId] },
-      { type: 'archived', archivedSessionIds: [sid('session-one')] },
+      { type: 'archived', archivedSessionIds: [sid('session-one')], archivedSessionAts: { [sid('session-one')]: '2026-10-17T00:00:00.000Z' } },
       { type: 'pinned', pinnedSessionIds: [sid('session-two')] },
     ]
     mock.stream(FOLLOW, openStream([opening, ...increments]))
@@ -177,7 +177,7 @@ describe('Workspace state stream', () => {
     expect(upsertView).toHaveBeenCalledWith(view)
     expect(removeView).toHaveBeenCalledWith(view.workspaceId)
     expect(replaceOrder).toHaveBeenCalledWith([view.workspaceId])
-    expect(replaceArchived).toHaveBeenCalledWith(['session-one'])
+    expect(replaceArchived).toHaveBeenCalledWith(['session-one'], { [sid('session-one')]: '2026-10-17T00:00:00.000Z' })
     expect(replacePinned).toHaveBeenCalledWith(['session-two'])
     await stream.dispose()
     expect(streamStates(mock)).toEqual(['cancelled'])
@@ -314,7 +314,7 @@ describe('WorkspaceController', () => {
   it('returns no Workspace when startup is ineligible without changing the list', async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
     const model = new ClientWorkspaceModel(remote.workspace)
-    model.replaceBaseline({ items: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    model.replaceBaseline({ items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [] })
     const controller = new WorkspaceController(client.ctx, model)
     const before = model.getSnapshot()
     mock.remote.workspace.initializeDefault.mockResolvedValueOnce({ ok: true, value: undefined })
@@ -325,7 +325,7 @@ describe('WorkspaceController', () => {
   it('publishes the model source and exposes successful Workspace commands', async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
     const model = new ClientWorkspaceModel(remote.workspace)
-    model.replaceBaseline({ items: [workspace('one')], archivedSessionIds: [], pinnedSessionIds: [] })
+    model.replaceBaseline({ items: [workspace('one')], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [] })
     const controller = new WorkspaceController(client.ctx, model)
 
     expect(controller.list).toBe(model)

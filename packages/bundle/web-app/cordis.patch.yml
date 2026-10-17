@@ -97,6 +97,12 @@
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
 
+    # Recursive Session deletion owns the durable deletion plan behind the
+    # Archived settings page: one plan per root, written before the first
+    # destructive step, with persistence and workspace-account cleanup.
+    - id: session-deletion
+      name: '@deepseek-ai/dsh-session-deletion'
+
     - id: session-reference
       name: '@deepseek-ai/dsh-session-reference'
 
