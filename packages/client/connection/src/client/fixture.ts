@@ -377,6 +377,7 @@ type WorkspaceFollowFrame =
       readonly items: readonly WorkspaceView[]
       readonly archivedSessionIds: readonly SessionId[]
       readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+      readonly pinnedSessionIds: readonly SessionId[]
     }
   }
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
@@ -387,6 +388,7 @@ type WorkspaceFollowFrame =
     readonly archivedSessionIds: readonly SessionId[]
     readonly archivedSessionAts: Readonly<Record<SessionId, string>>
   }
+  | { readonly type: 'pinned'; readonly pinnedSessionIds: readonly SessionId[] }
 
 interface FixtureWorkspaceApi {
   create(request: WorkspaceCreateRequest): Promise<ConnectionRpcResult<WorkspaceCreateValue>>
@@ -2000,6 +2002,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // The fixture stamps the archive instant it reports, the same relation the
   // Workspace registry keeps between the set and `archivedSessionAts`.
   const archivedSessionAts: Record<SessionId, string> = {}
+  // Registry-global pin set, most recently pinned first; the fixture ships no
+  // pin mutations, but the baseline must still carry the complete set because
+  // the client mirror installs every baseline field.
+  const pinnedSessionIds: SessionId[] = []
   const archiveValue = (): WorkspaceArchiveValue => ({
     archivedSessionIds: [...archivedSessionIds],
     archivedSessionAts: { ...archivedSessionAts },
@@ -2014,6 +2020,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       items: workspaces.map(workspaceSnapshot),
       archivedSessionIds: [...archivedSessionIds],
       archivedSessionAts: { ...archivedSessionAts },
+      pinnedSessionIds: [...pinnedSessionIds],
     },
   })
 
