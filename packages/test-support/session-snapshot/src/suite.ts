@@ -20,7 +20,7 @@
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { isSurfaceEligibleType } from '@deepseek-ai/dsh-session/surface'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { describe, expect, it } from 'vitest'
@@ -56,6 +56,26 @@ const SYSTEM_PROMPT_SNAPSHOT = 'system-prompt.expected.md'
 
 /** The structured tool-schema snapshot beside its owning header pin. */
 const TOOL_SCHEMAS_SNAPSHOT = 'tool-schemas.expected.json'
+
+/**
+ * Read one snapshot sidecar, following a shared alias a checkout materialized
+ * as text. A scenario exposes another scenario's prompt or schema through a
+ * symbolic link; a Git checkout without symbolic-link support (`core.symlinks`
+ * false, the Windows default) writes the relative target as the file's whole
+ * content instead. Resolving that single-line relative path keeps the aliased
+ * scenarios readable on those hosts; a real link, or any ordinary sidecar, is
+ * returned unchanged because the previous read already followed it.
+ * @param path - sidecar path to read.
+ * @returns the sidecar's content, or the aliased target's content.
+ */
+async function readSidecarFile(path: string): Promise<string> {
+  const content = await readFile(path, 'utf8')
+  if (content.includes('\n')) return content
+  const target = content.trim()
+  if (!target.startsWith('./') && !target.startsWith('../')) return content
+  const resolved = resolve(dirname(path), target)
+  return existsSync(resolved) ? readFile(resolved, 'utf8') : content
+}
 
 /** Return the dedicated tool-schema sidecar for one child fixture index. */
 function childToolSchemasSnapshot(index: number): string {
@@ -1330,8 +1350,10 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
 
         // Record writes live model fixtures; keyless refresh writes every comparable replayed
         // fixture. Pinning JSONL keeps prefixes but moves prompts and schemas into sidecars.
+        // The run's own cwd spellings decide the token: a refresh keeps the committed
+        // header values, so the body may name the fresh temporary directory instead.
         const portableFixture = scenario.workspaceParent === undefined
-          ? tokenizeSessionFixtureCwd
+          ? (log: string): string => tokenizeSessionFixtureCwd(log, ctx)
           : (log: string): string => log
         const writesSessionFixtures = writesCurrentSessionFixtures(manifest, mode)
           && ((RECORDING && scenario.recorded && scenario.hasModelTurn) || (REFRESHING && comparesLog))
@@ -1459,18 +1481,16 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         const [pinningFixtureFile] = await sessionFixtures(pinningDir)
         const pinnedFixture = await readFile(join(pinningDir, pinningFixtureFile as string), 'utf8')
         const pinned = pinningHeaderPayloads(pinnedFixture, fixtureContext(pinnedFixture))
-        const promptSnapshot = await readFile(
+        const promptSnapshot = await readSidecarFile(
           join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT),
-          'utf8',
         )
         const initialPromptSnapshot = initialSystemPromptSnapshot(promptSnapshot)
         expect(pinned.length, `the pinning fixture (${pinningScenario.name}) has an unexpected request/header count`)
           .toBe(1 + (pinningScenario.expectedHeaderChanges ?? 0))
         expect(parseSystemPromptSnapshot(promptSnapshot).changes.length, `the prompt source (${promptSource.name}) has an unexpected system prompt change count`)
           .toBe(pinningScenario.expectedPromptChanges ?? 0)
-        const toolSchemasSnapshot = await readFile(
+        const toolSchemasSnapshot = await readSidecarFile(
           join(snapshotsDir, schemaSource.name, TOOL_SCHEMAS_SNAPSHOT),
-          'utf8',
         )
         const toolSchemas = parseToolSchemasSnapshot(toolSchemasSnapshot)
         const pinnedSchemaSets = [toolSchemas.initial, ...toolSchemas.changes]
@@ -1482,7 +1502,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         ))
         const childPinnedSchemas = new Map<number, unknown[][]>()
         for (const index of childSchemaPins) {
-          const sidecar = await readFile(join(dir, childToolSchemasSnapshot(index)), 'utf8')
+          const sidecar = await readSidecarFile(join(dir, childToolSchemasSnapshot(index)))
           const parsed = parseToolSchemasSnapshot(sidecar)
           childPinnedSchemas.set(index, [parsed.initial, ...parsed.changes])
         }
@@ -1490,7 +1510,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         for (const index of childPromptPins) {
           childPinnedPrompts.set(
             index,
-            await readFile(join(dir, childSystemPromptSnapshot(index)), 'utf8'),
+            await readSidecarFile(join(dir, childSystemPromptSnapshot(index))),
           )
         }
         for (const [logIndex, log] of result.sessionLogs.entries()) {
@@ -1638,15 +1658,13 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         const [fixtureFile] = await sessionFixtures(fixtureDir)
         const fixture = await readFile(join(fixtureDir, fixtureFile as string), 'utf8')
         const headers = pinningHeaderPayloads(fixture, fixtureContext(fixture))
-        const promptSnapshot = await readFile(
+        const promptSnapshot = await readSidecarFile(
           join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT),
-          'utf8',
         )
         expect(headers.length, `${scenario.name}: unexpected request/header count`)
           .toBe(1 + (scenario.expectedHeaderChanges ?? 0))
-        const toolSchemasSnapshot = await readFile(
+        const toolSchemasSnapshot = await readSidecarFile(
           join(snapshotsDir, schemaSource.name, TOOL_SCHEMAS_SNAPSHOT),
-          'utf8',
         )
         const toolSchemas = parseToolSchemasSnapshot(toolSchemasSnapshot)
         const schemaSets = [toolSchemas.initial, ...toolSchemas.changes]
@@ -1672,11 +1690,11 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
     it('stores each distinct prompt and tool-schema snapshot once', async () => {
       const prompts = await Promise.all([...promptOwners].map(async (owner): Promise<NamedSnapshotContent> => ({
         path: `${owner}/${SYSTEM_PROMPT_SNAPSHOT}`,
-        content: await readFile(join(snapshotsDir, owner, SYSTEM_PROMPT_SNAPSHOT), 'utf8'),
+        content: await readSidecarFile(join(snapshotsDir, owner, SYSTEM_PROMPT_SNAPSHOT)),
       })))
       const schemas = await Promise.all([...schemaOwners].map(async (owner): Promise<NamedSnapshotContent> => ({
         path: `${owner}/${TOOL_SCHEMAS_SNAPSHOT}`,
-        content: await readFile(join(snapshotsDir, owner, TOOL_SCHEMAS_SNAPSHOT), 'utf8'),
+        content: await readSidecarFile(join(snapshotsDir, owner, TOOL_SCHEMAS_SNAPSHOT)),
       })))
       assertUniqueSnapshotContents('system-prompt', prompts)
       assertUniqueSnapshotContents('tool-schema', schemas)
@@ -1701,10 +1719,10 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
           expect(files[index], `${scenario.name}: child prompt pin ${index} must name an existing session.<n>.jsonl fixture`)
             .toBeDefined()
           const file = childSystemPromptSnapshot(index)
-          const sidecar = await readFile(join(dir, file), 'utf8')
+          const sidecar = await readSidecarFile(join(dir, file))
           /* v8 ignore next -- registration guarantees every scenario class has resolved sources. */
           const promptSource = promptSourceByClass.get(classOf(scenario)) ?? scenario
-          const classPin = await readFile(join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT), 'utf8')
+          const classPin = await readSidecarFile(join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT))
           assertChildSystemPromptSnapshot(sidecar, initialSystemPromptSnapshot(classPin), `${scenario.name}/${file}`)
         }
       }

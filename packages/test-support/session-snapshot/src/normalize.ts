@@ -234,29 +234,32 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Replace any absolute spelling whose final segment is the generated cwd basename. */
-function tokenizeFixtureString(value: string, ctx: NormalizeContext, basename: string): string {
-  const exact = replaceCwd(value, ctx, CWD)
-  const absoluteCwd = new RegExp(
-    String.raw`(?:[A-Za-z]:)?[\\/](?:[^\\/\s<>"]+[\\/])*${escapeRegExp(basename)}`
-    + String.raw`(?=$|[\\/\s<>'"()\[\]{},;:!?=])`,
-    'g',
-  )
-  return exact.replace(absoluteCwd, CWD).split(`/private${CWD}`).join(CWD)
+/** Replace any absolute spelling whose final segment is a generated cwd basename. */
+function tokenizeFixtureString(value: string, ctx: NormalizeContext, basenames: readonly string[]): string {
+  let out = replaceCwd(value, ctx, CWD)
+  for (const basename of basenames) {
+    const absoluteCwd = new RegExp(
+      String.raw`(?:[A-Za-z]:)?[\\/](?:[^\\/\s<>"]+[\\/])*${escapeRegExp(basename)}`
+      + String.raw`(?=$|[\\/\s<>'"()\[\]{},;:!?=])`,
+      'g',
+    )
+    out = out.replace(absoluteCwd, CWD)
+  }
+  return out.split(`/private${CWD}`).join(CWD)
 }
 
 /** Recursively replace generated-cwd spellings while preserving every other JSON value. */
 function tokenizeFixtureValue(
   value: unknown,
   ctx: NormalizeContext,
-  basename: string,
+  basenames: readonly string[],
 ): unknown {
-  if (typeof value === 'string') return tokenizeFixtureString(value, ctx, basename)
-  if (Array.isArray(value)) return value.map(item => tokenizeFixtureValue(item, ctx, basename))
+  if (typeof value === 'string') return tokenizeFixtureString(value, ctx, basenames)
+  if (Array.isArray(value)) return value.map(item => tokenizeFixtureValue(item, ctx, basenames))
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
       key,
-      tokenizeFixtureValue(item, ctx, basename),
+      tokenizeFixtureValue(item, ctx, basenames),
     ]))
   }
   return value
@@ -269,22 +272,29 @@ function tokenizeFixtureValue(
  * path.
  *
  * @param rawLog The raw or refresh-stabilized session JSONL fixture.
+ * @param runCwd The run's own cwd spellings, when the stabilized log header no
+ *   longer carries them: a refresh keeps the committed fixture's header values,
+ *   so the body may name the fresh temporary directory the run used.
  * @returns Compact JSONL whose known cwd spellings become `{{cwd}}`.
  * @throws If a non-empty line is invalid JSON or the session cwd has no basename.
  */
-export function tokenizeSessionFixtureCwd(rawLog: string): string {
+export function tokenizeSessionFixtureCwd(rawLog: string, runCwd?: NormalizeContext): string {
   const lines = rawLog.split('\n')
   const firstLine = lines.find(line => line.trim().length > 0)
   const header = firstLine === undefined ? undefined : JSON.parse(firstLine) as { cwd?: unknown }
   const cwd = typeof header?.cwd === 'string' ? header.cwd : ''
-  const basename = cwd.split(/[\\/]/).at(-1)
-  if (basename === undefined || basename.length === 0) {
+  const spellings = runCwd === undefined ? [] : cwdSpellings(runCwd)
+  const ctx: NormalizeContext = spellings.length === 0
+    ? { sessionIds: [], cwd }
+    : { sessionIds: [], cwd: runCwd?.cwd ?? cwd, ...runCwd?.cwdAliases === undefined ? {} : { cwdAliases: runCwd.cwdAliases } }
+  const basenames = [...new Set([cwd, ...spellings].map(spelling => spelling.split(/[\\/]/).at(-1) ?? ''))]
+    .filter(basename => basename.length > 0)
+  if (basenames.length === 0) {
     throw new Error('acp-snapshot: cannot tokenize a cwd without a basename')
   }
-  const ctx: NormalizeContext = { sessionIds: [], cwd }
   return lines.map((line) => {
     if (line.trim().length === 0) return line
-    return JSON.stringify(tokenizeFixtureValue(JSON.parse(line), ctx, basename))
+    return JSON.stringify(tokenizeFixtureValue(JSON.parse(line), ctx, basenames))
   }).join('\n')
 }
 
