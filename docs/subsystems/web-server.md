@@ -29,12 +29,29 @@ Match order is fixed: exact table first, then longest matching prefix, then the 
 ## Config
 
 ```ts type-equiv
-/** Web server listen and response-compression config. */
+/** Web server listen, TLS, and response-compression config. */
 interface Config {
-  /** Listen host; the two supported values are loopback and all-interfaces. */
-  host: '127.0.0.1' | '0.0.0.0'
+  /**
+   * Listen address: a concrete IPv4 or IPv6 literal of one local interface,
+   * for example the container's own Pod address from `hostname -i`. A loopback
+   * literal (any address in 127/8, `::1`, or a mapped form of either) keeps the
+   * server on this machine; any other literal serves the network that address
+   * belongs to, over plain HTTP unless `tls` is set. The unspecified address —
+   * IPv4 any, IPv6 any, and the IPv4-mapped forms of IPv4 any — is rejected at
+   * load: it would expose the port on every interface at once.
+   */
+  host: string
   /** Listen port; zero requests an OS-assigned port. */
   port: number
+  /**
+   * Serve HTTPS with this certificate and key instead of plain HTTP. Both files
+   * are read once, before the listener binds: an unreadable or empty file,
+   * invalid PEM, or a key that does not match the certificate rejects
+   * initialization rather than falling back to HTTP. The material is never
+   * re-read, so replacing a certificate takes a reload. Omitted or null listens
+   * over plain HTTP.
+   */
+  tls?: TlsConfig
   /** Response compression for socket-backed HTTP requests. @default 'none' */
   compression?: 'none' | 'gzip'
   /** Gzip DEFLATE level from 0 through 9. @default 1 */

@@ -28,7 +28,7 @@ interface TeamMemberSnapshot {
 Lead Session 首先存储完整 queued message。只有 target 的 pending inbox 条目或已记录用户消息完成持久化，才会写入独立 acknowledgement event，queued-minus-delivered 因而构成恢复 mailbox。
 
 ```ts type-equiv
-/** One peer message retained until its target Session records it. */
+/** One peer message recorded by the historical Team mailbox. */
 interface TeamMessageSnapshot {
   readonly id: TeamMessageId
   readonly senderId: SessionId
@@ -43,7 +43,7 @@ interface TeamMessageSnapshot {
 target Session 会在 pending inbox 条目和最终用户消息上保留消息身份与发送者归因。跨 inbox 与历史折叠该 source 构成 target 侧去重键；模型可见的 framing 会重复 id 和发送者。
 
 ```ts type-equiv
-/** Source retained by the target Session for durable mailbox de-duplication. */
+/** Source recorded by a target Session for one historical Team mailbox delivery. */
 interface TeamMessageSource {
   readonly kind: 'team-message'
   readonly teamId: TeamId
