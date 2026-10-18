@@ -58,7 +58,13 @@
       "path": "../../llm/llm"
     },
     {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
       "path": "../../preset/agent-preset-registry"
+    },
+    {
+      "path": "../../session/session-pins"
     },
     {
       "path": "../../settings/settings"
