@@ -300,8 +300,11 @@
   en: 4315e0bf6cbf7c33
   zh: 11f58472da1205e0
 /plugin-config-catalog/deepseek-ai-dsh-skill-filesystem:
-  en: 411f4ecb201d57a2
-  zh: 5670cc9109972f21
+  en: 07cbb8ee74f598ee
+  zh: 6e200d1d76b4e526
+/plugin-config-catalog/deepseek-ai-dsh-skill-office:
+  en: deff3360139d8cb1
+  zh: 92b03ccf77a7b691
 /plugin-config-catalog/deepseek-ai-dsh-skill-settings:
   en: 610332c5f51c5a84
   zh: 56ab334f65332363

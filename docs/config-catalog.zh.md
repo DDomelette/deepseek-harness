@@ -3091,6 +3091,26 @@ export interface Config {
 
 来源：[`packages/skill/skill-filesystem/src/index.ts:48`](../packages/skill/skill-filesystem/src/index.ts)
 
+<a id="deepseek-aidsh-skill-office"></a>
+
+## `@deepseek-ai/dsh-skill-office`
+
+需要：`skills`
+
+```ts config-catalog
+/** Office skill resource location. */
+export interface Config {
+  /** Absolute assets directory containing the three skill folders and shared scripts; defaults to packaged assets. */
+  assetRoot?: string
+  /** Standalone Node executable; defaults to the current executable outside Electron and SEA. */
+  node?: string
+  /** Absolute LibreOffice Kit CLI entry; false explicitly disables CLI access. */
+  cli?: string | false
+}
+```
+
+来源：[`packages/skill/skill-office/src/index.ts:16`](../packages/skill/skill-office/src/index.ts)
+
 <a id="deepseek-aidsh-skill-settings"></a>
 
 ## `@deepseek-ai/dsh-skill-settings`
