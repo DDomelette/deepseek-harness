@@ -152,7 +152,7 @@ export function applyReadTool(ctx: Context, caps: ReadToolCaps): void {
       )
 
       const outcome = {
-        path: target.displayPath,
+        path: ctx.fs.processPath(target),
         offset: input.offset,
         lines: window.lines,
         totalLines: window.totalLines,

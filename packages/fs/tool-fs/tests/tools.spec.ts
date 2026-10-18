@@ -7,10 +7,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
 import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type ToolResult } from '@deepseek-ai/dsh-tools'
@@ -30,7 +28,7 @@ import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import { STREAM_MIN_SIZE } from '../src/read.ts'
 import { formatReadOutput } from '../src/read-render.ts'
 import type { FileReadOutcome } from '../src/read-render.ts'
-import { sessionCwd } from '../src/session-cwd.ts'
+import { sessionResolveOptions } from '../src/session-cwd.ts'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
@@ -53,7 +51,7 @@ class FakeFs extends FileSystem {
   override async resolve(path: string): Promise<FsTarget> {
     return { targetKey: FsTargetKey(`key:${path}`), displayPath: `/abs/${path}` }
   }
-  override processPath(target: FsTarget): string { return String(target.targetKey) }
+  override processPath(target: FsTarget): string { return target.displayPath }
   override fileUrl(target: FsTarget): string { return `file://${target.targetKey}` }
   override contains(parent: FsTarget, child: FsTarget): boolean {
     return child.targetKey === parent.targetKey || String(child.targetKey).startsWith(`${parent.targetKey}/`)
@@ -112,6 +110,7 @@ async function setup() {
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(FakeFs)
   await ctx.plugin(FsPolicy)
+  provideWorkingDirectoryFixture(ctx, '/abs')
   await ctx.plugin(ToolFs)
   const fs = ctx.fs as FakeFs
   return { ctx, fs }
@@ -132,29 +131,18 @@ function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
 }
 
-describe('session cwd resolution', () => {
-  const execution = (cwd?: string) => cwd === undefined
-    ? {}
-    : { agent: { session: { header: { cwd } } } }
-
-  it('retains ordinary spelling but resolves the cwd before parent traversal', () => {
-    const cwd = process.cwd()
-    const throughParent = `${cwd}${sep}..`
-    expect(sessionCwd(execution() as never, 'file.txt')).toBeUndefined()
-    expect(sessionCwd(execution(cwd) as never, 'file.txt')).toBe(cwd)
-    expect(sessionCwd(execution(throughParent) as never, 'file.txt')).toBe(realpathSync.native(throughParent))
-
-    const root = mkdtempSync(join(tmpdir(), 'dsh-tool-fs-session-cwd-'))
-    const physical = join(root, 'physical')
-    const link = join(root, 'link')
-    try {
-      mkdirSync(physical)
-      symlinkSync(physical, link, process.platform === 'win32' ? 'junction' : 'dir')
-      expect(sessionCwd(execution(link) as never, 'child.txt')).toBe(link)
-      expect(sessionCwd(execution(link) as never, `..${sep}parent.txt`)).toBe(realpathSync.native(link))
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
+describe('current directory resolution', () => {
+  it('uses the directory service and keeps non-agent provider defaults', async () => {
+    const ctx = new Context()
+    const ensure = vi.fn(async () => '/current/project')
+    ctx.provide('workingDirectory', { ensure })
+    const agent = { session: { header: { cwd: '/original/project' } } }
+    const exec = { agent, signal: testToolSignal }
+    expect(await sessionResolveOptions(ctx, exec as never)).toEqual({ cwd: '/current/project', signal: testToolSignal })
+    expect(ensure).toHaveBeenCalledWith(agent, testToolSignal)
+    expect(await sessionResolveOptions(ctx, { signal: testToolSignal } as never)).toEqual({ signal: testToolSignal })
+    expect(ensure).toHaveBeenCalledTimes(1)
+    await ctx.fiber.dispose()
   })
 })
 
@@ -196,6 +184,7 @@ describe('registration', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
     await ctx.plugin(FsPolicy)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     const fiber = await ctx.plugin(ToolFs)
     // Each tool contributes BOTH a schema and a prompt section; disposal must
     // withdraw both, not just the schemas.
@@ -708,6 +697,7 @@ describe('read caps are plugin config', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
     await ctx.plugin(FsPolicy)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs, config)
     return { ctx, fs: ctx.fs as FakeFs }
   }
@@ -764,6 +754,7 @@ describe('read caps are plugin config', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await expect(ctx.plugin(ToolFs, config)).rejects.toThrow(new RegExp(`tool-fs: ${name} must be a positive integer`))
   })
 
@@ -811,6 +802,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await ctx.plugin(SandboxingFakeFs)
     await ctx.plugin(FsPolicy)
     if (opts.approval === true) await ctx.plugin(ApprovalService)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs)
     return { ctx, fs: ctx.fs as SandboxingFakeFs }
   }
@@ -870,6 +862,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SandboxingFakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await expect(ctx.plugin(ToolFs)).rejects.toThrow('tool-fs: the mounted filesystem confines but ctx.sandboxPolicy is missing')
   })
 
@@ -1069,6 +1062,7 @@ describe('scope-aware PTC guidance', () => {
     await ctx.plugin(GuidancePtcRuntime)
     await ctx.plugin(ToolRuntime, { mode })
     await ctx.plugin(FakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs)
     const { key, scope } = await guidanceScope(ctx)
     try {

@@ -321,7 +321,7 @@ export function applyReadImageTool(ctx: Context): void {
       }
       ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, exec)
       const value: ImageReadValue = {
-        path: target.displayPath,
+        path: ctx.fs.processPath(target),
         image: {
           attachmentId: ref.attachmentId,
           mediaType: ref.mediaType,

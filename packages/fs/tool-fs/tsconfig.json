@@ -41,6 +41,12 @@
     },
     {
       "path": "../../attachment/attachment"
+    },
+    {
+      "path": "../../util/code-language"
+    },
+    {
+      "path": "../../session/working-directory"
     }
   ]
 }

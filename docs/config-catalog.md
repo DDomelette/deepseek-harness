@@ -3711,7 +3711,7 @@ Source: [`packages/shell/tool-bash-persistent/src/index.ts:445`](../packages/she
 
 ## `@deepseek-ai/dsh-tool-fs`
 
-Requires: `tools` · `fs` · `systemPrompt`
+Requires: `tools` · `fs` · `systemPrompt` · `workingDirectory`
 
 ```ts config-catalog
 /** Plugin config (all optional — `Config` supplies the defaults). */

@@ -3713,7 +3713,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-tool-fs`
 
-需要：`tools` · `fs` · `systemPrompt`
+需要：`tools` · `fs` · `systemPrompt` · `workingDirectory`
 
 ```ts config-catalog
 /** Plugin config (all optional — `Config` supplies the defaults). */

@@ -9375,6 +9375,9 @@ importers:
 
   packages/fs/tool-fs:
     dependencies:
+      '@deepseek-ai/dsh-util-code-language':
+        specifier: workspace:*
+        version: link:../../util/code-language
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
@@ -9412,6 +9415,12 @@ importers:
       '@deepseek-ai/dsh-llm-deepseek':
         specifier: workspace:*
         version: link:../../llm/llm-deepseek
+      '@deepseek-ai/dsh-llm-deepseek-api-key':
+        specifier: workspace:*
+        version: link:../../llm/llm-deepseek-api-key
+      '@deepseek-ai/dsh-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
       '@deepseek-ai/dsh-sandbox':
         specifier: workspace:*
         version: link:../../sandbox/sandbox
@@ -9436,6 +9445,9 @@ importers:
       '@deepseek-ai/dsh-user-approval':
         specifier: workspace:*
         version: link:../../interaction/user-approval
+      '@deepseek-ai/dsh-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
 
   packages/fs/tool-fs-search:
     dependencies:
