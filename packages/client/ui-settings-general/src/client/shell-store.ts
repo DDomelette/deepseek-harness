@@ -7,6 +7,7 @@ type Actions = {
   close(draft: State): void
   select(draft: State, id: string): void
   openSection(draft: State, id: string): void
+  backToList(draft: State): void
 }
 
 /**
@@ -21,6 +22,8 @@ export function createSettingsShellStore(): EngineStoreHandle<State, Actions> {
       close: (d) => { d.open = false; d.activeId = undefined },
       select: (d, id: string) => { d.activeId = id },
       openSection: (d, id: string) => { d.activeId = id; d.open = true },
+      // The single-pane step returns to the list without closing the dialog.
+      backToList: (d) => { d.activeId = undefined },
     },
   })
 }

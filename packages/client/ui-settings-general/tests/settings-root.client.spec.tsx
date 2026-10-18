@@ -12,7 +12,9 @@ import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { DesktopUpdateView } from '../src/types.ts'
-import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconPersonalizationOutlineMedium, IconPluginOutlineMedium, Modal,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
@@ -391,6 +393,18 @@ describe('SettingsPanel navigation', () => {
     expect(glyphs[5]).toBe(glyphs[0])
   })
 
+  it('draws Plugins with the product puzzle glyph, not the personalization controls', () => {
+    mount({ rows: [{ id: 'plugins', order: 0, label: 'Plugins' }] })
+    openPanel()
+    const drawn = screen.getByRole('button', { name: 'Plugins' }).querySelector('svg')?.innerHTML
+    const artwork = (element: Parameters<typeof render>[0]) =>
+      render(element).container.querySelector('svg')?.innerHTML
+
+    expect(drawn).toBeTruthy()
+    expect(drawn).toBe(artwork(<IconPluginOutlineMedium size={16} />))
+    expect(drawn).not.toBe(artwork(<IconPersonalizationOutlineMedium size={16} />))
+  })
+
   it('switches the rendered section on nav click', () => {
     mount()
     openPanel()
@@ -482,6 +496,140 @@ describe('SettingsPanel navigation', () => {
     expect(listeners.size).toBe(1)
     view.unmount()
     expect(listeners.size).toBe(0)
+  })
+})
+
+describe('SettingsPanel panes', () => {
+  const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+
+  /** Pin the width the panel reads when Escape decides between one pane and two. */
+  function setViewportWidth(width: number) {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true })
+  }
+
+  afterEach(() => {
+    if (originalInnerWidth !== undefined) Object.defineProperty(window, 'innerWidth', originalInnerWidth)
+  })
+
+  it('publishes the section list first and the chosen section afterwards', () => {
+    mount()
+    openPanel()
+    // The stylesheet swaps panes on this attribute: the list until a row is
+    // chosen, that section alone afterwards.
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByRole('dialog').querySelector('[data-detail-title]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('detail')
+  })
+
+  it('names the chosen section beside the back control', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').querySelector('[data-detail-title]')?.textContent).toBe('Models')
+  })
+
+  it('returns to the list from the detail back control without closing the dialog', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByRole('dialog').querySelector('[data-detail-title]')).toBeNull()
+    // No section stays chosen, so the list's projection is what renders next.
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+    expect(screen.queryByTestId('section-models')).toBeNull()
+  })
+
+  it('localizes the back control', () => {
+    mount({ dictionary: zh })
+    fireEvent.click(screen.getByRole('button', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('button', { name: '返回' })).toBeTruthy()
+  })
+
+  it('steps back to the list on a handset Escape and closes on the next one', () => {
+    setViewportWidth(390)
+    mount()
+    const trigger = openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    // Escape leaves the section first, then it leaves the dialog.
+    const stepBack = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, stepBack)
+    expect(stepBack.defaultPrevented).toBe(true)
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('closes on Escape at a desktop width even with a section chosen', () => {
+    setViewportWidth(1024)
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('closes on a handset Escape while the list is the pane', () => {
+    setViewportWidth(390)
+    mount()
+    openPanel()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('returns to the list when the chosen row unregisters', () => {
+    const { bump } = mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    bump([{ id: 'general', order: 0, label: 'General' }])
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+  })
+
+  it('moves focus into the pane that takes the handset viewport', () => {
+    setViewportWidth(390)
+    mount()
+    openPanel()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'General' }))
+
+    // The list stops painting, so its row hands focus to the back control.
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Back' }))
+
+    // Returning hands it back to the row the list came from.
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Models' }))
+  })
+
+  it('opens a handset panel directly on a section under the back control', () => {
+    setViewportWidth(390)
+    const { renderSlot } = mount()
+    const step = renderSlot.mock.calls.find(call => call[0] === 'settings.onboarding')?.[1] as
+      { openSection: (id: string) => void }
+    act(() => { step.openSection('models') })
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('detail')
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Back' }))
+  })
+
+  it('leaves the desktop entry focus where the modal layer put it', () => {
+    setViewportWidth(1024)
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    // Both columns paint, so choosing a section moves no focus.
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Back' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'General' }))
   })
 })
 

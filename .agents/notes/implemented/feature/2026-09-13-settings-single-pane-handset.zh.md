@@ -12,7 +12,7 @@ Status: implemented
 
 在 `packages/client/ui-settings-general/src/client/pane.ts` 的 `SETTINGS_PANE_BREAKPOINT = 768` 以下，面板铺满视口并一次只显示一个窗格：先显示分区列表，再单独显示所选分区。`SettingsPanel` 把该选择发布为 `data-pane`（未选分区时为 `list`，之后为 `detail`），样式表则依据媒体查询加该属性决定窗格切换、合并后的顶栏与 40px 触控目标。二级窗格的内容头部增加返回控件，旁边是分区名，因此两个窗格不需要各自的导航；Escape 先返回列表，再关闭对话框。
 
-窗格切换是对一个已发布属性的媒体查询，而不是视口订阅：渲染代码不读取任何实时事实，只有 Escape 处理函数通过 `isSinglePaneViewport()` 读取视口宽度。断点与 ui-layout 的 `SIDEBAR_OVERLAY` 一致；客户端功能包之间不共享运行时的值，因此本包保留自己的一份。
+窗格切换是对一个已发布属性的媒体查询，而不是视口订阅：渲染代码不读取任何实时事实；渲染之外的读取只有两处——Escape 处理函数与窗格切换后的焦点交接——都通过 `isSinglePaneViewport()` 询问视口宽度。断点与 ui-layout 的 `SIDEBAR_OVERLAY` 一致；客户端功能包之间不共享运行时的值，因此本包保留自己的一份。
 
 在手机布局中，导航列与内容列不再生成盒子（`display: contents`），其子元素成为面板的网格项：第一行是 60px 顶栏，承载外壳标题，或返回控件与分区名，并与共用的关闭控件同排；第二行承载当前选择对应的窗格。因此每个窗格都只有一个关闭控件，位置仍在双列面板原本放置它的右上角。
 

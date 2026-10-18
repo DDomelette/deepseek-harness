@@ -4,22 +4,26 @@
  * a pure composition face — slot-owned text (trigger label, panel title,
  * close label, sections) arrives from registrants through slots; accessible
  * names resolve from localized content (trigger: shell locale; dialog:
- * aria-labelledby the title node; close: visually-hidden slot text). Modal
- * open state and the active section id belong to the declared owner store;
- * the onboarding coordinator mounts exactly one ordered registrant while the
- * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
- * to the step, so a mounted-but-deciding step paints nothing here.
+ * aria-labelledby the title node; close: visually-hidden slot text; back:
+ * shell locale). Below the handset breakpoint the same panel shows one pane at
+ * a time — the section list, then the chosen section under a back control —
+ * and the panel publishes that choice as `data-pane` for its stylesheet.
+ * Modal open state and the active section id belong to the declared owner
+ * store; the onboarding coordinator mounts exactly one ordered registrant
+ * while the sessions-derived empty-Hero fact is active. Visible dialog chrome
+ * belongs to the step, so a mounted-but-deciding step paints nothing here.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import {
   ConnectionIndicator, Tooltip, useModalLayer,
-  IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconCloseOutlineRegular, IconDataOutlineMedium,
-  IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconChevronLeftOutlineRegular, IconCloseOutlineRegular,
+  IconDataOutlineMedium, IconPluginOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
+import { isSinglePaneViewport } from './pane.ts'
 import css from './SettingsRoot.module.css'
 import { DesktopUpdateIndicator } from './DesktopUpdateIndicator.tsx'
 
@@ -33,7 +37,7 @@ function navIcon(id: string) {
   if (id === 'account') return <IconUserOutlineMedium className={css.navIcon} size={16} />
   if (id === 'models') return <IconDataOutlineMedium className={css.navIcon} size={16} />
   if (id === 'agent-presets') return <IconAgentPresetOutlineMedium className={css.navIcon} size={16} />
-  if (id === 'plugins') return <IconPersonalizationOutlineMedium className={css.navIcon} size={16} />
+  if (id === 'plugins') return <IconPluginOutlineMedium className={css.navIcon} size={16} />
   if (id === 'archived-sessions') return <IconArchiveOutlineMedium className={css.navIcon} size={16} />
   return <IconSettingsOutlineMedium className={css.navIcon} size={16} />
 }
@@ -42,23 +46,55 @@ type PanelProps = {
   rows: readonly SettingsSectionRow[]
   renderSlot: SettingsRootComponentProps['renderSlot']
   activeId: string | undefined
+  backLabel: string
   onSelect: (id: string) => void
+  onBack: () => void
   onClose: () => void
 }
 
 /**
  * Body-portaled modal layer: full-viewport mask + centered panel. Close paths: the
  * header button, a mask click, and document-level Escape (mounted only while
- * open, so the listener lifetime is the panel's).
+ * open, so the listener lifetime is the panel's). The panel publishes the one
+ * layout fact its stylesheet needs — whether a section is chosen — as
+ * `data-pane`: on a handset viewport that choice swaps the listed sections for
+ * the chosen one, while wider viewports keep both columns and only re-render
+ * the section.
  */
-function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
+function SettingsPanel({ rows, renderSlot, activeId, backLabel, onSelect, onBack, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
-  const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
+  const selected = rows.find(r => r.id === activeId)
+  const active = selected?.id ?? rows[0]?.id
   const titleId = useId()
+  const pane = selected === undefined ? 'list' : 'detail'
 
   const panel = useRef<HTMLDivElement>(null)
-  useModalLayer(panel, true, onClose)
+  const backButton = useRef<HTMLButtonElement>(null)
+  const rowButtons = useRef(new Map<string, HTMLButtonElement>())
+  const chosen = useRef<string | undefined>(undefined)
+  // One pane at a time means Escape leaves the chosen section before it leaves
+  // the dialog; the modal layer keeps this callback current for the top layer.
+  const dismiss = useCallback(() => {
+    if (selected !== undefined && isSinglePaneViewport()) {
+      onBack()
+      return
+    }
+    onClose()
+  }, [onBack, onClose, selected])
+  useModalLayer(panel, true, dismiss)
+
+  // Only one pane paints below the breakpoint, so the handset step owns focus:
+  // entering the section pane hands it to the back control — including when the
+  // dialog opens directly on a section — and returning to the list hands it to
+  // the row the list came from. Wider viewports keep both columns and the modal
+  // layer's own entry focus.
+  useEffect(() => {
+    if (!isSinglePaneViewport()) return
+    const returned = chosen.current === undefined ? undefined : rowButtons.current.get(chosen.current)
+    const target = pane === 'detail' ? backButton.current : returned
+    target?.focus()
+  }, [pane])
 
   // Portalled beside #root like the Modal primitive: a covering surface mounted
   // inside the root would precede the columns' chrome in document order, so a
@@ -67,7 +103,9 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
   return createPortal((
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} data-shortcut-modal="settings" className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div ref={panel} tabIndex={-1} data-shortcut-modal="settings" className={css.panel}
+        data-pane={pane}
+        role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <nav className={css.nav}>
           <div className={css.navTitle} id={titleId} tabIndex={-1}
             data-modal-autofocus={active === undefined ? '' : undefined}>{renderSlot('settings.header', {})}</div>
@@ -76,10 +114,14 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
               <button
                 key={row.id}
                 type="button"
+                ref={(element) => {
+                  if (element === null) rowButtons.current.delete(row.id)
+                  else rowButtons.current.set(row.id, element)
+                }}
                 className={clsx(css.navCell, row.id === active && css.active)}
                 aria-current={row.id === active ? 'true' : undefined}
                 data-modal-autofocus={row.id === active ? '' : undefined}
-                onClick={() => { onSelect(row.id) }}
+                onClick={() => { chosen.current = row.id; onSelect(row.id) }}
               >
                 {navIcon(row.id)}
                 <span className={css.navLabel}>{row.label}</span>
@@ -89,6 +131,10 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
         </nav>
         <div className={css.content}>
           <div className={css.header}>
+            <button ref={backButton} type="button" className={css.back} aria-label={backLabel} onClick={onBack}>
+              <IconChevronLeftOutlineRegular size={14} />
+            </button>
+            {selected === undefined ? undefined : <div className={css.detailTitle} data-detail-title>{selected.label}</div>}
             <div className={css.actions}>{renderSlot('settings.action', {})}</div>
             <button type="button" className={css.close} onClick={onClose}>
               <IconCloseOutlineRegular size={14} />
@@ -116,7 +162,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   } = props
   const { open, activeId } = useStore(state => state)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'settings.open'))
-  const { close, openSection } = actions
+  const { close, openSection, backToList } = actions
   const [requestedOnboarding, setRequestedOnboarding] = useState<string | undefined>()
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
   const [showRecovery, setShowRecovery] = useState(false)
@@ -248,7 +294,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           rows={rows}
           renderSlot={renderSlot}
           activeId={activeId}
+          backLabel={t('back')}
           onSelect={actions.select}
+          onBack={backToList}
           onClose={close}
         />
       )}

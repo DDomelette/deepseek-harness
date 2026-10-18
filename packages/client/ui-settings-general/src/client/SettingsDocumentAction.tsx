@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconCodeOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsDocumentStore } from './settings-document-store.ts'
 import css from './SettingsDocumentAction.module.css'
@@ -41,10 +41,15 @@ export function SettingsDocumentAction({ controller, useSnapshot, t }: SettingsD
       <Button
         variant="outline"
         size="sm"
+        aria-label={t('openDocument')}
         disabled={state.opening}
         onClick={() => { void controller.open() }}
       >
-        {t('openDocument')}
+        {/* Single-pane handsets swap the label for the glyph, so the header bar
+            holds back, the section name, this action, and close; the accessible
+            name rides the aria-label either way. */}
+        <span className={css.actionIcon} aria-hidden="true"><IconCodeOutlineRegular size={16} /></span>
+        <span className={css.actionLabel}>{t('openDocument')}</span>
       </Button>
     </div>
   )
