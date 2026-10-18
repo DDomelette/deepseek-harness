@@ -118,7 +118,9 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       }
       const server = createServer((request, response) => {
         if ((request.url ?? '/').startsWith('/?')) {
-          if (host.connection.authorizeIndex(request, response)) {
+          // The fork's index gate answers serve, answered, or auth-required;
+          // only serve leaves the shell to this server.
+          if (host.connection.authorizeIndex(request, response) === 'serve') {
             response.writeHead(200, { 'content-type': 'text/html' })
             response.end('<body>shell</body>')
           }
