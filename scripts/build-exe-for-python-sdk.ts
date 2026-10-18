@@ -286,17 +286,25 @@ class SingleExeBuild {
     }
     if (this.cli.dryRun) console.log(`build-exe-for-python-sdk: [dry-run] rm -rf ${this.staging}`)
     else await rm(this.staging, { recursive: true, force: true })
-    await this.runPnpm('deploy', [
-      '--filter',
-      DEPLOY_ROOT_PACKAGE,
-      'deploy',
-      '--legacy',
-      '--prod',
-      '--config.node-linker=hoisted',
-      '--config.auto-install-peers=false',
-      '--config.link-workspace-packages=true',
-      this.staging,
-    ])
+    try {
+      await this.runPnpm('deploy', [
+        '--filter',
+        DEPLOY_ROOT_PACKAGE,
+        'deploy',
+        '--legacy',
+        '--prod',
+        // Production deployment omits workspace tooling such as Electron's patched signer.
+        '--config.allow-unused-patches=true',
+        '--config.node-linker=hoisted',
+        '--config.auto-install-peers=false',
+        '--config.link-workspace-packages=true',
+        '--config.hoist-workspace-packages=false',
+        this.staging,
+      ])
+    } finally {
+      // Legacy deploy records production-only workspace state; restore the development installation before exec.
+      await this.runPnpm('restore development dependencies', ['install', '--offline', '--frozen-lockfile', '--prod=false', '--ignore-scripts'])
+    }
     await this.restoreLegacyHoists()
     await this.materializeStagedLinks()
     if (this.cli.dryRun) {
