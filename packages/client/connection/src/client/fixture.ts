@@ -370,24 +370,28 @@ interface WorkspaceArchiveValue {
   readonly archivedSessionAts: Readonly<Record<SessionId, string>>
 }
 
-type WorkspaceFollowFrame =
-  | {
-    readonly type: 'baseline'
-    readonly value: {
-      readonly items: readonly WorkspaceView[]
-      readonly archivedSessionIds: readonly SessionId[]
-      readonly archivedSessionAts: Readonly<Record<SessionId, string>>
-      readonly pinnedSessionIds: readonly SessionId[]
-    }
+/** The wire baseline the Host publishes; the fixture restates it because the owner project references this one. */
+interface WorkspaceBaselineFrame {
+  readonly type: 'baseline'
+  readonly value: {
+    readonly items: readonly WorkspaceView[]
+    readonly archivedSessionIds: readonly SessionId[]
+    readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+    readonly pinnedSessionIds: readonly SessionId[]
   }
+}
+
+/** Archive increment: the shared archive value plus this frame's discriminant. */
+interface WorkspaceArchivedFrame extends WorkspaceArchiveValue {
+  readonly type: 'archived'
+}
+
+type WorkspaceFollowFrame =
+  | WorkspaceBaselineFrame
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
   | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
-  | {
-    readonly type: 'archived'
-    readonly archivedSessionIds: readonly SessionId[]
-    readonly archivedSessionAts: Readonly<Record<SessionId, string>>
-  }
+  | WorkspaceArchivedFrame
   | { readonly type: 'pinned'; readonly pinnedSessionIds: readonly SessionId[] }
 
 interface FixtureWorkspaceApi {
