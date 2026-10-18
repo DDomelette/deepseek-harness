@@ -11,7 +11,10 @@
  * leaves the grid: the closed sidebar owns no track — the floating brand button
  * (the sidebar slot's fab flag) replaces the rail — and the column floats over
  * the center as a drawer behind a scrim. A scrim tap, Escape, or a tracked edge
- * swipe closes it; a right swipe from the frame's left edge opens it. Enter
+ * swipe closes it; a right swipe from the frame's left edge opens it. The drawer
+ * owns focus for as long as it is shown: the covered columns go inert and the
+ * column takes focus on entry, returning it to the control captured at the
+ * opening render once the presentation ends. Enter
  * rides a mount-scoped keyframe (data-entering, cleared on the keyframe's own
  * duration — re-arming it mid-life would flash the column back to its hidden
  * start) and exit a delayed unmount (DRAWER_SLIDE_MS), both on the track
@@ -71,9 +74,19 @@ export type AppFrameProps =
   & PropsStore<ReturnType<typeof createLayoutStore>>
   & PropsLocale<'common'>
 
+/**
+ * Attributes that take a column covered by the drawer out of the tab order and
+ * the accessibility tree. React 18 forwards the boolean attribute only as a
+ * string value, so an object spread carries it and `true` would be dropped.
+ * @param covered - whether the drawer presentation covers the column.
+ */
+function coveredProps(covered: boolean): { inert?: string } {
+  return covered ? { inert: '' } : {}
+}
+
 /** Center column grid item (session-body building block). */
-function CenterColumn(props: { children?: ReactNode }) {
-  return <div className={css.centerCol}>{props.children}</div>
+function CenterColumn(props: { children?: ReactNode; covered: boolean }) {
+  return <div className={css.centerCol} {...coveredProps(props.covered)}>{props.children}</div>
 }
 
 /** Subscribe to the main key without subscribing the column frame to each panel id. */
@@ -87,8 +100,8 @@ function MainPanel({ usePanelInfo, renderSlot }: Pick<PropsRuntime<'root'>, 'use
  * occupant's panel is positioned against the column's right edge, which never
  * moves, so it can hang over the centre when there is no track.
  */
-function RightbarColumn(props: { children?: ReactNode }) {
-  return <div className={css.rightbarCol} data-rightbar-col>{props.children}</div>
+function RightbarColumn(props: { children?: ReactNode; covered: boolean }) {
+  return <div className={css.rightbarCol} data-rightbar-col {...coveredProps(props.covered)}>{props.children}</div>
 }
 
 /**
@@ -168,6 +181,10 @@ export function AppFrame({
 }: AppFrameProps) {
   const layoutInfo = useStore(state => state.layoutInfo)
   const frameRef = useRef<HTMLDivElement | null>(null)
+  // The sidebar column element, focused when the drawer presentation opens.
+  const sidebarColRef = useRef<HTMLDivElement | null>(null)
+  // The control that held focus when the drawer opened (the drawer focus effect).
+  const drawerReturnFocus = useRef<HTMLElement | null>(null)
   const viewport = layoutInfo.viewportWidth
 
   // Track the frame's own box (not the window): rAF-throttled ResizeObserver.
@@ -360,6 +377,14 @@ export function AppFrame({
   // change can restart it and flash the column back to its hidden start.
   const [drawerEntering, setDrawerEntering] = useState(false)
   if (drawerWasOpen !== drawerOpen) {
+    // The opening commit unmounts the fab and inerts the covered columns, both
+    // of which move focus away before any effect can read it, so the control
+    // the drawer returns to is captured on the render that opens it. A reopen
+    // inside the slide-out window keeps the capture its open started with.
+    if (drawerOpen && drawerReturnFocus.current === null) {
+      const active = document.activeElement
+      drawerReturnFocus.current = active instanceof HTMLElement ? active : null
+    }
     setDrawerWasOpen(drawerOpen)
     setDrawerClosing(!drawerOpen && drawerWasOpen && overlay)
     setDrawerEntering(drawerOpen && !gestureDriven && !drawerClosing)
@@ -387,6 +412,24 @@ export function AppFrame({
   const drawerShown = drawerOpen || (overlay && drawerClosing)
   const sidebarWidth = drawerShown ? drawerWidth : committedCols.sidebar
 
+  // Drawer focus ownership: the column takes focus while the drawer is shown,
+  // and the presentation's end hands it back to the control the drawer was
+  // opened from. That control is detached when it unmounted with the covered
+  // page (the overlay band's fab does), and focusing a detached element is a
+  // no-op.
+  useLayoutEffect(() => {
+    if (drawerShown) {
+      const column = sidebarColRef.current
+      /* v8 ignore next -- the sidebar column renders unconditionally. */
+      if (column === null) return
+      column.focus()
+      return
+    }
+    const target = drawerReturnFocus.current
+    drawerReturnFocus.current = null
+    target?.focus()
+  }, [drawerShown])
+
   // Drawer edge swipe (overlay band, touch pointers only): a right swipe from
   // the frame's left edge opens the drawer under the pointer, and a left swipe
   // while it is open closes it. A mouse drag keeps its text-selection meaning
@@ -395,7 +438,6 @@ export function AppFrame({
   // position drives the column and scrim through inline styles while the
   // store flips only at engagement and release, so a re-render never fights
   // the gesture's own writes.
-  const sidebarColRef = useRef<HTMLDivElement | null>(null)
   const scrimRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<SidebarGesture | null>(null)
   const gestureX = useRef(0)
@@ -586,6 +628,7 @@ export function AppFrame({
       <div
         ref={sidebarColRef}
         className={css.sidebarCol}
+        tabIndex={-1}
         data-drawer={drawerShown || undefined}
         data-closing={drawerClosing || undefined}
         data-entering={drawerEntering || undefined}
@@ -594,8 +637,8 @@ export function AppFrame({
         {sidebar}
       </div>
       <>
-        <CenterColumn>{main}</CenterColumn>
-        <RightbarColumn>
+        <CenterColumn covered={drawerShown}>{main}</CenterColumn>
+        <RightbarColumn covered={drawerShown}>
           {renderSlot('rightbar', { width: normal.rightbar, viewportWidth: viewport, canShow: normal.rightbar > 0 })}
         </RightbarColumn>
       </>
@@ -611,7 +654,7 @@ export function AppFrame({
           onClick={() => { actions.toggleSidebar() }}
         />
       )}
-      <div className={css.bottomRow} data-shell-bottom>
+      <div className={css.bottomRow} data-shell-bottom {...coveredProps(drawerShown)}>
         {renderSlot('shell.bottom', {})}
       </div>
       <div className={css.overlayLayer} data-shell-overlay>

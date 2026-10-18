@@ -174,7 +174,8 @@ export function SidebarRoot({
 
   // Handset band (owner prop fab): the rail's whole job collapses into one
   // floating brand button fixed to the frame's top-left corner. Opening the
-  // drawer flips `collapsed`, so the button unmounts itself.
+  // drawer flips `collapsed`, so the button unmounts itself; it therefore only
+  // ever exists while the column is closed.
   if (collapsed && fab) {
     return (
       <Tooltip label={t('toggle.open')} delayMs={500}>
@@ -182,6 +183,7 @@ export function SidebarRoot({
           type="button"
           className={css.fab}
           aria-label={t('toggle.open')}
+          aria-expanded={false}
           onClick={() => { toggleSidebar() }}
         >
           <span className={css.fabMark} aria-hidden="true">
@@ -202,6 +204,7 @@ export function SidebarRoot({
         type="button"
         className={clsx(css.iconButton, css.toggle)}
         aria-label={toggleLabel}
+        aria-expanded={!collapsed}
         aria-keyshortcuts={shortcut?.aria}
         onClick={() => { toggleSidebar() }}
       >

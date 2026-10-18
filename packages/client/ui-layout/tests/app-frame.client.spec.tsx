@@ -66,7 +66,12 @@ function mountFrame(windowWidth = frameWidth) {
   const slotCalls: { key: string; props: object; options: RenderOpts | undefined }[] = []
   const renderSlot: AppFrameProps['renderSlot'] = (key, owner, options) => {
     slotCalls.push({ key, props: owner, options })
-    return <div data-testid={`${key}-content`} data-entry-key={options?.entryKey} />
+    return (
+      <div data-testid={`${key}-content`} data-entry-key={options?.entryKey}>
+        {/* A page control the drawer covers and returns focus to. */}
+        {key === 'main' && <button type="button" data-testid="page-control" />}
+      </div>
+    )
   }
   const useSessions: AppFrameProps['useSessions'] = sel => sel({
     ids: selectedSession === undefined ? [] : [selectedSession],
@@ -474,6 +479,57 @@ describe('AppFrame drawer', () => {
     expect(frame.dataset.drawer).toBeUndefined()
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
     expect(handleFor(frame, 'sidebar').style.left).toBe('280px')
+  })
+})
+
+describe('AppFrame drawer focus ownership', () => {
+  // The drawer covers these three grid columns; each slot stub is its only child.
+  const covered = (frame: HTMLElement): HTMLElement[] => [
+    frame.querySelector<HTMLElement>('[data-testid="main-content"]')!.parentElement!,
+    frame.querySelector<HTMLElement>('[data-testid="rightbar-content"]')!.parentElement!,
+    frame.querySelector<HTMLElement>('[data-shell-bottom]')!,
+  ]
+  const inertState = (frame: HTMLElement): boolean[] =>
+    covered(frame).map(column => column.hasAttribute('inert'))
+
+  it('takes focus into the drawer, inerts the covered columns, and returns focus on close', () => {
+    frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { frame, instance, getByTestId } = mountFrame()
+    const pageControl = getByTestId('page-control')
+    expect(inertState(frame)).toEqual([false, false, false])
+    act(() => { pageControl.focus() })
+    expect(document.activeElement).toBe(pageControl)
+    act(() => { instance.actions.toggleSidebar() })
+    const drawer = frame.querySelector<HTMLElement>('[data-drawer]')!
+    // Entry: the column takes focus and the covered page leaves both the tab
+    // order and the accessibility tree.
+    expect(drawer.tabIndex).toBe(-1)
+    expect(document.activeElement).toBe(drawer)
+    expect(inertState(frame)).toEqual([true, true, true])
+    // Closing keeps the covered page inert through the slide-out, then hands
+    // focus back to the control the drawer was opened from.
+    act(() => { instance.actions.toggleSidebar() })
+    expect(inertState(frame)).toEqual([true, true, true])
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
+    expect(inertState(frame)).toEqual([false, false, false])
+    expect(document.activeElement).toBe(pageControl)
+  })
+
+  it('returns focus to the opening control when Escape dismisses the drawer', () => {
+    frameWidth = 390
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { frame, instance, getByTestId } = mountFrame()
+    const pageControl = getByTestId('page-control')
+    act(() => { pageControl.focus() })
+    act(() => { instance.actions.toggleSidebar() })
+    expect(document.activeElement).toBe(frame.querySelector('[data-drawer]'))
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })) })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
+    expect(document.activeElement).toBe(pageControl)
   })
 })
 

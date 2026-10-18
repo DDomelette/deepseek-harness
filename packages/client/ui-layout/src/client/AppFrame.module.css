@@ -103,6 +103,13 @@
   animation: drawer-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
 }
 
+/* The drawer takes focus on entry (AppFrame's drawer focus effect). It is a
+   container, not a control, so it paints no ring of its own; controls inside
+   it keep theirs. */
+.sidebarCol[data-drawer]:focus {
+  outline: none;
+}
+
 .sidebarCol[data-drawer][data-closing] {
   transform: translateX(-100%);
 }
