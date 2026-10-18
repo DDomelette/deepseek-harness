@@ -63,7 +63,7 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 
-  it('clears the manual override only when crossing 1024px', () => {
+  it('clears the manual override when crossing 1024px', () => {
     const { store, actions } = createLayoutStore().create()
     actions.setViewportWidth(980)
     actions.toggleSidebar()
@@ -74,6 +74,49 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     actions.setViewportWidth(980)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
+
+  it('drops the narrow expansion override when crossing the overlay breakpoint in either direction', () => {
+    const { store, actions } = createLayoutStore().create()
+    // Entering the handset band and expanding the drawer.
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    // Back into the squeeze band: the override is dropped.
+    actions.setViewportWidth(800)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    // Moving within the squeeze band keeps it (squeeze semantics unchanged).
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(1023)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    // Back into the handset band: dropped again.
+    actions.setViewportWidth(500)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
+
+  it('closes only an expanded handset drawer when a panel is selected', () => {
+    const { store, actions } = createLayoutStore().create()
+    const panelId = 'panel-a' as MainPanelId
+    // Handset band, drawer open: the selection ends the presentation and leaves
+    // the width preference alone, so reopening restores it.
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().panelInfo).toEqual({ activePanelId: panelId })
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: false })
+
+    // Squeeze band: the expansion override is the user's own preference.
+    actions.setViewportWidth(800)
+    actions.toggleSidebar()
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: true })
+
+    // Desktop: the selected panel leaves the drawn sidebar untouched.
+    actions.setViewportWidth(1200)
+    actions.setSidebar(400)
+    actions.selectPanel(panelId)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 })
 

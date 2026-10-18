@@ -29,7 +29,9 @@ export interface ILayout {
   /** Selected central panel from the same root store used by `usePanelInfo`. */
   readonly panelInfo: HostObservable<PanelInfo>
   /**
-   * Select a global central panel without changing the current Session.
+   * Select a global central panel without changing the current Session. In the
+   * handset overlay band the selection also ends the drawer presentation, the
+   * same way the scrim, Escape, and the close gesture do.
    * @param panelId - registered main key, or null to show the Conversation.
    * @throws if the selected main key is not registered; preserves the current selection.
    */
@@ -68,7 +70,10 @@ export class LayoutController implements ILayout {
     readonly panelInfo: HostObservable<PanelInfo>,
   ) {}
 
-  /** Select a global panel or return to the Conversation. */
+  /**
+   * Select a global panel or return to the Conversation. The store folds the
+   * handset drawer dismissal into the selection, so no caller asks for it.
+   */
   selectPanel(panelId: MainPanelId | null): void {
     if (panelId !== null && !this.hasMainPanel(panelId)) {
       throw new Error(`layout.selectPanel: main panel "${panelId}" is not registered`)
