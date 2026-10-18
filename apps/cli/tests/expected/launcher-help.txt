@@ -23,6 +23,7 @@ Options:
 
 Examples:
   dsh web                                   boot the web profile (same as: dsh --profile web)
+  dsh --profile web --host 127.0.0.1         serve the web GUI to this machine only
   dsh rescue --from-default-profile web
                                             create rescue from the shipped web template, then boot it
   dsh headless "run the tests"              answer one task, print the result, and exit
