@@ -111,6 +111,8 @@ describe('bundled Office skills', () => {
       expect(() => { SkillOffice.apply(ctx, { assetRoot: 'assets' }) }).toThrow('absolute directory')
       await cp(assets, root, { recursive: true })
       await rm(join(root, 'scripts', 'check_office.py'))
+      // A missing asset script reports the documented diagnostic, not ENOENT.
+      expect(() => { SkillOffice.apply(ctx, { assetRoot: root }) }).toThrow('skill-office: assets must contain scripts/check_office.py')
       await cp(join(assets, 'office-docx'), join(root, 'scripts', 'check_office.py'), { recursive: true })
       expect(() => { SkillOffice.apply(ctx, { assetRoot: root }) }).toThrow('scripts/check_office.py')
       await rm(join(root, 'scripts', 'check_office.py'), { recursive: true })
@@ -134,8 +136,13 @@ it('rejects unavailable CLI and Node paths before exposing an executable command
   const ctx = new Context()
   try {
     await ctx.plugin(SkillRegistry)
-    for (const config of [{ node: 'node' }, { cli: 'cli.js' }, { node: root }, { cli: root }, { cli: join(root, 'missing.js') }]) {
-      expect(() => { SkillOffice.apply(ctx, config) }).toThrow()
+    for (const config of [{ node: 'node' }, { cli: 'cli.js' }, { node: root }, { cli: root }]) {
+      expect(() => { SkillOffice.apply(ctx, config) }).toThrow('skill-office: expected an absolute executable file')
+      expect(await ctx.skills.list()).toEqual([])
+    }
+    // A path that does not exist reports the same diagnostic instead of ENOENT.
+    for (const config of [{ node: join(root, 'missing-node') }, { cli: join(root, 'missing.js') }]) {
+      expect(() => { SkillOffice.apply(ctx, config) }).toThrow('skill-office: expected an absolute executable file')
       expect(await ctx.skills.list()).toEqual([])
     }
   } finally {

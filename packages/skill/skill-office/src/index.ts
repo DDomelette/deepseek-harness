@@ -44,6 +44,17 @@ function parseSkill(raw: string, path: string): { description: string; content: 
   return { description, content: raw.slice(frontmatter[0].length).trim() }
 }
 
+/** Whether `path` names a regular file; a failed lookup counts as absent. */
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    // Only the lookup runs inside the try: a path that does not exist is absent,
+    // and each caller reports the documented diagnostic for its own resource.
+    return false
+  }
+}
+
 function officeRuntime(config: Config): string {
   if (config.cli === false) return '\n\nLibreOffice Kit is disabled in this deployment.'
   if (config.node === undefined && (isSea() || process.versions.electron !== undefined)) {
@@ -56,7 +67,7 @@ function officeRuntime(config: Config): string {
     cli = join(dirname(manifestPath), 'lib', 'cli.js')
   }
   for (const path of [node, cli]) {
-    if (!isAbsolute(path) || !statSync(path).isFile()) throw new Error(`skill-office: expected an absolute executable file: ${path}`)
+    if (!isAbsolute(path) || !isFile(path)) throw new Error(`skill-office: expected an absolute executable file: ${path}`)
   }
   return `\n\n## Installed LibreOffice Kit\n\nUse these absolute paths for every LibreOffice Kit command. Pass the CLI entry as the first argument to Node.\n\n${JSON.stringify({ libreofficeKit: { node, cli } }, undefined, 2)}`
 }
@@ -69,7 +80,7 @@ function officeRuntime(config: Config): string {
 export function apply(ctx: Context, config: Config = {}): void {
   const assetRoot = config.assetRoot ?? fileURLToPath(new URL('../assets/', import.meta.url))
   if (!isAbsolute(assetRoot)) throw new Error('skill-office: assetRoot must be an absolute directory')
-  if (!statSync(join(assetRoot, 'scripts', 'check_office.py')).isFile()) {
+  if (!isFile(join(assetRoot, 'scripts', 'check_office.py'))) {
     throw new Error('skill-office: assets must contain scripts/check_office.py')
   }
   const runtime = officeRuntime(config)
