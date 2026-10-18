@@ -10,13 +10,14 @@
  * seat collapses with it. It shares the panel's per-session store, which the
  * slot runtime allows because both seats are session-scoped.
  *
- * The glyph is the left sidebar's collapse icon mirrored: the same affordance,
- * on the other edge.
+ * The glyph is the panel-right outline: the divider sits at the right rail, so
+ * the affordance reads as the right panel itself (and no longer twins with
+ * the dock's add-tab control, whose outline plus rides in the same corner).
  */
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { InjectFace, HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ReactNode } from 'react'
-import { Button, IconPanelLeftOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconPanelRightOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { createSidebarRightStore } from '../stores.ts'
@@ -46,7 +47,7 @@ export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts }: 
         data-sidebar-right-expand
         onClick={() => { actions.setExpanded(sessionId, true) }}
       >
-        <IconPanelLeftOutlineRegular className={css.icon} />
+        <IconPanelRightOutlineRegular className={css.icon} />
       </Button>
     </Tooltip>
   )

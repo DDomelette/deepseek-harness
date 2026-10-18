@@ -30,7 +30,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { IconPanelLeftOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPanelRightOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -288,7 +288,7 @@ function PanelChrome({ sessionId, fullscreen, actions, t, shortcuts, toggleFulls
           data-sidebar-right-toggle
           onClick={() => { actions.toggleExpanded(sessionId) }}
         >
-          <IconPanelLeftOutlineRegular className={css.collapseGlyph} />
+          <IconPanelRightOutlineRegular className={css.collapseGlyph} />
         </button>
       </Tooltip>
     </>

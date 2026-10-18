@@ -95,6 +95,23 @@ export const IconPanelLeftOutlineMedium = (props: IconProps) => (
   <IconPanelLeftOutlineArtwork {...props} strokeWidth={ICON_MEDIUM_STROKE} />
 )
 
+const IconPanelRightOutlineArtwork = ({ size = 16, className, strokeWidth }: WeightedIconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" strokeWidth={strokeWidth}>
+    <path d="M13.5 1.5H2.5C1.94772 1.5 1.5 1.94772 1.5 2.5V13.5C1.5 14.0523 1.94772 14.5 2.5 14.5H13.5C14.0523 14.5 14.5 14.0523 14.5 13.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5Z" stroke="currentColor" />
+    <path d="M10.5 1.5V14.5" stroke="currentColor" />
+  </svg>
+)
+
+/** Regular one-pixel IconPanelRightOutline artwork: the panel divider sits at the right rail. */
+export const IconPanelRightOutlineRegular = (props: IconProps) => (
+  <IconPanelRightOutlineArtwork {...props} strokeWidth={ICON_REGULAR_STROKE} />
+)
+
+/** Medium IconPanelRightOutline artwork with a 1.3px stroke. */
+export const IconPanelRightOutlineMedium = (props: IconProps) => (
+  <IconPanelRightOutlineArtwork {...props} strokeWidth={ICON_MEDIUM_STROKE} />
+)
+
 const IconEllipsisOutlineArtwork = ({ size = 16, className, strokeWidth }: WeightedIconProps) => (
   <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" strokeWidth={strokeWidth}>
     <path d="M3 9C3.55228 9 4 8.55228 4 8C4 7.44772 3.55228 7 3 7C2.44772 7 2 7.44772 2 8C2 8.55228 2.44772 9 3 9Z" fill="currentColor" />
@@ -1268,23 +1285,20 @@ export const IconInfoOutlineMedium = (props: IconProps) => (
   <IconInfoOutlineArtwork {...props} strokeWidth={ICON_MEDIUM_STROKE} />
 )
 
-const IconPluginPinwheelOutlineArtwork = ({ size = 16, className, strokeWidth }: WeightedIconProps) => (
+const IconPluginOutlineArtwork = ({ size = 16, className, strokeWidth }: WeightedIconProps) => (
   <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" strokeWidth={strokeWidth}>
-    <path d="M7.84457 5.06199C11.6605 4.93876 14.7962 6.14848 14.8484 7.76397C14.8875 8.97461 13.1838 10.0696 10.7215 10.5942" stroke="currentColor" />
-    <path d="M5.12742 8.07731C5.00419 4.26138 6.21391 1.12568 7.8294 1.07351C9.04004 1.03441 10.135 2.73808 10.6596 5.20037" stroke="currentColor" />
-    <path d="M8.02457 10.6802C4.20865 10.8034 1.07294 9.5937 1.02077 7.97821C0.981678 6.76758 2.68535 5.67262 5.14763 5.14798" stroke="currentColor" />
-    <path d="M10.7476 7.89535C10.8708 11.7113 9.66109 14.847 8.0456 14.8991C6.83496 14.9382 5.74 13.2346 5.21536 10.7723" stroke="currentColor" />
+    <path d="M6.7 4.5 A1.3 1.3 0 0 1 9.3 4.5 H13.5 V7.7 A1.3 1.3 0 0 0 13.5 10.3 V13.5 H2.5 V4.5 Z" stroke="currentColor" />
   </svg>
 )
 
-/** Regular one-pixel plugin pinwheel artwork. */
-export const IconPluginPinwheelOutlineRegular = (props: IconProps) => (
-  <IconPluginPinwheelOutlineArtwork {...props} strokeWidth={ICON_REGULAR_STROKE} />
+/** Regular one-pixel puzzle-piece plugin artwork. */
+export const IconPluginOutlineRegular = (props: IconProps) => (
+  <IconPluginOutlineArtwork {...props} strokeWidth={ICON_REGULAR_STROKE} />
 )
 
-/** Medium plugin pinwheel artwork with a 1.3px stroke. */
-export const IconPluginPinwheelOutlineMedium = (props: IconProps) => (
-  <IconPluginPinwheelOutlineArtwork {...props} strokeWidth={ICON_MEDIUM_STROKE} />
+/** Medium puzzle-piece plugin artwork with a 1.3px stroke. */
+export const IconPluginOutlineMedium = (props: IconProps) => (
+  <IconPluginOutlineArtwork {...props} strokeWidth={ICON_MEDIUM_STROKE} />
 )
 
 const IconAlarmClockOutlineArtwork = ({ size = 16, className, strokeWidth }: WeightedIconProps) => (
