@@ -15,14 +15,17 @@
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
 /deepseek-ai-dsh-tool-cordis/use-this-package:
-  en: f233c3ad8f5757ce
-  zh: 8a3cc265ff3cbdd6
+  en: e171d4441dcae408
+  zh: ac50b44ed705c188
 /deepseek-ai-dsh-tool-cordis/use-this-package/minimal-composition:
   en: 392a6ff9ace4143d
   zh: dd9631627d1ff07a
+/deepseek-ai-dsh-tool-cordis/use-this-package/the-dynamicplugins-switch:
+  en: 35d4f2d62065f3fe
+  zh: 145d99e35f10d108
 /deepseek-ai-dsh-tool-cordis/use-this-package/what-the-tools-do:
-  en: 69732a5bd03ce5b5
-  zh: 45411585e1382391
+  en: 5bfa0c49904c46ae
+  zh: 3e0cc29751627a58
 /deepseek-ai-dsh-tool-cordis/use-this-package/a-typical-workflow:
   en: 5d9c495146154d3b
   zh: c64da5ee6c5ff3e7
@@ -36,8 +39,8 @@
   en: 06deaa22ed73586b
   zh: 1fd8fe49478b938d
 /deepseek-ai-dsh-tool-cordis/understand-the-implementation/source-map:
-  en: 25fc77d102a63fd0
-  zh: d3a1a432a0066707
+  en: ec954175a510414d
+  zh: 0b77da5a8983ca64
 /deepseek-ai-dsh-tool-cordis/understand-the-implementation/how-a-call-flows:
   en: 778173a58ca585c4
   zh: de6e5f1333c93bf7
