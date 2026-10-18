@@ -2,7 +2,7 @@
 .document {
   min-width: 0;
   padding: 10px 12px;
-  font-family: var(--dsw-font, inherit);
+  font-family: var(--dsw-font-family);
   white-space: normal;
 }
 

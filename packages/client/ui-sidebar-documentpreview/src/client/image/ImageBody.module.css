@@ -9,7 +9,7 @@
   height: max-content;
   min-height: 100%;
   padding: 12px;
-  font-family: var(--dsw-font, sans-serif);
+  font-family: var(--dsw-font-family);
   white-space: normal;
 }
 

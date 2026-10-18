@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for 2026-10-19-dsw-token-vocabulary-reconciled.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-19-dsw-token-vocabulary-reconciled.md
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens:
+  en: f5ee261be07072b6
+  zh: 75ba23a4b4bdf8d8
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/problem:
+  en: febef2b020676a6e
+  zh: e3e2e899d327e642
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/decision:
+  en: 802f4559da74fa4d
+  zh: b6515e212c021b9b
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/names-that-are-not-defects:
+  en: 122519480ad83944
+  zh: 02f580c975620c16
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/deferred:
+  en: 60ed0481e5353d79
+  zh: da802b2dcc485337
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/alternatives-considered:
+  en: bc04e488925937c1
+  zh: b088f8226daa7b55
+/agent-note-feature-stylesheets-reference-only-defined-dsw-tokens/consequences:
+  en: cf201832ad6d4919
+  zh: 5c25cc1722a6de2d

@@ -60,7 +60,7 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
   color: var(--dsw-alias-label-primary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
-  font-family: var(--dsw-font-mono, ui-monospace, monospace);
+  font-family: var(--dsw-font-family-code);
   line-height: 1.6;
   white-space: pre;
 }
@@ -208,7 +208,7 @@
   padding: 4px 10px;
   color: var(--dsw-alias-label-primary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
-  font-family: var(--dsw-font, inherit);
+  font-family: var(--dsw-font-family);
   white-space: normal;
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);
@@ -227,7 +227,7 @@
   padding: 4px 10px;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
-  font-family: var(--dsw-font, inherit);
+  font-family: var(--dsw-font-family);
   white-space: normal;
   background: var(--dsw-alias-bg-layer-2);
   border: 0.5px solid var(--dsw-alias-border-l2);

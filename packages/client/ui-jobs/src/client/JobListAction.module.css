@@ -107,7 +107,7 @@
 .sectionToggle:focus-visible,
 .sectionClear:hover,
 .sectionClear:focus-visible {
-  background: var(--dsw-alias-fill-l1);
+  background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -139,7 +139,7 @@
 .rowLineLive {
   padding: 4px 8px 4px 2px;
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-fill-l2);
+  background: var(--dsw-alias-interactive-bg-hover-solid);
 }
 
 .rowLineLive:hover {
@@ -247,7 +247,7 @@
 
 .row:hover,
 .row:focus-visible {
-  background: var(--dsw-alias-fill-l1);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 /* A row with no observable output offers no interaction. */
@@ -294,7 +294,7 @@
   flex: none;
   padding: 0 5px;
   border-radius: var(--dsw-radius-xs);
-  background: var(--dsw-alias-fill-l2);
+  background: var(--dsw-alias-interactive-bg-hover-solid);
   color: var(--dsw-alias-label-secondary);
   font-size: 10px;
   line-height: 16px;
@@ -304,7 +304,7 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-family: var(--dsw-font-mono);
+  font-family: var(--dsw-font-family-code);
   white-space: nowrap;
   text-overflow: ellipsis;
 }

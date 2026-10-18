@@ -14,13 +14,13 @@
 
 .intro {
   margin: 0;
-  color: var(--dsw-color-text-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .status,
 .empty {
   margin: 0;
-  color: var(--dsw-color-text-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .groupTitle {
@@ -34,7 +34,7 @@
 
 .count {
   font-size: 12px;
-  color: var(--dsw-color-text-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .list {
@@ -48,7 +48,7 @@
   align-items: center;
   min-height: 36px;
   padding: 4px 0;
-  border-bottom: 1px solid var(--dsw-color-border, #e5e7eb);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .rowMain {
@@ -66,7 +66,7 @@
 
 .archivedAt {
   font-size: 12px;
-  color: var(--dsw-color-text-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .confirmBody {
@@ -87,7 +87,7 @@
 }
 
 .details dt {
-  color: var(--dsw-color-text-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary);
   white-space: nowrap;
 }
 
@@ -99,7 +99,7 @@
 .running {
   margin-right: 8px;
   font-size: 12px;
-  color: var(--dsw-color-warning, #b45309);
+  color: var(--dsw-alias-state-warn-label);
 }
 
 .actionAnchor {
@@ -115,5 +115,5 @@
 
 .error {
   margin: 4px 0 0;
-  color: var(--dsw-color-danger, #dc2626);
+  color: var(--dsw-alias-state-error-primary);
 }

@@ -9,7 +9,7 @@
   padding: 12px;
   overflow: visible;
   background: var(--dsw-alias-bg-document-preview);
-  font-family: var(--dsw-font, sans-serif);
+  font-family: var(--dsw-font-family);
   white-space: normal;
 }
 
