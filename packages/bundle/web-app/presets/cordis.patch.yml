@@ -138,6 +138,8 @@
               searchTimeoutMs: 60000
           - id: tool-cordis
             name: '@deepseek-ai/dsh-tool-cordis'
+            config:
+              dynamicPlugins: true
           - id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
             config:
