@@ -37,7 +37,7 @@ kind: "package-bundle"
 <details>
 <summary>实现细节 — 点击展开</summary>
 
-[`cordis.patch.yml`](cordis.patch.yml) 在 Host 上添加 `skill-badge` 提供者行。后续根级补丁可以禁用该行；单独的覆盖不会选中组合包。[配置组合器](../../boot/app-boot/README.zh.md) 负责补丁顺序和错误处理。
+[`cordis.patch.yml`](cordis.patch.yml) 启用 base 组合包在 Host 上默认禁用的 `skill-badge` 提供者行。后续根级补丁可以再次禁用该行；单独的覆盖不会选中组合包。[配置组合器](../../boot/app-boot/README.zh.md) 负责补丁顺序和错误处理。
 
 </details>
 
@@ -77,4 +77,4 @@ kind: "package-bundle"
 
 </details>
 
-**运行时不变式：** 不发布伴生入口。本配置层仅在 Host 上贡献 `skill-badge` 提供方条目，而技能的发现、加载与结果由技能注册表持有，profile patch 的顺序由 `@deepseek-ai/dsh-app-boot` 持有。
+**运行时不变式：** 不发布伴生入口。本配置层仅在 Host 上启用 base 组合包默认禁用的 `skill-badge` 提供方条目，而技能的发现、加载与结果由技能注册表持有，profile patch 的顺序由 `@deepseek-ai/dsh-app-boot` 持有。

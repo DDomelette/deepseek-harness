@@ -37,7 +37,7 @@ The switch adds or removes a Host-wide skill provider for existing and new Agent
 <details>
 <summary>Implementation details — click to expand</summary>
 
-[`cordis.patch.yml`](cordis.patch.yml) contributes the `skill-badge` provider row on the Host. Later root patches can disable that row; an override alone does not select the bundle. The [profile composer](../../boot/app-boot/README.md) owns patch ordering and errors.
+[`cordis.patch.yml`](cordis.patch.yml) switches on the `skill-badge` provider row that the base bundle ships disabled on the Host. Later root patches can disable that row again; an override alone does not select the bundle. The [profile composer](../../boot/app-boot/README.md) owns patch ordering and errors.
 
 </details>
 
@@ -77,4 +77,4 @@ None.
 
 </details>
 
-**Runtime invariant:** No companion is published. This profile layer contributes only the `skill-badge` provider row on the Host, while the skill registry owns discovery, loading, and results and `@deepseek-ai/dsh-app-boot` owns profile patch ordering.
+**Runtime invariant:** No companion is published. This profile layer only enables the base bundle's `skill-badge` provider row on the Host, while the skill registry owns discovery, loading, and results and `@deepseek-ai/dsh-app-boot` owns profile patch ordering.
