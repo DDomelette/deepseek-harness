@@ -350,6 +350,15 @@ function debuggerNamer(workspaces: ReadonlyMap<string, string>, resolveFrom: str
   }
 }
 
+/** Declaration-only condition trees add no runtime roots; explicit imports still resolve normally. */
+function isDeclarationOnlyExport(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  if (Array.isArray(value)) return value.length > 0 && value.every(isDeclarationOnlyExport)
+  const conditions = Object.entries(value)
+  return conditions.length > 0 && conditions.every(([condition, target]) =>
+    condition === 'types' || condition.startsWith('types@') || isDeclarationOnlyExport(target))
+}
+
 function sweepImage(
   files: ImageFiles,
   options: PackOptions,
@@ -390,9 +399,7 @@ function sweepImage(
       ? ['.']
       : Object.keys(manifest.exports).filter(key => key.startsWith('.') && !key.includes('*'))
     for (const subpath of subpaths) {
-      const target = manifest.exports?.[subpath]
-      if (typeof target === 'object' && target !== null
-        && Object.keys(target).length === 1 && Object.hasOwn(target, 'types')) continue
+      if (isDeclarationOnlyExport(manifest.exports?.[subpath])) continue
       queue.push({ specifier: subpath === '.' ? name : `${name}/${subpath.slice(2)}`, from: root, importer: `workspace face ${name}` })
     }
   }
