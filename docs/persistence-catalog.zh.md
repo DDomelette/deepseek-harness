@@ -5013,7 +5013,7 @@ SHA-256: `c1f0f17b6493b85db6453bb30e01b208d703731b25bc1e68e5d4fc72eea9cdea`
 
 SHA-256: `7d82e01910244b844eb931a6ca3af13ec30f63c17026dc02555947e23ebaf220`
 
-来源：[`packages/extensions/tool-cordis/src/index.ts:31`](../packages/extensions/tool-cordis/src/index.ts)
+来源：[`packages/extensions/tool-cordis/src/index.ts:32`](../packages/extensions/tool-cordis/src/index.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|

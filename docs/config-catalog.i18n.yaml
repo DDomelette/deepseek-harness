@@ -372,8 +372,11 @@
   en: fbaedbdfa721c40b
   zh: d7028a348599e8f4
 /plugin-config-catalog/deepseek-ai-dsh-tool-bash-persistent:
-  en: af8b01b3f29b1202
-  zh: 4b2db66cf50fed47
+  en: 3de2470b5ef29d09
+  zh: badf94d1e6f4e811
+/plugin-config-catalog/deepseek-ai-dsh-tool-cordis:
+  en: 883f60ff663a5117
+  zh: f663646df934e4f4
 /plugin-config-catalog/deepseek-ai-dsh-tool-fs:
   en: 33d1fbaaa1e8ce23
   zh: bba139d41ad783ef
@@ -474,8 +477,8 @@
   en: b77120070735a88d
   zh: 9eab87857c778546
 /plugin-config-catalog/loadable-plugins-with-no-config:
-  en: 53574319c5d2e445
-  zh: 618c8cfa0bad2aaa
+  en: 043a4e55f56c9d63
+  zh: 56d54460c8a0ccb6
 /plugin-config-catalog/seam-packages-not-directly-loadable:
   en: fbbab33ae5424a08
   zh: f66f90a05dee52f4

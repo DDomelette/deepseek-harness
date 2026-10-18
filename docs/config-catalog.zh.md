@@ -3729,6 +3729,22 @@ export interface Config {
 
 来源：[`packages/shell/tool-bash-persistent/src/index.ts:445`](../packages/shell/tool-bash-persistent/src/index.ts)
 
+<a id="deepseek-aidsh-tool-cordis"></a>
+
+## `@deepseek-ai/dsh-tool-cordis`
+
+需要：`tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`
+
+```ts config-catalog
+/** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */
+export interface Config {
+  /** Register the dynamic define/run/stop/undefine tools and their prompt section; requires a mounted `dynamicCordisRunner`. */
+  dynamicPlugins?: boolean
+}
+```
+
+来源：[`packages/extensions/tool-cordis/src/index.ts:42`](../packages/extensions/tool-cordis/src/index.ts)
+
 <a id="deepseek-aidsh-tool-fs"></a>
 
 ## `@deepseek-ai/dsh-tool-fs`
@@ -4665,7 +4681,6 @@ export interface Config {
 - `@deepseek-ai/dsh-subprocess-ssh` — 需要 `ssh`（[`packages/ssh/subprocess-ssh/src/index.ts`](../packages/ssh/subprocess-ssh/src/index.ts)）
 - `@deepseek-ai/dsh-terminal`（[`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts)）
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）
-- `@deepseek-ai/dsh-tool-cordis` — 需要 `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`（[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)）
 - `@deepseek-ai/dsh-tool-schedule` — 需要 `tools`（[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)）
 - `@deepseek-ai/dsh-tool-subagent-control` — 需要 `tools` · `subagents`（[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)）
 - `@deepseek-ai/dsh-tool-working-directory` — 需要 `tools` · `workingDirectory`（[`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts)）

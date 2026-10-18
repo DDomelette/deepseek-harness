@@ -3727,6 +3727,22 @@ export interface Config {
 
 Source: [`packages/shell/tool-bash-persistent/src/index.ts:445`](../packages/shell/tool-bash-persistent/src/index.ts)
 
+<a id="deepseek-aidsh-tool-cordis"></a>
+
+## `@deepseek-ai/dsh-tool-cordis`
+
+Requires: `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`
+
+```ts config-catalog
+/** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */
+export interface Config {
+  /** Register the dynamic define/run/stop/undefine tools and their prompt section; requires a mounted `dynamicCordisRunner`. */
+  dynamicPlugins?: boolean
+}
+```
+
+Source: [`packages/extensions/tool-cordis/src/index.ts:42`](../packages/extensions/tool-cordis/src/index.ts)
+
 <a id="deepseek-aidsh-tool-fs"></a>
 
 ## `@deepseek-ai/dsh-tool-fs`
@@ -4663,7 +4679,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-subprocess-ssh` — requires `ssh` ([`packages/ssh/subprocess-ssh/src/index.ts`](../packages/ssh/subprocess-ssh/src/index.ts))
 - `@deepseek-ai/dsh-terminal` ([`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
-- `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
 - `@deepseek-ai/dsh-tool-schedule` — requires `tools` ([`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-tool-working-directory` — requires `tools` · `workingDirectory` ([`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts))
