@@ -86,7 +86,7 @@ export function applyWriteTool(ctx: Context, sandbox: FsSandboxController): void
         type: 'object',
         additionalProperties: false,
         properties: {
-          path: { type: 'string', required: true },
+          path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
           operation: { type: 'string', required: true, enum: ['create', 'update'] },
           before: {
             required: true,

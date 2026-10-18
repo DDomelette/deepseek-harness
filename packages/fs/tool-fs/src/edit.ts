@@ -100,7 +100,7 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
         type: 'object',
         additionalProperties: false,
         properties: {
-          path: { type: 'string', required: true },
+          path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
           before: { type: 'string', required: true },
           after: { type: 'string', required: true },
         },
