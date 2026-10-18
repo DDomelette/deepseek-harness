@@ -2270,6 +2270,12 @@ importers:
       '@deepseek-ai/dsh-sdk-jsonrpc-server':
         specifier: workspace:*
         version: link:../../sdk/server
+      '@deepseek-ai/dsh-skill-office':
+        specifier: workspace:*
+        version: link:../../skill/skill-office
+      '@deepseek-ai/dsh-tool-workspace-dependencies':
+        specifier: workspace:*
+        version: link:../../skill/tool-workspace-dependencies
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
