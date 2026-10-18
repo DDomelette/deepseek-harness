@@ -23,6 +23,7 @@ interface BundleManifest {
 interface Row {
   id?: string
   name?: string
+  disabled?: boolean
   insert?: Row[]
   config?: { id?: string; name?: string; description?: string; order?: number; plugins?: unknown[] }
 }
@@ -50,6 +51,21 @@ function pluginPackages(value: unknown, found = new Set<string>()): Set<string> 
   pluginPackages(row.insert, found)
   if (Array.isArray(row.config)) pluginPackages(row.config, found)
   else if (row.config !== undefined && Array.isArray(row.config.plugins)) pluginPackages(row.config.plugins, found)
+  return found
+}
+
+/** Every row with this id inside a preset declaration, including group and preset rows. */
+function rowsWithId(value: unknown, id: string, found: Row[] = []): Row[] {
+  if (Array.isArray(value)) {
+    for (const item of value) rowsWithId(item, id, found)
+    return found
+  }
+  if (typeof value !== 'object' || value === null) return found
+  const row = value as Row & { insert?: unknown }
+  if (row.id === id) found.push(row)
+  rowsWithId(row.insert, id, found)
+  if (Array.isArray(row.config)) rowsWithId(row.config, id, found)
+  else if (row.config !== undefined && Array.isArray(row.config.plugins)) rowsWithId(row.config.plugins, id, found)
   return found
 }
 
@@ -96,6 +112,16 @@ describe('the shipped Web preset declarations', () => {
     expect(JSON.stringify(skillRow?.config)).toContain('@deepseek-ai/dsh-agent-preset')
     expect(readFileSync(join(REPO_ROOT, 'packages/preset/agent-preset/skills', 'editing-cordis-compositions', 'SKILL.md'), 'utf8'))
       .toMatch(/^---\nname: editing-cordis-compositions/u)
+  })
+
+  it('ships no preset with fresh-agent Ralph iteration enabled', () => {
+    // The base bundle leaves `tool-ralph` off; the optional ralph bundle inserts
+    // its own enabled row, so a preset that mounted it enabled would expose the
+    // tool in every session by default.
+    const enabled = declarations.flatMap(row => rowsWithId(row.config?.plugins, 'tool-ralph')
+      .filter(found => found.disabled !== true)
+      .map(() => row.config?.id as string))
+    expect(enabled).toEqual([])
   })
 
   it('names every shipped preset file after the preset it declares', () => {

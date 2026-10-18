@@ -119,9 +119,11 @@
               - id: tool-workflow
                 name: '@deepseek-ai/dsh-tool-workflow'
 
-              # Fresh-agent Ralph iteration over a build-time-fixed script.
+              # Fresh-agent Ralph iteration over a build-time-fixed script; off
+              # until the ralph bundle is selected.
               - id: tool-ralph
                 name: '@deepseek-ai/dsh-tool-ralph'
+                disabled: true
                 config:
                   subagentProvider: spawn
                   maxRounds: 64
