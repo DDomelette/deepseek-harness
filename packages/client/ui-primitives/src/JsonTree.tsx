@@ -590,7 +590,7 @@ function JsonTreeNode({
     <>
       <span
         ref={expanderRef}
-        className={clsx(css.expander, expanded ? css.collapseIcon : css.expandIcon)}
+        className={clsx(css.expander, expanded && css.collapseIcon)}
         data-json-expander
         role="button"
         aria-label={expanded ? labels.collapseNode : labels.expandNode}

@@ -254,7 +254,6 @@ export function PendingSteeringBubble({ content, renderMessageImages, t }: {
         <MessageIconActions
           text={text}
           clock="start"
-          className={css.actions}
           t={t}
         />
       )}
@@ -308,7 +307,6 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }: 
           text={text}
           time={submission.time}
           clock="start"
-          className={css.actions}
           t={t}
         />
       )}
@@ -334,7 +332,6 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
           text={text}
           time={data.time}
           clock="start"
-          className={css.actions}
           t={t}
         />
       )}

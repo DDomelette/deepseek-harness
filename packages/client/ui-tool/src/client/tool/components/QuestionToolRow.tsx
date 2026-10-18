@@ -28,7 +28,7 @@ export function QuestionToolRow({
       {state === 'running' && <span className={css.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         rowClassName={css.row} leadingClassName={css.leading} titleClassName={css.title}
-        chevronClassName={css.chevron} icon={<IconQuestionOutlineRegular />} title={t('ask.rowTitle')}
+        icon={<IconQuestionOutlineRegular />} title={t('ask.rowTitle')}
         running={state === 'running'} open={open} expandable={expandable}
         keepContentWhenOpen onToggle={toggle}
         collapsedContent={<>

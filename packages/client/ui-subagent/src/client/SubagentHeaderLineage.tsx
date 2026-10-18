@@ -707,7 +707,7 @@ function CatalogDropdown({
                   <StateDot state="ongoing" />
                 </span>
               )}
-              <span className={css.count}>{t(totalCountKey, { count: directCount })}</span>
+              <span className={css.summary}>{t(totalCountKey, { count: directCount })}</span>
             </>
           )}
         {variant === 'switcher'

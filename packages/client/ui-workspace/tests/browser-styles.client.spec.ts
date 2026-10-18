@@ -33,6 +33,27 @@ function declarationsFrom(source: string, selector: string): Map<string, string>
 const declarations = (selector: string): Map<string, string> | undefined => declarationsFrom(css, selector)
 const rowDeclarations = (selector: string): Map<string, string> | undefined => declarationsFrom(rowsCss, selector)
 
+/**
+ * Inner text of one at-rule block, found by brace matching.
+ * @param source - stylesheet text.
+ * @param prelude - exact at-rule prelude to locate.
+ * @returns the text between the block's braces, or undefined when the at-rule is absent.
+ */
+function atRuleBody(source: string, prelude: string): string | undefined {
+  const opening = source.indexOf(prelude)
+  if (opening === -1) return undefined
+  const start = source.indexOf('{', opening)
+  let depth = 0
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    else if (source[index] === '}') {
+      depth -= 1
+      if (depth === 0) return source.slice(start + 1, index)
+    }
+  }
+  return undefined
+}
+
 describe('WorkspaceBrowser.module.css list', () => {
   const root = declarations('.root')
   const listArea = declarations('.listArea')
@@ -111,6 +132,16 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(rowDeclarations('.searchResultRow')?.get('min-height')).toBe('48px')
     expect(rowDeclarations('.sessionRow.selected')?.get('background'))
       .toBe('var(--dsw-alias-interactive-bg-hover)')
+  })
+
+  it('shows the expand affordance where the pointer cannot hover', () => {
+    // A hover-only affordance is unreachable on touch, so the touch branch
+    // rests on the expand chevron and drops the folder glyph, as the hovered
+    // row does.
+    const touch = atRuleBody(rowsCss, '@media (hover: none), (pointer: coarse)')
+    expect(touch).toBeDefined()
+    expect(declarationsFrom(touch!, '.projectRow .chevron')?.get('display')).toBe('inline-flex')
+    expect(declarationsFrom(touch!, '.projectRow .folder')?.get('display')).toBe('none')
   })
 
   it('marquees a clipped session title on row hover', () => {
