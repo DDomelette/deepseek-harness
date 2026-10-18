@@ -34,6 +34,27 @@ export function isBehindModal(anchor: HTMLElement | null): boolean {
 const focusable = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]'
 
 /**
+ * Whether Tab can reach a matched control. The focusable query also returns
+ * controls inside a pane the page hides with CSS, and a hidden control cannot
+ * take focus, so the computed style decides which control is the dialog's last.
+ * @param element - control matched by the focusable query.
+ * @returns false when the control, or an ancestor declaring `display: none` or
+ * `content-visibility: hidden`, hides it.
+ */
+function rendered(element: HTMLElement): boolean {
+  const view = element.ownerDocument.defaultView
+  if (view === null) return true
+  // Each control resolves its own inherited visibility, so an inner
+  // `visibility: visible` inside a hidden ancestor stays reachable.
+  if (view.getComputedStyle(element).visibility === 'hidden') return false
+  for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
+    const style = view.getComputedStyle(node)
+    if (style.display === 'none' || style.getPropertyValue('content-visibility') === 'hidden') return false
+  }
+  return true
+}
+
+/**
  * Give only the top modal Escape and Tab ownership, then restore its previous focus.
  * Automatic entry and return focus omit outlines; keyboard traversal retains its indicators.
  * Controls mounted with the dialog use data-modal-autofocus for initial focus;
@@ -71,7 +92,7 @@ export function useModalLayer(dialog: RefObject<HTMLElement | null>, open: boole
       // Portaled menus own their traversal while they contain focus.
       if (document.activeElement?.closest('[role="menu"]')) return
       const items = [...element.querySelectorAll<HTMLElement>(focusable)]
-        .filter(item => !item.closest('[inert], [hidden]'))
+        .filter(item => !item.closest('[inert], [hidden]') && rendered(item))
       const first = items[0] ?? element
       const last = items.at(-1) ?? element
       const atEdge = event.shiftKey ? document.activeElement === first : document.activeElement === last

@@ -105,6 +105,24 @@ it('keeps Tab within the top dialog and releases listeners after unmount', () =>
   expect(event.defaultPrevented).toBe(false)
 })
 
+it('traps Tab on the last rendered control and skips CSS-hidden panes', () => {
+  render(
+    <Modal open headless title="Settings" onClose={() => {}}>
+      <button>First</button>
+      <button>Last</button>
+      <div style={{ display: 'none' }}><button>Collapsed pane</button></div>
+      <div style={{ contentVisibility: 'hidden' }}><button>Skipped pane</button></div>
+    </Modal>,
+  )
+  const first = screen.getByRole('button', { name: 'First' })
+  const last = screen.getByRole('button', { name: 'Last' })
+  last.focus()
+  expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(false)
+  expect(document.activeElement).toBe(first)
+  expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false)
+  expect(document.activeElement).toBe(last)
+})
+
 it.each([
   { direction: 'forward', shiftKey: false, target: 'Close reference' },
   { direction: 'backward', shiftKey: true, target: 'Menu' },
