@@ -2,9 +2,6 @@
   "ui-chat/src/client/settings/TranscriptViewRow.module.css": [
     ".selector: border-radius: 18px"
   ],
-  "ui-conversation/src/client/skeleton/PermissionSelect.module.css": [
-    ".trigger: border-radius: 24px"
-  ],
   "ui-deliverables/src/client/ChangedFiles.module.css": [
     ".tile: border-radius: 10px"
   ],
