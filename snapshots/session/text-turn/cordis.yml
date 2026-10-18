@@ -79,3 +79,10 @@
 - id: session-log-deepseek
   config:
     enabled: false
+
+# The per-skill invocation switch is a fork-only settings surface; headless
+# replays carry no sessions that switch it, and compositions that disable the
+# skills service would otherwise leave it pending.
+- id: skill-settings
+  name: '@deepseek-ai/dsh-skill-settings'
+  disabled: true
