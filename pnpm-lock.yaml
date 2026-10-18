@@ -2256,6 +2256,9 @@ importers:
       '@deepseek-ai/dsh-deepseek-llm-api-extensions':
         specifier: workspace:*
         version: link:../../llm/deepseek-llm-api-extensions
+      '@deepseek-ai/dsh-fs-local':
+        specifier: workspace:*
+        version: link:../../fs/fs-local
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:*
         version: link:../../runtime-diagnostics/invariants
@@ -2322,9 +2325,15 @@ importers:
       '@deepseek-ai/dsh-tool-pwsh-persistent':
         specifier: workspace:*
         version: link:../../shell/tool-pwsh-persistent
+      '@deepseek-ai/dsh-tool-working-directory':
+        specifier: workspace:*
+        version: link:../../session/tool-working-directory
       '@deepseek-ai/dsh-tools':
         specifier: workspace:*
         version: link:../../core/tools
+      '@deepseek-ai/dsh-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
