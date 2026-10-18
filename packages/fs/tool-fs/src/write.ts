@@ -10,7 +10,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { DiffCallView, DiffResultView, ToolResult } from '@deepseek-ai/dsh-tools'
 import type { FsWriteOutcome } from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-fs'
-import { computeHunkDiffs, diffsFromMeta } from './diff.ts'
+import { computeHunkDiffs, diffsFromMeta, pathFromMeta } from './diff.ts'
 import { remediateFsError } from './error.ts'
 import { sessionResolveOptions } from './session-cwd.ts'
 import type { FsSandboxController } from './sandbox.ts'
@@ -99,10 +99,12 @@ export function applyWriteTool(ctx: Context, sandbox: FsSandboxController): void
         },
       },
       render: (_args, value) => [{ type: 'text', text: formatWriteOutput(value.path, value) }],
-      presentationMeta: (args, value) => ({
+      presentationMeta: (_args, value) => ({
+        operation: value.operation,
+        path: value.path,
         diffs: value.before === null
           ? []
-          : computeHunkDiffs(args.file_path, value.before, value.after)
+          : computeHunkDiffs(value.path, value.before, value.after)
             .map(({ path, oldText, newText }) => ({ path, oldText, newText })),
       }),
     },
@@ -149,7 +151,7 @@ export function applyWriteTool(ctx: Context, sandbox: FsSandboxController): void
     presentResult(args, result: ToolResult): DiffResultView | undefined {
       if (result.isError) return undefined
       const diffs = diffsFromMeta(result.meta)
-        ?? [{ path: args.file_path, oldText: null, newText: args.content }]
+        ?? [{ path: pathFromMeta(result.meta) ?? args.file_path, oldText: null, newText: args.content }]
       return { card: 'diff', title: `Write ${args.file_path}`, diffs }
     },
   }))
