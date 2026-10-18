@@ -9,6 +9,7 @@
  * fake-service suite (tools.spec.ts) carries the coverage gate.
  */
 
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
@@ -61,6 +62,7 @@ describe('search tools over the real subprocess service + the packaged rg', () =
     await utimes(join(dir, 'src', 'beta.ts'), new Date(2020, 0, 1), new Date(2020, 0, 1))
 
     ctx = new Context()
+    provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
@@ -171,6 +173,37 @@ describe('search tools over the real subprocess service + the packaged rg', () =
         expect(text(grepped)).toContain('only-here.ts\nLine 1: const sessionFile = true')
       } finally {
         await rm(sessionDir, { recursive: true, force: true })
+      }
+    })
+
+    it('searches the directory changed with working_directory, not the Session initial cwd', async () => {
+      const moved = await mkdtemp(join(tmpdir(), 'dsh-search-moved-'))
+      const movedCtx = new Context()
+      let current = dir
+      // The same collaborator shape the sibling `@deepseek-ai/dsh-tool-fs`
+      // suite mounts: the directory service is the one authority for every
+      // later call, while the Session header keeps its original directory.
+      movedCtx.provide('workingDirectory', { ensure: () => Promise.resolve(current) })
+      try {
+        await writeFile(join(moved, 'moved-only.ts'), 'const movedFile = true\n')
+        await movedCtx.plugin(SystemPrompt)
+        await movedCtx.plugin(ToolRuntime)
+        await movedCtx.plugin(LocalSubprocessRuntime)
+        await movedCtx.plugin(ToolFsSearch, { sampleOverCapGlobResults: true })
+        const sessionAgent = { session: { header: { id: 'session-moved', cwd: dir } } }
+        current = moved
+        const result = await movedCtx.tools.execute({
+          signal: testToolSignal,
+          callId: ToolCallId('it-moved'),
+          name: 'glob',
+          arguments: { pattern: '*.ts' },
+          agent: sessionAgent as never,
+        })
+        expect(result.isError).toBe(false)
+        expect(text(result)).toBe('moved-only.ts')
+      } finally {
+        await movedCtx.fiber.dispose()
+        await rm(moved, { recursive: true, force: true })
       }
     })
   })
