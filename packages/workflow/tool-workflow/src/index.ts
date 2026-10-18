@@ -220,13 +220,14 @@ export function apply(ctx: Context, config: Config): void {
       script: {
         type: 'string',
         required: true,
-        description: 'The plain-JS workflow script body (top-level await allowed; NO `export const meta` statement; end with `return <json-value>`).',
+        description: 'The plain JavaScript body, not TypeScript and without an `export const meta` statement; top-level await is allowed. '
+          + 'End with `return <value>`; the JSON-serializable value is this tool\'s result.',
       },
       meta: {
         type: 'object',
         additionalProperties: true,
         required: true,
-        description: 'The workflow identity block (plain JSON — never code).',
+        description: 'The workflow identity as plain JSON, not code.',
         properties: {
           name: { type: 'string', required: true, description: 'Short kebab-case workflow name.' },
           description: { type: 'string', required: true, description: 'One-line description of what the workflow does.' },

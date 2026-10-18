@@ -166,7 +166,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     parameters: {
       type: { type: 'string', required: true, description: 'Registered terminal backend type, usually "shell".' },
       name: { type: 'string', description: 'Optional owner-local display name such as "main" or "gdb".' },
-      cwd: { type: 'string', description: 'Initial working directory. Defaults to the deployment workspace root.' },
+      cwd: { type: 'string', description: 'Initial working directory, relative to the Session current directory when not absolute.' },
     },
     finalizeContent,
     output: {
