@@ -546,6 +546,46 @@ describe('Menu', () => {
     }
   })
 
+  it('stops measuring the anchor once it stops moving and re-arms on the next movement signal', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    const getAnchorRect = vi.fn(() => new DOMRect(40, 100, 32, 28))
+    try {
+      render(<Menu portal open anchor={null} items={items} getAnchorRect={getAnchorRect} onClose={() => {}} />)
+      // Opening measures before paint, then a bounded run of settling frames.
+      act(() => { vi.advanceTimersToNextFrame() })
+      act(() => { vi.advanceTimersToNextFrame() })
+      act(() => { vi.advanceTimersToNextFrame() })
+      const settled = getAnchorRect.mock.calls.length
+      expect(settled).toBeLessThanOrEqual(6)
+      // Nothing moves, so the loop is asleep and no frame touches layout.
+      act(() => { for (let frame = 0; frame < 20; frame++) vi.advanceTimersToNextFrame() })
+      expect(getAnchorRect).toHaveBeenCalledTimes(settled)
+      // A scroll places immediately and re-arms the loop for the frames after it.
+      fireEvent.scroll(window)
+      expect(getAnchorRect).toHaveBeenCalledTimes(settled + 1)
+      act(() => { vi.advanceTimersToNextFrame() })
+      expect(getAnchorRect).toHaveBeenCalledTimes(settled + 2)
+      expect(screen.getByRole('menu').style.top).toBe('132px')
+    } finally {
+      cleanup()
+      vi.useRealTimers()
+    }
+  })
+
+  it('re-places a stopped list when a render changes its content', () => {
+    const view = render(
+      <Menu portal open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
+    const menu = screen.getByRole('menu')
+    // jsdom lays nothing out, so the untallied list sits 4px under its anchor.
+    expect(menu.style.top).toBe('4px')
+    Object.defineProperty(menu, 'offsetHeight', { configurable: true, value: 400 })
+    view.rerender(
+      <Menu portal open anchor={<span>trigger</span>} items={[...items, { id: 'c', label: 'Gamma' }]}
+        onSelect={() => {}} onClose={() => {}} />)
+    // The grown list clamps to the 12px viewport margin instead of overflowing it.
+    expect(menu.style.top).toBe('12px')
+  })
+
   it('portal mode renders the list under body, positions it fixed, and still closes on outside pointerdown', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()

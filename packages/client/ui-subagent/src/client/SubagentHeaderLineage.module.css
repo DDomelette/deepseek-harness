@@ -106,6 +106,13 @@
   box-shadow: var(--dsw-elevation-prominent);
 }
 
+/* The visible viewport shrinks under mobile browser chrome: cap on 100dvh. */
+@supports (height: 100dvh) {
+  .menu {
+    max-height: min(560px, calc(100dvh - 140px));
+  }
+}
+
 /* The menu skin lives on a pseudo-element: backdrop-filter on the menu itself
    would turn it into the containing block for fixed descendants, so the
    sidebar-button Tooltip bubbles would be re-anchored into the menu and

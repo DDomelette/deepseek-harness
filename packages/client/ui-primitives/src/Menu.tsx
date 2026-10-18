@@ -115,6 +115,12 @@ function isLabel(entry: MenuEntry): entry is MenuLabel {
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
+ * Consecutive frames without a measurement change after which the portal
+ * placement loop stops until the next movement signal.
+ */
+const SETTLE_FRAMES = 2
+
+/**
  * Render an anchored dropdown menu. While the list is open its keys mirror the
  * composer's: Tab settles the focused row — from the trigger, Tab enters the
  * list instead — and Escape or Shift+Tab close it and return focus to the
@@ -147,8 +153,9 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * directly (e.g. from a host-owned trigger button) instead of measuring the
  * Menu's own wrapper span. Required when the wrapper isn't itself laid out at
  * the trigger (render-prop anchors, effect-positioned proxies — measuring the
- * wrapper there races the host's layout effects). Called on open, each animation
- * frame, and scroll/resize; return null to skip placement for that frame.
+ * wrapper there races the host's layout effects). Called on open, on
+ * scroll/resize, and on each frame while the anchor is moving; return null to
+ * skip placement for that measurement.
  * @param props.footer - rows pinned below the scrolling items area, separated
  * by a hairline; they stay visible while the items above scroll.
  * @param props.children - component rows rendered after `items` in the same
@@ -234,6 +241,8 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   openRef.current = open
   const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null)
   const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
+  /** Measures and places the open portal list; assigned by the placement effect below. */
+  const placeRef = useRef<(() => void) | null>(null)
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
 
   // Portal mode: fixed-position the list from the anchor rect before paint;
@@ -243,7 +252,13 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // effect measures stale here — the host callback owns the truth instead.
   useLayoutEffect(() => {
     if (!open || !portal) { setFixedPos(null); return }
-    const place = () => {
+    /** The anchor edges and list size of the previous measurement, compared to detect movement. */
+    let measured: { left: number; top: number; right: number; bottom: number; listWidth: number; listHeight: number } | null = null
+    /**
+     * Place the list from the anchor rect.
+     * @returns whether the anchor rect or the list size differs from the previous measurement.
+     */
+    const place = (): boolean => {
       let r: DOMRect | null
       if (getAnchorRect !== undefined) {
         r = getAnchorRect()
@@ -251,7 +266,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
         /* v8 ignore next 2 -- the ref is attached before the layout effect runs and the listeners die with it. */
         r = rootRef.current?.getBoundingClientRect() ?? null
       }
-      if (r === null) return
+      if (r === null) return false
       const MARGIN = 12
       const vw = window.innerWidth
       const vh = window.innerHeight
@@ -276,25 +291,73 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN)), vh - lh - MARGIN)
 
       setFixedPos(current => current?.left === x && current.top === y ? current : { left: x, top: y })
+      const moved = measured === null || measured.left !== r.left || measured.top !== r.top
+        || measured.right !== r.right || measured.bottom !== r.bottom
+        || measured.listWidth !== lw || measured.listHeight !== lh
+      measured = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, listWidth: lw, listHeight: lh }
+      return moved
     }
     // First run measures the hidden pre-render (same commit as `open`), so
     // end/top alignment and clamping use real dimensions before anything
     // paints — no visible jump from a zero-size first guess.
     place()
-    // Dragging or transforming an ancestor moves the anchor without a scroll or resize event.
-    const track = () => {
-      place()
-      frame = requestAnimationFrame(track)
+    // Dragging or transforming an ancestor moves the anchor without a scroll
+    // or resize event. Measuring every frame of the list's lifetime would
+    // force a layout per frame, so the loop only runs around a movement
+    // signal — scroll, resize, a held-down pointer, or the start of a
+    // transition or animation — and stops after SETTLE_FRAMES unchanged
+    // measurements. The invariant relied on: every movement of the anchor is
+    // announced by one of those signals before it is visible, so a stopped
+    // loop is re-armed again before the movement paints.
+    let frame = 0
+    let still = 0
+    const track = (): void => {
+      frame = 0
+      still = place() ? 0 : still + 1
+      if (still < SETTLE_FRAMES) frame = requestAnimationFrame(track)
     }
-    let frame = requestAnimationFrame(track)
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
+    const wake = (): void => {
+      still = 0
+      if (frame === 0) frame = requestAnimationFrame(track)
+    }
+    /** Measure now, then track the frames that may follow this movement. */
+    const placeAndKeepTracking = (): void => {
+      place()
+      wake()
+    }
+    // The list can still settle its own size in the frames right after it
+    // mounts, so the loop starts here and stops with the first still frames.
+    wake()
+    window.addEventListener('scroll', placeAndKeepTracking, true)
+    window.addEventListener('resize', placeAndKeepTracking)
+    // A drag repositions the anchor from pointer handlers; a held-down pointer
+    // is the only pointer input that can move it.
+    const onPointerMove = (event: PointerEvent): void => {
+      if (event.buttons !== 0) wake()
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('transitionrun', wake)
+    window.addEventListener('animationstart', wake)
+    placeRef.current = place
     return () => {
+      placeRef.current = null
       cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', placeAndKeepTracking, true)
+      window.removeEventListener('resize', placeAndKeepTracking)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('transitionrun', wake)
+      window.removeEventListener('animationstart', wake)
     }
   }, [open, portal, align, side, getAnchorRect])
+
+  // The list's own size feeds the clamp and only its props (items, footer,
+  // children) change its content while it is open, so the commit that
+  // re-renders it re-places before paint — the frame loop above may already
+  // have stopped. The placement effect declares this ref, so a closed or
+  // in-place list has nothing to call.
+  useLayoutEffect(() => {
+    placeRef.current?.()
+  })
 
   // Opening remembers where the keyboard was, so closing can hand it back to
   // that control — an anchor wrapping several (a split button) cannot be asked

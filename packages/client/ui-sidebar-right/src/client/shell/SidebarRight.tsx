@@ -260,9 +260,13 @@ function ExitFullscreenGlyph(): ReactNode {
 }
 
 /** The panel's two controls, placed by the kit at the top-right pane's strip end. */
-function PanelChrome({ sessionId, fullscreen, actions, t, shortcuts, toggleFullscreen }: Pick<PanelProps, 'sessionId' | 'actions' | 't' | 'fullscreen' | 'shortcuts' | 'toggleFullscreen'>): ReactNode {
+function PanelChrome({ sessionId, fullscreen, autoFullscreen, actions, t, shortcuts, toggleFullscreen }: Pick<PanelProps, 'sessionId' | 'actions' | 't' | 'fullscreen' | 'autoFullscreen' | 'shortcuts' | 'toggleFullscreen'>): ReactNode {
   const next: DockMode = fullscreen ? 'push' : 'fullscreen'
-  const modeLabel = fullscreen ? t('chrome.exitFullscreen') : t('chrome.toFullscreen')
+  // The automatic handset fullscreen is not a mode the control can leave: there
+  // it collapses the panel and records the normal mode, so it names that action
+  // instead of promising the exit its glyph draws.
+  const modeLabel = autoFullscreen ? t('chrome.collapse') : fullscreen ? t('chrome.exitFullscreen') : t('chrome.toFullscreen')
+  const modeAria = autoFullscreen ? t('chrome.collapseAria') : modeLabel
   const mode = shortcuts.find(entry => entry.id === 'pane.fullscreen.toggle')
   const toggle = shortcuts.find(entry => entry.id === 'sidebar.right.toggle')
   return (
@@ -271,7 +275,7 @@ function PanelChrome({ sessionId, fullscreen, actions, t, shortcuts, toggleFulls
         <button
           type="button"
           className={css.iconButton}
-          aria-label={modeLabel}
+          aria-label={modeAria}
           aria-keyshortcuts={mode?.aria}
           data-sidebar-right-mode={next}
           onClick={toggleFullscreen}
@@ -300,7 +304,7 @@ function PanelChrome({ sessionId, fullscreen, actions, t, shortcuts, toggleFulls
  * anchored to the frame's right edge and slid off it while collapsed.
  */
 function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<HTMLDivElement> }): ReactNode {
-  const { sessionId, surface, actions, t, renderSlot, openTab, width, reportRoom, fullscreen, panelRef } = panel
+  const { sessionId, surface, actions, t, renderSlot, openTab, width, reportRoom, fullscreen, autoFullscreen, panelRef } = panel
   const { expanded } = surface.layout
   const types = panel.useTabTypes(value => value)
   return (
@@ -332,7 +336,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
           renderTabMenuItems={(tab, dismiss) =>
             renderSlot('sidebar.right.tab.menu.item', { tab, dismiss })}
           chrome={<PanelChrome
-            sessionId={sessionId} fullscreen={fullscreen} actions={actions} t={t}
+            sessionId={sessionId} fullscreen={fullscreen} autoFullscreen={autoFullscreen} actions={actions} t={t}
             shortcuts={panel.shortcuts} toggleFullscreen={panel.toggleFullscreen}
           />}
           onRoom={reportRoom}

@@ -56,6 +56,13 @@
   box-shadow: var(--dsw-elevation-prominent);
 }
 
+/* The visible viewport shrinks under mobile browser chrome: cap on 100dvh. */
+@supports (height: 100dvh) {
+  .menu {
+    max-height: min(420px, calc(100dvh - 140px));
+  }
+}
+
 .row {
   display: flex;
   align-items: start;

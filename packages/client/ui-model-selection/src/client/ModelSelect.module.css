@@ -116,6 +116,13 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* The visible viewport shrinks under mobile browser chrome: cap on 100dvh. */
+@supports (height: 100dvh) {
+  .menu {
+    max-height: min(360px, calc(100dvh - 96px));
+  }
+}
+
 .status,
 .empty {
   padding: 8px;

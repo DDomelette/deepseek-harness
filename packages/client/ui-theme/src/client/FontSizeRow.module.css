@@ -110,6 +110,28 @@
   cursor: default;
 }
 
+/* Touch input has no hover to reveal the column, and an invisible overlay
+   would still take the tap: the arrows keep their own place in the pill at a
+   full touch-target size, so the pill grows to hold them. */
+@media (hover: none), (pointer: coarse) {
+  .stepper {
+    height: auto;
+    min-height: 36px;
+    padding: 2px 6px;
+    gap: 6px;
+  }
+
+  .arrows {
+    position: static;
+    opacity: 1;
+  }
+
+  .arrow {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 /* Disclosure for the per-role font settings; rotates while open. */
 .expander {
   display: inline-flex;

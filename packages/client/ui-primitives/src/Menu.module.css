@@ -66,6 +66,13 @@
   max-height: calc(100vh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
 }
 
+/* The visible viewport shrinks under mobile browser chrome: cap on 100dvh. */
+@supports (height: 100dvh) {
+  .scrollable {
+    max-height: calc(100dvh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
+  }
+}
+
 .viewport {
   display: flex;
   flex-direction: column;
