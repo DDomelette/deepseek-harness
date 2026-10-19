@@ -11,6 +11,7 @@ import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { frames, openStream, type RemoteMock, type StreamScript } from '@deepseek-ai/dsh-remote-mock'
 import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import {
+  ClientSessionPinsModel,
   ClientWorkspaceModel,
   createWorkspaceStateStream,
   WorkspaceArchiveError,
@@ -66,6 +67,11 @@ function accepts(overrides: Partial<WorkspaceFollowSink> = {}): WorkspaceFollowS
 
 function streamStates(mock: RemoteMock): string[] {
   return mock.log.streams(FOLLOW).map(row => row.state)
+}
+
+/** The ordered pin model a by-hand controller drives, over the assembled namespace. */
+function pinsOf(remote: ClientRemote): ClientSessionPinsModel {
+  return new ClientSessionPinsModel(remote.sessionPins)
 }
 
 describe('Workspace Controller Client apply', () => {
@@ -315,7 +321,7 @@ describe('WorkspaceController', () => {
     const { remote, client } = await gatewayClient(mock, start)
     const model = new ClientWorkspaceModel(remote.workspace)
     model.replaceBaseline({ items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {} })
-    const controller = new WorkspaceController(client.ctx, model)
+    const controller = new WorkspaceController(client.ctx, model, pinsOf(remote))
     const before = model.getSnapshot()
     mock.remote.workspace.initializeDefault.mockResolvedValueOnce({ ok: true, value: undefined })
     await expect(controller.initializeDefault()).resolves.toBeUndefined()
@@ -328,7 +334,7 @@ describe('WorkspaceController', () => {
     model.replaceBaseline({
       items: [workspace('one')], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {},
     })
-    const controller = new WorkspaceController(client.ctx, model)
+    const controller = new WorkspaceController(client.ctx, model, pinsOf(remote))
 
     expect(controller.list).toBe(model)
     expect(client.ctx.workspaces.list).toBe(model)
@@ -359,7 +365,7 @@ describe('WorkspaceController', () => {
 
   it('maps generated business failures to the command facade errors', async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
-    const controller = new WorkspaceController(client.ctx, new ClientWorkspaceModel(remote.workspace))
+    const controller = new WorkspaceController(client.ctx, new ClientWorkspaceModel(remote.workspace), pinsOf(remote))
     const missingWorkspace = new RemoteError('workspace/not-found', 'gone', { workspaceId: wid('missing') })
     const missingSession = new RemoteError('session/not-found', 'missing session', { sessionId: sid('session') })
 
@@ -409,7 +415,7 @@ describe('WorkspaceController', () => {
 
   it('receives a carrier throw as the client\'s gateway/internal fold, never as a rejection', async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
-    const controller = new WorkspaceController(client.ctx, new ClientWorkspaceModel(remote.workspace))
+    const controller = new WorkspaceController(client.ctx, new ClientWorkspaceModel(remote.workspace), pinsOf(remote))
 
     mock.remote.workspace.create.mockImplementation(() => Promise.reject(new Error('create wire down')))
     const create = controller.create({ path: '/work/created' })

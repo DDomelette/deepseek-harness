@@ -15,6 +15,8 @@ export const remoteDefaultResponses: RemoteTable = {
     'session/list': ok({ items: [] }),
     // ui-workspace startup with no entries; first-use initialization is ineligible.
     'workspace/initializeDefault': ok(undefined),
+    // api-workspace-controller client `apply` and every `connection/reset`: the ordered pin snapshot.
+    'sessionPins/list': ok({ pinnedSessionIds: [], groupOrder: {}, flatOrder: [] }),
     // ui-settings `mirror.ensure()` at apply and again on `connection/reset`.
     'settings/describe': ok({ writable: true, hasDocument: false, namespaces: [] }),
     // ui-model-selection `ModelDirectoryResolver` constructor.

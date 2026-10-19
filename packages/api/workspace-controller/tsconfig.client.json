@@ -8,6 +8,7 @@
   "files": [
     "src/client/index.ts",
     "src/client/model.ts",
+    "src/client/pins.ts",
     "src/archive-instants.ts",
     "src/client/service.ts",
     "src/default-workspace.ts",
@@ -21,6 +22,7 @@
     { "path": "../../core/session" },
     { "path": "../../host/directory-picker" },
     { "path": "../../session/session-flags" },
+    { "path": "../../session/session-pins" },
     { "path": "../../typert/protocol" },
     { "path": "../../workspace/workspace" }
   ]
