@@ -1,4 +1,4 @@
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Open presentation flags attached to one session. */
 export interface SessionFlags {
