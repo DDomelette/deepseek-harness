@@ -544,6 +544,10 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     ...mode === 'record' || options.deepSeekMissingCredential === true
       ? []
       : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
+    // No web fixture records a `session-log-deepseek/delivery-accepted` watermark,
+    // because the lane never transmits a real `dsh_session_log` field; leaving the
+    // contributor on would append acceptance events the recorded sessions lack.
+    { id: 'session-log-deepseek', config: { enabled: false } },
     ...extraOverlayPatches,
     // The roster's shipped presets are the plugin's own, bundled inside
     // `dsh-agent-presets` and prepended by it. Pin only the machine-local
