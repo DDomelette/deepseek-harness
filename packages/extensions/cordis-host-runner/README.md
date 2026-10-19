@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cordis-host-runner` makes dynamic packages runnable in this process: definitions the model records with `cordis_define` stay here, host halves run in a `node:vm` sandbox, a package with a browser half waits for a person to approve or decline it on a page, and the model can inspect the live runtime and its definitions here. The model-facing tools live in `@deepseek-ai/dsh-tool-cordis`, and the browser half loads through `@deepseek-ai/dsh-cordis-client-runner`. Definitions live only in process memory, so a DSH restart clears them and nothing is written to disk. Two config fields bound it: `vmTimeoutMs` limits synchronous sandbox evaluation, and `clientInspectTimeoutMs` limits how long a Client inspect query waits for a page.
+`dsh-cordis-host-runner` runs dynamic packages in this process: definitions the model records with `cordis_define` stay here, host halves run in a `node:vm` sandbox, a package with a browser half waits for a person to approve or decline it on a page, and the model inspects the live runtime and its definitions through the inspect registry. Definitions live only in process memory, so a DSH restart clears them. Two config fields bound it: `vmTimeoutMs` bounds synchronous sandbox evaluation, and `clientInspectTimeoutMs` bounds a Client inspect query, whose failure asks the caller to open or reconnect the Harness page and retry.
 
 ## Table of Contents
 
