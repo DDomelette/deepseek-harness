@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-/** Renderer-owned loads retain displayed versions and retire work on reload, replacement, and close. */
+/**
+ * Renderer-owned loads retain displayed versions and retire work on reload, replacement, and close.
+ * A renderer reports its version from a passive effect, so a store read after a text match settles that effect first.
+ */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
@@ -56,6 +59,7 @@ it('lets a non-Office renderer load content, report its version, and reload thro
   const view = render(<TextPreview {...h.props()} renderSlot={renderSlot} useDocumentPreviews={useDocumentPreviews} />)
   expect(read).toHaveBeenCalledTimes(1)
   expect(await screen.findByText('Custom content v1')).toBeTruthy()
+  await settle()
   expect(h.instance.getSnapshot().byTab[TAB_ID]?.version).toBe('v1')
   act(() => { h.instance.actions.toggledAutoRefresh(TAB_ID) })
   h.setVersion('v2')
@@ -64,6 +68,7 @@ it('lets a non-Office renderer load content, report its version, and reload thro
   expect(read).toHaveBeenCalledTimes(1)
   fireEvent.click(screen.getByRole('button', { name: 'reloadNow' }))
   expect(await screen.findByText('Custom content v2')).toBeTruthy()
+  await settle()
   expect(read).toHaveBeenCalledTimes(2)
   expect(h.instance.getSnapshot().byTab[TAB_ID]?.version).toBe('v2')
   expect(screen.queryByText('changed')).toBeNull()
