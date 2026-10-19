@@ -48,9 +48,9 @@ Three names in the referenced-but-undefined diff are not broken references and a
 - `--dsw-hovercard-bg` is a component-local property that `packages/client/ui-primitives/src/HoverCard.module.css` both declares and reads, which the styling ownership rule allows.
 - `--dsw-radius-missing` is a fixture string in `packages/client/ui-theme/tests/radius-styles.client.spec.ts` that proves the radius scanner reports an unknown radius token.
 
-## Deferred
+## Enforcement
 
-Nothing fails when a stylesheet references a `--dsw-*` name no sheet defines; the defect surfaced only by reading the declared vocabulary against the references. The missing gate is a stylesheet spec over `packageStylesheets()` and `parseRules` in `packages/client/ui-theme/tests/stylesheet-scan.ts` that diffs every referenced name against the definitions in `ui-theme/src/styles/` and accepts an explicit allowlist for component-local properties and spec fixtures. It is recorded here as follow-up work, not yet built.
+`scripts/verify-client-token-vocabulary.ts` fails any `var(--dsw-*)` whose name no sheet in `packages/client/ui-theme/src/styles/` declares, reporting `file:line: --token (no definition)`. The theme sheets are the whole definition authority: a feature sheet's own declaration cannot satisfy a reference from another sheet, because custom properties inherit only through the element tree. `--dsw-hovercard-bg` is the single allowlisted component-local property, and test sources sit outside the scan, so the `--dsw-radius-missing` fixture needs no allowlist entry. The gate runs beside `client-ui-i18n` in `ci-primary`, `ci-static`, and `check-all`, and refuses a narrowed stylesheet corpus or a scan that finds suspiciously few references.
 
 ## Alternatives considered
 
@@ -65,3 +65,4 @@ Nothing fails when a stylesheet references a `--dsw-*` name no sheet defines; th
 - Borders, fills, disabled labels, state labels, and code font families resolve through the defined vocabulary, and the removed fallbacks make a future rename fail visibly instead of silently reverting to an initial value.
 - The reference set loses twenty-one stale names, so the token sheets now describe the whole vocabulary the feature stylesheets use.
 - Any future token added for a component stylesheet lands in the theme sheets beside its family; a name that no sheet defines is a defect in the caller.
+- A reference to a name no theme sheet declares fails `pnpm run verify-client-token-vocabulary` instead of rendering with the property's initial value.

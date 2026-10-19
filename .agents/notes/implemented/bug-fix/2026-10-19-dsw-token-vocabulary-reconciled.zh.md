@@ -48,9 +48,9 @@ Status: implemented
 - `--dsw-hovercard-bg` 是 `packages/client/ui-primitives/src/HoverCard.module.css` 既声明又读取的组件局部属性，样式归属规则允许这种用法。
 - `--dsw-radius-missing` 是 `packages/client/ui-theme/tests/radius-styles.client.spec.ts` 中的夹具字符串，用来证明圆角扫描器会报告未知的圆角 token。
 
-## 待办
+## 强制检查
 
-当一张样式表引用没有任何表定义的 `--dsw-*` 名字时，目前没有任何检查会失败；这个缺陷是靠把引用集合与已声明词汇对照才发现的。缺的守卫是一份基于 `packages/client/ui-theme/tests/stylesheet-scan.ts` 里 `packageStylesheets()` 与 `parseRules` 的样式表 spec：把每个引用名与 `ui-theme/src/styles/` 中的定义做差集，并对组件局部属性与 spec 夹具给出显式允许清单。此处仅把它记为后续工作，尚未实现。
+`scripts/verify-client-token-vocabulary.ts` 会让任何引用了 `packages/client/ui-theme/src/styles/` 中没有任何样式表声明过的 `var(--dsw-*)` 的写法人失败，并报告 `file:line: --token (no definition)`。主题样式表是唯一的定义权威：特性样式表自己的声明无法满足其他样式表的引用，因为自定义属性只沿元素树继承。`--dsw-hovercard-bg` 是唯一被允许的组件局部属性；测试源码不在扫描范围内，因此 `--dsw-radius-missing` 夹具无需进入允许清单。该检查与 `client-ui-i18n` 并列运行于 `ci-primary`、`ci-static` 与 `check-all`，并会在样式表语料缩小或引用数量少得可疑时拒绝通过。
 
 ## 备选方案
 
@@ -65,3 +65,4 @@ Status: implemented
 - 边框、填充、禁用标签、状态标签与代码字体族都通过已定义的词汇解析；删掉的 fallback 让将来一次改名以可见的方式失败，而不是悄悄回到初始值。
 - 引用集合少了二十一个过期名字，token 表现在完整描述特性样式表使用的词汇。
 - 将来为组件样式表新增 token 时，它落在对应族旁边的主题样式表里；没有样式表定义的名字就是调用方的缺陷。
+- 引用没有主题样式表定义的名字，现在会在 `pnpm run verify-client-token-vocabulary` 中失败，而不是带着属性的初始值渲染。
