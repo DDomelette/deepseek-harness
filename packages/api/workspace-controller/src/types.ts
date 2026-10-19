@@ -6,9 +6,11 @@
  */
 
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionFlags } from '@deepseek-ai/dsh-session-flags/types'
 import type { SessionActivity, WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 
 export type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+export type { SessionFlags } from '@deepseek-ai/dsh-session-flags/types'
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap,
 } from '@deepseek-ai/dsh-workspace/types'
@@ -165,6 +167,13 @@ export interface WorkspaceBaseline {
   readonly archivedSessionAts: Readonly<Record<SessionId, string>>
   /** Registry-global pin set, most recently pinned first. */
   readonly pinnedSessionIds: readonly SessionId[]
+  /**
+   * Presentation flags merged from the Host's `sessionFlags` providers, keyed
+   * by Session id. A Host without that registry reports none. The generation
+   * reads the providers once, when it opens, so a flag change reaches an open
+   * follower only through the next generation.
+   */
+  readonly sessionFlags: Readonly<Record<SessionId, SessionFlags>>
 }
 
 /** One ordered Workspace change after a generation's baseline. */

@@ -5,6 +5,7 @@ import {
 import type {
   WorkspaceArchiveSessionRequest,
   WorkspaceArchiveValue,
+  WorkspaceBaseline,
   WorkspaceCreateRequest,
   WorkspaceCreateValue,
   WorkspaceDeleteRequest,
@@ -176,12 +177,14 @@ function baseline(
   items: readonly WorkspaceView[] = [],
   archivedSessionIds: readonly SessionId[] = [],
   pinnedSessionIds: readonly SessionId[] = [],
+  sessionFlags: WorkspaceBaseline['sessionFlags'] = {},
 ): void {
   model.replaceBaseline({
     items,
     archivedSessionIds,
     archivedSessionAts: archiveValue(archivedSessionIds).archivedSessionAts,
     pinnedSessionIds,
+    sessionFlags,
   })
 }
 
@@ -225,6 +228,21 @@ describe('ClientWorkspaceModel', () => {
     baseline(model, [workspace('fresh')])
     expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['fresh'])
     expect(model.getSnapshot().archivedSessionIds).toEqual([])
+  })
+
+  it('installs the baseline session flags and keeps an unchanged projection', () => {
+    const model = modelFor()
+    expect(model.getSnapshot().sessionFlags).toEqual({})
+
+    baseline(model, [], [], [], { [sid('flagged')]: { pinned: true } })
+    expect(model.getSnapshot().sessionFlags).toEqual({ [sid('flagged')]: { pinned: true } })
+    const installed = model.getSnapshot().sessionFlags
+
+    // An identical projection is the same reference, so no consumer re-renders.
+    baseline(model, [], [], [], { [sid('flagged')]: { pinned: true } })
+    expect(model.getSnapshot().sessionFlags).toBe(installed)
+    baseline(model, [], [], [], {})
+    expect(model.getSnapshot().sessionFlags).toEqual({})
   })
 
   it('keeps the last baseline during retry and exposes a terminal stream failure', () => {

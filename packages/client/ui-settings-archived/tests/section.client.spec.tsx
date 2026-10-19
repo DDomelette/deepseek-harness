@@ -63,6 +63,7 @@ const workspacesState = (): WorkspaceListState => ({
   archivedSessionIds: [sid('a1'), sid('a2'), sid('loose')],
   archivedSessionAts: { [sid('a1')]: A1_ARCHIVED_AT, [sid('a2')]: A2_ARCHIVED_AT },
   pinnedSessionIds: [],
+  sessionFlags: {},
   state: 'idle',
   phase: 'ready',
   error: null,

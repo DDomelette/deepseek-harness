@@ -85,7 +85,7 @@ function mountFrame(windowWidth = frameWidth) {
     projectionsBySession: {},
   })
   const workspaceState: WorkspaceSnapshot = {
-    items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+    items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'ready', error: null,
     ...(workspacesReady ? {} : { state: 'loading' as const, phase: 'pending' as const }),
   }
   const useStore = bindSnapshotSelector(instance)

@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-api-workspace-controller/remote'
 import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
 import type { RemoteFailure, RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 import type {
+  SessionFlags,
   WorkspaceArchiveSessionRequest,
   WorkspaceArchiveValue,
   WorkspaceBaseline,
@@ -38,6 +39,8 @@ export interface WorkspaceSnapshot {
   readonly archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts']
   /** Complete registry-global pin set, most recently pinned first. */
   readonly pinnedSessionIds: WorkspacePinValue['pinnedSessionIds']
+  /** Presentation flags merged by the Host, keyed by Session id; see {@link WorkspaceBaseline}. */
+  readonly sessionFlags: WorkspaceBaseline['sessionFlags']
   readonly state: 'idle' | 'loading' | 'error'
   readonly phase: WorkspaceListPhase
   readonly error: RemoteFailure | null
@@ -70,6 +73,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   private archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds'] = []
   private archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts'] = {}
   private pinnedSessionIds: WorkspacePinValue['pinnedSessionIds'] = []
+  private sessionFlags: WorkspaceBaseline['sessionFlags'] = {}
   private state: WorkspaceSnapshot['state'] = 'loading'
   private phase: WorkspaceListPhase = 'pending'
   private error: RemoteFailure | null = null
@@ -275,6 +279,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     this.installViews(baseline.items)
     this.installArchived(baseline.archivedSessionIds, baseline.archivedSessionAts)
     this.installPinned(baseline.pinnedSessionIds)
+    this.installSessionFlags(baseline.sessionFlags)
     this.state = 'idle'
     this.phase = 'ready'
     this.error = null
@@ -362,6 +367,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
       archivedSessionIds: this.archivedSessionIds,
       archivedSessionAts: this.archivedSessionAts,
       pinnedSessionIds: this.pinnedSessionIds,
+      sessionFlags: this.sessionFlags,
       state: this.state,
       phase: this.phase,
       error: this.error,
@@ -384,6 +390,19 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     if (pinnedSessionIds.length === this.pinnedSessionIds.length
       && pinnedSessionIds.every((id, index) => id === this.pinnedSessionIds[index])) return
     this.pinnedSessionIds = [...pinnedSessionIds]
+    this.invalidate()
+  }
+
+  /**
+   * Replace the presentation-flag map only when a Session's flags changed.
+   * @param sessionFlags - flags merged by the Host for one baseline.
+   */
+  private installSessionFlags(sessionFlags: WorkspaceBaseline['sessionFlags']): void {
+    const entries = Object.entries(sessionFlags)
+    const current = this.sessionFlags as Readonly<Record<string, SessionFlags | undefined>>
+    if (entries.length === Object.keys(current).length
+      && entries.every(([id, flags]) => current[id]?.pinned === flags.pinned)) return
+    this.sessionFlags = { ...sessionFlags }
     this.invalidate()
   }
 

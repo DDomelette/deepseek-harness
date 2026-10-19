@@ -4,6 +4,7 @@ import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionFlagRegistry from '@deepseek-ai/dsh-session-flags'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
@@ -364,13 +365,33 @@ describe('WorkspaceController follow', () => {
     }
   })
 
+  it('merges every session flag provider into the baseline', async () => {
+    const { controller, ctx } = await harness()
+    await ctx.plugin(SessionFlagRegistry)
+    ctx.sessionFlags.registerProvider({
+      id: 'fixture-pins',
+      list: () => ({ [SessionId('flagged')]: { pinned: true } }),
+    })
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'baseline',
+        value: { sessionFlags: { [SessionId('flagged')]: { pinned: true } } },
+      })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
   it('starts with a complete baseline and emits committed increments in domain order', async () => {
     const { controller, ctx, root } = await harness()
     const abort = new AbortController()
     const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
     await expect(nextFrame(iterator)).resolves.toEqual({
       type: 'baseline',
-      value: { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [] },
+      value: { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {} },
     })
 
     const first = await controller.create({ path: stageDir(root, 'first') })

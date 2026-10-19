@@ -97,6 +97,7 @@ function workspaceState(
     archivedSessionIds,
     archivedSessionAts: {},
     pinnedSessionIds: [],
+    sessionFlags: {},
     phase,
     state: phase === 'ready' ? 'idle' : 'loading',
     error: null,

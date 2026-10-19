@@ -69,7 +69,13 @@ export function workspace(id: string, overrides: Partial<WorkspaceView> = {}): W
 export function baseline(...ids: readonly string[]): WorkspaceBaselineFrame {
   return {
     type: 'baseline',
-    value: { items: ids.map(id => workspace(id)), archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [] },
+    value: {
+      items: ids.map(id => workspace(id)),
+      archivedSessionIds: [],
+      archivedSessionAts: {},
+      pinnedSessionIds: [],
+      sessionFlags: {},
+    },
   }
 }
 

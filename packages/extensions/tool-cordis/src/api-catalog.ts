@@ -8634,7 +8634,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceBaseline',
-    declaration: 'export interface WorkspaceBaseline {\n    readonly items: readonly WorkspaceView[];\n    readonly archivedSessionIds: readonly SessionId[];\n    readonly archivedSessionAts: Readonly<Record<SessionId, string>>;\n    readonly pinnedSessionIds: readonly SessionId[];\n}',
+    declaration: 'export interface WorkspaceBaseline {\n    readonly items: readonly WorkspaceView[];\n    readonly archivedSessionIds: readonly SessionId[];\n    readonly archivedSessionAts: Readonly<Record<SessionId, string>>;\n    readonly pinnedSessionIds: readonly SessionId[];\n    readonly sessionFlags: Readonly<Record<SessionId, SessionFlags>>;\n}',
   },
   {
     name: 'WorkspaceByteRange',

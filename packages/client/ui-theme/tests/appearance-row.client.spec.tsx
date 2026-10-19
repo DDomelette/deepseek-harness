@@ -31,7 +31,7 @@ function emptySessions() {
 }
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+    items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'ready', error: null,
   })
   return bindSnapshotSelector(store)
 }

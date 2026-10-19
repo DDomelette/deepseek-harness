@@ -2,6 +2,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
+import type {} from '@deepseek-ai/dsh-session-flags'
 import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import {
@@ -78,7 +79,13 @@ export class WorkspaceFeed {
       archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
       archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
       pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds],
+      sessionFlags: this.flagProjection(),
     }
+  }
+
+  /** Merge every mounted flag provider; a Host without the registry reports no flags. */
+  private flagProjection(): WorkspaceBaseline['sessionFlags'] {
+    return this.ctx.get('sessionFlags')?.snapshot().flags ?? {}
   }
 
   /**

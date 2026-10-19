@@ -378,6 +378,7 @@ interface WorkspaceBaselineFrame {
     readonly archivedSessionIds: readonly SessionId[]
     readonly archivedSessionAts: Readonly<Record<SessionId, string>>
     readonly pinnedSessionIds: readonly SessionId[]
+    readonly sessionFlags: Readonly<Record<SessionId, { readonly pinned?: boolean }>>
   }
 }
 
@@ -2025,6 +2026,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       archivedSessionIds: [...archivedSessionIds],
       archivedSessionAts: { ...archivedSessionAts },
       pinnedSessionIds: [...pinnedSessionIds],
+      // The fixture mounts no flag provider, so the merged projection is empty.
+      sessionFlags: {},
     },
   })
 

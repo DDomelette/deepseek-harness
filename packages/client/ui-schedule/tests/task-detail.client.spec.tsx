@@ -80,7 +80,7 @@ const sessions: SessionListState = {
   phase: 'ready', projectionsBySession: {},
 }
 
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'ready', error: null }
 
 afterEach(cleanup)
 
