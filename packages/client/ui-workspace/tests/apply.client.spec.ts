@@ -6,6 +6,7 @@ import type {
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SessionForkError } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionPinsSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
@@ -14,7 +15,8 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import {
-  type ArchiveSessionInjected, type ForkSessionInjected, menuOpenStateFactory, type PinSessionInjected,
+  type ArchiveSessionInjected, type ForkSessionInjected, menuOpenStateFactory, type PinReorderInjected,
+  type PinSessionInjected,
   type RenameSessionInjected, type RowToastInjected, type SessionArchiveConfirmInjected, type SessionRenameDialogInjected,
   type WorkspaceViewStoreHandle,
 } from '../src/client/contract/slots.ts'
@@ -22,11 +24,10 @@ import { WorkspaceBrowser } from '../src/client/rows/WorkspaceBrowser.tsx'
 import { ArchiveSessionMenuItem, ArchiveSessionRowButton, SessionArchiveConfirmDialog } from '../src/client/session-actions/ArchiveSession.tsx'
 import { ForkSessionMenuItem } from '../src/client/session-actions/ForkSession.tsx'
 import { PinSessionMenuItem, PinSessionRowButton } from '../src/client/session-actions/PinSession.tsx'
+import { MovePinDownMenuItem, MovePinUpMenuItem } from '../src/client/session-actions/ReorderPins.tsx'
 import { RenameSessionMenuItem, SessionRenameDialog } from '../src/client/session-actions/RenameSession.tsx'
 import { RowActionToast } from '../src/client/session-actions/RowActionToast.tsx'
 import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
-import { FLAT_SESSION_ORDER_KEY } from '../src/client/stores.ts'
-import { UNGROUPED_KEY } from '../src/client/tree.ts'
 import { apply as hostApply } from '../src/index.ts'
 
 const sid = (id: string) => id as SessionId
@@ -46,9 +47,14 @@ const workspace = (id: string, sessionIds: readonly string[]): WorkspaceView => 
 const workspaceState = (
   items: readonly WorkspaceView[],
   archivedSessionIds: readonly SessionId[] = [],
-  pinnedSessionIds: readonly SessionId[] = [],
 ): WorkspaceSnapshot => ({
-  items, archivedSessionIds, archivedSessionAts: {}, pinnedSessionIds, sessionFlags: {}, state: 'idle', phase: 'ready', error: null,
+  items, archivedSessionIds, archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {}, state: 'idle', phase: 'ready', error: null,
+})
+/** A pin snapshot whose flat order is also its membership, as the domain keeps it. */
+const pinsState = (flatOrder: readonly string[]): SessionPinsSnapshot => ({
+  pinnedSessionIds: flatOrder.map(sid),
+  groupOrder: {},
+  flatOrder: flatOrder.map(sid),
 })
 
 async function bench() {
@@ -102,16 +108,21 @@ async function bench() {
   const fork = vi.fn<ISessions['fork']>(async () => sid('forked'))
   const pinSession = vi.fn(async () => undefined)
   const unpinSession = vi.fn(async () => undefined)
-  // The Host snapshots the injected hooks derive from and a pin's order write
-  // reads at completion; a test replaces them whole, so an unchanged snapshot
-  // keeps its identity between reads.
+  const reorderPins = vi.fn(async (orderedIds: readonly SessionId[]) => {
+    pinsSnapshot = pinsState(orderedIds)
+  })
+  // The Host snapshots the injected hooks derive from; a test replaces them
+  // whole, so an unchanged snapshot keeps its identity between reads.
   let workspaceSnapshot = workspaceState([])
   let sessionSnapshot = sessionState([])
+  let pinsSnapshot: SessionPinsSnapshot = pinsState([])
   const subscribe = () => () => {}
   const workspacesSubscribe = vi.fn(subscribe)
+  const pinsSubscribe = vi.fn(subscribe)
   const initializeDefault = vi.fn(async (): Promise<WorkspaceView | undefined> => undefined)
   ctx.provide('workspaces', {
     list: { getSnapshot: () => workspaceSnapshot, subscribe: workspacesSubscribe },
+    pins: { getSnapshot: () => pinsSnapshot, subscribe: pinsSubscribe },
     create,
     initializeDefault,
     rename,
@@ -121,6 +132,7 @@ async function bench() {
     unarchiveSession: vi.fn(async () => undefined),
     pinSession,
     unpinSession,
+    reorderPins,
     insertSessionBefore: vi.fn(async () => ({})),
   } as never)
   ctx.provide('sessions', {
@@ -150,8 +162,9 @@ async function bench() {
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, locale, create, rename,
     retain, using, selectPanel, search, renameSession, binding, fork, pickDirectory, pinSession, unpinSession,
-    workspacesSubscribe, initializeDefault, history, scope, sessionOf,
+    reorderPins, workspacesSubscribe, pinsSubscribe, initializeDefault, history, scope, sessionOf,
     setWorkspaces: (snapshot: WorkspaceSnapshot): void => { workspaceSnapshot = snapshot },
+    setPins: (snapshot: SessionPinsSnapshot): void => { pinsSnapshot = snapshot },
     setSessions: (snapshot: SessionListState): void => { sessionSnapshot = snapshot },
   }
 }
@@ -234,7 +247,7 @@ describe('ui-workspace apply', () => {
     await Promise.resolve()
     expect(after.slots.entries('conversation.hero.workspace')[0]!.component).toBe(WorkspacePicker)
     // The row actions follow the browser's own declaration, whenever it lands.
-    expect(after.slots.entries(MENU_ITEM)).toHaveLength(4)
+    expect(after.slots.entries(MENU_ITEM)).toHaveLength(6)
     expect(after.slots.entries(ROW_ACTION)).toHaveLength(2)
     expect(after.slots.entries('shell.overlay')).toHaveLength(3)
   })
@@ -254,6 +267,8 @@ describe('ui-workspace apply', () => {
       .map(registration => [registration.options.id, registration.options.order, registration.component, registration.locale])
     expect(rows(MENU_ITEM)).toEqual([
       ['pin', 100, PinSessionMenuItem, 'workspace'],
+      ['pin-up', 110, MovePinUpMenuItem, 'workspace'],
+      ['pin-down', 120, MovePinDownMenuItem, 'workspace'],
       ['rename', 200, RenameSessionMenuItem, 'workspace'],
       ['fork', 300, ForkSessionMenuItem, 'workspace'],
       ['archive', 400, ArchiveSessionMenuItem, 'workspace'],
@@ -287,9 +302,10 @@ describe('ui-workspace apply', () => {
     }
   })
 
-  it('derives the pinned and archived Sets from the Workspace snapshot, rebuilt only when it changes', async () => {
+  it('derives the pinned set and order from the pin owner and the archived set from the Workspace snapshot', async () => {
     const b = await bench()
-    b.setWorkspaces(workspaceState([workspace('alpha', ['one', 'two'])], [sid('two')], [sid('one')]))
+    b.setWorkspaces(workspaceState([workspace('alpha', ['one', 'two'])], [sid('two')]))
+    b.setPins(pinsState(['one']))
     declare(b.slots, 'sidebar.workspaces')
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const pin = faceOf(entry(b.slots, MENU_ITEM, 'pin')) as PinSessionInjected
@@ -303,19 +319,24 @@ describe('ui-workspace apply', () => {
     expect(pin.hooks.pinned.getSnapshot()).toBe(pinned)
     expect(pinButton.hooks.pinned.getSnapshot()).toBe(pinned)
     expect(archive.hooks.archived.getSnapshot()).toBe(archived)
-    // Subscriptions ride the Workspace Controller's list source.
-    const listener = vi.fn()
-    const unsubscribe = pin.hooks.pinned.subscribe(listener)
-    expect(b.workspacesSubscribe).toHaveBeenCalledWith(listener)
-    unsubscribe()
+    // The pin set rides the pin owner's source; the archive set rides the Workspace one.
+    const pinListener = vi.fn()
+    const unsubscribePins = pin.hooks.pinned.subscribe(pinListener)
+    expect(b.pinsSubscribe).toHaveBeenCalledWith(pinListener)
+    unsubscribePins()
+    const archiveListener = vi.fn()
+    const unsubscribeArchived = archive.hooks.archived.subscribe(archiveListener)
+    expect(b.workspacesSubscribe).toHaveBeenCalledWith(archiveListener)
+    unsubscribeArchived()
 
-    b.setWorkspaces(workspaceState([workspace('alpha', ['one', 'two'])], [], [sid('one'), sid('two')]))
+    b.setPins(pinsState(['one', 'two']))
     expect(pin.hooks.pinned.getSnapshot()).toEqual(new Set(['one', 'two']))
     expect(pin.hooks.pinned.getSnapshot()).not.toBe(pinned)
+    b.setWorkspaces(workspaceState([workspace('alpha', ['one', 'two'])]))
     expect(archive.hooks.archived.getSnapshot()).toEqual(new Set())
   })
 
-  it('pins through the navigation service, which fronts the Session in its group and the flat list of the browser view', async () => {
+  it('pins through the navigation service and leaves the browser order alone', async () => {
     const b = await bench()
     b.setWorkspaces(workspaceState([workspace('alpha', ['one', 'two', 'three'])]))
     b.setSessions(sessionState([summary('one', 3), summary('two', 2), summary('three', 1)]))
@@ -328,41 +349,70 @@ describe('ui-workspace apply', () => {
     const pin = faceOf(entry(b.slots, MENU_ITEM, 'pin')) as PinSessionInjected
     pin.pinSession(sid('three'))
     expect(b.pinSession).toHaveBeenCalledWith('three')
-    await vi.waitFor(() => {
-      expect(view.getSnapshot().sessionOrderByAccount).toEqual({
-        alpha: ['three', 'one', 'two'],
-        [UNGROUPED_KEY]: [],
-        [FLAT_SESSION_ORDER_KEY]: ['three', 'one', 'two'],
-      })
-    })
-    // The saved positions lead without leaving Last updated, and a successful pin raises no notice.
-    expect(view.getSnapshot().orderBy).toBe('updated')
+    await settled()
+    // The pin domain owns the block's order: the browser writes none of its own.
+    expect(view.getSnapshot().sessionOrderByAccount).toEqual({})
     expect(toast.hooks.toast.getSnapshot()).toBeNull()
 
     // The hover button's face is the same behavior.
     const pinButton = faceOf(entry(b.slots, ROW_ACTION, 'pin')) as PinSessionInjected
     pinButton.pinSession(sid('one'))
     expect(b.pinSession).toHaveBeenLastCalledWith('one')
-    await vi.waitFor(() => {
-      expect(view.getSnapshot().sessionOrderByAccount.alpha).toEqual(['one', 'three', 'two'])
-    })
-
-    // Unpin leaves the saved orders as they are.
-    const before = view.getSnapshot().sessionOrderByAccount
     pin.unpinSession(sid('one'))
     expect(b.unpinSession).toHaveBeenCalledWith('one')
     await settled()
-    expect(view.getSnapshot().sessionOrderByAccount).toBe(before)
     expect(toast.hooks.toast.getSnapshot()).toBeNull()
   })
 
-  it('raises the pin and unpin failure notices and writes no order', async () => {
+  it('reorders the pinned block through the pin owner and notices a refused write', async () => {
+    const b = await bench()
+    b.setPins(pinsState(['one', 'two']))
+    declare(b.slots, 'sidebar.workspaces', 'shell.overlay')
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const toast = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
+    const up = faceOf(entry(b.slots, MENU_ITEM, 'pin-up')) as PinReorderInjected
+    const down = faceOf(entry(b.slots, MENU_ITEM, 'pin-down')) as PinReorderInjected
+
+    // Both move rows share the one order source and the one write verb.
+    expect(up.hooks.pinnedOrder.getSnapshot()).toEqual([sid('one'), sid('two')])
+    expect(down.hooks.pinnedOrder.getSnapshot()).toBe(up.hooks.pinnedOrder.getSnapshot())
+    up.movePin(sid('two'), 'up')
+    await vi.waitFor(() => {
+      expect(b.reorderPins).toHaveBeenCalledExactlyOnceWith([sid('two'), sid('one')])
+    })
+    down.movePin(sid('one'), 'down')
+    await vi.waitFor(() => {
+      expect(b.reorderPins).toHaveBeenLastCalledWith([sid('two'), sid('one')])
+    })
+    expect(toast.hooks.toast.getSnapshot()).toBeNull()
+
+    // A move past either end writes nothing.
+    b.reorderPins.mockClear()
+    const b2 = await bench()
+    b2.setPins(pinsState(['one']))
+    declare(b2.slots, 'sidebar.workspaces')
+    await b2.ctx.plugin({ inject: [...inject], apply }).await()
+    const only = faceOf(entry(b2.slots, MENU_ITEM, 'pin-up')) as PinReorderInjected
+    only.movePin(sid('one'), 'up')
+    only.movePin(sid('one'), 'down')
+    only.movePin(sid('absent'), 'up')
+    await settled()
+    expect(b2.reorderPins).not.toHaveBeenCalled()
+
+    // A refused write raises the localized notice and leaves the order as it was.
+    b.reorderPins.mockRejectedValueOnce(new Error('reorder wire down'))
+    up.movePin(sid('two'), 'down')
+    await vi.waitFor(() => {
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'reorderPinsFailed' })
+    })
+  })
+
+  it('raises the pin and unpin failure notices', async () => {
     const b = await bench()
     b.setWorkspaces(workspaceState([workspace('alpha', ['one'])]))
     b.setSessions(sessionState([summary('one', 1)]))
     declare(b.slots, 'sidebar.workspaces', 'shell.overlay')
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const view = viewInstance(b.slots)
     const toast = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
     const pin = faceOf(entry(b.slots, ROW_ACTION, 'pin')) as PinSessionInjected
 
@@ -372,7 +422,6 @@ describe('ui-workspace apply', () => {
     b.unpinSession.mockRejectedValueOnce(new Error('unpin wire down'))
     pin.unpinSession(sid('one'))
     await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'unpinFailed', seq: 2 }) })
-    expect(view.getSnapshot().sessionOrderByAccount).toEqual({})
   })
 
   it('archives through the navigation service and raises the archived notice; Host rejections are console diagnostics', async () => {
@@ -764,7 +813,7 @@ describe('ui-workspace apply', () => {
     declare(b.slots, 'sidebar.workspaces', 'conversation.hero.workspace', 'conversation.empty.workspace', 'shell.overlay')
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries(MENU_ITEM)).toHaveLength(4)
+    expect(b.slots.entries(MENU_ITEM)).toHaveLength(6)
     expect(b.slots.entries(ROW_ACTION)).toHaveLength(2)
     expect(b.slots.entries('shell.overlay')).toHaveLength(3)
     await fiber.dispose()

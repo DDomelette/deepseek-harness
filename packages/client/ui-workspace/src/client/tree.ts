@@ -258,7 +258,10 @@ function sessionVisible(
 
 /** Registry-global row state consumed by every tree derivation. */
 export interface SessionRowState {
-  /** Registry-global pin ids; pinned rows lead their section in the local order. */
+  /**
+   * Registry-global pin ids in the pin domain's display order: `pinnedSessionIds`
+   * is the order the pinned block renders in, not just its membership.
+   */
   pinnedSessionIds: readonly SessionId[]
   /** Archive set; members keep their slots and show grayed while visible. */
   archivedSessionIds: readonly SessionId[]
@@ -268,21 +271,24 @@ export interface SessionRowState {
 
 /**
  * Keep the visible New Session placeholder first, then partition pinned and
- * ordinary rows without changing either partition's caller order.
+ * ordinary rows without changing either partition's caller order — except the
+ * pinned block, which always renders in the pin owner's order.
  */
 function sectionMembers(
   members: readonly SessionSummary[],
-  pinned: ReadonlySet<SessionId>,
+  pinnedOrder: readonly SessionId[],
   archived: ReadonlySet<SessionId>,
 ): SessionSummary[] {
+  const rank = new Map(pinnedOrder.map((id, index) => [id, index]))
   const placeholders: SessionSummary[] = []
   const leading: SessionSummary[] = []
   const rest: SessionSummary[] = []
   for (const member of members) {
     if (member.blank) placeholders.push(member)
-    else if (!archived.has(member.id) && pinned.has(member.id)) leading.push(member)
+    else if (!archived.has(member.id) && rank.has(member.id)) leading.push(member)
     else rest.push(member)
   }
+  leading.sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0))
   return [...placeholders, ...leading, ...rest]
 }
 
@@ -460,7 +466,7 @@ export function deriveGroups(
       expanded,
       containsCurrent: g.key === currentGroup,
       sessions: expanded
-        ? sectionMembers(g.sessions, pinned, archived)
+        ? sectionMembers(g.sessions, rowState.pinnedSessionIds, archived)
           .map(session => sessionNode(session, list, statuses, pinned, archived))
         : [],
     })
@@ -521,7 +527,7 @@ export function deriveFlat(
       ? [session]
       : []
   })
-  return sectionMembers(members, pinned, archived)
+  return sectionMembers(members, rowState.pinnedSessionIds, archived)
     .map(session => sessionNode(session, list, statuses, pinned, archived))
 }
 

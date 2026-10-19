@@ -54,7 +54,7 @@ class FakePinsRemote implements SessionPinsRemote {
 }
 
 function modelOf(remote: FakePinsRemote): ClientSessionPinsModel {
-  return new ClientSessionPinsModel(remote as never)
+  return new ClientSessionPinsModel(remote)
 }
 
 describe('ClientSessionPinsModel', () => {

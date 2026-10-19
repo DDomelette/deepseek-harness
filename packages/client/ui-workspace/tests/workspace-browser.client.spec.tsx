@@ -69,17 +69,17 @@ const workspace = (id: string, sessionIds: string[], title = id): WorkspaceView 
 const workspaceState = (
   items: readonly WorkspaceView[],
   archivedSessionIds: readonly SessionId[] = [],
-  pinnedSessionIds: readonly SessionId[] = [],
 ): WorkspaceSnapshot => ({
   items,
   archivedSessionIds,
   archivedSessionAts: {},
-  pinnedSessionIds,
+  pinnedSessionIds: [],
   sessionFlags: {},
   state: 'idle',
   phase: 'ready',
   error: null,
 })
+
 const noPendingInteraction: SessionStatusSnapshot = new Map()
 function hook<T>(snapshot: T) {
   return function select<S>(selector: (state: T) => S): S { return selector(snapshot) }
@@ -124,6 +124,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     useSessionRetainInfo: () => undefined,
     usePanelInfo, useResource,
     useWorkspaces: hook(workspaceState([])),
+    usePinnedOrder: hook([]),
     useStore: bindSnapshotSelector(store),
     actions: store.actions,
     startSession: vi.fn(),
@@ -131,6 +132,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     searchSessions: vi.fn(async () => ({ items: [], hasMore: false })),
     searchResultLimit: 20,
     notifyArchivedNotOpenable: vi.fn(),
+    reorderPins: vi.fn(),
     renameWorkspace: vi.fn(async () => {}),
     deleteWorkspace: vi.fn(async () => {}),
     unarchiveSession: vi.fn(async () => {}),
@@ -1114,8 +1116,8 @@ describe('WorkspaceBrowser', () => {
         useWorkspaces: hook(workspaceState(
           mode === 'ungrouped' ? [] : [workspace('alpha', items.map(item => item.id))],
           [sid('kept-archive'), sid('missing-archive')],
-          [sid('p'), sid('q')],
         )),
+        usePinnedOrder: hook([sid('p'), sid('q')]),
       })
       const names = () => screen.getAllByRole('treeitem')
         .filter(row => row.getAttribute('aria-expanded') === null)
@@ -1138,18 +1140,25 @@ describe('WorkspaceBrowser', () => {
         fireEvent.dragStart(source, { dataTransfer: dragData() })
         fireDrag(target, 'drop', 105)
       }
+      // The unpinned partition keeps the browser's saved order…
       dragBefore('b', 'a')
       expect(b.store.getSnapshot().sessionOrderByAccount[account])
         .toEqual(['b', 'a', 'p', 'kept-archive', 'q', 'c', 'missing-archive'])
       await waitFor(() => { expect(names()).toEqual(['p', 'q', 'b', 'a', 'c']) })
+      // …and the pinned partition writes the pin domain's order instead.
       dragBefore('q', 'p')
+      expect(b.props.reorderPins).toHaveBeenCalledExactlyOnceWith(['q', 'p'])
       expect(b.store.getSnapshot().sessionOrderByAccount[account])
-        .toEqual(['b', 'a', 'q', 'p', 'kept-archive', 'c', 'missing-archive'])
-      await waitFor(() => { expect(names()).toEqual(['q', 'p', 'b', 'a', 'c']) })
+        .toEqual(['b', 'a', 'p', 'kept-archive', 'q', 'c', 'missing-archive'])
       b.view.unmount()
 
-      const restored = mount({ useSessions: b.props.useSessions, useWorkspaces: b.props.useWorkspaces })
-      expect(names()).toEqual(['q', 'p', 'b', 'a', 'c'])
+      const restored = mount({
+        useSessions: b.props.useSessions,
+        useWorkspaces: b.props.useWorkspaces,
+        usePinnedOrder: b.props.usePinnedOrder,
+      })
+      // The pin order is the domain's: the restored browser renders it as-is.
+      expect(names()).toEqual(['p', 'q', 'b', 'a', 'c'])
       act(() => { restored.store.actions.setArchivedFilter('only') })
       await waitFor(() => { expect(names()).toEqual(['kept-archive', 'missing-archive']) })
     },
@@ -1972,16 +1981,29 @@ describe('WorkspaceBrowser', () => {
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['two', 'one', 'three'])
   })
 
-  it('drags a pinned row by moving its position in the complete Session sequence', () => {
+  it('renders the pinned block in the pin domain order, not in recency or insertion order', () => {
+    const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
+    mount({
+      useSessions: hook(sessions),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two', 'three'])])),
+      // The owner's order disagrees with both recency and the order the pins
+      // were added in, so only that order can produce this block.
+      usePinnedOrder: hook([sid('three'), sid('one')]),
+    })
+    fireEvent.click(screen.getByText('alpha'))
+    expect(screen.getAllByRole('treeitem').slice(1).map(row => row.querySelector('[class*="title"]')?.textContent))
+      .toEqual(['three', 'one', 'two'])
+  })
+
+  it('drags a pinned row by rewriting the pin domain order', () => {
     const sessions = sessionState([
       summary('one', 4), summary('two', 3), summary('three', 2), summary('four', 1),
     ])
     createWorkspaceViewStore().create().actions.setSessionOrder('alpha', ['three', 'one', 'four', 'two'], {})
     const b = mount({
       useSessions: hook(sessions),
-      useWorkspaces: hook(workspaceState(
-        [workspace('alpha', ['one', 'two', 'three', 'four'])], [], [sid('one'), sid('two')],
-      )),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two', 'three', 'four'])])),
+      usePinnedOrder: hook([sid('one'), sid('two')]),
     })
     fireEvent.click(screen.getByText('alpha'))
     expect(screen.getAllByRole('treeitem').slice(1).map(row => row.textContent)).toEqual([
@@ -1996,29 +2018,26 @@ describe('WorkspaceBrowser', () => {
     fireEvent.dragStart(two, { dataTransfer: dragData() })
     fireDrag(one, 'dragOver', 105)
     fireDrag(one, 'drop', 105)
-    expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['three', 'two', 'one', 'four'])
-    expect(screen.getAllByRole('treeitem').slice(1).map(row => row.textContent)).toEqual([
-      expect.stringContaining('two'), expect.stringContaining('one'),
-      expect.stringContaining('three'), expect.stringContaining('four'),
-    ])
+    // The drop writes the pin order, never the browser's saved manual order.
+    expect(b.props.reorderPins).toHaveBeenCalledExactlyOnceWith(['two', 'one'])
+    expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['three', 'one', 'four', 'two'])
 
-    // Dropping the trailing pinned row after the leading one restates the
-    // current block: a no-op that writes nothing.
-    const oneAgain = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
+    // A drop on the source row itself writes nothing.
     const twoAgain = screen.getByText('two').closest('[role="treeitem"]') as HTMLElement
     twoAgain.getBoundingClientRect = () => ({
       top: 100, bottom: 134, left: 0, right: 200, width: 200, height: 34, x: 0, y: 100, toJSON: () => ({}),
     })
-    fireEvent.dragStart(oneAgain, { dataTransfer: dragData() })
+    fireEvent.dragStart(twoAgain, { dataTransfer: dragData() })
     fireDrag(twoAgain, 'drop', 130)
-    expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['three', 'two', 'one', 'four'])
+    expect(b.props.reorderPins).toHaveBeenCalledOnce()
   })
 
   it('keeps pinned and unpinned rows in separate drag domains', () => {
     const sessions = sessionState([summary('one', 2), summary('two', 1)])
     const b = mount({
       useSessions: hook(sessions),
-      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two'])], [], [sid('one')])),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two'])])),
+      usePinnedOrder: hook([sid('one')]),
     })
     fireEvent.click(screen.getByText('alpha'))
     const one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
@@ -2036,6 +2055,7 @@ describe('WorkspaceBrowser', () => {
     fireDrag(two, 'drop', 105)
     fireEvent.dragEnd(one)
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(before)
+    expect(b.props.reorderPins).not.toHaveBeenCalled()
 
     // …and an unpinned source ignores pinned targets.
     fireEvent.dragStart(two, { dataTransfer: dragData() })
@@ -2043,18 +2063,17 @@ describe('WorkspaceBrowser', () => {
     fireDrag(one, 'drop', 105)
     fireEvent.dragEnd(two)
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(before)
+    expect(b.props.reorderPins).not.toHaveBeenCalled()
   })
 
   it('ignores a pinned drop whose pin state moved in flight', () => {
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
     const b = mount({
       useSessions: hook(sessions),
-      useWorkspaces: hook(workspaceState(
-        [workspace('alpha', ['one', 'two', 'three'])], [], [sid('one'), sid('two')],
-      )),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two', 'three'])])),
+      usePinnedOrder: hook([sid('one'), sid('two')]),
     })
     fireEvent.click(screen.getByText('alpha'))
-    const before = b.store.getSnapshot().sessionOrderByAccount.alpha
     const markTarget = (): HTMLElement => {
       const two = screen.getByText('two').closest('[role="treeitem"]') as HTMLElement
       two.getBoundingClientRect = () => ({
@@ -2067,33 +2086,26 @@ describe('WorkspaceBrowser', () => {
     let one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
     fireEvent.dragStart(one, { dataTransfer: dragData() })
     fireDrag(markTarget(), 'dragOver', 105)
-    rerender(b, {
-      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two', 'three'])], [], [sid('one')])),
-    })
+    rerender(b, { usePinnedOrder: hook([sid('one')]) })
     fireEvent.dragEnd(screen.getByText('one').closest('[role="treeitem"]') as HTMLElement)
-    expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(before)
+    expect(b.props.reorderPins).not.toHaveBeenCalled()
 
     // The source unpins in flight.
-    rerender(b, {
-      useWorkspaces: hook(workspaceState(
-        [workspace('alpha', ['one', 'two', 'three'])], [], [sid('one'), sid('two')],
-      )),
-    })
+    rerender(b, { usePinnedOrder: hook([sid('one'), sid('two')]) })
     one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
     fireEvent.dragStart(one, { dataTransfer: dragData() })
     fireDrag(markTarget(), 'dragOver', 105)
-    rerender(b, {
-      useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two', 'three'])], [], [sid('two')])),
-    })
+    rerender(b, { usePinnedOrder: hook([sid('two')]) })
     fireEvent.dragEnd(screen.getByText('one').closest('[role="treeitem"]') as HTMLElement)
-    expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(before)
+    expect(b.props.reorderPins).not.toHaveBeenCalled()
   })
 
   it('drags pinned rows within the flat pinned block and keeps cross-block targets inert', () => {
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
     const b = mount({
       useSessions: hook(sessions),
-      useWorkspaces: hook(workspaceState([], [], [sid('one'), sid('two')])),
+      useWorkspaces: hook(workspaceState([])),
+      usePinnedOrder: hook([sid('one'), sid('two')]),
     })
     fireEvent.click(screen.getByRole('button', { name: '视图选项' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '单列表' }))
@@ -2108,8 +2120,8 @@ describe('WorkspaceBrowser', () => {
     fireEvent.dragStart(two, { dataTransfer: dragData() })
     fireDrag(one, 'dragOver', 105)
     fireDrag(one, 'drop', 105)
-    expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY])
-      .toEqual(['two', 'one', 'three'])
+    expect(b.props.reorderPins).toHaveBeenCalledExactlyOnceWith(['two', 'one'])
+    expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY]).toBeUndefined()
 
     // An unpinned source ignores pinned targets.
     const three = screen.getByText('three').closest('[role="treeitem"]') as HTMLElement
@@ -2117,8 +2129,7 @@ describe('WorkspaceBrowser', () => {
     fireDrag(one, 'dragOver', 105)
     fireDrag(one, 'drop', 105)
     fireEvent.dragEnd(three)
-    expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY])
-      .toEqual(['two', 'one', 'three'])
+    expect(b.props.reorderPins).toHaveBeenCalledOnce()
   })
 
   it('persists Ungrouped drag order in both modes', async () => {

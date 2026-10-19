@@ -800,7 +800,7 @@ describe('fixture session face', () => {
 })
 
 describe('workspaces action face', () => {
-  it('records pin and unpin actions, updates the ordered set, and honors stubs', async () => {
+  it('records pin, unpin, and reorder actions, updates the ordered pin feed, and honors stubs', async () => {
     const runtime = await SlotTestRuntime.create()
     try {
       const ws = runtime.workspaces
@@ -809,9 +809,10 @@ describe('workspaces action face', () => {
       await ws.pinSession(first)
       await ws.pinSession(second)
       await ws.pinSession(first)
-      expect(ws.list.getSnapshot().pinnedSessionIds).toEqual([first, second])
+      expect(ws.pins.getSnapshot().flatOrder).toEqual([first, second])
       await ws.unpinSession(first)
-      expect(ws.list.getSnapshot().pinnedSessionIds).toEqual([second])
+      expect(ws.pins.getSnapshot().flatOrder).toEqual([second])
+      await ws.reorderPins([second])
 
       const pin = vi.fn(async () => {})
       const unpin = vi.fn(async () => {})
@@ -821,12 +822,13 @@ describe('workspaces action face', () => {
       await ws.unpinSession(second)
       expect(pin).toHaveBeenCalledWith(first)
       expect(unpin).toHaveBeenCalledWith(second)
-      expect(ws.list.getSnapshot().pinnedSessionIds).toEqual([second])
+      expect(ws.pins.getSnapshot().flatOrder).toEqual([second])
       expect(ws.calls).toEqual([
         { method: 'pinSession', args: [first] },
         { method: 'pinSession', args: [second] },
         { method: 'pinSession', args: [first] },
         { method: 'unpinSession', args: [first] },
+        { method: 'reorderPins', args: [[second]] },
         { method: 'pinSession', args: [first] },
         { method: 'unpinSession', args: [second] },
       ])

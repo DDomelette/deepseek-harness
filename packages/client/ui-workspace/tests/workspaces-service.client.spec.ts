@@ -8,7 +8,7 @@ import type {
 import { SessionCreateError } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  IWorkspaces, SessionPinsSnapshot, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { ClientRemote, DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
@@ -21,8 +21,7 @@ import type { DraftInitializationOptions, SessionInputResolver } from '@deepseek
 import type { RowToast } from '../src/client/contract/slots.ts'
 import { DirectoryBrowseError, UiWorkspaceService } from '../src/client/navigation.ts'
 import { en, zh } from '../src/client/locales.ts'
-import { createWorkspaceViewStore, FLAT_SESSION_ORDER_KEY } from '../src/client/stores.ts'
-import { UNGROUPED_KEY } from '../src/client/tree.ts'
+import { createWorkspaceViewStore } from '../src/client/stores.ts'
 
 const sid = (id: string): SessionId => SessionId(id)
 const wid = (id: string): WorkspaceId => id as WorkspaceId
@@ -181,6 +180,7 @@ class FakeSessions implements ISessions {
 class FakeWorkspaces implements IWorkspaces {
   readonly initializeDefault = vi.fn<IWorkspaces['initializeDefault']>(async () => undefined)
   readonly list: MutableSource<WorkspaceSnapshot>
+  readonly pins: MutableSource<SessionPinsSnapshot>
   readonly archiveCalls: SessionId[] = []
   readonly unarchiveCalls: SessionId[] = []
   onArchive: IWorkspaces['archiveSession'] = async (sessionId) => {
@@ -204,15 +204,18 @@ class FakeWorkspaces implements IWorkspaces {
   declare readonly insertSessionBefore: IWorkspaces['insertSessionBefore']
   readonly pinCalls: SessionId[] = []
   readonly unpinCalls: SessionId[] = []
+  readonly reorderCalls: (readonly SessionId[])[] = []
   onPin: IWorkspaces['pinSession'] = async (sessionId) => {
-    this.list.update(state => ({
+    this.pins.update(state => ({
       ...state,
-      pinnedSessionIds: [sessionId, ...state.pinnedSessionIds.filter(id => id !== sessionId)],
+      pinnedSessionIds: [...state.pinnedSessionIds, sessionId],
+      flatOrder: [...state.flatOrder, sessionId],
     }))
   }
 
   constructor(initial: WorkspaceSnapshot) {
     this.list = new MutableSource(initial)
+    this.pins = new MutableSource<SessionPinsSnapshot>({ pinnedSessionIds: [], groupOrder: {}, flatOrder: [] })
   }
 
   archiveSession(sessionId: SessionId): Promise<void> {
@@ -232,9 +235,19 @@ class FakeWorkspaces implements IWorkspaces {
 
   async unpinSession(sessionId: SessionId): Promise<void> {
     this.unpinCalls.push(sessionId)
-    this.list.update(state => ({
+    this.pins.update(state => ({
       ...state,
       pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+      flatOrder: state.flatOrder.filter(id => id !== sessionId),
+    }))
+  }
+
+  async reorderPins(orderedIds: readonly SessionId[]): Promise<void> {
+    this.reorderCalls.push(orderedIds)
+    this.pins.update(state => ({
+      ...state,
+      pinnedSessionIds: [...orderedIds],
+      flatOrder: [...orderedIds],
     }))
   }
 }
@@ -310,7 +323,6 @@ function bench(options: BenchOptions = {}) {
     directoryPicker.remote,
     workspaces,
     sessions,
-    view.actions,
     notify,
   )
   return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization }
@@ -588,77 +600,52 @@ describe('UiWorkspaceService', () => {
     expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('chosen'), { source: 'mainView' })
   })
 
-  it('pins on the Host, then leads the Session in its group and flat saved orders; unpin leaves them', async () => {
+  it('pins and unpins through the Workspace controller and writes no browser order', async () => {
     const b = bench({
       workspaces: workspaceState([workspace(wid('a'), [sid('one'), sid('two'), sid('three')])]),
       sessions: sessionState([summary('one', { updatedAt: 3 }), summary('two', { updatedAt: 2 }), summary('three', { updatedAt: 1 })]),
     })
     b.view.actions.setSessionOrder('a', ['one', 'two', 'three'], {})
+    const before = b.view.getSnapshot().sessionOrderByAccount
+
     await b.uiWorkspace.pinSession(sid('three'))
     expect(b.workspaces.pinCalls).toEqual([sid('three')])
-    expect(b.view.getSnapshot().sessionOrderByAccount).toMatchObject({
-      a: ['three', 'one', 'two'],
-      [FLAT_SESSION_ORDER_KEY]: ['three', 'one', 'two'],
-    })
-    // Unpin is a Host fact only: the saved positions do not move.
+    // The pin domain owns the pinned block's order; the browser's saved
+    // manual order is not its business.
+    expect(b.workspaces.pins.getSnapshot().flatOrder).toEqual([sid('three')])
+    expect(b.view.getSnapshot().sessionOrderByAccount).toBe(before)
+
     await b.uiWorkspace.unpinSession(sid('three'))
     expect(b.workspaces.unpinCalls).toEqual([sid('three')])
-    expect(b.view.getSnapshot().sessionOrderByAccount.a).toEqual(['three', 'one', 'two'])
-    // A rejected pin writes no order.
+    expect(b.workspaces.pins.getSnapshot().flatOrder).toEqual([])
+    expect(b.view.getSnapshot().sessionOrderByAccount).toBe(before)
+
+    // A rejected pin surfaces as a rejection and leaves the pin set alone.
     b.workspaces.onPin = async () => { throw new Error('pin failed') }
     await expect(b.uiWorkspace.pinSession(sid('one'))).rejects.toThrow('pin failed')
-    expect(b.view.getSnapshot().sessionOrderByAccount.a).toEqual(['three', 'one', 'two'])
+    expect(b.workspaces.pins.getSnapshot().flatOrder).toEqual([])
+    expect(b.view.getSnapshot().sessionOrderByAccount).toBe(before)
   })
 
-  it('keeps newer saved orders when a pending pin completes', async () => {
+  it('reorders the pinned display order through the Workspace controller', async () => {
+    const b = bench({ workspaces: workspaceState([workspace('a', [sid('one'), sid('two')])]) })
+    await b.uiWorkspace.reorderPins([sid('two'), sid('one')])
+    expect(b.workspaces.reorderCalls).toEqual([[sid('two'), sid('one')]])
+    expect(b.workspaces.pins.getSnapshot().flatOrder).toEqual([sid('two'), sid('one')])
+
+    b.workspaces.reorderPins = async () => { throw new Error('reorder failed') }
+    await expect(b.uiWorkspace.reorderPins([sid('one'), sid('two')])).rejects.toThrow('reorder failed')
+  })
+
+  it('keeps saved Workspace members whose summaries are temporarily missing', async () => {
     const b = bench({
       workspaces: workspaceState([workspace('a', [sid('one'), sid('two'), sid('three')])]),
       sessions: sessionState([summary('one', { updatedAt: 3 }), summary('two', { updatedAt: 2 }), summary('three', { updatedAt: 1 })]),
     })
-    const pending = Promise.withResolvers<undefined>()
-    const hostPin = b.workspaces.onPin
-    b.workspaces.onPin = async (sessionId) => { await pending.promise; await hostPin(sessionId) }
-    const pin = b.uiWorkspace.pinSession(sid('three'))
-    b.view.actions.setSessionOrder('a', ['two', 'one', 'three'], {})
-    b.view.actions.setSessionOrder(FLAT_SESSION_ORDER_KEY, ['two', 'one', 'three'], {})
-    pending.resolve(undefined)
-    await pin
-    expect(b.view.getSnapshot().sessionOrderByAccount).toMatchObject({
-      a: ['three', 'two', 'one'],
-      [FLAT_SESSION_ORDER_KEY]: ['three', 'two', 'one'],
-    })
-  })
-
-  it('uses the membership current at completion when a Workspace disappears during a pending pin', async () => {
-    const b = bench({
-      workspaces: workspaceState([workspace('a', [sid('one'), sid('two')])]),
-      sessions: sessionState([summary('one', { updatedAt: 2 }), summary('two', { updatedAt: 1 })]),
-    })
-    const pending = Promise.withResolvers<undefined>()
-    const hostPin = b.workspaces.onPin
-    b.workspaces.onPin = async (sessionId) => { await pending.promise; await hostPin(sessionId) }
-    const pin = b.uiWorkspace.pinSession(sid('two'))
-    b.workspaces.list.update(state => ({ ...state, items: [] }))
-    pending.resolve(undefined)
-    await pin
-    expect(b.view.getSnapshot().sessionOrderByAccount).not.toHaveProperty('a')
-    expect(b.view.getSnapshot().sessionOrderByAccount).toMatchObject({
-      [UNGROUPED_KEY]: ['two', 'one'],
-      [FLAT_SESSION_ORDER_KEY]: ['two', 'one'],
-    })
-  })
-
-  it('keeps saved Workspace members whose summaries are temporarily missing when pinning in Last updated', async () => {
-    const b = bench({
-      workspaces: workspaceState([workspace('a', [sid('one'), sid('two'), sid('three')])]),
-      sessions: sessionState([summary('one', { updatedAt: 3 }), summary('two', { updatedAt: 2 }), summary('three', { updatedAt: 1 })]),
-    })
-    await b.uiWorkspace.pinSession(sid('one'))
-    expect(b.view.getSnapshot().sessionOrderByAccount.a).toEqual(['one', 'two', 'three'])
+    b.view.actions.setSessionOrder('a', ['one', 'two', 'three'], {})
     b.sessions.list.set(sessionState([summary('one', { updatedAt: 3 }), summary('three', { updatedAt: 1 })]))
     await b.uiWorkspace.pinSession(sid('three'))
-    expect(b.view.getSnapshot().orderBy).toBe('updated')
-    expect(b.view.getSnapshot().sessionOrderByAccount.a).toEqual(['three', 'one', 'two'])
+    expect(b.view.getSnapshot().sessionOrderByAccount.a).toEqual(['one', 'two', 'three'])
   })
 
   it('reuses only an unarchived member blank and coalesces concurrent creation', async () => {

@@ -28,6 +28,7 @@ import {
 } from '../src/client/session-actions/ArchiveSession.tsx'
 import { ForkSessionMenuItem } from '../src/client/session-actions/ForkSession.tsx'
 import { PinSessionMenuItem, PinSessionRowButton } from '../src/client/session-actions/PinSession.tsx'
+import { MovePinDownMenuItem, MovePinUpMenuItem } from '../src/client/session-actions/ReorderPins.tsx'
 import { RenameSessionMenuItem, SessionRenameDialog } from '../src/client/session-actions/RenameSession.tsx'
 import { RowActionToast } from '../src/client/session-actions/RowActionToast.tsx'
 import { createWorkspaceViewStore } from '../src/client/stores.ts'
@@ -161,6 +162,53 @@ describe('pin action', () => {
     const button = render(<PinSessionRowButton {...actionRow} {...pin} />)
     expect(button.container.childElementCount).toBe(0)
     expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('pin reorder action', () => {
+  /** The reorder share over one fixed pin order: the bound order hook and the move verb. */
+  const reorderShare = (order: readonly string[]) => ({
+    usePinnedOrder: hook(order.map(sid)),
+    movePin: vi.fn(),
+  })
+
+  it('offers move up on every pinned row but the first, and moves it one place', () => {
+    const { state, setMenuOpen } = openMenu()
+    const reorder = reorderShare(['two', 'one', 'three'])
+    render(<MovePinUpMenuItem {...menuRow(state)} {...reorder} />)
+    fireEvent.click(screen.getByRole('menuitem', { name: '上移置顶' }))
+    expect(reorder.movePin).toHaveBeenCalledWith(sid('one'), 'up')
+    expect(setMenuOpen).toHaveBeenCalledWith(false)
+    expect(callOrder(setMenuOpen)).toBeLessThan(callOrder(reorder.movePin))
+  })
+
+  it('offers move down on every pinned row but the last, and moves it one place', () => {
+    const { state } = openMenu()
+    const reorder = reorderShare(['two', 'one', 'three'])
+    render(<MovePinDownMenuItem {...menuRow(state)} {...reorder} />)
+    fireEvent.click(screen.getByRole('menuitem', { name: '下移置顶' }))
+    expect(reorder.movePin).toHaveBeenCalledWith(sid('one'), 'down')
+  })
+
+  it('renders nothing at either end of the block or for an unpinned Session', () => {
+    const { state } = openMenu()
+    const first = reorderShare(['one', 'two'])
+    const up = render(<MovePinUpMenuItem {...menuRow(state)} {...first} />)
+    expect(up.container.childElementCount).toBe(0)
+    const firstDown = render(<MovePinDownMenuItem {...menuRow(state)} {...first} />)
+    expect(firstDown.container.childElementCount).toBe(1)
+
+    const last = reorderShare(['two', 'one'])
+    const lastUp = render(<MovePinUpMenuItem {...menuRow(state)} {...last} />)
+    expect(lastUp.container.childElementCount).toBe(1)
+    const lastDown = render(<MovePinDownMenuItem {...menuRow(state)} {...last} />)
+    expect(lastDown.container.childElementCount).toBe(0)
+
+    const unpinned = reorderShare(['two', 'three'])
+    const noneUp = render(<MovePinUpMenuItem {...menuRow(state)} {...unpinned} />)
+    const noneDown = render(<MovePinDownMenuItem {...menuRow(state)} {...unpinned} />)
+    expect(noneUp.container.childElementCount).toBe(0)
+    expect(noneDown.container.childElementCount).toBe(0)
   })
 })
 
@@ -603,6 +651,7 @@ describe('RowActionToast', () => {
   it.each([
     ['pinFailed', '置顶失败，请稍后重试'],
     ['unpinFailed', '取消置顶失败，请稍后重试'],
+    ['reorderPinsFailed', '调整置顶顺序失败，请稍后重试'],
     ['archivedNotOpenable', '已归档对话暂时无法查看，请取消归档后查看'],
     ['defaultWorkspaceFailed', '无法创建默认工作区，请通过“选择工作区”选择文件夹'],
   ] as const)('shows the %s warning and takes it down when its hold ends', (kind, text) => {

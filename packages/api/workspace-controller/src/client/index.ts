@@ -15,6 +15,9 @@ import { WorkspaceController } from './service.ts'
 export { ClientWorkspaceModel } from './model.ts'
 export { ClientSessionPinsModel } from './pins.ts'
 export type { SessionPinsRemote, SessionPinsSource } from './pins.ts'
+// The ordered pin snapshot is the `session-pins` domain's own declaration, so
+// a surface reads the very type the Host emits.
+export type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
 export type {
   WorkspaceFollowSink, WorkspaceListPhase, WorkspaceRemote, WorkspaceSnapshot,
 } from './model.ts'

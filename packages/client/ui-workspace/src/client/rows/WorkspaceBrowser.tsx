@@ -245,6 +245,10 @@ type SessionTreeProps = Pick<
   setGroupExpanded: (key: string, expanded: boolean) => void
   /** Save a drag order and select Manual. */
   setSessionOrder: (accountKey: string, order: readonly string[]) => void
+  /** Complete pin display order owned by the `session-pins` domain. */
+  pinnedOrder: readonly SessionId[]
+  /** Persist a drag inside the pinned block as the new pin order. */
+  reorderPins: (orderedIds: readonly SessionId[]) => void
   /** Registry-global pin and archive sets plus the archived-visibility choice. */
   rowState: SessionRowState
   /** Switch the archived filter back to the default hide-archived view. */
@@ -286,7 +290,7 @@ function SessionTree({
   renderSlot,
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
-  setSessionOrder, home, t,
+  setSessionOrder, pinnedOrder, reorderPins, home, t,
   revealSessionId, onSessionRevealed, shortcuts,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
@@ -362,6 +366,15 @@ function SessionTree({
     const group = groups.find(candidate => candidate.key === activeDrag.accountKey)
     if (group === undefined) return
     if (over.id === activeDrag.sessionId) return
+    if (activeDrag.pinned) {
+      // The pinned block's order belongs to the pin domain, not to the
+      // browser's saved manual order: a drop inside it rewrites that order.
+      const pinnedRows = collapsedSessionRows(group.sessions, sessionLimits[group.key]).rows
+        .filter(row => row.pinned)
+      const nextPinned = sessionDragOrder(pinnedOrder, pinnedRows, activeDrag, over)
+      if (nextPinned !== undefined) reorderPins(nextPinned)
+      return
+    }
     const accountSessionIds = activeDrag.accountKey === UNGROUPED_KEY
       ? ungroupedSessionIds
       : workspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
@@ -531,8 +544,9 @@ function SessionTree({
           </div>
         )}
         {sessions.map((node) => {
-        // Session drag never leaves its browser-local account, and pinned
-        // rows reorder only within their leading pinned block.
+        // An ordinary Session drag never leaves its browser-local account; a
+        // pinned row reorders only within its leading pinned block, whose
+        // order the pin domain owns.
           const sameGroupDrag = drag !== null && drag.accountKey === group.key
           const compatibleTarget = sameGroupDrag && drag.pinned === node.pinned
           const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
@@ -628,7 +642,7 @@ function SessionTree({
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
   list, sessionIds, rowState, onLeaveArchivedOnly, useSessionStatus, open, onSessionRenameRequest,
-  usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
+  usePanelInfo, setSessionOrder, pinnedOrder, reorderPins, workspaceReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, t,
 }: Pick<
   SessionTreeProps,
@@ -638,6 +652,8 @@ function FlatList({
   | 'renderSlot'
   | 'usePanelInfo'
   | 'setSessionOrder'
+  | 'pinnedOrder'
+  | 'reorderPins'
   | 'workspaceReady'
   | 'animationResetKey'
   | 'revealSessionId'
@@ -665,6 +681,13 @@ function FlatList({
     if (dropCommitted.current) return
     dropCommitted.current = true
     setDrag(null)
+    if (activeDrag.pinned) {
+      // Pinned rows reorder in the pin domain's order, not the flat account's.
+      const pinnedRows = rows.filter(row => row.pinned)
+      const nextPinned = sessionDragOrder(pinnedOrder, pinnedRows, activeDrag, over)
+      if (nextPinned !== undefined) reorderPins(nextPinned)
+      return
+    }
     const nextOrder = sessionDragOrder(sessionIds, rows, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder)
   }
@@ -850,11 +873,13 @@ export function WorkspaceBrowser({
   deleteWorkspace,
   insertWorkspaceBefore,
   unarchiveSession,
+  reorderPins,
   createWorkspace,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  usePinnedOrder,
   useShortcuts,
   useWorkspaceShortcuts,
   requestSearch,
@@ -886,7 +911,8 @@ export function WorkspaceBrowser({
   const workspacePhase = useWorkspaces(state => state.phase)
   const workspaceStreamState = useWorkspaces(state => state.state)
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
-  const pinnedSessionIds = useWorkspaces(state => state.pinnedSessionIds)
+  // Pin membership and pin order both come from the ordered pin owner.
+  const pinnedOrder = usePinnedOrder(order => order)
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
@@ -918,8 +944,8 @@ export function WorkspaceBrowser({
     return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
   }, [list, workspaces])
   const orderState = useMemo(
-    () => ({ pinnedSessionIds, archivedSessionIds }),
-    [archivedSessionIds, pinnedSessionIds],
+    () => ({ pinnedSessionIds: pinnedOrder, archivedSessionIds }),
+    [archivedSessionIds, pinnedOrder],
   )
   const rowState = useMemo<SessionRowState>(
     () => ({ ...orderState, archivedFilter }),
@@ -1373,6 +1399,8 @@ export function WorkspaceBrowser({
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
                 setSessionOrder={saveSessionOrder}
+                pinnedOrder={pinnedOrder}
+                reorderPins={reorderPins}
                 revealSessionId={revealSessionId}
                 onSessionRevealed={acknowledgeSessionReveal}
                 t={t}
@@ -1394,6 +1422,8 @@ export function WorkspaceBrowser({
                 groupExpansion={groupExpansion}
                 setGroupExpanded={actions.setGroupExpanded}
                 setSessionOrder={saveSessionOrder}
+                pinnedOrder={pinnedOrder}
+                reorderPins={reorderPins}
                 rowState={rowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 startSession={startSession}

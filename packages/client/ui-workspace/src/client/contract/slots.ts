@@ -26,11 +26,11 @@
  * row of a Session's "..." menu is an entry of
  * `sidebar.workspaces.session.menu.item`, and every hover button at the row's
  * end is an entry of `sidebar.workspaces.session.row.action`. The shipped
- * actions — pin, rename, fork, archive — are ordinary entries this package
- * registers from `apply`, each carrying its own behavior in its own inject
- * face and reading its own Host state through hooks that face injects, so a
- * client plugin's action lands beside them by `order` and needs nothing from
- * the browser beyond the row identity.
+ * actions — pin, the two pin-move rows, rename, fork, archive — are ordinary
+ * entries this package registers from `apply`, each carrying its own behavior
+ * in its own inject face and reading its own Host state through hooks that
+ * face injects, so a client plugin's action lands beside them by `order` and
+ * needs nothing from the browser beyond the row identity.
  *
  * The browser entry additionally declares two `list` seats per Session row
  * (`sidebar.session.row.leading` / `sidebar.session.row.hover`) for ambient
@@ -80,6 +80,32 @@ export interface SessionRowOwnerProps {
   /** Row display title: persisted title, or empty when the Session has none. */
   displayTitle: string
 }
+
+/**
+ * Reorder share of the pinned block. Every pinned row reads the complete pin
+ * display order and moves itself by one place through the one write verb; the
+ * browser's drag gesture calls the same verb with the whole dragged order.
+ */
+export interface PinReorderInjected {
+  hooks: {
+    /**
+     * Complete pin display order owned by the `session-pins` domain: a pinned
+     * row's index here is its place in the pinned block of every group and of
+     * the flat list, and its index is stable while that order stands.
+     */
+    pinnedOrder: HostObservable<readonly SessionId[]>
+  }
+  /**
+   * Move one Session one place toward the start (`up`) or the end (`down`) of
+   * the pin order; either end is a no-op.
+   * @param sessionId - the pinned Session to move.
+   * @param direction - toward the block's start or its end.
+   */
+  movePin: (sessionId: SessionId, direction: 'up' | 'down') => void
+}
+
+/** Props of one pin-reorder menu entry. */
+export type ReorderPinMenuItemProps = SessionMenuItemProps<PinReorderInjected>
 
 /** The row menu's open state as its owner holds it: the `useState` pair. */
 export type MenuOpenState = readonly [open: boolean, setOpen: (open: boolean) => void]
@@ -224,6 +250,13 @@ export type WorkspaceBrowserInjected = {
     hostInfo: HostObservable<RemoteHostFacts>
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+    /**
+     * Complete pin display order owned by the `session-pins` domain. The
+     * browser derives both the pinned membership and the block's order from
+     * it, so a pin written through any surface moves the rows with no local
+     * emulation.
+     */
+    pinnedOrder: HostObservable<readonly SessionId[]>
   }
   /** Open the browser search and focus its input. */
   requestSearch: () => void
@@ -255,6 +288,12 @@ export type WorkspaceBrowserInjected = {
   searchResultLimit: number
   /** Open the Session rename dialog (a row title double-click); the rename action entry raises the same request. */
   requestSessionRename: (sessionId: SessionId, currentTitle: string) => void
+  /**
+   * Persist the complete pinned display order after a drag inside the pinned
+   * block. The order is the pin domain's own; a refused write restores the
+   * rows to the last committed order and raises the reorder notice.
+   */
+  reorderPins: (orderedIds: readonly SessionId[]) => void
   /** Tell the user an archived row cannot be opened (a click on it). */
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
@@ -293,6 +332,7 @@ export type RowToast =
   | { kind: 'stoppedAndArchived'; sessionId: SessionId }
   | { kind: 'pinFailed' }
   | { kind: 'unpinFailed' }
+  | { kind: 'reorderPinsFailed' }
   | { kind: 'archivedNotOpenable' }
   | { kind: 'defaultWorkspaceFailed' }
   | { kind: 'forkRequiresOpen'; sessionId: SessionId }
@@ -308,9 +348,9 @@ export type RowToastState = RowToast & { seq: number }
 
 /**
  * Pin action share (menu row and hover button). The callbacks carry the whole
- * behavior: the Host call, fronting the Session in its saved orders after a
- * pin, and the failure notice. The hooks are the registry-global sets as
- * Sets, so a row reads its own membership with one lookup.
+ * behavior: the Host call and the failure notice. The hooks are the
+ * registry-global sets as Sets, so a row reads its own membership with one
+ * lookup.
  */
 export interface PinSessionInjected {
   hooks: {
@@ -319,9 +359,9 @@ export interface PinSessionInjected {
     /** Archived Session ids (pin does not apply to an archived row). */
     archived: HostObservable<ReadonlySet<SessionId>>
   }
-  /** Pin a Session; on success it leads its accounts' saved orders, on failure the notice says so. */
+  /** Pin a Session: it joins the pinned block, whose order the pin domain owns; a failure raises the notice. */
   pinSession: (sessionId: SessionId) => void
-  /** Unpin a Session; saved positions stay as they are. */
+  /** Unpin a Session; every other saved position stays as it is. */
   unpinSession: (sessionId: SessionId) => void
 }
 
