@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-19-client-domain-graph-ratchet.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-19-client-domain-graph-ratchet.md
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline:
+  en: b1866edc253da2a1
+  zh: a400d91a9969dfb9
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline/problem:
+  en: 4e655866d763dd94
+  zh: bc100a0ac7209301
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline/decision:
+  en: de9b4862d706dbd1
+  zh: 80db5b54b8b5aa86
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline/baseline-identity-and-staleness:
+  en: a7c5c213dff20b82
+  zh: 8e9d0498ee80a233
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline/alternatives-considered:
+  en: f90f4bdcf2d2f601
+  zh: 45e55b7254f4cf12
+/agent-note-ratchet-the-client-domain-graph-gate-against-a-baseline/consequences:
+  en: cc0b271a6a0278af
+  zh: 5aa9c00faa7af478
