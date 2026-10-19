@@ -510,8 +510,8 @@ insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly Workspac
  * activity check, and the `workspace/session-stop` providers are then asked
  * to stop the session's work: the durable archive set is what a provider's
  * `agent/pre-step` gate reads, so every wake the stops induce is already
- * blocked. Archiving drops the session's pin and stamps its archive instant
- * in the same durable write (pinning and archival are mutually exclusive).
+ * blocked. Archiving stamps the session's archive instant and then drops its
+ * pin through the pins owner (pinning and archival are mutually exclusive).
  * An already archived id resolves without writing, asking, or stopping, so
  * a repeat never restamps the instant.
  * @param sessionId - The session to archive.
@@ -533,21 +533,21 @@ archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promi
 unarchiveSession(sessionId: SessionId): Promise<void>
 
 /**
- * Pin one session durably, prepending it to the registry-global pin set.
+ * Pin one session through the pins domain, which owns the ordered set.
  * The session must exist (live or in session persistence) and must not be
- * archived. An already pinned id resolves without writing or reordering.
+ * archived. An already pinned id keeps its position.
  * @param sessionId - The session to pin.
- * @returns resolution after durability.
+ * @returns resolution after the pins write is durable.
  */
 pinSession(sessionId: SessionId): Promise<void>
 
 /**
- * Unpin one session durably by dropping it from the registry-global pin
- * set. Unpinning runs no session-existence check because removing an id
- * cannot introduce an unknown one, so an entry whose session is gone still
- * resolves. An id that is not pinned resolves without writing.
+ * Unpin one session through the pins domain. Unpinning runs no
+ * session-existence check because removing an id cannot introduce an unknown
+ * one, so an entry whose session is gone still resolves. An id that is not
+ * pinned keeps every saved position.
  * @param sessionId - The session to unpin.
- * @returns resolution after durability.
+ * @returns resolution after the pins write is durable.
  */
 unpinSession(sessionId: SessionId): Promise<void>
 

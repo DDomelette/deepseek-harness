@@ -3959,7 +3959,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<void>',
-        description: 'Archive one session durably. The session must exist (live or in session persistence); its workspace accounting — or lack of one — is irrelevant. Without `stopActivity` the session must also be inactive: the `workspace/session-activity` waterfall is asked once, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the archive is written without an activity check, and the `workspace/session-stop` providers are then asked to stop the session\'s work: the durable archive set is what a provider\'s `agent/pre-step` gate reads, so every wake the stops induce is already blocked. Archiving drops the session\'s pin and stamps its archive instant in the same durable write (pinning and archival are mutually exclusive). An already archived id resolves without writing, asking, or stopping, so a repeat never restamps the instant.',
+        description: 'Archive one session durably. The session must exist (live or in session persistence); its workspace accounting — or lack of one — is irrelevant. Without `stopActivity` the session must also be inactive: the `workspace/session-activity` waterfall is asked once, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the archive is written without an activity check, and the `workspace/session-stop` providers are then asked to stop the session\'s work: the durable archive set is what a provider\'s `agent/pre-step` gate reads, so every wake the stops induce is already blocked. Archiving stamps the session\'s archive instant and then drops its pin through the pins owner (pinning and archival are mutually exclusive). An already archived id resolves without writing, asking, or stopping, so a repeat never restamps the instant.',
         parameters: [{ name: 'sessionId', description: 'The session to archive.' }, { name: 'options', description: 'Whether running work is stopped instead of refusing.' }],
         returns: 'resolution after durability and, with `stopActivity`, after every stop request was issued.',
       },
@@ -3971,15 +3971,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'pinSession(sessionId: SessionId): Promise<void>',
-        description: 'Pin one session durably, prepending it to the registry-global pin set. The session must exist (live or in session persistence) and must not be archived. An already pinned id resolves without writing or reordering.',
+        description: 'Pin one session through the pins domain, which owns the ordered set. The session must exist (live or in session persistence) and must not be archived. An already pinned id keeps its position.',
         parameters: [{ name: 'sessionId', description: 'The session to pin.' }],
-        returns: 'resolution after durability.',
+        returns: 'resolution after the pins write is durable.',
       },
       {
         signature: 'unpinSession(sessionId: SessionId): Promise<void>',
-        description: 'Unpin one session durably by dropping it from the registry-global pin set. Unpinning runs no session-existence check because removing an id cannot introduce an unknown one, so an entry whose session is gone still resolves. An id that is not pinned resolves without writing.',
+        description: 'Unpin one session through the pins domain. Unpinning runs no session-existence check because removing an id cannot introduce an unknown one, so an entry whose session is gone still resolves. An id that is not pinned keeps every saved position.',
         parameters: [{ name: 'sessionId', description: 'The session to unpin.' }],
-        returns: 'resolution after durability.',
+        returns: 'resolution after the pins write is durable.',
       },
       {
         signature: 'forgetSession(sessionId: SessionId): Promise<void>',
