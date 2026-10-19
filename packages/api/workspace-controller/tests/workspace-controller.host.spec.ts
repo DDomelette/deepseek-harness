@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionFlagRegistry from '@deepseek-ai/dsh-session-flags'
+import SessionPinsService from '@deepseek-ai/dsh-session-pins'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
@@ -51,7 +52,7 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
-async function harness(options: { systemDocuments?: boolean } = {}) {
+async function harness(options: { systemDocuments?: boolean; pins?: boolean } = {}) {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-workspace-controller-')))
   tempDirs.push(root)
   const ctx = new Context()
@@ -63,7 +64,9 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
   ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
+  await ctx.plugin(SessionFlagRegistry)
   await ctx.plugin(WorkspaceRegistry)
+  if (options.pins !== false) await ctx.plugin(SessionPinsService)
   const dispose = (): void => {}
   ctx.provide('typert', {
     lookups: { configure: () => dispose },
@@ -318,6 +321,44 @@ describe('WorkspaceController commands', () => {
     await expect(controller.unpinSession({ sessionId: session.id }))
       .resolves.toEqual({ pinnedSessionIds: [] })
   })
+
+  it('writes every pin through the pins domain the ordered model owns', async () => {
+    const { controller, ctx, root } = await harness()
+    const created = await controller.create({ path: stageDir(root, 'pin-agreement') })
+    const session = ctx.sessions.create(SessionId('agree'), {
+      meta: { cwd: created.workspace.path },
+    })
+
+    // The workspace command is a writer only through `ctx.sessionPins`: the
+    // ordered model's own `list()` sees exactly what the command reported.
+    await expect(controller.pinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [session.id] })
+    expect(ctx.sessionPins.list()).toEqual({
+      pinnedSessionIds: [session.id],
+      groupOrder: {},
+      flatOrder: [session.id],
+    })
+    expect(ctx.workspaceRegistry.pinnedSessionIds).toEqual([session.id])
+
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [] })
+    expect(ctx.sessionPins.list().pinnedSessionIds).toEqual([])
+    expect(ctx.sessionPins.list().flatOrder).toEqual([])
+  })
+
+  it('refuses pinning in a composition that does not mount the pins domain', async () => {
+    const { controller, ctx, root } = await harness({ pins: false })
+    const created = await controller.create({ path: stageDir(root, 'no-pins') })
+    const session = ctx.sessions.create(SessionId('unpinnable'), {
+      meta: { cwd: created.workspace.path },
+    })
+
+    await expect(controller.pinSession({ sessionId: session.id }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    expect(ctx.workspaceRegistry.pinnedSessionIds).toEqual([])
+  })
 })
 
 describe('WorkspaceController follow', () => {
@@ -367,7 +408,6 @@ describe('WorkspaceController follow', () => {
 
   it('merges every session flag provider into the baseline', async () => {
     const { controller, ctx } = await harness()
-    await ctx.plugin(SessionFlagRegistry)
     ctx.sessionFlags.registerProvider({
       id: 'fixture-pins',
       list: () => ({ [SessionId('flagged')]: { pinned: true } }),

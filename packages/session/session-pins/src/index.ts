@@ -81,6 +81,18 @@ export class SessionPinsService extends TypertRemoteService {
     }), 'session-pins.flagProvider')
   }
 
+  /**
+   * Whether the pins domain is open. A consumer that projects this service's
+   * state from `ctx.get('sessionPins')` reads this first: the service is
+   * registered while its initialization is still pending, and `list()` throws
+   * until the domain opens.
+   *
+   * @returns true once the domain is open and every mutation is durable.
+   */
+  get ready(): boolean {
+    return this.global !== undefined
+  }
+
   private requireState(): SessionPinsDomainState {
     return this.requireGlobal().get()
   }

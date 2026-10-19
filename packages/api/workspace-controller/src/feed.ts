@@ -17,6 +17,9 @@ import type {
 } from './types.ts'
 import { sameArchiveInstants } from './archive-instants.ts'
 
+/** The storage domain `@deepseek-ai/dsh-session-pins` owns; its writes move the pin set. */
+const PINS_DOMAIN = 'session_pins'
+
 /**
  * Project one authoritative Workspace entity into its Remote value.
  * @param workspace - authoritative registry entity.
@@ -107,6 +110,12 @@ export class WorkspaceFeed {
   }
 
   private changed(change: DomainChanged): void {
+    // Ordered pins live in their own domain, projected by the Workspace
+    // registry; a write there is what moves the pin set this stream reports.
+    if (change.domain === PINS_DOMAIN) {
+      this.refreshPinned()
+      return
+    }
     if (change.domain !== 'workspace') return
     if (change.table === '') {
       if (change.operation !== 'put') return
@@ -137,11 +146,6 @@ export class WorkspaceFeed {
           archivedSessionAts: { ...state.archivedSessionAts },
         })
       }
-      const nextPinned = state.pinnedSessionIds.map(String)
-      if (!sameStrings(this.pinned, nextPinned)) {
-        this.pinned = nextPinned
-        this.publish({ type: 'pinned', pinnedSessionIds: [...state.pinnedSessionIds] })
-      }
       return
     }
     if (change.table !== 'workspaces') return
@@ -155,6 +159,14 @@ export class WorkspaceFeed {
       type: 'upsert',
       workspace: changedWorkspaceView(change.key, change.value),
     })
+  }
+
+  /** Publish the complete pin projection when the pins domain moved it. */
+  private refreshPinned(): void {
+    const pinnedSessionIds = this.ctx.workspaceRegistry.pinnedSessionIds
+    if (sameStrings(this.pinned, pinnedSessionIds.map(String))) return
+    this.pinned = pinnedSessionIds.map(String)
+    this.publish({ type: 'pinned', pinnedSessionIds: [...pinnedSessionIds] })
   }
 
   private publish(frame: Exclude<WorkspaceFollowFrame, { readonly type: 'baseline' }>): void {

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin owns a `session_pins` storage domain and registers one `SessionFlagProvider` that projects `pinned: true` for every pinned session id. Browser surfaces read the flags from the `workspace/follow` baseline's `sessionFlags` and mutate pins through the generated `remote.sessionPins`.
+Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin owns a `session_pins` storage domain and registers one `SessionFlagProvider` that projects `pinned: true` for every pinned session id. The `WorkspaceRegistry` delegates its pin verbs to this service and projects `pinnedSessionIds` from it for the `workspace/follow` stream, so the Workspace pin commands and this domain cannot diverge. Browser surfaces read the ordered snapshot through the Client owner over the generated `remote.sessionPins` namespace.
 
 
 ## Table of Contents
@@ -23,7 +23,7 @@ Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin 
 <a id="service-api"></a>
 ## Service API
 
-`ctx.sessionPins` exposes `list()`, `setPinned({ sessionId, pinned })`, `reorderGroup({ groupKey, orderedIds })`, and `reorderFlat({ orderedIds })`. Every mutation writes the domain global first and returns the complete `SessionPinsSnapshot` after durability.
+`ctx.sessionPins` exposes `list()`, `setPinned({ sessionId, pinned })`, `reorderGroup({ groupKey, orderedIds })`, and `reorderFlat({ orderedIds })`. Every mutation writes the domain global first and returns the complete `SessionPinsSnapshot` after durability. `ready` reports whether the domain is open: a consumer that projects this service from `ctx.get('sessionPins')` reads it first, because `list()` throws until initialization completes.
 
 <a id="durable-shape"></a>
 ## Durable shape

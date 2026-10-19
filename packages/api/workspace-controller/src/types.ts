@@ -154,7 +154,7 @@ export interface WorkspaceUnpinSessionRequest {
   readonly sessionId: SessionId
 }
 
-/** Complete pinned Session set after a mutation, most recently pinned first. */
+/** Complete pinned Session set after a mutation, in the order the pins domain holds. */
 export interface WorkspacePinValue {
   readonly pinnedSessionIds: readonly SessionId[]
 }
@@ -165,7 +165,7 @@ export interface WorkspaceBaseline {
   readonly archivedSessionIds: readonly SessionId[]
   /** ISO-8601 archive instants keyed by Session id; see {@link WorkspaceArchiveValue}. */
   readonly archivedSessionAts: Readonly<Record<SessionId, string>>
-  /** Registry-global pin set, most recently pinned first. */
+  /** Registry-global pin set, projected from the pins domain in its own order. */
   readonly pinnedSessionIds: readonly SessionId[]
   /**
    * Presentation flags merged from the Host's `sessionFlags` providers, keyed

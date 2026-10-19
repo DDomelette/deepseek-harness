@@ -38,6 +38,42 @@ interface HarnessOptions {
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
   backend?: StorageBackend
+  /** `absent` boots a profile that does not mount the pins owner. */
+  pins?: 'mounted' | 'absent'
+}
+
+/** Stand-in for the `session_pins` owner: records each delegation and projects its own ordered set. */
+interface FakePins {
+  readonly writes: Array<{ readonly sessionId: SessionId; readonly pinned: boolean }>
+  readonly service: {
+    ready: boolean
+    list(): {
+      pinnedSessionIds: SessionId[]
+      groupOrder: Record<string, SessionId[]>
+      flatOrder: SessionId[]
+    }
+    setPinned(input: { sessionId: string; pinned: boolean }): Promise<unknown>
+  }
+}
+
+function fakePins(): FakePins {
+  const pinned: SessionId[] = []
+  const writes: Array<{ sessionId: SessionId; pinned: boolean }> = []
+  return {
+    writes,
+    service: {
+      ready: true,
+      list: () => ({ pinnedSessionIds: [...pinned], groupOrder: {}, flatOrder: [...pinned] }),
+      setPinned: async (input) => {
+        const sessionId = SessionId(input.sessionId)
+        writes.push({ sessionId, pinned: input.pinned })
+        const at = pinned.indexOf(sessionId)
+        if (input.pinned && at === -1) pinned.push(sessionId)
+        else if (!input.pinned && at !== -1) pinned.splice(at, 1)
+        return { pinnedSessionIds: [...pinned] }
+      },
+    },
+  }
 }
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
@@ -56,6 +92,9 @@ async function harness(options: HarnessOptions = {}) {
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
   const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
   ctx.provide('sessionPersistence', { list, open, stat } as never)
+
+  const pins = fakePins()
+  if (options.pins !== 'absent') ctx.provide('sessionPins', pins.service as never)
 
   if (options.sessionStore === true) {
     await ctx.plugin(SessionStore)
@@ -82,6 +121,7 @@ async function harness(options: HarnessOptions = {}) {
     list,
     open,
     stat,
+    pins,
     setSessions: (headers: SessionHeader[]) => { listed = headers },
   }
 }
@@ -1170,43 +1210,36 @@ describe('registry-global session unarchive', () => {
 })
 
 describe('registry-global session pin', () => {
-  it('pins durably in prepend order, idempotently skips repeats, and leaves accounting untouched', async () => {
+  it('delegates every pin write to the pins owner and projects its set', async () => {
     const dir = await makeDir('pin-home')
     const result = await harness({ sessions: [header('first', dir, 100), header('second', dir, 200)] })
     const workspace = result.registry.list()[0]!
     expect(result.registry.pinnedSessionIds).toEqual([])
 
     await result.registry.pinSession(SessionId('first'))
+    expect(result.pins.writes).toEqual([{ sessionId: SessionId('first'), pinned: true }])
     expect(result.registry.pinnedSessionIds).toEqual(['first'])
-    const firstEntry = result.registry.pinnedSessionIds[0]!
-    expect(firstEntry).toEqual(SessionId('first'))
-    // Pinning is a display-set write: the workspace account keeps the id.
+    // Pinning is a display-set write: the workspace account keeps the id, and
+    // the registry persists no pin state of its own.
     expect(workspace.sessionIds).toContain('first')
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([firstEntry])
-    const changesAfterFirst = result.changes.filter(change => change.table === '').length
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
 
-    await result.registry.pinSession(SessionId('first'))
-    expect(result.registry.pinnedSessionIds).toEqual([firstEntry])
-    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
-
-    // The most recent pin lands first (display order).
     await result.registry.pinSession(SessionId('second'))
-    expect(result.registry.pinnedSessionIds).toEqual(['second', 'first'])
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([
-      SessionId('second'), SessionId('first'),
-    ])
+    expect(result.registry.pinnedSessionIds).toEqual(['first', 'second'])
   })
 
-  it('rejects pinning archived and unknown sessions without writing', async () => {
+  it('rejects pinning archived and unknown sessions without delegating', async () => {
     const dir = await makeDir('pin-rejects')
     const result = await harness({ sessions: [header('stored', dir, 100)] })
     await result.registry.archiveSession(SessionId('stored'))
+    const writes = [...result.pins.writes]
 
     await expect(result.registry.pinSession(SessionId('stored')))
       .rejects.toThrow(/cannot pin session 'stored': the session is archived/)
     await expect(result.registry.pinSession(SessionId('ghost')))
       .rejects.toThrow(/cannot pin session 'ghost'/)
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+    expect(result.pins.writes).toEqual(writes)
+    expect(result.registry.pinnedSessionIds).toEqual([])
   })
 
   it('propagates a persistence-listing failure instead of reporting an unknown session', async () => {
@@ -1216,10 +1249,10 @@ describe('registry-global session pin', () => {
     // which the API layer would misreport as session-not-found.
     await expect(result.registry.pinSession(SessionId('unlisted')))
       .rejects.toThrow(/persistence backend down/)
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+    expect(result.pins.writes).toEqual([])
   })
 
-  it('archiving drops the pin in the same durable write', async () => {
+  it('archiving drops the pin through the pins owner', async () => {
     const dir = await makeDir('pin-then-archive')
     const result = await harness({ sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
     await result.registry.pinSession(SessionId('s1'))
@@ -1228,28 +1261,42 @@ describe('registry-global session pin', () => {
     await result.registry.archiveSession(SessionId('s1'))
     expect(result.registry.pinnedSessionIds).toEqual(['s2'])
     expect(result.registry.archivedSessionIds).toEqual(['s1'])
-    const stored = storedState(result.pool)
-    expect(stored.pinnedSessionIds).toEqual(['s2'])
-    expect(stored.archivedSessionIds).toEqual(['s1'])
+    expect(result.pins.writes.at(-1)).toEqual({ sessionId: SessionId('s1'), pinned: false })
   })
 
-  it('restores the pin set across restarts', async () => {
-    const dir = await makeDir('pin-restart')
-    const pool = new MemoryMediaPool()
-    const sessions = [header('kept', dir, 100)]
-    const first = await harness({ pool, sessions })
-    await first.registry.pinSession(SessionId('kept'))
-    const pinned = [...first.registry.pinnedSessionIds]
-    await first.fiber.dispose()
+  it('imports the pin set earlier versions stored in this domain', async () => {
+    const pool = storedPool([], {
+      initialized: true,
+      workspaceIds: [],
+      archivedSessionIds: [],
+      archivedSessionAts: {},
+      pinnedSessionIds: ['second', 'first'],
+    })
 
-    const second = await harness({ pool, sessions })
-    expect(second.registry.pinnedSessionIds).toEqual(pinned)
+    const result = await harness({ pool })
+
+    expect(result.pins.writes).toEqual([
+      { sessionId: SessionId('second'), pinned: true },
+      { sessionId: SessionId('first'), pinned: true },
+    ])
+    expect(result.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
   })
 
+  it('reports no pins and refuses pin writes in a profile without the pins owner', async () => {
+    const dir = await makeDir('pin-unmounted')
+    const result = await harness({ sessions: [header('s1', dir, 100)], pins: 'absent' })
+
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    await expect(result.registry.pinSession(SessionId('s1')))
+      .rejects.toThrow(/requires the session-pins service/)
+    await expect(result.registry.unpinSession(SessionId('s1')))
+      .rejects.toThrow(/requires the session-pins service/)
+  })
 })
 
 describe('registry-global session unpin', () => {
-  it('unpins durably in place and idempotently skips absent ids', async () => {
+  it('delegates removal to the pins owner and projects its remaining order', async () => {
     const dir = await makeDir('unpin-home')
     const result = await harness({
       sessions: [header('one', dir, 100), header('two', dir, 200), header('three', dir, 300)],
@@ -1257,18 +1304,18 @@ describe('registry-global session unpin', () => {
     await result.registry.pinSession(SessionId('one'))
     await result.registry.pinSession(SessionId('two'))
     await result.registry.pinSession(SessionId('three'))
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'two', 'one'])
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'two', 'three'])
 
     await result.registry.unpinSession(SessionId('two'))
-    // Removal keeps the survivors in pin order.
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'one'])
-    expect(storedState(result.pool).pinnedSessionIds).toEqual(['three', 'one'])
-    const changesAfterFirst = result.changes.filter(change => change.table === '').length
+    // Removal keeps the survivors in the owner's order.
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
+    expect(result.pins.writes.at(-1)).toEqual({ sessionId: SessionId('two'), pinned: false })
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
 
+    // The absent-id repeat is the owner's idempotent no-op: the registry still
+    // hands it the write rather than keeping a copy to answer from.
     await result.registry.unpinSession(SessionId('two'))
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'one'])
-    // The absent-id repeat neither rewrites the medium nor emits a change.
-    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
   })
 
   it('unpins an entry whose session is gone without consulting session persistence', async () => {

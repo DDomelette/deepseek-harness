@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `session_pins` 存储 domain，并注册一个 `SessionFlagProvider`，把每个置顶会话 id 投影为 `pinned: true`。浏览器侧从 `workspace/follow` 基线的 `sessionFlags` 读取标记，并通过生成的 `remote.sessionPins` 变更置顶。
+DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `session_pins` 存储 domain，并注册一个 `SessionFlagProvider`，把每个置顶会话 id 投影为 `pinned: true`。`WorkspaceRegistry` 把置顶动词委托给本服务，并从本服务投影出 `pinnedSessionIds` 供 `workspace/follow` 流使用，因此 Workspace 置顶命令与本领域不会分叉。浏览器侧通过 Client 持有者经生成的 `remote.sessionPins` 命名空间读取有序快照。
 
 
 ## 目录
@@ -23,7 +23,7 @@ DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `se
 <a id="service-api"></a>
 ## 服务 API
 
-`ctx.sessionPins` 暴露 `list()`、`setPinned({ sessionId, pinned })`、`reorderGroup({ groupKey, orderedIds })` 和 `reorderFlat({ orderedIds })`。每次变更先写 domain global，落盘后返回完整的 `SessionPinsSnapshot`。
+`ctx.sessionPins` 暴露 `list()`、`setPinned({ sessionId, pinned })`、`reorderGroup({ groupKey, orderedIds })` 和 `reorderFlat({ orderedIds })`。每次变更先写 domain global，落盘后返回完整的 `SessionPinsSnapshot`。`ready` 表示 domain 是否已打开：从 `ctx.get('sessionPins')` 投影本服务的消费方要先读它，因为初始化完成前 `list()` 会抛错。
 
 <a id="durable-shape"></a>
 ## 持久化形态

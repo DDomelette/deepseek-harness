@@ -82,6 +82,14 @@ export class WorkspaceArchivedSessionPinError extends Error {
   }
 }
 
+/** A pin request reached a profile that does not mount the pins owner, so the pin has no record. */
+export class WorkspacePinsUnavailableError extends Error {
+  constructor() {
+    super('Workspace pinning requires the session-pins service; this profile does not mount it')
+    this.name = 'WorkspacePinsUnavailableError'
+  }
+}
+
 /** A workspace reorder named a source or anchor absent from the durable registry order. */
 export class WorkspaceOrderInvalidError extends Error {
   /**
@@ -93,6 +101,23 @@ export class WorkspaceOrderInvalidError extends Error {
   }
 }
 
+
+/** The optional `session_pins` owner this registry delegates pins to and projects. */
+interface PinnedSessions {
+  /** Whether that service's domain is open; false while it is still starting. */
+  readonly ready: boolean
+  /** @returns the current durable pin snapshot. */
+  list(): { readonly pinnedSessionIds: readonly SessionId[] }
+  /**
+   * Add or remove one pinned Session id.
+   * @param input - the Session id and the desired membership.
+   * @returns the committed snapshot.
+   */
+  setPinned(input: {
+    readonly sessionId: SessionId
+    readonly pinned: boolean
+  }): Promise<unknown>
+}
 
 /** The session an archive request is about to write into the archive set. */
 export interface SessionActivityRequest {
@@ -215,6 +240,7 @@ export class WorkspaceRegistry extends Service {
     this.validateStoredState(this.requireState())
     this.rebuildEntities()
     this.reportFilteredCandidates()
+    await this.importLegacyPins()
   }
 
   /**
@@ -363,8 +389,8 @@ export class WorkspaceRegistry extends Service {
    * activity check, and the `workspace/session-stop` providers are then asked
    * to stop the session's work: the durable archive set is what a provider's
    * `agent/pre-step` gate reads, so every wake the stops induce is already
-   * blocked. Archiving drops the session's pin and stamps its archive instant
-   * in the same durable write (pinning and archival are mutually exclusive).
+   * blocked. Archiving stamps the session's archive instant and then drops its
+   * pin through the pins owner (pinning and archival are mutually exclusive).
    * An already archived id resolves without writing, asking, or stopping, so
    * a repeat never restamps the instant.
    * @param sessionId - The session to archive.
@@ -390,8 +416,8 @@ export class WorkspaceRegistry extends Service {
         ...state,
         archivedSessionIds: [...state.archivedSessionIds, sessionId],
         archivedSessionAts: { ...state.archivedSessionAts, [sessionId]: new Date().toISOString() },
-        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
       })
+      await this.dropPin(sessionId)
       if (options.stopActivity === true) await this.stopSessionActivity(sessionId)
     })
   }
@@ -421,59 +447,102 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * The registry-global pin set: sessions surfaced ahead of every unpinned
-   * session on grouping surfaces. Pinning never touches workspace accounting.
-   * @returns Session ids in pin order (most recently pinned first).
+   * The registry-global pin set, projected from the `session_pins` domain that
+   * owns ordered pins. The registry persists no pin state of its own; a
+   * composition without that service reports an empty set.
+   * @returns Session ids in the order the pins domain holds them.
    */
   get pinnedSessionIds(): readonly SessionId[] {
-    return this.requireState().pinnedSessionIds
+    const pins = this.pins()
+    return pins === undefined || !pins.ready ? [] : pins.list().pinnedSessionIds
   }
 
   /**
-   * Pin one session durably, prepending it to the registry-global pin set.
+   * Pin one session through the pins domain, which owns the ordered set.
    * The session must exist (live or in session persistence) and must not be
-   * archived. An already pinned id resolves without writing or reordering.
+   * archived. An already pinned id keeps its position.
    * @param sessionId - The session to pin.
-   * @returns resolution after durability.
+   * @returns resolution after the pins write is durable.
    */
   pinSession(sessionId: SessionId): Promise<void> {
     return this.enqueueOperation(async () => {
       // The chain slot serializes against every other registry write, so this
-      // check-then-write pair cannot interleave with another pin or archive.
-      if (this.requireState().pinnedSessionIds.includes(sessionId)) return
+      // check-then-write pair cannot interleave with a concurrent archive.
       if (this.requireState().archivedSessionIds.includes(sessionId)) {
         throw new WorkspaceArchivedSessionPinError(sessionId)
       }
       if (!(await this.sessionKnown(sessionId))) {
         throw new WorkspaceUnknownSessionError(sessionId, 'pin')
       }
-      const state = this.requireState()
-      await this.setState({
-        ...state,
-        pinnedSessionIds: [sessionId, ...state.pinnedSessionIds],
-      })
+      await this.requirePins().setPinned({ sessionId, pinned: true })
     })
   }
 
   /**
-   * Unpin one session durably by dropping it from the registry-global pin
-   * set. Unpinning runs no session-existence check because removing an id
-   * cannot introduce an unknown one, so an entry whose session is gone still
-   * resolves. An id that is not pinned resolves without writing.
+   * Unpin one session through the pins domain. Unpinning runs no
+   * session-existence check because removing an id cannot introduce an unknown
+   * one, so an entry whose session is gone still resolves. An id that is not
+   * pinned keeps every saved position.
    * @param sessionId - The session to unpin.
-   * @returns resolution after durability.
+   * @returns resolution after the pins write is durable.
    */
   unpinSession(sessionId: SessionId): Promise<void> {
     return this.enqueueOperation(async () => {
-      // The chain slot serializes against every other registry write, so this
-      // check-then-write pair cannot interleave with a concurrent pin.
-      const state = this.requireState()
-      if (!state.pinnedSessionIds.includes(sessionId)) return
-      await this.setState({
-        ...state,
-        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
-      })
+      await this.requirePins().setPinned({ sessionId, pinned: false })
     })
+  }
+
+  /** The optional pins owner this registry projects, when the profile mounts it. */
+  private pins(): PinnedSessions | undefined {
+    return this.ctx.get('sessionPins') as PinnedSessions | undefined
+  }
+
+  /**
+   * The pins owner, or a loud failure: a profile without it has nowhere to
+   * record a pin, and reporting success for a write that never happened would
+   * make the pin silently vanish.
+   */
+  private requirePins(): PinnedSessions {
+    const pins = this.pins()
+    if (pins === undefined || !pins.ready) throw new WorkspacePinsUnavailableError()
+    return pins
+  }
+
+  /**
+   * Drop one Session's pin after its removal from the visible sets committed.
+   * A pins write that fails here leaves the id pinned while archived or
+   * deleted: no surface shows a pin for either, and the next pin write
+   * reconciles the order, so the failure is logged instead of thrown.
+   */
+  private async dropPin(sessionId: SessionId): Promise<void> {
+    const pins = this.pins()
+    if (pins === undefined || !pins.ready) return
+    if (!pins.list().pinnedSessionIds.includes(sessionId)) return
+    try {
+      await pins.setPinned({ sessionId, pinned: false })
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`workspace: dropping the pin of session '${sessionId}' failed: ${String(error)}`)
+    }
+  }
+
+  /**
+   * Move the pin set that earlier versions stored in this domain into the
+   * pins owner, keeping its recorded order as the owner's order, then clear
+   * the field. A profile without the service keeps the field unchanged, so a
+   * later open that mounts it imports the pins instead of dropping them.
+   */
+  private async importLegacyPins(): Promise<void> {
+    const pinned = this.requireState().pinnedSessionIds
+    if (pinned.length === 0) return
+    const pins = this.pins()
+    if (pins === undefined || !pins.ready) return
+    try {
+      for (const sessionId of pinned) await pins.setPinned({ sessionId, pinned: true })
+      await this.setState({ ...this.requireState(), pinnedSessionIds: [] })
+    } catch (error: unknown) {
+      // The field stays the durable record until the whole import commits.
+      this.ctx.logger.warn(`workspace: importing stored pins into session-pins failed: ${String(error)}`)
+    }
   }
 
   /**
@@ -497,13 +566,13 @@ export class WorkspaceRegistry extends Service {
       this.headers.delete(sessionId)
       this.sessionPaths.delete(sessionId)
       this.invalidSessionPaths.delete(sessionId)
+      await this.dropPin(sessionId)
       const state = this.requireState()
-      if (!state.archivedSessionIds.includes(sessionId) && !state.pinnedSessionIds.includes(sessionId)) return
+      if (!state.archivedSessionIds.includes(sessionId)) return
       await this.setState({
         ...state,
         archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
         archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
-        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
       })
     })
   }

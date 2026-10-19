@@ -51,11 +51,12 @@ const workspacePendingMutation = z.discriminatedUnion('operation', [
  * position), so the set never participates in the one-owner accounting
  * invariant. `archivedSessionAts` stamps each archive instant (ISO-8601) and
  * stays key-equal to `archivedSessionIds`; entries archived before the field
- * existed carry no timestamp. `pinnedSessionIds` is the registry-global pin
- * set in pin order (most recently pinned first); pinning and archival are
- * mutually exclusive, so archiving drops the session's pin. The archive id
- * set, the archive-instant map, and the pin set are all defaulted, so records
- * written before the fields parse unchanged.
+ * existed carry no timestamp. `pinnedSessionIds` is the pin set this domain
+ * stopped owning: the registry imports it into the `session_pins` domain
+ * (ordered pins live there) at open and then writes the field back empty, so
+ * the field is the durable carrier for pins recorded before that domain
+ * existed. The archive id set, the archive-instant map, and the pin set are
+ * all defaulted, so records written before the fields parse unchanged.
  */
 export const workspaceDomainState = z.object({
   initialized: z.boolean(),

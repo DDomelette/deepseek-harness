@@ -8,6 +8,7 @@ import {
   WorkspaceId,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
+  WorkspacePinsUnavailableError,
   WorkspaceUnknownSessionError,
 } from '@deepseek-ai/dsh-workspace'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
@@ -201,9 +202,11 @@ export class WorkspaceCommands {
   }
 
   /**
-   * Add one known unarchived Session to the registry-global pin set.
+   * Add one known unarchived Session to the ordered pin set owned by
+   * `session-pins`, and report that owner's projection. A profile without the
+   * owner refuses the pin instead of reporting a write that never happened.
    * @param request - Session identity to pin.
-   * @returns the complete resulting pin set, most recently pinned first.
+   * @returns the complete resulting pin set, in the order the pins domain holds.
    */
   async pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue> {
     try {
@@ -215,20 +218,28 @@ export class WorkspaceCommands {
       if (error instanceof WorkspaceArchivedSessionPinError) {
         throw new RemoteError('gateway/bad-request', error.message, {}, { cause: error })
       }
+      if (error instanceof WorkspacePinsUnavailableError) {
+        throw new RemoteError('gateway/bad-request', error.message, {}, { cause: error })
+      }
       throw error
     }
     return { pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds] }
   }
 
   /**
-   * Drop one Session from the registry-global pin set. An id that is not
-   * pinned is not an error: the call is idempotent, so a lost race with
-   * another surface resolves as a no-op.
+   * Drop one Session from the ordered pin set owned by `session-pins`. An id
+   * that is not pinned is not an error: the call is idempotent, so a lost race
+   * with another surface resolves as a no-op.
    * @param request - Session identity to unpin.
-   * @returns the complete resulting pin set, most recently pinned first.
+   * @returns the complete resulting pin set, in the order the pins domain holds.
    */
   async unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue> {
-    await this.ctx.workspaceRegistry.unpinSession(request.sessionId)
+    try {
+      await this.ctx.workspaceRegistry.unpinSession(request.sessionId)
+    } catch (error) {
+      if (!(error instanceof WorkspacePinsUnavailableError)) throw error
+      throw new RemoteError('gateway/bad-request', error.message, {}, { cause: error })
+    }
     return { pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds] }
   }
 
