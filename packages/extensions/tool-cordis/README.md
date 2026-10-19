@@ -191,6 +191,7 @@ These limits define when the toolset is a poor fit or needs special care. They a
 - **The sandbox is containment for honest code, not a security boundary** — host-realm helpers on the sandbox global are reachable, so package code can reach Node; load this plugin as deliberately as you would grant a bash tool.
 - **Plain JavaScript only** — dynamic package code is not transformed: no TypeScript, JSX, or imports, and the sandbox withholds Node globals such as `require`, `setTimeout`, and `fetch`, redirecting filesystem, network, and process work to Cordis services.
 - **The vm and approval bounds belong to the runner** — see its [Known Limitations](../cordis-host-runner/README.md#known-limitations-and-deferred-work); an async host-half body escapes `vmTimeoutMs`.
+- **Client queries need a responding page** — they use the Host runner's [bounded wait and retry policy](../cordis-host-runner/README.md#client-inspection), and inspection never invokes service methods, configures plugins, or executes generated code.
 
 <a id="dev-note"></a>
 ### Dev Note

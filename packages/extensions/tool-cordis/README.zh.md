@@ -191,6 +191,7 @@ Dynamic Cordis plugins temporarily extend the current DSH process. A Plugin uses
 - **沙箱只用于约束诚实代码，并非安全边界**——可以触及沙箱全局变量上的 host realm helper，因此包代码可以触达 Node；加载本插件时，应当像授予 bash 工具一样慎重。
 - **只支持纯 JavaScript**——动态包代码不做任何转换：没有 TypeScript、JSX 或 import，沙箱还不提供 `require`、`setTimeout`、`fetch` 等 Node 全局变量，把文件、网络与进程工作重定向到 Cordis 服务。
 - **vm 与审批边界属于 runner**——见它的[已知限制](../cordis-host-runner/README.zh.md#known-limitations-and-deferred-work)；async 的 host 半主体可逃出 `vmTimeoutMs`。
+- **Client 查询需要页面应答**——采用 Host runner 的[有界等待与重试策略](../cordis-host-runner/README.zh.md#client-inspection)，且检查不会调用服务方法、配置插件或执行生成代码。
 
 <a id="dev-note"></a>
 ### 开发备注
