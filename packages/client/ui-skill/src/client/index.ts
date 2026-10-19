@@ -19,8 +19,9 @@
  * snapshot locally, so one session costs one RPC. The scope-birth warm hook
  * prewarms the session's key; a preset switch drops that one key (the
  * catalog is the preset's, and a blank session may switch after the warm);
- * connection/reset clears everything — the host
- * catalog may differ across generations. A shared in-flight fetch
+ * the registry's skills/change notification and connection/reset clear
+ * everything — the host catalog differs across generations and across
+ * committed enablement overrides. A shared in-flight fetch
  * deliberately outlives any single menu interaction: closing the menu must
  * not kill the prewarm other consumers will hit, so it carries its own
  * abort (fired only on invalidation/teardown) while a candidates caller
@@ -228,6 +229,11 @@ export function apply(ctx: ClientContext): void {
   // A preset decides which skill providers an agent reads, so a switched
   // session's cached catalog belongs to the composition it no longer runs.
   ctx.remote.$on('agent-preset/selected', invalidate)
+  // The registry's unfiltered catalog notification: a provider mutation or a
+  // committed settings override changes what every session's catalog serves
+  // (a disabled skill leaves it, an enabled one joins it). It addresses no
+  // session, so no held catalog survives it.
+  ctx.remote.$on('skills/change', clearAll)
   ctx.on('connection/reset', clearAll)
   ctx.effect(() => {
     const unregister = inputTriggers.registerSource(source)

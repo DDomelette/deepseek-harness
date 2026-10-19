@@ -5,7 +5,8 @@
  * the source behavior contract driven directly on the captured source with
  * real ClientSessionContext projections — sessionId addressing, the
  * session-keyed catalog cache (single-flight per key, scope-birth warm
- * prewarm, connection/reset clear), shared fuzzy name ranking, RPC-failure
+ * prewarm, per-session preset invalidation, and the skills/change and
+ * connection/reset global clears), shared fuzzy name ranking, RPC-failure
  * rejection, pick → plain-text outcome (the plain-text-reference decision:
  * .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md),
  * the synchronous
@@ -361,6 +362,43 @@ describe('catalog cache', () => {
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(2)
     ctx.emit('connection/reset')
+    await source.candidates(proj('s1'), req(''))
+    await source.candidates(proj('s2'), req(''))
+    expect(payloads).toHaveLength(4)
+  })
+
+  it('skills/change drops the held catalog so an enablement override reaches the menu', async () => {
+    let catalog = CATALOG
+    const payloads: object[] = []
+    const { source, remote } = await bench((payload) => {
+      payloads.push(payload)
+      return listOk(catalog)(payload)
+    })
+    const names = async () => (await source.candidates(proj('s1'), req(''))).map(candidate => candidate.name)
+    await expect(names()).resolves.toEqual(['commit-helper', 'code-review', 'deploy'])
+    // A settings toggle commits a `disabled` roster; the host registry then
+    // broadcasts one notification with no session address.
+    catalog = [
+      ...CATALOG.filter(skill => skill.name !== 'commit-helper'),
+      { name: 'fresh-skill', description: 'enabled by the same write', modelInvocable: true },
+    ]
+    remote.emit('skills/change', [])
+    // The dropped snapshot leaves the lexicon (draft chip visuals) at once.
+    expect(source.lexicon!(proj('s1'))).toBeUndefined()
+    // The disabled skill no longer reaches the menu, and the enabled one does,
+    // without a reconnection.
+    await expect(names()).resolves.toEqual(['code-review', 'deploy', 'fresh-skill'])
+    expect(payloads).toEqual([{ sessionId: 's1' }, { sessionId: 's1' }])
+  })
+
+  it('skills/change clears every cached session', async () => {
+    const { list, payloads } = countingList()
+    const { source, remote } = await bench(list)
+    await source.candidates(proj('s1'), req(''))
+    await source.candidates(proj('s2'), req(''))
+    expect(payloads).toHaveLength(2)
+    // The notification addresses no session, so no key survives it.
+    remote.emit('skills/change', [])
     await source.candidates(proj('s1'), req(''))
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(4)
