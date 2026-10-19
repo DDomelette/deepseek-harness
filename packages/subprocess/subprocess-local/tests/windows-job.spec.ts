@@ -103,7 +103,7 @@ describe('Windows Job capability', () => {
       child.emit('spawn')
       child.emit('message', { type: 'target-exit', exitCode: 0 })
       child.connected = false
-      child.exit(0, null)
+      child.exit( 0, null)
       await expect(result.direct).resolves.toEqual({ exitCode: 0, signal: null })
       await expect(result.owner.waitForExit()).resolves.toBeUndefined()
     } finally {
@@ -162,12 +162,27 @@ describe('Windows parent runner contract', () => {
     expect(await range).toBeInstanceOf(Error)
   })
 
+  it('keeps the requested control endpoint separate from runner IPC and ordinary output', () => {
+    const child = new FakeChild()
+    const control = new PassThrough()
+    child.stdio.push(control)
+    const request = { ...spec, stdio: { ...spec.stdio, control: 'pipe' as const } }
+    const { result, spawn } = launch(child, request)
+    expect(result.control).toBe(control)
+    expect(child.sent).toEqual([{ type: 'start', cwd: 'C:\\target', env: { TARGET: 'yes' }, control: 'pipe' }])
+    expect(spawn).toHaveBeenCalledWith('C:\\node.exe', expect.any(Array), expect.objectContaining({
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2, 'overlapped'],
+    }))
+    control.destroy()
+  })
+
   it('isolates runner stdio, carries target stdio on fd 4 through fd 6, and sends cwd/env', () => {
     const { child, result, spawn } = launch()
     expect(spawn).toHaveBeenCalledWith('C:\\node.exe', [
       'C:\\runner.js', '--', 'tool.exe', 'literal arg',
     ], expect.objectContaining({
       cwd: process.cwd(),
+      windowsHide: true,
       stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2],
     }))
     expect(child.sent).toEqual([{ type: 'start', cwd: 'C:\\target', env: { TARGET: 'yes' } }])
@@ -220,7 +235,7 @@ describe('Windows parent runner contract', () => {
     child.emit('message', { type: 'target-exit', exitCode: 7 })
     await expect(result.direct).resolves.toEqual({ exitCode: 7, signal: null })
     child.connected = false
-    child.exit(0, null)
+    child.exit( 0, null)
     await expect(result.owner.waitForExit()).resolves.toBeUndefined()
   })
 
@@ -230,7 +245,7 @@ describe('Windows parent runner contract', () => {
     child.emit('message', { type: 'target-exit', exitCode: 7 })
     await Promise.resolve()
     child.connected = false
-    child.exit(127, null)
+    child.exit( 127, null)
     child.targetStdout.end()
     child.targetStderr.end()
     await expect(handle.done).resolves.toEqual({ exitCode: 7, signal: null })
@@ -244,7 +259,7 @@ describe('Windows parent runner contract', () => {
     })
     await expect(spawned.result.direct).rejects.toMatchObject({ code: 'ENOENT' })
     spawned.child.connected = false
-    spawned.child.exit(0, null)
+    spawned.child.exit( 0, null)
     await expect(spawned.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const cancelled = launch()
@@ -259,7 +274,7 @@ describe('Windows parent runner contract', () => {
     })
     await expect(cancelled.result.direct).rejects.toBe(reason)
     cancelled.child.connected = false
-    cancelled.child.exit(0, null)
+    cancelled.child.exit( 0, null)
     await expect(cancelled.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const nullCancelled = launch()
@@ -273,7 +288,7 @@ describe('Windows parent runner contract', () => {
     })
     await expect(nullCancelled.result.direct).rejects.toBeNull()
     nullCancelled.child.connected = false
-    nullCancelled.child.exit(0, null)
+    nullCancelled.child.exit( 0, null)
     await expect(nullCancelled.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const implicit = launch()
@@ -286,7 +301,7 @@ describe('Windows parent runner contract', () => {
     })
     await expect(implicit.result.direct).rejects.toBeUndefined()
     implicit.child.connected = false
-    implicit.child.exit(0, null)
+    implicit.child.exit( 0, null)
     await expect(implicit.result.owner.waitForExit()).resolves.toBeUndefined()
   })
 
@@ -312,7 +327,7 @@ describe('Windows parent runner contract', () => {
       syscall: 'QueryInformationJobObject',
     })
     spawned.child.connected = false
-    spawned.child.exit(127, null)
+    spawned.child.exit( 127, null)
     await expect(spawned.result.owner.waitForExit()).rejects.toThrow('exit code 127')
   })
 
@@ -323,17 +338,17 @@ describe('Windows parent runner contract', () => {
     })
     await expect(failed.result.direct).rejects.toThrow('Job assignment failed')
     failed.child.connected = false
-    failed.child.exit(127, null)
+    failed.child.exit( 127, null)
     await expect(failed.result.owner.waitForExit()).rejects.toThrow('exit code 127')
 
     const missing = launch()
     missing.child.connected = false
-    missing.child.exit(null, 'SIGKILL')
+    missing.child.exit( null, 'SIGKILL')
     await expect(missing.result.direct).rejects.toThrow('signal SIGKILL')
 
     const statusless = launch()
     statusless.child.connected = false
-    statusless.child.exit(null, null)
+    statusless.child.exit( null, null)
     await expect(statusless.result.direct).rejects.toThrow('without an exit status')
   })
 
@@ -355,7 +370,7 @@ describe('Windows parent runner contract', () => {
     errored.child.emit('error', spawnError)
     await expect(errored.result.direct).rejects.toBe(spawnError)
     await expect(errored.result.owner.waitForExit()).resolves.toBeUndefined()
-    errored.child.exit(127, null)
+    errored.child.exit( 127, null)
 
     const postSpawnError = launch()
     const infrastructureError = new Error('runner failed after spawn')
@@ -427,7 +442,7 @@ describe('Windows parent runner contract', () => {
     await Promise.resolve()
     expect(child.killed).toEqual([])
     child.connected = false
-    child.exit(0, null)
+    child.exit( 0, null)
     await expect(handle.waitForExit()).resolves.toBe(true)
   })
 
@@ -450,7 +465,7 @@ describe('Windows parent runner contract', () => {
     await Promise.resolve()
     expect(child.killed).toEqual([])
     child.connected = false
-    child.exit(0, null)
+    child.exit( 0, null)
     await expect(handle.done).resolves.toEqual({ exitCode: 7, signal: null })
     await expect(handle.waitForExit()).resolves.toBe(true)
   })

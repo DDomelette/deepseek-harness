@@ -18,20 +18,23 @@
   en: a26b360a0d1b847a
   zh: c0e1139451e51fc8
 /deepseek-ai-dsh-subprocess-local/use-this-package/mounting-the-provider:
-  en: f558f6f41543ff1b
-  zh: fa4f8de2ae29f287
+  en: 7fe1c62a71f22310
+  zh: 25fe64af82c42004
 /deepseek-ai-dsh-subprocess-local/use-this-package/resolving-executables:
-  en: fcf623cd4d24f250
-  zh: abad5cd84436ae2e
+  en: b770dddf2a9c3d1e
+  zh: f5cb27e63a589a1b
 /deepseek-ai-dsh-subprocess-local/use-this-package/collecting-output:
-  en: d2e3400a2e908030
-  zh: a124a65fba4a717a
+  en: 9ae8b933487e3185
+  zh: 68d57cb076989744
+/deepseek-ai-dsh-subprocess-local/use-this-package/control-transport:
+  en: 7f14cd108b614c98
+  zh: da54e49e2b1896d2
 /deepseek-ai-dsh-subprocess-local/use-this-package/running-terminal-sessions:
-  en: da726cfc3bba0e5c
-  zh: d8f9b39286584bfb
+  en: cc8e9b90f1d2e3de
+  zh: f85fdcd1c783bbfc
 /deepseek-ai-dsh-subprocess-local/use-this-package/shutdown-behavior:
-  en: f54c1765ac5b72c6
-  zh: ffb3b0b5ec5fffda
+  en: cd0b8a5dc61335a5
+  zh: ac5077a9ac277141
 /deepseek-ai-dsh-subprocess-local/use-this-package/what-can-go-wrong:
   en: 1e1ce532b004c92b
   zh: ca7274b7a9207a5d
@@ -39,20 +42,20 @@
   en: 531a48766c666ea0
   zh: b40df533a2fd7244
 /deepseek-ai-dsh-subprocess-local/understand-the-implementation/design-concept:
-  en: 01a641ce46816a78
-  zh: 49d38149b305d78d
+  en: c1f9a5ee756547b9
+  zh: d47d9f6175f5cbc9
 /deepseek-ai-dsh-subprocess-local/understand-the-implementation/source-map:
   en: 155e6b83a97de7a2
   zh: b8a2c29bb1635d7d
 /deepseek-ai-dsh-subprocess-local/understand-the-implementation/main-flow:
-  en: 88b4ab14384159d2
-  zh: bdd185cc0f1a7f36
+  en: 6b6e17fa0d1b39b7
+  zh: 0b40691719ce658f
 /deepseek-ai-dsh-subprocess-local/understand-the-implementation/safety-invariants:
-  en: 31f697efe6c2c359
-  zh: a652ec1ad6bb4a5a
+  en: 8a1c2f5be5ac659c
+  zh: 5c108bd23a7eee85
 /deepseek-ai-dsh-subprocess-local/further-exploration:
-  en: ea72e982642234f9
-  zh: de3c2fd6d2b436a5
+  en: b15c86ee670899d9
+  zh: a18f23e9f3e36727
 /deepseek-ai-dsh-subprocess-local/model-experience:
   en: a39b4c2a8755aff2
   zh: 1c13e5e0f7db3dab
@@ -60,8 +63,8 @@
   en: e290ccc9b3c92c08
   zh: d75d48f485447a74
 /deepseek-ai-dsh-subprocess-local/known-limitations-and-deferred-work:
-  en: ab6222d032d73341
-  zh: 501a0060b3392d27
+  en: aca923fe6b461acb
+  zh: ee19a96907134d85
 /deepseek-ai-dsh-subprocess-local/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

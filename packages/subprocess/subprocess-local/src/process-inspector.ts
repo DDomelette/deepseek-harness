@@ -475,7 +475,6 @@ class LinuxProcessInspector extends PosixProcessInspector {
       return stat === undefined ? [] : [{
         pid,
         parentPid: stat.parentPid,
-        processGroupId: stat.pgrp,
         started: stat.started,
         session: stat.session,
         state: stat.state,

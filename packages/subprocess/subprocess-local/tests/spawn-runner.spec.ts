@@ -543,8 +543,8 @@ describe('Linux one-shot exec bootstrap', () => {
     })
   })
 
-  it('retries ENOEXEC through /bin/sh with the resolved file and original arguments', async () => {
-    const files = track(createLinuxLaunchFiles({ cwd: '/work', env: { PATH: 'bin' } }))
+  it.each([undefined, 'pipe'] as const)('retries ENOEXEC through /bin/sh with control %s', async (control) => {
+    const files = track(createLinuxLaunchFiles({ cwd: '/work', env: { PATH: 'bin' }, ...control === undefined ? {} : { control } }))
     const execve = vi.fn()
       .mockImplementationOnce(() => { throw Object.assign(new Error('exec format'), { code: 'ENOEXEC' }) })
       .mockImplementationOnce(() => { throw Object.assign(new Error('shell failed'), { code: 'EIO' }) })
@@ -555,8 +555,8 @@ describe('Linux one-shot exec bootstrap', () => {
       internals({ execve: execve as never }),
     )
     expect(execve.mock.calls).toEqual([
-      ['/work/bin/tool', ['tool', 'literal arg'], { PATH: 'bin' }],
-      ['/bin/sh', ['/bin/sh', '/work/bin/tool', 'literal arg'], { PATH: 'bin' }],
+      ['/work/bin/tool', ['tool', 'literal arg'], { PATH: 'bin' }, ...control === undefined ? [] : [control]],
+      ['/bin/sh', ['/bin/sh', '/work/bin/tool', 'literal arg'], { PATH: 'bin' }, ...control === undefined ? [] : [control]],
     ])
     expect(readLinuxStartupError(files.startupErrorPath)).toMatchObject({
       type: 'error', error: { code: 'EIO', path: 'tool' },
@@ -728,7 +728,7 @@ describe('Windows Job runner protocol owner', () => {
     expect(host.env).toEqual({ SAFE: 'bootstrap' })
   })
 
-  it('closes every target carrier before the first Windows poll', async () => {
+  it.each([undefined, 'pipe'] as const)('closes every target carrier with control %s before the first Windows poll', async (control) => {
     const events: string[] = []
     const interval = vi.spyOn(globalThis, 'setInterval').mockImplementation((callback: () => void) => {
       events.push('interval')
@@ -744,8 +744,8 @@ describe('Windows Job runner protocol owner', () => {
           return 0
         }),
       })
-      await runWindows(host, native)
-      expect(events).toEqual(['close:4', 'close:5', 'close:6', 'interval', 'poll'])
+      await runWindows(host, native, { type: 'start', cwd: 'C:\\target', env: {}, ...control === undefined ? {} : { control } })
+      expect(events).toEqual(['close:4', 'close:5', 'close:6', ...control === 'pipe' ? ['close:7'] : [], 'interval', 'poll'])
       expect(host.sent).toEqual([{ type: 'target-exit', exitCode: 0 }])
       expect(host.exitCode).toBe(0)
     } finally {

@@ -4,10 +4,10 @@
  * @module @deepseek-ai/dsh-fs-local
  */
 
-import { once } from 'node:events'
-import { watch } from 'chokidar'
 import { Context } from '@deepseek-ai/cordis'
 import { constants as bufferConstants } from 'node:buffer'
+import { once } from 'node:events'
+import { watch } from 'chokidar'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import z from '@deepseek-ai/schemastery'
@@ -25,6 +25,7 @@ import type {
 import {
   applyLiteralEdit,
   listDirectory,
+  localDisplayPath,
   normalizeLineEndings,
   probe,
   probeNoFollow,
@@ -87,6 +88,7 @@ export class LocalFileSystem extends FileSystem {
       throw error
     }
   }
+
   static Config: z<Config> = z.object({
     cwd: z.string().default(process.cwd()),
     diffBasisMaxBytes: z.number().default(DEFAULT_DIFF_BASIS_MAX_BYTES),
@@ -163,7 +165,8 @@ export class LocalFileSystem extends FileSystem {
   override async lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<FsPathInfo | undefined> {
     if (signal?.aborted) throw new FsError('lstat aborted', 'FS_ABORTED')
     if (path.trim().length === 0) throw new FsError('file_path must be a non-empty string', 'FS_NOT_FOUND')
-    const info = await probeNoFollow(resolve(opts?.cwd ?? this.config.cwd, path))
+    const cwd = opts?.cwd ?? this.config.cwd
+    const info = await probeNoFollow(localDisplayPath(cwd, path))
     if (signal?.aborted) throw new FsError('lstat aborted', 'FS_ABORTED')
     if (!info) return undefined
     return { version: info.version, type: info.type, size: info.size }

@@ -22,11 +22,10 @@ import type {
 } from '@deepseek-ai/dsh-subprocess'
 import type { BoundProcessOwner, ManagedProcessLaunch } from './managed-owner.ts'
 import { waitWithAbort } from './managed-owner.ts'
-import { OutputCollector, prepareManagedProcessBinding } from './output.ts'
-import type { SpillFailureReporter } from './output.ts'
 import { controlEnvironment, controlPipe } from './control-spawn.ts'
 import { SUBPROCESS_CONTROL_FD } from '@deepseek-ai/dsh-subprocess/control'
 import { linuxProcessGroupHasLiveMembers } from './process-inspector.ts'
+import { OutputCollector, prepareManagedProcessBinding, type SpillFailureReporter } from './output.ts'
 
 type SpawnProcess = (
   program: string,
@@ -60,7 +59,7 @@ export interface SpawnInternals {
   spawn?: SpawnProcess
   /** Directory for spill files (defaults to the OS temp dir). */
   spillDir?: string
-  /** Receives one spill failure (defaults to a single stderr line). */
+  /** Receives spill open/write failures; the runtime supplies its plugin logger, bare callers get a stderr line. */
   onSpillFailure?: SpillFailureReporter
   /** Windows tree-termination runner (defaults to `taskkill /PID <pid> /T /F`). */
   taskkill?: (pid: number) => void
@@ -89,7 +88,6 @@ export interface LocalSubprocessHandle extends SubprocessHandle {
 function sleepTick(): Promise<void> {
   return sleepMs(15)
 }
-
 
 /**
  * Send `sig` to a detached POSIX process group. Never throws: delivery races
@@ -263,7 +261,7 @@ function fallbackOwner(
  * Bind platform launch facts to the existing stdio, outcome, abort, and termination lifecycle.
  * @param spec - fully resolved argv, cwd, stdio, grace, cancellation, environment.
  * @param launch - platform streams, direct outcome, and managed-range owner.
- * @param internals - test-only spill-directory and failure-reporter override.
+ * @param internals - spill-directory override and spill failure reporter.
  * @returns live subprocess handle.
  */
 export function bindManagedProcess(
