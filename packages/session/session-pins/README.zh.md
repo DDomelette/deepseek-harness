@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `session_pins` 存储 domain，并注册一个 `SessionFlagProvider`，把每个置顶会话 id 投影为 `pinned: true`。侧栏功能通过 `workspace.list.sessionFlags` 消费标记，并通过生成的 `remote.sessionPins` 变更置顶。
+DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `session_pins` 存储 domain，并注册一个 `SessionFlagProvider`，把每个置顶会话 id 投影为 `pinned: true`。浏览器侧从 `workspace/follow` 基线的 `sessionFlags` 读取标记，并通过生成的 `remote.sessionPins` 变更置顶。
 
 
 ## 目录
@@ -30,7 +30,7 @@ DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `se
 
 - `pinnedSessionIds` — 置顶集合。
 - `groupOrder` — 可选的手动顺序覆盖，以工作区 id 或未分组的 `''` 为 key。
-- `flatOrder` — 单列表视图的可选手动顺序覆盖。
+- `flatOrder` — 单列表视图覆盖整个置顶集合的完整顺序。最后一次手动排序之后才置顶的会话会追加到末尾，直到某次重排为它指定位置，因此 `flatOrder` 与 `pinnedSessionIds` 始终指向同一批会话。
 
 重排时命名了当前未置顶 id、重复 id，或（单列表）遗漏某个置顶 id，都会在写入前以 `session-pins-invalid` 拒绝。被拒绝的请求不会改变置顶集合及两种已保存的顺序。
 

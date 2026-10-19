@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin owns a `session_pins` storage domain and registers one `SessionFlagProvider` that projects `pinned: true` for every pinned session id. The sidebar feature consumes the flags through `workspace.list.sessionFlags` and mutates pins through the generated `remote.sessionPins`.
+Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin owns a `session_pins` storage domain and registers one `SessionFlagProvider` that projects `pinned: true` for every pinned session id. Browser surfaces read the flags from the `workspace/follow` baseline's `sessionFlags` and mutate pins through the generated `remote.sessionPins`.
 
 
 ## Table of Contents
@@ -30,7 +30,7 @@ Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin 
 
 - `pinnedSessionIds` — the pin set.
 - `groupOrder` — optional manual order overrides keyed by workspace id or `''` for ungrouped.
-- `flatOrder` — optional manual order override for the flat view.
+- `flatOrder` — the flat view's complete order over the pin set. A Session pinned after the last manual order joins it at the end until a reorder places it, so `flatOrder` and `pinnedSessionIds` always name the same Sessions.
 
 A reorder that names an id not currently pinned, duplicates an id, or (for flat) omits a pinned id rejects with `session-pins-invalid` before any write. Rejected requests preserve the pin set and both saved orders.
 
