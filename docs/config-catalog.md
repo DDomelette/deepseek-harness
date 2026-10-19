@@ -2922,34 +2922,36 @@ Source: [`packages/context/session-reference/src/config.ts:11`](../packages/cont
 
 ## `@deepseek-ai/dsh-session-telemetry-otel`
 
-Requires: `sessions`
+Requires: `sessions` · `otel`
 
 ```ts config-catalog
 /**
- * Plugin configuration: one sharing policy, two verbatim SDK option objects,
- * and one DSH-owned shutdown bound. Uploading modes validate their endpoint
+ * Plugin configuration: sharing policy, SDK transport options, byte/count queue
+ * settings, and an overall shutdown bound. Uploading modes validate their endpoint
  * and shutdown deadline at plugin load; `DISABLED` reads neither.
  */
 export interface Config {
   /** Defaults to `FEEDBACK_ONLY`: capture session history only when feedback is explicitly submitted. */
   mode?: SessionTelemetryMode
   /**
-   * Passed verbatim to the SDK's OTLP/HTTP log exporter — the complete
-   * `OTLPExporterNodeConfigBase` shape (`headers`, `timeoutMillis`,
-   * `compression`, `keepAlive`, …), owned and documented by the SDK. `url`
-   * is the one field this package requires and validates itself.
+   * Explicit SDK HTTP transport settings, including optional routing headers.
+   * Ambient credentials are not inherited. URL is required while uploading.
+   * Exporter self-observability metering is not supported.
    */
-  exporter?: OTLPExporterNodeConfigBase & {
+  exporter?: Omit<LogExporterOptions, 'url'> & {
     /** Full logs endpoint (e.g. `https://collector.example.com/v1/logs`). Required outside `DISABLED`; validated at load. */
     url?: string
   }
   /**
-   * Passed verbatim to `BatchLogRecordProcessor` (minus the exporter slot,
-   * which this plugin fills); the SDK owns and documents these knobs.
+   * Count, queue, cadence, and per-request watchdog settings for the byte-bounded
+   * processor. A watchdog warning never releases an unsettled transport slot.
+   * SDK processor self-observability metering is not supported.
    */
-  processor?: Omit<BatchLogRecordProcessorOptions, 'exporter'>
+  processor?: SessionLogProcessorOptions
   /** Maximum time spent awaiting the SDK provider's complete shutdown path. */
   shutdownTimeoutMillis?: number
+  /** Uncompressed OTLP request byte limit, at most 4,000,000. */
+  maxRequestBytes?: number
 }
 
 /** Session-sharing policy selected by {@link Config.mode}. */
@@ -2959,9 +2961,9 @@ export enum SessionTelemetryMode {
 }
 ```
 
-Depends on: `BatchLogRecordProcessorOptions` (`@opentelemetry/sdk-logs`) · `OTLPExporterNodeConfigBase` (`@opentelemetry/otlp-exporter-base`)
+Depends on: [`LogExporterOptions`](../packages/telemetry/otel/src/index.ts) · [`SessionLogProcessorOptions`](../packages/telemetry/otel/src/index.ts)
 
-Source: [`packages/session/session-telemetry-otel/src/index.ts:100`](../packages/session/session-telemetry-otel/src/index.ts)
+Source: [`packages/session/session-telemetry-otel/src/index.ts:85`](../packages/session/session-telemetry-otel/src/index.ts)
 
 <a id="deepseek-aidsh-session-title"></a>
 
@@ -3769,7 +3771,7 @@ Source: [`packages/fs/tool-fs/src/index.ts:25`](../packages/fs/tool-fs/src/index
 
 ## `@deepseek-ai/dsh-tool-fs-search`
 
-Requires: `tools` · `systemPrompt` · `subprocess`
+Requires: `tools` · `systemPrompt` · `subprocess` · `workingDirectory`
 
 ```ts config-catalog
 /** Plugin config; over-cap glob sampling is an explicit deployment choice and the remaining fields have defaults. */
@@ -3798,7 +3800,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/fs/tool-fs-search/src/index.ts:73`](../packages/fs/tool-fs-search/src/index.ts)
+Source: [`packages/fs/tool-fs-search/src/index.ts:74`](../packages/fs/tool-fs-search/src/index.ts)
 
 <a id="deepseek-aidsh-tool-goal"></a>
 
