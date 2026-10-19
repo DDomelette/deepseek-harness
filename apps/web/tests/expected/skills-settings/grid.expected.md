@@ -3,18 +3,16 @@
     - text: Settings
     - button "General"
     - button "Models"
-    - button "Plugins"
+    - button "Built-in plugins"
     - button "Agent presets"
     - button "Skills"
     - button "Archived"
   - button "Open configuration file"
   - button "Close"
   - heading "Skills" [level=2]
-  - paragraph: Skills extend what the agent can do. Grouped by their declared group or their discovery source — open a group to switch individual skills on or off.
+  - paragraph: Skills extend what the agent can do. Grouped by their discovery source — open a group to switch individual skills on or off.
   - list:
     - listitem:
       - button "Bundled skills 1 skill"
     - listitem:
-      - button "User skills 1 skill"
-    - listitem:
-      - button "superpowers 2 skills"
+      - button "User skills 3 skills"

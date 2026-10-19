@@ -7542,7 +7542,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SkillCatalogEntry',
-    declaration: 'export interface SkillCatalogEntry {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly group?: string;\n    readonly source: string;\n    readonly modelInvocable: boolean;\n    readonly userInvocable: boolean;\n    readonly disabled: boolean;\n}',
+    declaration: 'export interface SkillCatalogEntry {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly source: string;\n    readonly modelInvocable: boolean;\n    readonly userInvocable: boolean;\n    readonly disabled: boolean;\n}',
   },
   {
     name: 'SkillCatalogSnapshot',

@@ -272,7 +272,7 @@ export interface SkillListValue {
 /**
  * Full catalog row served to the skills settings panel. Unlike {@link SkillEntry}
  * this row carries every skill regardless of invocation policy, plus the
- * grouping metadata the panel aggregates by and the user-override state.
+ * discovery source the panel aggregates by and the user-override state.
  */
 export interface SkillCatalogEntry {
   /** Kebab-case identifier used to address the skill. */
@@ -281,9 +281,7 @@ export interface SkillCatalogEntry {
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
-  /** Optional grouping label declared by the skill. */
-  readonly group?: string
-  /** Discovery source bucket, the panel's grouping fallback. */
+  /** Discovery source bucket the panel aggregates by. */
   readonly source: string
   /** Effective model invocation flag, user overrides included. */
   readonly modelInvocable: boolean

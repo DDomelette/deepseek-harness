@@ -22,7 +22,7 @@ Web GUI 的「技能」设置页：每个展示分组一个图标，点进分组
 <a id="use-this-package"></a>
 ## 使用本包
 
-分组按 skill 声明的 `group` frontmatter 聚合当前会话的 `skills.catalog` 投影，未声明时回退到发现来源（已知来源使用本地化标签）。仅当目录与设置修订的禁用标记一致时，页面才接受二者；并发变更后会重读一次。开关会保留当前目录外已禁用的名称，并通过带修订保护的设置线路写入完整列表。宿主的 [`@deepseek-ai/dsh-skill-settings`](../../skill/skill-settings) 覆盖使变更对模型目录、`skill` 工具和 `/name` 手势生效。
+分组按发现来源聚合当前会话的 `skills.catalog` 投影（已知来源使用本地化标签）。仅当目录与设置修订的禁用标记一致时，页面才接受二者；并发变更后会重读一次。开关会保留当前目录外已禁用的名称，并通过带修订保护的设置线路写入完整列表。宿主的 [`@deepseek-ai/dsh-skill-settings`](../../skill/skill-settings) 覆盖使变更对模型目录、`skill` 工具和 `/name` 手势生效。
 
 该页面注册在 `@deepseek-ai/dsh-client-ui-settings` 声明的 `settings.section` 槽位上，并在首次加载后响应推送的 `skills/change`、`connection/reset`、当前会话切换，以及当前会话的 `agent-preset/selected` 而刷新。
 

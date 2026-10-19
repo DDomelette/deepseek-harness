@@ -1,8 +1,8 @@
 /**
- * Skills settings section: one icon per display group (declared group or
- * discovery source), drilling into a group's skill list with one toggle per
- * skill. Toggles write through the page store's revision-guarded settings
- * path; effective invocation flags ride the catalog rows.
+ * Skills settings section: one icon per discovery-source group, drilling into
+ * a group's skill list with one toggle per skill. Toggles write through the
+ * page store's revision-guarded settings path; effective invocation flags ride
+ * the catalog rows.
  */
 
 import { useEffect, useMemo, useState } from 'react'

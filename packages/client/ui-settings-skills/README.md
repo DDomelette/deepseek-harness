@@ -22,7 +22,7 @@ The Skills settings section of the Web GUI: one icon per display group, drilling
 <a id="use-this-package"></a>
 ## Use this package
 
-Groups aggregate the current session's `skills.catalog` projection by the skill's declared `group` frontmatter, falling back to the discovery source (localized labels for the known sources). The page accepts a catalog and settings revision only when their disabled markers agree, rereading once after a concurrent change; toggles preserve disabled names outside the current catalog and write the complete list through the revision-guarded settings wire path. The host's [`@deepseek-ai/dsh-skill-settings`](../../skill/skill-settings) override makes the change effective for the model catalog, the `skill` tool, and the `/name` gesture.
+Groups aggregate the current session's `skills.catalog` projection by discovery source, with localized labels for the known sources. The page accepts a catalog and settings revision only when their disabled markers agree, rereading once after a concurrent change; toggles preserve disabled names outside the current catalog and write the complete list through the revision-guarded settings wire path. The host's [`@deepseek-ai/dsh-skill-settings`](../../skill/skill-settings) override makes the change effective for the model catalog, the `skill` tool, and the `/name` gesture.
 
 The section registers on the `settings.section` slot declared by `@deepseek-ai/dsh-client-ui-settings` and refreshes after its first load on pushed `skills/change`, `connection/reset`, current-session switches, and `agent-preset/selected` for the current session.
 

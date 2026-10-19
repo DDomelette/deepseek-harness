@@ -1,11 +1,11 @@
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 /**
  * Skills settings plugin, browser half: the Skills page of the settings
- * shell. One icon per display group (declared group or discovery source),
- * drilling into a group's skill list with one toggle per skill; toggles
- * write the `skills` settings namespace through the revision-guarded wire
- * path, and the host registry override makes the change effective for the
- * model catalog, the `skill` tool, and the `/name` gesture.
+ * shell. One icon per discovery-source group, drilling into a group's skill
+ * list with one toggle per skill; toggles write the `skills` settings
+ * namespace through the revision-guarded wire path, and the host registry
+ * override makes the change effective for the model catalog, the `skill`
+ * tool, and the `/name` gesture.
  *
  * Export discipline: packages/client/AGENTS.md.
  */

@@ -14,8 +14,8 @@ function ok<T>(value: T): RemoteResult<T> {
 }
 
 const CATALOG: SkillCatalogEntry[] = [
-  { name: 'grouped-a', description: 'Grouped A', group: 'superpowers', source: 'user-dsh', modelInvocable: true, userInvocable: true, disabled: false },
-  { name: 'grouped-b', description: 'Grouped B', group: 'superpowers', source: 'user-dsh', modelInvocable: false, userInvocable: false, disabled: true },
+  { name: 'grouped-a', description: 'Grouped A', source: 'user-dsh', modelInvocable: true, userInvocable: true, disabled: false },
+  { name: 'grouped-b', description: 'Grouped B', source: 'user-dsh', modelInvocable: false, userInvocable: false, disabled: true },
   { name: 'user-only-c', description: 'User only C', source: 'bundled', modelInvocable: false, userInvocable: true, disabled: false },
 ]
 
@@ -83,18 +83,18 @@ async function mount(
 afterEach(cleanup)
 
 describe('SkillsSection', () => {
-  it('renders one icon per group with a localized count and drills into the group', async () => {
+  it('renders one icon per discovery source with a localized count and drills into the group', async () => {
     await mount()
 
-    // Two groups: the declared superpowers group and the bundled source group.
-    const buttons = screen.getAllByRole('button', { name: /superpowers|内置技能/ })
+    // Two groups, one per discovery source: the bundled skills and the user skills.
+    const buttons = screen.getAllByRole('button', { name: /用户技能|内置技能/ })
     expect(buttons.map(button => button.textContent)).toEqual([
-      expect.stringContaining('superpowers'),
       expect.stringContaining('内置技能'),
+      expect.stringContaining('用户技能'),
     ])
 
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
-    expect(screen.getByRole('heading', { name: 'superpowers' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
+    expect(screen.getByRole('heading', { name: '用户技能' })).toBeTruthy()
     expect(screen.getByText('grouped-a')).toBeTruthy()
     expect(screen.getByText('grouped-b')).toBeTruthy()
     expect(screen.queryByText('user-only-c')).toBeNull()
@@ -103,13 +103,13 @@ describe('SkillsSection', () => {
   it('uses the singular count for a one-skill group', async () => {
     await mount(CATALOG, true, enT)
 
-    expect(screen.getByRole('button', { name: /superpowers2 skills$/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /User skills2 skills$/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Bundled skills1 skill$/ })).toBeTruthy()
   })
 
   it('returns from the drill-in view to the group grid', async () => {
     await mount()
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     fireEvent.click(screen.getByRole('button', { name: '返回' }))
     expect(screen.getByRole('heading', { name: '技能' })).toBeTruthy()
     expect(screen.queryByText('grouped-a')).toBeNull()
@@ -126,14 +126,14 @@ describe('SkillsSection', () => {
 
     // The disabled skill lives in the other group: its switch reads off.
     fireEvent.click(screen.getByRole('button', { name: '返回' }))
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const disabledRow = screen.getByText('grouped-b').closest('li') as HTMLElement
     expect(within(disabledRow).getByRole('switch').getAttribute('aria-checked')).toBe('false')
   })
 
   it('writes the toggle through the store and waits for the write', async () => {
     const { update } = await mount()
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const row = screen.getByText('grouped-a').closest('li') as HTMLElement
     const switchControl = within(row).getByRole('switch')
 
@@ -143,7 +143,7 @@ describe('SkillsSection', () => {
 
   it('disables toggles while the settings seam is read-only', async () => {
     await mount(CATALOG, false)
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const row = screen.getByText('grouped-a').closest('li') as HTMLElement
     expect(within(row).getByRole('switch').hasAttribute('disabled')).toBe(true)
   })
@@ -153,7 +153,7 @@ describe('SkillsSection', () => {
     act(() => {
       controller.store.update((state) => { state.status = 'loading' })
     })
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const row = screen.getByText('grouped-a').closest('li') as HTMLElement
     expect(within(row).getByRole('switch').hasAttribute('disabled')).toBe(true)
   })
@@ -239,7 +239,7 @@ describe('SkillsSection', () => {
       t={t}
       close={() => {}}
     />)
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const row = screen.getByText('grouped-a').closest('li') as HTMLElement
     fireEvent.click(within(row).getByRole('switch'))
     expect(within(row).getByRole('switch').hasAttribute('disabled')).toBe(true)
@@ -270,7 +270,7 @@ describe('SkillsSection', () => {
       t={t}
       close={() => {}}
     />)
-    fireEvent.click(screen.getByRole('button', { name: /superpowers/ }))
+    fireEvent.click(screen.getByRole('button', { name: /用户技能/ }))
     const row = screen.getByText('grouped-a').closest('li') as HTMLElement
     fireEvent.click(within(row).getByRole('switch'))
     await waitFor(() => {
