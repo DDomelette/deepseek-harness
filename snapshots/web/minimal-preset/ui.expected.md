@@ -3,6 +3,7 @@
   - text: Minimal mode
   - button "More actions"
   - button "Open right sidebar"
+  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
