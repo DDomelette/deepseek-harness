@@ -44,6 +44,6 @@ Status: implemented
 
 这条门禁对静态通道足够廉价：在落地本决策的 Windows 主机上，它处理 773 个客户端源码文件耗时 2.6-3.2 秒（经 `pnpm run` 这条 gate runner 入口是 3.2 秒）。
 
-两个方向都已在基线入库的前提下验证。门禁打印 `773 Client source file(s) match the 80 accepted violation(s).` 并以 0 退出；在 `ui-workspace/src/client/session-actions/` 下放置一个 import `../rows/Rows.module.css` 的临时文件后，它以 1 退出并精确指出 `packages/client/ui-workspace/src/client/session-actions/RatchetScratch.ts -> ../rows/Rows.module.css`；删除该临时文件后门禁重新以 0 退出。`scripts/verify-client-domain-graph.spec.ts` 固定了每一种被接纳与被排除的 import 形式、棘轮的两个方向、`--write` 流程、语料下限，以及未知参数拒绝。
+两个方向都已在基线入库的前提下验证。门禁打印 `773 Client source file(s) match the 80 accepted violation(s).` 并以 0 退出；在 `ui-workspace/src/client/session-actions/` 下放置一个 import `../rows/Rows.module.css` 的临时文件后，它以 1 退出并指出该临时文件与 `../rows/Rows.module.css`；删除该临时文件后门禁重新以 0 退出。`scripts/verify-client-domain-graph.spec.ts` 固定了每一种被接纳与被排除的 import 形式、棘轮的两个方向、`--write` 流程、语料下限，以及未知参数拒绝。
 
 基线记录的是已接受的债务，而不是"哪些 import 合法"的判决。缩小它是常规工作：修掉一处违规，执行 `--write`，把变小的文件与修复一起提交。当不再有违规时，文件里的 `entries` 是空数组；此时直接删除该文件同样通过，因为缺失的基线被读作空基线。
