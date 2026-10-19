@@ -1,9 +1,14 @@
 /** Tests for Client domain layering discovery and the accepted-violation ratchet. */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  captureGateOutput,
+  createCheckout,
+  removeCheckouts,
+  writeCheckoutFile,
+} from './gate-checkout-fixture.ts'
 import {
   baselineText,
   compareToBaseline,
@@ -15,38 +20,19 @@ import {
   type Violation,
 } from './verify-client-domain-graph.ts'
 
-const roots: string[] = []
-
 afterEach(() => {
   vi.restoreAllMocks()
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+  removeCheckouts()
 })
-
-/** Write one file into a temporary checkout, creating parent directories. */
-function writeFile(root: string, rel: string, content: string): void {
-  const path = join(root, rel)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, content)
-}
 
 /** Build a throwaway checkout holding the given Client sources. */
 function checkout(files: Record<string, string>): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-client-domain-graph-'))
-  roots.push(root)
-  for (const [rel, content] of Object.entries(files)) writeFile(root, rel, content)
-  return root
+  return createCheckout('dsh-client-domain-graph-', files)
 }
 
 /** Run the ratchet with console output captured. */
 function run(args: readonly string[], root: string, minimum = 1): { code: number; output: string } {
-  const lines: string[] = []
-  for (const method of ['log', 'error'] as const) {
-    vi.spyOn(console, method).mockImplementation((...parts: unknown[]) => {
-      lines.push(parts.map(String).join(' '))
-    })
-  }
-  const code = runDomainGraph(args, root, minimum)
-  return { code, output: lines.join('\n') }
+  return captureGateOutput(() => runDomainGraph(args, root, minimum))
 }
 
 const SCRATCH = 'packages/client/ui-demo/src/client/queue/Scratch.ts'
@@ -191,7 +177,7 @@ describe('accepted-violation ratchet', () => {
 
     expect(run([], root).code).toBe(0)
 
-    writeFile(root, SCRATCH, "import { own } from './local.ts'\n")
+    writeCheckoutFile(root, SCRATCH, "import { own } from './local.ts'\n")
     const shrunk = run([], root)
     expect(shrunk.code).toBe(1)
     expect(shrunk.output).toContain('1 baseline entr(y/ies) no longer reproduce')

@@ -433,17 +433,7 @@ export class WorkspaceRegistry extends Service {
    * @returns resolution after durability.
    */
   unarchiveSession(sessionId: SessionId): Promise<void> {
-    return this.enqueueOperation(async () => {
-      // The chain slot serializes against every other registry write, so this
-      // check-then-write pair cannot interleave with a concurrent archive.
-      const state = this.requireState()
-      if (!state.archivedSessionIds.includes(sessionId)) return
-      await this.setState({
-        ...state,
-        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
-        archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
-      })
-    })
+    return this.enqueueOperation(() => this.dropArchivedSession(sessionId))
   }
 
   /**
@@ -526,6 +516,23 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Drop one Session from the registry-global archive set and its archive
+   * instant, leaving its accounting slot untouched so it returns to its
+   * recorded position. The caller already holds the operation chain slot, so
+   * this check-then-write pair cannot interleave with a concurrent archive. An
+   * id that is not archived writes nothing.
+   */
+  private async dropArchivedSession(sessionId: SessionId): Promise<void> {
+    const state = this.requireState()
+    if (!state.archivedSessionIds.includes(sessionId)) return
+    await this.setState({
+      ...state,
+      archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+      archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
+    })
+  }
+
+  /**
    * Move the pin set that earlier versions stored in this domain into the
    * pins owner, keeping its recorded order as the owner's order, then clear
    * the field. A profile without the service keeps the field unchanged, so a
@@ -567,13 +574,7 @@ export class WorkspaceRegistry extends Service {
       this.sessionPaths.delete(sessionId)
       this.invalidSessionPaths.delete(sessionId)
       await this.dropPin(sessionId)
-      const state = this.requireState()
-      if (!state.archivedSessionIds.includes(sessionId)) return
-      await this.setState({
-        ...state,
-        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
-        archivedSessionAts: withoutArchiveInstant(state.archivedSessionAts, sessionId),
-      })
+      await this.dropArchivedSession(sessionId)
     })
   }
 

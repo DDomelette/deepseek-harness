@@ -1,9 +1,7 @@
 /** Tests for the undefined `--dsw-*` token gate. */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { captureGateOutput, createCheckout, removeCheckouts } from './gate-checkout-fixture.ts'
 import {
   collectVocabulary,
   COMPONENT_LOCAL_PROPERTIES,
@@ -14,26 +12,14 @@ import {
   stylesheetReferences,
 } from './verify-client-token-vocabulary.ts'
 
-const roots: string[] = []
-
 afterEach(() => {
   vi.restoreAllMocks()
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+  removeCheckouts()
 })
-
-/** Write one file into a temporary checkout, creating parent directories. */
-function writeFile(root: string, rel: string, content: string): void {
-  const path = join(root, rel)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, content)
-}
 
 /** Build a throwaway checkout holding the given files. */
 function checkout(files: Record<string, string>): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-client-token-vocabulary-'))
-  roots.push(root)
-  for (const [rel, content] of Object.entries(files)) writeFile(root, rel, content)
-  return root
+  return createCheckout('dsh-client-token-vocabulary-', files)
 }
 
 /** Theme sheet declaring the shared tokens one throwaway checkout needs. */
@@ -50,14 +36,7 @@ const FLOOR = { stylesheets: 1, references: 1 }
 
 /** Run the gate with console output captured. */
 function run(args: readonly string[], root: string, floor = FLOOR): { code: number; output: string } {
-  const lines: string[] = []
-  for (const method of ['log', 'error'] as const) {
-    vi.spyOn(console, method).mockImplementation((...parts: unknown[]) => {
-      lines.push(parts.map(String).join(' '))
-    })
-  }
-  const code = runTokenVocabulary(args, root, floor)
-  return { code, output: lines.join('\n') }
+  return captureGateOutput(() => runTokenVocabulary(args, root, floor))
 }
 
 const THEME_SHEET = 'packages/client/ui-theme/src/styles/base.css'

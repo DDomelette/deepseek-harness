@@ -70,6 +70,7 @@ export interface UiWorkspace {
    * @param options - initial content; existing text or attachments are preserved unless clearPreviousDraft is true.
    */
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void
+  /* jscpd:ignore-start -- UI navigation forwards these to the controller one-for-one, so each surface documents its own. */
   /**
    * Archive a Session and clear it when it is the current selection.
    * @param sessionId - Session to archive.
@@ -97,6 +98,7 @@ export interface UiWorkspace {
    * @param orderedIds - every pinned Session id, in display order.
    */
   reorderPins(orderedIds: readonly SessionId[]): Promise<void>
+  /* jscpd:ignore-end */
   /**
    * Open the Host-native directory picker.
    * @returns the selected directory, or null when cancelled.
