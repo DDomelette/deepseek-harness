@@ -1,9 +1,7 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Use only Cordis tools. First" [disabled]
+  - navigation "Session hierarchy": Use only Cordis tools. First
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
@@ -11,13 +9,13 @@
   - button "Jump to turn 1"
   - button "Jump to turn 2"
   - button "Jump to turn 3"
-- button "System prompt"
 - text: "Use only Cordis tools. First call cordis_inspect_self with no arguments. Then call cordis_define with plugin kind \"new\", idPrefix \"snap\", name \"snapshot noop\", purpose \"does nothing, for the snapshot\", code.host exactly \"return { name: \\\"snapshot-noop\\\", apply(ctx) {} }\" and code.client exactly \"return { inject: [\\\"slots\\\"], apply(ctx) { ctx.slots.register({ name: \\\"shell.overlay\\\", id: \\\"snapshot-probe\\\" }, () => React.createElement(\\\"div\\\", { \\\"data-snapshot-probe\\\": \\\"loaded\\\" })) } }\". Read its returned pluginId and packageId, then call cordis_run with those exact IDs and mode \"run\". After the run request returns, reply exactly CORDIS_UI_READY and stop. 9/1 {{clock}}"
 - button "Copy"
-- button "3 tool calls" [expanded]
-- button "Context injection runtime-context"
+- status: Completed
+- button "Completed in {{duration}}" [expanded]
+- button "Called tools" [expanded]
 - button "Think I will inspect the current Session's dynamic Cordis Plugins before defining the snapshot Package."
-- 'button "Tool call cordis_inspect_self · {}"'
+- button "Inspect plugins 0 dynamic plugins"
 - button "Think No dynamic Plugins are present, so I will define the requested Host and Client Package."
 - button "Register Cordis Plugin snapshot noop does nothing, for the snapshot Ready" [expanded]
 - tablist "Plugin source":
@@ -25,6 +23,7 @@
   - tab "Host" [selected]
 - tabpanel "Host":
   - text: javascript
+  - button "Wrap lines" [pressed]
   - button "Copy"
   - code: "return { name: \"snapshot-noop\", apply(ctx) {} }"
 - text: Result Defined snap-1/pkg-1 (snapshot noop); it is not running yet. Use cordis_run to activate this Package. Run controls live in the Cordis panel above Settings
@@ -39,20 +38,22 @@
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: 9/1 {{clock}}
 - button "Plugin status updated 9/1 {{clock}}":
   - text: Plugin status updated
   - time: 9/1 {{clock}}
+- status: Completed
+- button "Completed in {{duration}}" [disabled]
 - paragraph: The Cordis Plugin is running.
 - button "Copy"
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: 9/1 {{clock}} Use only Cordis tools. Call cordis_stop with pluginId "snap-1". After it succeeds, reply exactly CORDIS_UI_DONE and stop. 9/1 {{clock}}
 - button "Copy"
-- button "1 tool call" [expanded]
+- status: Completed
+- button "Completed in {{duration}}" [expanded]
+- button "Called tools" [expanded]
 - text: Stop Cordis Plugin snap-1
 - button "Inspect"
 - text: Dynamic Plugin snap-1 is stopped; its definition and versions remain.
@@ -61,15 +62,13 @@
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: 9/1 {{clock}}
 - button "Back to bottom"
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
-- button "0% of context used"
 - button "Send message" [disabled]
 - button "3 turns 7 steps"
 - button "66.8K tok · Cache hit 77%": 66.8K tokCache hit 77%
+- button "0% of context used": 0%

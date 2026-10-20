@@ -307,7 +307,7 @@ describe.skipIf(MODE === 'record')('web e2e: conversational reminders', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-every-step-'))
     overlayRoot = root
     scaffold = await launchWebScaffold({
-      extraOverlayPath: await writeEveryStepOverlay(root),
+      extraOverlayPath: [await writeEveryStepOverlay(root)],
     })
     scaffold.ctx.effect(
       () => scaffold.ctx.llm.registerAdapter([AFTER_PROVIDER], afterAdapter),
@@ -763,7 +763,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-catalog-'))
     overlayRoot = root
     scaffold = await launchWebScaffold({
-      extraOverlayPath: await writeEveryStepOverlay(root),
+      extraOverlayPath: [await writeEveryStepOverlay(root)],
     })
     await seedSession(scaffold, fixture, CATALOG_SESSION_ID, 'standard')
     const records = foldScheduleEvents(fixture.trim().split('\n').slice(1).map(line => JSON.parse(line) as SessionEvent)).active

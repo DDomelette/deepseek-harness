@@ -1,18 +1,15 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "workspace" [disabled]
+  - navigation "Session hierarchy": workspace
   - text: Standard mode
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - group "Command input": /goal
 - 'button "goal No goal is currently set. Usage: /goal [<objective>|clear|edit <objective>|pause|resume]"'
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
 - button "Send message" [disabled]

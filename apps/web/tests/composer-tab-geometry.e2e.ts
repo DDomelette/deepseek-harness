@@ -11,7 +11,7 @@ import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot, settleViewport } from './support.ts'
+import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/composer-tab-geometry', import.meta.url))
 /** Records platform-neutral distances between the two tabs' card rectangles. */
@@ -29,6 +29,38 @@ const SEED_ID = 'composer-tab-geometry-web-e2e'
 /** Viewport widths the scenario measures at: the card capped, and the card shrinking with the column. */
 const WIDE_VIEWPORT = { width: 1680, height: 1000 }
 const NARROW_VIEWPORT = { width: 800, height: 1000 }
+
+/**
+ * Resize to one measurement viewport after the responsive sidebar and center
+ * column finish their track transition.
+ * @param page - the page under test.
+ * @param viewport - the viewport dimensions to apply.
+ * @param sidebarCollapsed - the sidebar state expected at this width.
+ */
+async function setMeasuredViewport(
+  page: Page,
+  viewport: { width: number; height: number },
+  sidebarCollapsed: boolean,
+): Promise<void> {
+  await page.setViewportSize(viewport)
+  await page.locator('[data-sidebar-collapsed="true"]').waitFor({
+    state: sidebarCollapsed ? 'attached' : 'detached',
+    timeout: 10_000,
+  })
+  await page.locator('[data-conversation-scroll]').evaluate(async (host) => {
+    const deadline = performance.now() + 5_000
+    let previous = host.getBoundingClientRect().width
+    let stableFrames = 0
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      const current = host.getBoundingClientRect().width
+      stableFrames = Math.abs(current - previous) < 0.01 ? stableFrames + 1 : 0
+      if (stableFrames >= 3) return
+      previous = current
+    }
+    throw new Error('conversation width did not settle after the viewport changed')
+  })
+}
 
 /**
  * The uncompensated cascade, injected into the page: the overlay seat's `right`
@@ -160,7 +192,7 @@ async function openSeededSession(page: Page): Promise<void> {
   // Search collapsed into a header action; expand it before filling.
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByRole('textbox', { name: 'Search sessions...', exact: true })
+  const search = page.getByRole('textbox', { name: 'Search session names', exact: true })
   await search.fill(FIXTURE.markers.user(1))
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   const deadline = Date.now() + 60_000
@@ -231,7 +263,7 @@ describe('web e2e: input card position across view tabs', () => {
 
   it('reserves the gutter in Chat and lets Trajectory own its width', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-tab-geometry-band'))
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     // Vacuity guard. The scenario must be able to fail: on an engine that
     // does not implement `scrollbar-gutter`, Chat reserves nothing and the
     // overlay seat's fixed compensation stands alone, manufacturing an 8px
@@ -262,7 +294,7 @@ describe('web e2e: input card position across view tabs', () => {
 
   it('holds the input card in place when the tab changes', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-tab-geometry-wide'))
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     const comparison = await compareTabs(page)
     // The reported symptom as a number. At this viewport the card sits at its
     // width cap, so the uncompensated cascade's shift shows up as a centring
@@ -275,9 +307,9 @@ describe('web e2e: input card position across view tabs', () => {
 
   it('holds the input card in place at a viewport where it shrinks with the column', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-tab-geometry-narrow'))
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     const capped = await measureTab(page)
-    await settleViewport(page, NARROW_VIEWPORT, { sidebarCollapsed: true })
+    await setMeasuredViewport(page, NARROW_VIEWPORT, true)
     const comparison = await compareTabs(page)
     // The other geometry, and a different failure: below the cap the card takes
     // the column's width, so an unreserved gutter changes its WIDTH by the whole
@@ -288,13 +320,13 @@ describe('web e2e: input card position across view tabs', () => {
     expect(comparison.leftShift).toBe(0)
     expect(comparison.rightShift).toBe(0)
     expect(comparison.widthShift).toBe(0)
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
   it('moves the card again once the seat compensation is removed in the page', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-tab-geometry-control'))
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     // The control: without it, equal rectangles could also mean the tab switch
     // never reached the layout. Under the uncompensated cascade the overlay seat
     // loses its `right` compensation and measures the full padding box, so the
@@ -315,11 +347,11 @@ describe('web e2e: input card position across view tabs', () => {
 
   it('matches the committed tab geometry golden', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-tab-geometry-golden'))
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     const wide = await compareTabs(page)
-    await settleViewport(page, NARROW_VIEWPORT, { sidebarCollapsed: true })
+    await setMeasuredViewport(page, NARROW_VIEWPORT, true)
     const narrow = await compareTabs(page)
-    await settleViewport(page, WIDE_VIEWPORT, { sidebarCollapsed: false })
+    await setMeasuredViewport(page, WIDE_VIEWPORT, false)
     const control = await compareTabsWithoutCompensation(page)
     await compareOrRefreshGolden(GEOMETRY_EXPECTED, renderGeometry(wide, narrow, control), MODE)
     expect(tripwire.pageErrors).toEqual([])

@@ -3,10 +3,8 @@
     - text: 设置
     - button "通用设置"
     - button "模型"
-    - button "插件"
+    - button "内置插件"
     - button "Agent 预设"
-    - button "技能"
-    - button "已归档"
   - button "打开配置文件"
   - button "关闭"
   - text: 权限 选择新会话的默认权限模式
@@ -20,7 +18,21 @@
   - text: 字号大小 仅影响会话内容的字号 14
   - button "增大字号"
   - button "减小字号"
-  - text: px 对话显示 控制已完成轮次的过程内容
-  - button "紧凑"
+  - text: px
+  - button "更多字体设置"
+  - text: 工作步骤展示 选择希望看到多少工具调用细节
+  - button "详细"
+  - text: 工作步骤收起时机 选择何时自动收起工作步骤
+  - button "回答结束后"
+  - text: 显示代码工作视图 开启后，显示轨迹、本轮代码差异，可选择完整的 Agent 预设切换
+  - switch "显示代码工作视图"
+  - text: 快捷键
+  - paragraph: 查看和编辑当前可用的快捷键和输入操作
+  - button "编辑快捷键"
   - text: 繁忙时的发送行为 智能体运行时 Enter 键和发送按钮的行为；Cmd/Ctrl+Enter 使用另一行为
   - button "排队发送"
+  - text: 性能与用量 选择性能与用量信息展示的详细程度
+  - button "详细"
+  - text: 在使用官方模型 API 时上传 Session Log 帮助改进 DeepSeek 模型与产品
+  - switch "在使用官方模型 API 时上传 Session Log"
+  - text: 当前版本：{{version}}

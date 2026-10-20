@@ -1,18 +1,16 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Reference order target" [disabled]
+  - navigation "Session hierarchy": Reference order target
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - text: Research notes what changed? Referenced session · Research notes {{clock}}
 - button "Copy"
-- button "Session recall Research notes"
+- status: Completed
+- button "Completed in {{duration}}" [disabled]
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
 - button "Send message" [disabled]

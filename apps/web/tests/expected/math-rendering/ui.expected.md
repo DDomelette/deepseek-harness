@@ -1,14 +1,14 @@
 - banner:
-  - navigation "Session hierarchy":
-    - button "Math rendering" [disabled]
+  - navigation "Session hierarchy": Math rendering
   - button "More actions"
   - button "Open right sidebar"
-  - button "Open the notes panel"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
 - text: Render this mathematical proof. {{clock}}
 - button "Copy"
+- status: Completed
+- button "Completed in {{duration}}" [disabled]
 - heading "Math rendering" [level=2]
 - paragraph:
   - text: Inline dollar
@@ -34,11 +34,9 @@
 - button "Good response"
 - button "Bad response"
 - button "Branch into a new conversation"
-- button "Ran for {{duration}}"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
-- button "Commands"
-- button "Add attachment"
+- button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
 - button "Send message" [disabled]

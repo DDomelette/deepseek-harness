@@ -1,6 +1,4 @@
 - listitem:
-  - button "tool-subagent, tool-subagent, 已启用":
+  - button "tool-subagent, 已启用":
     - strong: tool-subagent
-    - img "运行中"
-    - text: 已启用
-    - code: tool-subagent
+    - text: Model-facing subagent delegation tool over the ctx.subagents seam
