@@ -5,7 +5,12 @@ const binScript = fileURLToPath(new URL('./fixtures/dsh-badge/snapshot.ts', impo
 const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', import.meta.url))
 const defaultConfigPath = fileURLToPath(new URL('./fixtures/dsh-badge/default.cordis.yml', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
-const badgeAssetsPath = fileURLToPath(new URL('../../../packages/experimental/skill-badge/assets/', import.meta.url))
+const badgeAssetsPath = fileURLToPath(new URL('../../../packages/skill/skill-badge/assets/', import.meta.url))
+// Tokenize the checkout-dependent directory on the parsed values: the raw stdout
+// is JSON-escaped, so a Windows path there carries doubled separators the
+// filesystem path does not, and the replacement would miss it.
+const tokenizeAssetsPath = (_key: string, value: unknown): unknown =>
+  typeof value === 'string' ? value.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}') : value
 
 describe('dsh badge assembled snapshot', () => {
   it('advertises and loads the opt-in bundled skill through the shipped app', async () => {
@@ -26,9 +31,7 @@ describe('dsh badge assembled snapshot', () => {
       tsconfigPath,
     })
     const disabledSnapshot: unknown = JSON.parse(disabled.stdout)
-    const enabledSnapshot: unknown = JSON.parse(
-      enabled.stdout.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}'),
-    )
+    const enabledSnapshot: unknown = JSON.parse(enabled.stdout, tokenizeAssetsPath)
 
     expect(disabled.stderr).toBe('')
     expect(enabled.stderr).toBe('')
@@ -87,7 +90,7 @@ describe('dsh badge assembled snapshot', () => {
             {
               "text": "<skill_content name="dsh-badge">
       <skill_resources>
-      Base directory for this skill: D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\
+      Base directory for this skill: {{badgeAssetsPath}}
       Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed.
       </skill_resources>
 
@@ -167,7 +170,7 @@ describe('dsh badge assembled snapshot', () => {
             "provider": "dsh-badge",
             "resourceBase": {
               "kind": "directory",
-              "path": "D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\",
+              "path": "{{badgeAssetsPath}}",
             },
           },
         },
@@ -181,7 +184,7 @@ describe('dsh badge assembled snapshot', () => {
           "provider": "dsh-badge",
           "resourceBase": {
             "kind": "directory",
-            "path": "D:\\Deepseek_Harness\\.worktrees\\merge-upstream-master\\packages\\skill\\skill-badge\\assets\\",
+            "path": "{{badgeAssetsPath}}",
           },
           "source": "bundled",
         },
