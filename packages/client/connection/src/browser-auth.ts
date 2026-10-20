@@ -389,7 +389,7 @@ export class BrowserAuth {
         }, this.secret)
         res.writeHead(303, {
           'cache-control': 'no-store',
-          'location': '/',
+          'location': './',
           'referrer-policy': 'no-referrer',
           'set-cookie': sessionCookie(
             cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
@@ -401,7 +401,7 @@ export class BrowserAuth {
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req, redeemsToken)) {
         res.writeHead(303, {
           'cache-control': 'no-store',
-          'location': '/',
+          'location': './',
           'referrer-policy': 'no-referrer',
         })
         res.end()
