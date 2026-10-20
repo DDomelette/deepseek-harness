@@ -6,10 +6,9 @@ const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', impo
 const defaultConfigPath = fileURLToPath(new URL('./fixtures/dsh-badge/default.cordis.yml', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
 const badgeAssetsPath = fileURLToPath(new URL('../../../packages/skill/skill-badge/assets/', import.meta.url))
-// Tokenize the checkout-dependent directory on the parsed values: the raw stdout
-// is JSON-escaped, so a Windows path there carries doubled separators the
-// filesystem path does not, and the replacement would miss it.
-const tokenizeAssetsPath = (_key: string, value: unknown): unknown =>
+// Raw stdout is JSON-escaped, so a Windows assets path reaches it with doubled
+// separators and a replacement on the raw text misses; tokenize decoded values.
+const replaceAssetsPath = (_key: string, value: unknown): unknown =>
   typeof value === 'string' ? value.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}') : value
 
 describe('dsh badge assembled snapshot', () => {
@@ -31,27 +30,13 @@ describe('dsh badge assembled snapshot', () => {
       tsconfigPath,
     })
     const disabledSnapshot: unknown = JSON.parse(disabled.stdout)
-    const enabledSnapshot: unknown = JSON.parse(enabled.stdout, tokenizeAssetsPath)
+    const enabledSnapshot: unknown = JSON.parse(enabled.stdout, replaceAssetsPath)
 
     expect(disabled.stderr).toBe('')
     expect(enabled.stderr).toBe('')
     expect(disabledSnapshot).toMatchInlineSnapshot(`
       {
-        "catalog": [
-          {
-            "text": "<system-reminder>
-      A skill is a reusable set of task-specific instructions. The following skills are available in this session:
-
-      <available_skills>
-      - \`diagnose-windows-sandbox-acl\`: Use on Windows for unexpected DSH sandbox access denials: workspace writes or listing fail, or an ordinarily readable path cannot be read. One bundled command inspects the path and every ancestor and repairs the ACL problems it proves in that same run. Expected confinement denials need no ACL repair.
-      </available_skills>
-
-      If the user names a skill, or the task clearly matches a skill's description, call the \`skill\` tool with the exact skill name before taking task actions. Load all applicable skills, then follow their full instructions. This catalog contains summaries only; do not infer or follow a skill's instructions until it has been loaded.
-      A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the \`skill\` tool again for that skill.
-      </system-reminder>",
-            "type": "text",
-          },
-        ],
+        "catalog": null,
         "result": {
           "content": [
             {
@@ -75,7 +60,6 @@ describe('dsh badge assembled snapshot', () => {
       A skill is a reusable set of task-specific instructions. The following skills are available in this session:
 
       <available_skills>
-      - \`diagnose-windows-sandbox-acl\`: Use on Windows for unexpected DSH sandbox access denials: workspace writes or listing fail, or an ordinarily readable path cannot be read. One bundled command inspects the path and every ancestor and repairs the ACL problems it proves in that same run. Expected confinement denials need no ACL repair.
       - \`dsh-badge\`: Add the official “powered by dsh” badge to documents, pull requests, merge requests, and other content produced with DeepSeek Harness. Use whenever creating a pull request or merge request. Also use when the user asks for a dsh badge, powered-by-dsh attribution, or a reusable dsh badge asset or snippet.
       </available_skills>
 
