@@ -3,6 +3,7 @@
 - banner:
   - navigation "Session hierarchy": {{workspace}}
   - button "More actions"
+  - button "Open the notes panel"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]

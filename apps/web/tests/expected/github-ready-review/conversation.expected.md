@@ -12,6 +12,7 @@
   - navigation "Session hierarchy": Review deepseek-ai/deepseek-harness#314
   - text: Standard mode
   - button "More actions"
+  - button "Open the notes panel"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]

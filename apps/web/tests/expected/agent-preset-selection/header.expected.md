@@ -2,4 +2,5 @@
 - button "1 subagent"
 - text: Minimal mode
 - button "More actions"
+- button "Open the notes panel"
 - button "Open right sidebar"

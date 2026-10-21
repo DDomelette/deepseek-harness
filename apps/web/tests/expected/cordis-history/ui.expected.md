@@ -1,6 +1,7 @@
 - banner:
   - navigation "Session hierarchy": Use only Cordis tools. First
   - button "More actions"
+  - button "Open the notes panel"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]

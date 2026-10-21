@@ -2,6 +2,7 @@
   - navigation "Session hierarchy": Queue item to remove
   - text: Standard mode
   - button "More actions"
+  - button "Open the notes panel"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]
