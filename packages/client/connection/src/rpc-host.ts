@@ -478,14 +478,29 @@ function errorResponse(rpcId: RpcIdType, error: ConnectionRpcFailure): Response 
   return fullResponse(rpcId, { ok: false, error })
 }
 
+/**
+ * Frame one unary result, carrying projected bytes as multipart parts.
+ * @param rpcId - correlation id echoed to the caller.
+ * @param result - handler result, possibly with byte attachments.
+ * @returns a JSON envelope, or a multipart envelope when bytes ride along.
+ */
 function fullResponse(rpcId: RpcIdType, result: ConnectionRpcHandlerResult): Response {
-  // This carrier frames JSON alone. A result that projects bytes would lose
-  // them here, so refuse it instead of answering with `null` placeholders.
-  if (result.ok && result.attachments !== undefined && result.attachments.length > 0) {
-    throw new Error('connection: this transport carries no RPC attachments; serve bytes through an exact Fetch route')
+  if (!result.ok) {
+    const failure: ConnectionServerResponse = { type: 'server-response', rpcId, result }
+    return Response.json(failure)
   }
-  const body: ConnectionServerResponse = { type: 'server-response', rpcId, result }
-  return Response.json(body)
+  const { attachments, ...success } = result
+  const body: ConnectionServerResponse = { type: 'server-response', rpcId, result: success }
+  if (attachments === undefined || attachments.length === 0) return Response.json(body)
+  const parts = new FormData()
+  const attachmentMetadata = attachments.map((attachment, index) => {
+    const part = `bytes-${index}`
+    // FileSystem bytes may have SharedArrayBuffer backing, which BlobPart excludes.
+    parts.set(part, new Blob([new Uint8Array(attachment.bytes)]))
+    return { path: [...attachment.path], codec: 'bytes' as const, part }
+  })
+  parts.set('metadata', JSON.stringify({ ...body, attachments: attachmentMetadata }))
+  return new Response(parts)
 }
 
 function assertChannel(channel: string): void {

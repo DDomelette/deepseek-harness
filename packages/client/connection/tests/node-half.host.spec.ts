@@ -924,35 +924,6 @@ describe('connection device registry handle', () => {
     }
   })
 
-  it('refuses a handler result that projects RPC attachments', async () => {
-    const { connection, routes, dispose } = await mounted()
-    try {
-      const host = '127.0.0.1:3080'
-      const cookie = browserCookie(connection, host)
-      const unregister = connection.rpc.handle('/rpc', async () => ({
-        ok: true,
-        value: null,
-        attachments: [{ path: ['bytes'], bytes: new Uint8Array([1, 2, 3]) }],
-      }))
-      const route = routes.find(candidate => candidate.path === '/rpc')!
-      const envelope: ClientRequest = {
-        type: 'client-request',
-        rpcId: RpcId('attach-1'),
-        method: 'blob.read',
-        payload: {},
-      }
-      const answer = fakeResponse()
-      await route.handler(fakePost({ host, cookie }, '/rpc/blob.read', envelope), answer.response)
-      await unregister()
-      // This carrier frames JSON alone; answering with `null` placeholders would
-      // silently corrupt the bytes, so the result is refused instead.
-      expect(answer.state.status).toBe(500)
-      expect(String(answer.state.body)).toContain('carries no RPC attachments')
-    } finally {
-      await dispose()
-    }
-  })
-
   it('gives a newly registered device the configured default window', async () => {
     const fallback = await mounted()
     try {
