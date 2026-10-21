@@ -58,7 +58,7 @@ describe('web e2e: MCP settings tab', () => {
   }
 
   /**
-   * Open the settings dialog on the MCP tab. The scenarios share one page so
+   * Open the settings dialog on the MCP section. The scenarios share one page so
    * the settings document accumulates across them, so this leaves any dialog a
    * previous scenario opened closed first — its mask would otherwise swallow
    * the trigger click.
@@ -71,11 +71,8 @@ describe('web e2e: MCP settings tab', () => {
     await page.getByRole('button', { name: '设置', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
-    await dialog.getByRole('button', { name: '插件', exact: true }).click()
-    await dialog.getByRole('tab', { name: 'MCP', exact: true }).click()
-    await expect
-      .poll(() => dialog.getByRole('tab', { name: 'MCP', exact: true }).getAttribute('aria-selected'), { timeout: 5_000 })
-      .toBe('true')
+    await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
+    await dialog.locator('[data-server-count]').waitFor({ timeout: 10_000 })
     return dialog
   }
 
@@ -205,8 +202,7 @@ describe('web e2e: MCP settings tab declarative rows', () => {
     await page.getByRole('button', { name: '设置', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
-    await dialog.getByRole('button', { name: '插件', exact: true }).click()
-    await dialog.getByRole('tab', { name: 'MCP', exact: true }).click()
+    await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
 
     const row = dialog.locator('[data-server-name="memorix"]')
     await row.waitFor({ timeout: 10_000 })

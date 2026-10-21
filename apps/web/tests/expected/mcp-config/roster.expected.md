@@ -3,22 +3,16 @@
     - text: 设置
     - button "通用设置"
     - button "模型"
-    - button "插件"
+    - button "内置插件"
     - button "Agent 预设"
     - button "技能"
+    - button "MCP"
     - button "已归档"
   - button "打开配置文件"
   - button "关闭"
-  - heading "插件" [level=2]
-  - paragraph: 配置和查看本部署已安装的插件。
-  - tablist "插件视图":
-    - tab "插件配置"
-    - tab "MCP" [selected]
-    - tab "插件列表"
-  - tabpanel "MCP":
-    - text: 搜索 MCP 服务器
-    - searchbox "搜索 MCP 服务器"
-    - button "添加 MCP 服务器"
-    - heading "服务器" [level=3]
-    - text: "0"
-    - paragraph: 还没有 MCP 服务器，点右上角 + 添加。
+  - text: 搜索 MCP 服务器
+  - searchbox "搜索 MCP 服务器"
+  - button "添加 MCP 服务器"
+  - heading "服务器" [level=3]
+  - text: "0"
+  - paragraph: 还没有 MCP 服务器，点右上角 + 添加。
