@@ -113,7 +113,9 @@ export async function pinBrowserClock(page: Page): Promise<() => void> {
  * @returns the initialized page.
  */
 export async function newEnglishPage(browser: Browser, height = 1000): Promise<Page> {
-  return await browser.newPage({ viewport: { width: 1680, height }, locale: 'en-US', timezoneId: 'Asia/Shanghai' })
+  return withLaneActionBudget(await browser.newPage({
+    viewport: { width: 1680, height }, locale: 'en-US', timezoneId: 'Asia/Shanghai',
+  }))
 }
 
 /**
@@ -128,7 +130,22 @@ export async function newMobilePage(browser: Browser): Promise<Page> {
     locale: 'en-US',
     timezoneId: 'Asia/Shanghai',
   })
-  return await context.newPage()
+  return withLaneActionBudget(await context.newPage())
+}
+
+/** Playwright's 30 s action budget does not fit this lane's smallest runners. */
+const LANE_ACTION_TIMEOUT_MS = 60_000
+
+/**
+ * Give one page the lane's own action budget instead of Playwright's default.
+ * A fork runner draws two cores for the whole pool, so first paint and a cold
+ * bundle fetch regularly outlast 30 s without any product defect.
+ * @param page - page created by a lane helper.
+ * @returns the same page with its default action timeout raised.
+ */
+export function withLaneActionBudget<T extends Page>(page: T): T {
+  page.setDefaultTimeout(LANE_ACTION_TIMEOUT_MS)
+  return page
 }
 
 /**

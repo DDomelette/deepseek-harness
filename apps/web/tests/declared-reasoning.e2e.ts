@@ -13,7 +13,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
+import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot, withLaneActionBudget } from './support.ts'
 
 /** Starts the shipped default on this scenario's declared reasoning model. */
 const OVERLAY = fileURLToPath(new URL('./declared-reasoning.overlay.yml', import.meta.url))
@@ -56,6 +56,7 @@ describe.skipIf(MODE === 'record').each([
     })
     browser = await engine.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
+    withLaneActionBudget(page)
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
