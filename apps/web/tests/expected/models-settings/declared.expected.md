@@ -6,6 +6,7 @@
     - button "内置插件"
     - button "Agent 预设"
     - button "技能"
+    - button "MCP"
     - button "已归档"
   - button "打开配置文件"
   - button "关闭"

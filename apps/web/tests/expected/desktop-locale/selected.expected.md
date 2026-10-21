@@ -6,6 +6,7 @@
     - button "Built-in plugins"
     - button "Agent presets"
     - button "Skills"
+    - button "MCP"
     - button "Archived"
   - button "Open configuration file"
   - button "Close"
