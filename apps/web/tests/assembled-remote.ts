@@ -187,6 +187,10 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
         items: structuredClone(workspaces),
         archivedSessionIds: structuredClone(fixture.workspace.value.archivedSessionIds),
         pinnedSessionIds: structuredClone(fixture.workspace.value.pinnedSessionIds),
+        // This fork's Workspace baseline also carries the archive instants and
+        // the per-Session presentation flags; the capture predates both.
+        archivedSessionAts: {},
+        sessionFlags: {},
       },
     })
   })
