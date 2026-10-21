@@ -1,5 +1,5 @@
 - button "新建会话"
-- button "收起侧边栏"
+- button "收起侧边栏" [expanded]
 - button "新建会话": 新会话
 - navigation "全局面板":
   - button "插件"

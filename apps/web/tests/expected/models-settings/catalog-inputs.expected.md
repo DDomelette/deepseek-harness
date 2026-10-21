@@ -5,6 +5,8 @@
     - button "模型"
     - button "内置插件"
     - button "Agent 预设"
+    - button "技能"
+    - button "已归档"
   - button "打开配置文件"
   - button "关闭"
   - heading "模型" [level=2]
@@ -56,7 +58,7 @@
       - button "取消"
       - button "保存"
     - listitem:
-      - text: Acme 网关 自定义
-      - button "编辑 Acme 网关 (acme-gateway)": 编辑
-      - button "删除 Acme 网关 (acme-gateway)": 删除
+      - text: Acme Gateway 自定义
+      - button "编辑 Acme Gateway (acme-gateway)": 编辑
+      - button "删除 Acme Gateway (acme-gateway)": 删除
   - button "添加模型提供商"
