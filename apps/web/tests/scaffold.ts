@@ -1543,6 +1543,9 @@ function normalizeAria(snapshot: string, workspaceCwd: string, age: boolean): st
   const base = workspaceCwd.split('/').pop()!
   return (age ? snapshot.replace(ARIA_AGE, '{{age}}') : snapshot)
     .split(workspaceCwd).join('{{cwd}}')
+    // A workspace path holds backslashes on Windows, so the separator the UI
+    // appends after the token arrives as `\`; committed goldens spell POSIX.
+    .split('{{cwd}}\\').join('{{cwd}}/')
     .split(base).join('{{workspace}}')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{{uuid}}')
     // The optional space in `\d+m ?\d+s` covers both minute spellings: the
