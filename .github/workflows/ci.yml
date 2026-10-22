@@ -344,6 +344,7 @@ jobs:
           name: browser-goldens
           path: |
             apps/web/tests/expected
+            apps/web/tests/snapshots
             snapshots/web
 
 
