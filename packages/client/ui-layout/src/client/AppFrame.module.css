@@ -71,7 +71,11 @@
   }
 }
 
+/* Each column pins its own track: the drawer takes the sidebar out of the grid
+   (position: fixed below), and auto-placement would slide the next column into
+   the zero-width sidebar track, collapsing the centre behind the drawer. */
 .sidebarCol {
+  grid-area: 1 / 1;
   min-width: 0;
   overflow: hidden;
   background: var(--dsw-specific-sidebar-fill);
@@ -150,6 +154,8 @@
 }
 
 .centerCol {
+  /* Pinned to its track: see .sidebarCol. */
+  grid-area: 1 / 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -352,6 +358,8 @@
  * where it is. The occupant draws its own left border.
  */
 .rightbarCol {
+  /* Pinned to its track: see .sidebarCol. */
+  grid-area: 1 / 3;
   position: relative;
   min-width: 0;
   overflow: visible;
