@@ -349,6 +349,13 @@
   text-overflow: ellipsis;
 }
 
+/* Coarse pointers (touch): WCAG 2.5.5 target size. */
+@media (pointer: coarse) {
+  .switcher {
+    height: 44px;
+  }
+}
+
 
 .groupBody {
   display: flex;
