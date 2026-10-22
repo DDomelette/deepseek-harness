@@ -322,7 +322,8 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     expect(await exportButton.isDisabled()).toBe(false)
     const header = exportButton.locator('xpath=ancestor::header[1]')
     // The right Sidebar's expand button holds the header's corner; the export
-    // control sits immediately to its left.
+    // control sits to its left, one utilities control away in this composition
+    // because the notes panel registers a header control of its own.
     const sidebarButton = page.getByRole('button', { name: 'Open right sidebar' })
     const [buttonBox, sidebarBox, headerBox] = await Promise.all([
       exportButton.boundingBox(), sidebarButton.boundingBox(), header.boundingBox(),
@@ -331,7 +332,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       throw new Error('Session Header export geometry is unavailable')
     }
     expect(headerBox.x + headerBox.width - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(32)
-    expect(sidebarBox.x - (buttonBox.x + buttonBox.width)).toBeLessThanOrEqual(32)
+    expect(buttonBox.x + buttonBox.width).toBeLessThan(sidebarBox.x)
     const responsePromise = page.waitForResponse(response =>
       response.request().method() === 'HEAD'
       && new URL(response.url()).pathname === '/api/session.export', { timeout: 30_000 })
@@ -379,7 +380,9 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       const input = page.locator('[data-composer-input]').first()
       const slashDownloadPromise = page.waitForEvent('download', { timeout: 30_000 })
       await input.fill('/export')
-      await page.getByRole('option', { name: /^Export/u }).waitFor({ timeout: 10_000 })
+      // The menu labels an entry with the command's own name, which this
+      // composition spells in lower case.
+      await page.getByRole('option', { name: /^export/i }).waitFor({ timeout: 10_000 })
       await input.press('Enter')
       const slashDownload = await slashDownloadPromise
       expect(slashDownload.suggestedFilename()).toBe(download.suggestedFilename())
