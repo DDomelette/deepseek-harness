@@ -4,6 +4,10 @@
   width: 28px;
   padding: 0;
   color: var(--dsw-alias-label-secondary);
+  /* The header's icon buttons are circles: the More action beside this seat is
+     the right Sidebar's 28px round button, and the primitive's small radius
+     would read as a different control family in the same row. */
+  border-radius: 50%;
 }
 
 .button svg {

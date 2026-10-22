@@ -394,18 +394,25 @@ describe('web e2e: shipped right Sidebar', () => {
       if (expandBox === null || rowBox === null) throw new Error('header utilities are not rendered')
       expect(Math.round(expandBox.y + expandBox.height / 2)).toBe(Math.round(rowBox.y + rowBox.height / 2))
       const more = utilities.getByRole('button', { name: 'More actions', exact: true })
-      let hoverFill: string | undefined
+      const appearances: { width: number; height: number; radius: string; fill: string }[] = []
       for (const action of [more, expand]) {
         await action.hover()
-        const appearance = await action.evaluate((node) => {
+        appearances.push(await action.evaluate((node) => {
           const style = getComputedStyle(node)
           const box = node.getBoundingClientRect()
           return { width: box.width, height: box.height, radius: style.borderRadius, fill: style.backgroundColor }
-        })
-        expect(appearance).toMatchObject({ width: 28, height: 28, radius: '8px' })
+        }))
+      }
+      // Both header icon buttons are 28px circles with the same hover fill;
+      // the corner arrives as `50%` on one and a pixel radius on the other.
+      const circular = (appearance: { width: number; height: number; radius: string }): boolean =>
+        appearance.radius === '50%'
+        || Number.parseFloat(appearance.radius) >= Math.min(appearance.width, appearance.height) / 2
+      for (const appearance of appearances) {
+        expect(appearance).toMatchObject({ width: 28, height: 28 })
+        expect(circular(appearance), `circular header control: ${appearance.radius}`).toBe(true)
         expect(appearance.fill).not.toBe('rgba(0, 0, 0, 0)')
-        if (hoverFill === undefined) hoverFill = appearance.fill
-        else expect(appearance.fill).toBe(hoverFill)
+        expect(appearance.fill).toBe(appearances[0]!.fill)
       }
       // Its own corner seat, past the utilities' right edge — not a utility.
       expect(expandBox.x).toBeGreaterThan(rowBox.x + rowBox.width)
