@@ -215,10 +215,10 @@ export async function serveStatic(
 export function apply(ctx: Context, config: Config): void {
   const distIndex = config.distIndex
   const distRoot = dirname(distIndex)
-  // The dist is built with a relative base so the same files mount under any
-  // static directory; served pages also answer deep SPA-fallback paths, where
-  // relative asset URLs would resolve under the request directory, so the
-  // served form anchors them at the site root ahead of every URL-bearing tag.
+  // The dist is built with a relative base, and the served form anchors it at
+  // the document directory ahead of every URL-bearing tag. A site-root anchor
+  // would break every deployment that mounts the app under a prefix: the
+  // browser would ask the origin root for assets the mount owns.
   const renderIndex = async (): Promise<string | undefined> => {
     let raw: string
     try {
@@ -230,7 +230,7 @@ export function apply(ctx: Context, config: Config): void {
       return undefined
     }
     const body = ctx.webServer.renderIndex(raw)
-    return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="/">`)
+    return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`)
   }
   ctx.provide(FRONTEND_SERVICE, { renderIndex })
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {

@@ -191,9 +191,20 @@ async function parseBinaryResponse(response: Response): Promise<{
   return { rpcId: full.rpcId, result: { ok: true, value: root.value } }
 }
 
+/**
+ * Base every request resolves against, so a deployment that mounts the app
+ * under a prefix keeps its RPC routes inside that mount. A document answers
+ * with its own base; a worker has no document, so its script directory is the
+ * equivalent anchor — its origin alone would leave the mount.
+ * @returns the document base, the worker script directory, or the internal base.
+ */
 function resolveBase(): string {
-  const location = (globalThis as { location?: { origin?: string } }).location
-  return location?.origin !== undefined && location.origin !== 'null' ? location.origin : INTERNAL_BASE
+  const documentBase = (globalThis as { document?: { baseURI?: string } }).document?.baseURI
+  if (documentBase !== undefined && documentBase !== '' && documentBase !== 'null') return documentBase
+  const href = (globalThis as { location?: { href?: string } }).location?.href
+  if (href !== undefined && href !== '' && href !== 'null') return new URL('.', href).href
+  const origin = (globalThis as { location?: { origin?: string } }).location?.origin
+  return origin !== undefined && origin !== 'null' ? origin : INTERNAL_BASE
 }
 
 function assertTarget(channel: string, endpoint: string): void {
