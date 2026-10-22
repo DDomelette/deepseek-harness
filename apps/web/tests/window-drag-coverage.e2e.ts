@@ -21,7 +21,7 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { initialShortcutConfig } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import {
-  INTERACTIVE_SELECTOR, RECALL_MARK, isDraggableAt, type RegionRect,
+  DRAG_MARK, INTERACTIVE_SELECTOR, RECALL_MARK, isDraggableAt, type RegionRect,
 } from '@deepseek-ai/dsh-client-web/src/window-drag/regions.ts'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
@@ -74,10 +74,11 @@ async function rectOf(page: Page, selector: string): Promise<Rect> {
 /**
  * Collect every visible app-region box in DOM order.
  * @param page - the page under test.
+ * @param selector - the interactive-element selector that subtracts a control from a drag row.
  * @returns the boxes, in document order, with the interactive flag of each element.
  */
 async function collectedRegions(page: Page, selector: string): Promise<CollectedRegion[]> {
-  return page.evaluate((interactiveSelector) => {
+  return page.evaluate(({ interactiveSelector, dragMark }) => {
     const collected: {
       x: number
       y: number
@@ -107,12 +108,14 @@ async function collectedRegions(page: Page, selector: string): Promise<Collected
       const hits = interactive
         ? samples.filter(([x, y]) => {
           const top = document.elementFromPoint(x, y)
-          // A pane's programmatic focus target also contains its window-drag strip.
-          // The strip owns those pixels; controls inside it still need their own subtraction.
-          const strip = top?.closest('[data-dockkit-strip][data-window-drag]')
-          if (element.matches('[data-dockkit-pane][tabindex="-1"]')
-            && strip != null && element.contains(strip)) return false
-          return top !== null && (top === element || element.contains(top))
+          if (top === null || !element.contains(top)) return false
+          // A chrome row inside a container owns its own pixels. A programmatic
+          // focus target — the dockkit pane, whose strip drags, and the sidebar
+          // column, whose title strip and logo row drag — contains such a row, and a
+          // press there reaches the row, not the container. Controls inside those
+          // rows still need their own subtraction.
+          const row = top.closest(`[${dragMark}]`)
+          return row === null || row === element || !element.contains(row)
         })
         : []
       collected.push({
@@ -126,7 +129,7 @@ async function collectedRegions(page: Page, selector: string): Promise<Collected
       })
     }
     return collected
-  }, selector)
+  }, { interactiveSelector: selector, dragMark: DRAG_MARK })
 }
 
 /**
@@ -134,7 +137,8 @@ async function collectedRegions(page: Page, selector: string): Promise<Collected
  * A sample counts only where the browser's own hit test reaches the control: a
  * box clipped away by its column (the collapsed sidebar's hidden controls sit at
  * negative x) is not hittable anywhere it overlaps a drag row, and a press there
- * belongs to whatever is painted.
+ * belongs to whatever is painted. The same holds for the pixels a drag row nested
+ * in the control paints over it.
  * @param regions - collected boxes in DOM order.
  * @returns one description per interactive box with a hittable sample inside the drag surface.
  */
