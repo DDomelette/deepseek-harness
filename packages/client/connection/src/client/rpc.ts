@@ -57,7 +57,7 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
         payload,
       }
       const response = await send(
-        new URL(`${channel}/${endpoint}`, resolveBase()),
+        requestUrl(channel, endpoint),
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -189,6 +189,20 @@ async function parseBinaryResponse(response: Response): Promise<{
   }
   if (fields.size !== 0) throw new TypeError('connection: invalid binary response fields')
   return { rpcId: full.rpcId, result: { ok: true, value: root.value } }
+}
+
+/**
+ * Resolve one channel call against the base, keeping it inside the mount.
+ * The channel name leads with `/`, which URL resolution would anchor at the
+ * origin; trimming it makes the route relative to the base instead.
+ * @param channel - validated channel name.
+ * @param endpoint - validated endpoint path.
+ * @returns the absolute request URL.
+ */
+function requestUrl(channel: string, endpoint: string): URL {
+  const base = resolveBase()
+  const root = base.endsWith('/') ? base : `${base}/`
+  return new URL(`${channel.replace(/^\//u, '')}/${endpoint}`, root)
 }
 
 /**

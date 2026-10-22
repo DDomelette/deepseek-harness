@@ -12,19 +12,21 @@ it('ships install metadata with the built web application', async () => {
   const manifest: unknown = JSON.parse(await readFile(join(DIST_ROOT, 'manifest.webmanifest'), 'utf8'))
   // No `id`: a browser resolves an explicit `id` against the start URL's origin,
   // so only an absent `id`, which defaults to the resolved `start_url`, gives
-  // each mount its own identity. `public-mount.e2e.ts` reads the resolved form.
+  // each mount its own identity. Every member is mount-relative for that same
+  // reason — `public-mount.e2e.ts` reads the resolved form under a prefix.
   expect(manifest).toEqual({
     name: 'DeepSeek Harness',
     short_name: 'DSH',
     start_url: './',
     scope: './',
     display: 'fullscreen',
-    icons: [{
-      src: 'favicon.svg',
-      sizes: 'any',
-      type: 'image/svg+xml',
-      purpose: 'any',
-    }],
+    background_color: '#151517',
+    theme_color: '#151517',
+    icons: [
+      { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+    ],
   })
 })
 
