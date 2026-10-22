@@ -17,6 +17,19 @@
   padding-right: 48px;
 }
 
+/* Handset single-pane: the description keeps the full row and the selector
+   drops to its own line below it. */
+@media (max-width: 767px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .rowText {
+    flex: 1 1 100%;
+    padding-right: 0;
+  }
+}
+
 .title {
   font-size: 14px;
   font-weight: 400;

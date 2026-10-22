@@ -593,6 +593,13 @@ select.input {
   cursor: pointer;
 }
 
+/* Coarse pointers (touch): WCAG 2.5.5 target size. */
+@media (pointer: coarse) {
+  select.input {
+    min-height: 44px;
+  }
+}
+
 .input:focus {
   outline: none;
   border-color: var(--dsw-alias-state-business-primary);

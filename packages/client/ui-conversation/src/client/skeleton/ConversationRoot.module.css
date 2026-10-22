@@ -330,6 +330,15 @@ button.crumb:hover {
   display: none;
 }
 
+/* A handset column is narrow by construction and a coarse pointer cannot aim
+   the strip: the drag affordance is dropped rather than left to squeeze the
+   content column. */
+@media (max-width: 767px), (pointer: coarse) {
+  .widthHandle {
+    display: none;
+  }
+}
+
 /* Composer context stack (Figma 9:937): standalone dock cards share one
    rhythm above the input card. */
 .composerStack {
