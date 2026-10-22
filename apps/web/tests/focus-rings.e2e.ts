@@ -255,8 +255,10 @@ async function compileFixture(): Promise<{ script: string; css: string }> {
     logLevel: 'error',
     plugins: [{
       name: 'focus-rings-fixture',
-      resolveId(id) { if (id === entry) return entry },
-      load(id) { if (id === entry) return code },
+      // Vite resolves the virtual entry through the file system first, and on
+      // Windows that spelling can differ in drive-letter case only.
+      resolveId(id) { if (id.toLowerCase().replaceAll('\\', '/') === entry.toLowerCase()) return entry },
+      load(id) { if (id.toLowerCase() === entry.toLowerCase()) return code },
     }],
     esbuild: { jsx: 'automatic', jsxDev: false },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
