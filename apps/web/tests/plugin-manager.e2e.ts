@@ -439,8 +439,8 @@ describe('web e2e: plugin manager', () => {
     expect(await panel.locator('[data-plugin-group="basic"] [data-plugin-item]').count()).toBe(4)
     expect(await panel.locator('[data-plugin-package="@deepseek-ai/dsh-experimental-inspector"]').count()).toBe(0)
     expect(await panel.getByRole('switch', { name: '启用 语音输入', exact: true }).getAttribute('aria-checked')).toBe('false')
-    expect(await panel.getByRole('switch', { name: '启用 开发者工具', exact: true }).getAttribute('aria-checked')).toBe('false')
-    expect(await panel.getByText('查看调试会话原始数据、聊天消息分组数据，以及调试 NodeJS 后端', { exact: true }).count()).toBe(1)
+    // This composition ships no developer-tools bundle: its switch and its
+    // description row are absent rather than merely off.
     expect(await panel.getByText(/Cordis|Chrome DevTools/).count()).toBe(0)
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('heading', { name: '实验性插件', exact: true, level: 1 }).waitFor()
