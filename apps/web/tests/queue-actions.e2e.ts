@@ -167,13 +167,15 @@ describe('web e2e: queue row actions', () => {
     await page.setViewportSize({ width: 640, height: 1000 })
     await page.locator('[data-sidebar-collapsed="true"]').waitFor()
     // The responsive sidebar and composer settle independently; sample both
-    // rectangles in one browser task so the comparison uses one layout.
+    // rectangles in one browser task so the comparison uses one layout. The
+    // dock wrapper spends the shared dock inset as its own horizontal padding,
+    // so the inset the reader sees is the panel's.
     await vi.waitFor(async () => {
       const metrics = await page.evaluate(() => {
-        const queue = document.querySelector('[data-queue-dock]')
+        const panel = document.querySelector('[data-queue-dock]')?.firstElementChild ?? null
         const composer = document.querySelector('[data-composer-card]')
-        if (queue === null || composer === null) return undefined
-        const queueBox = queue.getBoundingClientRect()
+        if (panel === null || composer === null) return undefined
+        const queueBox = panel.getBoundingClientRect()
         const composerBox = composer.getBoundingClientRect()
         return {
           leftInset: queueBox.left - composerBox.left,
