@@ -445,11 +445,13 @@ describe('web e2e: plugin manager', () => {
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('heading', { name: '实验性插件', exact: true, level: 1 }).waitFor()
     // The group renders from the inventory snapshot the panel receives, so its
-    // rows arrive after the view: poll instead of sampling one paint.
+    // rows arrive after the view: poll instead of sampling one paint, and
+    // compare the roster itself so a missing bundle is named in the failure.
     await expect.poll(
-      () => panel.locator('[data-plugin-group="more"] [data-plugin-package]').count(),
+      () => panel.locator('[data-plugin-group="more"] [data-plugin-package]')
+        .evaluateAll(nodes => nodes.map(node => node.getAttribute('data-plugin-package') ?? '').sort()),
       { timeout: 10_000 },
-    ).toBe(OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length)
+    ).toEqual([...OPTIONAL_BUNDLES, ...ON_DEMAND_BUNDLES].sort())
     expect(await panel.getByText('实验性', { exact: true }).count())
       .toBe(OPTIONAL_BUNDLES.filter(name => name.startsWith('@deepseek-ai/dsh-experimental-')).length)
     expect(await panel.locator('[data-plugin-group="bundles"]').count()).toBe(0)
