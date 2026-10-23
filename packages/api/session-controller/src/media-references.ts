@@ -60,7 +60,7 @@ async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Pr
 }
 
 /**
- * File-display contribution. The connection service supplies authentication;
+ * Bodyless GET/HEAD file-display contribution. The connection service supplies authentication;
  * `ctx.fs` supplies the execution world's paths, reads, and access policy.
  */
 export const SessionMediaReferences = {
@@ -70,7 +70,7 @@ export const SessionMediaReferences = {
     ctx.effect(() => ctx.connection.fetch.register({
       path: '/api/file',
       methods: ['GET', 'HEAD'],
-      requestBody: 'buffered',
+      requestBody: 'none',
       fetch: request => serveFile(request, ctx.fs, maxBytes),
     }), 'session-controller: /api/file')
   },

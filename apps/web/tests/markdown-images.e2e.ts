@@ -197,7 +197,7 @@ describe('web e2e: Markdown image rendering', () => {
       const url = new URL(response.url())
       if (url.pathname !== '/api/file') return
       const path = url.searchParams.get('path')
-      if (path !== null) mediaResponses.set(path, response.status())
+      if (path !== null) mediaResponses.set(path.replace(/\\/g, '/'), response.status())
     })
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -263,7 +263,7 @@ describe('web e2e: Markdown image rendering', () => {
     expect(imageOrigin.requests).toEqual([{ path: '/image.png', referer: undefined }])
 
     const workspaceImage = page.getByRole('img', { name: WORKSPACE_ALT })
-    await expect.poll(() => mediaResponses.get(join(scaffold.workspaceCwd, 'valid.png'))).toBe(200)
+    await expect.poll(() => mediaResponses.get(join(scaffold.workspaceCwd, 'valid.png').replace(/\\/g, '/'))).toBe(200)
     await expect.poll(() => workspaceImage.evaluate(element => (element as HTMLImageElement).naturalWidth, undefined, {
       timeout: 1_000,
     }))
@@ -274,8 +274,8 @@ describe('web e2e: Markdown image rendering', () => {
       await page.getByText(`Image preview unavailable · ${alt}`, { exact: true }).waitFor()
       expect(await page.getByRole('img', { name: alt }).count()).toBe(0)
     }
-    await page.getByText(`Image preview unavailable · ${join(scaffold.workspaceCwd, 'corrupt.png')}`, { exact: true }).waitFor()
-    expect(mediaResponses).toEqual(new Map([
+    await page.getByText(`Image preview unavailable · ${scaffold.workspaceCwd}/corrupt.png`, { exact: true }).waitFor()
+    const expectedResponses = new Map([
       [join(scaffold.workspaceCwd, 'valid.png'), 200],
       [`${scaffold.workspaceCwd}/./local-image.png`, 200],
       [join(scaffold.workspaceCwd, 'test workspace/测试图.png'), 200],
@@ -284,7 +284,8 @@ describe('web e2e: Markdown image rendering', () => {
       [join(scaffold.persistenceRoot, 'outside.png'), 200],
       [join(scaffold.workspaceCwd, 'missing.png'), 404],
       [join(scaffold.workspaceCwd, 'corrupt.png'), 200],
-    ]))
+    ])
+    expect(mediaResponses).toEqual(new Map([...expectedResponses].map(([path, status]) => [path.replace(/\\/g, '/'), status])))
 
     await page.getByRole('button', { name: `View full image: ${WORKSPACE_ALT}`, exact: true }).click()
     const lightbox = page.getByRole('dialog', { name: 'Image preview', exact: true })
