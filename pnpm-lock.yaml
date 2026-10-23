@@ -231,6 +231,9 @@ importers:
       '@deepseek-ai/dsh-experimental-cot-translation-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/cot-translation-bundle
+      '@deepseek-ai/dsh-experimental-inspector-profile':
+        specifier: workspace:*
+        version: link:../../packages/experimental/inspector-profile
       '@deepseek-ai/dsh-experimental-ralph-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/ralph-bundle
