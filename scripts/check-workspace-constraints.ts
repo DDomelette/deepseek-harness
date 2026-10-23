@@ -636,6 +636,28 @@ export function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]):
   return errors
 }
 
+/**
+ * Require the release to depend on every bundle the launcher offers switched off.
+ *
+ * The plugin manager builds a bundle row from the profile and from the
+ * installation's dependencies, so a name the launcher lists but the release does
+ * not depend on is never offered: the list would promise a bundle that no
+ * installation ships, and only a developer's own install state would show it.
+ * @param manifests - every workspace manifest.
+ * @param optionalBundles - the bundles the installation ships switched off; the launcher's list by default.
+ * @returns One error per offered bundle the release does not depend on.
+ */
+export function checkShippedOptionalBundles(
+  manifests: readonly WorkspaceManifest[], optionalBundles: readonly string[] = OPTIONAL_BUNDLES,
+): string[] {
+  const release = manifests.find(entry => entry.manifest.name === '@deepseek-ai/dsh')
+  if (release === undefined) return ['@deepseek-ai/dsh: the release root manifest is missing']
+  const shipped: Record<string, unknown> = release.manifest.dependencies ?? {}
+  return optionalBundles
+    .filter(name => !Object.hasOwn(shipped, name))
+    .map(name => `${release.dir}/package.json: the launcher ships ${name} switched off, so dependencies must declare it`)
+}
+
 /** Run the repository constraint gate. */
 export function main(): void {
   const manifests = readWorkspaceManifests(root)
@@ -645,6 +667,7 @@ export function main(): void {
     ...checkWorkspaceProtocol(manifests),
     ...checkExperimentalNameExceptions(manifests),
     ...checkExperimentalDependencyIsolation(manifests),
+    ...checkShippedOptionalBundles(manifests),
     ...checkHierarchyShape(),
     ...collectProjectReferenceFaceViolations(root),
   ]

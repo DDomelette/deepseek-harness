@@ -14,6 +14,7 @@ import {
   checkWorkspaceManifest,
   checkWorkspaceProtocol,
   checkExperimentalDependencyIsolation,
+  checkShippedOptionalBundles,
   checkExperimentalManifest,
   checkExperimentalNameExceptions,
   expectedDshPackageFiles,
@@ -117,6 +118,34 @@ describe('workspace manifest discovery', () => {
 })
 
 describe('experimental workspace constraints', () => {
+  describe('shipped optional bundles', () => {
+    const release = (dependencies: Record<string, string>): WorkspaceManifest => ({
+      dir: 'apps/cli',
+      manifest: { name: '@deepseek-ai/dsh', dependencies },
+    })
+
+    it('accepts the release that depends on every offered bundle', () => {
+      expect(checkShippedOptionalBundles(
+        [release({ '@deepseek-ai/dsh-base': 'workspace:*', '@deepseek-ai/dsh-experimental-inspector-profile': 'workspace:*' })],
+        ['@deepseek-ai/dsh-experimental-inspector-profile'],
+      )).toEqual([])
+    })
+
+    it('rejects a bundle the launcher offers but the release does not depend on', () => {
+      expect(checkShippedOptionalBundles(
+        [release({ '@deepseek-ai/dsh-base': 'workspace:*' })],
+        ['@deepseek-ai/dsh-experimental-inspector-profile'],
+      )).toEqual([
+        'apps/cli/package.json: the launcher ships @deepseek-ai/dsh-experimental-inspector-profile switched off, so dependencies must declare it',
+      ])
+    })
+
+    it('rejects a manifest list without the release root', () => {
+      expect(checkShippedOptionalBundles([experimental], ['@deepseek-ai/dsh-base']))
+        .toEqual(['@deepseek-ai/dsh: the release root manifest is missing'])
+    })
+  })
+
   it('requires the experimental package-name prefix', () => {
     expect(checkExperimentalManifest({
       ...experimental,
