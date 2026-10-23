@@ -1550,8 +1550,9 @@ function normalizeAria(snapshot: string, workspaceCwd: string, age: boolean): st
     .split(workspaceCwd.replaceAll('\\', '\\\\')).join('{{cwd}}')
     .split(workspaceCwd).join('{{cwd}}')
     // A workspace path holds backslashes on Windows, so the separator the UI
-    // appends after the token arrives as `\`; committed goldens spell POSIX.
-    .split('{{cwd}}\\').join('{{cwd}}/')
+    // appends after the token arrives as `\`; committed goldens spell POSIX for
+    // every path token, including the ones a scenario substitutes itself.
+    .replace(/(\{\{(?:cwd|fixtures|harnessHome|home)\}\})\\/gu, '$1/')
     .split(base).join('{{workspace}}')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{{uuid}}')
     // The optional space in `\d+m ?\d+s` covers both minute spellings: the

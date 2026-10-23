@@ -444,8 +444,12 @@ describe('web e2e: plugin manager', () => {
     expect(await panel.getByText(/Cordis|Chrome DevTools/).count()).toBe(0)
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('heading', { name: '实验性插件', exact: true, level: 1 }).waitFor()
-    expect(await panel.locator('[data-plugin-group="more"] [data-plugin-package]').count())
-      .toBe(OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length)
+    // The group renders from the inventory snapshot the panel receives, so its
+    // rows arrive after the view: poll instead of sampling one paint.
+    await expect.poll(
+      () => panel.locator('[data-plugin-group="more"] [data-plugin-package]').count(),
+      { timeout: 10_000 },
+    ).toBe(OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length)
     expect(await panel.getByText('实验性', { exact: true }).count())
       .toBe(OPTIONAL_BUNDLES.filter(name => name.startsWith('@deepseek-ai/dsh-experimental-')).length)
     expect(await panel.locator('[data-plugin-group="bundles"]').count()).toBe(0)
