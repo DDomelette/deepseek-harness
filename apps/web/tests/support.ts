@@ -83,7 +83,8 @@ export function pinHostClock(): MockInstance<typeof Date.now> {
  * decide a minimum display hold or a deadline window; a permanently frozen
  * clock stops supplying elapsed time, so a title that owes its golden settled
  * text keeps rendering its previous one. Both clocks therefore advance at the
- * real rate and stay within one step of each other.
+ * real rate. Each update also drains already-due browser callbacks without
+ * advancing time, including parser and composer work queued after a reload.
  * @param page - page whose clock is pinned.
  * @returns the disposer that stops re-pinning; call it in teardown.
  */
@@ -92,6 +93,7 @@ export async function pinBrowserClock(page: Page): Promise<() => void> {
   const step = async (): Promise<void> => {
     try {
       await page.clock.setFixedTime(WEB_FIXTURE_TIME + (Date.now() - startedAt))
+      await page.clock.runFor(0)
     } catch {
       // The page closed under the interval; teardown owns the last word.
     }

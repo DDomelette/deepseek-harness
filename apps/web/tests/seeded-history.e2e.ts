@@ -853,7 +853,13 @@ describe('web e2e: seeded history renders through cold resume', () => {
     await expect.poll(() => terminals().length).toBe(1)
     expect(terminals()[0]!.id).not.toBe(previous)
     await terminal.getByRole('status').waitFor({ state: 'hidden' })
-    await terminal.getByRole('textbox', { name: 'Terminal', exact: true }).waitFor()
+    await terminal.locator('.xterm-screen').waitFor()
+    const input = terminal.getByRole('textbox', { name: 'Terminal', exact: true })
+    // Xterm's zero-size focus target accepts keystrokes; shell output establishes readiness.
+    await input.waitFor({ state: 'attached' })
+    await input.pressSequentially("printf 'TERMINAL%s\\n' '-READY'")
+    await input.press('Enter')
+    await expect.poll(() => terminal.locator('.xterm-rows').innerText(), { timeout: 5_000 }).toContain('TERMINAL-READY')
   })
 
   it.skipIf(MODE === 'record')('issued zero model calls and stayed clean', async () => {
