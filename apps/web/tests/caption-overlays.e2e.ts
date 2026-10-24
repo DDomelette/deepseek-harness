@@ -13,7 +13,7 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
   try {
     const browser = await chromium.launch()
     try {
-      const page = await browser.newPage({ viewport: { width: 520, height: 600 }, locale: ZH_BROWSER_LOCALE })
+      const page = await browser.newPage({ viewport: { width: 1024, height: 600 }, locale: ZH_BROWSER_LOCALE })
       const console = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl)
       await page.waitForSelector('[class*="frame"]')

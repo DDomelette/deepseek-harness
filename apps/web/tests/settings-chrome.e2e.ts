@@ -1055,6 +1055,7 @@ describe('web e2e: browser-local collapse timing preference', () => {
     await timing.getByRole('button', { name: copy.completion, exact: true }).waitFor()
 
     await page.setViewportSize({ width: 640, height: 480 })
+    await dialog.getByRole('button', { name: copy.locale === 'zh' ? '通用设置' : 'General', exact: true }).click()
     await timing.getByRole('button').click()
     await menu.waitFor()
     await expect.poll(() => menu.evaluate((element) => {
