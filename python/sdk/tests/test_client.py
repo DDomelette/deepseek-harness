@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from deepseek_harness import DeepSeekHarness, HarnessClient, HarnessConfig, Notification, RunResult, SdkProtocolError
-from deepseek_harness.errors import JsonRpcError
+from deepseek_harness.errors import JsonRpcError, TransportClosedError
 
 
 def test_high_level_sdk_runs_turn_and_collects_final_response(tmp_path: Path) -> None:
@@ -925,6 +925,31 @@ sys.exit(42)
     ) as client:
         with pytest.raises(Exception, match="fatal bridge exploded"):
             client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
+
+
+def test_initialize_retains_stderr_emitted_after_stdout_closes(tmp_path: Path) -> None:
+    script = tmp_path / "late_stderr_runtime.py"
+    script.write_text(
+        """
+import json
+import os
+import sys
+
+for line in sys.stdin:
+    method = json.loads(line).get("method")
+    if method == "initialize":
+        os.close(sys.stdout.fileno())
+    elif method == "shutdown":
+        print("fatal bridge emitted during shutdown", file=sys.stderr, flush=True)
+        os._exit(42)
+""".strip()
+    )
+    with HarnessClient(
+        HarnessConfig(shutdown_timeout_seconds=1),
+        _launch_args=(sys.executable, str(script)),
+    ) as client:
+        with pytest.raises(TransportClosedError, match="fatal bridge emitted during shutdown"):
+            client.initialize(provider="deepseek-official", cwd=str(tmp_path), model="dsagent")
 
 
 def test_client_serializes_concurrent_writes(tmp_path: Path) -> None:

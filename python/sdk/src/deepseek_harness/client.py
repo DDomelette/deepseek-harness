@@ -167,6 +167,8 @@ class HarnessClient:
                     f"{error.message}\n{diagnostics}",
                     error.data,
                 ) from error
+            if isinstance(error, TransportClosedError) and diagnostics:
+                raise TransportClosedError(f"{error}\n{diagnostics}") from error
             raise
 
     def session_prompt(
