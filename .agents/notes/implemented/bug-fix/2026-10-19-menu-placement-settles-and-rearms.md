@@ -16,6 +16,8 @@ Six signals re-arm it: `scroll` in the capture phase, so a nested pane's scroll 
 
 The invariant relied on: every movement of the anchor is announced by one of those signals before it paints. A drag announces itself on the first `pointermove` carrying a held button, a transform or transition or keyframe through `transitionrun` or `animationstart`, a scroll and a viewport change through `scroll` and `resize`, and a change to the list's own content through the re-render that produces it. A loop that has stopped is therefore armed again during the frames of the movement, not after them.
 
+Placement keeps the last submitted viewport coordinates in an instance ref and calls React's state setter only when those coordinates change. Returning the previous value from a functional updater still submits an update from the post-commit placement effect; during a floating-panel drag those submissions can repeat until React rejects the nested updates and the slot retires the menu's owner. Closing or disabling portal placement clears both the coordinates and the rendered position. The frame loop still measures movement and list size independently of whether placement needs a render.
+
 ## Alternatives considered
 
 - **Watch the anchor with a `ResizeObserver`.** Rejected: it reports box-size changes rather than position changes, so drags and transforms would still need the frame loop; and it breaks a spec. `packages/client/ui-sidebar-documentpreview/tests/zoom-viewport.client.spec.tsx` stubs `ResizeObserver` with one captured callback slot, so a second observer constructed by `Menu` overwrites the callback that preview drives.

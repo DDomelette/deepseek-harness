@@ -579,6 +579,11 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     }
     const floating = page.locator('[data-dockkit-float]').filter({ has: page.locator('[data-changes-review]') })
     await floating.waitFor({ state: 'visible' })
+    onTestFinished(async () => {
+      await page.keyboard.press('Escape')
+      await floating.locator('[data-dockkit-float-dock]').click()
+      await floating.waitFor({ state: 'detached' })
+    })
     const selector = floating.getByRole('button', { name: '选择要查看的文件' })
     await selector.click()
     const menu = page.getByRole('menu')
@@ -593,6 +598,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       await page.mouse.down()
       try {
         await page.mouse.move(start.x + delta.x, start.y + delta.y, { steps: 8 })
+        expect(await floating.locator('[data-slot-error]').count()).toBe(0)
         await expect.poll(async () => {
           const anchor = await selector.boundingBox()
           const list = await menu.boundingBox()
@@ -606,9 +612,6 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
         await page.mouse.up()
       }
     }
-    await page.keyboard.press('Escape')
-    await floating.locator('[data-dockkit-float-dock]').click()
-    await floating.waitFor({ state: 'detached' })
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   })

@@ -16,6 +16,8 @@ Status: implemented
 
 依赖的不变量：锚点的每一次移动都会在它绘制之前由上述某个信号宣告。拖拽由第一个带按住按键的 `pointermove` 宣告，transform、transition 与关键帧由 `transitionrun` 或 `animationstart` 宣告，滚动与视口变化由 `scroll` 与 `resize` 宣告，列表自身内容的变化则由产生它的那次重新渲染宣告。因此已经停下的循环是在该运动的这几帧之内被重新武装的，而不是在它之后。
 
+定位在实例 ref 中保存最近提交的视口坐标，仅在坐标变化时调用 React 状态 setter。从函数式 updater 返回旧值仍会由提交后的定位 effect 提交更新；浮动面板拖拽期间，这些提交可能反复嵌套，直到 React 拒绝更新，slot 随之移除菜单所属组件。关闭菜单或禁用 portal 定位会同时清空坐标与渲染位置。帧循环仍独立测量运动与列表尺寸，不依赖定位是否需要渲染。
+
 ## 备选方案
 
 - **用 `ResizeObserver` 观察锚点。** 否决：它报告盒子尺寸变化而不是位置变化，拖拽与 transform 因此仍然需要帧循环；而且它会弄坏一个 spec。`packages/client/ui-sidebar-documentpreview/tests/zoom-viewport.client.spec.tsx` 用单个捕获回调槽位 stub 掉 `ResizeObserver`，`Menu` 再构造一个观察器就会覆盖该预览所驱动的那个回调。

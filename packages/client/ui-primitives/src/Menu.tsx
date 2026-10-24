@@ -140,7 +140,7 @@ const SETTLE_FRAMES = 2
  * @param props.align - list alignment against the anchor (default 'start').
  * @param props.side - open below (`bottom`, default) or above (`top`) the anchor.
  * @param props.portal - render the list into document.body, fixed-positioned
- * from the anchor rect (follows movement and resizing while open). Use when an
+ * from the anchor rect (stays mounted while following movement and resizing). Use when an
  * ancestor's overflow clipping would crop the in-place list; default false
  * keeps the pure-CSS in-place behavior.
  * @param props.closeOnPointerLeave - close the list once the pointer has left
@@ -241,6 +241,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   openRef.current = open
   const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null)
   const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
+  const placed = useRef<CSSProperties | null>(null)
   /** Measures and places the open portal list; assigned by the placement effect below. */
   const placeRef = useRef<(() => void) | null>(null)
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
@@ -251,7 +252,13 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // runs before the parent's, so a wrapper the host positions in its own
   // effect measures stale here — the host callback owns the truth instead.
   useLayoutEffect(() => {
-    if (!open || !portal) { setFixedPos(null); return }
+    if (!open || !portal) {
+      if (placed.current !== null) {
+        placed.current = null
+        setFixedPos(null)
+      }
+      return
+    }
     /** The anchor edges and list size of the previous measurement, compared to detect movement. */
     let measured: { left: number; top: number; right: number; bottom: number; listWidth: number; listHeight: number } | null = null
     /**
@@ -290,7 +297,11 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN)
       if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN)), vh - lh - MARGIN)
 
-      setFixedPos(current => current?.left === x && current.top === y ? current : { left: x, top: y })
+      if (placed.current?.left !== x || placed.current.top !== y) {
+        const position = { left: x, top: y }
+        placed.current = position
+        setFixedPos(position)
+      }
       const moved = measured === null || measured.left !== r.left || measured.top !== r.top
         || measured.right !== r.right || measured.bottom !== r.bottom
         || measured.listWidth !== lw || measured.listHeight !== lh
