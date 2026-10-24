@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -20,10 +20,6 @@ vi.mock(desktopIpc.electron, () => ({
   ipcRenderer: { invoke: desktopIpc.invoke, on: desktopIpc.on },
   contextBridge: { exposeInMainWorld: (name: string, value: unknown) => { vi.stubGlobal(name, value) } },
 }))
-vi.mock('../../../../apps/desktop/src/preload-platform.ts', () => ({ markDocumentPlatform: vi.fn(), syncWindowFullscreen: vi.fn() }))
-vi.mock('../../../../apps/desktop/src/preload-theme.ts', () => ({ syncNativeTheme: vi.fn() }))
-vi.mock('../../../../apps/desktop/src/preload-windows.ts', () => ({ syncWindowsAppearance: vi.fn() }))
-vi.mock('../../../../apps/desktop/src/preload-mandatory-overlay.ts', () => ({ installMandatoryUpdateOverlay: vi.fn() }))
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); desktopIpc.invoke.mockReset(); desktopIpc.on.mockReset() })
 
@@ -31,6 +27,7 @@ const HOLES = ['conversation.hero.workspace.directoryFlow', 'sidebar.workspaces.
 
 async function bench() {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SlotRegistry).await()
   const pickDirectory = vi.fn(async (): Promise<string | null> => '/tmp/picked')
   ctx.provide('uiWorkspace', { pickDirectory } as never)
@@ -165,14 +162,15 @@ describe('directory-picker-native client half', () => {
     expect(b.pickDirectory).toHaveBeenCalledOnce()
   })
 
-  it.each(['win32', 'darwin'] as const)('consumes the actual Desktop preload directory bridge on %s', async (platform) => {
+  it.each(['win32', 'darwin'] as const)('uses the Host chooser with the current Desktop preload on %s', async (platform) => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
     vi.resetModules()
     vi.stubGlobal('location', new URL('dsh-app://app/'))
     // Desktop's preload is typechecked by its own compiler program.
     const preload = '../../../../apps/desktop/src/preload-app.ts'
     await import(/* @vite-ignore */ preload)
-    desktopIpc.invoke.mockResolvedValue('/desktop/workspace')
+    expect(Reflect.get(globalThis, 'dshDesktop')).toEqual({ protocolVersion: 1 })
+    expect(Reflect.get(globalThis, '__DSH_DIRECTORY_PICKER__')).toBeUndefined()
     const b = await bench()
     const dispose = b.declare()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
@@ -180,9 +178,9 @@ describe('directory-picker-native client half', () => {
       await fiber.await()
       const entry = b.slots.entries(HOLES[0])[0]!
       const injected = (entry.inject as () => { pick: () => Promise<string | null> })()
-      await expect(injected.pick()).resolves.toBe('/desktop/workspace')
-      expect(desktopIpc.invoke).toHaveBeenCalledExactlyOnceWith('dsh-desktop:directory-pick')
-      expect(b.pickDirectory).not.toHaveBeenCalled()
+      await expect(injected.pick()).resolves.toBe('/tmp/picked')
+      expect(b.pickDirectory).toHaveBeenCalledOnce()
+      expect(desktopIpc.invoke).not.toHaveBeenCalled()
     } finally {
       await fiber.dispose()
       dispose()
