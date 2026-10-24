@@ -75,8 +75,8 @@ function runBody(
   code: string,
   require: (specifier: string) => unknown = () => ({}),
   als?: unknown,
+  exports: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  const exports: Record<string, unknown> = {}
   const module = { exports }
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the wrapper contract under test is a `new Function` body
   const factory = new Function(...WRAPPER_PARAMS, code) as (...args: unknown[]) => void
@@ -192,13 +192,48 @@ check(
 }
 
 {
-  // Named imports are snapshots (CommonJS destructuring semantics), which is the
-  // documented, accepted divergence from ESM live bindings on the import side.
+  // Named imports preserve the imported name and its local alias.
   const code = transformModule("import { a, b as c } from 'p'\nexport const out = [a, c]\n", 'probe.js')
   parsesAsScript('named imports', code)
   const exports = runBody(code, () => ({ a: 1, b: 2 }))
   check('named import binds by imported name, honouring the alias', exports.out, [1, 2])
 }
+
+test('cyclic imports read bindings only when their consumers use them', () => {
+  const sources: Record<string, string> = {
+    a: "import { getB } from 'b'; export let value = 42; export const read = () => getB(); export const update = () => { value = 43 }",
+    b: "import { value } from 'a'; export const getB = () => value",
+  }
+  const modules = new Map<string, Record<string, unknown>>()
+  const load = (name: string): Record<string, unknown> => {
+    const found = modules.get(name)
+    if (found !== undefined) return found
+    const exports = {}
+    modules.set(name, exports)
+    return runBody(transformModule(sources[name]!), load, undefined, exports)
+  }
+  const a = load('a')
+  expect((a.read as () => number)()).toBe(42)
+  ;(a.update as () => void)()
+  expect((a.read as () => number)()).toBe(43)
+})
+
+test('static imports initialize before module statements regardless of declaration position', () => {
+  const exports = runBody(transformModule("export const seen = value; import { value } from 'p'"), () => ({ value: 42 }))
+  expect(exports.seen).toBe(42)
+})
+
+test('live imports preserve shorthand keys, call receivers, re-exports, and lexical shadowing', () => {
+  const imported = { value: 42, receiver(this: unknown) { return this } }
+  const source = "import { value, receiver } from 'p'; export { value as forwarded }; export const read = () => ({ value }); export const call = () => receiver(); export const shadow = (value) => { const local = { value }; return local.value }; export const key = { value: 7 }.value"
+  const exports = runBody(transformModule(source), () => imported)
+  imported.value = 43
+  expect(exports.forwarded).toBe(43)
+  expect((exports.read as () => unknown)()).toEqual({ value: 43 })
+  expect((exports.call as () => unknown)()).toBeUndefined()
+  expect((exports.shadow as (value: number) => number)(7)).toBe(7)
+  expect(exports.key).toBe(7)
+})
 
 {
   // Default and namespace imports go through the two interop helpers, which must
@@ -223,6 +258,30 @@ check(
 // ---------------------------------------------------------------------------
 // 4. Export forms, including the live-binding contract.
 // ---------------------------------------------------------------------------
+
+test('named default declarations remain visible to later module statements', () => {
+  const exports = runBody(transformModule('export default class Example {}\nExample.value = 42\nexport const seen = Example.value\n'))
+  expect(exports.seen).toBe(42)
+  expect((exports.default as { value: number }).value).toBe(42)
+  const functions = runBody(transformModule('export const seen = example()\nexport default function example() { return 42 }\n'))
+  expect(functions.seen).toBe(42)
+})
+
+test('a trailing line comment cannot consume the module lexical block terminator', () => {
+  for (const source of ['export {}\n//# sourceMappingURL=types.js.map', 'export const value = 42 // trailing comment']) {
+    const code = transformModule(source)
+    expect(code.split('\n')).toHaveLength(source.split('\n').length)
+    expect(() => runBody(code)).not.toThrow()
+  }
+})
+
+test('a module-local createRequire does not shadow generated module requests', async () => {
+  const localRequire = (name: string): string => `local:${name}`
+  const code = transformModule("import { createRequire } from 'node:module'\nconst require = createRequire(import.meta.url)\nexport const value = require('native')\nexport const load = () => import('later')\n")
+  const exports = runBody(code, name => name === 'node:module' ? { createRequire: () => localRequire } : { value: name })
+  expect(exports.value).toBe('local:native')
+  expect(await (exports.load as () => Promise<unknown>)()).toMatchObject({ value: 'later' })
+})
 
 {
   const code = transformModule('export const a = 1\nexport function f() {}\nexport class K {}\n', 'probe.js')
@@ -541,6 +600,46 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
   for await (const value of outer(['a', 'b'])) collected.push(value)
   check('yield* forwards inner values then continues', collected, ['a', 'b', 'tail'])
 }
+
+test('direct return delegation forwards sent values and the final result', async () => {
+  const code = transformModule('export async function* outer(inner) { return yield* inner }\n')
+  const { als, calls } = recordingAls()
+  const outer = runBody(code, () => ({}), als).outer as (inner: unknown) => AsyncGenerator<unknown, unknown, unknown>
+  async function* inner(): AsyncGenerator<unknown, number, unknown> {
+    const sent = yield 'first'
+    yield sent
+    return 42
+  }
+  const iterator = outer(inner())
+  expect(await iterator.next()).toEqual({ value: 'first', done: false })
+  expect(await iterator.next('sent')).toEqual({ value: 'sent', done: false })
+  expect(await iterator.next()).toEqual({ value: 42, done: true })
+  expect(calls.filter(name => name === 'close')).toHaveLength(0)
+})
+
+test('direct return delegation closes an unfinished source on consumer cancellation', async () => {
+  const code = transformModule('export async function* outer(inner) { return yield* inner }\n')
+  const { als, calls } = recordingAls()
+  const outer = runBody(code, () => ({}), als).outer as (inner: unknown) => AsyncGenerator<unknown, unknown, unknown>
+  let closed = 0
+  async function* inner(): AsyncGenerator<string, void, unknown> {
+    try { yield 'first'; yield 'second' } finally { closed++ }
+  }
+  const iterator = outer(inner())
+  expect(await iterator.next()).toEqual({ value: 'first', done: false })
+  expect(await iterator.return('cancelled')).toEqual({ value: 'cancelled', done: true })
+  expect(closed).toBe(1)
+  expect(calls.filter(name => name === 'close')).toHaveLength(1)
+})
+
+test('direct return delegation preserves line numbers and rejects enclosing expressions', () => {
+  const source = 'export async function* outer(inner) {\n  return yield* inner\n}\n'
+  const code = transformModule(source)
+  expect(() => parse(code, { ecmaVersion: 'latest', sourceType: 'script' })).not.toThrow()
+  expect(code.split('\n')).toHaveLength(source.split('\n').length)
+  expect(() => transformModule('export async function* outer(inner) { return wrap(yield* inner) }\n'))
+    .toThrow('yield* is only supported')
+})
 
 // ---------------------------------------------------------------------------
 // 7. Line numbers. The debugging contract: a stack frame in a transformed body

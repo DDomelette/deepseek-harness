@@ -16,12 +16,15 @@ import { notAvailableError, notImplementedFail } from '../../src/node/notImpleme
 import * as childProcess from '../../src/node/builtin_modules/implemented/child_process.ts'
 import * as dnsPromises from '../../src/node/builtin_modules/mock/dns/promises.ts'
 import * as net from '../../src/node/builtin_modules/mock/net.ts'
+import * as readline from '../../src/node/builtin_modules/mock/readline.ts'
 import * as sqlite from '../../src/node/builtin_modules/mock/sqlite.ts'
 import * as stream from '../../src/node/builtin_modules/implemented/stream.ts'
 import * as vm from '../../src/node/builtin_modules/mock/vm.ts'
 import * as workerThreads from '../../src/node/builtin_modules/mock/worker_threads.ts'
 import * as nodePty from '../../src/node/external_packages/node-pty.ts'
 import * as piAi from '../../src/node/external_packages/pi-ai.ts'
+import * as execa from '../../src/node/external_packages/execa.ts'
+import * as got from '../../src/node/external_packages/got.ts'
 import * as ripgrep from '../../src/node/external_packages/ripgrep.ts'
 import * as ws from '../../src/node/external_packages/ws.ts'
 import { REPLACED_EXTERNAL_PACKAGES } from '../../src/node/external_packages/replaced-externals.ts'
@@ -36,6 +39,9 @@ const quiet = (): void => { vi.spyOn(console, 'error').mockImplementation(() => 
 const CALLED: [string, Record<string, unknown>, readonly string[]][] = [
   ['node:dns/promises', dnsPromises, ['lookup']],
   ['node:net', net, ['createServer', 'connect']],
+  ['node:readline', readline, ['createInterface']],
+  ['execa', execa, ['execa']],
+  ['got', got, ['post']],
   ['node:sqlite', sqlite, ['backup']],
   ['node:vm', vm, ['createContext', 'runInContext', 'runInNewContext', 'runInThisContext', 'isContext']],
   ['node:worker_threads', workerThreads, ['MessageChannel', 'MessagePort', 'markAsUntransferable', 'receiveMessageOnPort']],

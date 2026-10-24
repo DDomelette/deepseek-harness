@@ -292,6 +292,7 @@ async function bootPreview(origin: string, browser: Browser): Promise<void> {
   })
   try {
     await page.goto(`${origin}/preview.html`, { waitUntil: 'domcontentloaded' })
+    expect(await page.evaluate(() => document.baseURI)).toBe(`${origin}/`)
     await page.getByRole('heading', { name: 'Choose Preview data' }).waitFor()
     expect(await page.locator('input[name="preview-source"][value="vfs-example"]').isChecked()).toBe(true)
     expect(await page.getByText('Empty environment', { exact: true }).count()).toBe(1)
@@ -495,6 +496,7 @@ async function bootEmptyPreview(origin: string, browser: Browser): Promise<void>
   })
   try {
     await page.goto(`${origin}/preview.html?preview-fixture=none`, { waitUntil: 'domcontentloaded' })
+    expect(await page.evaluate(() => document.baseURI)).toBe(`${origin}/`)
     expect(await page.getByRole('heading', { name: '选择 Preview 数据源' }).count()).toBe(0)
     const bootLine = await within(
       treeActive,

@@ -11,6 +11,8 @@ export const REPLACED_EXTERNAL_PACKAGES: readonly string[] = [
   '@vscode/ripgrep',
   '@deepseek-ai/node-addon-system/flock',
   'koffi',
+  'execa',
+  'got',
   'node-pty',
   'sharp',
   'ws',

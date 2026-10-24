@@ -16,13 +16,14 @@
  * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/compile/transform
  */
 import { parse } from 'acorn'
+import { analyze } from 'eslint-scope'
 
 const HELPER_SOURCE: Record<string, string> = {
   def: 'const __dsh$def=(t,k,get)=>Object.defineProperty(t,k,{enumerable:true,configurable:true,get});',
   default: 'const __dsh$default=(m)=>(m&&m.__esModule?m.default:m);',
   ns: 'const __dsh$ns=(m)=>(m&&m.__esModule?m:Object.assign({},m,{default:m}));',
   exportAll: 'const __dsh$exportAll=(t,m)=>{for(const k of Object.keys(m))if(k!=="default"&&!(k in t))__dsh$def(t,k,()=>m[k]);};',
-  dynImport: 'const __dsh$dynImport=(s)=>Promise.resolve().then(()=>__dsh$ns(require(s)));',
+  dynImport: 'const __dsh$dynImport=(s)=>Promise.resolve().then(()=>__dsh$ns(__dsh$require(s)));',
 }
 
 const HELPER_DEPENDENCIES: Record<string, readonly string[]> = {
@@ -71,6 +72,9 @@ class Transformer {
   private readonly moduleRequests = new Set<string>()
   private readonly metaResolveRequests = new Set<string>()
   private readonly createRequireBindings = new Set<string>()
+  private readonly imports = new Map<string, string>()
+  private readonly shorthandKeys = new Map<number, string>()
+  private readonly importInitializers: string[] = []
 
   constructor(source: string, private readonly path: string) {
     // A `#!` line is only legal at offset zero, and the prologue takes that spot;
@@ -156,10 +160,11 @@ class Transformer {
       this.fail('import attributes are not supported', node.start)
     }
     const source = node.source as Node
-    const request = `require(${this.literal(source)})`
+    const request = `__dsh$require(${this.literal(source)})`
     const specifiers = node.specifiers as Node[]
     if (specifiers.length === 0) {
-      this.replace(node.start, node.end, `${request};`)
+      this.importInitializers.push(`${request};`)
+      this.replace(node.start, node.end, '')
       return
     }
     const held = this.moduleTemp()
@@ -167,7 +172,7 @@ class Transformer {
     for (const specifier of specifiers) {
       const local = (specifier.local as Node).name as string
       if (specifier.type === 'ImportDefaultSpecifier') {
-        lines.push(`const ${local}=${this.helper('default')}(${held});`)
+        this.imports.set(local, `${this.helper('default')}(${held})`)
         continue
       }
       if (specifier.type === 'ImportNamespaceSpecifier') {
@@ -176,9 +181,10 @@ class Transformer {
       }
       const imported = specifier.imported as Node
       const name = imported.type === 'Identifier' ? imported.name as string : imported.value as string
-      lines.push(`const ${local}=${held}[${JSON.stringify(name)}];`)
+      this.imports.set(local, `${held}[${JSON.stringify(name)}]`)
     }
-    this.replace(node.start, node.end, lines.join(''))
+    this.importInitializers.push(lines.join(''))
+    this.replace(node.start, node.end, '')
   }
 
   private exportNamed(node: Node): void {
@@ -198,13 +204,14 @@ class Transformer {
     if (source !== null) {
       const held = this.moduleTemp()
       const define = this.helper('def')
-      const lines = [`const ${held}=require(${this.literal(source)});`]
+      const lines = [`const ${held}=__dsh$require(${this.literal(source)});`]
       for (const specifier of specifiers) {
         const local = nameOf(specifier.local as Node)
         const exported = nameOf(specifier.exported as Node)
         lines.push(`${define}(exports,${JSON.stringify(exported)},()=>${held}[${JSON.stringify(local)}]);`)
       }
-      this.replace(node.start, node.end, lines.join(''))
+      this.importInitializers.push(lines.join(''))
+      this.replace(node.start, node.end, '')
       return
     }
     // A bare `export {}` is a module marker with nothing to publish.
@@ -217,24 +224,27 @@ class Transformer {
   private exportDefault(node: Node): void {
     this.moduleSyntax = true
     const declaration = node.declaration as Node
+    if ((declaration.type === 'FunctionDeclaration' || declaration.type === 'ClassDeclaration') && declaration.id !== null) {
+      this.replace(node.start, declaration.start, '')
+      this.bindings.push({ exported: 'default', local: nameOf(declaration.id as Node) })
+      return
+    }
     this.replace(node.start, declaration.start, 'exports.default = ')
   }
 
   private exportAll(node: Node): void {
     this.moduleSyntax = true
-    const request = `require(${this.literal(node.source as Node)})`
+    const request = `__dsh$require(${this.literal(node.source as Node)})`
     const exported = node.exported as Node | null
     if (exported === null) {
-      this.replace(node.start, node.end, `${this.helper('exportAll')}(exports,${request});`)
+      this.importInitializers.push(`${this.helper('exportAll')}(exports,${request});`)
+      this.replace(node.start, node.end, '')
       return
     }
     const held = this.moduleTemp()
     const define = this.helper('def')
-    this.replace(
-      node.start,
-      node.end,
-      `const ${held}=${this.helper('ns')}(${request});${define}(exports,${JSON.stringify(nameOf(exported))},()=>${held});`,
-    )
+    this.importInitializers.push(`const ${held}=${this.helper('ns')}(${request});${define}(exports,${JSON.stringify(nameOf(exported))},()=>${held});`)
+    this.replace(node.start, node.end, '')
   }
 
   // --- suspension points ----------------------------------------------------
@@ -279,10 +289,10 @@ class Transformer {
 
   /**
    * `yield` resumes with whatever the consumer sent, so the snapshot is taken
-   * before suspending and restored when the call completes. `yield*` delegates,
-   * which has no expression form here: it is desugared as a statement, and a
-   * consumer's `throw()` is not forwarded into the inner iterator (`next` and
-   * `return` are).
+   * before suspending and restored when the call completes. Delegation is a
+   * statement or a direct return operand; a direct return preserves the inner
+   * completion value. A consumer's `throw()` is not forwarded into the inner
+   * iterator (`next` and `return` are).
    */
   private yieldExpression(node: Node, statement: Node | undefined): void {
     if (node.delegate !== true) {
@@ -292,12 +302,13 @@ class Transformer {
     }
     const argument = node.argument as Node | null
     if (argument === null) this.fail('yield* without an operand', node.start)
-    if (statement === undefined) this.fail('yield* is only supported as a statement', node.start)
-    if ((statement.expression as Node) !== node) {
+    if (statement === undefined) this.fail('yield* is only supported as a statement or direct return', node.start)
+    const directReturn = statement.type === 'ReturnStatement' && statement.argument === node
+    if (!directReturn && statement.expression !== node) {
       // Anything around the delegation (`x = yield* g()`, `f(yield* g())`)
       // would be silently dropped by the statement-wide rewrite below; the
       // all-or-nothing lowering contract demands a loud refusal instead.
-      this.fail('yield* is only supported as the whole statement expression', node.start)
+      this.fail('yield* is only supported as the whole statement expression or direct return operand', node.start)
     }
     const iterator = this.alsTemp()
     const step = this.alsTemp()
@@ -307,7 +318,7 @@ class Transformer {
       `{const ${iterator}=${ALS}.iterator(${inner(argument.start, argument.end)});`,
       `let ${sent};let ${exhausted}=false;`,
       `try{for(;;){const ${step}=${ALS}.resume(await ${ALS}.pause(${iterator}.next(${sent})));`,
-      `if(${step}.done){${exhausted}=true;break}`,
+      `if(${step}.done){${exhausted}=true;${directReturn ? `return ${step}.value` : 'break'}}`,
       `${sent}=${ALS}.afterYield(${ALS}.snapshot(),yield ${step}.value)}}`,
       `finally{if(!${exhausted})${ALS}.resume(await ${ALS}.pause(${ALS}.close(${iterator})))}}`,
     ].join(''))
@@ -330,6 +341,12 @@ class Transformer {
     if (typeof record.type !== 'string') return
     let next = context
     switch (record.type) {
+      case 'Property':
+        if (record.shorthand === true) {
+          const value = record.value as Node
+          this.shorthandKeys.set(value.start, nameOf(record.key as Node))
+        }
+        break
       case 'ImportDeclaration': this.importDeclaration(record); break
       case 'ExportNamedDeclaration': this.exportNamed(record); break
       case 'ExportDefaultDeclaration': this.exportDefault(record); break
@@ -421,7 +438,7 @@ class Transformer {
         break
       default: break
     }
-    if (record.type === 'ExpressionStatement') next = { ...next, statement: record }
+    if (record.type === 'ExpressionStatement' || record.type === 'ReturnStatement') next = { ...next, statement: record }
     for (const [key, value] of Object.entries(record)) {
       if (key === 'type' || key === 'start' || key === 'end') continue
       this.visit(value, next)
@@ -475,23 +492,41 @@ class Transformer {
         ecmaVersion: 'latest',
         sourceType: 'module',
         allowAwaitOutsideFunction: true,
+        ranges: true,
       }) as unknown as Node
     } catch (reason) {
       this.fail(`parse failed: ${(reason as Error).message}`, 0)
     }
     this.indexCreateRequireImports(program)
     this.visit(program, { asyncGenerator: false, functionDepth: 0, moduleScope: true })
+    if (this.imports.size > 0) {
+      const scopes = analyze(program as unknown as Parameters<typeof analyze>[0], { ecmaVersion: 2024, sourceType: 'module' })
+      const rewritten = new Set<number>()
+      for (const variable of scopes.scopes.find(scope => scope.type === 'module')?.variables ?? []) {
+        const expression = this.imports.get(variable.name)
+        if (expression === undefined) continue
+        for (const reference of variable.references) {
+          const identifier = reference.identifier as unknown as Node
+          if (rewritten.has(identifier.start)) continue
+          rewritten.add(identifier.start)
+          const key = this.shorthandKeys.get(identifier.start)
+          this.replace(identifier.start, identifier.end, `${key === undefined ? '' : `${key}:`}(0,${expression})`)
+        }
+      }
+    }
     if (this.edits.length === 0 && !this.moduleSyntax) return this.source
 
     const prologue: string[] = []
-    if (this.moduleSyntax) prologue.push('"use strict";Object.defineProperty(exports,"__esModule",{value:true});')
+    if (this.moduleSyntax) prologue.push('Object.defineProperty(exports,"__esModule",{value:true});')
     if (this.bindings.length > 0) this.helper('def')
     for (const [name, source] of Object.entries(HELPER_SOURCE)) {
       if (this.helpers.has(name)) prologue.push(source)
     }
     for (const { exported, local } of this.bindings) {
-      prologue.push(`__dsh$def(exports,${JSON.stringify(exported)},()=>${local});`)
+      prologue.push(`__dsh$def(exports,${JSON.stringify(exported)},()=>${this.imports.get(local) ?? local});`)
     }
+    prologue.push(...this.importInitializers)
+    if (this.moduleSyntax) this.insert((program.body as Node[]).at(-1)?.end ?? 0, '}')
 
     const sorted = [...this.edits].sort((left, right) => left.start - right.start || left.end - right.end)
     const render = (from: number, to: number): string => {
@@ -504,7 +539,9 @@ class Transformer {
       }
       return out + this.source.slice(cursor, to)
     }
-    const code = prologue.join('') + render(0, this.source.length)
+    // ESM may declare its own `require`; generated requests retain the wrapper's resolver.
+    const prefix = this.moduleSyntax ? '"use strict";const __dsh$require=require;{' : 'const __dsh$require=require;'
+    const code = prefix + prologue.join('') + render(0, this.source.length)
     // Proof that the emitted body is CommonJS a wrapper can compile: any leftover
     // module syntax, or any mis-spliced interval, fails here rather than at load.
     try {

@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-24-worker-delegation-return-values.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-24-worker-delegation-return-values.md
+/agent-note-worker-async-delegation-preserves-return-values:
+  en: b88cf047abb6e7ca
+  zh: eb33576ec5b9dc74
+/agent-note-worker-async-delegation-preserves-return-values/problem:
+  en: a8107232a6482034
+  zh: 6be596f580375886
+/agent-note-worker-async-delegation-preserves-return-values/decision:
+  en: b132f78851c20bf5
+  zh: 80c2b0e518a278fb
+/agent-note-worker-async-delegation-preserves-return-values/alternatives-considered:
+  en: 6625cbcd1cef9f20
+  zh: 53861c057c000006
+/agent-note-worker-async-delegation-preserves-return-values/consequences:
+  en: acec3df32a654f2e
+  zh: 7d50942e7a72482b

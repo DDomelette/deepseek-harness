@@ -40,9 +40,8 @@ function rejectStandaloneServe(): Plugin {
 /**
  * Emit preview.html beside index.html: the built index page with one module
  * script — the worker bootstrap entry — spliced ahead of its entry tag. Both
- * pages share every chunk; the extra tag is the only difference, so the
- * static worker deployment ships the served page verbatim plus its
- * bootstrap.
+ * pages share every chunk. The preview declares its containing directory as
+ * the resource base so RPC paths do not treat `preview.html` as a mount.
  */
 function emitPreviewPage(): Plugin {
   let bootstrapFile: string | undefined
@@ -63,7 +62,7 @@ function emitPreviewPage(): Plugin {
       if (!write) return
       // A build that failed before generateBundle has no page to splice.
       if (bootstrapFile === undefined) return
-      const page = await readFile(src('./dist/index.html'), 'utf8')
+      const page = (await readFile(src('./dist/index.html'), 'utf8')).replace('<head>', '<head>\n    <base href="./">')
       const anchor = page.indexOf('<script type="module"')
       if (anchor === -1) throw new Error('vite: built index.html lost its module entry tag')
       const tag = `<script type="module" crossorigin src="./${bootstrapFile}"></script>`
