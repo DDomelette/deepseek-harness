@@ -22,7 +22,7 @@ Manage MCP servers in the Plugins section of Web Settings. Inspect connection st
 <a id="use-this-package"></a>
 ## Use this package
 
-**MCP** tab for the Plugins section of Web Settings. The browser plugin registers one localized `settings.plugins.tab` contribution with id `mcp` (order 5, between plugin configuration and the plugin list); the Plugins section owns the navigation entry and tab chrome. Selecting the tab lazily calls `ctx.remote.mcpServers.list()` through [`api-remotes`](../../api/remotes/README.md) and binds the `mcp-servers` settings namespace through `ctx.settingsScope` (see [`ui-settings`](../ui-settings/README.md)).
+**MCP** tab for the Plugins section of Web Settings. The browser plugin registers one localized `settings.plugins.tab` contribution with id `mcp` (order 5, between plugin configuration and the plugin list); the Plugins section owns the navigation entry and tab chrome. Selecting the tab lazily calls `ctx.remote.mcpServers.list()` through [`api-remotes`](../../api/remotes/README.md) and binds the `mcp-servers` settings namespace through `ctx.configForms` (see [`ui-settings`](../ui-settings/README.md)).
 
 The tab renders a searchable roster of every MCP server the Host's [`mcp-manager`](../../mcp/mcp-manager/README.md) reports. Settings-managed rows carry an enablement switch that writes only the `enabled` leaf through a deep path op, after which the roster is re-read because the mount lifecycle answers asynchronously. A colored dot reports mount lifecycle (`connecting` / `ready` / `failed`) for enabled settings rows, with the startup failure summary under the title of a failed row; a settled mount is not a proven live connection, and the copy never claims one. Declarative rows (servers declared in cordis.yml) are read-only: they show a managed-by-config badge and their enablement tag, and their switch and gear stay disabled.
 
@@ -48,7 +48,7 @@ None; this package neither assembles nor sends a provider request.
 - **Secret clearing is unsupported** — blank env/headers fields keep the stored values; clearing them requires deleting and re-adding the server. Entering values replaces the stored env/headers map for that field, because the wire never reveals the existing secret keys to merge against.
 - **Renaming is unsupported** — the serverName is the settings key; rename is delete + add.
 - **Args round-trip is lossy for comma-containing arguments** — args split on lines and commas, so an existing argument that itself contains a comma is re-split when the editor saves it.
-- **`failOnStartupError` is not exposed** — the schema supports it, but the panel leaves it at its default; change it in `settings.yaml` instead.
+- **`failOnStartupError` is not exposed** — the schema supports it, but the panel leaves it at its default; change it in `cordis.patch.yml` instead.
 
 <a id="dev-note"></a>
 ### Dev Note

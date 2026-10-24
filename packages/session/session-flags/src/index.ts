@@ -1,5 +1,5 @@
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionFlagProvider, SessionFlags, SessionFlagsSnapshot } from './types.ts'
 
 export type * from './types.ts'

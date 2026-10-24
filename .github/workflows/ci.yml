@@ -317,16 +317,35 @@ jobs:
 
       - name: Install Playwright Chromium and hosted dependencies
         if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
-        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium webkit
 
       # The persistent VM image owns Playwright's Linux system packages; do
       # not mutate the shared host with apt on every failover run.
       - name: Install Playwright Chromium on the failover VM
         if: vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]'
-        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install chromium webkit
 
       - name: Run compatibility, snapshot, and artifact gates
         run: pnpm run check:ci:consumers
+
+      # On-demand diagnostic: replay the browser lane in refresh mode on this
+      # Linux runner so the fork own goldens are captured without a Windows
+      # checkout writing host paths into them. Enabled by the repository
+      # variable DSH_WEB_GOLDEN_CAPTURE=on; the artifact carries both trees.
+      - name: Capture browser goldens (diagnostic)
+        if: always() && vars.DSH_WEB_GOLDEN_CAPTURE == 'on'
+        continue-on-error: true
+        run: DSH_SNAPSHOT=refresh pnpm run test:web:ci
+
+      - name: Upload captured browser goldens
+        if: always() && vars.DSH_WEB_GOLDEN_CAPTURE == 'on'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-goldens
+          path: |
+            apps/web/tests/expected
+            apps/web/tests/snapshots
+            snapshots/web
 
 
   node-compat:
@@ -616,7 +635,7 @@ jobs:
           --no-file-parallelism
           --testTimeout 90000
           packages/shell/tool-pwsh/tests/loader.spec.ts
-          packages/workflow/workflow-worker-thread/tests/workflow-worker-thread.spec.ts
+          packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts
           packages/workflow/tool-ralph/tests/integration.spec.ts
           packages/subprocess/subprocess-local/tests/process-exit.spec.ts
 

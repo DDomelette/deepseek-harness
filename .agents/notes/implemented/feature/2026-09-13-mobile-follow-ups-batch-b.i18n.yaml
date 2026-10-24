@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-mobile-follow-ups-batch-b.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-mobile-follow-ups-batch-b.md
-2026-09-13-mobile-follow-ups-batch-b.md: 487eeb11473698cd1eb096f6c3818a0c3f2c0909
-2026-09-13-mobile-follow-ups-batch-b.zh.md: 70620d3878c706300df182fd762def43477ccebb
+/agent-note-mobile-follow-ups-batch-b:
+  en: c6630354016ed9c2
+  zh: 2b3100e7f97d8fd8
+/agent-note-mobile-follow-ups-batch-b/problem:
+  en: 39b537d95c423fe3
+  zh: eb64daa022d584cd
+/agent-note-mobile-follow-ups-batch-b/decision:
+  en: 2c6eb4dee6a0d362
+  zh: 996b7058d2a8b3e1
+/agent-note-mobile-follow-ups-batch-b/alternatives-considered:
+  en: 47b34c1e4a149684
+  zh: de3ba1478c9b570d
+/agent-note-mobile-follow-ups-batch-b/consequences:
+  en: eed2671b3628671d
+  zh: e62301fc25c43830

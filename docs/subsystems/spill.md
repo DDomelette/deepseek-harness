@@ -44,7 +44,7 @@ A retention-period cleanup may expire old locators with other old session artifa
 /**
  * Producer of a spilled artifact. Tool results carry their model-issued call id;
  * session references identify the captured source session instead. Descriptive
- * provenance only, never access control.
+ * source description only, never access control.
  */
 type SpillSource = {
   kind: 'tool'

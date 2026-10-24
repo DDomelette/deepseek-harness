@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for jobs.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/jobs.md
-jobs.md: 092da7b6f7e10c5713d3d6c9c5c46f925084f86a
-jobs.zh.md: 9dc390eb30901664edb47c6727a54ddd83839fa7
+/background-task-runtime:
+  en: c9b9797ff1ec4e3d
+  zh: f46d6b322fd69b4b
+/background-task-runtime/ids-and-status:
+  en: 38963220e243e5aa
+  zh: 5fba838fe44ced28
+/background-task-runtime/producer-contract:
+  en: b2a79b3f26524812
+  zh: 18826dbd760d7df4
+/background-task-runtime/consumer-views:
+  en: ad6896a42fbf2cd3
+  zh: b4910fb139772769
+/background-task-runtime/service-behavior:
+  en: 5f2de9aca7d57bb5
+  zh: 583260e13b52c5a9

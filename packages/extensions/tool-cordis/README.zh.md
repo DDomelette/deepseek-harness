@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-当某个会话应当能临时扩展它自己的运行时——例如一个对当前工作有用、但不应成为仓库插件的模型编写的工具、服务或浏览器 UI——挂载本插件。请与 host runner 一同组合；没有 runner，这些工具永远不会激活，而且任何已发布的组合包都不会挂载这套工具集（web profile 已挂载 host runner 与浏览器侧组件），所以要显式地添加工具行。
+当某个会话应当能临时扩展它自己的运行时——例如一个对当前工作有用、但不应成为仓库插件的模型编写的工具、服务或浏览器 UI——挂载本插件。请与 host runner 一同组合；没有 runner，这些工具永远不会激活。Web 应用自身就是这样组合的：它在挂载 `cordis-host-runner` 的 profile 级组合中挂载 `cordis-inspect-providers` 行，并在 `cordis` 预设中挂载按会话的 `tool-cordis` 行。其他组合需显式添加工具行。
 
 ### 最小组合
 
@@ -36,11 +36,20 @@ kind: "package-reference"
 - name: '@deepseek-ai/dsh-tool-cordis'
 ```
 
-CLI 示例 [`apps/cli/config/examples/cordis/cordis.yml`](../../../apps/cli/config/examples/cordis/cordis.yml) 同时组合了这两者。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
+上面的最小组合同时包含这两者。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
+
+### `dynamicPlugins` 开关
+
+两行各自携带 `dynamicPlugins`，分属不同平面，且默认都关闭：
+
+- `@deepseek-ai/dsh-tool-cordis/host`（条目 id `cordis-inspect-providers`）每个进程注册一次进程级 host Inspect Provider；注册表会拒绝重复 id。它的开关会添加 `Builtin` 提供方，用于列出沙箱的纯 JavaScript 全局量。
+- `@deepseek-ai/dsh-tool-cordis` 在单个 Agent 组合中挂载工具，并始终注入 `tools`、`systemPrompt`、`cordisInspect` 与 `dynamicCordisRunner`。关闭开关时它只注册 `cordis_inspect_list` 与 `cordis_inspect_query`，不添加提示词章节；开启后，该会话还会得到 `cordis_inspect_self`、`cordis_define`、`cordis_run`、`cordis_stop`、`cordis_undefine`、`tool:cordis` 系统提示词章节以及 `@pluginId` 上下文注入。
+
+两行要一起设置：生命周期工具所教的工作流会查询 `Builtin` 目录，而只有 host 行决定该提供方是否存在。Web 组合包两处都已设置——host 行在 [`cordis.patch.yml`](../../bundle/web-app/cordis.patch.yml)，`cordis` 预设行在 [`presets/cordis.patch.yml`](../../bundle/web-app/presets/cordis.patch.yml)。
 
 ### 工具能做什么
 
-三个检查工具只读；四个生命周期工具定义并管理包。所有结果都是渲染成文本的 JSON。
+开启 `dynamicPlugins` 后，三个检查工具只读，四个生命周期工具定义并管理包。所有结果都是渲染成文本的 JSON。
 
 - `cordis_inspect_list`——列出 Inspect Provider（host 与 client）及其查询方法。
 - `cordis_inspect_query`——执行一次提供方查询：精确的服务方法、事件模式、builtin 签名、工具 schema、主题 token 或实时 slot 树。
@@ -80,7 +89,7 @@ CLI 示例 [`apps/cli/config/examples/cordis/cordis.yml`](../../../apps/cli/conf
 | [`src/inspect.ts`](src/inspect.ts) | 报告渲染：把生成的 API 目录与实时服务存储相交 |
 | [`src/api-catalog.ts`](src/api-catalog.ts) | 工作区 Cordis 声明的生成投影（由 `pnpm run gen-cordis-api` 重新生成，`verify-cordis-api` 守其新鲜度） |
 | [`src/prompt.ts`](src/prompt.ts) | `tool:cordis` 系统提示词章节 |
-| [`src/providers.ts`](src/providers.ts) | 第一方 host Inspect Provider：Service、Event、Builtin、Tool |
+| [`src/providers.ts`](src/providers.ts) | 第一方 host Inspect Provider：Service、Event、Config 与 Tool，`dynamicPlugins` 开启时还包含 Builtin |
 | [`src/present.ts`](src/present.ts) | 可安全回放的通用卡片渲染意图 |
 
 ### 一次调用的流程
@@ -182,6 +191,7 @@ Dynamic Cordis plugins temporarily extend the current DSH process. A Plugin uses
 - **沙箱只用于约束诚实代码，并非安全边界**——可以触及沙箱全局变量上的 host realm helper，因此包代码可以触达 Node；加载本插件时，应当像授予 bash 工具一样慎重。
 - **只支持纯 JavaScript**——动态包代码不做任何转换：没有 TypeScript、JSX 或 import，沙箱还不提供 `require`、`setTimeout`、`fetch` 等 Node 全局变量，把文件、网络与进程工作重定向到 Cordis 服务。
 - **vm 与审批边界属于 runner**——见它的[已知限制](../cordis-host-runner/README.zh.md#known-limitations-and-deferred-work)；async 的 host 半主体可逃出 `vmTimeoutMs`。
+- **Client 查询需要页面应答**——采用 Host runner 的[有界等待与重试策略](../cordis-host-runner/README.zh.md#client-inspection)，且检查不会调用服务方法、配置插件或执行生成代码。
 
 <a id="dev-note"></a>
 ### 开发备注

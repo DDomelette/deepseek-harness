@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for web-client.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/web-client.md
-web-client.md: 7e7f483131585dc66c45dbb147d40e848f40d6d1
-web-client.zh.md: 603af505dbd1fc6e2f9fd3bf9542ce19cb63732f
+/web-client-architecture:
+  en: b7d2de3798122a9e
+  zh: 62598228a4241d8c
+/web-client-architecture/layers-and-ownership:
+  en: 72b66920985f1300
+  zh: 2a801a300393be2b
+/web-client-architecture/browser-boot:
+  en: 5ac7d3aed7bf273a
+  zh: e34869c8ad64052d
+/web-client-architecture/remote-communication:
+  en: 71cb4ae99a9e90a6
+  zh: 5b55b4424ef8f242
+/web-client-architecture/client-models:
+  en: 13be17c2a2790ae9
+  zh: f5af715d0ae222be
+/web-client-architecture/client-models/sessions:
+  en: 0659c5b46583bd1f
+  zh: 202332ff34c52d9d
+/web-client-architecture/client-models/workspaces:
+  en: ad1f73d73954c645
+  zh: b0fad83fe6a99f67
+/web-client-architecture/conversation-and-presentation:
+  en: 390f65b74b00d37f
+  zh: fbf1260c9b3d55fe
+/web-client-architecture/data-paths:
+  en: cc8d261f08b686df
+  zh: c959cb18b8e9b46a
+/web-client-architecture/reconnection:
+  en: 478f461e261b1ca5
+  zh: 626791d04656faee
+/web-client-architecture/package-boundaries:
+  en: 3e64e8c28f0c4cb1
+  zh: 47aa81c2ace5ba89

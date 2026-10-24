@@ -371,6 +371,38 @@ describe('DirectoryBrowser', () => {
     }
   })
 
+  it('keeps a submitted navigation alive when the shell steals focus mid-landing', async () => {
+    vi.useFakeTimers()
+    try {
+      const { settlers, listDirectory } = manualLister()
+      mount({ listDirectory })
+      await act(async () => {})
+      fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+      const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
+      fireEvent.change(input, { target: { value: DOCS } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await act(async () => { settlers.get(DOCS)!(listingFor(DOCS)) })
+      // The dialog has no focus trap, and the composer behind it re-focuses
+      // itself while the parent leg is in flight. That focus move must not
+      // withdraw the submission: the landing still commits both panes and
+      // Open keeps targeting the submitted directory.
+      const outside = document.createElement('div')
+      document.body.append(outside)
+      const scope = input.closest('[class*="editorScope"]')
+      expect(scope).toBeTruthy()
+      fireEvent.blur(scope!, { relatedTarget: outside })
+      await act(async () => { settlers.get(HOME)!(listingFor(HOME)) })
+      expect(columns()).toHaveLength(2)
+      expect(within(columns()[0]!).getByText('Documents')).toBeTruthy()
+      expect(within(columns()[1]!).getByText('harness')).toBeTruthy()
+      expect(screen.queryByLabelText('browser.editPath', { selector: 'input' })).toBeNull()
+      expect(screen.queryByText('browser.error')).toBeNull()
+      outside.remove()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('Escape inside the landing window withdraws the submitted navigation', async () => {
     vi.useFakeTimers()
     try {
@@ -1594,9 +1626,7 @@ describe('DirectoryBrowser', () => {
     fireEvent.change(input, { target: { value: 'x' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('taken already') })
-    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-    fireEvent(screen.getByLabelText('browser.folderName'), escape)
-    expect(escape.defaultPrevented).toBe(true)
+    fireEvent.keyDown(screen.getByLabelText('browser.folderName'), { key: 'Escape' })
     await waitFor(() => { expect(screen.queryByLabelText('browser.folderName')).toBeNull() })
 
     // The nested Cancel button and the nested mask both close only the child dialog.

@@ -101,7 +101,7 @@ agent 可以在沙箱中打开交互式终端、发送输入、读取输出，�
 
 ### 输出处理
 
-远程包装层先把原始字节分流到可选的有界 spill 文件，再把每个实时分片编码为换行分隔的 base64 ASCII 帧；宿主会跨任意 SDK 回调边界增量恢复字节。pipe 模式把字节写入宿主 Node 流，inherit 模式写入 harness 进程流，collect 模式保留有界的宿主尾部并支持偏移读取。对于 collect 或 inherit 输出，超过 `graceMs` 后适配器会断开未完成的 SDK 流并扣留其不完整的 spill；原始 pipe 自然完成时则会等待无损传输并保留背压。批量与流式 stdin 都使用 SDK 句柄。
+远程包装层先把原始字节分流到可选的有界 spill 文件，再把每个实时分片编码为换行分隔的 base64 ASCII 帧；宿主会跨任意 SDK 回调边界增量恢复字节。pipe 模式把字节写入宿主 Node 流，inherit 模式写入 harness 进程流，collect 模式保留有界的宿主尾部并支持偏移读取，且一次读取停在最后一个完整 UTF-8 字符处。对于 collect 或 inherit 输出，超过 `graceMs` 后适配器会断开未完成的 SDK 流并扣留其不完整的 spill；原始 pipe 自然完成时则会等待无损传输并保留背压。批量与流式 stdin 都使用 SDK 句柄。
 
 ### 终止阶梯
 

@@ -1,0 +1,3 @@
+- insert:
+    - id: translator
+      name: '@deepseek-ai/dsh-experimental-translator'

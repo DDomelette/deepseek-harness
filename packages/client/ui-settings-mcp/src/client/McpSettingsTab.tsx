@@ -10,7 +10,7 @@ import type {
   McpServerListEntry, McpServerSnapshot, McpServerStatus,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  Button, IconPlusOutline16, IconSearchOutline16, IconSettingsOutline16,
+  Button, IconPlusOutlineMedium, IconSearchOutlineMedium, IconSettingsOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { AddServerForm, type NewServerDraft } from './AddServerForm.tsx'
@@ -181,7 +181,7 @@ export function McpSettingsTab({
         <div className={css.catalog}>
           <div className={css.toolbar}>
             <label className={css.search}>
-              <IconSearchOutline16 aria-hidden="true" />
+              <IconSearchOutlineMedium aria-hidden="true" />
               <span className={css.visuallyHidden}>{t('search')}</span>
               <input
                 type="search"
@@ -195,7 +195,7 @@ export function McpSettingsTab({
               variant="outline"
               size="sm"
               className={css.addButton}
-              icon={<IconPlusOutline16 aria-hidden="true" />}
+              icon={<IconPlusOutlineMedium aria-hidden="true" />}
               aria-label={t('addServer')}
               onClick={() => { setAdding(true) }}
             />
@@ -251,7 +251,7 @@ export function McpSettingsTab({
                           {...(declarative ? { title: t('declarativeTag') } : {})}
                           onClick={() => { setEditing(row.serverName) }}
                         >
-                          <IconSettingsOutline16 aria-hidden="true" />
+                          <IconSettingsOutlineMedium aria-hidden="true" />
                         </button>
                         <button
                           type="button"

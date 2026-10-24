@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-06-local-features-on-gateway.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-06-local-features-on-gateway.md
-2026-09-06-local-features-on-gateway.md: 28fdf12f7355c78df2332b7406c275e583e8316a
-2026-09-06-local-features-on-gateway.zh.md: 9d9828687ea863bcf80e32fb2b05c0830d4c67e0
+/agent-note-local-web-features-on-the-gateway-controllers:
+  en: fb2c0084aa620ede
+  zh: 06e65a88aab033de
+/agent-note-local-web-features-on-the-gateway-controllers/problem:
+  en: 5f6eb07376d25dd3
+  zh: fe42d8b336f3685c
+/agent-note-local-web-features-on-the-gateway-controllers/decision:
+  en: fbe40baf818a33dc
+  zh: 69ceda3fe5636385
+/agent-note-local-web-features-on-the-gateway-controllers/alternatives-considered:
+  en: d802497ccffc9d4f
+  zh: 8f231015d41519ac
+/agent-note-local-web-features-on-the-gateway-controllers/consequences:
+  en: 2207955bc9eadbdb
+  zh: cb6ee326bf0a04bd

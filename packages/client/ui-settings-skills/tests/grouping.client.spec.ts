@@ -1,4 +1,4 @@
-/** Grouping projection: declared groups win, the discovery source is the fallback. */
+/** Grouping projection: one group per discovery source. */
 import { describe, expect, it } from 'vitest'
 import type { SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import { groupSkills } from '../src/client/grouping.ts'
@@ -21,11 +21,11 @@ function labelFor(source: string): string {
 }
 
 describe('groupSkills', () => {
-  it('aggregates declared groups and falls back to the discovery source', () => {
+  it('aggregates one group per discovery source and keeps catalog order inside it', () => {
     const skills = [
-      entry({ name: 'b-skill', group: 'superpowers' }),
-      entry({ name: 'a-skill', group: 'superpowers' }),
-      entry({ name: 'c-skill' }),
+      entry({ name: 'b-skill' }),
+      entry({ name: 'a-skill' }),
+      entry({ name: 'c-skill', source: 'bundled' }),
       entry({ name: 'd-skill', source: 'bundled' }),
       entry({ name: 'e-skill', source: 'unknown-source' }),
     ]
@@ -34,36 +34,40 @@ describe('groupSkills', () => {
 
     // Code-point label order: ASCII labels first, then CJK labels.
     expect(groups).toEqual([
-      { key: 'group:superpowers', label: 'superpowers', skills: [skills[0], skills[1]] },
       { key: 'source:unknown-source', label: 'unknown-source', skills: [skills[4]] },
-      { key: 'source:bundled', label: '内置', skills: [skills[3]] },
-      { key: 'source:user-dsh', label: '用户', skills: [skills[2]] },
+      { key: 'source:bundled', label: '内置', skills: [skills[2], skills[3]] },
+      { key: 'source:user-dsh', label: '用户', skills: [skills[0], skills[1]] },
     ])
   })
 
-  it('keeps catalog order inside a group and sorts groups by localized label', () => {
+  it('sorts groups by localized label, not by source or catalog order', () => {
     const skills = [
-      entry({ name: 'z-skill', group: 'team-b' }),
-      entry({ name: 'y-skill', group: 'team-a' }),
-      entry({ name: 'x-skill', group: 'team-b' }),
+      entry({ name: 'z-skill', source: 'user-agents' }),
+      entry({ name: 'y-skill', source: 'custom' }),
+      entry({ name: 'x-skill', source: 'bundled' }),
     ]
 
-    const groups = groupSkills(skills, labelFor)
+    const groups = groupSkills(skills, (source) => {
+      return source === 'bundled' ? 'Z-bundled' : source === 'custom' ? 'A-custom' : 'M-user-agents'
+    })
 
-    expect(groups.map(group => group.label)).toEqual(['team-a', 'team-b'])
-    expect(groups.find(group => group.label === 'team-b')?.skills.map(skill => skill.name))
-      .toEqual(['z-skill', 'x-skill'])
+    expect(groups.map(group => group.label)).toEqual(['A-custom', 'M-user-agents', 'Z-bundled'])
   })
 
   it('breaks label ties by the group key', () => {
+    // Two sources localize to the same label; the key keeps them distinct and ordered.
     const skills = [
-      entry({ name: 'a-skill', group: 'shared' }),
-      entry({ name: 'b-skill', source: 'shared' }),
+      entry({ name: 'a-skill', source: 'project-dsh' }),
+      entry({ name: 'b-skill', source: 'project-agents' }),
+      entry({ name: 'c-skill', source: 'project-dsh' }),
     ]
 
-    const groups = groupSkills(skills, labelFor)
+    const groups = groupSkills(skills, () => 'Project skills')
 
-    expect(groups.map(group => group.key)).toEqual(['group:shared', 'source:shared'])
+    expect(groups.map(group => [group.key, group.skills.map(skill => skill.name)])).toEqual([
+      ['source:project-agents', ['b-skill']],
+      ['source:project-dsh', ['a-skill', 'c-skill']],
+    ])
   })
 
   it('returns no groups for an empty catalog', () => {

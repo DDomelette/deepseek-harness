@@ -92,7 +92,6 @@ The package is built on one separation and one layered timeout:
 | [`src/provider.ts`](src/provider.ts) | The `HttpFetchProvider`: pinned transport, redirect following, capped reads, charset decoding |
 | [`src/network.ts`](src/network.ts) | Public-address resolution, DNS64 discovery, and connection pinning |
 | [`src/policy.ts`](src/policy.ts) | URL validation, same-origin checks, content-type classification, charset parsing |
-| — | No runtime invariant companion is published; this package exposes no independent event sequence or mutable data relation beyond contracts enforced at its owning seam. |
 
 ### Read path
 
@@ -144,3 +143,5 @@ These limits define when the provider is unsafe or a poor fit. They are current 
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. The plugin registers one anonymous `WebFetchProvider` with `ctx.web`; the web registry owns provider identity, selection, and dispatch, while the model-facing `web_fetch` tool and its rendering live in `dsh-tool-web`.

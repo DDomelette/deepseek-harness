@@ -62,7 +62,7 @@ Python 客户端使用所选 profile（默认 `sdk`）、有序 patch 文件和�
 
 ## 工作线程插件
 
-exe 内支持 `dsh-workflow-worker-thread` 与 `dsh-code-runtime-worker-thread`。两个后端构建后的宿主都通过 `fileURLToPath()` 转换相邻 `lib/worker.cjs` 的 URL，再将所得文件系统字符串传给 `Worker`；pkg 的 Worker 钩子可以用这种形式解析 VFS 内文件。该钩子会把 VFS 内的工作线程文件作为 CommonJS 编译，所以工作线程入口采用 CommonJS。工作流引擎在未构建的源码执行中仍保留 `data:` URL 引导程序，只有构建后的相邻入口使用文件系统字符串。自定义配置的可执行文件冒烟测试会加载两个后端，实际调用 `run_code` 与不启动 agent（智能体）的 `workflow`，并要求两个工作线程都从 pkg 的 VFS 内返回 `42`。
+`dsh-workflow-ptc` 通过 `dsh-ptc-runtime-node` 发送自包含 guest 程序。共享提供方通过可执行文件的私有 Node bootstrap 分派启动受管子进程，并使用专用控制通道；不需要独立的工作流 worker 资源。[沙箱 Node 决策](2026-09-11-sandboxed-node-ptc-runtime.zh.md)负责进程与策略生命周期，[工作流沙箱复用](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)负责工作流适配器。自定义配置的可执行文件冒烟测试会加载该后端，实际调用 `run_code` 与不启动 agent（智能体）的 `workflow`，并要求该子进程从 pkg 的 VFS 内返回 `42`。
 
 ## 测试
 

@@ -34,7 +34,7 @@ kind: "package-reference"
     enabled: true
 ```
 
-settings 提供方处于连接状态时覆盖组合值。它脱离后，服务回退到组合值。`enabled` 状态变化只会添加或移除 `llm/stream` 监听器。
+settings 提供方处于连接状态时覆盖组合值。它脱离后，服务回退到组合值。服务在其整个生命周期内只保留一个 `llm/stream` 监听器，并在每次流开始读取实时的 `enabled` 值，因此提交 `enabled: false` 无需重新挂载服务即可停止捕获。
 
 <a id="v1-jsonl-rows"></a>
 ## v1 JSONL 行

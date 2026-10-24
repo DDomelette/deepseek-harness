@@ -53,6 +53,10 @@ The Web bundle mounts the package with Connection, `dsh-commands`, `dsh-client-u
 | `/export` | Records a human-command lifecycle; the submitting browser downloads `GET /api/session.export?sessionId=<id>&includeDescendants=true` |
 | `/export <path>` | An error; browser downloads choose their destination through the browser's ordinary download behavior |
 
+The command declares `definitionId: '@deepseek-ai/dsh-session-log-export'`; the Web command UI uses this identity for localized download actions.
+
+The header menu offers Feedback while the optional feedback plugin is active. It opens the Session feedback draft without recording feedback or starting a download; unloading feedback removes that action while downloads remain available ([decision](../../../.agents/notes/implemented/bug-fix/2026-10-24-session-action-identity-and-feedback.md)).
+
 ### What to expect
 
 The dialog reports three phases: preparing, download started, or failed. Closing the dialog does not cancel an in-flight download, and the dialog does not reopen when that operation later settles. One session admits one active download at a time; repeated gestures share that operation. The export includes the live session's newest events: the host endpoint flushes a live root session before reading, so a slash-triggered ZIP includes the `command/run` and `command/done` pair that started the download; cold persisted sessions need no flush. Each logical log uses the current generation's canonical filename inside the archive (`session.jsonl` for v0, otherwise `session.vN.jsonl`), including beneath each sub-session directory. Images use `media/<attachmentId>.<ext>`, and generic files use `files/<digest-prefix>/<digest>/<name>`. Generic-file bytes are read and compressed as bounded chunks, so exporting a large upload does not buffer it in full.

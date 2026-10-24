@@ -21,9 +21,11 @@ export type {
   ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
+  ConnectionRpcAttachment,
   ConnectionRpcEndpointMatcher,
   ConnectionRpcFailure,
   ConnectionRpcHandler,
+  ConnectionRpcHandlerResult,
   ConnectionRequestRejection,
   ConnectionRpcResult,
   ConnectionRequestBodyMode,
@@ -33,11 +35,13 @@ export type {
   HostConnectionHandle,
   HostConnectionFetch,
   HostConnectionRpc,
+  PeerAdmission,
   RpcMessage,
   ServerResponse,
 } from './rpc.ts'
 export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 export { PairedDeviceId } from './device-brand.ts'
+export { ConnectionPeer } from './peer.ts'
 export { RpcId, transportError } from './rpc.ts'
 export {
   clientRequestSchema,
@@ -168,22 +172,24 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     webCtx.on('webserver/index-inject', (table) => {
       table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
     })
-    const fetchHandler = connection.createSharedFetchHandler(API_PATH)
     const route: WebRoute = {
       kind: 'prefix',
       path: API_PATH,
       handler: async (req, res) => {
-        const rejection = connection.requestRejection(req)
-        if (rejection !== undefined) {
-          res.writeHead(rejection)
-          res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
+        // The Peer is resolved here, where the TCP peer is still observable:
+        // the Fetch request the bridge builds carries headers alone, and a
+        // paired device's reduced authority is decided from the socket.
+        const admission = connection.admit(req)
+        if ('rejection' in admission) {
+          res.writeHead(admission.rejection)
+          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
         // An open phone calls this carrier continuously, so an extended window
         // reaches its credential here rather than on some later document load,
         // and this is also where its last use is recorded.
         connection.noteDeviceRequest(req, res)
-        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
+        await bridge(req, res, connection.createSharedFetchHandler(API_PATH, admission.peer), maxRequestBodyBytes)
       },
     }
     webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')

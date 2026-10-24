@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-23-notes-workspace-picker-ux.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-23-notes-workspace-picker-ux.md
-2026-09-23-notes-workspace-picker-ux.md: b1c09eee10e2048fc2cdb23fd7e6bc93fae83bc2
-2026-09-23-notes-workspace-picker-ux.zh.md: 9ca1e84ae771f34d3a25db96ff9031759da08439
+/agent-note-notes-workspace-picker-ux-single-line-browse-new-folder-scrolling-settings:
+  en: a8d1e287f9c87100
+  zh: 904355123e0a26f4
+/agent-note-notes-workspace-picker-ux-single-line-browse-new-folder-scrolling-settings/problem:
+  en: dc31a003859182b4
+  zh: 979520ea4dc59e0a
+/agent-note-notes-workspace-picker-ux-single-line-browse-new-folder-scrolling-settings/decision:
+  en: 2c87ed94523c9092
+  zh: abcdcc4e3daeca91
+/agent-note-notes-workspace-picker-ux-single-line-browse-new-folder-scrolling-settings/alternatives-considered:
+  en: b1a286905d6d7099
+  zh: a612742ecff2db3f
+/agent-note-notes-workspace-picker-ux-single-line-browse-new-folder-scrolling-settings/consequences:
+  en: 3de1634d3a57f76b
+  zh: 1db55143dd161113

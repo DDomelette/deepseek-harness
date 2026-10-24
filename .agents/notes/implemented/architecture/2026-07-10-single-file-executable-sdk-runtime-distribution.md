@@ -62,7 +62,7 @@ The Python client launches the packaged `dsh` command with the selected profile 
 
 ## Disposition of worker-style plugins
 
-`dsh-workflow-worker-thread` and `dsh-code-runtime-worker-thread` are supported inside the exe. Their built hosts convert the sibling `lib/worker.cjs` URL with `fileURLToPath()` and pass the resulting filesystem string to `Worker`, which is the form pkg's Worker hook resolves inside the VFS. The worker entries are CommonJS because that hook compiles VFS worker files as CommonJS. The workflow engine keeps its data-URL bootstrap for unbuilt source execution; only its built sibling entry uses the filesystem string. The custom-config executable smoke loads both backends, invokes a real `run_code` call and a zero-agent `workflow` call, and requires each worker to return `42` from inside pkg's VFS.
+`dsh-workflow-ptc` sends its self-contained guest program through `dsh-ptc-runtime-node`. The shared provider starts a managed child through the executable's private Node bootstrap dispatch, with a dedicated control channel; no separate workflow worker asset is required. The [sandboxed Node decision](2026-09-11-sandboxed-node-ptc-runtime.md) owns process and policy lifetime, and [workflow sandbox reuse](2026-09-13-workflow-ptc-sandbox-reuse.md) owns the workflow adapter. The custom-config executable smoke loads the backend, invokes a real `run_code` call and a zero-agent `workflow` call, and requires the child to return `42` from inside pkg's VFS.
 
 ## Testing
 

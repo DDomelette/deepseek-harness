@@ -11,20 +11,20 @@ English | [中文](README.zh.md)
 
 User-level skill enablement overrides over the [`@deepseek-ai/dsh-skill`](../skill) registry.
 
-The plugin registers the `skills` settings namespace (`{ disabled: string[] }`) through the optional settings seam and pushes it into the registry's invocation-override slot. Disabling is total: a listed skill is neither model- nor user-invocable, so the model catalog, the `skill` tool, the `/name` gesture, and configuration listings all agree. Changes take effect on the next registry read without clearing discovery caches, and a contained `skills/change` fan-out tells held catalog consumers to refetch.
+The plugin's Loader entry declares the live `disabled` roster as its Config, so the settings namespace is the entry id `skill-settings`; the roster is pushed into the registry's invocation-override slot. Disabling is total: a listed skill is neither model- nor user-invocable, so the model catalog, the `skill` tool, the `/name` gesture, and configuration listings agree. Changes take effect on the next registry read without clearing discovery caches, and a contained `skills/change` fan-out tells held catalog consumers to refetch.
 
-Requires `ctx.skills` (`inject: ['skills']`); the settings wiring is optional and mounts only while a settings service exists.
+Requirements: `ctx.skills` (`inject: ['skills']`); the settings service is optional.
 
 
 ## Table of Contents
 
-- [Settings namespace: `skills`](#settings-namespace-skills)
+- [Settings namespace: `skill-settings`](#settings-namespace-skills)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
 <a id="settings-namespace-skills"></a>
-## Settings namespace: `skills`
+## Settings namespace: `skill-settings`
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -46,7 +46,7 @@ Disabling appends a replacement catalog after the reusable prefix at the next pr
 <a id="known-limitations-and-deferred-work"></a>
 
 - **The override is global by name** — the same skill name in another project or scope is disabled too; overrides are not per-workspace or per-preset.
-- **The namespace registers only with a settings service** — without one, no overrides exist and the catalog behaves exactly as composed.
+- **The namespace is writable only with a settings service** — without one, the composition entry is the roster and the catalog behaves exactly as composed.
 
 <a id="dev-note"></a>
 ### Dev Note

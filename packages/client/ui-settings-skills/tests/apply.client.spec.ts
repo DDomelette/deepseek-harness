@@ -30,7 +30,12 @@ async function bench(settings: object = {}): Promise<{
   let currentSession: string | undefined
   ctx.provide('sessions', {
     list: {
-      getSnapshot: () => ({ current: currentSession }),
+      // The panel addresses its catalog with the session the main view retains.
+      getSnapshot: () => ({
+        byId: currentSession === undefined
+          ? {}
+          : { [currentSession]: { id: currentSession, retainedBy: { mainView: 1 } } },
+      }),
       subscribe: (listener: () => void) => {
         sessionsListeners.add(listener)
         return () => { sessionsListeners.delete(listener) }
@@ -114,7 +119,7 @@ describe('ui-settings-skills apply', () => {
   it('routes skill toggles through the registered section into revision-guarded settings', async () => {
     const describe = vi.fn(async () => ({
       ok: true as const,
-      value: { writable: true, hasDocument: true, namespaces: [{ ns: 'skills', value: { disabled: [] }, revision: 4 }] },
+      value: { writable: true, hasDocument: true, namespaces: [{ ns: 'skill-settings', value: { disabled: [] }, revision: 4 }] },
     }))
     const update = vi.fn(async () => ({ ok: true as const, value: undefined }))
     const b = await bench({ describe, update })
@@ -126,7 +131,7 @@ describe('ui-settings-skills apply', () => {
     await face.load()
     await face.setEnabled('bundled-tool', false)
 
-    expect(update).toHaveBeenCalledWith('skills', { disabled: ['bundled-tool'] }, 4)
+    expect(update).toHaveBeenCalledWith('skill-settings', { disabled: ['bundled-tool'] }, 4)
     expect(describe).toHaveBeenCalledTimes(2)
     expect(face.hooks.skills.getSnapshot()).toMatchObject({ status: 'ready', writing: [] })
   })

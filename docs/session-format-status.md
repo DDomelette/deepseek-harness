@@ -22,7 +22,23 @@ Use this reference to distinguish the checkout’s Session writer version from t
 
 An alpha, beta, or release-candidate product publication establishes released Session-format obligations. GitHub’s prerelease flag does not make persisted user data disposable. A missing release record is not evidence of non-publication. The [versioning and authority decision](../.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md) owns compatibility decisions; [released-format migration](../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) owns immutable generations and adjacent conversion.
 
+<a id="finalization-record"></a>
+
 <a id="release-record"></a>
+## Finalization record
+
+```yaml session-format-finalization
+latestFinalizedVersion: 4
+```
+
+V4 has an accepted compatibility baseline in the [checkpoint](persistence-changes/finalized/v4.json). Schema changes may remain V4 when the [reader-compatibility rules](persistence-changes/README.md#compatibility-rules) are satisfied and the required review is recorded. A version-bump decision requires a higher writer version and its own header transition; it cannot reuse the accepted 3→4 transition. Accepted machine records and after schemas remain immutable.
+
+Finalization does not freeze every future V4 addition and does not assert publication. The release record below retains the independently verified published version. Ordinary comments, aliases, source locations, and implementation fixes preserving the accepted meaning do not change this baseline.
+
+The [final V3 vocabulary](cookbook/adding-a-session-format-version.md#final-v3-vocabulary) remains historical and independent of current V4 additions.
+
+<a id="release-record"></a>
+
 ## Release record
 
 ```yaml session-format-release

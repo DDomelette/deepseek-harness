@@ -31,14 +31,18 @@ DeepSeek Harness 的递归会话删除编排插件。
 
 该服务依赖 `storageDomain`，为每个 root id 保存一条 `session_deletion` 计划。
 
+Web bundle 挂载这一行，[Session Controller](../../api/session-controller/README.zh.md) 才能回答 `session.delete`，[已归档设置页](../../client/ui-settings-archived/README.zh.md)在用户确认后调用它。两者都不挂载的 profile 就没有删除入口：Remote 方法会返回 `session/deletion-unavailable`。
+
 <a id="behavior"></a>
 ## 行为
 
 - 在第一次破坏性写入前，完整删除计划已持久化。
 - 重试读取计划，而不是从剩余日志重新推导 lineage。
+- 目标在 lineage 枚举开始前就被预留，且计划会被反复推导直到不再增长，因此在计划构建期间创建的 subagent 会进入计划，而不会在其父会话被删除后继续存在。
 - 级联成员已附加时，以 `session-running` 拒绝整个删除。
 - 存在后代且未允许递归时，以 `session-has-descendants` 拒绝。
 - 删除顺序为叶子优先，崩溃后不会留下悬空的父会话。
+- 每次尝试都会从当前 lineage 重新推导清理顺序，因此重试时发现的成员仍会先于其祖先被删除；不再持久存在的成员最后清理，而计划中的成员顺序仍是报告的删除集合。
 - 已消失的成员标记为 `missing`，并且仍会执行 workspace 清理。
 - 每个成员状态迁移都会在下一步操作前持久化。
 - 同步 `session/created` 监听器会回滚活动计划成员或其新子会话的创建；不相关的会话仍可正常使用。

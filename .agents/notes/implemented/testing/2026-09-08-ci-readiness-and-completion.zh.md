@@ -16,7 +16,7 @@ Status: implemented
 
 ## 决策
 
-[Webhook 浏览器测试](../../../../apps/web/tests/github-ready-review.e2e.ts)观察投递触发的模型请求后再检查 Session 注册。[反馈测试](../../../../apps/web/tests/feedback-command.e2e.ts)在比较 ARIA 输出前等待输入框清空且附件按钮启用。连续两次快照相同不能证明命令 RPC 已完成：事件流可能先发布确认消息。
+Webhook 浏览器测试（随它加载的 webhook 示例一并退役）观察投递触发的模型请求后再检查 Session 注册。[反馈测试](../../../../apps/web/tests/feedback-command.e2e.ts)在比较 ARIA 输出前等待输入框清空且附件按钮启用。连续两次快照相同不能证明命令 RPC 已完成：事件流可能先发布确认消息。
 
 [Desktop 事务测试](../../../../apps/desktop/tests/project-manager.spec.ts)为 worker 就绪标记使用当前测试的执行预算。独立的 `afterEach` 在删除私有目录前释放并等待 worker，包括运行器放弃超时测试体的情况。轮询观察运行器的取消信号，teardown 独立报告事务失败，不覆盖断言失败。[PowerShell 测试](../../../../packages/shell/pwsh-local/tests/executor.spec.ts)在初始化插件前登记每个 helper 创建的 Context，并在删除临时目录前处置这些 Context。后台输入用例等待进程完成后检查完整输出、完成状态与退出码。消费式读取仍由独立的流式测试覆盖。
 
@@ -26,7 +26,7 @@ Status: implemented
 
 [子 Agent 拆卸决策](2026-09-07-subagent-teardown-test-budgets.zh.md)负责生命周期清理预算。[持久 PowerShell 决策](2026-09-07-pwsh-ci-observable-completion.zh.md)负责精确与推断的终端就绪状态；一次性进程的完成 Promise 具有不同语义。
 
-[Worker runtime binding 测试](../../../../packages/code-runtime/code-runtime-worker-thread/tests/runtime.spec.ts)为源码 worker 初始化保留五秒计算额度，并将 binding 延迟设为 6.5 秒。若将该空闲延迟计费，仍会超过整个计算额度。用例保留 15 秒测试期限与 30 秒墙钟上限，登记 Context 和回复定时器的清理，并保持热循环、诱饵 dispatch、墙钟上限及取消控制用例的原有限制。生产预算不变。
+[PTC binding 测试](../../../../packages/ptc-runtime/ptc-runtime-node/tests/runtime.spec.ts)为源码进程初始化保留五秒计算额度，并将 binding 延迟设为 6.5 秒。若将该空闲延迟计费，仍会超过整个计算额度。用例保留 15 秒测试期限与 30 秒墙钟上限，登记 Context 和回复定时器的清理，并保持热循环、诱饵 dispatch、墙钟上限及取消控制用例的原有限制。生产预算不变。
 
 ## 考虑过的替代方案
 

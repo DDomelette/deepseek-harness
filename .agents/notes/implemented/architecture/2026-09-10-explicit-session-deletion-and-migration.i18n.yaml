@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-10-explicit-session-deletion-and-migration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-10-explicit-session-deletion-and-migration.md
-2026-09-10-explicit-session-deletion-and-migration.md: 50646bdc4fef1622a07d362392adcf14765c4253
-2026-09-10-explicit-session-deletion-and-migration.zh.md: a25e912f2ed312076f3726dea71ad40e81d0dd5d
+/agent-note-explicit-session-deletion-alongside-historical-migration:
+  en: 3cd34cba67150ef9
+  zh: fbfa495820d886f9
+/agent-note-explicit-session-deletion-alongside-historical-migration/problem:
+  en: 4d7a6b1f1c8833f2
+  zh: 9839cfa2ab9665e4
+/agent-note-explicit-session-deletion-alongside-historical-migration/decision:
+  en: d192fdd34c16caac
+  zh: 73e9f419cee5badf
+/agent-note-explicit-session-deletion-alongside-historical-migration/alternatives-considered:
+  en: 91ad08c9949dc02d
+  zh: 014da794dbabc9fd
+/agent-note-explicit-session-deletion-alongside-historical-migration/consequences:
+  en: 9138a76545ce9a5b
+  zh: a9cf80c961f33c5a

@@ -6,9 +6,14 @@
  */
 
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { SessionFlags } from '@deepseek-ai/dsh-session-flags/types'
+import type { SessionActivity, WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 
 export type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+export type { SessionFlags } from '@deepseek-ai/dsh-session-flags/types'
+export type {
+  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap,
+} from '@deepseek-ai/dsh-workspace/types'
 export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 
 /** One durable Workspace projected for browser consumers. */
@@ -32,6 +37,15 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'workspace/invalid-path': { readonly path: string }
     /** Another Workspace already uses the requested name. */
     'workspace/name-conflict': { readonly name: string }
+    /**
+     * The Session still has running work — its own turn, a subagent, a
+     * background job, or an active schedule — so archiving was refused
+     * without a write; `activity` names what must stop first.
+     */
+    'workspace/session-active': {
+      readonly sessionId: SessionId
+      readonly activity: readonly SessionActivity[]
+    }
     /** The Session or its anchor is not in the Workspace's manual order. */
     'workspace/move-invalid': {
       readonly workspaceId: WorkspaceId
@@ -102,21 +116,64 @@ export interface WorkspaceInsertSessionBeforeRequest {
 /** Session requested for archival from Workspace grouping surfaces. */
 export interface WorkspaceArchiveSessionRequest {
   readonly sessionId: SessionId
+  /**
+   * Stop the Session's running work — its turn, subagent descendants, owned
+   * background jobs, and active schedules — instead of refusing the archive
+   * as `workspace/session-active`. The stops are requested before the
+   * archive write and are not awaited; the response arrives once the archive
+   * set is durable.
+   */
+  readonly stopActivity?: boolean
 }
 
-/** Complete archived Session set after a mutation. */
+/** Session requested for restoration from the archived Session list. */
+export interface WorkspaceUnarchiveSessionRequest {
+  readonly sessionId: SessionId
+}
+
+/**
+ * Complete archived Session set after a mutation.
+ *
+ * `archivedSessionAts` is key-equal to `archivedSessionIds`; the registry drops
+ * both in the same durable write, and a Session archived before the registry
+ * recorded instants has no entry.
+ */
 export interface WorkspaceArchiveValue {
   readonly archivedSessionIds: readonly SessionId[]
-  /** Recorded archive instants; older archive entries may have no timestamp. */
+  /** ISO-8601 archive instants keyed by Session id. */
   readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+}
+
+/** Session requested for pinning ahead of unpinned Sessions on grouping surfaces. */
+export interface WorkspacePinSessionRequest {
+  readonly sessionId: SessionId
+}
+
+/** Session requested for removal from the pin set. */
+export interface WorkspaceUnpinSessionRequest {
+  readonly sessionId: SessionId
+}
+
+/** Complete pinned Session set after a mutation, in the order the pins domain holds. */
+export interface WorkspacePinValue {
+  readonly pinnedSessionIds: readonly SessionId[]
 }
 
 /** Complete reconnect baseline for Workspace browser state. */
 export interface WorkspaceBaseline {
   readonly items: readonly WorkspaceView[]
   readonly archivedSessionIds: readonly SessionId[]
-  /** Recorded archive instants; older archive entries may have no timestamp. */
+  /** ISO-8601 archive instants keyed by Session id; see {@link WorkspaceArchiveValue}. */
   readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+  /** Registry-global pin set, projected from the pins domain in its own order. */
+  readonly pinnedSessionIds: readonly SessionId[]
+  /**
+   * Presentation flags merged from the Host's `sessionFlags` providers, keyed
+   * by Session id. A Host without that registry reports none. The generation
+   * reads the providers once, when it opens, so a flag change reaches an open
+   * follower only through the next generation.
+   */
+  readonly sessionFlags: Readonly<Record<SessionId, SessionFlags>>
 }
 
 /** One ordered Workspace change after a generation's baseline. */
@@ -124,7 +181,13 @@ export type WorkspaceFollowIncrement =
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
   | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
-  | { readonly type: 'archived'; readonly archivedSessionIds: readonly SessionId[]; readonly archivedSessionAts: WorkspaceArchiveValue['archivedSessionAts'] }
+  | {
+    readonly type: 'archived'
+    readonly archivedSessionIds: readonly SessionId[]
+    /** ISO-8601 archive instants keyed by Session id; see {@link WorkspaceArchiveValue}. */
+    readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+  }
+  | { readonly type: 'pinned'; readonly pinnedSessionIds: readonly SessionId[] }
 
 /** Workspace state stream; every generation starts with exactly one baseline. */
 export type WorkspaceFollowFrame =

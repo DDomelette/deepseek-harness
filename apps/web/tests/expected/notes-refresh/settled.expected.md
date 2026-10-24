@@ -1,24 +1,15 @@
 - button "Back to the list": ←
 - text: Material
-- button "Float as a window":
-  - img
-  - text: Float as a window
-- button "Settings":
-  - img
-  - text: Settings
-- button "Refresh":
-  - img
-  - text: Refresh
+- button "Float as a window"
+- button "Settings"
+- button "Refresh"
 - list:
   - listitem:
     - 'button "Use the bash tool to run exactly: echo W… Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."'
 - 'heading "Use the bash tool to run exactly: echo W…" [level=2]'
 - text: Analyzed
-- button "Details":
-  - text: Details
-  - img
-- button "Material actions":
-  - img
+- button "Details"
+- button "Material actions"
 - heading "Material text" [level=3]
 - paragraph: "Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop."
 - heading "Conversation" [level=3]

@@ -1,6 +1,46 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/client/ui-settings-archived/README.md
-README.md: 0d4779f2fe8ecbd9a7e63275ef0e15a874b27188
-README.zh.md: 020e902242f95a03edd4350ae0060ef591325f2e
+/:
+  en: 86ce0b4c31d35a5e
+  zh: 9d3cb3bc847da185
+/deepseek-ai-dsh-client-ui-settings-archived:
+  en: 6e9d1b4c8fdc3fee
+  zh: 7ca4e85876e33506
+/deepseek-ai-dsh-client-ui-settings-archived/summary:
+  en: d320c5f2a872e79f
+  zh: caab84e61f406c9e
+/deepseek-ai-dsh-client-ui-settings-archived/table-of-contents:
+  en: 3fdfb304013be983
+  zh: 707424638ed8d34d
+/deepseek-ai-dsh-client-ui-settings-archived/surface:
+  en: d923a4724cc77b9d
+  zh: c23efffd81aa1b93
+/deepseek-ai-dsh-client-ui-settings-archived/behavior:
+  en: 92ed00c581db95ff
+  zh: e95393c3b24dc34b
+/deepseek-ai-dsh-client-ui-settings-archived/errors:
+  en: f688bed8e4d76435
+  zh: cf3fc4867c9cc3ee
+/deepseek-ai-dsh-client-ui-settings-archived/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-settings-archived/model-experience/request-context-and-condition:
+  en: cd8530c72534ee6b
+  zh: 16dbf6046e7e51fd
+/deepseek-ai-dsh-client-ui-settings-archived/model-experience/request-context-and-condition/what-the-model-sees:
+  en: 4532eae59080ea29
+  zh: 94ea5b1e8d9262fa
+/deepseek-ai-dsh-client-ui-settings-archived/model-experience/request-context-and-condition/token-effect:
+  en: f7d1eb359afe1932
+  zh: 07335730b7be597c
+/deepseek-ai-dsh-client-ui-settings-archived/model-experience/request-context-and-condition/kv-cache-effect:
+  en: 731e65565406c7e6
+  zh: 6a2ed8fa2dacea83
+/deepseek-ai-dsh-client-ui-settings-archived/known-limitations-and-deferred-work:
+  en: 637d83433c422c52
+  zh: 004f7ecad4101216
+/deepseek-ai-dsh-client-ui-settings-archived/known-limitations-and-deferred-work/dev-note:
+  en: 5adf62134d9290d2
+  zh: 73fa7a9460774cad

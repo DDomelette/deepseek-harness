@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-19-modal-tab-trap-counts-rendered-controls.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-19-modal-tab-trap-counts-rendered-controls.md
+/agent-note-modal-tab-trap-counts-only-rendered-controls:
+  en: 353a1ecaaf237bda
+  zh: db80504d6292ca00
+/agent-note-modal-tab-trap-counts-only-rendered-controls/problem:
+  en: ad04709f96b32ae4
+  zh: 8aac292b6a32e114
+/agent-note-modal-tab-trap-counts-only-rendered-controls/decision:
+  en: 8ca2549a5ce7a0ed
+  zh: 013de3e409c05e3d
+/agent-note-modal-tab-trap-counts-only-rendered-controls/alternatives-considered:
+  en: 7e5aeb0b4efbcafa
+  zh: 4b78c26219c84bb2
+/agent-note-modal-tab-trap-counts-only-rendered-controls/consequences:
+  en: 3984ea79a7e75964
+  zh: 166d1253dedea2c7

@@ -1,6 +1,61 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/bundle/headless/README.md
-README.md: 98a9cb2294d8b05a40287c990b3ff53f755747cf
-README.zh.md: 99bf90845bed1a7601ca8a70cfff98567ea364f8
+/:
+  en: 68ff17b596cbc6aa
+  zh: 8c6f3d309403ba81
+/deepseek-ai-dsh-headless:
+  en: 605b67ee9f21d085
+  zh: df2687a69f362493
+/deepseek-ai-dsh-headless/summary:
+  en: dd06020314e2512c
+  zh: 4e8beff7e81dd454
+/deepseek-ai-dsh-headless/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-headless/use-this-package:
+  en: 335f47934cb832d2
+  zh: 80a84c1869b0613b
+/deepseek-ai-dsh-headless/use-this-package/running-a-one-shot-task:
+  en: 0711024985868b4a
+  zh: 5f1361858f85d935
+/deepseek-ai-dsh-headless/use-this-package/when-to-use-it:
+  en: df9b86fe5521ab22
+  zh: 970f2638be333ca5
+/deepseek-ai-dsh-headless/use-this-package/help-and-task-errors:
+  en: 3948b3d401e17493
+  zh: 2aeb890272198151
+/deepseek-ai-dsh-headless/understand-the-implementation:
+  en: a22b8856f8b2d9eb
+  zh: 823a917c453c77e4
+/deepseek-ai-dsh-headless/understand-the-implementation/run-flow:
+  en: 8e72af22ad5e5501
+  zh: bba8a113f9def368
+/deepseek-ai-dsh-headless/understand-the-implementation/patch-surface-over-base:
+  en: f3fdad61dd87785f
+  zh: 90868a67a4ada6cc
+/deepseek-ai-dsh-headless/understand-the-implementation/exit-mapping:
+  en: 32d73892dd6a8eed
+  zh: 086b9eac7b257c4d
+/deepseek-ai-dsh-headless/understand-the-implementation/source-map:
+  en: c5a4a51575dc9a40
+  zh: fee9c22afa85308a
+/deepseek-ai-dsh-headless/understand-the-implementation/invariant-ownership:
+  en: 329f170dec4b2279
+  zh: bb40f8beda5b3a1c
+/deepseek-ai-dsh-headless/further-exploration:
+  en: 65aebf0f8ab3047c
+  zh: 85616d3859073c4b
+/deepseek-ai-dsh-headless/model-experience:
+  en: c5a0991833f64dd7
+  zh: 46f9feb255778f11
+/deepseek-ai-dsh-headless/model-experience/kv-cache-effect:
+  en: 0b0f74b412c7c6d8
+  zh: 6e8f918d0c4bf342
+/deepseek-ai-dsh-headless/known-limitations-and-deferred-work:
+  en: 7722cc2cb84a7595
+  zh: b34a71e1dc9a0d38
+/deepseek-ai-dsh-headless/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

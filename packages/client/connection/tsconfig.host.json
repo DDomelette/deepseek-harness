@@ -15,6 +15,7 @@
     "src/http-bridge.ts",
     "src/index.ts",
     "src/loopback-hostname.ts",
+    "src/peer.ts",
     "src/recovery-config.ts",
     "src/request-authority.ts",
     "src/rpc-host.ts",
@@ -32,6 +33,9 @@
       "path": "../../attachment/attachment"
     },
     {
+      "path": "../../core/scope"
+    },
+    {
       "path": "../../credentials/credentials"
     },
     {
@@ -39,6 +43,9 @@
     },
     {
       "path": "../../host/webserver"
+    },
+    {
+      "path": "../../typert/protocol"
     },
     {
       "path": "../../util/brand"

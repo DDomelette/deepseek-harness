@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-09-handset-transcript-scrollbar-both-edges.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-09-handset-transcript-scrollbar-both-edges.md
-2026-10-09-handset-transcript-scrollbar-both-edges.md: eb2dc337841f90eca1544698cdb6a3885a79f780
-2026-10-09-handset-transcript-scrollbar-both-edges.zh.md: f082ff7edbbbd6984d68c71e1396dbc1117873a5
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter:
+  en: edeaf1e8a8f621e3
+  zh: db2b58f5986d717c
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter/problem:
+  en: a43f03b425a5ada7
+  zh: ec8e9269f01a9d7a
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter/decision:
+  en: 2a7e427736c18d2d
+  zh: 9f5b0b7070fc7f5f
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter/alternatives-considered:
+  en: 3a476fb07f056bfc
+  zh: 37f04fa62b5062da
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter/consequences:
+  en: e273b0dc7d3d3784
+  zh: fc39e52a0c7847ec
+/agent-note-handset-transcript-scrollbar-restored-with-a-symmetric-gutter/related:
+  en: 8cc4f9493237d2d7
+  zh: dde14e91464f4685

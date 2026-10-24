@@ -157,15 +157,16 @@ describe('web e2e: settings at a handset viewport', () => {
     // The two-column header keeps the document action's full label.
     expect((await dialog.getByRole('button', { name: '打开配置文件' }).innerText()).trim()).toBe('打开配置文件')
 
-    await dialog.getByRole('button', { name: '模型' }).click()
-    await expect.poll(async () => await dialog.getByRole('button', { name: '模型' }).isVisible()).toBe(true)
+    await dialog.locator('[class*="navList"]').getByRole('button', { name: '模型' }).click()
+    // The section's own controls may carry the same label, so the header names
+    // the open section.
     expect(await dialog.locator('[data-detail-title]').textContent()).toBe('模型')
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  it('gives every select the settings pages render a 44px touch target', async () => {
+  it('gives the handset settings controls the 44px touch floor', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-touch-targets'))
     await page.setViewportSize(HANDSET)
     await openHandsetSettings(page)
@@ -174,21 +175,24 @@ describe('web e2e: settings at a handset viewport', () => {
 
     // Models: the provider picker exists only inside the add card, so the pane
     // is opened the way the Models scenario opens it.
-    await dialog.getByRole('button', { name: '模型' }).click()
-    const add = dialog.getByRole('button', { name: '添加提供方' })
+    await dialog.locator('[class*="navList"]').getByRole('button', { name: '模型' }).click()
+    const add = dialog.getByRole('button', { name: '添加模型提供商' })
     await add.waitFor({ timeout: 10_000 })
     await expect.poll(async () => add.isEnabled(), { timeout: 10_000 }).toBe(true)
     await add.click()
-    await dialog.getByLabel('提供方').waitFor({ timeout: 10_000 })
+    await dialog.getByLabel('提供商', { exact: true }).waitFor({ timeout: 10_000 })
     await expectSelectTouchTargets(dialog)
 
-    // The plugin inventory is one tab into the Plugins section; the preset
-    // switcher appears with the same snapshot the group picker renders from.
+    // The Plugins section carries one tab occupancy, so it renders the inventory
+    // directly and draws no tab strip; the preset switcher arrives with the same
+    // snapshot the group picker renders from.
     await dialog.getByRole('button', { name: '返回' }).click()
-    await dialog.getByRole('button', { name: '插件', exact: true }).click()
-    await dialog.getByRole('tab', { name: '插件列表', exact: true }).click()
+    await dialog.getByRole('button', { name: '内置插件', exact: true }).click()
     await dialog.getByRole('button', { name: '选择要查看的 Agent 预设' }).waitFor({ timeout: 10_000 })
-    await expectSelectTouchTargets(dialog)
+    // The inventory's group picker is a menu trigger, not a native select, so the
+    // 44px touch floor is asserted on the control that renders.
+    const switcher = await dialog.getByRole('button', { name: '选择要查看的 Agent 预设' }).boundingBox()
+    expect(switcher?.height ?? 0, 'preset switcher').toBeGreaterThanOrEqual(44)
 
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)

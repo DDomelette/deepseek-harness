@@ -143,7 +143,6 @@ This section explains the design decisions behind the provider and points at the
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Provider: layer resolution, strict document parse, reference and record write paths under the writer lock, watcher lifecycle, permissions check |
-| — | No runtime invariant companion is published; the Service Definition companion (`dsh-credentials/invariant`) owns the `credentials/reference-updated` lifecycle contract; this provider's file/environment layering is asynchronous I/O pinned by its unit suite. |
 
 ### Resolution and write paths
 
@@ -212,3 +211,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 An OS-keychain provider — a store the model's processes cannot read — is the deferred answer to the same-UID limitation and belongs beside this provider as a sibling package. The seam shape also leaves room for helper-command- and KMS-backed providers; none is shipped.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider contributes the file-backed `ctx.credentials` implementation: precedence-ordered resolution across the launcher's snapshot, the `.credentials.yaml` store, and `.env` fallbacks, plus locked reference and record writes. The `dsh-credentials` service definition owns the provider contract and update events.

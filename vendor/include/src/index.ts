@@ -289,22 +289,31 @@ export class Include extends EntryTree {
   }
 
   async stop() {
-    await this.root.stop()
-    await this.flushWrite()
+    try {
+      await this.flushWrite()
+    } finally {
+      await this.root.stop()
+      await this.flushWrite()
+    }
   }
 
   /**
-   * Re-read the file and transactionally refresh child entries when content changed.
-   * @returns a promise resolving after the new tree commits, or immediately when unchanged.
-   * @throws when reading, parsing, validation, application, or rollback fails; the last good tree remains active when rollback succeeds.
+   * Re-read the file and refresh child entries when content changed. An
+   * unreadable or unparsable file logs a warning and keeps the last good
+   * tree: a hot-reload of a live app must never take the process down.
    */
   async refresh() {
     // Read inside the queue so the changed-content check compares against the
     // predecessor's committed state, not a mid-apply snapshot.
     await this.enqueue(async () => {
-      const candidate = await this.read()
-      if (!candidate) return
-      await this._apply(candidate)
+      try {
+        const candidate = await this.read()
+        if (!candidate) return
+        await this._apply(candidate)
+      } catch (error) {
+        this.ctx.logger.warn('config reload at %C failed; keeping the running tree', this.filename)
+        this.ctx.logger.warn(error)
+      }
     })
   }
 

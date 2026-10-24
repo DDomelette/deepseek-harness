@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-settings-single-pane-handset.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-settings-single-pane-handset.md
-2026-09-13-settings-single-pane-handset.md: 5865bf6a24b4a8b70a7ae19c01702e64713ab44a
-2026-09-13-settings-single-pane-handset.zh.md: a56b5deb3a102d779ed49126c602fa109df964b8
+/agent-note-single-pane-settings-on-a-handset:
+  en: bb2f7a41ec9e991a
+  zh: 5ba5cd88c86d88fe
+/agent-note-single-pane-settings-on-a-handset/problem:
+  en: 9aa7ece78c394c93
+  zh: 3854af7a743955ad
+/agent-note-single-pane-settings-on-a-handset/decision:
+  en: d0951f3e11742b83
+  zh: 2c84e615d66c8e77
+/agent-note-single-pane-settings-on-a-handset/alternatives-considered:
+  en: e137bd9503708b3d
+  zh: 6f8b2d27024b5b21
+/agent-note-single-pane-settings-on-a-handset/consequences:
+  en: 0b053836c22f879e
+  zh: f7651260789f165d

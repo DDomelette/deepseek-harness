@@ -85,7 +85,6 @@ The backend owns storage details only, on one principle: **a spilled artifact mu
 | [`src/index.ts`](src/index.ts) | Plugin entry: `Config`, the `LocalSpillStore` service, cleanup lifecycle, locator and retrieval-hint assembly |
 | [`src/cleanup.ts`](src/cleanup.ts) | One-shot age sweep, filesystem-identity checks, symlink and ownership safeguards |
 | [`src/store.ts`](src/store.ts) | Cordis-free storage mechanics: private root, session directory, safe-name encoding, exclusive write |
-| — | No runtime invariant companion is published; this package exposes no independent event sequence or mutable data relation beyond contracts enforced at its owning seam. |
 
 ### File naming and write
 
@@ -140,3 +139,5 @@ This Dev Note is working context for maintainers: open directions. It is explici
 The retrieval model assumes the model's `read`/`grep` tools can inspect the returned path even when the spill directory is outside the session working directory. A future workspace-confinement policy must either allow local spill paths explicitly or use a non-file spill backend.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend contributes the `ctx.spillStore` implementation that writes oversized text to private session-scoped files and runs the startup sweep, while the spill decision and previews stay owned by `@deepseek-ai/dsh-spill-policy` and the seam contract by `@deepseek-ai/dsh-spill`.

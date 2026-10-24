@@ -1,4 +1,2 @@
-- button "Settings":
-  - img
-  - text: Settings
-- button "Reconnecting automatically, reconnect now": "Reconnect now Cannot reach the computer; check both are on the same network api gateway: Remote stream WebSocket closed"
+- button "Settings"
+- button "Reconnecting, reconnect now": Reconnecting

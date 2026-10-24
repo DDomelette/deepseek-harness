@@ -16,7 +16,7 @@ A [worker-runtime coverage failure](https://github.com/deepseek-harness/deepseek
 
 ## Decision
 
-The [webhook browser test](../../../../apps/web/tests/github-ready-review.e2e.ts) observes the model request caused by delivery before checking Session registration. The [feedback test](../../../../apps/web/tests/feedback-command.e2e.ts) waits for the empty composer and enabled attachment control before comparing ARIA output. Matching consecutive snapshots cannot prove that the command RPC has settled: its event stream can publish the acknowledgement first.
+The webhook browser test, retired with the webhook example it loaded, observed the model request caused by delivery before checking Session registration. The [feedback test](../../../../apps/web/tests/feedback-command.e2e.ts) waits for the empty composer and enabled attachment control before comparing ARIA output. Matching consecutive snapshots cannot prove that the command RPC has settled: its event stream can publish the acknowledgement first.
 
 The [desktop transaction test](../../../../apps/desktop/tests/project-manager.spec.ts) gives the worker readiness marker the active test's execution budget. Its independent `afterEach` releases and awaits workers before deleting private roots, including when the runner abandons a timed-out test body. The poll observes runner cancellation, and teardown reports transaction failures independently from assertion failures. The [PowerShell tests](../../../../packages/shell/pwsh-local/tests/executor.spec.ts) register each helper-created Context before plugin initialization and dispose those Contexts before deleting temporary directories. The background-input case awaits process completion before checking complete output, completed status, and exit code. Consuming reads remain covered by their separate streaming tests.
 
@@ -26,7 +26,7 @@ The [ACP disconnect tests](../../../../packages/acp/acp/tests/dispose.spec.ts) a
 
 The [subagent teardown decision](2026-09-07-subagent-teardown-test-budgets.md) owns lifecycle cleanup budgets. The [persistent PowerShell decision](2026-09-07-pwsh-ci-observable-completion.md) owns exact versus inferred terminal readiness; a one-shot process's completion promise has different semantics.
 
-The [worker-runtime binding test](../../../../packages/code-runtime/code-runtime-worker-thread/tests/runtime.spec.ts) allows five seconds of compute for source-worker initialization and delays the binding for 6.5 seconds. Charging that idle delay would still exceed the entire compute allowance. The case retains its 15-second test limit and 30-second wall ceiling, registers Context and reply-timer cleanup, and leaves the hot-loop, decoy-dispatch, wall-ceiling, and abort controls at their existing limits. Production budgets remain unchanged.
+The [PTC binding test](../../../../packages/ptc-runtime/ptc-runtime-node/tests/runtime.spec.ts) allows five seconds of compute for source-process initialization and delays the binding for 6.5 seconds. Charging that idle delay would still exceed the entire compute allowance. The case retains its 15-second test limit and 30-second wall ceiling, registers Context and reply-timer cleanup, and leaves the hot-loop, decoy-dispatch, wall-ceiling, and abort controls at their existing limits. Production budgets remain unchanged.
 
 ## Alternatives considered
 

@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-index-entry-resolved-identity.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-index-entry-resolved-identity.md
-2026-10-06-index-entry-resolved-identity.md: 684502f2fc734a0f6a4efad21bbe85b0842dd176
-2026-10-06-index-entry-resolved-identity.zh.md: 691553356cd337cf557b4683bfb9214501699e25
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to:
+  en: a8d44f5637d9e5ed
+  zh: 3adc30b0597a0931
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to/problem:
+  en: 23db762639cd5bc9
+  zh: 40ad600c11576a4f
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to/decision:
+  en: fb1f2c4fdbb382ff
+  zh: 0592283192ba38e3
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to/alternatives-considered:
+  en: d3c3bcf8ec842ce5
+  zh: 5701937692174856
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to/consequences:
+  en: 1705dd3f199860df
+  zh: bd94a0f3e63b5519
+/agent-note-the-index-entry-is-identified-by-the-file-it-resolves-to/testing:
+  en: 65c925d7aec60148
+  zh: efc7d41642ce091c

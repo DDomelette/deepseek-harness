@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-20-owner-local-workspace-and-settings-reuse.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/simplification/2026-09-20-owner-local-workspace-and-settings-reuse.md
-2026-09-20-owner-local-workspace-and-settings-reuse.md: d764280c2866a172f3eff1a21500b35ca360873d
-2026-09-20-owner-local-workspace-and-settings-reuse.zh.md: b16fe58de3fa3ca51947cd083d672bd0aff262b0
+/agent-note-preserve-plugin-ownership-when-consolidating-repeated-operations:
+  en: 38a07b14d3010cca
+  zh: 6036eeb59b5ca083
+/agent-note-preserve-plugin-ownership-when-consolidating-repeated-operations/problem:
+  en: b7c8664dc0f587fb
+  zh: 34ecca7321b40b1d
+/agent-note-preserve-plugin-ownership-when-consolidating-repeated-operations/decision:
+  en: f7cb12c8fd687486
+  zh: 1265eeb1d24daeae
+/agent-note-preserve-plugin-ownership-when-consolidating-repeated-operations/alternatives-considered:
+  en: c5b38901262fbb58
+  zh: 5d88fca164099222
+/agent-note-preserve-plugin-ownership-when-consolidating-repeated-operations/consequences:
+  en: c92307818a82d856
+  zh: 6fceac1193397666

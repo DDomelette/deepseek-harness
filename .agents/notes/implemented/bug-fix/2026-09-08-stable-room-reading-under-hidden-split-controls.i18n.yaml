@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-08-stable-room-reading-under-hidden-split-controls.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-08-stable-room-reading-under-hidden-split-controls.md
-2026-09-08-stable-room-reading-under-hidden-split-controls.md: c89c5328ee896e23ed24454c50223193c2d587ba
-2026-09-08-stable-room-reading-under-hidden-split-controls.zh.md: edf9948e547b79b33165b9c7168238e6cf1d2685
+/agent-note-keep-the-room-reading-independent-of-hidden-split-controls:
+  en: 4602700a4ec92443
+  zh: 287d3d8b429fd310
+/agent-note-keep-the-room-reading-independent-of-hidden-split-controls/problem:
+  en: 44b9a773dd6dfdaf
+  zh: dd990281f370e01f
+/agent-note-keep-the-room-reading-independent-of-hidden-split-controls/decision:
+  en: a3cc722d62d36f82
+  zh: b6db640c0378c547
+/agent-note-keep-the-room-reading-independent-of-hidden-split-controls/alternatives-considered:
+  en: ad7283350269f447
+  zh: 5008e08e2e658725
+/agent-note-keep-the-room-reading-independent-of-hidden-split-controls/consequences:
+  en: 076f29cdbf824903
+  zh: e2af8ed900478397

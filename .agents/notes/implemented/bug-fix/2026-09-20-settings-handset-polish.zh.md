@@ -16,7 +16,7 @@ Status: implemented
 
 三处修复都收在各属主样式表的 `@media (max-width: 767px)` 内，与外壳发布的是同一个断点；双栏布局逐像素不变。这些行只在设置面板内渲染，因此裸媒体查询就是正确的闸门（list 窗格本来就不会绘制分区内容）。
 
-- `SettingsDocumentAction` 把该操作留在每个分区的顶栏，但在单栏态折叠为纯图标按钮（`IconCodeOutline16`）：按钮现在带 `aria-label={t('openDocument')}`，标签渲染在一个 span 里——媒体查询隐藏它并显示图标。该操作打开的是整个 cordis.yml 文档，并非 General 分区专属，因此它留在共享顶栏而不是挪进某个分区的内容区。
+- `SettingsDocumentAction` 把该操作留在每个分区的顶栏，但在单栏态折叠为纯图标按钮（`IconCodeOutlineRegular`）：按钮现在带 `aria-label={t('openDocument')}`，标签渲染在一个 span 里——媒体查询隐藏它并显示图标。该操作打开的是整个 cordis.yml 文档，并非 General 分区专属，因此它留在共享顶栏而不是挪进某个分区的内容区。
 - `AppearanceRow.module.css` 把卡片行改为三个紧凑的等宽段（`flex: 1 1 0`、不换行、10px 纵向内边距、12px 圆角、13px 标签）。选中态视觉与 `aria-pressed` 语义不变。
 - `PermissionRow.module.css` 让该行换行：文字占 `flex: 1 1 100%`（48px 的选择器预留取消），选择器移到下一行、左对齐。字号行共用同一种行结构，但其步进器够小、描述并未受挤压，因此保持原样。
 

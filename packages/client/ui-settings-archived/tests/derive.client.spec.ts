@@ -7,6 +7,9 @@ import { countDescendants, deriveArchivedGroups } from '../src/client/derive.ts'
 const sid = (value: string): SessionId => value as SessionId
 const wid = (value: string): WorkspaceId => value as WorkspaceId
 
+/** Deterministic instant the archive set stamps on the rows these cases derive. */
+const ARCHIVED_AT = '2026-08-19T08:00:00.000Z'
+
 function sessions(rows: Array<[string, number]>): SessionListState {
   return {
     ids: rows.map(([id]) => sid(id)),
@@ -25,7 +28,7 @@ function sessions(rows: Array<[string, number]>): SessionListState {
 function workspaces(
   archived: string[],
   rows: Array<[string, string[]]>,
-  archivedAts: Record<string, string> = {},
+  instants: Record<string, string> = Object.fromEntries(archived.map(id => [id, ARCHIVED_AT])),
 ): WorkspaceListState {
   return {
     items: rows.map(([id, sessionIds]) => ({
@@ -38,7 +41,7 @@ function workspaces(
     })),
     archivedSessionIds: archived.map(sid),
     archivedSessionAts: Object.fromEntries(
-      Object.entries(archivedAts).map(([id, at]) => [sid(id), at]),
+      Object.entries(instants).map(([id, instant]) => [sid(id), instant]),
     ),
     state: 'idle',
     phase: 'ready',
@@ -72,13 +75,22 @@ describe('deriveArchivedGroups', () => {
     expect(groups[0]?.rows.map(row => row.id)).toEqual([sid('a1')])
   })
 
-  it('carries the archive instant when the host recorded one and omits it otherwise', () => {
+  it('carries the session row fields the panel renders', () => {
     const groups = deriveArchivedGroups(
-      sessions([['a1', 1], ['a2', 2]]),
-      workspaces(['a1', 'a2'], [['ws-a', ['a1', 'a2']]], { a1: '2026-08-21T08:00:00.000Z' }),
+      sessions([['a1', 7]]),
+      workspaces(['a1'], [['ws-a', ['a1']]]),
     )
-    expect(groups[0]?.rows[0]?.archivedAt).toBe('2026-08-21T08:00:00.000Z')
-    expect(groups[0]?.rows[1]).not.toHaveProperty('archivedAt')
+    expect(groups[0]?.rows[0]).toMatchObject({
+      id: sid('a1'), title: 'title-a1', updatedAt: 7, archivedAt: ARCHIVED_AT,
+    })
+  })
+
+  it('leaves the archive instant absent for a Session archived before instants were recorded', () => {
+    const groups = deriveArchivedGroups(
+      sessions([['a1', 7]]),
+      workspaces(['a1'], [['ws-a', ['a1']]], {}),
+    )
+    expect(groups[0]?.rows[0]?.archivedAt).toBeUndefined()
   })
 })
 

@@ -1,6 +1,151 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-20-client-session-conversation-ownership.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-20-client-session-conversation-ownership.md
-2026-08-20-client-session-conversation-ownership.md: 89f27f745c13e070b7f9794d98747bc73bda3b5a
-2026-08-20-client-session-conversation-ownership.zh.md: 79be1b898a1fb5a75e5438d55d739d84775fe6d9
+/agent-note-client-session-conversation-and-ui-ownership-layers:
+  en: 24e6b5894fbcdc97
+  zh: 1fe37f9234be5ff4
+/agent-note-client-session-conversation-and-ui-ownership-layers/problem:
+  en: 87d3188b6f534c2a
+  zh: e805eb702d3f0f7f
+/agent-note-client-session-conversation-and-ui-ownership-layers/decision:
+  en: 32383fc1f5c7f728
+  zh: 36775af3ad96e153
+/agent-note-client-session-conversation-and-ui-ownership-layers/layering-principles:
+  en: 8fa111a6c0477c2c
+  zh: 89bfc65c4986c521
+/agent-note-client-session-conversation-and-ui-ownership-layers/layering-principles/controllers-are-react-free-logic-owners:
+  en: 821989170ad76994
+  zh: 0ed142bea166fc3a
+/agent-note-client-session-conversation-and-ui-ownership-layers/layering-principles/ui-adapters-own-react-integration:
+  en: f7b324ac51aebcae
+  zh: 7ce9386a5f8550ab
+/agent-note-client-session-conversation-and-ui-ownership-layers/layering-principles/slot-scopes-and-standard-props-are-separate:
+  en: b6f585ca87e1fc6f
+  zh: 53fd58c3e93cf17c
+/agent-note-client-session-conversation-and-ui-ownership-layers/package-ownership:
+  en: d883594ee282270d
+  zh: f8b99e2f827a4719
+/agent-note-client-session-conversation-and-ui-ownership-layers/overall-data-flow:
+  en: d6a9f2d012e070dd
+  zh: 0d20c738fc02606c
+/agent-note-client-session-conversation-and-ui-ownership-layers/session-controller-client:
+  en: b88f651b1bfb8b5e
+  zh: b88f651b1bfb8b5e
+/agent-note-client-session-conversation-and-ui-ownership-layers/session-controller-client/scope-of-sessionsnapshot:
+  en: 0abb8da3074137f6
+  zh: 92a0074930bb63b6
+/agent-note-client-session-conversation-and-ui-ownership-layers/session-controller-client/three-read-faces:
+  en: 5ca28c26e68b91db
+  zh: fcdfb44a8983ca6e
+/agent-note-client-session-conversation-and-ui-ownership-layers/session-controller-client/sessioneventsource:
+  en: 377ec73183b2e461
+  zh: 6f24c1f723d20938
+/agent-note-client-session-conversation-and-ui-ownership-layers/session-controller-client/session-binding-lifecycle:
+  en: dbf27caed6102e87
+  zh: 9164d345dd3a6aa6
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session:
+  en: 860315b96703371d
+  zh: 860315b96703371d
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session/service-responsibilities:
+  en: ff622839e062a552
+  zh: 779bf4db156b70f5
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session/standard-source-registration:
+  en: e4be6d4b1d79b342
+  zh: 7cb0e8c0f6358b50
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session/scope-binding:
+  en: a85096f18000ef68
+  zh: 8f0c740d72af1f71
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session/sessionprovider:
+  en: a8e7b3c5b4090926
+  zh: d287a52108520f74
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-session/pending-interactions:
+  en: 1dff1591c092df79
+  zh: 4f874411a6f8c0ad
+/agent-note-client-session-conversation-and-ui-ownership-layers/workspace-controller-and-ui-workspace:
+  en: 45e5f41550e62a3d
+  zh: d4e6d8f5b397bb51
+/agent-note-client-session-conversation-and-ui-ownership-layers/workspace-controller-and-ui-workspace/scope-of-workspacesnapshot:
+  en: db0bb2a43bbdbbcc
+  zh: a064d7ffc42bb4a1
+/agent-note-client-session-conversation-and-ui-ownership-layers/workspace-controller-and-ui-workspace/ui-workspace-composition-responsibilities:
+  en: 596b53f3936fdd88
+  zh: 0ee60f3d84c33944
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-conversation:
+  en: b23aedfa06639f39
+  zh: b23aedfa06639f39
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-conversation/assembly-core:
+  en: c004ba2b21b22344
+  zh: ae66652c239ec213
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-conversation/definition-and-view-registries:
+  en: d35b868d88cff47d
+  zh: 0e718ca3efdbf224
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-conversation/conversation-react-adapter:
+  en: 913a8f9b4f481bff
+  zh: ca18aa731f15250f
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-conversation/input-and-composer:
+  en: 013b7358f65737e9
+  zh: 72cdc710d7f25f09
+/agent-note-client-session-conversation-and-ui-ownership-layers/chat-and-trajectory-targets:
+  en: 8ad17fee25bef35f
+  zh: b5e3d07111cdde7a
+/agent-note-client-session-conversation-and-ui-ownership-layers/chat-and-trajectory-targets/chat-owner:
+  en: 43a4a38d9500ebd4
+  zh: 2df24d5530ab11a7
+/agent-note-client-session-conversation-and-ui-ownership-layers/chat-and-trajectory-targets/trajectory-owner:
+  en: c8d48f4e7ac3a6f2
+  zh: a65f680c30f6123c
+/agent-note-client-session-conversation-and-ui-ownership-layers/approval-and-question:
+  en: 45e1a7d1a4f8b73a
+  zh: 712e01e736199846
+/agent-note-client-session-conversation-and-ui-ownership-layers/approval-and-question/stable-registration:
+  en: 877881c5ae993245
+  zh: 6098103c5414c6e9
+/agent-note-client-session-conversation-and-ui-ownership-layers/approval-and-question/one-waterfall-request:
+  en: b1ff0285ab378448
+  zh: 9acc318381df9cce
+/agent-note-client-session-conversation-and-ui-ownership-layers/approval-and-question/one-pending-projection:
+  en: 880b2a4cac7fd6a3
+  zh: 308326eb3bd0e8da
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-renderer-and-store:
+  en: d8de1632a217da9f
+  zh: 32e68fc042041f42
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-renderer-and-store/ui-renderer:
+  en: 928e5816ad6430ea
+  zh: b3e658f276d4e572
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-renderer-and-store/store:
+  en: bf24926000a4fc38
+  zh: 702ecdb4aab9dc12
+/agent-note-client-session-conversation-and-ui-ownership-layers/ui-renderer-and-store/registration-and-release-order:
+  en: 9085be3bb01b1d40
+  zh: c2d8cc43e7e48308
+/agent-note-client-session-conversation-and-ui-ownership-layers/composition-and-dependency-direction:
+  en: 6ec1176913cdabab
+  zh: b0a0c8f443e51d33
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance:
+  en: 53c7e08a0e422d7e
+  zh: 57a1417c0a4d5dd5
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance/choose-the-data-owner-first:
+  en: a417a8b792678275
+  zh: 0ce11f842a87fe7d
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance/add-session-scoped-data:
+  en: e5e6831f726d1e68
+  zh: 1a12311f64b7da5c
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance/add-a-conversation-target:
+  en: a5ecfa4225fa559b
+  zh: e1da4db4f80e246b
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance/add-a-pending-interaction-domain:
+  en: e3f175e1e956e7cb
+  zh: e7c69e05457d6c11
+/agent-note-client-session-conversation-and-ui-ownership-layers/developer-guidance/review-checks:
+  en: 2800c6393a75210d
+  zh: 7bdf8911d3f0bb22
+/agent-note-client-session-conversation-and-ui-ownership-layers/verification:
+  en: 04c54874beafe7ff
+  zh: e13dffa5d952069a
+/agent-note-client-session-conversation-and-ui-ownership-layers/alternatives-considered:
+  en: 83dce7fe89397a9f
+  zh: 8076ebb1d61ba6bf
+/agent-note-client-session-conversation-and-ui-ownership-layers/consequences:
+  en: 307497e3f0eb2158
+  zh: c7189a9811edb4a2

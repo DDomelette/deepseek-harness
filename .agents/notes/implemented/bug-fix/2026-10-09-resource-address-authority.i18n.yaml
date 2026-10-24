@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-09-resource-address-authority.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-09-resource-address-authority.md
-2026-10-09-resource-address-authority.md: 686352deb03a64e273845b6f0f5f21216c5e22f3
-2026-10-09-resource-address-authority.zh.md: 68254a468f0ff4d6df63f55f0b686c2763d349f3
+/agent-note-the-resource-protocol-key-is-read-from-the-address-text:
+  en: e52a48264833210e
+  zh: 20768c1cb8f5f597
+/agent-note-the-resource-protocol-key-is-read-from-the-address-text/problem:
+  en: 8ac3cbf33535d452
+  zh: 04c430d8857df796
+/agent-note-the-resource-protocol-key-is-read-from-the-address-text/decision:
+  en: 7a04a78ae7c6538a
+  zh: 871a1e6e5f4e1def
+/agent-note-the-resource-protocol-key-is-read-from-the-address-text/alternatives-considered:
+  en: ed5814457f9f7c91
+  zh: b3e871b14a1da99d
+/agent-note-the-resource-protocol-key-is-read-from-the-address-text/consequences:
+  en: de0056651eec0c89
+  zh: a5beb0cca2f21c67

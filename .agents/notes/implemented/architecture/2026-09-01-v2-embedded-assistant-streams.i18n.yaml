@@ -1,6 +1,28 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-01-v2-embedded-assistant-streams.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-01-v2-embedded-assistant-streams.md
-2026-09-01-v2-embedded-assistant-streams.md: 98207749028e2182c5e60073fc07985688ecfa30
-2026-09-01-v2-embedded-assistant-streams.zh.md: 90dff5a385cf83071ec52a2fc2b57a893107b861
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements:
+  en: ada7ae6629d0d4e4
+  zh: cc1f9a43e87d2dee
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/problem:
+  en: 9e95306554ecd1ca
+  zh: 40478697fbc94e33
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/decision:
+  en: 99f3582700970779
+  zh: 03a9cf873c5b6fb8
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/decision/live-presentation-and-durable-replay:
+  en: 3046654295184db1
+  zh: 90b1077bf2e9d6c8
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/decision/released-v1-to-v2-migration:
+  en: d27e9c99a2ba7d58
+  zh: 033255a91f07ac2d
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/verification:
+  en: 1a249a6634861fd0
+  zh: 74c4f3eae119b105
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/alternatives-considered:
+  en: 74cdc6838df6172e
+  zh: ebca79a08ff3ebe4
+/agent-note-embed-assistant-streams-in-v2-attempt-settlements/consequences:
+  en: fc745b93d5e92f50
+  zh: 4fa418c30e1968b4

@@ -84,7 +84,6 @@ The provider is a thin adapter over Perplexity's chat-completions endpoint with 
 | [`src/index.ts`](src/index.ts) | Plugin entry: config schema, environment fallback, provider registration |
 | [`src/provider.ts`](src/provider.ts) | The `PerplexitySearchProvider`: request dispatch, abort classification, answer and source mapping |
 | [`src/types.ts`](src/types.ts) | Perplexity wire types for the chat-completions response |
-| — | No runtime invariant companion is published; this package exposes no independent event sequence or mutable data relation beyond contracts enforced at its owning seam. |
 
 ### Request and mapping flow
 
@@ -164,3 +163,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 Perplexity's domain filters, `web_search_options` context size, and image support stay unexposed. Exposing them needs provider-neutral service fields first, so the family adds one coordinated control rather than a vendor-specific argument.
 
 </details>
+
+**Runtime invariant:** No companion is published. This provider registers a Perplexity search backend with `ctx.web` and maps chat completions into sources, while the web seam owns provider resolution and `@deepseek-ai/dsh-tool-web` owns the model-facing tool.

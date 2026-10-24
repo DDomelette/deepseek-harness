@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for architecture.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/architecture.md
-architecture.md: e94badec206c4bd4b5651eb968756d81cee82233
-architecture.zh.md: c56abfbfe203442eda4e54c4e983d7dbdebdd31f
+/deepseek-harness-architecture:
+  en: 2125f3ec236bc7b2
+  zh: 23d8815579592ec4
+/deepseek-harness-architecture/cordis:
+  en: da5060e577578ea7
+  zh: 2e77d570e32d8938
+/deepseek-harness-architecture/profiles-and-bundles:
+  en: 7c64710fc8147211
+  zh: 65ab99ae5eb159ff
+/deepseek-harness-architecture/application-launch:
+  en: 17cf3026c4ca971f
+  zh: 6d437227af42981c
+/deepseek-harness-architecture/desktop-application:
+  en: c6fe53426b913713
+  zh: d8fc07ad4e1a0bfe
+/deepseek-harness-architecture/core-packages:
+  en: b4a221ac2910600a
+  zh: 341046d3c9a9c9cd
+/deepseek-harness-architecture/events:
+  en: c902147e708950d4
+  zh: 68b731ea95d17eea
+/deepseek-harness-architecture/turn-flow:
+  en: e4bbd6c59e7cbf25
+  zh: 7e836331a8c6866c
+/deepseek-harness-architecture/session-log:
+  en: 0100663d67abf91a
+  zh: 3981d4e9c2a89a0a
+/deepseek-harness-architecture/capability-seams:
+  en: 93d1dc2eeda4aec2
+  zh: ee7a9da89151ea17
+/deepseek-harness-architecture/where-new-behavior-goes:
+  en: 5afbe4d226dae9ba
+  zh: 4a403058512f964f

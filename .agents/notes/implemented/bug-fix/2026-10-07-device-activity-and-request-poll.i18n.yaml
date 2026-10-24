@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-device-activity-and-request-poll.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-device-activity-and-request-poll.md
-2026-10-07-device-activity-and-request-poll.md: 2937f7ba98566faf35a38e5effe98b8fd0cc5ed4
-2026-10-07-device-activity-and-request-poll.zh.md: a93c84e63b52b4363abea2cb377b7f62ffd9eeef
+/agent-note-a-phone-s-use-is-recorded-by-its-requests-and-the-panel-reads-the-waiting-list-one-at-a-time:
+  en: a8b8b4c3e3d7dc1d
+  zh: 857a030cd4c64f4d
+/agent-note-a-phone-s-use-is-recorded-by-its-requests-and-the-panel-reads-the-waiting-list-one-at-a-time/problem:
+  en: 47c929fb974913a9
+  zh: b3ef481347c505be
+/agent-note-a-phone-s-use-is-recorded-by-its-requests-and-the-panel-reads-the-waiting-list-one-at-a-time/decision:
+  en: 54484442f11d2334
+  zh: c8c2f7b6025f8076
+/agent-note-a-phone-s-use-is-recorded-by-its-requests-and-the-panel-reads-the-waiting-list-one-at-a-time/alternatives-considered:
+  en: 316a25cf9fac77a9
+  zh: 0795ddde1be40d9d
+/agent-note-a-phone-s-use-is-recorded-by-its-requests-and-the-panel-reads-the-waiting-list-one-at-a-time/consequences:
+  en: adcc79505ee59497
+  zh: 5c1858045fb8e14d

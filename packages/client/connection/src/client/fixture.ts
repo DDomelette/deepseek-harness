@@ -11,6 +11,7 @@ import type { MessageId, ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type {
   AssistantMessage,
   ContentBlock,
+  ContextFormed,
   MessageSource,
   StreamChunk,
   TokenUsage,
@@ -45,6 +46,12 @@ import { randomUuid } from './random-uuid.ts'
 import type {
   ClientConnectionRpc, ConnectionRpcFailure, ConnectionRpcResult,
 } from '../rpc.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    fixture: { kind: 'fixture' } & ContextFormed
+  }
+}
 
 const FIXTURE_SESSION_SEARCH_RESULT_LIMIT = 20
 
@@ -358,20 +365,35 @@ interface WorkspaceInsertSessionBeforeRequest {
   readonly beforeSessionId?: SessionId
 }
 interface WorkspaceArchiveSessionRequest { readonly sessionId: SessionId }
-interface WorkspaceArchiveValue { readonly archivedSessionIds: readonly SessionId[] }
+interface WorkspaceArchiveValue {
+  readonly archivedSessionIds: readonly SessionId[]
+  readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+}
+
+/** The wire baseline the Host publishes; the fixture restates it because the owner project references this one. */
+interface WorkspaceBaselineFrame {
+  readonly type: 'baseline'
+  readonly value: {
+    readonly items: readonly WorkspaceView[]
+    readonly archivedSessionIds: readonly SessionId[]
+    readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+    readonly pinnedSessionIds: readonly SessionId[]
+    readonly sessionFlags: Readonly<Record<SessionId, { readonly pinned?: boolean }>>
+  }
+}
+
+/** Archive increment: the shared archive value plus this frame's discriminant. */
+interface WorkspaceArchivedFrame extends WorkspaceArchiveValue {
+  readonly type: 'archived'
+}
 
 type WorkspaceFollowFrame =
-  | {
-    readonly type: 'baseline'
-    readonly value: {
-      readonly items: readonly WorkspaceView[]
-      readonly archivedSessionIds: readonly SessionId[]
-    }
-  }
+  | WorkspaceBaselineFrame
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
   | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
-  | { readonly type: 'archived'; readonly archivedSessionIds: readonly SessionId[] }
+  | WorkspaceArchivedFrame
+  | { readonly type: 'pinned'; readonly pinnedSessionIds: readonly SessionId[] }
 
 interface FixtureWorkspaceApi {
   create(request: WorkspaceCreateRequest): Promise<ConnectionRpcResult<WorkspaceCreateValue>>
@@ -727,7 +749,7 @@ function buildAlphaLog(): SessionEvent[] {
     if (turn === 0) {
       push({
         type: 'system/message', surfaceOp: 'append',
-        data: { turn, step: 0, message: createSystemMessage(FIXTURE_SYSTEM_PROMPT, '@deepseek-ai/dsh-system-prompt') },
+        data: { turn, step: 0, message: createSystemMessage(FIXTURE_SYSTEM_PROMPT) },
       })
     }
     const userSeq = push({
@@ -741,7 +763,7 @@ function buildAlphaLog(): SessionEvent[] {
       })
     }
     if (turn % 9 === 4) {
-      push({ type: 'user/message', surfaceOp: 'append', data: userMessage(text(`[fixture] 上下文注入（turn ${turn}）`), { kind: 'plugin', plugin: 'fixture' }) })
+      push({ type: 'user/message', surfaceOp: 'append', data: userMessage(text(`[fixture] 上下文注入（turn ${turn}）`), { kind: 'fixture' }) })
     }
     push({ type: 'step/start', data: { turn, step: 0 } })
     const withTool = turn % 5 === 2
@@ -1257,11 +1279,8 @@ function estimateFixtureContent(blocks: readonly ContentBlock[]): number {
       return tokens + densityPrice(block.name) + densityPrice(block.arguments) + BLOCK_OVERHEAD
     }
     // ContentBlockMap is merge-extensible: this client graph sees only the
-    // base four members, but fixture turns do carry extended blocks at
-    // runtime, so the structural JSON fallback below is live code.
-    if (block.type === 'tool-result') {
-      return tokens + estimateFixtureContent(block.content) + BLOCK_OVERHEAD
-    }
+    // base members, but fixture turns do carry extended blocks at runtime,
+    // so the structural JSON fallback below is live code.
     return tokens + densityPrice(JSON.stringify(block)) + BLOCK_OVERHEAD
   }, 0)
 }
@@ -1560,8 +1579,6 @@ function searchBlockText(block: ContentBlock): string[] {
       return []
     case 'tool-call':
       return [block.name, block.arguments]
-    case 'tool-result':
-      return block.content.flatMap(searchBlockText)
     default:
       return []
   }
@@ -1885,6 +1902,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             ns: 'llm-deepseek',
             schema: {},
             value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+            autoGenerate: true,
             applies: 'live',
             secrets: [{ path: ['apiKey'], set: false }],
             revision: 0,
@@ -1924,22 +1942,6 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }
     },
     openSettingsDocument(): RpcResult<{ opened: true }> {
-      return { ok: true, value: { opened: true } }
-    },
-    openAgentPresetDirectory(agentPreset: string): RpcResult<
-      { opened: true } | { opened: false; path: string }
-    > {
-      const existing = fixturePresets.get(agentPreset)
-      if (existing === undefined || existing.trust === 'system') {
-        return {
-          ok: false,
-          error: {
-            code: 'agent-preset/read-only',
-            message: `agent preset "${agentPreset}" ships with the deployment`,
-            details: { agentPreset, reason: 'it ships with the deployment' },
-          },
-        }
-      }
       return { ok: true, value: { opened: true } }
     },
   }
@@ -2002,6 +2004,17 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   const archivedSessionIds: SessionId[] = []
+  // The fixture stamps the archive instant it reports, the same relation the
+  // Workspace registry keeps between the set and `archivedSessionAts`.
+  const archivedSessionAts: Record<SessionId, string> = {}
+  // Registry-global pin set, most recently pinned first; the fixture ships no
+  // pin mutations, but the baseline must still carry the complete set because
+  // the client mirror installs every baseline field.
+  const pinnedSessionIds: SessionId[] = []
+  const archiveValue = (): WorkspaceArchiveValue => ({
+    archivedSessionIds: [...archivedSessionIds],
+    archivedSessionAts: { ...archivedSessionAts },
+  })
   const workspaceSnapshot = (workspace: FixtureWorkspace): WorkspaceView => ({
     ...workspace,
     sessionIds: [...workspace.sessionIds],
@@ -2011,6 +2024,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     value: {
       items: workspaces.map(workspaceSnapshot),
       archivedSessionIds: [...archivedSessionIds],
+      archivedSessionAts: { ...archivedSessionAts },
+      pinnedSessionIds: [...pinnedSessionIds],
+      // The fixture mounts no flag provider, so the merged projection is empty.
+      sessionFlags: {},
     },
   })
 
@@ -2796,7 +2813,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         return {
           ok: false,
           error: {
-            code: 'agent-preset/read-only',
+            code: 'agent-preset/invalid',
             message: `agent preset "${id}" ships with the deployment`,
             details: { agentPreset: id, reason: 'it ships with the deployment' },
           },
@@ -3794,9 +3811,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }
       if (!archivedSessionIds.includes(request.sessionId)) {
         archivedSessionIds.push(request.sessionId)
-        emitWorkspace({ type: 'archived', archivedSessionIds: [...archivedSessionIds] })
+        archivedSessionAts[request.sessionId] = new Date().toISOString()
+        emitWorkspace({
+          type: 'archived',
+          archivedSessionIds: [...archivedSessionIds],
+          archivedSessionAts: { ...archivedSessionAts },
+        })
       }
-      return sessionOk({ archivedSessionIds: [...archivedSessionIds] })
+      return sessionOk(archiveValue())
     },
   }
 
@@ -3875,11 +3897,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'credentials/set': return Promise.resolve(credentialRemotes.set(args.ref as string))
         case 'credentials/unset': return Promise.resolve(credentialRemotes.unset(args.ref as string))
         case 'settings/describe': return Promise.resolve(settingsRemotes.describe())
-        case 'settings/canOpenAgentPresetDirectory': return Promise.resolve({ ok: true, value: true })
         case 'settings/openSettingsDocument': return Promise.resolve(settingsRemotes.openSettingsDocument())
-        case 'settings/openAgentPresetDirectory': return Promise.resolve(
-          settingsRemotes.openAgentPresetDirectory(args.agentPreset as string),
-        )
         case 'skills/list': {
           const skillRequest = request as { readonly sessionId: SessionId }
           const missing = requireRemoteSession(skillRequest)

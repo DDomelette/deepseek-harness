@@ -1,7 +1,6 @@
 /**
- * Browser-facing subagent control assembly: the catalog view sampled against
- * the live Agent registry, one browser zone's validation, and the stable
- * failure codes the Remote surface answers with.
+ * Browser-facing subagent catalog, prompt, and interrupt request validation
+ * plus the stable failure codes returned by the Remote surface.
  *
  * @module @deepseek-ai/dsh-subagent
  */
@@ -136,6 +135,7 @@ export function rejectPrompt(error: unknown, childSessionId: SessionId, signal: 
         )
       case 'DRAINING':
       case 'ACTIVATION_CLOSING':
+      case 'ACTIVATION_LIMIT_REACHED':
       case 'CONTINUATION_UNAVAILABLE':
       case 'PERSISTENCE_UNAVAILABLE':
         throw new RemoteError(

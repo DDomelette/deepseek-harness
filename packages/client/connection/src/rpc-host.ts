@@ -2,6 +2,7 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
 import {
   RpcId,
   type ClientRequest,
@@ -9,10 +10,12 @@ import {
 } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
-import { isTrustedApiRequest } from './api-request-trust.ts'
+import { isDeclaredAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
 import { requestAuthority } from './request-authority.ts'
+import { ConnectionPeer } from './peer.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
   ConnectionIndexAccess,
@@ -25,11 +28,12 @@ import type {
   ConnectionRpcEndpointMatcher,
   ConnectionRpcFailure,
   ConnectionRpcHandler,
-  ConnectionRpcResult,
+  ConnectionRpcHandlerResult,
   ConnectionRequestRejection,
   ConnectionTrustRequest,
   HostConnectionHandle,
   HostConnectionRpc,
+  PeerAdmission,
 } from './rpc.ts'
 
 const INVALID_REQUEST_RPC_ID = RpcId('invalid-request')
@@ -38,7 +42,7 @@ const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 
 interface ConnectionRpcInterceptor {
   readonly matches: ConnectionRpcEndpointMatcher
-  readonly fetchHandler: ConnectionFetchHandler
+  readonly handler: ConnectionRpcHandler
 }
 
 interface RegisteredFetchRoute {
@@ -50,7 +54,7 @@ interface RegisteredFetchRoute {
 interface ConnectionServerResponse {
   readonly type: 'server-response'
   readonly rpcId: RpcIdType
-  readonly result: ConnectionRpcResult<unknown>
+  readonly result: ConnectionRpcHandlerResult
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -64,6 +68,10 @@ declare module '@deepseek-ai/cordis' {
 export class HostConnectionService extends Service implements HostConnectionHandle {
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
+  /** The operator's Peer: one scope for every launch-token caller of this Connection. */
+  private readonly operatorPeer: ConnectionPeer
+  /** One Peer per paired device that has been admitted; a device keeps its own scope. */
+  private readonly devicePeers = new Map<PairedDeviceId, ConnectionPeer>()
 
   /**
    * Provide the Host half over the active HTTP server.
@@ -80,6 +88,62 @@ export class HostConnectionService extends Service implements HostConnectionHand
     private readonly maxRequestBodyBytes: number,
   ) {
     super(ctx, 'connection')
+    this.operatorPeer = new ConnectionPeer(ctx)
+    ctx.effect(() => () => this.disposePeers(), 'client-connection: caller Peers')
+  }
+
+  /** The local operator's Peer; its scope lives as long as this Connection. */
+  get operator(): PeerScope {
+    return this.operatorPeer
+  }
+
+  /**
+   * Admit one request as the caller its credential names, never as a broader
+   * one: an accepted launch-token cookie is the loopback operator, and an
+   * accepted paired-device cookie is that device's own Peer, so a device never
+   * inherits the operator's scope.
+   * @param request - request headers and the TCP peer observed by the server.
+   * @returns the admitted caller's Peer, or the status refusing the request.
+   */
+  admit(request: ConnectionTrustRequest): PeerAdmission {
+    const rejection = this.requestRejection(request)
+    if (rejection !== undefined) return { rejection }
+    if (this.browserAuth.isLocalOperator(request, this.redeemsToken)) return { peer: this.operatorPeer }
+    const deviceId = this.browserAuth.deviceIdOf(request)
+    if (deviceId !== undefined) return { peer: this.devicePeer(deviceId) }
+    // `accepts` admits exactly the launch-token credential and device cookies,
+    // so a request that is authenticated but belongs to neither class means a
+    // credential was added without an authority class: fail rather than let it
+    // inherit the operator's scope.
+    /* v8 ignore next 2 -- the two accepted credential versions are exactly these classes. */
+    throw new Error('connection: admitted request carries no authority class')
+  }
+
+  /** The admitted device's own Peer, minted on its first request. */
+  private devicePeer(deviceId: PairedDeviceId): ConnectionPeer {
+    const existing = this.devicePeers.get(deviceId)
+    if (existing !== undefined) return existing
+    const peer = new ConnectionPeer(this.ctx)
+    this.devicePeers.set(deviceId, peer)
+    return peer
+  }
+
+  /**
+   * Close one device's Peer, ending the registrations and live streams that
+   * speak for it; the next request from a restored device mints a fresh scope.
+   */
+  private async closeDevicePeer(deviceId: PairedDeviceId): Promise<void> {
+    const peer = this.devicePeers.get(deviceId)
+    if (peer === undefined) return
+    this.devicePeers.delete(deviceId)
+    await peer.dispose()
+  }
+
+  private async disposePeers(): Promise<void> {
+    const devices = [...this.devicePeers.values()]
+    this.devicePeers.clear()
+    for (const peer of devices) await peer.dispose()
+    await this.operatorPeer.dispose()
   }
 
   /** Paired-device registry; each mutation refreshes the cookie check in place. */
@@ -94,7 +158,12 @@ export class HostConnectionService extends Service implements HostConnectionHand
       },
       revoke: async (deviceId) => {
         const binned = await revokeDevice(credentials, deviceId)
-        if (binned) await this.browserAuth.refreshPairedDevices()
+        if (binned) {
+          await this.browserAuth.refreshPairedDevices()
+          // A revoked device stops authenticating on its next request; closing
+          // its Peer is what ends the streams it already holds.
+          await this.closeDevicePeer(deviceId)
+        }
         return binned
       },
       restore: async (deviceId) => {
@@ -120,7 +189,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
       touch: deviceId => touchDevice(credentials, deviceId),
       issueCookie: (request, deviceId) => {
         const authority = requestAuthority(request.headers)
-        return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)
+        return authority === undefined
+          ? undefined
+          : this.browserAuth.issueDeviceCookie(authority, deviceId, this.servesTls())
       },
     }
   }
@@ -154,23 +225,54 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Apply the configured Host/Origin fence, then browser authentication. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
-    return this.browserAuth.isAuthenticated(request) ? undefined : 401
+    if (!isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return 403
+    return this.browserAuth.isAuthenticated(request, this.redeemsToken) ? undefined : 401
+  }
+
+  /** The exact address this process bound, as a fence authority, when a listener is up. */
+  private boundAuthority(): string | undefined {
+    const webServer = this.ctx.get('webServer')
+    return webServer === undefined ? undefined : `${webServer.host}:${String(webServer.port)}`
   }
 
   /**
    * Authenticate an index request through the process-token exchange or cookie.
    * The Host/Origin fence keeps the application shell away from an authority
    * this Host does not trust, so only a trusted client without a session is
-   * told how to pair.
+   * told how to pair. A TLS listener mints `Secure` cookies, and the launch
+   * token redeems on loopback plus every authority this deployment declared.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
-    const access = this.browserAuth.authorizeIndex(request, response)
-    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts)) return access
+    const access = this.browserAuth.authorizeIndex(request, response, this.servesTls(), this.redeemsToken)
+    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return access
     this.browserAuth.refuseIndexInText(request, response)
     return 'answered'
   }
 
+  /** Whether the listener carrying browser requests serves TLS. */
+  private servesTls(): boolean {
+    return this.ctx.get('webServer')?.protocol === 'https:'
+  }
+
+  /** Bound function form of {@link declaresAuthority}, for the browser-auth predicates. */
+  private readonly redeemsToken = (authority: string, hostname: string): boolean => this.declaresAuthority(authority, hostname)
+
+  /**
+   * Whether the operator declared this authority: the address the launcher
+   * bound, or a `--trusted-host` entry. An undeclared name stays refused, so a
+   * token-bearing address a phone receives still grants that phone nothing.
+   * @param authority - canonical `host:port` of the request redeeming the token.
+   * @param hostname - hostname of that request.
+   * @returns true when this authority redeems the process launch token.
+   */
+  private declaresAuthority(authority: string, hostname: string): boolean {
+    const webServer = this.ctx.get('webServer')
+    if (webServer !== undefined
+      && (hostname === webServer.host || authority === `${webServer.host}:${String(webServer.port)}`)) {
+      return true
+    }
+    return isDeclaredAuthority(authority, this.trustedHosts)
+  }
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
@@ -190,7 +292,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
    *   nothing, and a failed last-seen write is reported rather than thrown.
    */
   noteDeviceRequest(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
-    const renewed = this.browserAuth.renewedDeviceCookie(request)
+    const renewed = this.browserAuth.renewedDeviceCookie(request, this.servesTls())
     if (renewed !== undefined) response.setHeader('set-cookie', renewed)
     const deviceId = this.browserAuth.deviceIdOf(request)
     if (deviceId === undefined) return
@@ -201,16 +303,18 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Whether the local operator's launch-token cookie authorizes device management. */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
-    return this.browserAuth.isLocalOperator(request)
+    return this.browserAuth.isLocalOperator(request, this.redeemsToken)
   }
 
   /**
    * Compose one shared-channel Fetch handler from exact routes and its interceptor.
    * @param channel - shared channel mounted by Connection.
+   * @param peer - Peer the admitted request speaks for, from {@link admit}.
    * @returns Fetch handler that selects one owner or returns 404.
    */
   createSharedFetchHandler(
     channel: '/api',
+    peer: PeerScope,
   ): ConnectionFetchHandler {
     return {
       requestBodyMode: ({ method, url }) => {
@@ -226,7 +330,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
         if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
           return Promise.resolve(new Response('not found', { status: 404 }))
         }
-        return interceptor.fetchHandler.fetch(request)
+        return rpcFetchHandler(channel, interceptor.handler, peer).fetch(request)
       },
     }
   }
@@ -256,7 +360,6 @@ export class HostConnectionService extends Service implements HostConnectionHand
     handler: ConnectionRpcHandler,
   ): () => Promise<void> {
     assertChannel(channel)
-    const fetchHandler = rpcFetchHandler(channel, handler)
     // Read the cap once, at registration: the request handler must not depend on
     // a Context-resolved `this` for a limit the activation already fixed.
     const maxRequestBodyBytes = this.maxRequestBodyBytes
@@ -264,14 +367,14 @@ export class HostConnectionService extends Service implements HostConnectionHand
       kind: 'prefix',
       path: channel,
       handler: async (req, res) => {
-        const rejection = this.requestRejection(req)
-        if (rejection !== undefined) {
-          res.writeHead(rejection)
-          res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
+        const admission = this.admit(req)
+        if ('rejection' in admission) {
+          res.writeHead(admission.rejection)
+          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
         this.noteDeviceRequest(req, res)
-        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
+        await bridge(req, res, rpcFetchHandler(channel, handler, admission.peer), maxRequestBodyBytes)
       },
     }
     return owner.effect(
@@ -289,10 +392,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     if (channel !== API_PATH) {
       throw new Error(`connection: invalid shared RPC channel ${JSON.stringify(channel)}`)
     }
-    const interceptor: ConnectionRpcInterceptor = {
-      matches,
-      fetchHandler: rpcFetchHandler(channel, handler),
-    }
+    const interceptor: ConnectionRpcInterceptor = { matches, handler }
     return owner.effect(() => {
       if (this.interceptors.has(channel)) {
         throw new Error(`connection: shared RPC channel ${JSON.stringify(channel)} already has an interceptor`)
@@ -308,6 +408,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
 function rpcFetchHandler(
   channel: string,
   handler: ConnectionRpcHandler,
+  peer: PeerScope,
 ): ConnectionFetchHandler {
   return {
     requestBodyMode: () => 'buffered',
@@ -343,7 +444,7 @@ function rpcFetchHandler(
       }
 
       try {
-        const result = await handler(endpoint, message.payload, request.signal)
+        const result = await handler(endpoint, message.payload, request.signal, peer)
         return fullResponse(message.rpcId, result)
       } catch (error) {
         return new Response(`handler failure: ${String(error)}`, { status: 500 })
@@ -377,9 +478,29 @@ function errorResponse(rpcId: RpcIdType, error: ConnectionRpcFailure): Response 
   return fullResponse(rpcId, { ok: false, error })
 }
 
-function fullResponse(rpcId: RpcIdType, result: ConnectionRpcResult<unknown>): Response {
-  const body: ConnectionServerResponse = { type: 'server-response', rpcId, result }
-  return Response.json(body)
+/**
+ * Frame one unary result, carrying projected bytes as multipart parts.
+ * @param rpcId - correlation id echoed to the caller.
+ * @param result - handler result, possibly with byte attachments.
+ * @returns a JSON envelope, or a multipart envelope when bytes ride along.
+ */
+function fullResponse(rpcId: RpcIdType, result: ConnectionRpcHandlerResult): Response {
+  if (!result.ok) {
+    const failure: ConnectionServerResponse = { type: 'server-response', rpcId, result }
+    return Response.json(failure)
+  }
+  const { attachments, ...success } = result
+  const body: ConnectionServerResponse = { type: 'server-response', rpcId, result: success }
+  if (attachments === undefined || attachments.length === 0) return Response.json(body)
+  const parts = new FormData()
+  const attachmentMetadata = attachments.map((attachment, index) => {
+    const part = `bytes-${index}`
+    // FileSystem bytes may have SharedArrayBuffer backing, which BlobPart excludes.
+    parts.set(part, new Blob([new Uint8Array(attachment.bytes)]))
+    return { path: [...attachment.path], codec: 'bytes' as const, part }
+  })
+  parts.set('metadata', JSON.stringify({ ...body, attachments: attachmentMetadata }))
+  return new Response(parts)
 }
 
 function assertChannel(channel: string): void {

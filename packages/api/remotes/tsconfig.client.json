@@ -11,6 +11,7 @@
     "src/types.ts"
   ],
   "references": [
+    { "path": "../../client/product-analytics/tsconfig.client.json" },
     {
       "path": "../../../vendor/cordis"
     },
@@ -39,6 +40,9 @@
       "path": "../../goal/goal"
     },
     {
+      "path": "../../schedule/schedule"
+    },
+    {
       "path": "../../feedback/message-feedback"
     },
     {
@@ -48,10 +52,19 @@
       "path": "../../interaction/commands"
     },
     {
+      "path": "../../interaction/permission-presets"
+    },
+    {
       "path": "../../llm/llm"
     },
     {
-      "path": "../../preset/agent-presets"
+      "path": "../../mcp/mcp-manager"
+    },
+    {
+      "path": "../../preset/agent-preset-registry"
+    },
+    {
+      "path": "../../session/session-pins"
     },
     {
       "path": "../../settings/settings"
@@ -64,6 +77,9 @@
     },
     {
       "path": "../../interaction/user-questions"
+    },
+    {
+      "path": "../job-controller/tsconfig.client.json"
     },
     {
       "path": "../session-controller/tsconfig.client.json"
@@ -84,13 +100,19 @@
       "path": "../../feedback/command-feedback"
     },
     {
-      "path": "../../session/session-pins"
+      "path": "../terminal-controller/tsconfig.client.json"
     },
     {
-      "path": "../../mcp/mcp-manager"
+      "path": "../../boot/plugin-manager"
     },
     {
-      "path": "../../skill/skill"
+      "path": "../../document/office-to-pdf"
+    },
+    {
+      "path": "../account-controller"
+    },
+    {
+      "path": "../../credentials/deepseek-account"
     }
   ]
 }

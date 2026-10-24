@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bench } from './bench.ts'
 import type { Bench } from './bench.ts'
-import type { Config } from '../src/settings.ts'
+import type { ActionDef, NotesStrategy } from '../src/settings.ts'
 
 /** The workspace every fixture conversation is created over. */
 const workspace = join('probe-root', 'notes-workspace')
@@ -26,10 +26,10 @@ afterEach(async () => {
  * @returns the mounted bench.
  */
 async function mount(settings: {
-  readonly strategy?: Config['strategy'] | undefined
-  readonly actions?: Config['actions'] | undefined
+  readonly strategy?: NotesStrategy | undefined
+  readonly actions?: ActionDef[] | undefined
   readonly workspace?: string | undefined
-  readonly model?: Config['model'] | undefined
+  readonly model?: { readonly provider: string; readonly model: string; readonly reasoningEffort?: string } | undefined
 } = {}): Promise<Bench> {
   // An explicitly supplied `workspace: undefined` means "no workspace
   // configured"; an omitted key keeps the fixture's workspace.

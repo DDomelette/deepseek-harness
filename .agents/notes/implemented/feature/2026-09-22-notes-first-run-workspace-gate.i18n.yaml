@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-22-notes-first-run-workspace-gate.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-notes-first-run-workspace-gate.md
-2026-09-22-notes-first-run-workspace-gate.md: e61b71d96d37f9f46ead13442275ae5afea27757
-2026-09-22-notes-first-run-workspace-gate.zh.md: 6501cdde1dfce08873731eeb2b4f3f114c946e17
+/agent-note-first-run-workspace-gate-for-the-notes-panel:
+  en: 8e35ef4b4b1dd98a
+  zh: 98d2e899d531d74f
+/agent-note-first-run-workspace-gate-for-the-notes-panel/problem:
+  en: 5107e7b718003fde
+  zh: 9484ba6fd87f858a
+/agent-note-first-run-workspace-gate-for-the-notes-panel/decision:
+  en: 6f6f134825ed9066
+  zh: 7187b30161df8c55
+/agent-note-first-run-workspace-gate-for-the-notes-panel/alternatives-considered:
+  en: 547f7975818015ad
+  zh: a1e0f2d8c80bce24
+/agent-note-first-run-workspace-gate-for-the-notes-panel/consequences:
+  en: f3f13379d69f82fb
+  zh: 1d87eac778526351

@@ -6,6 +6,7 @@ import type {
   SubprocessHandle,
   SubprocessOutputRead,
   SubprocessSpawnSpec,
+  SubprocessTerminalEnvironment,
   SubprocessTerminalHandle,
   SubprocessTerminalSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
@@ -26,6 +27,7 @@ class StubSubprocessRuntime extends SubprocessRuntime {
       ? { stdout: { readFrom: () => read } }
       : {}
     return {
+      control: undefined,
       stdin: undefined,
       stdout: undefined,
       stderr: undefined,
@@ -36,12 +38,18 @@ class StubSubprocessRuntime extends SubprocessRuntime {
     }
   }
 
+  async terminalEnvironment(): Promise<SubprocessTerminalEnvironment> {
+    return { platform: 'posix' }
+  }
+
   async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
     return {
       pid: spec.argv.length,
       output: new PassThrough(),
       done: Promise.resolve({ exitCode: 0, signal: null }),
       write: async () => {},
+      resize: async () => {},
+      inspectActivity: async () => ({ state: 'unknown' as const, revision: 0 }),
       inspectForeground: async () => ({ processGroupId: 1, inputWaiting: true }),
       signalForeground: async () => 1,
       terminate: async () => {},

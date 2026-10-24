@@ -18,10 +18,6 @@ import type { ScopeKey, ScopeLayer } from '@deepseek-ai/dsh-scope'
 import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
 
-// Type-only re-export: pulls the client-safe Events/MessageSourceMap
-// declarations into every face that imports this package root.
-export type { SkillInvocationSource } from './types.ts'
-
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const DEFAULT_COLLECT_CACHE_ENTRIES = 128
 const MAX_COLLECT_ATTEMPTS = 2
@@ -59,14 +55,14 @@ export interface SkillInvocationPolicy {
 
 /** Invocation-neutral skill metadata returned by `ctx.skills.list()`. */
 export interface SkillSummary {
+  /** Absolute instruction file path when supplied by the provider; absent for virtual skills. */
+  readonly path?: string
   /** Kebab-case identifier used to address the skill. */
   readonly name: string
   /** Short routing description shown by discovery consumers. */
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
-  /** Optional grouping label that presentation surfaces aggregate by. */
-  readonly group?: string
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -83,8 +79,6 @@ export interface SkillCandidate extends SkillSummary {
   readonly rank: number
   /** Opaque provider-owned handle passed back to `provider.get()`. */
   readonly locator: unknown
-  /** Absolute file path when the provider has one. */
-  readonly path?: string
   /** Parsed optional metadata object from provider-specific skill frontmatter. */
   readonly metadata?: Readonly<Record<string, unknown>>
 }
@@ -93,8 +87,6 @@ export interface SkillCandidate extends SkillSummary {
 export interface SkillDefinition extends SkillSummary {
   /** Markdown instruction body after any provider-specific metadata removal. */
   readonly content: string
-  /** Absolute file path when the skill came from disk. */
-  readonly path?: string
   /** Parsed optional metadata object from frontmatter. */
   readonly metadata?: Readonly<Record<string, unknown>>
 }
@@ -136,12 +128,40 @@ export function isModelInvocable(skill: Pick<SkillSummary, 'invocation'>): boole
 }
 
 /**
+ * Resolve the invocation policy for one skill name; returning `undefined`
+ * keeps the skill's own policy.
+ */
+export type SkillInvocationOverride = (name: string) => SkillInvocationPolicy | undefined
+
+/**
  * Return whether a skill may be advertised to and loaded by a human-facing command.
  * @param skill - skill metadata carrying resolved invocation controls.
  * @returns whether the policy permits user invocation.
  */
 export function isUserInvocable(skill: Pick<SkillSummary, 'invocation'>): boolean {
   return skill.invocation.userInvocable
+}
+
+/**
+ * Durable source for the context message a user-explicit skill invocation
+ * injects: the user's own words ride a plain user message, and the rendered
+ * skill body follows as injected `instructions`-form context carrying this
+ * source, so transcript consumers present the injection from metadata
+ * instead of re-parsing the model-facing text.
+ */
+export interface SkillInvocationSource {
+  readonly kind: 'skill-invocation'
+  /** Invoked skill name, validated user-invocable at the injecting boundary. */
+  readonly name: string
+  /** Injected skill bodies are instructions for the model to follow. */
+  readonly form: 'instructions'
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /** A user-explicit skill invocation injected by the host. */
+    'skill-invocation': SkillInvocationSource
+  }
 }
 
 /**
@@ -229,14 +249,6 @@ export interface SkillProviderObservation {
   readonly complete: boolean
 }
 
-/**
- * Invocation override resolver registered by policy plugins. Returning a
- * policy replaces that skill's invocation flags wherever the registry
- * produces summaries or definitions; returning `undefined` keeps the
- * skill's own policy.
- */
-export type SkillInvocationOverride = (name: string) => SkillInvocationPolicy | undefined
-
 /** Provider interface for one source of skills, such as local directories or a remote registry. */
 export interface SkillProvider {
   /** Unique provider name in the `ctx.skills` registry. */
@@ -277,6 +289,17 @@ export interface Config {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     skills: SkillRegistry
+  }
+
+  interface Events {
+    /**
+     * A skill provider, runtime contribution, or provider-backed catalog may
+     * have changed. This is an unfiltered invalidation notification; consumers
+     * refetch the catalog for their own lookup options. Listener failures are
+     * contained and cannot veto the registry mutation.
+     * @mode emit
+     */
+    'skills/change'(): void
   }
 }
 
@@ -349,11 +372,11 @@ export class SkillRegistry extends Service {
   private readonly collectCache = new Map<string, Map<string, IndexedCandidate>>()
   private revision = 0
   private nextProviderOrder = 0
+  /** The one registered invocation-policy override, applied to every produced summary and definition. */
+  private readonly invocationOverride = { current: undefined as SkillInvocationOverride | undefined }
   /** Stable identities for cache keys; scope keys are opaque identity-compared objects. */
   private readonly scopeIds = new WeakMap<ScopeKey, number>()
   private nextScopeId = 1
-  /** The one registered invocation override, applied per produced summary and definition. */
-  private readonly invocationOverride = { current: undefined as SkillInvocationOverride | undefined }
 
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'skills')
@@ -446,14 +469,14 @@ export class SkillRegistry extends Service {
 
   /**
    * Register the one invocation-policy override resolver. The registry
-   * applies it to every produced summary and loaded definition, so changes
-   * in the resolver's answers take effect on the next read without cache
+   * applies it to every produced summary and loaded definition, so changes in
+   * the resolver's answers take effect on the next read without cache
    * invalidation. After committing changed answers, the owner calls
    * {@link notifyInvocationOverrideChange} so catalog observers refetch. A
    * second registration while one is active fails loud.
    * @param override - resolver consulted with each skill name.
    * @returns the disposer removing the exact registration and notifying
-   * catalog observers when it was still active.
+   *   catalog observers when it was still active.
    */
   registerInvocationOverride(override: SkillInvocationOverride): () => void {
     if (this.invocationOverride.current !== undefined) {
@@ -474,6 +497,13 @@ export class SkillRegistry extends Service {
    */
   notifyInvocationOverrideChange(): void {
     this.notifyChange()
+  }
+
+  /** Replace the invocation policy when the registered override resolves one. */
+  private overrideInvocation<T extends SkillSummary>(skill: T): T {
+    const override = this.invocationOverride.current?.(skill.name)
+    if (override === undefined) return skill
+    return { ...skill, invocation: override }
   }
 
   /**
@@ -531,13 +561,6 @@ export class SkillRegistry extends Service {
       return undefined
     }
     return this.overrideInvocation(definition)
-  }
-
-  /** Replace the invocation policy when the registered override resolves one. */
-  private overrideInvocation<T extends SkillSummary>(skill: T): T {
-    const override = this.invocationOverride.current?.(skill.name)
-    if (override === undefined) return skill
-    return { ...skill, invocation: override }
   }
 
   private async collect(options: SkillViewOptions): Promise<CollectResult> {
@@ -717,7 +740,6 @@ function runtimeCandidate(skill: SkillDefinition): SkillCandidate {
     name: skill.name,
     description: skill.description,
     ...skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {},
-    ...skill.group !== undefined ? { group: skill.group } : {},
     invocation: skill.invocation,
     source: skill.source,
     provider: skill.provider,
@@ -745,9 +767,6 @@ function validateCandidate(candidate: SkillCandidate, providerName: string): voi
   validateInvocation(candidate.invocation, `skill provider "${providerName}" returned skill "${candidate.name}"`)
   if (candidate.whenToUse !== undefined && typeof candidate.whenToUse !== 'string') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string whenToUse`)
-  }
-  if (candidate.group !== undefined && typeof candidate.group !== 'string') {
-    throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string group`)
   }
   if (typeof candidate.source !== 'string') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string source`)
@@ -777,7 +796,6 @@ function validateDefinition(skill: SkillDefinition): void {
   const name = skill.name
   const description = skill.description
   const whenToUse = skill.whenToUse
-  const group = skill.group
   const invocation = skill.invocation
   const source = skill.source
   const provider = skill.provider
@@ -789,7 +807,6 @@ function validateDefinition(skill: SkillDefinition): void {
   if (description.length === 0) throw new Error(`loaded skill "${name}" requires a description`)
   validateInvocation(invocation, `loaded skill "${name}"`)
   if (whenToUse !== undefined && typeof whenToUse !== 'string') throw new TypeError(`loaded skill "${name}" whenToUse must be a string`)
-  if (group !== undefined && typeof group !== 'string') throw new TypeError(`loaded skill "${name}" group must be a string`)
   if (typeof source !== 'string') throw new TypeError(`loaded skill "${name}" source must be a string`)
   if (typeof provider !== 'string') throw new TypeError(`loaded skill "${name}" provider must be a string`)
   if (typeof content !== 'string') throw new TypeError(`loaded skill "${name}" content must be a string`)
@@ -797,12 +814,12 @@ function validateDefinition(skill: SkillDefinition): void {
 }
 
 function toSummary(skill: SkillDefinition | SkillCandidate): SkillSummary {
-  const { name, description, whenToUse, group, invocation, source, provider, resourceBase } = skill
+  const { name, description, whenToUse, invocation, source, provider, resourceBase } = skill
   return {
     name,
+    ...skill.path === undefined ? {} : { path: skill.path },
     description,
     ...whenToUse !== undefined ? { whenToUse } : {},
-    ...group !== undefined ? { group } : {},
     invocation,
     source,
     provider,

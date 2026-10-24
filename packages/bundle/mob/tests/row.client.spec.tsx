@@ -49,7 +49,8 @@ function mount(face: Partial<ConnectPhoneRowInjected> = {}): void {
   render(<ConnectPhoneRow
     usePanelInfo={unused as never}
     useResource={unused as never}
-    useSessionPendingInteraction={unused as never}
+    useSessionStatus={unused as never}
+    useSessionRetainInfo={unused as never}
     useSessions={unused as never}
     useWorkspaces={unused as never}
     t={t}
@@ -84,7 +85,7 @@ describe('ConnectPhoneRow', () => {
     mount({
       joinUrl: async () => ({
         ok: false as const,
-        error: new RemoteError('mob/loopback-only', 'loopback-only deployment has no LAN join URL', {}),
+        error: new RemoteError('mob/no-advertised-origin', 'the deployment declares no reachable origin', {}),
       }),
     })
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))

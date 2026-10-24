@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-approved-labels-and-copy.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-approved-labels-and-copy.md
-2026-10-07-approved-labels-and-copy.md: 56916424559a9a806ecf1f3ca2060f3ded9c1d83
-2026-10-07-approved-labels-and-copy.zh.md: aa0f027e52ff32a4fce3b88a7a0a311da25f28d0
+/agent-note-an-approval-names-the-device-it-registers:
+  en: 2dd65073e17276c4
+  zh: 84d75332d52c9777
+/agent-note-an-approval-names-the-device-it-registers/problem:
+  en: 6899f4aca467f6db
+  zh: f9f6909d6c7762ac
+/agent-note-an-approval-names-the-device-it-registers/decision:
+  en: c5f6e80c2b00eb4b
+  zh: c2a1bd3b0ef03a2b
+/agent-note-an-approval-names-the-device-it-registers/alternatives-considered:
+  en: 3372d4b941a0968b
+  zh: 507033c0c05e86b2
+/agent-note-an-approval-names-the-device-it-registers/consequences:
+  en: dc14a2e39dacb015
+  zh: 6152e842028e94e2

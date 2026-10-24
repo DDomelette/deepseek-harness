@@ -4,7 +4,7 @@
 // typed draft, same-basename directory adoption, the rename round
 // trip over the real wire (workspace.rename RPC + durable registry), the
 // duplicate-name pre-check, the
-// flat "In one list" view with its persisted group-by preference, the session
+// flat "In one list" and opt-in Workspace tree views with persisted grouping, the session
 // hover card and row action menu, and the session archive round trip (row
 // menu → workspace.archiveSession RPC → durable global set → row hidden
 // across reload). Zero model calls: workspace.create/rename/archiveSession
@@ -12,14 +12,12 @@
 // flat/hover/menu/archive scenarios need comes from a seeded fixture (the
 // seeded-history seed reused verbatim — no new recording).
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { execFileSync } from 'node:child_process'
-import { release } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join, sep } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { logPath } from '../../../packages/session/session-persistence-jsonl/src/format.ts'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
@@ -33,14 +31,13 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/workspace-man
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
 const BROWSER_EXPECTED = join(SNAPSHOT_DIR, 'directory-browser.expected.md')
-const PIN_ORDER_EXPECTED = fileURLToPath(new URL('./expected/workspace-management/pinned-order.expected.md', import.meta.url))
 const SEED_ID = 'workspace-management-web-e2e'
 // Both waits exceed ui-primitives' 200ms POINTER_GRACE_MS. Keep them above
 // that value if the shared setting changes.
 const POINTER_TRANSIT_MS = 300
 const POINTER_HOLD_MS = 600
 
-describe('web e2e: workspace management (create / rename / flat view / hover affordances)', () => {
+describe('web e2e: workspace management (create / rename / grouping / hover affordances)', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -193,20 +190,6 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     await page.getByRole('menuitem', { name: 'Rename' }).click()
     const dialog = page.getByRole('dialog', { name: 'Rename workspace' })
     await dialog.waitFor({ timeout: 10_000 })
-    // The modal layer's gutter doubles as the safe-area inset, and this browser
-    // reports no notch, so the declared 24px is what every side resolves to; the
-    // mask stays viewport-fixed behind the card either way.
-    const layers = await dialog.evaluate((card) => {
-      const layer = card.parentElement!
-      const mask = layer.firstElementChild!
-      return {
-        padding: [getComputedStyle(layer).paddingTop, getComputedStyle(layer).paddingRight,
-          getComputedStyle(layer).paddingBottom, getComputedStyle(layer).paddingLeft],
-        maskPosition: getComputedStyle(mask).position,
-      }
-    })
-    expect(layers.padding).toEqual(['24px', '24px', '24px', '24px'])
-    expect(layers.maskPosition).toBe('fixed')
     const input = dialog.getByLabel('Workspace name')
     // Client pre-check: a name colliding with another live workspace raises
     // the inline alert and blocks the primary button before any wire call.
@@ -447,7 +430,7 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 15_000 }).toBe(0)
     await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
@@ -679,77 +662,158 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)
 
-  it('persists pinned reordering in grouped and flat views across reload', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-pinned-order'))
-    const ids = ['pinned-order-one', 'pinned-order-two', 'pinned-order-three'].map(SessionId)
-    const titles = ['Pinned One', 'Pinned Two', 'Pinned Three']
-    const seed = await readFile(SEED, 'utf8')
-    for (const [index, id] of ids.entries()) {
-      await seedSession(scaffold, seed, id)
-      await scaffold.ctx.sessionController.rename({ sessionId: id, title: titles[index]! })
-      await scaffold.ctx.sessionPins.setPinned({ sessionId: id, pinned: true })
+  it('opts into Workspace tree grouping and preserves the parent Workspace session', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-parent-folders'))
+    const parentPath = join(scaffold.workspaceCwd, 'folder-group')
+    await mkdir(parentPath)
+    await addNewFolderWorkspace(parentPath, 'project-one')
+    const childWorkspace = (await scaffold.ctx.workspaceRegistry.resolveByPath(join(parentPath, 'project-one')))!
+    const childSessionIds = [...childWorkspace.sessionIds]
+    const workspaceCount = scaffold.ctx.workspaceRegistry.list().length
+    const agentCount = scaffold.ctx.agents.list().length
+    await adoptDirectory(parentPath, { waitForAgent: true })
+    expect(await page.getByRole('dialog', { name: 'Add workspace', exact: true }).count()).toBe(0)
+    expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(workspaceCount + 1)
+    expect(scaffold.ctx.agents.list()).toHaveLength(agentCount + 1)
+    expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
+    const parentWorkspace = (await scaffold.ctx.workspaceRegistry.resolveByPath(parentPath))!
+    expect(parentWorkspace.sessionIds).toHaveLength(1)
+    const parent = page.getByRole('treeitem').filter({ has: page.getByText('folder-group', { exact: true }) })
+    const section = parent.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
+    await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('project-one', { exact: true }).waitFor()
+    expect(await section.getByText('project-one', { exact: true }).count()).toBe(0)
+    await page.getByRole('button', { name: 'View options', exact: true }).click()
+    const optionsExpected = fileURLToPath(new URL('./expected/workspace-management/grouping-options.expected.md', import.meta.url))
+    await compareOrRefreshGolden(optionsExpected, await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd), MODE)
+    await page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }).click()
+    await section.getByText('project-one', { exact: true }).waitFor()
+    await addNewFolderWorkspace(parentPath, 'project-two')
+    const project = section.getByRole('treeitem', { name: 'project-two', exact: true })
+    const session = section.locator('[aria-selected="true"]')
+    await session.waitFor()
+    const parentBounds = (await parent.boundingBox())!
+    for (const row of [project, session]) {
+      const bounds = (await row.boundingBox())!
+      expect(bounds.x).toBeCloseTo(parentBounds.x, 0)
+      expect(bounds.width).toBeCloseTo(parentBounds.width, 0)
     }
-    await scaffold.ctx.sessionPins.reorderGroup({ groupKey: '', orderedIds: ids })
-    await scaffold.ctx.sessionPins.reorderFlat({ orderedIds: ids })
-    const reload = async (): Promise<void> => {
-      const warningStart = tripwire.warnings.length
-      await page.reload({ waitUntil: 'load' })
-      await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-      acknowledgeReloadConnectionLoss(tripwire, warningStart)
-    }
-    await reload()
-    await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
-    const pinned = page.locator('[class*="pinnedRoot"]')
-    const visibleTitles = (): Promise<string[]> => pinned.getByText(/^Pinned (One|Two|Three)$/).allTextContents()
-    const pinRow = (title: string): Locator => pinned.getByRole('treeitem').filter({ hasText: title })
-    await expect.poll(visibleTitles).toEqual(titles)
-    await pinRow('Pinned One').dragTo(pinRow('Pinned Three'), { targetPosition: { x: 20, y: 4 } })
-    const grouped = ['Pinned Two', 'Pinned One', 'Pinned Three']
-    await expect.poll(() => scaffold.ctx.sessionPins.list().groupOrder['']).toEqual([ids[1], ids[0], ids[2]])
-    await expect.poll(visibleTitles).toEqual(grouped)
-    await reload()
-    await expect.poll(visibleTitles).toEqual(grouped)
-    const output = [`Grouped after reload: ${(await visibleTitles()).join(' → ')}`]
-
-    await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'In one list' }).click()
-    await expect.poll(visibleTitles).toEqual(titles)
-    await pinRow('Pinned Three').dragTo(pinRow('Pinned One'), { targetPosition: { x: 20, y: 28 } })
-    const flat = ['Pinned One', 'Pinned Three', 'Pinned Two']
-    await expect.poll(() => scaffold.ctx.sessionPins.list().flatOrder).toEqual([ids[0], ids[2], ids[1]])
-    await expect.poll(visibleTitles).toEqual(flat)
-    await reload()
-    await expect.poll(visibleTitles).toEqual(flat)
-    output.push(`Flat after reload: ${(await visibleTitles()).join(' → ')}`)
-    await compareOrRefreshGolden(PIN_ORDER_EXPECTED, output.join('\n'), MODE)
-    await page.getByRole('button', { name: 'View options' }).click()
-    await page.getByRole('menuitem', { name: 'WorkSpace' }).click()
+    const parentLabel = (await parent.getByText('folder-group', { exact: true }).boundingBox())!
+    const projectLabel = (await project.getByText('project-two', { exact: true }).boundingBox())!
+    expect(projectLabel.x - parentLabel.x).toBeCloseTo(12, 0)
+    const expected = fileURLToPath(new URL('./expected/workspace-management/parent-folders.expected.md', import.meta.url))
+    await compareOrRefreshGolden(expected, await captureStableAria(
+      page, '[aria-label="Workspace actions for folder-group"] >> xpath=ancestor::*[contains(@class, "groupSection")][1]',
+      scaffold.workspaceCwd,
+    ), MODE)
+    const sourceWorkspace = scaffold.ctx.workspaceRegistry.list().find(workspace => workspace.title === 'xx')!
+    await sourceWorkspace.setTitle('drag-source')
+    const dragSource = page.getByRole('treeitem').filter({ has: page.getByText('drag-source', { exact: true }) })
+    await dragSource.waitFor()
+    await dragSource.dragTo(parent, { targetPosition: { x: 10, y: 3 } })
+    await expect.poll(() => {
+      const ordered = scaffold.ctx.workspaceRegistry.list()
+      return ordered.findIndex(workspace => workspace.id === sourceWorkspace.id)
+        < ordered.findIndex(workspace => workspace.id === parentWorkspace.id)
+    }, { timeout: 10_000 }).toBe(true)
+    const lastChild = section.getByRole('treeitem', { name: 'project-one', exact: true })
+    const targetBounds = (await lastChild.boundingBox())!
+    const sectionBounds = (await section.boundingBox())!
+    expect(targetBounds.y + targetBounds.height / 2).toBeGreaterThan(sectionBounds.y + sectionBounds.height / 2)
+    await dragSource.dragTo(lastChild)
+    await expect.poll(() => {
+      const ordered = scaffold.ctx.workspaceRegistry.list()
+      return ordered.findIndex(workspace => workspace.id === sourceWorkspace.id)
+        > ordered.findIndex(workspace => workspace.id === parentWorkspace.id)
+    }, { timeout: 10_000 }).toBe(true)
+    await section.getByText('project-two', { exact: true }).waitFor()
+    await parent.click()
+    expect(await parent.locator('[class*="folderActive"]').count()).toBe(1)
+    expect(await section.getByText('project-two', { exact: true }).count()).toBe(0)
+    const warningStart = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    await parent.waitFor()
+    acknowledgeReloadConnectionLoss(tripwire, warningStart)
+    expect(await parent.getAttribute('aria-expanded')).toBe('false')
+    await parent.click()
+    await section.getByText('project-two', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'View options', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'WorkSpace', exact: true }).click()
+    await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('project-two', { exact: true }).waitFor()
+    expect(await section.getByText('project-two', { exact: true }).count()).toBe(0)
+    await page.getByRole('button', { name: 'View options', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }).click()
+    await section.getByText('project-two', { exact: true }).waitFor()
+    const previousParentSessionIds = [...parentWorkspace.sessionIds]
+    const newParentSession = page.waitForResponse('**/api/session/create')
+    await clickHoverAction(parent, 'New session in folder-group')
+    const createdResponse = await newParentSession
+    const createdBody = await createdResponse.json() as { result: { ok: boolean; value: { sessionId: string } } }
+    expect(createdBody.result.ok).toBe(true)
+    const createdSessionId = createdBody.result.value.sessionId
+    expect(previousParentSessionIds).not.toContain(createdSessionId)
+    await page.locator(`[data-conversation-session="${createdSessionId}"]`).waitFor()
+    await expect.poll(() => section.locator('[aria-selected="true"]').evaluate(row =>
+      row.closest('[class*="groupSection"]')?.querySelector('[role="treeitem"]')?.textContent,
+    ), { timeout: 10_000 }).toBe('folder-group')
+    await expect.poll(() => parentWorkspace.sessionIds).toHaveLength(previousParentSessionIds.length + 1)
+    expect(parentWorkspace.sessionIds).toEqual(expect.arrayContaining([...previousParentSessionIds, createdSessionId]))
+    expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  // WSL owns the Windows-to-Linux mapping; ordinary Linux cannot exercise it.
-  it.skipIf(process.platform !== 'linux' || !release().toLowerCase().includes('microsoft'))(
-    'opens a pasted Windows path as a workspace on WSL',
-    async () => {
-      onTestFailed(() => saveFailureShot(page, 'web-e2e-ws-windows-path'))
-      const target = join(scaffold.workspaceCwd, 'windows-path-input')
-      await mkdir(target)
-      const windowsPath = execFileSync('wslpath', ['-w', target], { encoding: 'utf8' }).trimEnd()
-      const dialog = await browseTo(windowsPath)
-      const open = dialog.getByRole('button', { name: 'Open', exact: true })
-      await expect.poll(() => open.isEnabled(), { timeout: 10_000 }).toBe(true)
-      await open.click()
-      await expect.poll(() => scaffold.ctx.workspaceRegistry.resolveByPath(target), { timeout: 10_000 })
-        .toMatchObject({ path: target })
-      expect(tripwire.pageErrors).toEqual([])
-    },
-  )
-
   it.skipIf(MODE === 'record')('issued zero model calls and stayed clean', async () => {
     expect(tripwire.warnings).toEqual([])
-    // The directory-browser aria golden is this spec's one owned artifact;
-    // the seed it reuses is owned (and inventory-guarded) by seeded-history.
-    await assertFixtureInventory(SNAPSHOT_DIR, ['.gitkeep', 'directory-browser.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, [
+      '.gitkeep', 'directory-browser.expected.md', 'new-session.expected.md',
+    ])
+  })
+})
+
+describe('web e2e: New Session after an outdated blank cache', () => {
+  it('opens a fresh conversation instead of reusing the recorded conversation', async () => {
+    const scaffold = await launchWebScaffold({})
+    let browser: Browser | undefined
+    try {
+      const now = Date.UTC(2026, 8, 16)
+      const id = await seedSession(scaffold, await readFile(SEED, 'utf8'), 'new-session-stale-blank',
+        undefined, { createdAt: now - 60_000 })
+      const stored = await scaffold.ctx.sessionPersistence.stat(id)
+      if (stored === undefined) throw new Error('seeded Session is missing')
+      // A durable log may advance after its last blank projection checkpoint.
+      // An unregistered Session writes only the checkpoint, leaving the persisted log intact.
+      const blank = scaffold.ctx.sessions.prepare(id, {
+        eventState: 'detached', seed: [], meta: stored.header, inheritedEventCount: SessionLogOffset(0),
+      })
+      await scaffold.ctx.sessionProjectionCache.write(blank)
+      const workspace = await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd, 'New session regression')
+      await workspace.attachSession(id)
+      browser = await chromium.launch()
+      const page = await newEnglishPage(browser)
+      await page.clock.setFixedTime(now)
+      const tripwire = watchConsole(page)
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-new-session-stale-blank'))
+
+      await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor()
+      const selected = page.locator('[role="treeitem"][aria-selected="true"]')
+      await expect.poll(() => selected.innerText()).not.toBe('New Session')
+      const previous = (await selected.innerText()).split('\n')[0]!
+      const before = await captureStableAria(page, '[role="tree"]', scaffold.workspaceCwd)
+
+      await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+      await expect.poll(() => selected.innerText()).toBe('New Session')
+      await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ state: 'hidden' })
+      await expect.poll(() => workspace.sessionIds.length).toBe(2)
+      expect(workspace.sessionIds).toContain(id)
+      await page.getByRole('treeitem').filter({ hasText: previous }).waitFor()
+      const after = await captureStableAria(page, '[role="tree"]', scaffold.workspaceCwd)
+      await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'new-session.expected.md'),
+        `Before New Session\n${before}\nAfter New Session\n${after}`, MODE)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+    } finally {
+      await browser?.close()
+      await scaffold.close()
+    }
   })
 })

@@ -14,6 +14,8 @@ import type { WorkspaceId } from './types.ts'
 /** Workspace id schema at the durable boundary; branding has no runtime representation. */
 const workspaceId = z.string().transform(value => value as WorkspaceId)
 
+const sessionId = z.string().transform(value => brandString<SessionId>(value))
+
 /**
  * Durable shape of one workspace record. `path` is the `fs.realpath` canon
  * stamped at create; `sessionIds` is the ordered ownership account (array
@@ -22,7 +24,7 @@ const workspaceId = z.string().transform(value => value as WorkspaceId)
 export const workspaceRecord = z.object({
   path: z.string(),
   title: z.string(),
-  sessionIds: z.array(z.string().transform(value => brandString<SessionId>(value))),
+  sessionIds: z.array(sessionId),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -49,14 +51,21 @@ const workspacePendingMutation = z.discriminatedUnion('operation', [
  * position), so the set never participates in the one-owner accounting
  * invariant. `archivedSessionAts` stamps each archive instant (ISO-8601) and
  * stays key-equal to `archivedSessionIds`; entries archived before the field
- * existed carry no timestamp. Both archive fields are defaulted so records
- * written before them parse unchanged.
+ * existed carry no timestamp. `pinnedSessionIds` is the pin set this domain
+ * stopped owning: the registry imports it into the `session_pins` domain
+ * (ordered pins live there) at open and then writes the field back empty, so
+ * the field is the durable carrier for pins recorded before that domain
+ * existed. The archive id set, the archive-instant map, and the pin set are
+ * all defaulted, so records written before the fields parse unchanged.
  */
 export const workspaceDomainState = z.object({
   initialized: z.boolean(),
+  /** First-use Workspace identity, retained after its registration is deleted. */
+  defaultWorkspaceId: workspaceId.optional(),
   workspaceIds: z.array(workspaceId),
-  archivedSessionIds: z.array(z.string().transform(value => brandString<SessionId>(value))).default([]),
-  archivedSessionAts: z.record(z.string().transform(value => brandString<SessionId>(value)), z.string()).default({}),
+  archivedSessionIds: z.array(sessionId).default([]),
+  archivedSessionAts: z.record(sessionId, z.string()).default({}),
+  pinnedSessionIds: z.array(sessionId).default([]),
   pendingMutation: workspacePendingMutation.optional(),
 })
 
@@ -74,7 +83,13 @@ export const workspaceDomainSpec = defineDomain({
   version: 2,
   global: {
     schema: workspaceDomainState,
-    initial: { initialized: false, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} },
+    initial: {
+      initialized: false,
+      workspaceIds: [],
+      archivedSessionIds: [],
+      archivedSessionAts: {},
+      pinnedSessionIds: [],
+    },
   },
   tables: { workspaces: domainTable<WorkspaceId, WorkspaceRecord>(workspaceRecord) },
 })

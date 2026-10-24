@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Analysis } from '../src/analysis.ts'
 import { Materials } from '../src/materials.ts'
 import { NoteSessions } from '../src/note-sessions.ts'
-import type { ActionDef, Config, NotesStrategy } from '../src/settings.ts'
+import type { ActionDef, NotesStrategy } from '../src/settings.ts'
 import { bench } from './bench.ts'
 import type { Bench, FakeAgents } from './bench.ts'
 import { FakeLlm, imageRef, material, messageId, noteId, noteSession, sessionId, source } from './bench.ts'
@@ -43,7 +43,7 @@ const translate: ActionDef = {
   autoSend: true,
 }
 
-const config = (actions: ActionDef[], strategy: NotesStrategy = 'manual'): Config =>
+const config = (actions: ActionDef[], strategy: NotesStrategy = 'manual') =>
   ({ strategy, actions })
 
 /** Mount the notes services and Analysis over the given settings entry. */

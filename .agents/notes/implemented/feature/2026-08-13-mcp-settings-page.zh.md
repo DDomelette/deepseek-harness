@@ -31,7 +31,7 @@ MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台�
 
 ### Secret 处理
 
-`env` 和 `headers` 为密钥字段，读取时脱敏。启用、新增、编辑和移除使用 `SettingsScope.mutate` 路径操作。每个事务明确返回服务端接受状态，脱敏镜像不能证明保存成功。编辑时省略空密钥字段，以保留已存密钥。
+`env` 和 `headers` 为密钥字段，读取时脱敏。启用、新增、编辑和移除使用 `ConfigForm.mutate` 路径操作。每个事务明确返回服务端接受状态，脱敏镜像不能证明保存成功。编辑时省略空密钥字段，以保留已存密钥。
 
 ### 冻结的 settings 快照
 
@@ -64,7 +64,7 @@ gateway 只上报挂载生命周期（connecting → ready/failed），不上报
 - `packages/mcp/mcp-manager`：schema 与重连默认值、注册与写时拒绝、监督器 diff 与挂载/卸载/重挂载、生命周期失效通知、gateway 合并，以及带非空冻结 `env` 映射的 settings 提交（回归挂载前克隆路径）；逐文件 100% 覆盖。
 - `packages/client/ui-settings-mcp`：标签页失效通知与旧响应排序、添加/编辑重连字段、控制器原子写入与拒绝处理；100% 覆盖。
 - `apps/web/tests/mcp-config.e2e.ts`：真实 scaffold——带重连策略的新增、开关与删除写穿到 `$DSH_HOME/settings.yaml`，并覆盖搜索及 memorix 示例 overlay 下的声明式行；名单与添加表单的 aria golden 位于 `snapshots/mcp-config`。
-- `SettingsScope.setPath` 与 `SettingsScope.mutate`：`packages/client/ui-settings/tests/settings-scope.client.spec.ts` 中的单元测试。
+- `ConfigForm.set` 与 `ConfigForm.mutate`：`packages/client/ui-settings/tests/config-form.client.spec.ts` 中的单元测试。
 
 ## Deferred
 

@@ -27,19 +27,34 @@
       "path": "../../interaction/commands"
     },
     {
+      "path": "../../interaction/permission-presets"
+    },
+    {
       "path": "../../llm/llm"
     },
     {
       "path": "../../goal/goal"
     },
     {
-      "path": "../../preset/agent-presets"
+      "path": "../../schedule/schedule"
+    },
+    {
+      "path": "../../preset/agent-preset-registry"
     },
     {
       "path": "../../extensions/cordis-host-runner"
     },
     {
       "path": "../../settings/settings"
+    },
+    {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
+      "path": "../../notes/notes/tsconfig.host.json"
+    },
+    {
+      "path": "../../skill/skill"
     },
     {
       "path": "../../core/scope"
@@ -68,9 +83,20 @@
     {
       "path": "../../typert/protocol"
     },
-    { "path": "../../session/session-pins" },
-    { "path": "../../mcp/mcp-manager" },
-    { "path": "../../notes/notes/tsconfig.host.json" },
-    { "path": "../../skill/skill" }
+    {
+      "path": "../terminal-controller/tsconfig.host.json"
+    },
+    {
+      "path": "../../boot/plugin-manager"
+    },
+    {
+      "path": "../../host/plugin-inventory"
+    },
+    {
+      "path": "../account-controller"
+    },
+    {
+      "path": "../../credentials/deepseek-account"
+    }
   ]
 }

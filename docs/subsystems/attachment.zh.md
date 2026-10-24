@@ -126,10 +126,12 @@ interface StoredImageAttachment {
 ```
 
 ```ts type-equiv
-/** Deterministic request-image policy selected by one exact model route. */
-interface ImageRequestPolicy {
-  /** Maximum width multiplied by height after aspect-preserving projection. */
-  maxPixels: number
+/** Deterministic request-image target selected by one exact model route for one attachment. */
+interface ImageRequestTarget {
+  /** Target width in pixels; a target above the source keeps the source width. */
+  width: number
+  /** Target height in pixels; a target above the source keeps the source height. */
+  height: number
   /** Encoded-byte target before base64 expansion or Files API upload; the smallest quality-ladder output is kept when no quality fits. */
   maxBytes: number
 }
@@ -280,11 +282,11 @@ fileHostPath(ref: FileAttachmentRef): string | undefined
 /**
  * Generate or read one deterministic model-request version from the stored normalized image.
  * @param ref - durable provider-independent normalized attachment reference.
- * @param policy - exact route pixel budget and encoded-byte target; a target no ladder quality meets yields the smallest ladder output.
+ * @param target - route-chosen dimensions and byte target; an unmet byte target yields the smallest ladder output.
  * @param signal - optional cancellation.
  * @returns request bytes and the cache/upload identity covering every transform input.
  */
-readImageRequest( ref: ImageAttachmentRef, policy: ImageRequestPolicy, signal?: AbortSignal, ): Promise<RequestImageAttachment>
+readImageRequest( ref: ImageAttachmentRef, target: ImageRequestTarget, signal?: AbortSignal, ): Promise<RequestImageAttachment>
 ```
 
 Source: [`packages/attachment/attachment/src/index.ts`](../../packages/attachment/attachment/src/index.ts)
@@ -293,7 +295,7 @@ Source: [`packages/attachment/attachment/src/index.ts`](../../packages/attachmen
 
 ### `ctx.fileUploads` — `FileUploads`
 
-Host service owning upload storage and Agent-scoped staged receipts.
+Host service owning upload storage and receipts keyed by each receiving Agent's exact Session.
 
 ```ts cordis-catalog
 /**
@@ -320,7 +322,7 @@ registerAgentResolver(resolve: AgentResolver): () => void
 async uploadStream(request: { readonly sessionId: SessionId readonly data: AsyncIterable<Uint8Array> readonly signal?: AbortSignal readonly name?: string }): Promise<FileUploadValue>
 
 /**
- * Resolve one staged receipt inside its receiving Agent scope.
+ * Resolve one staged receipt for the receiving Agent's exact Session.
  * @param agent - receiving Agent.
  * @param receiptId - opaque receipt minted for one completed upload.
  * @returns durable file reference, or `undefined` for an unknown or foreign receipt.

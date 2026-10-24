@@ -371,6 +371,17 @@ describe('E2BOutputReader', () => {
     expect(reader.readFrom(0)).toEqual({ text: 'cdef', nextOffset: 6, lossy: true })
   })
 
+  it('ends a read at a complete UTF-8 character split across pushes', () => {
+    const reader = new E2BOutputReader(16, 64, '/remote/spill')
+    const bytes = Buffer.from('中')
+    reader.push(bytes.subarray(0, 1))
+    // The character is still incomplete: advancing the cursor here would
+    // replace it on both sides of the split.
+    expect(reader.readFrom(0)).toEqual({ text: '', nextOffset: 0, lossy: false })
+    reader.push(bytes.subarray(1))
+    expect(reader.readFrom(0)).toEqual({ text: '中', nextOffset: 3, lossy: false })
+  })
+
   it('drops whole head chunks and withholds absent or over-cap spills', () => {
     const withoutSpill = new E2BOutputReader(2, undefined, '/unused')
     withoutSpill.push(Buffer.from('ab'))
@@ -464,7 +475,7 @@ describe('E2BSubprocessHandle', () => {
     for (const graceMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => service.spawn(spec({ graceMs }))).toThrow('graceMs must be a positive finite number')
       void expect(service.spawnTerminal({
-        argv: ['bash'], cwd: '/w', rows: 24, cols: 80, graceMs,
+        argv: ['bash'], cwd: '/w', rows: 24, cols: 80, terminalType: 'dumb', graceMs,
       })).rejects.toThrow('graceMs must be a positive finite number')
     }
   })

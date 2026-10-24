@@ -25,10 +25,14 @@ export function encodeMessage(message: unknown): Buffer {
 /**
  * A streaming decoder for `Content-Length`-framed JSON-RPC. Feed it stdout chunks; it returns any
  * whole message bodies that completed. It parses only the `Content-Length` header and ignores other
- * headers (e.g. `Content-Type`), matching the base protocol.
+ * headers (e.g. `Content-Type`), matching the base protocol. Pending bytes are held as the segments
+ * they arrived in and joined only to read one frame, so a large body costs one copy per message
+ * rather than a re-copy of everything received so far.
  */
 export class MessageDecoder {
-  private buffer: Buffer = Buffer.alloc(0)
+  /** Pending bytes in arrival order; an empty segment is never retained. */
+  private chunks: Buffer[] = []
+  private length = 0
   private readonly maxMessageBytes: number
 
   /**
@@ -45,7 +49,10 @@ export class MessageDecoder {
    * @throws Error when a header is malformed or a body exceeds `maxMessageBytes`.
    */
   push(chunk: Buffer): unknown[] {
-    this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk])
+    if (chunk.length > 0) {
+      this.chunks.push(chunk)
+      this.length += chunk.length
+    }
     const messages: unknown[] = []
     for (;;) {
       const step = this.next()
@@ -57,9 +64,9 @@ export class MessageDecoder {
 
   /** Parse and consume the next complete message, or report that more bytes are needed. */
   private next(): { ready: false } | { ready: true; message: unknown } {
-    const separator = this.buffer.indexOf(HEADER_SEPARATOR)
+    const separator = this.separatorOffset()
     if (separator < 0) {
-      if (this.buffer.length > MAX_HEADER_BYTES) {
+      if (this.length > MAX_HEADER_BYTES) {
         throw new Error(`LSP header exceeded ${MAX_HEADER_BYTES} bytes without a terminator`)
       }
       return { ready: false }
@@ -67,22 +74,83 @@ export class MessageDecoder {
     if (separator > MAX_HEADER_BYTES) {
       throw new Error(`LSP header exceeded ${MAX_HEADER_BYTES} bytes`)
     }
-    const headerText = this.buffer.toString('ascii', 0, separator)
-    const contentLength = parseContentLength(headerText)
+    const contentLength = parseContentLength(this.slice(0, separator).toString('ascii'))
     if (contentLength > this.maxMessageBytes) {
       throw new Error(`LSP message length ${contentLength} exceeds the ${this.maxMessageBytes}-byte limit`)
     }
     const bodyStart = separator + HEADER_SEPARATOR.length
     const bodyEnd = bodyStart + contentLength
-    if (this.buffer.length < bodyEnd) return { ready: false }
-    const body = this.buffer.toString('utf8', bodyStart, bodyEnd)
-    this.buffer = this.buffer.subarray(bodyEnd)
+    if (this.length < bodyEnd) return { ready: false }
+    const body = this.slice(bodyStart, bodyEnd).toString('utf8')
+    this.consume(bodyEnd)
     try {
       return { ready: true, message: JSON.parse(body) }
     } catch (error) {
       /* v8 ignore next -- JSON.parse throws a SyntaxError (an Error); the String() fallback is defensive. */
       throw new Error(`LSP message body was not valid JSON: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Offset of the first header/body separator, found without joining the pending segments.
+   * @returns the offset, or -1 when no complete separator has arrived.
+   */
+  private separatorOffset(): number {
+    // The separator can straddle a segment boundary, so each segment is searched
+    // with the last bytes of the one before it.
+    const carryLength = HEADER_SEPARATOR.length - 1
+    let base = 0
+    let carry: Buffer = Buffer.alloc(0)
+    for (const chunk of this.chunks) {
+      const haystack: Buffer = carry.length === 0 ? chunk : Buffer.concat([carry, chunk])
+      const found = haystack.indexOf(HEADER_SEPARATOR)
+      if (found >= 0) return base - carry.length + found
+      carry = haystack.subarray(Math.max(0, haystack.length - carryLength))
+      base += chunk.length
+    }
+    return -1
+  }
+
+  /**
+   * Copy one byte range out of the pending segments.
+   * @param start - first byte to take.
+   * @param end - exclusive end offset.
+   * @returns the bytes of that range, joined only when they span segments.
+   */
+  private slice(start: number, end: number): Buffer {
+    const parts: Buffer[] = []
+    let offset = 0
+    for (const chunk of this.chunks) {
+      const chunkEnd = offset + chunk.length
+      if (chunkEnd > start && offset < end) {
+        parts.push(chunk.subarray(Math.max(0, start - offset), Math.min(chunk.length, end - offset)))
+      }
+      offset = chunkEnd
+      if (offset >= end) break
+    }
+    const [only] = parts
+    return parts.length === 1 && only !== undefined ? only : Buffer.concat(parts)
+  }
+
+  /**
+   * Drop the leading bytes of one consumed frame.
+   * @param count - number of leading bytes to remove.
+   */
+  private consume(count: number): void {
+    let remaining = count
+    while (remaining > 0) {
+      const head = this.chunks[0]
+      /* v8 ignore next -- the loop is bounded by the pending length this call consumed. */
+      if (head === undefined) break
+      if (head.length <= remaining) {
+        this.chunks.shift()
+        remaining -= head.length
+        continue
+      }
+      this.chunks[0] = head.subarray(remaining)
+      remaining = 0
+    }
+    this.length -= count
   }
 }
 

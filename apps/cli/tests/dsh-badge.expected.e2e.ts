@@ -6,6 +6,10 @@ const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', impo
 const defaultConfigPath = fileURLToPath(new URL('./fixtures/dsh-badge/default.cordis.yml', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
 const badgeAssetsPath = fileURLToPath(new URL('../../../packages/skill/skill-badge/assets/', import.meta.url))
+// Raw stdout is JSON-escaped, so a Windows assets path reaches it with doubled
+// separators and a replacement on the raw text misses; tokenize decoded values.
+const replaceAssetsPath = (_key: string, value: unknown): unknown =>
+  typeof value === 'string' ? value.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}') : value
 
 describe('dsh badge assembled snapshot', () => {
   it('advertises and loads the opt-in bundled skill through the shipped app', async () => {
@@ -25,10 +29,8 @@ describe('dsh badge assembled snapshot', () => {
       configPath,
       tsconfigPath,
     })
-    const disabledSnapshot = JSON.parse(disabled.stdout) as unknown
-    const enabledSnapshot = JSON.parse(
-      enabled.stdout.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}'),
-    ) as unknown
+    const disabledSnapshot: unknown = JSON.parse(disabled.stdout)
+    const enabledSnapshot: unknown = JSON.parse(enabled.stdout, replaceAssetsPath)
 
     expect(disabled.stderr).toBe('')
     expect(enabled.stderr).toBe('')

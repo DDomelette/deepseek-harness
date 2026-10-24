@@ -1,7 +1,8 @@
+import type { z } from 'zod'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import Storage from '@deepseek-ai/dsh-storage'
 import type { StorageBackend } from '@deepseek-ai/dsh-storage'
@@ -14,6 +15,7 @@ import type { SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persis
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import WorkspaceRegistry, {
   WorkspaceId,
+  type workspaceDomainState,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
 } from '../src/index.ts'
@@ -36,6 +38,42 @@ interface HarnessOptions {
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
   backend?: StorageBackend
+  /** `absent` boots a profile that does not mount the pins owner. */
+  pins?: 'mounted' | 'absent'
+}
+
+/** Stand-in for the `session_pins` owner: records each delegation and projects its own ordered set. */
+interface FakePins {
+  readonly writes: Array<{ readonly sessionId: SessionId; readonly pinned: boolean }>
+  readonly service: {
+    ready: boolean
+    list(): {
+      pinnedSessionIds: SessionId[]
+      groupOrder: Record<string, SessionId[]>
+      flatOrder: SessionId[]
+    }
+    setPinned(input: { sessionId: string; pinned: boolean }): Promise<unknown>
+  }
+}
+
+function fakePins(): FakePins {
+  const pinned: SessionId[] = []
+  const writes: Array<{ sessionId: SessionId; pinned: boolean }> = []
+  return {
+    writes,
+    service: {
+      ready: true,
+      list: () => ({ pinnedSessionIds: [...pinned], groupOrder: {}, flatOrder: [...pinned] }),
+      setPinned: async (input) => {
+        const sessionId = SessionId(input.sessionId)
+        writes.push({ sessionId, pinned: input.pinned })
+        const at = pinned.indexOf(sessionId)
+        if (input.pinned && at === -1) pinned.push(sessionId)
+        else if (!input.pinned && at !== -1) pinned.splice(at, 1)
+        return { pinnedSessionIds: [...pinned] }
+      },
+    },
+  }
 }
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
@@ -54,6 +92,9 @@ async function harness(options: HarnessOptions = {}) {
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
   const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
   ctx.provide('sessionPersistence', { list, open, stat } as never)
+
+  const pins = fakePins()
+  if (options.pins !== 'absent') ctx.provide('sessionPins', pins.service as never)
 
   if (options.sessionStore === true) {
     await ctx.plugin(SessionStore)
@@ -80,6 +121,7 @@ async function harness(options: HarnessOptions = {}) {
     list,
     open,
     stat,
+    pins,
     setSessions: (headers: SessionHeader[]) => { listed = headers },
   }
 }
@@ -145,12 +187,11 @@ function record(path: string, sessionIds: string[], createdAt = '2026-07-24T00:0
 }
 
 /**
- * Media written before archivedSessionIds/archivedSessionAts existed omit the
- * fields; keeping the fixtures in that shape continuously proves the schema
- * defaults upgrade them.
+ * Media written before archivedSessionIds, archivedSessionAts, and
+ * pinnedSessionIds existed omit the fields; keeping the fixtures in that shape
+ * continuously proves the schema defaults upgrade them.
  */
-type StoredDomainState = Omit<WorkspaceDomainState, 'archivedSessionIds' | 'archivedSessionAts'>
-  & Partial<Pick<WorkspaceDomainState, 'archivedSessionIds' | 'archivedSessionAts'>>
+type StoredDomainState = z.input<typeof workspaceDomainState>
 
 function storedPool(
   entries: Array<[string, WorkspaceRecord]>,
@@ -202,7 +243,9 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     await fiber.await()
     expect(ctx.workspaceRegistry.list()).toEqual([])
     expect(list).toHaveBeenCalledTimes(1)
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
+    expect(storedState(pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
   })
 
   it('bootstraps once from list headers only, in workspace/session createdAt order', async () => {
@@ -237,6 +280,7 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
       workspaceIds: result.registry.list().map(workspace => workspace.id),
       archivedSessionIds: [],
       archivedSessionAts: {},
+      pinnedSessionIds: [],
     })
   })
 
@@ -265,7 +309,9 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     const second = await harness({ pool, sessions: [header('late', late, 100)] })
     expect(second.list).not.toHaveBeenCalled()
     expect(second.registry.list()).toEqual([])
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
+    expect(storedState(pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
   })
 
   it('reuses partial records after a bootstrap record write fails', async () => {
@@ -519,7 +565,9 @@ describe('WorkspaceRegistry create and lookup', () => {
     await expect(result.registry.delete(workspace.id)).resolves.toBe(false)
     expect(result.registry.get(workspace.id)).toBeUndefined()
     expect(result.registry.list()).toEqual([])
-    expect(storedState(result.pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
+    expect(storedState(result.pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
     expect(result.pool.media.get('workspace')!.tables.get('workspaces')!.has(workspace.id)).toBe(false)
     await expect(realpath(dir)).resolves.toBe(dir)
     expect(result.list).toHaveBeenCalledTimes(1)
@@ -564,6 +612,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       workspaceIds: [],
       archivedSessionIds: [],
       archivedSessionAts: {},
+      pinnedSessionIds: [],
       pendingMutation: { operation: 'delete', workspaceId: workspace.id },
     })
     const reregistered = await first.registry.create(dir)
@@ -573,6 +622,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       workspaceIds: [reregistered.id],
       archivedSessionIds: [],
       archivedSessionAts: {},
+      pinnedSessionIds: [],
     })
     await first.fiber.dispose()
 
@@ -852,7 +902,9 @@ describe('header-validated membership projection', () => {
     const createRecovery = await harness({ pool: interruptedCreate })
     expect(createRecovery.registry.list()).toEqual([])
     expect(interruptedCreate.media.get('workspace')!.tables.get('workspaces')!.has(createId)).toBe(false)
-    expect(storedState(interruptedCreate)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
+    expect(storedState(interruptedCreate)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
 
     const interruptedDelete = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -865,7 +917,9 @@ describe('header-validated membership projection', () => {
     const deleteRecovery = await harness({ pool: interruptedDelete })
     expect(deleteRecovery.registry.list()).toEqual([])
     expect(interruptedDelete.media.get('workspace')!.tables.get('workspaces')!.has(deleteId)).toBe(false)
-    expect(storedState(interruptedDelete)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {} })
+    expect(storedState(interruptedDelete)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
 
     const corruptPending = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -916,12 +970,9 @@ describe('registry-global session archive', () => {
 
     await result.registry.archiveSession(SessionId('gone'))
     expect(result.registry.archivedSessionIds).toEqual(['gone'])
-    const goneAt = result.registry.archivedSessionAts[SessionId('gone')]
-    expect(goneAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     // Archiving is a display-set write: the workspace account keeps the id.
     expect(workspace.sessionIds).toContain('gone')
     expect(storedState(result.pool).archivedSessionIds).toEqual(['gone'])
-    expect(storedState(result.pool).archivedSessionAts).toEqual({ gone: goneAt })
     const changesAfterFirst = result.changes.filter(change => change.table === '').length
 
     await result.registry.archiveSession(SessionId('gone'))
@@ -931,7 +982,24 @@ describe('registry-global session archive', () => {
 
     await result.registry.archiveSession(SessionId('kept'))
     expect(result.registry.archivedSessionIds).toEqual(['gone', 'kept'])
-    expect(Object.keys(result.registry.archivedSessionAts)).toEqual(['gone', 'kept'])
+  })
+
+  it('stamps one archive instant per archived id and keeps it across a repeat', async () => {
+    const dir = await makeDir('archive-instant')
+    const result = await harness({ sessions: [header('stamped', dir, 100)] })
+    const requestedAt = Date.now()
+
+    await result.registry.archiveSession(SessionId('stamped'))
+
+    const stampedAt = result.registry.archivedSessionAts[SessionId('stamped')]!
+    expect(Object.keys(result.registry.archivedSessionAts)).toEqual(['stamped'])
+    expect(new Date(stampedAt).toISOString()).toBe(stampedAt)
+    expect(Date.parse(stampedAt)).toBeGreaterThanOrEqual(requestedAt)
+    expect(storedState(result.pool).archivedSessionAts).toEqual({ stamped: stampedAt })
+
+    // The idempotent repeat rewrites nothing, so the original instant stands.
+    await result.registry.archiveSession(SessionId('stamped'))
+    expect(result.registry.archivedSessionAts[SessionId('stamped')]).toBe(stampedAt)
   })
 
   it('accepts unaccounted and live sessions but rejects unknown ids without writing', async () => {
@@ -960,12 +1028,92 @@ describe('registry-global session archive', () => {
     expect(storedState(result.pool).archivedSessionIds).toEqual([])
   })
 
+  it('refuses a session the activity waterfall reports active and writes nothing', async () => {
+    const dir = await makeDir('archive-active')
+    const result = await harness({ sessions: [header('busy', dir, 100), header('quiet', dir, 200)] })
+    const asked: SessionId[] = []
+    result.ctx.on('workspace/session-activity', async ({ sessionId }, next) => {
+      asked.push(sessionId)
+      const rest = await next()
+      return sessionId === 'busy'
+        ? [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1', label: 'build' }] }, ...rest]
+        : rest
+    })
+
+    await expect(result.registry.archiveSession(SessionId('busy'))).rejects.toMatchObject({
+      name: 'WorkspaceActiveSessionError',
+      sessionId: 'busy',
+      activity: [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1', label: 'build' }] }],
+    })
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(result.changes.filter(change => change.table === '')).toEqual([])
+
+    await result.registry.archiveSession(SessionId('quiet'))
+    expect(result.registry.archivedSessionIds).toEqual(['quiet'])
+    expect(asked).toEqual(['busy', 'quiet'])
+
+    // The idempotent repeat resolves before any activity question is asked.
+    await result.registry.archiveSession(SessionId('quiet'))
+    expect(asked).toEqual(['busy', 'quiet'])
+  })
+
+  it('with stopActivity, writes the archive and then asks providers to stop, even when one of them fails', async () => {
+    const dir = await makeDir('archive-stop')
+    const result = await harness({ sessions: [header('busy', dir, 100)] })
+    const order: string[] = []
+    result.ctx.on('workspace/session-activity', async ({ sessionId }, next) => {
+      order.push(`activity:${sessionId}`)
+      return [{ kind: 'probe' }, ...(await next())]
+    })
+    result.ctx.on('workspace/session-stop', ({ sessionId }) => { order.push(`stop:${sessionId}`) })
+    result.ctx.on('workspace/session-stop', () => { throw new Error('job kill exploded') })
+    result.ctx.on('domain/changed', (change) => { if (change.table === '') order.push('write') })
+    const warn = vi.spyOn(result.ctx.logger, 'warn').mockImplementation(() => {})
+
+    await result.registry.archiveSession(SessionId('busy'), { stopActivity: true })
+    expect(result.registry.archivedSessionIds).toEqual(['busy'])
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['busy'])
+    // The archive write lands first, so a provider's gate sees the archived
+    // set before any stop-induced wake; the activity question is not asked
+    // because the caller already chose to stop what runs.
+    expect(order).toEqual(['write', 'stop:busy'])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('job kill exploded'))
+
+    // A repeat resolves before stopping anything again.
+    order.length = 0
+    await result.registry.archiveSession(SessionId('busy'), { stopActivity: true })
+    expect(order).toEqual([])
+    // An unknown session is still refused before any provider is asked to stop.
+    await expect(result.registry.archiveSession(SessionId('ghost'), { stopActivity: true }))
+      .rejects.toThrow(/cannot archive session 'ghost'/)
+    expect(order).toEqual([])
+  })
+
+  it('asks about activity only after the session is known, and archives when every listener delegates', async () => {
+    const dir = await makeDir('archive-quiet')
+    const result = await harness({ sessions: [header('known', dir, 100)] })
+    const asked: SessionId[] = []
+    result.ctx.on('workspace/session-activity', ({ sessionId }, next) => {
+      asked.push(sessionId)
+      return next()
+    })
+    await expect(result.registry.archiveSession(SessionId('ghost')))
+      .rejects.toThrow(/cannot archive session 'ghost'/)
+    expect(asked).toEqual([])
+
+    await result.registry.archiveSession(SessionId('known'))
+    expect(asked).toEqual(['known'])
+    expect(result.registry.archivedSessionIds).toEqual(['known'])
+  })
+
   it('restores the archive set across restarts and defaults it for pre-field media', async () => {
     const dir = await makeDir('archive-restart')
     const pool = new MemoryMediaPool()
     const first = await harness({ pool, sessions: [header('s1', dir, 100)] })
     await first.registry.archiveSession(SessionId('s1'))
     const stampedAt = first.registry.archivedSessionAts[SessionId('s1')]
+    expect(stampedAt).toEqual(expect.any(String))
     await first.fiber.dispose()
 
     const second = await harness({ pool, sessions: [header('s1', dir, 100)] })
@@ -973,7 +1121,7 @@ describe('registry-global session archive', () => {
     expect(second.registry.archivedSessionAts).toEqual({ s1: stampedAt })
     await second.fiber.dispose()
 
-    // A medium written before the fields existed parses through the schema defaults.
+    // A medium written before the field existed parses through the schema default.
     const legacyId = WorkspaceId('00000000-0000-4000-8000-00000000000a')
     const legacy = storedPool(
       [[legacyId, record(dir, [])]],
@@ -983,35 +1131,413 @@ describe('registry-global session archive', () => {
     expect(upgraded.registry.archivedSessionIds).toEqual([])
     expect(upgraded.registry.archivedSessionAts).toEqual({})
   })
+})
 
-  it('unarchiveSession removes the id from the archive set and is idempotent', async () => {
+describe('registry-global session unarchive', () => {
+  it('unarchives durably in order, idempotently skips absent ids, and leaves accounting untouched', async () => {
     const dir = await makeDir('unarchive-home')
-    const result = await harness({ sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
-    await result.registry.archiveSession(SessionId('s2'))
-    const retainedAt = result.registry.archivedSessionAts[SessionId('s2')]
-    await result.registry.archiveSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual(['s2', 's1'])
-    expect(result.registry.archivedSessionAts).toHaveProperty('s1')
-    await result.registry.unarchiveSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual(['s2'])
-    expect(storedState(result.pool).archivedSessionAts).toEqual({ s2: retainedAt })
-    result.changes.length = 0
-    await result.registry.unarchiveSession(SessionId('s1'))
+    const result = await harness({
+      sessions: [header('one', dir, 100), header('two', dir, 200), header('three', dir, 300)],
+    })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('one'))
+    await result.registry.archiveSession(SessionId('two'))
+    await result.registry.archiveSession(SessionId('three'))
+    expect(result.registry.archivedSessionIds).toEqual(['one', 'two', 'three'])
+
+    await result.registry.unarchiveSession(SessionId('two'))
+    // Removal keeps the survivors in archive order.
+    expect(result.registry.archivedSessionIds).toEqual(['one', 'three'])
+    // Unarchiving is a display-set write: the workspace account keeps the id.
+    expect(workspace.sessionIds).toContain('two')
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['one', 'three'])
+    const changesAfterFirst = result.changes.filter(change => change.table === '').length
+
+    await result.registry.unarchiveSession(SessionId('two'))
+    expect(result.registry.archivedSessionIds).toEqual(['one', 'three'])
+    // The absent-id repeat neither rewrites the medium nor emits a change.
+    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
+
     await result.registry.unarchiveSession(SessionId('never-archived'))
-    expect(result.registry.archivedSessionIds).toEqual(['s2'])
-    expect(result.changes).toEqual([])
+    expect(result.registry.archivedSessionIds).toEqual(['one', 'three'])
+    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
   })
 
-  it('forgetSession removes archive membership and every workspace account slot', async () => {
-    const dir = await makeDir('forget-home')
-    const result = await harness({ sessions: [header('s1', dir, 100)] })
-    const workspace = result.registry.list()[0]!
-    await result.registry.archiveSession(SessionId('s1'))
-    await result.registry.forgetSession(SessionId('s1'))
+  it('drops the archive instant together with the id it stamps', async () => {
+    const dir = await makeDir('unarchive-instant')
+    const result = await harness({ sessions: [header('kept', dir, 100), header('restored', dir, 200)] })
+    await result.registry.archiveSession(SessionId('kept'))
+    await result.registry.archiveSession(SessionId('restored'))
+    const keptAt = result.registry.archivedSessionAts[SessionId('kept')]!
+    expect(Object.keys(result.registry.archivedSessionAts)).toEqual(['kept', 'restored'])
+
+    await result.registry.unarchiveSession(SessionId('restored'))
+
+    // The instant map stays key-equal to the surviving ids in the same write.
+    expect(result.registry.archivedSessionIds).toEqual(['kept'])
+    expect(result.registry.archivedSessionAts).toEqual({ kept: keptAt })
+    expect(storedState(result.pool).archivedSessionAts).toEqual({ kept: keptAt })
+  })
+
+  it('unarchives an entry whose session is gone without consulting session persistence', async () => {
+    const dir = await makeDir('unarchive-vanished')
+    const result = await harness({ sessions: [header('vanished', dir, 100)] })
+    await result.registry.archiveSession(SessionId('vanished'))
+    result.setSessions([])
+    const listingsBefore = result.list.mock.calls.length
+    result.list.mockRejectedValueOnce(new Error('persistence backend down'))
+
+    // Removing an id cannot introduce an unknown one, so the archive entry
+    // resolves even though no session backs it and no listing runs.
+    await expect(result.registry.unarchiveSession(SessionId('vanished'))).resolves.toBeUndefined()
     expect(result.registry.archivedSessionIds).toEqual([])
-    expect(result.registry.archivedSessionAts).toEqual({})
-    expect(workspace.sessionIds).toEqual([])
-    await result.registry.forgetSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.list.mock.calls.length).toBe(listingsBefore)
+  })
+
+  it('keeps the surviving archive set across restarts', async () => {
+    const dir = await makeDir('unarchive-restart')
+    const pool = new MemoryMediaPool()
+    const sessions = [header('kept', dir, 100), header('restored', dir, 200)]
+    const first = await harness({ pool, sessions })
+    await first.registry.archiveSession(SessionId('kept'))
+    await first.registry.archiveSession(SessionId('restored'))
+    await first.registry.unarchiveSession(SessionId('restored'))
+    await first.fiber.dispose()
+
+    const second = await harness({ pool, sessions })
+    expect(second.registry.archivedSessionIds).toEqual(['kept'])
   })
 })
+
+describe('registry-global session pin', () => {
+  it('delegates every pin write to the pins owner and projects its set', async () => {
+    const dir = await makeDir('pin-home')
+    const result = await harness({ sessions: [header('first', dir, 100), header('second', dir, 200)] })
+    const workspace = result.registry.list()[0]!
+    expect(result.registry.pinnedSessionIds).toEqual([])
+
+    await result.registry.pinSession(SessionId('first'))
+    expect(result.pins.writes).toEqual([{ sessionId: SessionId('first'), pinned: true }])
+    expect(result.registry.pinnedSessionIds).toEqual(['first'])
+    // Pinning is a display-set write: the workspace account keeps the id, and
+    // the registry persists no pin state of its own.
+    expect(workspace.sessionIds).toContain('first')
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+
+    await result.registry.pinSession(SessionId('second'))
+    expect(result.registry.pinnedSessionIds).toEqual(['first', 'second'])
+  })
+
+  it('rejects pinning archived and unknown sessions without delegating', async () => {
+    const dir = await makeDir('pin-rejects')
+    const result = await harness({ sessions: [header('stored', dir, 100)] })
+    await result.registry.archiveSession(SessionId('stored'))
+    const writes = [...result.pins.writes]
+
+    await expect(result.registry.pinSession(SessionId('stored')))
+      .rejects.toThrow(/cannot pin session 'stored': the session is archived/)
+    await expect(result.registry.pinSession(SessionId('ghost')))
+      .rejects.toThrow(/cannot pin session 'ghost'/)
+    expect(result.pins.writes).toEqual(writes)
+    expect(result.registry.pinnedSessionIds).toEqual([])
+  })
+
+  it('propagates a persistence-listing failure instead of reporting an unknown session', async () => {
+    const result = await harness({ sessions: [] })
+    result.list.mockRejectedValueOnce(new Error('persistence backend down'))
+    // The storage fault is the error — never WorkspaceUnknownSessionError,
+    // which the API layer would misreport as session-not-found.
+    await expect(result.registry.pinSession(SessionId('unlisted')))
+      .rejects.toThrow(/persistence backend down/)
+    expect(result.pins.writes).toEqual([])
+  })
+
+  it('archiving drops the pin through the pins owner', async () => {
+    const dir = await makeDir('pin-then-archive')
+    const result = await harness({ sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
+    await result.registry.pinSession(SessionId('s1'))
+    await result.registry.pinSession(SessionId('s2'))
+
+    await result.registry.archiveSession(SessionId('s1'))
+    expect(result.registry.pinnedSessionIds).toEqual(['s2'])
+    expect(result.registry.archivedSessionIds).toEqual(['s1'])
+    expect(result.pins.writes.at(-1)).toEqual({ sessionId: SessionId('s1'), pinned: false })
+  })
+
+  it('imports the pin set earlier versions stored in this domain', async () => {
+    const pool = storedPool([], {
+      initialized: true,
+      workspaceIds: [],
+      archivedSessionIds: [],
+      archivedSessionAts: {},
+      pinnedSessionIds: ['second', 'first'],
+    })
+
+    const result = await harness({ pool })
+
+    expect(result.pins.writes).toEqual([
+      { sessionId: SessionId('second'), pinned: true },
+      { sessionId: SessionId('first'), pinned: true },
+    ])
+    expect(result.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
+  })
+
+  it('reports no pins and refuses pin writes in a profile without the pins owner', async () => {
+    const dir = await makeDir('pin-unmounted')
+    const result = await harness({ sessions: [header('s1', dir, 100)], pins: 'absent' })
+
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    await expect(result.registry.pinSession(SessionId('s1')))
+      .rejects.toThrow(/requires the session-pins service/)
+    await expect(result.registry.unpinSession(SessionId('s1')))
+      .rejects.toThrow(/requires the session-pins service/)
+  })
+})
+
+describe('registry-global session unpin', () => {
+  it('delegates removal to the pins owner and projects its remaining order', async () => {
+    const dir = await makeDir('unpin-home')
+    const result = await harness({
+      sessions: [header('one', dir, 100), header('two', dir, 200), header('three', dir, 300)],
+    })
+    await result.registry.pinSession(SessionId('one'))
+    await result.registry.pinSession(SessionId('two'))
+    await result.registry.pinSession(SessionId('three'))
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'two', 'three'])
+
+    await result.registry.unpinSession(SessionId('two'))
+    // Removal keeps the survivors in the owner's order.
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
+    expect(result.pins.writes.at(-1)).toEqual({ sessionId: SessionId('two'), pinned: false })
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+
+    // The absent-id repeat is the owner's idempotent no-op: the registry still
+    // hands it the write rather than keeping a copy to answer from.
+    await result.registry.unpinSession(SessionId('two'))
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
+  })
+
+  it('unpins an entry whose session is gone without consulting session persistence', async () => {
+    const dir = await makeDir('unpin-vanished')
+    const result = await harness({ sessions: [header('vanished', dir, 100)] })
+    await result.registry.pinSession(SessionId('vanished'))
+    result.setSessions([])
+    const listingsBefore = result.list.mock.calls.length
+    result.list.mockRejectedValueOnce(new Error('persistence backend down'))
+
+    // Removing an id cannot introduce an unknown one, so the pin entry
+    // resolves even though no session backs it and no listing runs.
+    await expect(result.registry.unpinSession(SessionId('vanished'))).resolves.toBeUndefined()
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    expect(result.list.mock.calls.length).toBe(listingsBefore)
+  })
+})
+
+describe('deleted-session forget', () => {
+  it('drops a deleted session from accounting, both global sets, and the header index', async () => {
+    const dir = await makeDir('forget-home')
+    const result = await harness({
+      sessions: [header('gone', dir, 100), header('pinned', dir, 200), header('kept', dir, 300)],
+    })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('gone'))
+    await result.registry.pinSession(SessionId('pinned'))
+    expect(workspace.sessionIds).toEqual(['kept', 'pinned', 'gone'])
+
+    // Deletion removes the persisted log first; the registry must stop
+    // answering for the ids it just cleaned up.
+    result.setSessions([header('kept', dir, 300)])
+    await result.registry.forgetSession(SessionId('gone'))
+    await result.registry.forgetSession(SessionId('pinned'))
+
+    expect(workspace.sessionIds).toEqual(['kept'])
+    expect(storedRecord(result.pool, workspace.id).sessionIds).toEqual(['kept'])
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.archivedSessionAts).toEqual({})
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionAts).toEqual({})
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+    // The evicted header is the observable difference: an id still indexed
+    // here would pass the existence probe and archive again.
+    await expect(result.registry.archiveSession(SessionId('gone')))
+      .rejects.toThrow(/cannot archive session 'gone'/)
+  })
+
+  it('resolves without writing for an id the registry does not hold', async () => {
+    const dir = await makeDir('forget-absent')
+    const result = await harness({ sessions: [header('kept', dir, 100)] })
+    const changesBefore = result.changes.length
+    const stateBefore = storedState(result.pool)
+
+    await expect(result.registry.forgetSession(SessionId('never-here'))).resolves.toBeUndefined()
+
+    expect(result.changes.length).toBe(changesBefore)
+    expect(storedState(result.pool)).toEqual(stateBefore)
+  })
+})
+
+describe('first-use Workspace preparation', () => {
+  const contexts: Context[] = []
+
+  afterEach(async () => {
+    for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
+  })
+
+  async function firstUse(options: HarnessOptions = {}) {
+    const directoryRoot = await makeDir('first-use')
+    const result = await harness({ liveSessions: [], ...options })
+    contexts.push(result.ctx)
+    const resolveDirectory = vi.fn(async () => join(directoryRoot, 'nested', 'Workspace'))
+    return { ...result, directoryRoot, resolveDirectory }
+  }
+
+  it('creates parent directories and resolves only one directory for concurrent initialization', async () => {
+    const h = await firstUse()
+    const laterDirectory = vi.fn(async () => { throw new Error('directory lookup unavailable') })
+    const [first, repeated] = await Promise.all([
+      h.registry.initializeDefault(h.resolveDirectory), h.registry.initializeDefault(laterDirectory),
+    ])
+    expect(first).toBeDefined()
+    expect(repeated).toBe(first)
+    expect(h.resolveDirectory).toHaveBeenCalledOnce()
+    expect(laterDirectory).not.toHaveBeenCalled()
+    expect(first?.path).toBe(await realpath(join(h.directoryRoot, 'nested', 'Workspace')))
+    // The caller supplies no title: the initial one is the directory's final segment.
+    expect(first?.title).toBe('Workspace')
+    expect(h.registry.list()).toEqual([first])
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(first?.id)
+    expect(h.ctx.sessions.list()).toEqual([])
+    expect(h.open).not.toHaveBeenCalled()
+  })
+
+  it('reuses an existing directory without changing its contents', async () => {
+    const h = await firstUse()
+    const directory = join(h.directoryRoot, 'nested', 'Workspace')
+    await mkdir(directory, { recursive: true })
+    await writeFile(join(directory, 'keep.txt'), 'keep')
+    expect((await h.registry.initializeDefault(h.resolveDirectory))?.path).toBe(directory)
+    const { readFile } = await import('node:fs/promises')
+    expect(await readFile(join(directory, 'keep.txt'), 'utf8')).toBe('keep')
+  })
+
+  it('leaves initialization retryable when directory resolution fails', async () => {
+    const h = await firstUse()
+    h.resolveDirectory.mockRejectedValueOnce(new Error('lookup unavailable'))
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).rejects.toThrow('lookup unavailable')
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+    expect(await h.registry.initializeDefault(h.resolveDirectory)).toBeDefined()
+  })
+
+  it('rejects a relative candidate before creating its directory', async () => {
+    const h = await firstUse()
+    const candidate = join(h.directoryRoot, 'relative')
+    h.resolveDirectory.mockResolvedValueOnce(relative(h.directoryRoot, candidate))
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).rejects.toThrow('fully qualified')
+    await expect(realpath(candidate)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(h.registry.list()).toEqual([])
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+  })
+
+  it('keeps the initialization marker across deletion and restart', async () => {
+    const h = await firstUse()
+    const workspace = (await h.registry.initializeDefault(h.resolveDirectory))!
+    await workspace.setTitle('Renamed')
+    expect((await h.registry.initializeDefault(h.resolveDirectory))?.title).toBe('Renamed')
+    await h.registry.delete(workspace.id)
+    await h.ctx.fiber.dispose()
+    const restarted = await firstUse({ pool: h.pool })
+    await expect(restarted.registry.initializeDefault(restarted.resolveDirectory)).resolves.toBeUndefined()
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(workspace.id)
+    expect(restarted.registry.list()).toEqual([])
+    expect(restarted.resolveDirectory).not.toHaveBeenCalled()
+  })
+
+  it.each(['persisted', 'live', 'archived'] as const)('refuses automatic creation for a %s cwd-less Session', async (kind) => {
+    const history = header('old')
+    const h = await firstUse(kind === 'persisted' ? { sessions: [history] } : { liveSessions: [history] })
+    if (kind === 'archived') await h.registry.archiveSession(history.id)
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+    expect(h.registry.list()).toEqual([])
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+    expect(h.resolveDirectory).not.toHaveBeenCalled()
+  })
+
+  it('refuses a non-empty Workspace list and newly persisted history', async () => {
+    const h = await firstUse()
+    const explicit = await h.registry.create(h.directoryRoot)
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+    await h.registry.delete(explicit.id)
+    h.setSessions([header('arrived')])
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+  })
+
+  it('fails on a same-path file and remains eligible after it is removed', async () => {
+    const h = await firstUse()
+    const parent = join(h.directoryRoot, 'nested')
+    await mkdir(parent)
+    const path = join(parent, 'Workspace')
+    await writeFile(path, 'occupied')
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).rejects.toThrow()
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+    expect(h.registry.list()).toEqual([])
+    await rm(path)
+    expect((await h.registry.initializeDefault(h.resolveDirectory))?.path).toBe(path)
+  })
+
+  it('titles the Workspace after the requested directory when that path is a symlink', async () => {
+    const h = await firstUse()
+    const target = join(h.directoryRoot, 'elsewhere')
+    await mkdir(target)
+    await mkdir(join(h.directoryRoot, 'nested'))
+    await symlink(target, join(h.directoryRoot, 'nested', 'Workspace'))
+    const workspace = await h.registry.initializeDefault(h.resolveDirectory)
+    expect(workspace?.path).toBe(await realpath(target))
+    // Not 'elsewhere': the title names the directory the caller asked for, so
+    // the caller can still recognize a Workspace it has not renamed.
+    expect(workspace?.title).toBe('Workspace')
+  })
+
+  it.each(['persisted', 'live'] as const)('refuses registration when a %s Session appears during directory preparation', async (kind) => {
+    const h = await firstUse()
+    const arrived = header('arrived-during-preparation')
+    if (kind === 'persisted') {
+      h.list.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        { header: arrived, revision: SessionPersistenceRevision('arrived-revision') },
+      ])
+    } else {
+      vi.spyOn(h.ctx.sessions, 'list').mockReturnValueOnce([]).mockReturnValueOnce([{ header: arrived }] as never)
+    }
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+    expect(h.registry.list()).toEqual([])
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+  })
+
+  it('does not infer an empty live Session store when the peer is unavailable', async () => {
+    const h = await harness()
+    contexts.push(h.ctx)
+    const resolveDirectory = vi.fn(async () => { throw new Error('unexpected directory lookup') })
+    await expect(h.registry.initializeDefault(resolveDirectory)).rejects.toThrow('Session store')
+    expect(resolveDirectory).not.toHaveBeenCalled()
+    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
+  })
+
+  it('rolls back a failed final marker write and allows a retry', async () => {
+    const pool = new MemoryMediaPool()
+    const h = await firstUse({ pool, backend: selectiveFailureBackend(pool, { globalAt: 3 }) })
+    await expect(h.registry.initializeDefault(h.resolveDirectory)).rejects.toThrow('marker failure')
+    expect(h.registry.list()).toEqual([])
+    expect(storedState(pool).defaultWorkspaceId).toBeUndefined()
+    await expect(realpath(join(h.directoryRoot, 'nested', 'Workspace'))).resolves.toBe(join(h.directoryRoot, 'nested', 'Workspace'))
+    expect(await h.registry.initializeDefault(h.resolveDirectory)).toBeDefined()
+  })
+})
+
+// The registry knows no family: the providers merge theirs, and this suite merges its own.
+declare module '@deepseek-ai/dsh-workspace/types' {
+  interface SessionActivityKindMap {
+    probe: true
+    'probe-items': true
+  }
+}

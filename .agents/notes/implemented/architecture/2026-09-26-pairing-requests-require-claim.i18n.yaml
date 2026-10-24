@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-26-pairing-requests-require-claim.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-26-pairing-requests-require-claim.md
-2026-09-26-pairing-requests-require-claim.md: fcf46ffd85d0c68b29bf47820e915844d90a07c1
-2026-09-26-pairing-requests-require-claim.zh.md: c8e64337f1e4f1ebd63a95116b619939607c87ec
+/agent-note-pairing-requests-require-a-claiming-phone:
+  en: 2887f7623f6f0705
+  zh: 4894f0b357cc01a1
+/agent-note-pairing-requests-require-a-claiming-phone/problem:
+  en: a5057e1a77ee9d44
+  zh: d253ea5c7076e13d
+/agent-note-pairing-requests-require-a-claiming-phone/decision:
+  en: 3ac220e2ed4c490e
+  zh: 6bad88b446962fda
+/agent-note-pairing-requests-require-a-claiming-phone/alternatives-considered:
+  en: 3b9ef5454e5e3368
+  zh: 1e73d6528625fc7a
+/agent-note-pairing-requests-require-a-claiming-phone/consequences:
+  en: 78ca7770cfeb89bf
+  zh: 95362b417a641ac4

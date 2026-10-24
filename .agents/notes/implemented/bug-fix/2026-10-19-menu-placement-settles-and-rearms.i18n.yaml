@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-19-menu-placement-settles-and-rearms.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-19-menu-placement-settles-and-rearms.md
+/agent-note-menu-placement-settles-and-re-arms:
+  en: 79c388625a8f97a9
+  zh: 68889be3ba6d3a28
+/agent-note-menu-placement-settles-and-re-arms/problem:
+  en: 147a044d9db3f413
+  zh: d6896e34603d4659
+/agent-note-menu-placement-settles-and-re-arms/decision:
+  en: ad5020f399ee8d2a
+  zh: 5e87723811523202
+/agent-note-menu-placement-settles-and-re-arms/alternatives-considered:
+  en: cd47bef53385a6be
+  zh: d56e17f33a3e0c23
+/agent-note-menu-placement-settles-and-re-arms/consequences:
+  en: 69ea82e4ab98b24f
+  zh: e91fee8cf5848517

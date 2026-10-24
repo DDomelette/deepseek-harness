@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-mobile-responsive-batch-a.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-mobile-responsive-batch-a.md
-2026-09-13-mobile-responsive-batch-a.md: 4e3579d78a5b94bae46b7639a4bfc2bdf91333b9
-2026-09-13-mobile-responsive-batch-a.zh.md: 4706a345c818e1bc878802b01527b2b8b7d723b0
+/agent-note-mobile-responsive-layout-batch-a:
+  en: fcc75263f301cd02
+  zh: a21c4c14d29cfe42
+/agent-note-mobile-responsive-layout-batch-a/problem:
+  en: 31e6e9176569c60a
+  zh: d6ae43b847870a50
+/agent-note-mobile-responsive-layout-batch-a/decision:
+  en: 192acd1ecc835a1b
+  zh: d1096823f4a87f94
+/agent-note-mobile-responsive-layout-batch-a/alternatives-considered:
+  en: b77f4f34669afeae
+  zh: 0a49e3fd3b65b4e2
+/agent-note-mobile-responsive-layout-batch-a/consequences:
+  en: d548701249c0e194
+  zh: 104dbb94b69e2e2c

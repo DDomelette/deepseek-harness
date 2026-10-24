@@ -40,9 +40,12 @@ export function isNullPtr(value: NativePtr | null | undefined): value is null | 
 export interface StartupInfoInput {
   cb: number
   dwFlags: number
+  wShowWindow: number
   hStdInput: NativePtr
   hStdOutput: NativePtr
   hStdError: NativePtr
+  cbReserved2?: number
+  lpReserved2?: NativePtr
 }
 
 /** Decoded PROCESS_INFORMATION result. */
@@ -57,6 +60,8 @@ export interface ProcessInfoOutput {
 export interface Win32ProcessBindings {
   closeHandle(handle: NativePtr): number
   getLastError(): number
+  getFileType(handle: NativePtr): number
+  uvGetOsfhandle(fileDescriptor: number): NativePtr | null
   formatMessageW(
     flags: number,
     source: null,
@@ -154,6 +159,14 @@ export const PROCESS_INFORMATION = koffi.struct('DSH_PROCESS_INFORMATION', {
   dwProcessId: 'uint32',
   dwThreadId: 'uint32',
 })
+
+/**
+ * Return the PROCESS_INFORMATION layout for callers that encode or decode it directly.
+ * @returns the same Koffi struct type {@link allocProcessInfo} and {@link decodeProcessInfo} use.
+ */
+export function processInformationType(): typeof PROCESS_INFORMATION {
+  return PROCESS_INFORMATION
+}
 
 /* v8 ignore start -- ABI guards are pinned by native header probes. */
 if (STARTUPINFOW.size !== abi.STARTUPINFOW_SIZE) {
@@ -258,6 +271,7 @@ function bindings(): CurrentTokenProcessBindings {
   cached = {
     closeHandle: bind(kernel32, 'CloseHandle', 'int', [PVOID]),
     getLastError: bind(kernel32, 'GetLastError', 'uint32', []),
+    getFileType: bind(kernel32, 'GetFileType', 'uint32', [PVOID]),
     formatMessageW: bind(kernel32, 'FormatMessageW', 'uint32', [
       'uint32', PVOID, 'uint32', 'uint32', PVOID, 'uint32', PVOID,
     ]),

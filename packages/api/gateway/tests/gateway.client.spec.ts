@@ -150,15 +150,15 @@ function directDescriptor(): InvocationDescriptor {
       wire: 'agentId',
       source: 'lookup',
       lookup: 'fixture',
-      codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', schema: idSchema },
+      codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', create: () => idSchema },
     }, {
       name: 'request',
       wire: 'request',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: '@fixture#CreateRequest', schema: requestSchema },
+      codec: { mode: 'strict', typeSymbol: '@fixture#CreateRequest', create: () => requestSchema },
     }],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: '@fixture#CreateResult', schema: createResultSchema },
+    result: { mode: 'strict', typeSymbol: '@fixture#CreateResult', create: () => createResultSchema },
   }
 }
 
@@ -172,15 +172,15 @@ function contextDescriptor(): InvocationDescriptor {
       kind: 'context',
       context: 'fixture',
       wire: 'agentId',
-      codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', schema: idSchema },
+      codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', create: () => idSchema },
     },
     parameters: [{
       name: 'request',
       wire: 'request',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: '@fixture#RenameRequest', schema: requestSchema },
+      codec: { mode: 'strict', typeSymbol: '@fixture#RenameRequest', create: () => requestSchema },
     }],
-    result: { mode: 'strict', typeSymbol: '@fixture#RenameResult', schema: renameResultSchema },
+    result: { mode: 'strict', typeSymbol: '@fixture#RenameResult', create: () => renameResultSchema },
   }
 }
 
@@ -197,9 +197,9 @@ function maybeDescriptor(): InvocationDescriptor {
       wire: 'value',
       source: 'json',
       acceptsUndefined: true,
-      codec: { mode: 'strict', typeSymbol: '@fixture#MaybeValue', schema },
+      codec: { mode: 'strict', typeSymbol: '@fixture#MaybeValue', create: () => schema },
     }],
-    result: { mode: 'strict', typeSymbol: '@fixture#MaybeValue', schema },
+    result: { mode: 'strict', typeSymbol: '@fixture#MaybeValue', create: () => schema },
   }
 }
 
@@ -215,10 +215,10 @@ function streamDescriptor(): InvocationDescriptor {
       name: 'topic',
       wire: 'topic',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: '@fixture#Topic', schema: z.string().min(1) },
+      codec: { mode: 'strict', typeSymbol: '@fixture#Topic', create: () => z.string().min(1) },
     }],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: '@fixture#WatchItem', schema: z.string().min(1) },
+    result: { mode: 'strict', typeSymbol: '@fixture#WatchItem', create: () => z.string().min(1) },
   }
 }
 
@@ -717,7 +717,7 @@ describe('Client Remote transport readiness', () => {
 })
 
 describe('Client Typert API', () => {
-  it('mounts concrete direct methods, validates inputs, and withdraws retained handles', async () => {
+  it('mounts concrete direct methods, forwards boundary values, and withdraws retained handles', async () => {
     const call = vi.fn<ConnectionHandle['rpc']['call']>()
       .mockResolvedValue({ ok: true, value: { ref: 'goal-1' } })
     const ctx = await bench(call)
@@ -751,7 +751,18 @@ describe('Client Typert API', () => {
     callerAbort.abort(cancellation)
     expect(combinedSignal?.aborted).toBe(true)
     expect(combinedSignal?.reason).toBe(cancellation)
-    await expect(ctx.remote.probe.create('', { objective: 'ship' })).rejects.toThrow('rejected "agentId"')
+    await expect(ctx.remote.probe.create('', { objective: 'ship' })).resolves.toEqual({
+      ok: true,
+      value: { ref: 'goal-1' },
+    })
+    // The Host owns boundary validation: it decodes every wire field against the
+    // generated strict codec, so the Client forwards the value verbatim.
+    expect(call).toHaveBeenLastCalledWith(
+      '/api',
+      'probe/create',
+      { args: { agentId: '', request: { objective: 'ship' } } },
+      expect.any(AbortSignal),
+    )
 
     call.mockResolvedValueOnce({ ok: true, value: { ref: 1 } })
     await expect(ctx.remote.probe.create('agent-1', { objective: 'ship' })).resolves.toEqual({
@@ -1153,13 +1164,13 @@ describe('Client Typert API', () => {
         ...direct,
         parameters: [...direct.parameters, {
           name: 'other', wire: 'otherId', source: 'lookup', lookup: 'fixture',
-          codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', schema: idSchema },
+          codec: { mode: 'strict', typeSymbol: '@fixture#AgentId', create: () => idSchema },
         }],
       }],
     })).rejects.toThrow('scope must select its only lookup parameter')
   })
 
-  it('validates invocation arity, required adapters, live Connection, and mutable descriptor codecs', async () => {
+  it('validates invocation arity, required adapters, live Connection, and installs descriptors once', async () => {
     const call = vi.fn<ConnectionHandle['rpc']['call']>()
       .mockResolvedValue({ ok: true, value: { ref: 'goal-1' } })
     const ctx = await bench(call)
@@ -1181,8 +1192,20 @@ describe('Client Typert API', () => {
     await expect((ctx as FixtureContext).remote.probe.rename({ objective: 'ship' }))
       .rejects.toThrow('no Client Context adapter')
 
+    // Strictness is settled when the descriptor is installed; the mount-time
+    // refusals above cover it. A descriptor mutated afterwards cannot re-open
+    // that decision, so the Client keeps forwarding the wire value verbatim.
     ;(descriptor.parameters[0] as { codec: { mode: string } }).codec.mode = 'src-json'
-    await expect(ctx.remote.probe.create('agent-1', { objective: 'ship' })).rejects.toThrow('has no strict codec')
+    await expect(ctx.remote.probe.create('agent-1', { objective: 'ship' })).resolves.toEqual({
+      ok: true,
+      value: { ref: 'goal-1' },
+    })
+    expect(call).toHaveBeenLastCalledWith(
+      '/api',
+      'probe/create',
+      { args: { agentId: 'agent-1', request: { objective: 'ship' } } },
+      expect.any(AbortSignal),
+    )
     ;(descriptor.parameters[0] as { codec: { mode: string } }).codec.mode = 'strict'
 
     ctx.set('connection', undefined)
@@ -1269,7 +1292,7 @@ describe('Client Typert API', () => {
         name: 'value',
         wire: '__proto__',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: '@fixture#PrototypeValue', schema: z.string() },
+        codec: { mode: 'strict', typeSymbol: '@fixture#PrototypeValue', create: () => z.string() },
       }],
     }
     const dispose = await ctx.remote.$mount({ package: '@fixture/prototype', descriptors: [descriptor] })
@@ -1813,7 +1836,7 @@ describe('Client Typert API', () => {
     await client.dispose()
   })
 
-  it('drops a settled listener result when cancellation wins before reply', async () => {
+  it('drops a settled listener result when the Host cancels before the listener returns', async () => {
     const { ctx, client, carrier, call } = await eventBench()
     const target = ctx.extend()
     ctx.typert.contexts.registerClient('agent', {
@@ -1822,21 +1845,26 @@ describe('Client Typert API', () => {
     })
     const entered = Promise.withResolvers<AbortSignal>()
     const release = Promise.withResolvers<undefined>()
+    const settled = Promise.withResolvers<undefined>()
     target.remote.$on('fixture/approval', async (request) => {
       entered.resolve(request.signal as AbortSignal)
       await release.promise
+      settled.resolve(undefined)
       return 'allowed'
     })
     carrier.emit(approvalFrame('event-cancel-race', 'agent-cancel-race', 'wait'))
     const deliverySignal = await entered.promise
 
-    release.resolve(undefined)
+    // The Host cancels while the listener runs, and the listener then returns a
+    // result the Client must drop instead of replying with. A reply the Host no
+    // longer awaits is its own idempotent no-op, so suppressing it here is the
+    // Client's whole duty.
     carrier.emit({ type: 'cancel', eventId: 'event-cancel-race' })
     await vi.waitFor(() => { expect(deliverySignal.aborted).toBe(true) })
-    await Promise.resolve()
-    expect(call).not.toHaveBeenCalled()
-
+    release.resolve(undefined)
+    await settled.promise
     await client.dispose()
+    expect(call).not.toHaveBeenCalled()
   })
 
   it('cancels pending listener work when the generation ends', async () => {
@@ -2149,8 +2177,9 @@ describe('Client Typert API', () => {
       package: '@fixture/stream-second', descriptors: [streamDescriptor()],
     })
     ctx.set('connection', undefined)
-    await expect(ctx.remote.probe.watch('offline')[Symbol.asyncIterator]().next())
-      .rejects.toThrow('probe/watch has no active Connection')
+    // The Client resolves the Connection when the stream method is called, so a
+    // missing transport fails at the call rather than at the first read.
+    expect(() => ctx.remote.probe.watch('offline')).toThrow('probe/watch has no active Connection')
 
     let release!: () => void
     const released = new Promise<void>((resolve) => { release = resolve })

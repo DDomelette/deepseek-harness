@@ -84,7 +84,6 @@ This section explains how the command parses input and renders output; the obser
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: command grammar, status rendering, attachment submission |
-| — | No runtime invariant companion is published; this command adapter owns no event stream or state projection; accepted mutations are checked by the goal domain and command dispatch behavior is covered by package tests. |
 
 </details>
 
@@ -139,3 +138,5 @@ These limits define when the command is a poor fit or needs special care. They a
 This Dev Note is working context for maintainers; it is explicitly non-authoritative. Open, undecided: a continuous status widget and per-command round-cap input; both are deferred UI and configuration work.
 
 </details>
+
+**Runtime invariant:** No companion is published. This package contributes only the `/goal` grammar and its direct UI output, while `@deepseek-ai/dsh-goal` owns the persisted goal phase and process-local activation.

@@ -17,8 +17,8 @@
  *
  * The tree itself boots through the host's own `boot()` glue loaded from the
  * image, so entry mounting, the activation audit, and its diagnostics are the
- * same code the Node deployment runs. Only the module seam and the command line
- * are supplied from here.
+ * same code the Node deployment runs. The Worker supplies module loading,
+ * profile locations, and the command line.
  * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/worker-host
  */
 import { setActiveModuleLoader, WorkerModuleLoader, type StaticModuleFactory } from './module-system/module-loader.ts'
@@ -161,6 +161,12 @@ async function readImage(image: Uint8Array | string): Promise<Uint8Array> {
 }
 
 /**
+ * Uplink handed to every stream this host opens. The tunnel protocol carries no
+ * Client-to-Host stream items, so a Host-opened stream has none to forward.
+ */
+const NO_UPLINK: AsyncIterable<unknown> = { async *[Symbol.asyncIterator]() {} }
+
+/**
  * Build the worker host without touching the network or the image.
  * @param options - Assembly inputs.
  * @returns Handle whose `handleMessage` is ready immediately.
@@ -227,11 +233,19 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
         ): Promise<HostContext>
       }
       const cmdline = require('@deepseek-ai/dsh-cmdline') as {
-        provideCmdline(ctx: unknown, host: { args: readonly string[]; exit: (code: number) => void }): void
+        provideCmdline(ctx: unknown, host: {
+          args: readonly string[]
+          exit: (code: number) => void
+          ready: { onReady(listener: () => void): () => void }
+        }): void
       }
+      // Resolved once the tunnel serves; a failed start never resolves it.
+      const started = Promise.withResolvers<void>()
 
-      const { patches, presetOverlay } = bootPatches(loader, mounted, configPath, root)
-      const ctx = await appBoot.boot('dsh-webworker', configPath, patches, (hostCtx) => {
+      const { patches, profile, presetOverlay } = bootPatches(loader, mounted, configPath, root)
+      const profileConfig = join(profile.dir, 'cordis.yml')
+      const ctx = await appBoot.boot('dsh-webworker', profileConfig, patches, (hostCtx) => {
+        hostCtx.provide('profileContext', profile)
         // Before any entry mounts: the Loader would otherwise fall back to the
         // runtime's own dynamic import for every row.
         hostCtx.loader.internal = loader.internal
@@ -239,6 +253,13 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
         cmdline.provideCmdline(hostCtx, {
           args: [...(options.cmdlineArgs ?? ['--host', '127.0.0.1', '--port', String(port), '--no-open'])],
           exit: (code: number) => { console.warn(`webworker host: tree requested exit(${String(code)})`) },
+          ready: {
+            onReady: (listener) => {
+              let pending = true
+              void started.promise.then(() => { if (pending) listener() })
+              return () => { pending = false }
+            },
+          },
         })
       })
       context = ctx
@@ -249,16 +270,22 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
       if (typertGateway === undefined) {
         throw new Error('webworker host: the tree activated without a typertGateway service')
       }
-      const handler = connection.createSharedFetchHandler('/api')
+      // The tunnel carries no HTTP credential of its own, so its lanes speak as
+      // the operator; browser requests are admitted per request by Connection.
+      const handler = connection.createSharedFetchHandler('/api', connection.operator)
       const usage = loader.usage()
       console.info(`webworker host: tree active (modules=${String(usage.modules)}, data overlays=${String(overlays.length)}, preset root overlay=${presetOverlay ? 'applied' : 'already in roster'}, direct lane=connection.createSharedFetchHandler, als causality=${options.alsCausality === undefined ? 'inert' : 'snapshot/restore'}, image lowering=${LOWERING_VERSION})`)
 
       tunnel.serve({
         directFetch: (request: Request) => handler.fetch(request),
         bootPayload: () => readBootPayload(ctx),
-        openStream: typertGateway.wireStream.open,
+        // The worker tree serves its own page, so every stream speaks for the
+        // operator and carries no Client item up the tunnel.
+        openStream: (endpoint, payload, signal) =>
+          typertGateway.wireStream.open(endpoint, payload, NO_UPLINK, undefined, signal),
         streamFailure: typertGateway.wireStream.failure,
       })
+      started.resolve()
     } catch (reason) {
       tunnel.fail(reason)
       throw reason
@@ -347,20 +374,20 @@ function requireLoweredImage(vfs: MemoryVfs, path: string): void {
 }
 
 /**
- * The shipped preset root, as the application layer that owns the composition
- * supplies it.
+ * Prepare an editable VFS profile from the packed rows and deployment overlays.
  *
- * A launcher appends this root itself rather than writing it into the roster —
- * `apps/cli` does it in `composeProfile` (`profile-boot.ts:159-166`) because only
- * the application knows where its own presets sit. The worker's presets travel
- * in the image, so the same overlay names their virtual path. Patching replaces
- * a row's whole `config`, so the current one is read and spread, and a roster
- * that already names roots keeps them.
+ * ConfigEditor writes overrides beside the insertion rows, and reconciliation
+ * starts at this empty profile root: the composed rows arrive as its insertion
+ * patch, so a configuration edit survives for the Worker's lifetime without
+ * touching the image. The seeded locations are the subset `dsh-app-boot` reads:
+ * its loader reads the profile directory through `installAnchor`, and
+ * ConfigEditor persists through `patchPath`.
  * @param loader - Module loader, for the image's YAML reader.
  * @param vfs - Filesystem holding the composed configuration.
  * @param configPath - Composed configuration path.
  * @param root - Virtual root.
- * @returns Boot patches (preset root overlay, frontend serving off) and
+ * @returns Profile locations, the effective boot patches (the profile's own
+ * layers plus the preset root overlay and plaintext JSONL encoding), and
  * whether the preset overlay was applied.
  */
 function bootPatches(
@@ -368,15 +395,18 @@ function bootPatches(
   vfs: MemoryVfs,
   configPath: string,
   root: string,
-): { patches: unknown[]; presetOverlay: boolean } {
+) {
   const text = vfs.readFileSync(configPath, 'utf8') as string
+  const include = loader.load(loader.resolve('@deepseek-ai/cordis-plugin-include', root)) as { entryListSchema: unknown }
+  const yaml = loader.load(loader.resolve('js-yaml', root)) as {
+    load(source: string, options: { schema: unknown }): unknown
+    dump(value: unknown, options: { schema: unknown }): string
+  }
   let rows: unknown
   if (configPath.endsWith('.json')) {
     rows = JSON.parse(text)
   } else {
     // The roster's `!!js` scalars need Include's own YAML dialect.
-    const include = loader.load(loader.resolve('@deepseek-ai/cordis-plugin-include', root)) as { entryListSchema: unknown }
-    const yaml = loader.load(loader.resolve('js-yaml', root)) as { load(source: string, options: { schema: unknown }): unknown }
     rows = yaml.load(text, { schema: include.entryListSchema })
   }
   const find = (entries: unknown, id: string): Record<string, unknown> | undefined => {
@@ -409,7 +439,29 @@ function bootPatches(
   if (jsonl !== undefined) {
     patches.push({ id: 'session-persistence-jsonl', config: { ...configOf(jsonl), compression: 'none' } })
   }
-  return { patches, presetOverlay }
+  const dir = join(root, IMAGE_HOME_DIRECTORY, 'profiles/preview')
+  const profile = {
+    name: 'preview',
+    dir,
+    patchPath: join(dir, 'cordis.patch.yml'),
+    installAnchor: join(dir, 'package.json'),
+    cwd: root,
+    home: join(root, IMAGE_HOME_DIRECTORY),
+    startedBundles: [] as string[],
+    overlays: patches,
+    telemetryDisabledEnv: undefined,
+  }
+  vfs.seed(profile.installAnchor, '{"private":true,"dsh":{"profile":{"bundles":[]}}}\n')
+  vfs.seed(join(dir, 'cordis.yml'), '[]\n')
+  if (!vfs.existsSync(profile.patchPath)) {
+    vfs.seed(profile.patchPath, yaml.dump([{ insert: rows }], { schema: include.entryListSchema }))
+  }
+  // The image's app-boot owns the profile type; this host hands it the plain data
+  // it seeded, so the loaded face stays generic over that value.
+  const appBoot = loader.load(loader.resolve('@deepseek-ai/dsh-app-boot', root)) as {
+    readProfilePatches(binName: string, profile: unknown): unknown[]
+  }
+  return { patches: appBoot.readProfilePatches('dsh-webworker', profile), profile, presetOverlay }
 }
 
 /**

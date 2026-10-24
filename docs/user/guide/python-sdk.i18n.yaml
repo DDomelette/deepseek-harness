@@ -1,6 +1,52 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for python-sdk.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/user/guide/python-sdk.md
-python-sdk.md: 6fde258d9f4f3e8ba1fd41537129ba5b8f02fd58
-python-sdk.zh.md: f50fd6d2bd37e3dc203b519e07d0df4098cab0c7
+/get-started-with-the-python-sdk:
+  en: 97975036927be6e3
+  zh: fe37c7bf8844277a
+/get-started-with-the-python-sdk/prerequisites:
+  en: b5a921f7d6c4a420
+  zh: ef51283857d18c64
+/get-started-with-the-python-sdk/install-the-sdk:
+  en: d3bb6df2d2d88830
+  zh: f7fbdb210b23be3d
+/get-started-with-the-python-sdk/install-the-sdk/linux-and-macos:
+  en: 94f769ecc768b984
+  zh: d4ed3cea963aa18f
+/get-started-with-the-python-sdk/install-the-sdk/windows-powershell:
+  en: 11279b29159d0c21
+  zh: 58246e718ac361b4
+/get-started-with-the-python-sdk/run-the-checked-in-example:
+  en: f4e0bd6714979370
+  zh: c5d6f4c906a536fa
+/get-started-with-the-python-sdk/run-the-checked-in-example/linux-and-macos:
+  en: 94f769ecc768b984
+  zh: d4ed3cea963aa18f
+/get-started-with-the-python-sdk/run-the-checked-in-example/windows-powershell:
+  en: c564d28d111c3b6a
+  zh: ff43ceac51440a5b
+/get-started-with-the-python-sdk/run-the-checked-in-example/linux-and-macos~2:
+  en: 94f769ecc768b984
+  zh: d4ed3cea963aa18f
+/get-started-with-the-python-sdk/run-the-checked-in-example/windows-powershell~2:
+  en: 6b1c93d1b9a2ced7
+  zh: 0c598400c2668a54
+/get-started-with-the-python-sdk/use-the-sdk-in-your-program:
+  en: d1e350be0ba38196
+  zh: 893220ee7b12b12f
+/get-started-with-the-python-sdk/install-or-define-plugins:
+  en: 3c7d6a9cd0e408ed
+  zh: 855ddf5df8b80101
+/get-started-with-the-python-sdk/install-or-define-plugins/linux-and-macos:
+  en: 94f769ecc768b984
+  zh: d4ed3cea963aa18f
+/get-started-with-the-python-sdk/install-or-define-plugins/windows-powershell:
+  en: 080e30bc002595af
+  zh: b02c564b0551585a
+/get-started-with-the-python-sdk/install-or-define-plugins/opt-in-to-str-replace-editor:
+  en: c63ca1e3a99e6fe1
+  zh: 2ceddea3f30d92d3
+/get-started-with-the-python-sdk/understand-the-minimal-profile:
+  en: 3f044a6cc99d0262
+  zh: 19c1306487c720ba

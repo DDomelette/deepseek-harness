@@ -1,6 +1,52 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/mcp/mcp-manager/README.md
-README.md: b0f3f125b5f1ede767b4ad4c6b2fe071039df7d8
-README.zh.md: 1303e3457fe1b6112d84401d61d60fa3804f98bd
+/:
+  en: fa1db41f8fecb9ee
+  zh: 9d3cb3bc847da185
+/deepseek-ai-dsh-mcp-manager:
+  en: 4aaba88431d337f0
+  zh: dbeb71a252aa7748
+/deepseek-ai-dsh-mcp-manager/summary:
+  en: b2f4d632c2d37ec0
+  zh: 5bb7a9d3156237f3
+/deepseek-ai-dsh-mcp-manager/table-of-contents:
+  en: bc906641b23b76b3
+  zh: 570b9a6786749b44
+/deepseek-ai-dsh-mcp-manager/usage:
+  en: 8e3c73e9a54cba63
+  zh: f264b076cf14b6c0
+/deepseek-ai-dsh-mcp-manager/config:
+  en: 0fd04ef247039c17
+  zh: dc36f0c10ce5a10f
+/deepseek-ai-dsh-mcp-manager/declarative-projection:
+  en: 097ff28e8545652b
+  zh: cf9b3fd7bce62f51
+/deepseek-ai-dsh-mcp-manager/roster-remote:
+  en: fbb5dc6dedfd12ff
+  zh: 71c5d39052e8afd7
+/deepseek-ai-dsh-mcp-manager/relationship-to-dsh-mcp-client:
+  en: 0d7d3d75c22a859c
+  zh: 71e48faca94ada26
+/deepseek-ai-dsh-mcp-manager/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-mcp-manager/model-experience/managed-mcp-server-tools:
+  en: f6bc3d5e8defbfb3
+  zh: d17cf10dbac957ec
+/deepseek-ai-dsh-mcp-manager/model-experience/managed-mcp-server-tools/what-the-model-sees:
+  en: 0fcb2305879ce509
+  zh: 4f049a3a0498ccfa
+/deepseek-ai-dsh-mcp-manager/model-experience/managed-mcp-server-tools/token-effect:
+  en: c7e562bbdad1abdb
+  zh: afcfd78e6a05b339
+/deepseek-ai-dsh-mcp-manager/model-experience/managed-mcp-server-tools/kv-cache-effect:
+  en: 41749ed8be85a7d4
+  zh: af9447720be403b5
+/deepseek-ai-dsh-mcp-manager/known-limitations-and-deferred-work:
+  en: dce723dec5b9ce98
+  zh: b145f5f3b3fc8f21
+/deepseek-ai-dsh-mcp-manager/known-limitations-and-deferred-work/dev-note:
+  en: 0a1253c6f7b5e8b9
+  zh: 9f56528562c7c914

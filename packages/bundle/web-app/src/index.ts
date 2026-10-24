@@ -5,37 +5,36 @@
  * the built frontend dist (workspace knowledge of this bundle, never user
  * config), mounts the `frontend-static` fallback owner over it, registers the
  * harness-source and web-surface prompt sections, the bash-visible web runtime
- * variable, the process-token URL line, and the default-browser handoff. The
- * model and shell retain the clean URL. App command-line values arrive through
- * the `webStartup` service expressions in the bundle patch.
+ * variable, the process-token URL line, and the default-browser handoff. An
+ * advertised `publicUrl` replaces the published bind-address URL. Non-loopback
+ * HTTP binds trigger an exposure warning. App command-line values arrive
+ * through the `webStartup` service expressions in the bundle patch.
  * @module @deepseek-ai/dsh-web-app
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { isIP } from 'node:net'
 import { dirname, join } from 'node:path'
-import { networkInterfaces } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { addHarnessSourceSection } from '@deepseek-ai/dsh-app-boot'
+import { addHarnessSourceSection, auditStartupEntries } from '@deepseek-ai/dsh-app-boot'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
+import { isLoopbackHost, normalizeBindAddress } from '@deepseek-ai/dsh-host-webserver'
 import { launchedThroughSsh, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-cmdline'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-shell-env'
+import { parsePublicUrl } from './public-url.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-app'
 
 /** This dsh installation's root, from either this package's source or built entry. */
 const SOURCE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
-
-/** Runtime service that releases Web rows after bind-dependent values resolve. */
-const WEB_RUNTIME_SERVICE = 'webRuntime'
+const ANNOUNCED_ROOTS = new WeakSet<Context>()
 
 /** Services required before the web runtime can mount. */
 export const inject = ['webServer']
@@ -53,33 +52,25 @@ export interface Config {
    * orientation text would be false.
    */
   surfaceContext: boolean
-  /** Explicit `--trusted-host` authorities from this invocation. */
-  trustedHosts: string[]
+  /**
+   * Canonical HTTP(S) root to advertise in the printed and opened URL,
+   * `DSH_WEB_URL`, and the web-surface orientation, e.g.
+   * `https://app.example/ui/`, normalized to end in `/`. Configures no routing
+   * or authentication; see [public deployments](../README.md#public-deployments).
+   * Absent or YAML `null` advertises the bind-address URL.
+   */
+  publicUrl?: string
 }
 
 export const Config: z<Config> = z.object({
   openBrowser: z.boolean().default(true),
   printUrl: z.boolean().default(true),
   surfaceContext: z.boolean().default(true),
-  trustedHosts: z.array(String).default([]),
+  publicUrl: z.transform(z.string(), value => parsePublicUrl(value).href),
 })
 
-/** Bind-dependent Web values shared by the trust fence and URL display. */
-export interface WebRuntimeValues {
-  /** LAN IPv4 literals sampled once when the server binds all interfaces. */
-  lanAddresses: string[]
-  /** LAN literals followed by explicit invocation authorities. */
-  trustedHosts: string[]
-}
-
-/** Environment variable naming the canonical local URL of this Web GUI. */
+/** Environment variable naming the advertised URL of this Web GUI. */
 const DSH_WEB_URL = 'DSH_WEB_URL' as const
-
-// Display-only mirror of the webserver schema's loopback host: the address the
-// local URL always prints. Not a source of truth — the schema is.
-const LOOPBACK_HOST = '127.0.0.1'
-/** The webserver schema's all-interfaces bind literal. */
-const ALL_INTERFACES_HOST = '0.0.0.0'
 
 const BROWSER_OPENER_MODULE = import.meta.resolve('open')
 
@@ -113,65 +104,48 @@ try {
 `
 
 /**
- * Interface-name heuristic for virtual or tunnel adapters (VMware/VirtualBox
- * host-only nets, WSL/Hyper-V, Docker bridges — `docker*`, `br-*`, and the
- * `bridge100` a Docker Desktop install creates on macOS — TUN/TAP VPNs,
- * Clash-style TUN stacks, WireGuard, Tailscale, ZeroTier). Their addresses are
- * reachable from this machine but usually NOT from a phone on the LAN, so they
- * sort after physical adapters. Case-insensitive; `^br-`, `^bridge<digits>`, and
- * `^wg` anchor the Docker and WireGuard naming conventions.
+ * Local root URL of the active Web server, using the browser-compatible form
+ * of its bind address and brackets for IPv6 literals. Non-loopback binds such
+ * as a container's Pod address advertise that address.
+ * @throws when the runtime resolves without a bound webServer, or when the bind
+ *   address has no URL form (see {@link advertisedBindHost}).
  */
-const VIRTUAL_INTERFACE = new RegExp([
-  'vmware', 'vmnet', 'vethernet', 'virtualbox', 'vbox', 'hyper-v', 'wsl', 'docker', 'veth',
-  '^br-', '^bridge\\d', 'tun', 'tap', 'clash', 'vpn', 'wireguard', '^wg', 'tailscale', 'zerotier',
-].join('|'), 'i')
-
-/**
- * Whether the address can never be a LAN authority a phone reaches: the RFC 2544
- * benchmarking range (198.18.0.0/15) that Clash-style fake-ip TUN stacks assign,
- * and the link-local range (169.254.0.0/16) an interface keeps when DHCP failed.
- * Both are excluded from BOTH the display addresses and the fence authorities.
- */
-function isUnusableLanAddress(address: string): boolean {
-  const [first, second] = address.split('.').map(Number)
-  if (first === 198) return second === 18 || second === 19
-  return first === 169 && second === 254
+function localWebUrl(ctx: Context): string {
+  const webServer = ctx.get('webServer')
+  const port = webServer?.port
+  if (webServer === undefined || port === undefined) {
+    throw new Error('web-app: webServer service missing while resolving Web runtime')
+  }
+  const host = advertisedBindHost(webServer.host)
+  return `${webServer.protocol}//${isIP(host) === 6 ? `[${host}]` : host}:${String(port)}`
 }
 
 /**
- * Resolve one LAN-trust snapshot from the active server bind.
- *
- * Derived entries are port-less IP literals: DNS rebinding needs an
- * attacker-controlled name, while an IP-literal Host is safe on any port and
- * an OS-assigned port is unknowable before bind.
- *
- * Derivation rules for an all-interfaces bind: every non-internal IPv4 literal
- * EXCEPT the unusable ranges above; then a stable sort that places physical
- * adapters before virtual/tunnel ones (matched by interface name, see
- * VIRTUAL_INTERFACE), so `lanAddresses[0]` — the address the readiness line and
- * the phone-join QR use — is the LAN address a phone can actually reach; the
- * readiness line prints the remaining candidates, because a wrong first pick is
- * otherwise invisible. Virtual addresses stay in the result: a host whose only
- * non-loopback path is virtual (a Tailscale-only deployment) still derives a
- * usable URL.
- * @param bindHost - the active webserver bind host.
- * @param extra - explicit `--trusted-host` values, in argument order.
- * @returns the LAN display addresses and invocation-derived fence authorities.
+ * Bind address in a URL. Loopback addresses use their canonical address text,
+ * so browsers treat them as local, trustworthy origins: a genuinely mapped
+ * literal such as `::ffff:127.0.0.1` reads as `127.0.0.1`, and a dotted-quad
+ * tail reads as the address it names, so `::0.0.0.1` reads as `::1` rather
+ * than as `0.0.0.1`. Interface zone IDs cannot appear in a URL; only a
+ * redundant loopback zone can be dropped.
+ * @param host - webserver bind address.
+ * @returns the zone-free URL host.
+ * @throws when a non-loopback zone requires an explicit public URL.
  */
-export function resolveLanTrust(bindHost: string, extra: readonly string[]): WebRuntimeValues {
-  if (bindHost !== ALL_INTERFACES_HOST) return { lanAddresses: [], trustedHosts: [...extra] }
-  const derived: { address: string; virtual: boolean }[] = []
-  for (const [name, addresses] of Object.entries(networkInterfaces())) {
-    for (const iface of addresses ?? []) {
-      if (iface.family !== 'IPv4' || iface.internal) continue
-      if (isUnusableLanAddress(iface.address)) continue
-      derived.push({ address: iface.address, virtual: VIRTUAL_INTERFACE.test(name) })
-    }
-  }
-  // Array.prototype.sort is stable: enumeration order is kept within each group.
-  derived.sort((left, right) => Number(left.virtual) - Number(right.virtual))
-  const lanAddresses = derived.map(entry => entry.address)
-  return { lanAddresses, trustedHosts: [...lanAddresses, ...extra] }
+function advertisedBindHost(host: string): string {
+  const zoneAt = host.indexOf('%')
+  const bare = zoneAt === -1 ? host : host.slice(0, zoneAt)
+  if (isLoopbackHost(bare)) return normalizeBindAddress(bare)
+  if (zoneAt === -1) return host
+  throw new Error(
+    `web-app: bind address ${JSON.stringify(host)} carries an interface zone id, which no URL can express;`
+    + ' pass --public-url with the root browsers actually reach it through',
+  )
+}
+
+/** Resolve the advertised root: this plugin's canonical `publicUrl`, or the bind-address URL (loopback when bound to loopback). */
+function appRootUrl(ctx: Context, publicUrl: string | undefined): string {
+  if (publicUrl !== undefined) return publicUrl
+  return localWebUrl(ctx)
 }
 
 /** Model-visible orientation and acceptance boundary for sessions created through `dsh web`. */
@@ -186,13 +160,6 @@ function webSurfacePrompt(webUrl: string): string {
     + 'Starting another server does not update this GUI. '
     + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
     + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
-}
-
-/** Resolve the canonical loopback URL from the active Web server. */
-function localWebUrl(ctx: Context): string {
-  const port = ctx.get('webServer')?.port
-  if (port === undefined) throw new Error('web-app: webServer service missing while resolving Web runtime')
-  return `http://${LOOPBACK_HOST}:${String(port)}`
 }
 
 /**
@@ -266,15 +233,17 @@ export const internals: {
  * @param config - validated {@link Config}.
  */
 export function apply(ctx: Context, config: Config): void {
-  const runtime = resolveLanTrust(ctx.webServer.host, config.trustedHosts)
-  if (ctx.webServer.host === ALL_INTERFACES_HOST) {
-    console.error('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
+  // The schema validates a present string; an explicit YAML `null` bypasses
+  // the string transform and reaches here, meaning unset.
+  const publicUrl = config.publicUrl ?? undefined
+  const boundHost = ctx.webServer.host
+  if (publicUrl === undefined) advertisedBindHost(boundHost)
+  if (ctx.webServer.protocol === 'http:' && !isLoopbackHost(boundHost)) {
+    console.warn(`dsh web: listening on ${boundHost} over plain HTTP; restrict this port to a trusted proxy or network`)
   }
-  // The loopback URL belongs to this host. Under SSH, the operator reaches it
+  // The bind URL belongs to this host. Under SSH, the operator reaches it
   // through a local forwarding address that this process cannot derive.
   const handoffBrowser = config.openBrowser && !launchedThroughSsh(launchEnvironmentOf(ctx))
-  // Release dependent rows only after bind-dependent trust has been sampled once.
-  ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {
@@ -282,53 +251,33 @@ export function apply(ctx: Context, config: Config): void {
       promptCtx.systemPrompt.section({
         name: 'app:web-surface',
         order: promptCtx.systemPrompt.getSectionOrder('WEB_SURFACE'),
-        text: () => webSurfacePrompt(localWebUrl(promptCtx)),
+        text: () => webSurfacePrompt(appRootUrl(promptCtx, publicUrl)),
       })
     })
     ctx.inject(['shellEnv'], (runtimeCtx) => {
       runtimeCtx.shellEnv.register({
         name: 'web-runtime',
         variables: {
-          [DSH_WEB_URL]: { description: 'Canonical local URL of the DeepSeek Harness Web GUI serving this session.' },
+          [DSH_WEB_URL]: { description: 'Advertised URL of the DeepSeek Harness Web GUI serving this session.' },
         },
-        resolve: () => ({ [DSH_WEB_URL]: localWebUrl(runtimeCtx) }),
+        resolve: () => ({ [DSH_WEB_URL]: appRootUrl(runtimeCtx, publicUrl) }),
       })
     })
   }
   if (config.printUrl || handoffBrowser) {
-    // One announcement per activation: a Connection reload inside this
-    // activation re-enters the callback for the same server, while a live patch
-    // that reloads this row binds a new server and must print its URL again.
-    let announced = false
     ctx.inject(['connection'], (connectionCtx) => {
       // The URL line and browser handoff are readiness signals: supervisors RPC
       // as soon as they observe the line, while a browser requests the page as
       // soon as it opens. Neither may run while sibling rows such as the /api
-      // route owner are still mounting, and a row that can never activate settles
-      // the Loader without failing it — the boot's activation audit is what
-      // rejects that tree — so the launcher's committed startup gates the
-      // announcement whenever it is available.
+      // route owner are still mounting. Await Loader settlement first; a
+      // hand-built tree without a Loader is already the complete tree.
       const announceReady = (): void => {
-        if (announced) return
-        const webUrl = localWebUrl(connectionCtx)
+        if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
+        const webUrl = appRootUrl(connectionCtx, publicUrl)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
-        // Reuse the exact LAN snapshot provided to the /api trust fence. The LAN
-        // line stays token-free: the process launch token is the computer's own
-        // credential and is exchanged on loopback only, so a phone reaches this
-        // deployment by pairing, never by opening a printed URL.
-        const port = connectionCtx.webServer.port
-        const lanUrls = runtime.lanAddresses
-          .map(address => `http://${address}:${String(port)}/`)
-        const [lanUrl] = lanUrls
-        announced = true
+        ANNOUNCED_ROOTS.add(connectionCtx.root)
         if (config.printUrl) {
-          console.log(`dsh web: ${authenticatedUrl}${lanUrl === undefined ? '' : ` (LAN: ${lanUrl})`}`)
-          // The phone-join QR encodes the first candidate only, and the
-          // derivation is a name heuristic; the rest stay visible so an
-          // unreachable pick is one copy-and-swap away instead of silent.
-          if (lanUrls.length > 1) {
-            console.log(`dsh web: other LAN addresses: ${lanUrls.slice(1).join(' ')}`)
-          }
+          console.log(`dsh web: ${authenticatedUrl}`)
         }
         if (handoffBrowser) {
           console.log('dsh web: opening the default browser; pass --no-open to disable')
@@ -338,32 +287,23 @@ export function apply(ctx: Context, config: Config): void {
           })
         }
       }
-      // This row's own activation can precede a sibling failure, and the app owns
-      // readiness: when the launcher provides its startup signal, announce only
-      // once that commits. A row that can never activate still settles the Loader
-      // and is rejected only by the boot's own activation audit, so a URL line
-      // published on the settle advertises a tree that is about to abort — and
-      // supervisors act on that line. A composition without the signal (a
-      // hand-built tree) falls back to the Loader path below.
-      const appReady = connectionCtx.get('appReady')
-      if (appReady !== undefined) {
-        connectionCtx.effect(() => appReady.onReady(announceReady), 'web-app: readiness announcement')
-        return
-      }
-      // A tree without that signal announces on its Loader settle, or at once
-      // when a hand-built tree carries no Loader at all.
+      // This row's own activation can precede a sibling failure. The app owns
+      // readiness by waiting for its Loader tree, or announces at once in a
+      // hand-built tree without Loader.
       const settled = connectionCtx.get('loader')?.await()
       if (settled === undefined) announceReady()
       else {
-        void settled.then(() => {
+        void settled.then(async () => {
+          await auditStartupEntries(connectionCtx.root, 'dsh web', () => {})
           // The tree can be disposed while the boot was in flight (early
           // SIGTERM); a URL line or browser tab for a dead server would only
           // mislead, and reading torn-down services would turn a clean shutdown
           // into a crash.
           if (connectionCtx.get('webServer') !== undefined
             && connectionCtx.get('connection') !== undefined) announceReady()
-        // Loader reports a failed boot; this row only stays quiet.
-        }, () => {})
+        }).catch(() => {
+          // Boot owns the failure diagnostic; readiness remains unpublished.
+        })
       }
     })
   }

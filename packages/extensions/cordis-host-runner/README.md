@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cordis-host-runner` makes dynamic packages runnable in this process: definitions the model records with `cordis_define` stay here, host halves run in a `node:vm` sandbox, a package with a browser half waits for a person to approve or decline it on a page, and the model can inspect the live runtime and its definitions here. The model-facing tools live in `@deepseek-ai/dsh-tool-cordis`, and the browser half loads through `@deepseek-ai/dsh-cordis-client-runner`. Definitions live only in process memory, so a DSH restart clears them and nothing is written to disk. One config field, `vmTimeoutMs`, bounds synchronous sandbox evaluation.
+`dsh-cordis-host-runner` runs dynamic packages in this process: definitions the model records with `cordis_define` stay here, host halves run in a `node:vm` sandbox, a package with a browser half waits for a person to approve or decline it on a page, and the model inspects the live runtime and its definitions through the inspect registry. Definitions live only in process memory, so a DSH restart clears them. Two config fields bound it: `vmTimeoutMs` bounds synchronous sandbox evaluation, and `clientInspectTimeoutMs` bounds a Client inspect query, whose failure asks the caller to open or reconnect the Harness page and retry.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin in any composition that should support dynamic packages — it powers the model's `cordis_*` tools, and packages with a browser half additionally need the client runner plus the UI package composed on the client side. The common path is explicit: load this package, optionally set `vmTimeoutMs`, and let the tools and the browser do the rest.
+Mount this plugin in any composition that should support dynamic packages — it powers the model's `cordis_*` tools, and packages with a browser half additionally need the client runner plus the UI package composed on the client side. The common path is explicit: load this package, optionally set `vmTimeoutMs` or `clientInspectTimeoutMs`, and let the tools and the browser do the rest.
 
 ### Minimal configuration
 
@@ -38,8 +38,16 @@ Mount this plugin in any composition that should support dynamic packages — it
 | Field | Default | Meaning |
 |---|---|---|
 | `vmTimeoutMs` | `5000` | Milliseconds the synchronous portion of a host half may run in the vm before evaluation is aborted |
+| `clientInspectTimeoutMs` | `10000` | Maximum wait for a valid Client inspect response; an integer from 1 to 2147483647 milliseconds |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-cordis-host-runner) is the exhaustive source for every accepted field.
+
+<a id="client-inspection"></a>
+### Client inspection
+
+When Gateway is mounted, a Client query with no live event stream fails before dispatch. This check does not subscribe to disconnections: queries already dispatched retain their original deadline. Standalone event transports without Gateway retain the same timeout behavior.
+
+Client queries accept the first valid page response within `clientInspectTimeoutMs`. A failed page does not prevent another page from answering successfully. If no valid result arrives, the query rejects with the first Client failure or output-validation diagnostic; when no page answers, it asks the caller to open or reconnect the Harness page and retry. Cancellation and registry disposal also end pending queries. Reconnecting a page does not replay a missed request, so retry after the connection is restored. Host queries are unaffected by this timeout.
 
 ### What a run does
 

@@ -30,14 +30,15 @@ interface Config {
   /**
    * The preset table: name → knob bundle. Defaults to `workspace-write`
    * (workspace-write + ask) and `danger-full-access` (danger-full-access +
-   * never). The name `custom` is reserved for the derived not-a-preset state.
+   * never). The names `custom` and `auto` are reserved for derived state and
+   * the Auto review integration respectively.
    */
-  presets?: Record<string, PresetSpec>
+  presets: Record<string, PresetSpec>
   /**
    * Default for new sessions. When omitted, the preset matching the composed
    * sandbox and approval defaults is used.
    */
-  defaultPreset?: string
+  defaultPreset: Volatile<string | undefined>
 }
 ```
 
@@ -50,9 +51,9 @@ The service requires a confining `ctx.shell` executor and `ctx.approval`, and mi
 `names` lists the switchable presets in table declaration order; `optionOf(name)` builds the option a client renders for a table key (label falls back to the key) or for `custom`, and throws for any other name.
 
 ```ts type-equiv
-/** The select-option shape a presentation layer advertises for one preset (or for the derived `custom` state). */
+/** Presentation for an available preset or the derived `custom` current value. */
 interface PresetOption {
-  /** Stable option value: the table key, or `custom`. */
+  /** Stable option value: a configured preset key, live `auto`, or derived `custom`. */
   value: string
   /** The display label. */
   name: string
@@ -79,40 +80,48 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.permissionPresets` — `PermissionPresetService`
 
-Owns the deployment's permission presets and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.
+Owns the deployment's configured permission presets, the fixed Auto integration hook, and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.
 
 ```ts cordis-catalog
 /**
+ * Read the complete process-level catalog exposed to current-session UI.
+ * @returns every currently selectable preset in contribution order.
+ */
+@Remote('catalog') catalog(): PermissionCatalog
+
+/**
+ * Publish the fixed current-session Auto preset for the calling
+ * integration's effect lifetime.
+ * @param admit - synchronous gate run before live Auto selection or restore.
+ * @returns the async effect disposer that removes Auto.
+ */
+registerAuto(admit: () => void): () => Promise<void>
+
+/**
  * Resolve the preset matching the effective knob values. A still-matching
- * last selection wins shared-bundle ties; otherwise the first table match
- * wins, or {@link CUSTOM_PRESET} when no entry matches.
+ * last selection wins shared-bundle ties, and a still-selected Auto also
+ * matches the `never` approval policy; otherwise the first configured
+ * match wins. Returns
+ * {@link CUSTOM_PRESET} when no available preset matches.
  * @param session - the session whose knob state is read.
  * @returns the effective preset name, or `custom` when nothing matches.
  */
 current(session: Session): string
 
 /**
- * Build the whole select value for one folded knob state: every table
- * option in declaration order, `custom` appended exactly while derived.
- * @param state - the folded knob overrides.
- * @returns the `permissions` projection payload.
- */
-selectFor(state: KnobState): PermissionSelect
-
-/**
- * Resolve a preset's knob bundle.
+ * Resolve an available preset's knob bundle.
  * @param name - the preset name to resolve.
  * @returns the configured bundle.
- * @throws when `name` is not in the table.
+ * @throws when `name` is neither configured nor the currently live Auto preset.
  */
 resolve(name: string): PresetSpec
 
 /**
- * Build the client option for a table entry or {@link CUSTOM_PRESET}. A
- * missing label falls back to the table key.
- * @param name - a table key, or `custom`.
+ * Build the client option for an available preset or {@link CUSTOM_PRESET}.
+ * A missing label falls back to the preset key.
+ * @param name - a configured preset key, live `auto`, or `custom`.
  * @returns the option a client renders.
- * @throws when `name` is neither a table key nor `custom`.
+ * @throws when `name` is neither a configured preset, live `auto`, nor `custom`.
  */
 optionOf(name: string): PresetOption
 
@@ -128,4 +137,25 @@ set(session: Session, name: string): void
 Types: [Session](session.md)
 
 Source: [`packages/interaction/permission-presets/src/index.ts`](../../packages/interaction/permission-presets/src/index.ts)
+
+<a id="permission-presets-events"></a>
+
+### `permission-presets/*` events
+
+<a id="permission-presetscatalog-changed--emit"></a>
+
+#### `permission-presets/catalog-changed` — emit
+
+The selectable process catalog changed. Payload-free by design: consumers subscribe first, then re-read the complete catalog.
+
+```ts cordis-catalog
+/**
+ * The selectable process catalog changed. Payload-free by design:
+ * consumers subscribe first, then re-read the complete catalog.
+ * @mode emit
+ */
+'permission-presets/catalog-changed'(): void
+```
+
+Source: [`packages/interaction/permission-presets/src/types.ts`](../../packages/interaction/permission-presets/src/types.ts)
 <!-- END GENERATED cordis-surface -->

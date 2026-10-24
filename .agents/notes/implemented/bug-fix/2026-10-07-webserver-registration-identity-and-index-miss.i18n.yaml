@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-webserver-registration-identity-and-index-miss.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-webserver-registration-identity-and-index-miss.md
-2026-10-07-webserver-registration-identity-and-index-miss.md: de823c8059c8e55f6b5bd85db7177012c2cc6569
-2026-10-07-webserver-registration-identity-and-index-miss.zh.md: 4a805a2f48b3d4f842107d32fbcfb3212e2a5aba
+/agent-note-a-registration-is-released-by-identity-and-an-unbuilt-dist-is-a-miss-every-index-surface-answers:
+  en: 0a66209631068b3b
+  zh: 2eebd9d31c81c989
+/agent-note-a-registration-is-released-by-identity-and-an-unbuilt-dist-is-a-miss-every-index-surface-answers/problem:
+  en: a76ba42da79ad7d7
+  zh: 70b1af82c86ede0f
+/agent-note-a-registration-is-released-by-identity-and-an-unbuilt-dist-is-a-miss-every-index-surface-answers/decision:
+  en: d143ba2d38f051a2
+  zh: 1de452dfa114d743
+/agent-note-a-registration-is-released-by-identity-and-an-unbuilt-dist-is-a-miss-every-index-surface-answers/alternatives-considered:
+  en: f571ca2f60d0d054
+  zh: ad3a3b9f51555541
+/agent-note-a-registration-is-released-by-identity-and-an-unbuilt-dist-is-a-miss-every-index-surface-answers/consequences:
+  en: c0ec90bf96cec18e
+  zh: f8461acae72f003f

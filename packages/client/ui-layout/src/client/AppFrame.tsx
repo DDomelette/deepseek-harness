@@ -11,7 +11,10 @@
  * leaves the grid: the closed sidebar owns no track — the floating brand button
  * (the sidebar slot's fab flag) replaces the rail — and the column floats over
  * the center as a drawer behind a scrim. A scrim tap, Escape, or a tracked edge
- * swipe closes it; a right swipe from the frame's left edge opens it. Enter
+ * swipe closes it; a right swipe from the frame's left edge opens it. The drawer
+ * owns focus for as long as it is shown: the covered columns go inert and the
+ * column takes focus on entry, returning it to the control captured at the
+ * opening render once the presentation ends. Enter
  * rides a mount-scoped keyframe (data-entering, cleared on the keyframe's own
  * duration — re-arming it mid-life would flash the column back to its hidden
  * start) and exit a delayed unmount (DRAWER_SLIDE_MS), both on the track
@@ -30,8 +33,7 @@ import type { ReactNode } from 'react'
 import type {
   PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import { computeColumns, RIGHTBAR_DEFAULT_RATIO, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_OVERLAY } from './columns.ts'
-import type { Columns } from './columns.ts'
+import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_OVERLAY } from './columns.ts'
 import { DocumentTitle } from './DocumentTitle.tsx'
 import type { createLayoutStore } from './stores.ts'
 import css from './AppFrame.module.css'
@@ -68,13 +70,23 @@ interface SidebarGesture {
 /** Full composed props: runtime share + child-slot render share + store share. */
 export type AppFrameProps =
   & PropsRuntime<'root'>
-  & PropsRenderSlots<'sidebar' | 'main' | 'rightbar' | 'shell.overlay'>
+  & PropsRenderSlots<'sidebar' | 'main' | 'rightbar' | 'shell.bottom' | 'shell.overlay' | 'shell.leading'>
   & PropsStore<ReturnType<typeof createLayoutStore>>
   & PropsLocale<'common'>
 
+/**
+ * Attributes that take a column covered by the drawer out of the tab order and
+ * the accessibility tree. React 18 forwards the boolean attribute only as a
+ * string value, so an object spread carries it and `true` would be dropped.
+ * @param covered - whether the drawer presentation covers the column.
+ */
+function coveredProps(covered: boolean): { inert?: string } {
+  return covered ? { inert: '' } : {}
+}
+
 /** Center column grid item (session-body building block). */
-function CenterColumn(props: { children?: ReactNode }) {
-  return <div className={css.centerCol}>{props.children}</div>
+function CenterColumn(props: { children?: ReactNode; covered: boolean }) {
+  return <div className={css.centerCol} {...coveredProps(props.covered)}>{props.children}</div>
 }
 
 /** Subscribe to the main key without subscribing the column frame to each panel id. */
@@ -88,8 +100,8 @@ function MainPanel({ usePanelInfo, renderSlot }: Pick<PropsRuntime<'root'>, 'use
  * occupant's panel is positioned against the column's right edge, which never
  * moves, so it can hang over the centre when there is no track.
  */
-function RightbarColumn(props: { children?: ReactNode }) {
-  return <div className={css.rightbarCol} data-rightbar-col>{props.children}</div>
+function RightbarColumn(props: { children?: ReactNode; covered: boolean }) {
+  return <div className={css.rightbarCol} data-rightbar-col {...coveredProps(props.covered)}>{props.children}</div>
 }
 
 /**
@@ -169,6 +181,10 @@ export function AppFrame({
 }: AppFrameProps) {
   const layoutInfo = useStore(state => state.layoutInfo)
   const frameRef = useRef<HTMLDivElement | null>(null)
+  // The sidebar column element, focused when the drawer presentation opens.
+  const sidebarColRef = useRef<HTMLDivElement | null>(null)
+  // The control that held focus when the drawer opened (the drawer focus effect).
+  const drawerReturnFocus = useRef<HTMLElement | null>(null)
   const viewport = layoutInfo.viewportWidth
 
   // Track the frame's own box (not the window): rAF-throttled ResizeObserver.
@@ -199,6 +215,9 @@ export function AppFrame({
   }, [actions])
 
   const narrow = viewport < SIDEBAR_AUTO_COLLAPSE
+  // The overlay band: below it the closed sidebar owns no track and the frame
+  // marks itself, so the rail's whole job collapses into the sidebar slot's
+  // floating brand button.
   const overlay = viewport < SIDEBAR_OVERLAY
   const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded : layoutInfo.sidebar === 0
   // Below the overlay breakpoint an expanded sidebar leaves the grid and floats
@@ -208,19 +227,33 @@ export function AppFrame({
     ? 0
     : layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : layoutInfo.sidebar
   const rightbarPreference = layoutInfo.rightbar ?? viewport * RIGHTBAR_DEFAULT_RATIO
+  // Desktop reopen controls occupy the frame's shell.leading seat (macOS) or
+  // the Windows caption row; neither platform keeps an icon rail.
+  const darwin = document.documentElement.dataset.platform === 'darwin'
+  const collapsedWidth = darwin
+    || document.documentElement.hasAttribute('data-windows-titlebar') ? 0 : SIDEBAR_COLLAPSED
   // Opening on a narrow frame collapses the left sidebar. Eligibility must
   // include that space before the occupant's first shown report arrives.
-  const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : drawerOpen ? 0 : sidebarPreference, rightbarPreference)
-  const solved = computeColumns(viewport, drawerOpen ? 0 : sidebarPreference, layoutInfo.rightbarTrack ? rightbarPreference : 0)
+  const normal = computeColumns(
+    viewport,
+    !layoutInfo.rightbarShown && narrow ? 0 : drawerOpen ? 0 : sidebarPreference,
+    rightbarPreference,
+    collapsedWidth,
+  )
+  const solved = computeColumns(
+    viewport,
+    drawerOpen ? 0 : sidebarPreference,
+    layoutInfo.rightbarTrack ? rightbarPreference : 0,
+    collapsedWidth,
+  )
   // Below the overlay breakpoint the closed sidebar owns no track: the floating
-  // brand button (the sidebar slot's fab flag) replaces the rail, so the
-  // solve's rail width is dropped here. computeColumns keeps its 0→rail
-  // semantics for the squeeze band and its own tests.
-  const cols: Columns = overlay
+  // brand button (the sidebar slot's fab flag) replaces the rail, so the solve's
+  // rail width is dropped here. computeColumns keeps its 0→rail semantics for
+  // the squeeze band and its own tests.
+  const cols = overlay
     ? { sidebar: 0, center: Math.max(0, viewport - solved.rightbar), rightbar: solved.rightbar }
     : solved
   const colsRef = useRef(cols)
-  colsRef.current = cols
   const rightbarWidth = useRef(normal.rightbar)
   rightbarWidth.current = normal.rightbar
 
@@ -232,6 +265,69 @@ export function AppFrame({
   // Track-level transitions pause for the whole gesture: eased tracks would
   // detach the column edge from the pointer (AppFrame.module.css).
   const [dragging, setDragging] = useState(false)
+  // Track easing is scoped to a discrete open/close toggle: data-animating
+  // goes up when the collapse state or the rightbar track flips and comes down
+  // at transition end (timeout as the reduced-motion/covered-frame fallback).
+  // Steady-state viewport updates stay instant (AppFrame.module.css), and so
+  // does a toggle arriving together with a viewport change — that is the
+  // responsive auto-collapse firing mid window-resize, where easing would
+  // chase the live window edge. The counter restarts the settle window when a
+  // re-toggle interrupts a running transition.
+  //
+  // The frame renders committedCols, one style recalc behind a detected
+  // toggle, on purpose: Chromium never starts a transition whose property and
+  // duration arrive in the same style recalc as the value change (same-recalc
+  // arming snaps even for a plain width), so the toggle path arms
+  // data-animating on the frame and forces a reflow while the old columns are
+  // still rendered, then commits the new columns in the next recalc — still
+  // before paint — and the track slides from its old width instead of jumping.
+  const [animating, setAnimating] = useState(0)
+  const [committedCols, setCommittedCols] = useState(cols)
+  const trackToggle = `${sidebarCollapsed}:${layoutInfo.rightbarTrack}`
+  const previousToggle = useRef(trackToggle)
+  const previousViewport = useRef(viewport)
+  useLayoutEffect(() => {
+    const frame = frameRef.current
+    /* v8 ignore next -- the ref is always attached by effect time: the frame div renders unconditionally. */
+    if (frame === null) return
+    const viewportChanged = previousViewport.current !== viewport
+    previousViewport.current = viewport
+    const toggleChanged = previousToggle.current !== trackToggle
+    if (toggleChanged) previousToggle.current = trackToggle
+    if (committedCols.sidebar === cols.sidebar && committedCols.center === cols.center && committedCols.rightbar === cols.rightbar) return
+    if (dragging || viewportChanged || !toggleChanged) {
+      // Preference drags, live resizes, and geometry that changes without a
+      // discrete toggle land instantly, and cancel any armed easing so a track
+      // never chases the live window edge.
+      frame.removeAttribute('data-animating')
+      setAnimating(0)
+      setCommittedCols(cols)
+      return
+    }
+    frame.setAttribute('data-animating', 'true')
+    void frame.offsetWidth
+    setAnimating(token => token + 1)
+    setCommittedCols(cols)
+  }, [cols, committedCols, dragging, viewport, trackToggle])
+  // The drag base mirrors the rendered tracks, not the desired ones: a toggle
+  // commit sits one recalc behind the solved columns until it lands pre-paint.
+  colsRef.current = committedCols
+  useEffect(() => {
+    if (animating === 0) return
+    const frame = frameRef.current
+    /* v8 ignore next -- the ref is always attached by effect time: the frame div renders unconditionally. */
+    if (frame === null) return
+    const settle = () => { setAnimating(0) }
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target === frame && event.propertyName === 'grid-template-columns') settle()
+    }
+    frame.addEventListener('transitionend', onTransitionEnd)
+    const timer = setTimeout(settle, 600)
+    return () => {
+      frame.removeEventListener('transitionend', onTransitionEnd)
+      clearTimeout(timer)
+    }
+  }, [animating])
   const onDragEnd = useCallback(() => { setDragging(false) }, [])
   const onSidebarStart = useCallback(() => { sidebarBase.current = colsRef.current.sidebar; setDragging(true) }, [])
   const onSidebarDrag = useCallback((dx: number) => {
@@ -281,6 +377,14 @@ export function AppFrame({
   // change can restart it and flash the column back to its hidden start.
   const [drawerEntering, setDrawerEntering] = useState(false)
   if (drawerWasOpen !== drawerOpen) {
+    // The opening commit unmounts the fab and inerts the covered columns, both
+    // of which move focus away before any effect can read it, so the control
+    // the drawer returns to is captured on the render that opens it. A reopen
+    // inside the slide-out window keeps the capture its open started with.
+    if (drawerOpen && drawerReturnFocus.current === null) {
+      const active = document.activeElement
+      drawerReturnFocus.current = active instanceof HTMLElement ? active : null
+    }
     setDrawerWasOpen(drawerOpen)
     setDrawerClosing(!drawerOpen && drawerWasOpen && overlay)
     setDrawerEntering(drawerOpen && !gestureDriven && !drawerClosing)
@@ -306,7 +410,25 @@ export function AppFrame({
     return () => { clearTimeout(timer) }
   }, [drawerEntering])
   const drawerShown = drawerOpen || (overlay && drawerClosing)
-  const sidebarWidth = drawerShown ? drawerWidth : cols.sidebar
+  const sidebarWidth = drawerShown ? drawerWidth : committedCols.sidebar
+
+  // Drawer focus ownership: the column takes focus while the drawer is shown,
+  // and the presentation's end hands it back to the control the drawer was
+  // opened from. That control is detached when it unmounted with the covered
+  // page (the overlay band's fab does), and focusing a detached element is a
+  // no-op.
+  useLayoutEffect(() => {
+    if (drawerShown) {
+      const column = sidebarColRef.current
+      /* v8 ignore next -- the sidebar column renders unconditionally. */
+      if (column === null) return
+      column.focus()
+      return
+    }
+    const target = drawerReturnFocus.current
+    drawerReturnFocus.current = null
+    target?.focus()
+  }, [drawerShown])
 
   // Drawer edge swipe (overlay band, touch pointers only): a right swipe from
   // the frame's left edge opens the drawer under the pointer, and a left swipe
@@ -316,7 +438,6 @@ export function AppFrame({
   // position drives the column and scrim through inline styles while the
   // store flips only at engagement and release, so a re-render never fights
   // the gesture's own writes.
-  const sidebarColRef = useRef<HTMLDivElement | null>(null)
   const scrimRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<SidebarGesture | null>(null)
   const gestureX = useRef(0)
@@ -445,7 +566,17 @@ export function AppFrame({
     const g = gestureRef.current
     if (g !== null && g.frame !== null) cancelAnimationFrame(g.frame)
   }, [])
-
+  // The rendered template lets the grid solve the squeeze natively: the centre
+  // declares its protected minimum and the right column bids up to the clamped
+  // preference, so a window resize lands in the same layout pass as the frame
+  // edge. The JS solve lags the viewport by a ResizeObserver + rAF frame; when
+  // it priced the squeeze itself, the centre column absorbed each width change
+  // whole and was corrected two frames later — visible jitter. cols keeps only
+  // the discrete decisions (track present, collapse state) and the drag base.
+  // The template reads committedCols: a discrete toggle keeps the old tracks
+  // for one recalc while data-animating arms, then commits pre-paint (see the
+  // animating effect above), so the eased slide starts from the old geometry.
+  const rightbarMax = committedCols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO)
   const sidebar = useMemo(() => renderSlot('sidebar', {
     // The slide-out keeps the wide parameters: the column must not swap to
     // the floating brand button mid-slide.
@@ -457,27 +588,32 @@ export function AppFrame({
     <MainPanel usePanelInfo={usePanelInfo} renderSlot={renderSlot} />
   ), [usePanelInfo, renderSlot])
   const overlays = useMemo(() => renderSlot('shell.overlay', {}), [renderSlot])
+  // Window-chrome seat over the main panels' top-left corner: only a fully
+  // hidden sidebar column on macOS desktop leaves window chrome without a
+  // home — the Windows zero-width collapse keeps its controls in the caption
+  // row (ui-sidebar). AppFrame.module.css publishes the matching
+  // --dsh-frame-leading-clearance under the same collapsed condition.
+  const leading = useMemo(() => renderSlot('shell.leading', {}), [renderSlot])
+  const leadingMounted = darwin && sidebarCollapsed
 
-  // data-sidebar-fab is a cross-package contract (attribute selectors are not
-  // CSS-module localized): ui-conversation pads its session header clear of
-  // the floating brand button through it and scopes the docked composer's
-  // handset rules with it; ui-chat aligns the transcript inset with the input
-  // card through it.
   return (
     <div
       ref={frameRef}
       className={css.frame}
       style={{
+        ...(document.documentElement.hasAttribute('data-windows-titlebar')
+          ? { '--dsh-windows-sidebar-width': `${committedCols.sidebar}px` } : {}),
         gridTemplateColumns:
-          `${cols.sidebar}px minmax(0, 1fr) ${cols.rightbar}px`,
+          `${committedCols.sidebar}px minmax(${committedCols.rightbar === 0 ? 0 : CENTER_MIN}px, 1fr) minmax(0px, ${rightbarMax}px)`,
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
+      data-sidebar-fab={overlay || undefined}
       data-drawer={drawerOpen || undefined}
-      data-rightbar-collapsed={cols.rightbar === 0 || undefined}
+      data-rightbar-collapsed={committedCols.rightbar === 0 || undefined}
       data-rightbar-fullscreen={layoutInfo.rightbarFullscreen || undefined}
       data-rightbar-instant={layoutInfo.rightbarInstant || undefined}
       data-dragging={dragging || undefined}
-      data-sidebar-fab={overlay || undefined}
+      data-animating={animating > 0 || undefined}
       onPointerDown={onGestureDown}
       onPointerMove={onGestureMove}
       onPointerUp={onGestureUp}
@@ -492,6 +628,7 @@ export function AppFrame({
       <div
         ref={sidebarColRef}
         className={css.sidebarCol}
+        tabIndex={-1}
         data-drawer={drawerShown || undefined}
         data-closing={drawerClosing || undefined}
         data-entering={drawerEntering || undefined}
@@ -500,8 +637,8 @@ export function AppFrame({
         {sidebar}
       </div>
       <>
-        <CenterColumn>{main}</CenterColumn>
-        <RightbarColumn>
+        <CenterColumn covered={drawerShown}>{main}</CenterColumn>
+        <RightbarColumn covered={drawerShown}>
           {renderSlot('rightbar', { width: normal.rightbar, viewportWidth: viewport, canShow: normal.rightbar > 0 })}
         </RightbarColumn>
       </>
@@ -517,11 +654,19 @@ export function AppFrame({
           onClick={() => { actions.toggleSidebar() }}
         />
       )}
+      <div className={css.bottomRow} data-shell-bottom {...coveredProps(drawerShown)}>
+        {renderSlot('shell.bottom', {})}
+      </div>
       <div className={css.overlayLayer} data-shell-overlay>
         {overlays}
       </div>
-      {/* No resize handle on the fixed-width rail or beneath the overlay drawer. */}
-      {!overlay && !sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
+      {leadingMounted && (
+        <div className={css.leadingSeat} data-shell-leading>
+          {leading}
+        </div>
+      )}
+      {/* No resize handle on the fixed-width rail, and none beneath the overlay drawer. */}
+      {!overlay && !sidebarCollapsed && <DragHandle side="sidebar" left={committedCols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
       {layoutInfo.rightbarShown && !layoutInfo.rightbarFullscreen && normal.rightbar > 0 && (
         <DragHandle side="rightbar" left={viewport - normal.rightbar} onStart={onRightbarStart} onDrag={onRightbarDrag} onEnd={onDragEnd} />
       )}

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The preset group provides per-session agent composition: an agent preset is a directory holding one `agent.cordis.yml`, and a session composed from a preset runs that preset's tools, prompt sections, and skills while every other session keeps its own. `agent-presets` owns the roster — discovery over configured roots plus the harness home, the guarded per-agent mount, and copy-only authoring — and `persona` supplies the composable row that lets a preset change an agent's identity and not only its tools. Together they let one process run several differently composed agents at once.
+The preset group provides per-session agent composition: an agent preset is one `@deepseek-ai/dsh-agent-preset` row whose `plugins` list is an ordinary Cordis entry list, and a session composed from a preset runs that preset's tools, prompt sections, and skills while every other session keeps its own. `agent-preset-registry` owns the roster and revision retention, `agent-preset` contributes the declaration row and ships the composition-authoring skills, and `persona` supplies the composable identity row. The four shipped presets (`standard`, `ptc`, `minimal`, `cordis`) travel as `presets/<id>.patch.yml` files of the `dsh-web-app` bundle.
 
 ## Table of Contents
 
@@ -24,7 +24,8 @@ The preset group provides per-session agent composition: an agent preset is a di
 
 | Package | Role | ctx key |
 |---|---|---|
-| [`agent-presets`](agent-presets/README.md) | Preset roster, discovery over trusted and user roots, per-agent composition, copy-only authoring | `ctx.agentPresets` |
+| [`agent-preset-registry`](agent-preset-registry/README.md) | Preset roster: declared definitions, the standing mount a session joins, and revision retention | `ctx.agentPresets` |
+| [`agent-preset`](agent-preset/README.md) | One `@deepseek-ai/dsh-agent-preset` declaration row, plus the composition-authoring skills the `cordis` preset mounts | — |
 | [`persona`](persona/README.md) | The composable persona row a preset mounts to shadow or replace the deployment persona | — |
 
 -----
@@ -32,12 +33,10 @@ The preset group provides per-session agent composition: an agent preset is a di
 <a id="related-documentation"></a>
 ## Related documentation
 
-- [`AgentPresets` reference](../../docs/subsystems/core.md#ctxagentpresets--agentpresets) — discovery, mounting, inheritance, and recomposition.
+- [`AgentPresets` reference](../../docs/subsystems/core.md#ctxagentpresets--agentpresetregistry) — discovery, mounting, inheritance, and recomposition.
 - [Scope subsystem](../../docs/subsystems/scope.md) — scope keys and the parent chain the mount uses to join agents.
 - [System prompt subsystem](../../docs/subsystems/system-prompt.md) — how preset prompt sections register and assemble.
 - [Per-session agent presets note](../../.agents/notes/implemented/architecture/2026-08-03-per-session-agent-presets.md) — design rationale and alternatives.
-
-The presets the deployment ships live in [`agent-presets/presets/`](agent-presets/presets) — one directory per preset, and that directory listing is the roster; naming them here too would be a second list to keep in step.
 
 -----
 

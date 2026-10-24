@@ -10,7 +10,7 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 ## Decision
 
-`@deepseek-ai/dsh-session-flags` provides a Host presentation-flag registry. The pin client reads `remote.sessionPins` and contributes its flags through the UI Workspace service; the API Workspace projection contains domain membership and archive state only.
+`@deepseek-ai/dsh-session-flags` provides a Host presentation-flag registry. The API Workspace projection carries pin membership and merged presentation flags; the Client Workspace service reads pin ordering through `ClientSessionPinsModel` over `remote.sessionPins`.
 
 `@deepseek-ai/dsh-session-pins` owns the pinned-sessions capability. It persists a `session_pins` storage-domain global with `pinnedSessionIds`, per-workspace `groupOrder` overrides, and a flat `flatOrder` override, and exposes `remote.sessionPins` with `list`, `setPinned`, `reorderGroup`, and `reorderFlat`. Every mutation writes the domain first and returns the complete snapshot. A reorder that names an unknown, unpinned, or duplicate id fails with `session-pins-invalid` before writing. The same plugin registers the only flag provider, projecting `pinned: true`.
 
@@ -22,7 +22,7 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 `ui-workspace` filters `pinned: true` sessions from grouped and flat trees, keeps all-pinned project group headers with the new-session affordance, and ranks pinned search matches first. Pinned order defaults to the project account order (grouped) or recency (flat) and can be overridden by drag; the project account order is never rewritten, so unpinning restores the original position.
 
-During a drag, every row in the source group accepts insertion, while other groups reject it. The insertion index addresses the list after the source is removed, so downward movement preserves the requested before/after relationship. The Client serializes mutations and reconnect refreshes; a failed refresh retains the committed pin snapshot and records the error in the shared store.
+During a drag, every row in the source group accepts insertion, while other groups reject it. The insertion index addresses the list after the source is removed, so downward movement preserves the requested before/after relationship. The Client rejects responses from superseded reads and mutations. A successful current refresh supersedes pending mutation echoes, because its complete Host snapshot can include a pin added through another namespace. A failed refresh retains the committed snapshot, logs the failure, and leaves pending committed echoes eligible to install; a failed read contains no newer state to publish.
 
 ## Alternatives considered
 
@@ -39,4 +39,4 @@ During a drag, every row in the source group accepts insertion, while other grou
 
 ## Testing
 
-Host domain and Remote behavior are covered by [session-pins tests](../../../../packages/session/session-pins/tests); flag merging by [session-flags tests](../../../../packages/session/session-flags/tests); UI registration, filtering, ordering, and failed-refresh recovery by the pinned-session and Workspace client package tests. The [workspace browser scenario](../../../../apps/web/tests/workspace-management.e2e.ts) checks grouped and flat drag ordering against the durable Host snapshot and the visible order after reload.
+Host domain and Remote behavior are covered by [session-pins tests](../../../../packages/session/session-pins/tests); flag merging by [session-flags tests](../../../../packages/session/session-flags/tests); UI registration, filtering, ordering, and failed-refresh recovery by the pinned-session and Workspace client package tests. The [Workspace Controller transport scenario](../../../../packages/api/workspace-controller/tests/transport.client.spec.ts) boots the shipped Client plugin closure and checks that a pin written through the Workspace namespace survives an earlier reorder reply. Deferred-response model tests also cover the inverse ordering and failed refreshes.

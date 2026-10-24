@@ -34,7 +34,7 @@ Local, attempt-scoped provider-usage capture. The plugin observes live `llm/stre
     enabled: true
 ```
 
-The settings provider overrides the composition value while it is attached. If it detaches, the service falls back to the composition value. An enabled-state change adds or removes only the `llm/stream` listener.
+The settings provider overrides the composition value while it is attached. If it detaches, the service falls back to the composition value. The service holds one `llm/stream` listener for its whole life and reads the live `enabled` value when each stream opens, so a committed `enabled: false` stops capture without remounting the service.
 
 <a id="v1-jsonl-rows"></a>
 ## v1 JSONL rows

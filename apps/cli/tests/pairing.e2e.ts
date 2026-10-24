@@ -7,10 +7,9 @@ import { request as httpRequest } from 'node:http'
 import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveLanTrust } from '@deepseek-ai/dsh-web-app'
 import { describe, expect, it } from 'vitest'
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
@@ -31,6 +30,20 @@ interface HttpResult {
 
 function redact(output: string): string {
   return output.replace(/([?&]token=)[^\s)]+/gu, '$1<redacted>')
+}
+
+/**
+ * The first non-internal IPv4 literal this machine exposes: the address a phone
+ * on the same network reaches, and therefore the one the spec binds and trusts.
+ * @returns the literal, or undefined on a machine with no such interface.
+ */
+function firstLanAddress(): string | undefined {
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family === 'IPv4' && !address.internal) return address.address
+    }
+  }
+  return undefined
 }
 
 /** Reserve one concrete loopback port, then release it for the CLI process. */
@@ -170,9 +183,10 @@ const PHONE_AGENT = 'Mozilla/5.0 (Linux; Android 10; JAD-AL50) AppleWebKit/537.3
 
 describe('dsh web phone pairing through the real CLI', () => {
   it('pairs a phone on the LAN and revokes its device session', { timeout: 240_000 }, async (context) => {
-    // The phone's authority comes from the product's own derivation, so the
-    // spec asserts the address `dsh web` prints rather than a guessed one.
-    const lanAddress = resolveLanTrust('0.0.0.0', []).lanAddresses[0]
+    // The deployment names its own reachable authority: `dsh web` refuses a
+    // wildcard bind, so the spec binds one real interface address and declares
+    // it trusted, exactly as an operator would.
+    const lanAddress = firstLanAddress()
     if (lanAddress === undefined) {
       context.skip()
       return
@@ -182,7 +196,7 @@ describe('dsh web phone pairing through the real CLI', () => {
     const port = await freePort()
     let running: RunningWeb | undefined
     try {
-      running = await startWeb(root, dshHome, port, ['--host', '0.0.0.0', '--allow-lan'])
+      running = await startWeb(root, dshHome, port, ['--host', lanAddress, '--trusted-host', lanAddress])
       const lanAuthority = `${lanAddress}:${String(port)}`
       const loopbackAuthority = `127.0.0.1:${String(port)}`
       const computer = await browserCookieOf(running.launchUrl)

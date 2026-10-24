@@ -57,8 +57,7 @@ export function ConnectPhoneRow({ t, joinUrl, canDecide, api }: ConnectPhoneRowC
         closeLabel={t('close')}
         description={t('dialog.description')}
         className={dialogClass}
-        contentClassName={contentFitClass}
-        bodyClassName={scrollClass}
+        contentClassName={`${contentFitClass} ${scrollClass}`}
       >
         {open && <PairingPanel t={t} joinUrl={joinUrl} canDecide={canDecide} api={api} />}
       </Modal>

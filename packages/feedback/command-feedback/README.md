@@ -38,6 +38,8 @@ Type `/feedback` followed by your remark and send it. A successful entry is ackn
 
 Surrounding whitespace is trimmed, but the remark is otherwise kept exactly as typed: no truncation, case folding, or command parsing — `/feedback /plan felt slow` records that literal text. Each command records its own entry; nothing is merged or replaced.
 
+The command declares `definitionId: '@deepseek-ai/dsh-command-feedback'`; the Web command UI uses this identity for localized feedback actions.
+
 <a id="the-web-feedback-dialog"></a>
 ### The Web feedback dialog
 

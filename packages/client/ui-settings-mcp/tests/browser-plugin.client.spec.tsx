@@ -33,12 +33,12 @@ async function bench() {
   const mcpServers = { list }
   Object.assign(remote, { mcpServers })
   ctx.provide('remote.mcpServers', mcpServers)
-  const set = vi.fn<(field: string, value: unknown) => Promise<void>>().mockResolvedValue()
+  const set = vi.fn<(field: string, value: unknown) => Promise<boolean>>().mockResolvedValue(true)
   const mutate = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
   const scope = {
     getSnapshot: () => ({
       status: 'ready' as const,
-      value: { filesystem: { enabled: true, transport: 'stdio' as const } },
+      value: { servers: { filesystem: { enabled: true, transport: 'stdio' as const } } },
       base: undefined,
       user: undefined,
       revision: 1,
@@ -48,36 +48,36 @@ async function bench() {
     subscribe: () => () => {},
     set,
     mutate,
-    unset: vi.fn<() => Promise<void>>().mockResolvedValue(),
+    unset: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   }
-  const bind = vi.fn(() => scope)
-  ctx.provide('settingsScope', { bind } as never)
-  return { ctx, remote, slots: ctx.get('slots') as SlotRegistry, locale, list, bind, set, mutate }
+  const get = vi.fn(() => scope)
+  ctx.provide('configForms', { get } as never)
+  return { ctx, remote, slots: ctx.get('slots') as SlotRegistry, locale, list, get, set, mutate }
 }
 
 function declare(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'root',
-    children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
+    children: { 'settings.section': { kind: 'list', scope: 'root' } },
   } as never, () => null)
 }
 
 describe('ui-settings-mcp browser plugin', () => {
   it('declares only the services used by the roster contribution', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.mcpServers', 'settingsScope'])
+    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.mcpServers', 'configForms'])
   })
 
-  it('registers a localized tab without reading the Remote eagerly', async () => {
+  it('registers a localized section without reading the Remote eagerly', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
 
-    const entry = b.slots.entries('settings.plugins.tab')[0]!
+    const entry = b.slots.entries('settings.section')[0]!
     expect(entry.component).toBe(McpSettingsTab)
-    expect(entry.options).toMatchObject({ id: 'mcp', order: 5 })
+    expect(entry.options).toMatchObject({ id: 'mcp', order: 35 })
     expect(entry.locale).toBe(NS)
     expect(resolveSlotLabel(entry.options.label)).toBe('MCP')
-    expect(b.bind).toHaveBeenCalledWith({ namespace: MCP_SERVERS_NS })
+    expect(b.get).toHaveBeenCalledWith(MCP_SERVERS_NS)
     expect(b.list).not.toHaveBeenCalled()
 
     const injected = (entry.inject as unknown as () => McpSettingsTabInjected)()
@@ -98,7 +98,7 @@ describe('ui-settings-mcp browser plugin', () => {
 
     await injected.setEnabled('filesystem', false)
     expect(b.set).not.toHaveBeenCalled()
-    expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['filesystem', 'enabled'], value: false }])
+    expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['servers', 'filesystem', 'enabled'], value: false }])
     await b.ctx.fiber.dispose()
   })
 
@@ -106,22 +106,22 @@ describe('ui-settings-mcp browser plugin', () => {
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
 
     const stop = declare(b.slots)
-    await vi.waitFor(() => { expect(b.slots.entries('settings.plugins.tab')).toHaveLength(1) })
+    await vi.waitFor(() => { expect(b.slots.entries('settings.section')).toHaveLength(1) })
     b.locale.setLocale('en')
-    expect(resolveSlotLabel(b.slots.entries('settings.plugins.tab')[0]!.options.label)).toBe('MCP')
+    expect(resolveSlotLabel(b.slots.entries('settings.section')[0]!.options.label)).toBe('MCP')
 
     stop()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
     declare(b.slots)
     await vi.waitFor(() => {
-      expect(b.slots.entries('settings.plugins.tab')[0]?.component).toBe(McpSettingsTab)
+      expect(b.slots.entries('settings.section')[0]?.component).toBe(McpSettingsTab)
     })
 
     await fiber.dispose()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
     expect(() => b.locale.register(NS, 'zh', {})).not.toThrow()
     await b.ctx.fiber.dispose()
   })

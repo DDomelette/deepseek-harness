@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-web-surface-visible-failures.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-web-surface-visible-failures.md
-2026-10-07-web-surface-visible-failures.md: e20cedce976f6b2efba771cc19275bf7ba6f3f2f
-2026-10-07-web-surface-visible-failures.zh.md: 14f3e2168ef81e7e12799f7dbaf2d5d130ca7f84
+/agent-note-the-web-surface-states-its-own-failures:
+  en: f1bbb74e81a27289
+  zh: 6837611690d0c16f
+/agent-note-the-web-surface-states-its-own-failures/problem:
+  en: b0e062168ea83e31
+  zh: 391a6a79f39b2044
+/agent-note-the-web-surface-states-its-own-failures/decision:
+  en: 29e59f50e42a2474
+  zh: 6b35dc1dee11baf2
+/agent-note-the-web-surface-states-its-own-failures/alternatives-considered:
+  en: ebe298b183143258
+  zh: 72bf567767e5d326
+/agent-note-the-web-surface-states-its-own-failures/consequences:
+  en: 08b82c1dc412b30b
+  zh: 6e5c4da91875a6dd

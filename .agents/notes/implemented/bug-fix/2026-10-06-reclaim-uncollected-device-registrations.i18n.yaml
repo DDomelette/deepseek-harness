@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-reclaim-uncollected-device-registrations.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-reclaim-uncollected-device-registrations.md
-2026-10-06-reclaim-uncollected-device-registrations.md: 33dac46b6e7b81b8ff6950c264e0f5ef93662a7a
-2026-10-06-reclaim-uncollected-device-registrations.zh.md: e51d65cc053064828e96f2c06a45dccded02b071
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed:
+  en: e3dd4f0c9dee0260
+  zh: 01bd3862a2a7621a
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed/problem:
+  en: 1f33e061a1d52a90
+  zh: 181749da72c2b8f1
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed/decision:
+  en: e63f8f3cda4db860
+  zh: 46bb4654e73b1ec3
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed/alternatives-considered:
+  en: d814790ff8e1bdb1
+  zh: b2cf25ff556ec6d7
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed/consequences:
+  en: 631ad74a23c7e45d
+  zh: f3e194cd5837c324
+/agent-note-approval-rows-whose-phones-never-collected-a-cookie-are-reclaimed/testing:
+  en: 253ed29e48d6f960
+  zh: 75e2cfe378d59952

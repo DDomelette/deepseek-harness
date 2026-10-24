@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-03-per-session-agent-presets.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-03-per-session-agent-presets.md
-2026-08-03-per-session-agent-presets.md: 14d568689a662e3e7d1fedf26c22aea6faddd56b
-2026-08-03-per-session-agent-presets.zh.md: 9b296fa7a1c2b9164d9e7a0ad676929179a64fef
+/agent-note-a-session-s-agent-is-composed-from-a-preset-cordis-yml:
+  en: a0b60a0490305a4d
+  zh: 70a182d27447b204
+/agent-note-a-session-s-agent-is-composed-from-a-preset-cordis-yml/problem:
+  en: f76ef9de54a69544
+  zh: d0d2eea3fb2432f3
+/agent-note-a-session-s-agent-is-composed-from-a-preset-cordis-yml/decision:
+  en: a1f5ff9879c2360a
+  zh: a35c4920dff4b670
+/agent-note-a-session-s-agent-is-composed-from-a-preset-cordis-yml/consequences:
+  en: 484095fbe2a51b9e
+  zh: d70a1d3e88d687b3
+/agent-note-a-session-s-agent-is-composed-from-a-preset-cordis-yml/alternatives-considered:
+  en: c045a986449ec857
+  zh: 0bd90ad3e5997951

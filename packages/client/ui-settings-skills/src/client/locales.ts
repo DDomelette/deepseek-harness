@@ -4,7 +4,7 @@
 export const en = {
   nav: 'Skills',
   title: 'Skills',
-  intro: 'Skills extend what the agent can do. Grouped by their declared group or their discovery source — open a group to switch individual skills on or off.',
+  intro: 'Skills extend what the agent can do. Grouped by their discovery source — open a group to switch individual skills on or off.',
   back: 'Back',
   countOne: '1 skill',
   count: '{count} skills',
@@ -31,7 +31,7 @@ export type SkillsKey = keyof typeof en
 export const zh: Record<SkillsKey, string> = {
   nav: '技能',
   title: '技能',
-  intro: '技能扩展智能体的能力。按声明的分组或发现来源聚合——点开一组即可单独开启或关闭每个技能。',
+  intro: '技能扩展智能体的能力。按发现来源聚合——点开一组即可单独开启或关闭每个技能。',
   back: '返回',
   countOne: '1 个技能',
   count: '{count} 个技能',

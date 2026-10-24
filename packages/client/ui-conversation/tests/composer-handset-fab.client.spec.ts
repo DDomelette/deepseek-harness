@@ -7,8 +7,6 @@ const read = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`../src/client/skeleton/${name}`, import.meta.url)), 'utf8')
 
 describe('composer handset band', () => {
-  const docked = String.raw`\[data-sidebar-fab] \[data-composer-variant='composer']`
-
   it('keeps the docked button row on one line through the frame attribute', () => {
     // Scoped to data-composer-variant='composer': the hero card keeps the wrap.
     expect(read('InputBar.module.css')).toMatch(
@@ -16,17 +14,8 @@ describe('composer handset band', () => {
     )
   })
 
-  it('collapses the permission trigger to a bare icon in the docked composer', () => {
-    // No selector-fill circle: at handset widths the circle chrome reads as
-    // clutter next to the attach controls and steals row width.
-    const css = read('PermissionSelect.module.css')
-    expect(css).toMatch(
-      new RegExp(String.raw`${docked} \.trigger:has\(\.triggerIcon\) \{[^}]*width: 28px;[^}]*background: transparent;`),
-    )
-    const hidden = String.raw`${docked} \.trigger:has\(\.triggerIcon\) \.triggerLabel,\s*`
-      + String.raw`${docked} \.trigger:has\(\.triggerIcon\) \.chevron\s*\{\s*display: none;\s*}`
-    expect(css).toMatch(new RegExp(hidden))
-  })
+  // The docked permission trigger's geometry lives with its stylesheet in
+  // ui-permission-presets, whose tests own that contract.
 
   it('keeps the docked row controls at their drawn sizes against the coarse-pointer floor', () => {
     // The 44px coarse floor would inflate six controls past the narrow card's

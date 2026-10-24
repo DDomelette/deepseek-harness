@@ -105,6 +105,56 @@ Fill Model Experience from the implementation. Use one H3 per direct, conditiona
 
 A package with no context effect or one consumer-owned path uses the audited `None, as ` or `Indirectly, through ` sentence in [`SENTENCE_MODEL_EXPERIENCE`](../../scripts/verify-package-readme-model-experience.ts), followed by a `KV Cache effect` H4 and one non-empty paragraph; a model-agnostic generic package may instead join `NO_MODEL_EXPERIENCE_SECTION`. Do not expand either case into a description of another package's work. The limitations [allowlist](../../scripts/verify-package-readme-limitations.ts) is independent. The [Model Experience Agent Note](../../.agents/notes/implemented/process/2026-07-12-package-model-experience-contract.md) records the rationale.
 
+<a id="plugin-display-metadata"></a>
+
+## 5. Add optional plugin display metadata
+
+For an npm package plugin, define its title and description in `locale/en.json`. Other language files, such as `locale/zh.json`, use the same fields:
+
+```json
+{
+  "meta": {
+    "title": "Workspace Tools",
+    "description": "Tools for your workspace."
+  }
+}
+```
+
+Merge these entries into `package.json`, retaining existing runtime exports and publication files:
+
+```json
+{
+  "exports": {
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["locale/*.json"]
+}
+```
+
+Keep language files together in `locale/`, with `en.json` as the discovery entry. Fields are optional; present values must be non-empty strings. Missing files or fields permit fallback, while malformed JSON or invalid fields produce a per-plugin diagnostic.
+
+Fields fall back independently before view-specific name formatting, using the existing locale language chain first:
+
+- Title: locale `meta.title` → `package.json.name` for a package-root plugin → complete Cordis plugin name.
+- Description: locale `meta.description` → `package.json.description` for a package-root plugin → no description.
+
+Export `<package name>/locale/en.json` for locale lookup; expose `<package name>/package.json` for package-field fallback or an icon declaration. A subpath plugin such as `<package name>/search` is not a package and never reads a `package.json`, even one exported at `./search/package.json`; it uses `./search/locale/*.json` for text and `./search/icon` for its image.
+
+For an image on bundle cards, details, and component rows, a package-root plugin sets top-level `"icon": "./icon.svg"` in its exported manifest, or exports `./icon` when that field is omitted. A subpath plugin exports its own icon, such as `"./search/icon": "./search.svg"`. Include each image in `files`. A manifest `icon` is relative to the manifest's directory; absolute paths, URLs, paths outside that directory, and symlinks resolving outside it are rejected. An exported icon resolves through Node exports like locale resources and must remain inside its package. SVG, PNG, JPEG (`.jpg`/`.jpeg`), and WebP files are supported up to 256 KiB. Images must be self-contained; SVG is rendered as an image, not inline HTML. The Host returns a data URL without activating the plugin. Invalid declarations or unreadable files produce a metadata diagnostic while retaining valid text, without trying the export; missing or undecodable images use the panel's default artwork.
+
+Installed bundle cards and details, component lists and configuration details, and Settings' plugin inventory display this metadata, including disabled and preset plugins. Reads do not activate plugins.
+
+Only Settings shortens literal package-name and module-name fallbacks by removing npm scope and Cordis/DSH prefixes; Plugin Manager keeps complete names. Locale titles and descriptions remain unchanged. A row configuration page can use its registered summary when the plugin has no display description.
+
+The Install view still uses npm registry information from `pnpm view`, not locale metadata.
+
+Verify the result:
+
+1. Run `pnpm run verify-package-meta` from the repository root to check fields, resource exports, and publication coverage.
+2. Switch an installed plugin's applicable Plugin Manager and Settings entries between English and Chinese; check the title, description, per-field fallback, and Settings-only compact technical names.
+
+
 ## 5. Verify
 
 ```sh

@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-19-sidebar-track-animation-and-rail-glyphs.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-19-sidebar-track-animation-and-rail-glyphs.md
+/agent-note-sidebar-track-animation-and-rail-glyphs-after-the-upstream-merge:
+  en: 6b8dde03cd10fa3e
+  zh: aaa18d39a863a59f
+/agent-note-sidebar-track-animation-and-rail-glyphs-after-the-upstream-merge/problem:
+  en: 434a6dc87fe27fcc
+  zh: 1e9a000d590f971f
+/agent-note-sidebar-track-animation-and-rail-glyphs-after-the-upstream-merge/decision:
+  en: 1f080c7ca92bb7ca
+  zh: 2f93e2a125a4144a
+/agent-note-sidebar-track-animation-and-rail-glyphs-after-the-upstream-merge/alternatives-considered:
+  en: f1f1bcc3bd9ccce0
+  zh: 289c911d8f55f672
+/agent-note-sidebar-track-animation-and-rail-glyphs-after-the-upstream-merge/consequences:
+  en: 920860958b076824
+  zh: 7adfe8ece247ea2d

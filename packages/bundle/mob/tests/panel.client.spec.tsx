@@ -108,7 +108,7 @@ function fakeApi(script: Script = {}): FakeApi {
 
 const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
 const refusedJoin = (code: string): ConnectPhoneRowInjected['joinUrl'] =>
-  async () => ({ ok: false, error: new RemoteError(code as 'mob/loopback-only', 'refused', {}) })
+  async () => ({ ok: false, error: new RemoteError(code as 'mob/no-advertised-origin', 'refused', {}) })
 
 function mount(options: {
   api?: FakeApi
@@ -377,7 +377,7 @@ describe('PairingPanel', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('reports a refused or failed code creation, and a join URL refused for another reason', async () => {
+  it('reports a refused or failed code creation', async () => {
     mount({ api: fakeApi({ open: { ok: false, reason: 'failed' } }) })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
@@ -388,15 +388,10 @@ describe('PairingPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
-    cleanup()
-
-    mount({ joinUrl: refusedJoin('mob/no-lan-address') })
-    fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
-    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
   })
 
-  it('shows the LAN-off copy when the join URL reports a loopback-only deployment', async () => {
-    mount({ joinUrl: refusedJoin('mob/loopback-only') })
+  it('shows the LAN-off copy when the join URL reports no advertised origin', async () => {
+    mount({ joinUrl: refusedJoin('mob/no-advertised-origin') })
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {

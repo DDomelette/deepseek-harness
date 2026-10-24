@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-14-skill-settings-panel.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-14-skill-settings-panel.md
-2026-08-14-skill-settings-panel.md: e70d008f471550d0e56cbb7e70b11524c247ba4f
-2026-08-14-skill-settings-panel.zh.md: 6664842fd0c1e53480267fbbe32738677efe2c62
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel:
+  en: e2c4fd51130c508d
+  zh: 3b97248b83fafaa7
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel/problem:
+  en: 4e17258d7e11f4df
+  zh: af560b3b07abcba8
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel/decision:
+  en: 62687f2fdfb1bc42
+  zh: 2433af466e99f649
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel/verification:
+  en: e795f3ae8484e0ee
+  zh: b1b33aa274628ea1
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel/alternatives-considered:
+  en: 7ba0451975d0103e
+  zh: 1bcbf5b6b4d83f04
+/agent-note-user-controllable-skill-enablement-with-a-grouped-settings-panel/consequences:
+  en: 503de2b82ad5a4ce
+  zh: 1e1b82e08c34c32d

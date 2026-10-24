@@ -1,6 +1,7 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
 import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 import type { PairedDeviceId } from './device-brand.ts'
 
@@ -30,6 +31,34 @@ export type ConnectionRpcResult<T> =
 
 /** Historical short name for a generic Connection result. */
 export type RpcResult<T> = ConnectionRpcResult<T>
+
+/** One binary value separated from a successful RPC result before transport framing. */
+export interface ConnectionRpcAttachment {
+  /** Result-relative path occupied by the attachment's `null` placeholder. */
+  readonly path: readonly (string | number)[]
+  /** Byte view carried outside the JSON response metadata. */
+  readonly bytes: Uint8Array
+}
+
+/** Successful or failed handler result ready for Connection transport framing. */
+export type ConnectionRpcHandlerResult =
+  | {
+    readonly ok: true
+    readonly value: unknown
+    /** Binary fields already projected by the handler that owns the result protocol. */
+    readonly attachments?: readonly ConnectionRpcAttachment[]
+  }
+  | { readonly ok: false; readonly error: ConnectionRpcFailure }
+
+/**
+ * Outcome of admitting one request: the Peer it speaks for, or the status
+ * refusing it. The Peer names the caller's own scope, never a broader one:
+ * a paired device is admitted as its device Peer even though the operator's
+ * request would be admitted as the operator Peer.
+ */
+export type PeerAdmission =
+  | { readonly peer: PeerScope }
+  | { readonly rejection: 401 | 403 }
 
 /**
  * Convert a rejected transport operation into a generic failure result.
@@ -121,12 +150,18 @@ export type ConnectionIndexAccess =
   /** The caller serves the shell, marked with the auth-required boot fact, as a 401. */
   | 'auth-required'
 
-/** Handler invoked after Connection has decoded the transport envelope. */
+/**
+ * Handler invoked after Connection has decoded the transport envelope.
+ * `peer` is the Peer the request was admitted as
+ * ({@link HostConnectionHandle.admit}), so a handler that scopes work to the
+ * caller reaches only that caller's registrations.
+ */
 export type ConnectionRpcHandler = (
   endpoint: string,
   payload: unknown,
   signal: AbortSignal,
-) => Promise<ConnectionRpcResult<unknown>>
+  peer: PeerScope,
+) => Promise<ConnectionRpcHandlerResult>
 
 /** Synchronous ownership test for one endpoint on a shared RPC channel. */
 export type ConnectionRpcEndpointMatcher = (endpoint: string) => boolean
@@ -206,9 +241,10 @@ export interface HostConnectionHandle {
   /**
    * Compose exact Fetch routes and the shared-channel RPC interceptor.
    * @param channel - shared channel mounted by Connection.
+   * @param peer - Peer the admitted request speaks for, from {@link admit}.
    * @returns Fetch handler for trusted, authenticated requests.
    */
-  createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler
+  createSharedFetchHandler(channel: '/api', peer: PeerScope): ConnectionFetchHandler
 
   /**
    * Apply Connection's Host/Origin checks and browser authentication to
@@ -217,6 +253,20 @@ export interface HostConnectionHandle {
    * @returns rejection status, or undefined when the route may accept the request.
    */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
+
+  /**
+   * Admit one request as the caller its credential names. A request that fails
+   * the Host/Origin fence or carries no accepted credential is refused with the
+   * same status {@link requestRejection} returns; every admitted request gets
+   * the Peer of its own authority class — the operator Peer for the loopback
+   * launch-token credential, that device's Peer for a paired-device cookie.
+   * @param request - request headers from the HTTP or upgrade request.
+   * @returns the admitted caller's Peer, or the rejection status.
+   */
+  admit(request: ConnectionTrustRequest): PeerAdmission
+
+  /** The local operator's Peer; its scope lives as long as this Connection. */
+  readonly operator: PeerScope
 
   /**
    * Authenticate one frontend index request. A valid loopback launch-token

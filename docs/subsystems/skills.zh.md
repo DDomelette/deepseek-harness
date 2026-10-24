@@ -106,14 +106,14 @@ interface SkillInvocationPolicy {
 ```ts type-equiv
 /** Invocation-neutral skill metadata returned by `ctx.skills.list()`. */
 interface SkillSummary {
+  /** Absolute instruction file path when supplied by the provider; absent for virtual skills. */
+  readonly path?: string
   /** Kebab-case identifier used to address the skill. */
   readonly name: string
   /** Short routing description shown by discovery consumers. */
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
-  /** Optional grouping label that presentation surfaces aggregate by. */
-  readonly group?: string
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -148,8 +148,6 @@ interface SkillCandidate extends SkillSummary {
   readonly rank: number
   /** Opaque provider-owned handle passed back to `provider.get()`. */
   readonly locator: unknown
-  /** Absolute file path when the provider has one. */
-  readonly path?: string
   /** Parsed optional metadata object from provider-specific skill frontmatter. */
   readonly metadata?: Readonly<Record<string, unknown>>
 }
@@ -170,8 +168,6 @@ type SkillResourceBase =
 interface SkillDefinition extends SkillSummary {
   /** Markdown instruction body after any provider-specific metadata removal. */
   readonly content: string
-  /** Absolute file path when the skill came from disk. */
-  readonly path?: string
   /** Parsed optional metadata object from frontmatter. */
   readonly metadata?: Readonly<Record<string, unknown>>
 }
@@ -256,18 +252,20 @@ Host service backing `ctx.remote.skills` without activating a cold Agent.
 
 ```ts cordis-catalog
 /**
- * List skills available through the Session's slash commands.
- * @param request - Session whose composition selects the catalog.
- * @param signal - caller lifetime.
- * @returns user-invocable metadata without skill bodies.
+ * List the user-invocable skills visible to one Session composition.
+ * @param request - Session identity whose cwd and preset select the catalog view.
+ * @param signal - caller lifetime carried by the Remote transport; admitted catalog reads retain their existing completion semantics.
+ * @returns user-invocable skill metadata without loading skill bodies.
+ * @throws RemoteError when the Session cannot be inspected or no registry can serve it.
  */
 @Remote async list(request: SkillListRequest, signal: AbortSignal): Promise<SkillListValue>
 
 /**
- * List every skill, including disabled entries, for the settings page.
- * @param request - Session whose composition selects the catalog.
- * @param signal - caller lifetime.
- * @returns effective invocation flags, grouping metadata and user overrides.
+ * List every skill, including switch-off entries, for the settings panel.
+ * @param request - Session identity whose cwd and preset select the catalog view.
+ * @param signal - caller lifetime carried by the Remote transport.
+ * @returns every visible skill with its effective invocation flags and user-override state.
+ * @throws RemoteError when the Session cannot be inspected or no registry can serve it.
  */
 @Remote async catalog(request: SkillListRequest, signal: AbortSignal): Promise<SkillCatalogValue>
 ```
@@ -307,14 +305,14 @@ register(skill: SkillRegistration): () => void
 
 /**
  * Register the one invocation-policy override resolver. The registry
- * applies it to every produced summary and loaded definition, so changes
- * in the resolver's answers take effect on the next read without cache
+ * applies it to every produced summary and loaded definition, so changes in
+ * the resolver's answers take effect on the next read without cache
  * invalidation. After committing changed answers, the owner calls
  * {@link notifyInvocationOverrideChange} so catalog observers refetch. A
  * second registration while one is active fails loud.
  * @param override - resolver consulted with each skill name.
  * @returns the disposer removing the exact registration and notifying
- * catalog observers when it was still active.
+ *   catalog observers when it was still active.
  */
 registerInvocationOverride(override: SkillInvocationOverride): () => void
 
@@ -366,18 +364,18 @@ Source: [`packages/skill/skill/src/index.ts`](../../packages/skill/skill/src/ind
 
 #### `skills/change` — emit
 
-A skill provider, runtime contribution, or effective invocation policy may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.
+A skill provider, runtime contribution, or provider-backed catalog may have changed. This is an unfiltered invalidation notification; consumers refetch the catalog for their own lookup options. Listener failures are contained and cannot veto the registry mutation.
 
 ```ts cordis-catalog
 /**
- * A skill provider, runtime contribution, or effective invocation policy
- * may have changed. This is an unfiltered invalidation notification;
- * consumers refetch the catalog for their own lookup options. Listener
- * failures are contained and cannot veto the registry mutation.
+ * A skill provider, runtime contribution, or provider-backed catalog may
+ * have changed. This is an unfiltered invalidation notification; consumers
+ * refetch the catalog for their own lookup options. Listener failures are
+ * contained and cannot veto the registry mutation.
  * @mode emit
  */
 'skills/change'(): void
 ```
 
-Source: [`packages/skill/skill/src/types.ts`](../../packages/skill/skill/src/types.ts)
+Source: [`packages/skill/skill/src/index.ts`](../../packages/skill/skill/src/index.ts)
 <!-- END GENERATED cordis-surface -->

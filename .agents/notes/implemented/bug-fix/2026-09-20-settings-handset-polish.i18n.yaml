@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-20-settings-handset-polish.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-settings-handset-polish.md
-2026-09-20-settings-handset-polish.md: a031e9adff850d0b99e518d21cb11655535a2c67
-2026-09-20-settings-handset-polish.zh.md: 601d5e82d2804406f5fa2b64a7de2e4ee030c955
+/agent-note-settings-detail-pane-handset-polish:
+  en: 66b50b41bbd838a9
+  zh: b6ffc93915202d0b
+/agent-note-settings-detail-pane-handset-polish/problem:
+  en: 8fce69dd84bcfaff
+  zh: d6d1719d98ba46f3
+/agent-note-settings-detail-pane-handset-polish/decision:
+  en: d6953a93d64c34cc
+  zh: 04b18c87dc2c8efc
+/agent-note-settings-detail-pane-handset-polish/alternatives-considered:
+  en: 6471f9a6ed3cc653
+  zh: 8a7e981b819e2f5c
+/agent-note-settings-detail-pane-handset-polish/consequences:
+  en: 9d026259155b16f7
+  zh: 37d9ae8c31f36556

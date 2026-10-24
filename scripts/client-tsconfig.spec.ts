@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 function clientCssDeclarations(): string[] {
-  const clientGroups = ['client', 'extensions', 'notes']
+  const clientGroups = ['client', 'experimental', 'extensions', 'notes']
   return clientGroups.flatMap((group) => {
     const clientRoot = resolve(root, 'packages', group)
     return readdirSync(clientRoot, { withFileTypes: true })

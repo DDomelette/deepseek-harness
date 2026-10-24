@@ -4,9 +4,9 @@ import type { SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
 
 /** One aggregated group of skills shown as a single icon in the grid. */
 export interface SkillGroup {
-  /** Stable aggregation key: `group:<name>` for declared groups, `source:<name>` otherwise. */
+  /** Stable aggregation key: `source:<name>`. */
   readonly key: string
-  /** Display label: the declared group name or the localized source label. */
+  /** Display label: the localized source label. */
   readonly label: string
   /** Skills in this group, catalog order. */
   readonly skills: readonly SkillCatalogEntry[]
@@ -20,9 +20,9 @@ interface MutableGroup {
 }
 
 /**
- * Aggregate the catalog into display groups. A skill's declared `group` wins;
- * skills without one aggregate by discovery source. Groups sort by localized
- * label with the key as tiebreak, and skills keep catalog order inside a group.
+ * Aggregate the catalog into one display group per discovery source. Groups
+ * sort by localized label with the key as tiebreak, since two sources can share
+ * a label, and skills keep catalog order inside a group.
  * @param skills - the invocation-neutral catalog rows.
  * @param labelForSource - source→label resolution (see `sourceLabel`).
  * @returns the ordered groups.
@@ -33,10 +33,10 @@ export function groupSkills(
 ): SkillGroup[] {
   const groups = new Map<string, MutableGroup>()
   for (const skill of skills) {
-    const key = skill.group === undefined ? `source:${skill.source}` : `group:${skill.group}`
+    const key = `source:${skill.source}`
     const existing = groups.get(key)
     if (existing === undefined) {
-      groups.set(key, { key, label: skill.group ?? labelForSource(skill.source), skills: [skill] })
+      groups.set(key, { key, label: labelForSource(skill.source), skills: [skill] })
     } else {
       existing.skills.push(skill)
     }

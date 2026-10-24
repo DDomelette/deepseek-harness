@@ -33,6 +33,19 @@ function parseAuthority(authority: string): URL | undefined {
 }
 
 /**
+ * Whether one request authority is a declared `trustedHosts` entry: an exact
+ * `host:port` matches that authority, a port-less `host` matches any port.
+ * @param authority - canonical `host:port` of the request.
+ * @param trustedHosts - non-loopback authorities this deployment serves.
+ * @returns true when the authority is declared.
+ */
+export function isDeclaredAuthority(authority: string, trustedHosts: readonly string[]): boolean {
+  const hostUrl = parseAuthority(authority)
+  if (hostUrl === undefined) return false
+  return isTrustedAuthority(hostUrl, trustedHosts)
+}
+
+/**
  * Assert one configured `trustedHosts` entry is a bare authority (`host` or
  * `host:port`) in canonical form: it must survive WHATWG parsing unchanged
  * (case aside). Anything parsing would silently rewrite is refused as a typo
@@ -86,9 +99,14 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
  * Decide whether one /api request may reach the RPC bridge.
  * @param request - Node HTTP or Fetch request facts (headers).
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
- * @returns true when the Host is ours (loopback or trusted) and any attached browser markers are same-origin.
+ * @param boundAuthority - the exact address this listener bound, which is ours as well.
+ * @returns true when the Host is ours (loopback, trusted, or the bound address) and any attached browser markers are same-origin.
  */
-export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHosts: readonly string[]): boolean {
+export function isTrustedApiRequest(
+  request: ConnectionTrustRequest,
+  trustedHosts: readonly string[],
+  boundAuthority?: string,
+): boolean {
   // Host fence (DNS-rebinding defense), applied to every request: the browser
   // fills Host from the URL it believes it is talking to, so a rebound page
   // carries the attacker's domain here even though the socket lands on this
@@ -100,7 +118,10 @@ export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHost
   if (host === undefined) return false
   const hostUrl = parseAuthority(host)
   if (hostUrl === undefined) return false
-  if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) return false
+  const bound = boundAuthority === undefined ? undefined : parseAuthority(boundAuthority)
+  if (!isLoopbackHostname(hostUrl.hostname)
+    && !isTrustedAuthority(hostUrl, trustedHosts)
+    && (bound === undefined || (bound.hostname !== hostUrl.hostname || bound.port !== hostUrl.port))) return false
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.
   if (header(request.headers, 'sec-fetch-site') === 'cross-site') return false

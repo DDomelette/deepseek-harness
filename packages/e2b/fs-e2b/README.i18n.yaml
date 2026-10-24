@@ -1,6 +1,67 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/e2b/fs-e2b/README.md
-README.md: 4f81902a8d36f0e7612eb7d34e411d0ddebda697
-README.zh.md: e20d01314497648e755026b7d9b84c72e24a3b37
+/:
+  en: 25b887c0327f8d06
+  zh: 313838b925b98d13
+/deepseek-ai-dsh-fs-e2b:
+  en: 6108558600910a54
+  zh: 4125eba0c5c2c771
+/deepseek-ai-dsh-fs-e2b/summary:
+  en: 829dba6d5ce13772
+  zh: 3a8efe04810abcad
+/deepseek-ai-dsh-fs-e2b/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-fs-e2b/use-this-package:
+  en: 4bf6d13067f40b50
+  zh: 529f4c625c76fcdd
+/deepseek-ai-dsh-fs-e2b/use-this-package/when-to-choose-it:
+  en: 2c196cc2dc057f3b
+  zh: aa9ecfa244073905
+/deepseek-ai-dsh-fs-e2b/use-this-package/mounting-it:
+  en: 2b2717f46d5eda70
+  zh: 1787ab22b30e9f02
+/deepseek-ai-dsh-fs-e2b/use-this-package/reading-files:
+  en: 07f0ccaa224f5fa9
+  zh: ad5ddae821cffb44
+/deepseek-ai-dsh-fs-e2b/use-this-package/writing-and-editing-files:
+  en: 8a3dfa8ef8244aa0
+  zh: c690d57b5a34cb62
+/deepseek-ai-dsh-fs-e2b/use-this-package/paths-in-the-sandbox:
+  en: 02b797bcab6e67fc
+  zh: 84e350cc500dbc23
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation:
+  en: 538553a9a48e2f93
+  zh: d981c42878e80762
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation/design-philosophy:
+  en: 1f1a543890bf9d28
+  zh: a2df2341aea65f7c
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation/source-map:
+  en: b74cbc7882e91f22
+  zh: f42068e5c9fee042
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation/canonical-paths-and-transport-framing:
+  en: c471ad36f4feb588
+  zh: 18a1c381c3c0a9f3
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation/write-path:
+  en: 9e20589cf6ed8155
+  zh: d9208a63b1bf5e99
+/deepseek-ai-dsh-fs-e2b/understand-the-implementation/failure-and-cancellation:
+  en: 989113d72628b027
+  zh: 1f812aa8078195c0
+/deepseek-ai-dsh-fs-e2b/further-exploration:
+  en: ffc4f7c627a68b2e
+  zh: 373d6a0dca16c7c9
+/deepseek-ai-dsh-fs-e2b/model-experience:
+  en: 023440a967870b17
+  zh: b4c6456ff6d64512
+/deepseek-ai-dsh-fs-e2b/model-experience/kv-cache-effect:
+  en: c1876f66a08a599f
+  zh: a6cfa18d845b9fd1
+/deepseek-ai-dsh-fs-e2b/known-limitations-and-deferred-work:
+  en: b4d095f80e70d119
+  zh: 3fa6eb698645f18f
+/deepseek-ai-dsh-fs-e2b/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

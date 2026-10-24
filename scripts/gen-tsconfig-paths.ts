@@ -204,7 +204,11 @@ export function writeRegion(text: string, body: string): string {
   if (begin < 0 || end < begin) {
     throw new Error(`gen-tsconfig-paths: ${CONFIG} is missing the generated-region markers.`)
   }
-  return `${text.slice(0, begin)}${BEGIN}\n${body}\n${END}${text.slice(end + END.length)}`
+  const tail = text.slice(end + END.length)
+  // A hand-written alias may follow the end marker for a package whose name is
+  // not its directory; the generated region then needs its trailing comma.
+  const rendered = /"@deepseek-ai\//.test(tail) ? `${body.trimEnd()},` : body
+  return `${text.slice(0, begin)}${BEGIN}\n${rendered}\n${END}${tail}`
 }
 
 /**

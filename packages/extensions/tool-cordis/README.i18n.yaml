@@ -1,6 +1,109 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/extensions/tool-cordis/README.md
-README.md: d7fa7acf14ffbe5e9d3177af3ec354963d05e8db
-README.zh.md: 80d094252848cd11b175686963a15b86490fecd3
+/:
+  en: 01d281b8421313ce
+  zh: e9c019e7c6016b75
+/deepseek-ai-dsh-tool-cordis:
+  en: ea2c0ac7e7932a08
+  zh: 5562e6f26d700b64
+/deepseek-ai-dsh-tool-cordis/summary:
+  en: 372c8a0ffb9f54fe
+  zh: bf6dfd79d61208f6
+/deepseek-ai-dsh-tool-cordis/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-tool-cordis/use-this-package:
+  en: e171d4441dcae408
+  zh: ac50b44ed705c188
+/deepseek-ai-dsh-tool-cordis/use-this-package/minimal-composition:
+  en: 392a6ff9ace4143d
+  zh: dd9631627d1ff07a
+/deepseek-ai-dsh-tool-cordis/use-this-package/the-dynamicplugins-switch:
+  en: 35d4f2d62065f3fe
+  zh: 145d99e35f10d108
+/deepseek-ai-dsh-tool-cordis/use-this-package/what-the-tools-do:
+  en: 5bfa0c49904c46ae
+  zh: 3e0cc29751627a58
+/deepseek-ai-dsh-tool-cordis/use-this-package/a-typical-workflow:
+  en: 5d9c495146154d3b
+  zh: c64da5ee6c5ff3e7
+/deepseek-ai-dsh-tool-cordis/use-this-package/boundaries-to-plan-around:
+  en: dbe8b05fef403311
+  zh: 14da2f52988ac240
+/deepseek-ai-dsh-tool-cordis/understand-the-implementation:
+  en: fa28554fbff3b1f0
+  zh: 4787cec807b0b42a
+/deepseek-ai-dsh-tool-cordis/understand-the-implementation/design-philosophy:
+  en: 06deaa22ed73586b
+  zh: 1fd8fe49478b938d
+/deepseek-ai-dsh-tool-cordis/understand-the-implementation/source-map:
+  en: ec954175a510414d
+  zh: 0b77da5a8983ca64
+/deepseek-ai-dsh-tool-cordis/understand-the-implementation/how-a-call-flows:
+  en: 778173a58ca585c4
+  zh: de6e5f1333c93bf7
+/deepseek-ai-dsh-tool-cordis/further-exploration:
+  en: 554236581207aedf
+  zh: 0af2a0156f83db48
+/deepseek-ai-dsh-tool-cordis/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-schemas:
+  en: 3039bc5e7a796b21
+  zh: 6b7a9eaf69c9ea53
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-schemas/what-the-model-sees:
+  en: 16724506e89b473e
+  zh: 433c3b2ce0338481
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-schemas/token-effect:
+  en: 68517f7d65ef7e9d
+  zh: d497623ad9544512
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-schemas/kv-cache-effect:
+  en: d57cb790f09dd668
+  zh: 880819a39403f31a
+/deepseek-ai-dsh-tool-cordis/model-experience/system-prompt-section:
+  en: c17d2aa0c515f8f3
+  zh: 4b945f04dfd229ce
+/deepseek-ai-dsh-tool-cordis/model-experience/system-prompt-section/what-the-model-sees:
+  en: 51846cef7e9e62c6
+  zh: bf36d7f98440bbb2
+/deepseek-ai-dsh-tool-cordis/model-experience/system-prompt-section/what-the-model-sees/section-opening:
+  en: 9880054561988779
+  zh: 18021d76d2d28c4b
+/deepseek-ai-dsh-tool-cordis/model-experience/system-prompt-section/token-effect:
+  en: c60d3f8d1f7ac89c
+  zh: b7e659922e8018ee
+/deepseek-ai-dsh-tool-cordis/model-experience/system-prompt-section/kv-cache-effect:
+  en: 2a05ae9645f5c8ca
+  zh: 8bdf5db03e99eab0
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-call-history-and-results:
+  en: a8503137ad03720c
+  zh: 611a2dadf7c0c706
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-call-history-and-results/what-the-model-sees:
+  en: 918ab4a156d78674
+  zh: e4d0af15e5fc65e4
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-call-history-and-results/token-effect:
+  en: 521704411d616a56
+  zh: 61e5e25f260ec106
+/deepseek-ai-dsh-tool-cordis/model-experience/tool-call-history-and-results/kv-cache-effect:
+  en: 2fbf2175168e8244
+  zh: f681f89596f500f5
+/deepseek-ai-dsh-tool-cordis/model-experience/later-requests-after-cordis-run:
+  en: f8994369173c7485
+  zh: a688148b9b7fd030
+/deepseek-ai-dsh-tool-cordis/model-experience/later-requests-after-cordis-run/what-the-model-sees:
+  en: e6d58795933c8f91
+  zh: 017e1d808c383aed
+/deepseek-ai-dsh-tool-cordis/model-experience/later-requests-after-cordis-run/token-effect:
+  en: 0c240c7e1a55f1ff
+  zh: 5eb95397390d2535
+/deepseek-ai-dsh-tool-cordis/model-experience/later-requests-after-cordis-run/kv-cache-effect:
+  en: 870ae62be1d73eab
+  zh: f54cbc18bf8148f2
+/deepseek-ai-dsh-tool-cordis/known-limitations-and-deferred-work:
+  en: 516ada4afab4ad40
+  zh: 014acf3d7aee0b60
+/deepseek-ai-dsh-tool-cordis/known-limitations-and-deferred-work/dev-note:
+  en: 0c4d0c465413d319
+  zh: 4e613fd1fe3c3970

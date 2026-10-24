@@ -103,7 +103,7 @@ src/client/
   index.ts     public contract surface
 ```
 
-Domain implementation files never import a sibling domain; shared surfaces route through `contract/`. `scripts/verify-client-domain-graph.ts` enforces the layering (contract=0, domains=1, apply/index=2; imports may only point at levels ≤ own; sibling-domain edges fail). Tool presentation is already a separate `ui-tool` package and reaches chat and details only through the slots ui-conversation declares.
+Domain implementation files never import a sibling domain; shared surfaces route through `contract/`. `scripts/verify-client-domain-graph.ts` enforces the layering (`contract=0, domains=1, apply/index=2`; imports may only point at levels ≤ own). Sibling-domain edges fail unless accepted in `scripts/client-domain-graph.baseline.json`, a baseline the [ratchet note](../process/2026-10-19-client-domain-graph-ratchet.md) records as shrink-only. Tool presentation is already a separate `ui-tool` package and reaches chat and details only through the slots ui-conversation declares.
 
 ## How to develop
 

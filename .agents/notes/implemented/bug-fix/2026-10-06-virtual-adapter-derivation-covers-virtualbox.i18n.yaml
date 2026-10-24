@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-virtual-adapter-derivation-covers-virtualbox.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-virtual-adapter-derivation-covers-virtualbox.md
-2026-10-06-virtual-adapter-derivation-covers-virtualbox.md: a2afc5e5169b644f9660fbdc8fc228b959e8b9a6
-2026-10-06-virtual-adapter-derivation-covers-virtualbox.zh.md: 1ad31b4ab939bbaeea547af7c5d07cffe1cbae02
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters:
+  en: 4f603ce74a702012
+  zh: 400fa1565dbc7946
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters/problem:
+  en: b01f95e41ba1c45b
+  zh: 222891ee3279f4da
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters/decision:
+  en: 14d4d9c6038e9fa1
+  zh: aab1527a82366b2e
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters/alternatives-considered:
+  en: 4a38987c8f672095
+  zh: 64c76a82db32472a
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters/consequences:
+  en: 3210b1eb936c51db
+  zh: 9ef16ed349220d1b
+/agent-note-lan-derivation-recognizes-virtualbox-host-only-adapters/testing:
+  en: e80cf6d332a39779
+  zh: 15f80c6e008267cc

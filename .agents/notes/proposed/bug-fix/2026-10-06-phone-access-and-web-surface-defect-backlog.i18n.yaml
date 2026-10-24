@@ -1,6 +1,31 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-phone-access-and-web-surface-defect-backlog.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/bug-fix/2026-10-06-phone-access-and-web-surface-defect-backlog.md
-2026-10-06-phone-access-and-web-surface-defect-backlog.md: 36f4c60c7427f8d28c21dfa5caba0babe13ad238
-2026-10-06-phone-access-and-web-surface-defect-backlog.zh.md: c2bf564bceaeb71a3227377ff76704de7f56128f
+/agent-note-phone-access-and-web-surface-defect-backlog:
+  en: 5587737adeec3b2e
+  zh: 5de12c9c7bd53e5d
+/agent-note-phone-access-and-web-surface-defect-backlog/problem:
+  en: 43516d63520c892b
+  zh: c7f924e848b5c0f2
+/agent-note-phone-access-and-web-surface-defect-backlog/proposal:
+  en: 3edf4157a03b4335
+  zh: 10986dc9da3ce7e4
+/agent-note-phone-access-and-web-surface-defect-backlog/proposal/tier-1-resource-leak-auth-invariant-and-the-phone-join-flow:
+  en: 4ae128a6475f5cd4
+  zh: aa6f4e6518d43d06
+/agent-note-phone-access-and-web-surface-defect-backlog/proposal/tier-2-user-visible-behavior:
+  en: 1808fab6dec19e32
+  zh: 71980d9b484142fe
+/agent-note-phone-access-and-web-surface-defect-backlog/proposal/tier-3-validation-protocol-and-documentation:
+  en: 57999f47305e0e87
+  zh: 6fb3a374b6e60431
+/agent-note-phone-access-and-web-surface-defect-backlog/alternatives-considered:
+  en: dc1fa3ac5db75115
+  zh: 79d5771f2c21b862
+/agent-note-phone-access-and-web-surface-defect-backlog/acceptance-criteria:
+  en: fb0803b48c295564
+  zh: 2fbe5ee0d3c4f824
+/agent-note-phone-access-and-web-surface-defect-backlog/risks:
+  en: 4703040d288eb918
+  zh: 1f55a4f961e998e9

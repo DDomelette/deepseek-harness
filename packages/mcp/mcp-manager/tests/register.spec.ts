@@ -4,14 +4,30 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-settings'
 import McpManager from '../src/index.ts'
 import { declarativeMcpServers, MCP_CLIENT_MODULE } from '../src/declarative.ts'
-import { MCP_SERVERS_NS } from '../src/schema.ts'
-import { MemorySettings, fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
+import { McpServersSchema } from '../src/schema.ts'
+import type { McpStdioEntry } from '../src/schema.ts'
+import { fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
 
 /** FiberState.ACTIVE mirrored numerically: FiberState is a cross-package const enum. */
 const FIBER_STATE_ACTIVE = 2
 
-// Accepted writes hot-mount real mcp-client fibers; dispose every booted
-// context so reconnect loops never outlive their test.
+/** Resolved stdio entry for a server the tests never mount. */
+function entry(over: Partial<McpStdioEntry> = {}): McpStdioEntry {
+  return {
+    enabled: false,
+    transport: 'stdio',
+    command: 'memorix',
+    args: [],
+    env: {},
+    cwd: '',
+    toolCallTimeoutMs: 60_000,
+    failOnStartupError: false,
+    reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
+    ...over,
+  }
+}
+
+// Dispose every booted context so a mounted roster never outlives its test.
 const booted: Context[] = []
 
 afterEach(async () => {
@@ -21,26 +37,28 @@ afterEach(async () => {
 async function boot(loaderEntries: FakeLoaderEntry[] = []) {
   const ctx = new Context()
   ctx.provide('loader', fakeLoader(loaderEntries) as never)
-  await ctx.plugin(MemorySettings)
-  await ctx.plugin(McpManager)
+  const manager = await ctx.plugin(McpManager)
   booted.push(ctx)
-  return ctx
+  return { ctx, manager }
 }
 
-describe('mcp-manager settings registration', () => {
-  it('registers the mcp-servers namespace with live apply', async () => {
-    const ctx = await boot()
-    const described = ctx.settings.describe({})
-    const view = described.find(entry => entry.ns === MCP_SERVERS_NS)
-    expect(view?.applies).toBe('live')
+describe('mcp-manager section config', () => {
+  it('declares the mcp-servers section as the plugin Config and applies a commit to the running plugin', async () => {
+    const { ctx, manager } = await boot()
+    expect(McpManager.Config).toBe(McpServersSchema)
+    // The volatile `servers` field is what makes the roster a settings form
+    // whose commits land in the running instance instead of a remount.
+    expect(McpServersSchema.dict?.servers?.meta.volatile).toBe(true)
+    await manager.update({ servers: { alpha: entry() } })
+    const gateway = ctx.get('mcpServers') as McpManager
+    expect(gateway.list().entries).toEqual([
+      { serverName: 'alpha', transport: 'stdio', source: 'settings', enabled: false, status: null },
+    ])
   })
 
-  it('accepts a well-formed write and resolves schema defaults', async () => {
-    const ctx = await boot()
-    await ctx.settings.update(MCP_SERVERS_NS, {
-      alpha: { transport: 'stdio', command: 'memorix' },
-    })
-    expect(ctx.settings.get(MCP_SERVERS_NS)).toMatchObject({
+  it('accepts a well-formed section and resolves schema defaults', async () => {
+    const value = McpServersSchema({ servers: { alpha: { transport: 'stdio', command: 'memorix' } } } as never).servers.get()
+    expect(value).toMatchObject({
       alpha: {
         enabled: true,
         command: 'memorix',
@@ -51,36 +69,27 @@ describe('mcp-manager settings registration', () => {
   })
 
   it('preserves and resolves a partial reconnect policy for the mounted client', async () => {
-    const ctx = await boot()
-    await ctx.settings.update(MCP_SERVERS_NS, {
-      alpha: {
-        transport: 'stdio',
-        command: 'memorix',
-        reconnect: { enabled: false, initialDelayMs: 750 },
-      },
-    })
-    expect(ctx.settings.get(MCP_SERVERS_NS)).toMatchObject({
+    const value = McpServersSchema({
+      servers: { alpha: { transport: 'stdio', command: 'memorix', reconnect: { enabled: false, initialDelayMs: 750 } } },
+    } as never).servers.get()
+    expect(value).toMatchObject({
       alpha: {
         reconnect: { enabled: false, initialDelayMs: 750, maxDelayMs: 30_000, maxAttempts: 10 },
       },
     })
   })
 
-  it('refuses a write whose serverName collides with a declarative entry', async () => {
-    const ctx = await boot([{
+  it('refuses a live edit whose serverName collides with a declarative entry', async () => {
+    const { manager } = await boot([{
       name: MCP_CLIENT_MODULE,
       config: { serverName: 'memorix', transport: 'stdio' },
     }])
-    await expect(ctx.settings.update(MCP_SERVERS_NS, {
-      memorix: { transport: 'stdio', command: 'x' },
-    })).rejects.toThrow(/memorix/)
+    expect(() => manager.update({ servers: { memorix: entry() } })).toThrow(/memorix/)
   })
 
-  it('refuses a write whose key violates the serverName pattern', async () => {
-    const ctx = await boot()
-    await expect(ctx.settings.update(MCP_SERVERS_NS, {
-      'has space': { transport: 'stdio', command: 'x' },
-    })).rejects.toThrow(/has space/)
+  it('refuses a live edit whose key violates the serverName pattern', async () => {
+    const { manager } = await boot()
+    expect(() => manager.update({ servers: { 'has space': entry() } })).toThrow()
   })
 })
 

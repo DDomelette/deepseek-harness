@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-handset-conversation-polish.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-07-handset-conversation-polish.md
-2026-10-07-handset-conversation-polish.md: 1b643a944b8129b0e31776c17c74bf0517f6cbad
-2026-10-07-handset-conversation-polish.zh.md: b5aa29e0aa762cb3ef6fe769fabf31aefb31a70b
+/agent-note-handset-polish-shared-content-column-drawer-slide-single-line-composer-row:
+  en: 36b56a2218e4a7de
+  zh: 841849dbc14e1360
+/agent-note-handset-polish-shared-content-column-drawer-slide-single-line-composer-row/problem:
+  en: e9c44b7af689e4f9
+  zh: cc70a447dc8b4931
+/agent-note-handset-polish-shared-content-column-drawer-slide-single-line-composer-row/decision:
+  en: a263ed4ec81bf187
+  zh: 2f57878420f12853
+/agent-note-handset-polish-shared-content-column-drawer-slide-single-line-composer-row/alternatives-considered:
+  en: 1c6e8b4341255017
+  zh: ce9d3cf07dd72299
+/agent-note-handset-polish-shared-content-column-drawer-slide-single-line-composer-row/consequences:
+  en: 3add9f445bd16712
+  zh: b3cd7f398ba3ada6

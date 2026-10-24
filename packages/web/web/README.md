@@ -105,7 +105,6 @@ The package is built on one deliberate separation:
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: the `WebRuntime` service, both provider registries, and execution-time selection |
 | [`src/types.ts`](src/types.ts) | Vocabulary: request/result types, the closed `WebFetchBody` union, and the `WebError` taxonomy |
-| — | No runtime invariant companion is published; provider maps are private and selection/result caps are enforced on each call; the seam publishes no independent registry or request/result observation stream. |
 
 ### Data model
 
@@ -167,3 +166,5 @@ This Dev Note is working context for maintainers: open questions and undecided d
 No provider-change event or capability-status query exists; consumers observe availability only by executing a call and routing the thrown code. Restoring a small observation surface is possible if a consumer needs per-provider reasons, but the archived simplification note records why the earlier one was dropped.
 
 </details>
+
+**Runtime invariant:** No companion is published. This stateless Service Definition owns the search and fetch vocabulary, selection rules, and `WebError` taxonomy; providers registered by other packages own network access and their own availability checks.

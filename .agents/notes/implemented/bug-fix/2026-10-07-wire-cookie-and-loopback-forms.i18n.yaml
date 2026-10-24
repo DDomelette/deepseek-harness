@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-wire-cookie-and-loopback-forms.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-wire-cookie-and-loopback-forms.md
-2026-10-07-wire-cookie-and-loopback-forms.md: c6e4afd834cd1368866d66d868bb3198ddaa0ad4
-2026-10-07-wire-cookie-and-loopback-forms.zh.md: 537f270bb2b513e42cb3a2c14f0f4508b2e1cfde
+/agent-note-cookies-repeat-and-mapped-loopback-is-loopback:
+  en: f39db9ec6f4baa60
+  zh: 69d71b1a73c831ea
+/agent-note-cookies-repeat-and-mapped-loopback-is-loopback/problem:
+  en: edd5e1bfe6c2446f
+  zh: dcba84f60c330744
+/agent-note-cookies-repeat-and-mapped-loopback-is-loopback/decision:
+  en: f3beec417d2573a3
+  zh: bdc06096f430630f
+/agent-note-cookies-repeat-and-mapped-loopback-is-loopback/alternatives-considered:
+  en: 5bd2a132fc75e061
+  zh: 2ccc9be635fbbac0
+/agent-note-cookies-repeat-and-mapped-loopback-is-loopback/consequences:
+  en: a918d0b1ec9a2331
+  zh: 3fa331a61ab32309

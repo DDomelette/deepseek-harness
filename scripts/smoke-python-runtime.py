@@ -265,7 +265,7 @@ def write_advanced_profile_patch(root: Path, name: str, sessions: Path) -> Path:
             },
         },
         {"insert": [
-            {"id": "code-runtime", "name": "@deepseek-ai/dsh-code-runtime-worker-thread"},
+            {"id": "ptc-runtime", "name": "@deepseek-ai/dsh-ptc-runtime-node"},
             {"id": "cordis-host-runner", "name": "@deepseek-ai/dsh-cordis-host-runner"},
             {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis"},
         ]},
@@ -1673,8 +1673,8 @@ def session_header_version(content: str, label: str) -> int:
     return version
 
 
-def assert_current_session_version(version: int, label: str) -> None:
-    """Require generated logs to use the source writer generation, independent of goldens."""
+def current_session_format_version() -> int:
+    """Read the writer generation the TypeScript session package currently declares."""
     source = Path(__file__).resolve().parents[1] / "packages/core/session/src/types.ts"
     declarations = re.findall(
         r"^export const SESSION_FORMAT_VERSION = ([0-9]+)$",
@@ -1683,7 +1683,12 @@ def assert_current_session_version(version: int, label: str) -> None:
     )
     if len(declarations) != 1:
         raise AssertionError(f"{source}: expected one literal SESSION_FORMAT_VERSION declaration")
-    current_version = int(declarations[0])
+    return int(declarations[0])
+
+
+def assert_current_session_version(version: int, label: str) -> None:
+    """Require generated logs to use the source writer generation, independent of goldens."""
+    current_version = current_session_format_version()
     if version != current_version:
         raise AssertionError(
             f"{label}: expected current Session format v{current_version}, got v{version}",

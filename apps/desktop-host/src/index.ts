@@ -220,7 +220,11 @@ function assetHandler(ctx: Context, projectDir: string): ConnectionFetchHandler 
   }
 }
 
+/** The desktop pipe carries no Client-to-Host items, so every stream opens with this ended uplink. */
+async function* noUplink(): AsyncGenerator<never> {}
+
 function remoteStreamHandler(ctx: Context): ConnectionFetchHandler {
+  const operator = ctx.get('connection')?.operator
   return {
     requestBodyMode: () => 'buffered',
     async fetch(request): Promise<Response> {
@@ -243,7 +247,13 @@ function remoteStreamHandler(ctx: Context): ConnectionFetchHandler {
       const stream = new ReadableStream<Uint8Array>({
         async start(controller) {
           try {
-            const values = await gateway.wireStream.open(body.endpoint as string, body.payload, abort.signal)
+            const values = await gateway.wireStream.open(
+              body.endpoint as string,
+              body.payload,
+              noUplink(),
+              operator,
+              abort.signal,
+            )
             for await (const value of values) {
               controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
             }
@@ -302,7 +312,9 @@ export async function runDesktopHost(
     await ctx.fiber.dispose()
     throw new Error('dsh desktop: composition did not provide connection, typertGateway, and clientModules')
   }
-  const api = connection.createSharedFetchHandler('/api')
+  // The desktop pipe carries no HTTP credential of its own, so its lanes speak
+  // as the operator; browser requests are admitted per request by Connection.
+  const api = connection.createSharedFetchHandler('/api', connection.operator)
   const assets = assetHandler(ctx, absoluteProject)
   const streams = remoteStreamHandler(ctx)
   const requests = new Map<number, AbortController>()

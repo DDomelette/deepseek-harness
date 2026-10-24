@@ -20,7 +20,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-// Type-only: the mob failure vocabulary (`mob/loopback-only`), shared with the Host throw site.
+// Type-only: the mob failure vocabulary (`mob/no-advertised-origin`), shared with the Host throw site.
 import type {} from '../types.ts'
 import { ConnectPhoneRow, type ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
 import { PairScreen, pairingBootFact, readPairingState, type PairScreenInjected } from './PairScreen.tsx'

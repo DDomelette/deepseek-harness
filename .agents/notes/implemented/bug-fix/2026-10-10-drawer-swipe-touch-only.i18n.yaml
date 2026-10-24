@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-10-drawer-swipe-touch-only.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-10-drawer-swipe-touch-only.md
-2026-10-10-drawer-swipe-touch-only.md: 3d9ada34cb83d3829a4a87a218676ff3a8a59a01
-2026-10-10-drawer-swipe-touch-only.zh.md: aef3e047ced6b68282887bb73a8dbbe83d1f0be8
+/agent-note-drawer-edge-swipe-is-touch-only-mouse-drags-keep-text-selection:
+  en: ea8f779a4620a69a
+  zh: cafe94e4a1b70743
+/agent-note-drawer-edge-swipe-is-touch-only-mouse-drags-keep-text-selection/problem:
+  en: c95e41440ac7ce31
+  zh: 45a7f7baf2b87fd6
+/agent-note-drawer-edge-swipe-is-touch-only-mouse-drags-keep-text-selection/decision:
+  en: d0f63cfefba0f548
+  zh: ba5ae2cde3272549
+/agent-note-drawer-edge-swipe-is-touch-only-mouse-drags-keep-text-selection/alternatives-considered:
+  en: 6c2e0fbc5865e4bd
+  zh: cfb1b38eff6f20ed
+/agent-note-drawer-edge-swipe-is-touch-only-mouse-drags-keep-text-selection/consequences:
+  en: ab991b8d192d458e
+  zh: 52a08dedf06a63ba

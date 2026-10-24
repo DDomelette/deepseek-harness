@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Settings-driven MCP server manager: owns the `mcp-servers` user-settings namespace that the Web settings panel edits, and projects the `cordis.yml`-declared (declarative) MCP servers read-only alongside the panel-managed roster.
+Settings-driven MCP server manager: declares the `mcp-servers` settings section — its own plugin Config, which the Web settings panel edits — and projects the `cordis.yml`-declared (declarative) MCP servers read-only alongside the panel-managed roster.
 
 
 ## Table of Contents
@@ -26,22 +26,26 @@ Settings-driven MCP server manager: owns the `mcp-servers` user-settings namespa
 <a id="usage"></a>
 ## Usage
 
-Mount the plugin alongside a settings provider and the Loader; it injects `settings` and `loader`:
+Mount the plugin alongside the Loader; it injects `loader` and declares the section as its own Config:
 
 ```yaml
-- name: '@deepseek-ai/dsh-mcp-manager'
+- id: mcp-servers
+  name: '@deepseek-ai/dsh-mcp-manager'
 ```
 
-The registered `mcp-servers` section is a dict keyed by serverName; every entry mirrors the `dsh-mcp-client` Config fields plus `enabled`. Writes apply live. A write is refused when a key violates the serverName pattern (`[A-Za-z0-9_-]{1,32}`) or names a server already declared in `cordis.yml` — the declarative and panel-managed rosters never overlap.
+The `mcp-servers` section holds the panel-managed roster under `servers`: a dict keyed by serverName whose every entry mirrors the `dsh-mcp-client` Config fields plus `enabled`. A settings edit applies live. The section's schema refuses a key outside the serverName pattern (`[A-Za-z0-9_-]{1,32}`), and an edit to the running manager is refused when it names a server already declared in `cordis.yml` — the declarative and panel-managed rosters never overlap. A section the composition already stored when the manager mounted is reported by the package invariant instead.
+
+A namespace IS its Loader entry id, so the manager's row must carry the `mcp-servers` id for the Web MCP tab, which binds the same key, to address the section.
 
 <a id="config"></a>
 ## Config
 
-The `mcp-servers` section lives in the settings document (a namespace, not plugin Config):
+The `mcp-servers` section is the plugin's own Config, so the settings page renders it from `McpServersSchema` and the config editor persists it in the profile patch:
 
 | Field | Transport | Required | Description |
 |---|---|---|---|
-| (key) | both | yes | serverName: `[A-Za-z0-9_-]{1,32}`, unique across the panel-managed roster and every declarative server |
+| `servers` | both | no | Panel-managed roster keyed by serverName (default `{}`); the settings seam edits it live |
+| `servers.<key>` | both | yes | serverName: `[A-Za-z0-9_-]{1,32}`, unique across the panel-managed roster and every declarative server |
 | `enabled` | both | no | Whether the entry is in effect (default `true`) |
 | `transport` | both | yes | `"stdio"` or `"streamable-http"` |
 | `command` | stdio | yes | Executable to spawn |
@@ -65,7 +69,7 @@ The `mcp-servers` section lives in the settings document (a namespace, not plugi
 <a id="roster-remote"></a>
 ## Roster Remote
 
-The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the namespace registration and supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`. The manager emits payload-free `mcp-servers/change` invalidations after the settings roster or a mount lifecycle state changes; Remote consumers refetch `list()` instead of treating the event as a snapshot.
+The package's default export is `McpServersGateway`, the plugin the Loader mounts for `@deepseek-ai/dsh-mcp-manager` rows: it owns the section schema and the supervisor, and exposes the `mcpServers` Remote with one `list()` method. Each call re-reads both planes and returns settings rows first, then declarative rows: serverName, transport, source, `enabled`, and a mount-`status` (`connecting`/`ready`/`failed`, with `error` on failure). `status` reports mount lifecycle only — `ready` means the mcp-client fiber settled, never that the server answered; disabled settings rows and declarative rows report `null`. Secret config fields (`env`, `headers`) are never projected, and MCP servers an agent preset mounts inline are absent by design — they never appear in `ctx.loader.entries()`. The manager emits payload-free `mcp-servers/change` invalidations after the settings roster or a mount lifecycle state changes; Remote consumers refetch `list()` instead of treating the event as a snapshot.
 
 <a id="relationship-to-dsh-mcp-client"></a>
 ## Relationship to dsh-mcp-client
@@ -96,7 +100,8 @@ No KV-cache effect of its own; adding, removing, or toggling an entry changes th
 - **Lifecycle status only** — `status` reports the mount fiber's settlement, not liveness; a server that never answers its initial connection still reports `ready` under the default `failOnStartupError: false`.
 - **Preset-mounted servers are invisible** — an MCP server an agent preset mounts inline is absent from `ctx.loader.entries()` and therefore from the declarative roster.
 - **Keyed by serverName** — renaming a server means removing the entry and adding a new one; the settings key is the name.
-- **Panel is the only editor** — the section is plain settings data, so a headless deployment can edit `settings.yaml` directly, but the write-time duplicate guard against declarative names only runs through the settings seam.
+- **Panel is the only editor** — the section is plain profile configuration, so a deployment can edit the patch directly, but the write-time duplicate guard against declarative names only runs while the manager is the one committing the section.
+- **Namespace follows the row id** — a namespace is its Loader entry id, so renaming the manager's row moves the section away from the Web MCP tab's bound key.
 
 <a id="dev-note"></a>
 ### Dev Note
