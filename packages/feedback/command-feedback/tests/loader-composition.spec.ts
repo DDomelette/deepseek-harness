@@ -87,7 +87,12 @@ describe('/feedback real Loader composition through cordis.yml', () => {
     const signal = new AbortController().signal
 
     // Discoverable through the composed registry, as a UI adapter finds it.
-    expect(context.commands.list(owner).map(command => command.name)).toContain('feedback')
+    expect(context.commands.list(owner)).toContainEqual({
+      definitionId: '@deepseek-ai/dsh-command-feedback',
+      name: 'feedback',
+      description: 'Record feedback about this session',
+      input: { hint: '<text>' },
+    })
 
     const accepted = await context.commands.execute(owner, '/feedback the diff view is unreadable', [], signal)
     const userId = getOrCreateAnonymousUserId({ env: { DSH_HOME: root } })

@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-24-session-action-identity-and-feedback.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-24-session-action-identity-and-feedback.md
+/agent-note-session-action-identity-and-optional-feedback:
+  en: 919c2d84c9520b5c
+  zh: a96e8f59242c6d8e
+/agent-note-session-action-identity-and-optional-feedback/problem:
+  en: 2de7500b0107dd21
+  zh: 807051cc53eab9c6
+/agent-note-session-action-identity-and-optional-feedback/decision:
+  en: ad68dc2b47b5fc67
+  zh: 2c1cd301db80663f
+/agent-note-session-action-identity-and-optional-feedback/alternatives-considered:
+  en: 7cce0ecde95ca854
+  zh: 165ccaedc773a2d6
+/agent-note-session-action-identity-and-optional-feedback/consequences:
+  en: bdfdd45a39210e3e
+  zh: 1dda0764e281b494

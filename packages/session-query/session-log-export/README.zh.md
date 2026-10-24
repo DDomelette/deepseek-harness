@@ -53,6 +53,10 @@ Web bundle 将本包与 Connection、`dsh-commands`、`dsh-client-ui-commands` �
 | `/export` | 记录用户命令的生命周期；提交命令的浏览器下载 `GET /api/session.export?sessionId=<id>&includeDescendants=true` |
 | `/export <path>` | 错误；浏览器下载通过浏览器的普通下载行为选择目标位置 |
 
+该命令声明 `definitionId: '@deepseek-ai/dsh-session-log-export'`；Web 命令 UI 使用此标识提供本地化的下载操作。
+
+可选反馈插件激活时，页头菜单提供反馈操作。它打开 Session 反馈草稿，不会记录反馈或启动下载；卸载反馈插件会移除此操作，下载仍保持可用（[决策](../../../.agents/notes/implemented/bug-fix/2026-10-24-session-action-identity-and-feedback.zh.md)）。
+
 ### 预期行为
 
 弹窗报告三个阶段：准备中、开始下载或失败。关闭弹窗不会取消正在进行的下载，该操作随后结束时弹窗也不会重新打开。每个会话同时只允许一项下载，重复操作共用该任务。导出包含实时会话的最新事件：Host 端点在读取前会 flush 活动的根会话，因此斜杠命令触发的 ZIP 会包含启动下载的 `command/run` 与 `command/done` 事件对；非活动的持久化会话不需要 flush。每份逻辑日志在归档中使用当前 generation 的规范文件名（v0 为 `session.jsonl`，其他版本为 `session.vN.jsonl`），每个子会话目录下也遵循同一规则。图片使用 `media/<attachmentId>.<ext>`，通用文件使用 `files/<digest-prefix>/<digest>/<name>`。通用文件以有界分块读取并压缩，因此导出大型上传文件时不会把它完整缓冲进内存。

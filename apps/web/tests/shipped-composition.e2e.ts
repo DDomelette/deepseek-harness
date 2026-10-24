@@ -474,7 +474,7 @@ function assertLeanChildRecord(agent: Agent): void {
  */
 const EXPECTED_TOOLS = [
   'ask_user_question',
-  'bash',
+  process.platform === 'win32' ? 'pwsh' : 'bash',
   'create_goal',
   'edit',
   'exit_plan_mode',
@@ -502,7 +502,7 @@ const EXPECTED_TOOLS = [
   'workflow',
   'working_directory',
   'write',
-]
+].sort()
 
 /**
  * `glob` and `grep` come from `dsh-tool-fs-search`, which spawns the PACKAGED
