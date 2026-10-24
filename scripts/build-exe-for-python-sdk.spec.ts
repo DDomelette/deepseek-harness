@@ -63,6 +63,7 @@ describe('Python runtime executable builder CLI', () => {
     expect(result.stdout).not.toContain(resolve(root, 'python/sdk-runtime/runtime-bootstrap.mjs'))
     expect(result.stdout).toContain('"bin":"runtime-bootstrap.mjs"')
     expect(result.stdout).toContain(`${process.execPath} C:\\tools\\pnpm.cjs exec pkg`)
+    expect(result.stdout).toContain('--sea --compress GZip --targets node24-macos-arm64')
     expect(result.stdout).not.toMatch(/pnpm\.cmd/i)
   })
 
@@ -97,7 +98,7 @@ describe('Python runtime executable builder CLI', () => {
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('exec pkg')
-    expect(result.stdout).toContain('--sea --targets node24-macos-x64')
+    expect(result.stdout).toContain('--sea --compress GZip --targets node24-macos-x64')
   })
 
   it('rejects a Windows arm64 product before any build step', () => {
