@@ -37,6 +37,9 @@
     },
     {
       "path": "../../subagent/subagent"
+    },
+    {
+      "path": "../../boot/cmdline"
     }
   ]
 }

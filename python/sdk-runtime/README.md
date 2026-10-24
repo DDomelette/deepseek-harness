@@ -29,6 +29,8 @@ Unsupported platforms and missing executables or sidecars raise `FileNotFoundErr
 
 External profile management uses `dsh plugin --profile <name> ...`. That command requires `pnpm` on `PATH`; ordinary SDK/profile execution does not.
 
+The executable dispatches embedded PTC workers, so `run_code` and workflow execution use the same packaged dependencies without starting another application profile.
+
 ## Build and distribution
 
 From the repository root, `pnpm exec tsx scripts/build-exe-for-python-sdk.ts` verifies the closure, builds packages, deploys a symlink-free tree, packages the selected target with GZip-compressed SEA assets, and syncs the executable and sidecars into this module. Compression preserves the complete runtime closure. `scripts/build-python-release.py` stages release-shaped wheels at the root repository version and pins `deepseek-harness-sdk` to the exact runtime version.

@@ -3,7 +3,7 @@ export const name = 'python-snapshot-workflow-order'
 
 /**
  * @param {import('@deepseek-ai/cordis').Context} ctx - Scenario-local host context.
- * @param {{ parentSessionId: string, prompt: string, direct?: { prompt: string, callId: string } }} config - Exact advanced scenario identities.
+ * @param {{ parentSessionId: string, prompt: string, direct?: { prompt: string, callId: string } }} config - Exact scenario identities and the direct child's parent handoff.
  */
 export function apply(ctx, config) {
   const started = new Set()
@@ -22,14 +22,14 @@ export function apply(ctx, config) {
   })
   ctx.on('session/event', (session, event) => {
     if (disposed || session.id !== config.parentSessionId) return
-    if (event.type === 'tool-workflow/agent-start') {
+    if (event.type === 'subagent/catalog') {
       started.add(event.data.childId)
       pending.get(event.data.childId)?.resolve()
     }
     if (config.direct === undefined) return
     if (event.type === 'tool/result' && event.data.message.source.callId === config.direct.callId) directResultSeq = event.seq
     if (directResultSeq === undefined) return
-    if (event.type === 'step/start') directStep = true
+    if (event.type === 'turn/end') directStep = true
     if (event.type === 'session-log-deepseek/delivery-accepted' && event.data.throughSeq >= directResultSeq) {
       directDelivered = true
     }

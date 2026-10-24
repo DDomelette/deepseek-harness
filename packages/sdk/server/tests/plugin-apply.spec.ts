@@ -170,6 +170,45 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
 }
 
 describe('dsh-sdk-jsonrpc-server plugin apply', () => {
+  it.each([false, true])('waits for launcher readiness and detaches on early unload (%s)', async (unload) => {
+    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-launcher-ready-'))
+    const listeners = new Set<() => void>()
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    const harness = await mountPlugin(storageDir, {
+      beforeServer(ctx) {
+        ctx.provide('appReady', {
+          onReady(listener: () => void) {
+            listeners.add(listener)
+            return () => { listeners.delete(listener) }
+          },
+        })
+      },
+    })
+    try {
+      expect(listeners.size).toBe(1)
+      harness.send({ jsonrpc: '2.0', id: 'launcher-init', method: 'initialize', params: {
+        cwd: storageDir, provider: 'deepseek-official', model: 'apply-model',
+      } })
+      expect(harness.frames()).toEqual([])
+      if (unload) {
+        await harness.fiber.dispose()
+        expect(listeners.size).toBe(0)
+      }
+      for (const ready of [...listeners]) ready()
+      listeners.clear()
+      if (unload) {
+        expect(harness.frames()).toEqual([])
+      } else {
+        expect(await harness.waitForFrame(frame => frame.id === 'launcher-init', 'launcher ready')).toMatchObject({
+          result: { serverInfo: { name: 'deepseek-harness-sdk-runtime' } },
+        })
+      }
+    } finally {
+      await harness.dispose()
+      await rm(storageDir, { recursive: true, force: true })
+    }
+  })
+
   it('serves initialize over the injected stdio pair', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-init-'))
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')

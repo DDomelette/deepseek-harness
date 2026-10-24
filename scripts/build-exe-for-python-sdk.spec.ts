@@ -47,6 +47,8 @@ describe('Python runtime executable builder CLI', () => {
     expect(bootstrap).toContain('await runCli()')
     expect(bootstrap).toContain("import('@deepseek-ai/dsh-subprocess-local/runner')")
     expect(bootstrap).toContain('await runSelectedSubprocessRunner(selection)')
+    expect(bootstrap).toContain("Reflect.deleteProperty(process.env, 'DSH_PTC_RUNTIME_NODE')")
+    expect(bootstrap).toContain("import('@deepseek-ai/dsh-ptc-runtime-node/process')")
   })
 
   it('runs pnpm through its JavaScript entrypoint without a command shell', () => {

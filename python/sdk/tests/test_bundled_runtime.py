@@ -87,12 +87,12 @@ def test_python_sdk_applies_an_ordered_profile_patch(
 
 
 @pytest.mark.parametrize("mode", _MODES)
-def test_bundled_runtime_surfaces_unbundled_plugin_failure(
+def test_bundled_runtime_surfaces_a_missing_required_entry(
     tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     patch = tmp_path / "missing.patch.yml"
     patch.write_text(json.dumps([{
-        "insert": [{"id": "missing", "name": "@deepseek-ai/dsh-does-not-exist"}],
+        "insert": [{"id": "webserver", "name": "@deepseek-ai/dsh-does-not-exist"}],
     }]))
 
     client = _client(tmp_path, mode, monkeypatch, patch)

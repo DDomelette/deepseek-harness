@@ -29,6 +29,8 @@ wheel 包会安装 `dsh` 控制台命令和 `deepseek_harness_runtime` Python �
 
 外部 profile 管理使用 `dsh plugin --profile <name> ...`。该命令要求 `PATH` 中存在 `pnpm`；普通 SDK／profile 运行不需要它。
 
+可执行程序会分发内嵌 PTC worker，因此 `run_code` 与 workflow 执行使用同一套打包依赖，无需启动另一个应用 profile。
+
 ## 构建与分发
 
 在仓库根目录运行 `pnpm exec tsx scripts/build-exe-for-python-sdk.ts`，会校验闭包、构建包、部署无符号链接的文件树、以 GZip 压缩的 SEA 资源打包所选目标，并把可执行程序及伴随文件同步到本模块。压缩保留完整的运行时闭包。`scripts/build-python-release.py` 按仓库根版本暂存发布形态的 wheel 包，并将 `deepseek-harness-sdk` 固定到完全相同的运行时版本。

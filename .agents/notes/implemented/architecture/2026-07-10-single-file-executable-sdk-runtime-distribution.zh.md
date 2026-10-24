@@ -23,6 +23,8 @@ exe 使用 [@yao-pkg/pkg](https://github.com/yao-pkg/pkg)（vercel/pkg 归档后
 
 构建器为完整资源归档选择 `--compress GZip`。运行时闭包包含动态导入的插件及其资源；为了迁就二进制注入器而删减资源，会让有效的 profile 组合在运行时失败。压缩在保留这些文件的同时减少传给注入器的数据。GZip 的构建成本低于 Brotli 的最高压缩路径，打包后的 VFS 读取器也支持它。
 
+Python 打包入口先把嵌入式 PTC 选择器分发到 `@deepseek-ai/dsh-ptc-runtime-node/process`，再处理普通 CLI。任一 worker 启动前都会消费私有选择器。PTC 帧限制属于 worker 参数；若送进 CLI，数字会被解释为 profile 名称，受管控制通道也无人处理。
+
 `@yao-pkg/pkg` 是精确钉版的根 `devDependency`，经 `pnpm exec pkg` 调用，并以 [`patches/@yao-pkg__pkg@6.21.0.patch`](../../../../patches/@yao-pkg__pkg@6.21.0.patch) 移除 SEA bootstrap 中的 `patchChildProcess` 调用。未打补丁时，pkg 会把 spawn 的 `node` 命令——包括 `-c`/`/c` 标志后的命令串，恰是 Bash 工具的 `bash -c` 形态——改写为 exe 自身，并向每个子进程环境注入 `PKG_EXECPATH`，模型下发的 `node --version` 会静默启动 dsh CLI；Node 自身的 SEA 层没有这种改写，且 SEA 二进制永远启动内嵌应用、无法充当纯 Node。移除该调用后，子进程像普通进程一样经 PATH 解析 `node`（无 Node 的机器如实报 command not found），子进程环境不再出现 `PKG_EXECPATH`，以 `process.execPath` 绝对路径 spawn 的重入不受影响，worker 线程本来就未应用该钩子，`process.pkg` 侧车选择也不受影响。
 
 术语提醒：pkg 的 `/snapshot` VFS 与本仓库测试体系的「快照」（ACP（Agent Client Protocol）回放预期输出、`$DSH_SNAPSHOT`）无关，本文用「VFS」指前者。

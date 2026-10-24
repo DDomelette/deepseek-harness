@@ -40,8 +40,8 @@ async function harness(direct = false) {
   const messages = [createUserMessage({ content: [{ type: 'text', text: config.prompt }], source: { kind: 'user' } })]
   const decision: PreStepDecision = { kind: 'enter', messages }
   const next = vi.fn(async () => decision)
-  const start = (owner = parent, childId = agent.id) => owner.append('tool-workflow/agent-start', {
-    runId: WorkflowRunId('run'), seq: 1, label: 'workflow-child', childId,
+  const start = (owner = parent, childId = agent.id) => owner.append('subagent/catalog', {
+    version: 0, mode: 'one-shot', childCreatedAt: 0, label: 'workflow-child', childId,
   })
   const step = (overrides = {}) => agentEvents(ctx, agent).waterfall('agent/pre-step', {
     turn: 1, step: 1, messages, signal: controller.signal, ...overrides,
@@ -50,7 +50,7 @@ async function harness(direct = false) {
 }
 
 describe('advanced Python snapshot workflow ordering', () => {
-  it('blocks a real activated child before its first model request', async () => {
+  it('starts a real activated child after its parent publishes the durable catalog', async () => {
     const ctx = new Context()
     const entered = Promise.withResolvers<Agent>()
     const order: string[] = []
@@ -83,14 +83,10 @@ describe('advanced Python snapshot workflow ordering', () => {
     cleanups.push(() => run.dispose())
     const child = await entered.promise
     expect(child.id).toBe(run.childId)
-    expect(adapter.requests).toHaveLength(0)
     expect(child.session.snapshotEvents().some(event => event.type === 'subagent/descriptor')).toBe(true)
-    parent.session.append('tool-workflow/agent-start', {
-      runId: WorkflowRunId('run'), seq: 1, label: 'workflow-child', childId: child.id,
-    })
     expect((await run.result).output).toEqual([{ type: 'text', text: 'child complete' }])
     expect(adapter.requests).toHaveLength(1)
-    expect(order).toEqual(['subagent/catalog', 'tool-workflow/agent-start'])
+    expect(order).toEqual(['subagent/catalog'])
   })
 
   it('holds the child until the exact parent records the exact member', async () => {
@@ -109,7 +105,7 @@ describe('advanced Python snapshot workflow ordering', () => {
     expect(getEventListeners(h.controller.signal, 'abort')).toHaveLength(0)
   })
 
-  it('waits for the parent to consume the direct start and acknowledge its request log', async () => {
+  it('waits for the parent to finish its direct-start turn and acknowledge its request log', async () => {
     const h = await harness(true)
     const pending = h.step()
     h.parent.append('turn/start', { turn: 1 })
@@ -126,6 +122,9 @@ describe('advanced Python snapshot workflow ordering', () => {
     h.parent.append('session-log-deepseek/delivery-accepted', {
       sessionId: h.parent.id, sessionFormatVersion: h.parent.header.version, throughSeq: result.seq,
     })
+    await Promise.resolve()
+    expect(h.next).not.toHaveBeenCalled()
+    h.parent.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     expect(await pending).toBe(h.decision)
     expect(h.next).toHaveBeenCalledOnce()
   })
