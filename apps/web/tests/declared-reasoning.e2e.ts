@@ -55,7 +55,7 @@ describe.skipIf(MODE === 'record').each([
       },
     })
     browser = await engine.launch()
-    page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
+    page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE, serviceWorkers: 'block' })
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -216,7 +216,9 @@ describe.skipIf(MODE === 'record').each([
     await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection().reasoningEffort, { timeout: 10_000 })
       .toBe('max')
 
+    let rejectedRequests = 0
     await page.route('**/api/session/selectModel', async (route) => {
+      rejectedRequests += 1
       const envelope = route.request().postDataJSON() as { rpcId: string }
       await route.fulfill({
         json: {
@@ -234,6 +236,7 @@ describe.skipIf(MODE === 'record').each([
     expect(await search.getAttribute('aria-activedescendant')).toBe(await target.getAttribute('id'))
     await current.click()
     await page.getByRole('alert').waitFor()
+    expect(rejectedRequests).toBe(1)
     expect(selections).toBe(3)
     await compareOrRefreshGolden(POINTER_EXPECTED,
       await captureStableAria(page, '[role="group"][aria-label="模型与推理等级"]', scaffold.workspaceCwd), MODE)
