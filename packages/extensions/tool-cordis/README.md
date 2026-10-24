@@ -25,7 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin when a session should be able to extend its own runtime temporarily — for example, a model-written tool, service, or browser UI that helps the current work but should not become a repository plugin. Compose it with the host runner; without the runner the tools never activate. The Web app does this itself: it mounts the profile-wide `cordis-inspect-providers` row beside `cordis-host-runner`, and the per-session `tool-cordis` row in its `cordis` preset. Any other composition adds the tool row explicitly.
+Mount this plugin when a session should be able to extend its own runtime temporarily — for example, a model-written tool, service, or browser UI that helps the current work but should not become a repository plugin. Read-only inspection requires `tools` and `cordisInspect`; dynamic execution additionally requires `systemPrompt` and `dynamicCordisRunner`. The Web app does this itself: it mounts the profile-wide `cordis-inspect-providers` row beside `cordis-host-runner`, and the per-session `tool-cordis` row in its `cordis` preset. Any other composition adds the tool row explicitly.
 
 ### Minimal composition
 
@@ -33,17 +33,22 @@ Mount this plugin when a session should be able to extend its own runtime tempor
 - name: '@deepseek-ai/dsh-cordis-host-runner'
   config:
     vmTimeoutMs: 5000
+- name: '@deepseek-ai/dsh-tool-cordis/host'
+  config:
+    dynamicPlugins: true
 - name: '@deepseek-ai/dsh-tool-cordis'
+  config:
+    dynamicPlugins: true
 ```
 
-The minimal composition above composes both. A package with a browser half additionally needs the browser runner and the UI package in the client composition; a host-only package needs none of them.
+The composition above enables dynamic tools and their Host inspection providers. A package with a browser half additionally needs the browser runner and the UI package in the client composition; a host-only package needs none of them.
 
 ### The `dynamicPlugins` switch
 
 Two rows carry `dynamicPlugins`, one per plane, and both default to off:
 
 - `@deepseek-ai/dsh-tool-cordis/host` (entry id `cordis-inspect-providers`) registers the process-global host Inspect Providers once per process; the registry rejects a duplicate id. Its switch adds the `Builtin` provider that lists the sandbox's plain-JavaScript globals.
-- `@deepseek-ai/dsh-tool-cordis` mounts the tools in one Agent composition and always injects `tools`, `systemPrompt`, `cordisInspect`, and `dynamicCordisRunner`. Without the switch it registers `cordis_inspect_list` and `cordis_inspect_query` and no prompt section. With it, the session also gets `cordis_inspect_self`, `cordis_define`, `cordis_run`, `cordis_stop`, `cordis_undefine`, the `tool:cordis` system-prompt section, and the `@pluginId` context injection.
+- `@deepseek-ai/dsh-tool-cordis` mounts the tools in one Agent composition and always injects `tools` and `cordisInspect`. Only the enabled dynamic surface injects `systemPrompt` and `dynamicCordisRunner`. Without the switch it registers `cordis_inspect_list` and `cordis_inspect_query` and no prompt section. With it, the session also gets `cordis_inspect_self`, `cordis_define`, `cordis_run`, `cordis_stop`, `cordis_undefine`, the `tool:cordis` system-prompt section, and the `@pluginId` context injection.
 
 Set both rows together: the lifecycle tools teach a workflow that queries the `Builtin` directory, and only the host row decides whether that provider exists. The Web bundle sets both — the host row in [`cordis.patch.yml`](../../bundle/web-app/cordis.patch.yml) and the `cordis` preset row in [`presets/cordis.patch.yml`](../../bundle/web-app/presets/cordis.patch.yml).
 

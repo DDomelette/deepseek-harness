@@ -3737,7 +3737,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-tool-cordis`
 
-需要：`tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`
+需要：`tools` · `cordisInspect`
 
 ```ts config-catalog
 /** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */

@@ -6,11 +6,11 @@
   en: 0be8ffbf23193557
   zh: ce2c69aa86875171
 /tool-schema-catalog:
-  en: 6cc2cd9ced70bb09
-  zh: 1c0e6cb4ba2ed637
+  en: 06cd991032dc8356
+  zh: 34fb906bcccf022c
 /tool-schema-catalog/tool-package-map:
-  en: 84a138d3be5ed2b6
-  zh: f8ace6301aeacfec
+  en: 7dfe6236d2ba8367
+  zh: 44865d83da2e4beb
 /tool-schema-catalog/deepseek-ai-dsh-plugin-manager:
   en: e0143916bb634762
   zh: e0143916bb634762
@@ -89,12 +89,27 @@
 /tool-schema-catalog/deepseek-ai-dsh-tool-cordis:
   en: 76c7c62f9029b6f5
   zh: 76c7c62f9029b6f5
+/tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-define:
+  en: ae471079d9be0d5a
+  zh: a5125b6b9976e7b4
 /tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-inspect-list:
   en: 594e5b42047969cc
-  zh: b3ebc91dca828160
+  zh: f52b15ac937995ac
 /tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-inspect-query:
-  en: d76e21f595ee5158
-  zh: a46d2932ba074f76
+  en: 1a6934cb5e1c9b50
+  zh: 0bb0bf329a6035e8
+/tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-inspect-self:
+  en: 0c1a499aa90ac12b
+  zh: 434b187ef23e3235
+/tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-run:
+  en: 391cd9e46c2522cc
+  zh: 63d0cbfa724f079f
+/tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-stop:
+  en: 81b2c9f2a8b2d9da
+  zh: e3c7afd76bad1cd0
+/tool-schema-catalog/deepseek-ai-dsh-tool-cordis/cordis-undefine:
+  en: 54be4a5304efe821
+  zh: e7b15b6a53296192
 /tool-schema-catalog/deepseek-ai-dsh-tool-bash-persistent:
   en: bdd9e88c49029e05
   zh: bdd9e88c49029e05

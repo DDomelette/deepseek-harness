@@ -3735,7 +3735,7 @@ Source: [`packages/shell/tool-bash-persistent/src/index.ts:445`](../packages/she
 
 ## `@deepseek-ai/dsh-tool-cordis`
 
-Requires: `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`
+Requires: `tools` · `cordisInspect`
 
 ```ts config-catalog
 /** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */

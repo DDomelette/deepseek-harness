@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-当某个会话应当能临时扩展它自己的运行时——例如一个对当前工作有用、但不应成为仓库插件的模型编写的工具、服务或浏览器 UI——挂载本插件。请与 host runner 一同组合；没有 runner，这些工具永远不会激活。Web 应用自身就是这样组合的：它在挂载 `cordis-host-runner` 的 profile 级组合中挂载 `cordis-inspect-providers` 行，并在 `cordis` 预设中挂载按会话的 `tool-cordis` 行。其他组合需显式添加工具行。
+当某个会话应当能临时扩展它自己的运行时——例如一个对当前工作有用、但不应成为仓库插件的模型编写的工具、服务或浏览器 UI——挂载本插件。只读检查需要 `tools` 与 `cordisInspect`；动态执行还需要 `systemPrompt` 与 `dynamicCordisRunner`。Web 应用自身就是这样组合的：它在挂载 `cordis-host-runner` 的 profile 级组合中挂载 `cordis-inspect-providers` 行，并在 `cordis` 预设中挂载按会话的 `tool-cordis` 行。其他组合需显式添加工具行。
 
 ### 最小组合
 
@@ -33,17 +33,22 @@ kind: "package-reference"
 - name: '@deepseek-ai/dsh-cordis-host-runner'
   config:
     vmTimeoutMs: 5000
+- name: '@deepseek-ai/dsh-tool-cordis/host'
+  config:
+    dynamicPlugins: true
 - name: '@deepseek-ai/dsh-tool-cordis'
+  config:
+    dynamicPlugins: true
 ```
 
-上面的最小组合同时包含这两者。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
+上面的组合启用动态工具及其 Host 检查提供方。带浏览器半的包还额外需要客户端组合里的浏览器 runner 与 UI 包；纯 host 包则两者都不需要。
 
 ### `dynamicPlugins` 开关
 
 两行各自携带 `dynamicPlugins`，分属不同平面，且默认都关闭：
 
 - `@deepseek-ai/dsh-tool-cordis/host`（条目 id `cordis-inspect-providers`）每个进程注册一次进程级 host Inspect Provider；注册表会拒绝重复 id。它的开关会添加 `Builtin` 提供方，用于列出沙箱的纯 JavaScript 全局量。
-- `@deepseek-ai/dsh-tool-cordis` 在单个 Agent 组合中挂载工具，并始终注入 `tools`、`systemPrompt`、`cordisInspect` 与 `dynamicCordisRunner`。关闭开关时它只注册 `cordis_inspect_list` 与 `cordis_inspect_query`，不添加提示词章节；开启后，该会话还会得到 `cordis_inspect_self`、`cordis_define`、`cordis_run`、`cordis_stop`、`cordis_undefine`、`tool:cordis` 系统提示词章节以及 `@pluginId` 上下文注入。
+- `@deepseek-ai/dsh-tool-cordis` 在单个 Agent 组合中挂载工具，并始终注入 `tools` 与 `cordisInspect`。仅启用后的动态能力注入 `systemPrompt` 与 `dynamicCordisRunner`。关闭开关时它只注册 `cordis_inspect_list` 与 `cordis_inspect_query`，不添加提示词章节；开启后，该会话还会得到 `cordis_inspect_self`、`cordis_define`、`cordis_run`、`cordis_stop`、`cordis_undefine`、`tool:cordis` 系统提示词章节以及 `@pluginId` 上下文注入。
 
 两行要一起设置：生命周期工具所教的工作流会查询 `Builtin` 目录，而只有 host 行决定该提供方是否存在。Web 组合包两处都已设置——host 行在 [`cordis.patch.yml`](../../bundle/web-app/cordis.patch.yml)，`cordis` 预设行在 [`presets/cordis.patch.yml`](../../bundle/web-app/presets/cordis.patch.yml)。
 

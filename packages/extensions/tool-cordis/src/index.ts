@@ -36,7 +36,7 @@ export interface ToolCordisReferenceSource {
 }
 
 export const name = 'tool-cordis'
-export const inject = ['tools', 'systemPrompt', 'dynamicCordisRunner', 'cordisInspect']
+export const inject = ['tools', 'cordisInspect']
 
 /** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */
 export interface Config {
@@ -54,7 +54,7 @@ function requireAgent(exec: ToolExecution): Agent {
   return exec.agent
 }
 
-/** Register the Cordis tools and explicit `@pluginId` context injection. */
+/** Register read-only inspection and the configured dynamic tools. */
 export function apply(ctx: Context, config: Config = {}): void {
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_list',
@@ -108,12 +108,11 @@ export function apply(ctx: Context, config: Config = {}): void {
     presentCall: presentInspectQueryCall,
   }))
 
-  // Everything below belongs to the fork's dynamic-plugin surface. It is off by
-  // default so a composition that only inspects the runtime matches upstream's
-  // two-tool, prompt-free shape; deployments that mount the dynamic runner set
-  // `dynamicPlugins: true`.
   if (config.dynamicPlugins !== true) return
+  ctx.inject(['systemPrompt', 'dynamicCordisRunner'], applyDynamicTools)
+}
 
+function applyDynamicTools(ctx: Context): void {
   ctx.systemPrompt.section({
     name: 'tool:cordis',
     order: ctx.systemPrompt.getSectionOrder('TOOL_CORDIS'),
