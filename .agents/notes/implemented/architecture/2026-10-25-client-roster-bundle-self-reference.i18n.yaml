@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-25-client-roster-bundle-self-reference.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-25-client-roster-bundle-self-reference.md
+/agent-note-client-rosters-resolve-bundle-self-references:
+  en: 30dbc48712a82392
+  zh: 3c9279b201374a15
+/agent-note-client-rosters-resolve-bundle-self-references/problem:
+  en: a25197577308aa24
+  zh: 6694a5d386efea67
+/agent-note-client-rosters-resolve-bundle-self-references/decision:
+  en: 638bab8d3a71e89c
+  zh: 6b67da0a2511b2c0
+/agent-note-client-rosters-resolve-bundle-self-references/alternatives-considered:
+  en: 710e58b51585cae8
+  zh: d59a10555112f7a7
+/agent-note-client-rosters-resolve-bundle-self-references/consequences:
+  en: 132fde3d18a46cc3
+  zh: b35be62a9d5d6a9a

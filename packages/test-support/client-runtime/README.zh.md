@@ -11,8 +11,6 @@ kind: "package-library"
 
 `SlotTestRuntime.create()` 让 Vitest 套件在 jsdom 中驱动生产 slot、store、带类型的 Session 与 Workspace fixture，并对局部 DOM 断言。面向插件激活、重载、重连与清理的测试，`createClientTest` 使用具名端点 Remote mock 启动 web profile 的 bundle roster，无需业务 Host。缺失服务与未打桩调用会明确失败。整机 fixture 拥有启动和销毁，局部 runtime 提供幂等销毁。通过 `devDependencies` 将本包用于客户端测试；它不是产品插件。
 
-链接到工作区的 bundle 从实际包目录解析依赖；各 bundle 自身目录中的依赖优先于祖先目录中继承的包。
-
 ## 目录
 
 - [使用本包](#use-this-package)
@@ -115,6 +113,8 @@ test('registers into the sidebar', async ({ remote, start }) => {
 
 ### 设计
 
+链接到工作区的 bundle 从自身 manifest 解析自身包行，从实际包目录解析依赖；各 bundle 自身目录中的依赖优先于祖先目录中继承的包。
+
 测试台不复制生产逻辑：它挂载生产 `SlotRegistry`、生产渲染器与 `UiSession` 适配器。`TestSessions` 与 `TestWorkspaces` 实现功能通过 Cordis 消费的 owner 接口，每个 fixture Session 实现 `SessionFace`，`stubConfigForm` 实现 `ConfigForm`。`UiSession` 从这些控制器绑定派生标准渲染器数据源。未 stub 的 `ISession` 行为会携缺失方法名失败。
 
 ### 源码地图
@@ -186,6 +186,6 @@ test('registers into the sidebar', async ({ remote, start }) => {
 <details>
 <summary>维护者的工作上下文——点击展开</summary>
 
-无。
+[bundle 自引用发现](../../../.agents/notes/implemented/architecture/2026-10-25-client-roster-bundle-self-reference.zh.md)规定 manifest 所有权与依赖优先级。
 
 </details>
