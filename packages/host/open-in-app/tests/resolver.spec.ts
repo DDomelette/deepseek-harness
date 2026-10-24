@@ -17,6 +17,12 @@ import {
   type OpenInAppInternals, type OpenInAppLauncher, type OpenInAppResolvedLaunch,
 } from '../src/resolver.ts'
 
+// Kernel detection stays independent of the machine running this catalog fixture.
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  release: () => '6.8.0-generic',
+}))
+
 const TIMEOUT_MS = 5_000
 
 const roots: string[] = []
