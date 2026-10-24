@@ -43,10 +43,16 @@ const SKILLS: readonly SeedSkill[] = [
   { name: 'panel-solo', description: 'Panel solo', frontmatter: '' },
 ]
 
-/** The scaffold's user-skill root: `skill.catalog` lists it through the current session's composition. */
+/** Seed isolated user and bundled discovery roots for the current Session composition. */
 async function seedSkills(scaffold: WebScaffold): Promise<void> {
-  for (const skill of SKILLS) {
-    const directory = join(scaffold.harnessHome, 'skills', skill.name)
+  const roots = [
+    { path: join(scaffold.harnessHome, 'skills'), skills: SKILLS },
+    { path: join(scaffold.workspaceCwd, '.bundled-skills'), skills: [
+      { name: 'panel-bundled', description: 'Panel bundled skill', frontmatter: '' },
+    ] },
+  ]
+  for (const root of roots) for (const skill of root.skills) {
+    const directory = join(root.path, skill.name)
     await mkdir(directory, { recursive: true })
     await writeFile(join(directory, 'SKILL.md'), [
       '---',
@@ -125,7 +131,7 @@ describe('web e2e: skills settings panel', () => {
     const group = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(GROUP_EXPECTED, group, MODE)
 
-    // Toggle panel-grouped-a off: the write lands in settings.yaml and the
+    // Toggle panel-grouped-a off: the write lands in the profile patch and the
     // page reload reflects the new effective state.
     const row = dialog.locator('li', { hasText: 'panel-grouped-a' })
     const toggle = row.getByRole('switch')

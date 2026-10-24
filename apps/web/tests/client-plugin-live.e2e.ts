@@ -177,14 +177,16 @@ it('keeps a failed client download local and retries without changing Host enabl
   const scaffold = await launchWebScaffold({ extraInstallAnchors: [join(FIXTURE, 'package.json')] })
   const browser = await chromium.launch()
   try {
-    const page = await browser.newPage({ locale: ZH_BROWSER_LOCALE })
+    const page = await browser.newPage({ locale: ZH_BROWSER_LOCALE, serviceWorkers: 'block' })
     onTestFailed(() => saveFailureShot(page, 'web-e2e-client-live-retry'))
     await openInventory(page, scaffold.authenticatedUrl)
     const bundle = (url: URL) => url.pathname.startsWith('/plugins/') && url.search.includes('@fixture/live-client/client.js')
-    await page.route(bundle, route => route.abort())
+    let blockedDownloads = 0
+    await page.route(bundle, (route) => { blockedDownloads += 1; return route.abort() })
     const entryId = await scaffold.ctx.loader.create({ name: '@fixture/live-client' })
     const failure = page.locator('[data-client-sync-failure]')
     await failure.waitFor()
+    expect(blockedDownloads).toBeGreaterThan(0)
     expect(scaffold.ctx.loader.resolve(entryId).fiber?.state).toBe(2)
     expect(await page.locator('[data-live-client]').count()).toBe(0)
     expect(scaffold.ctx.clientModules.graph().entries.some(row => row.id === '@fixture/live-client')).toBe(true)
