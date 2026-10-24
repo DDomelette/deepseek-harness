@@ -12,7 +12,7 @@ Status: implemented
 
 ## 决策
 
-`packages/client/web/src/compat.ts` 拥有这层浏览器底座，`AppWebEntry.run()` 把安装它作为第一步，先于任何 bundle 导入：`AbortSignal.any`（以最先中止的来源作为融合信号的中止原因，并在融合信号中止后释放来源上的监听器）、[为 ES2025 之前的浏览器提供 pdfjs-dist 的 Iterator 全局 shim](2026-09-11-iterator-global-shim.zh.md) 所述的 `Iterator` 载体，以及 `Promise.withResolvers`。引擎已提供某个 API 时，对应定义被跳过。
+`packages/client/web/src/compat.ts` 拥有这层浏览器底座，`AppWebEntry.run()` 把安装它作为首个同步步骤，先于就绪等待与模块系统构造：`AbortSignal.any`（以最先中止的来源作为融合信号的中止原因，并在融合信号中止后释放来源上的监听器）、[为 ES2025 之前的浏览器提供 pdfjs-dist 的 Iterator 全局 shim](2026-09-11-iterator-global-shim.zh.md) 所述的 `Iterator` 载体，以及 `Promise.withResolvers`。引擎已提供某个 API 时，对应定义被跳过。
 
 有两个脚本先于 shell 运行，因此各自构造原语而不调用底座：Host 注入的启动就绪尾脚本（`packages/host/webserver/src/injections.ts`）与 worker 预览引导（`packages/experimental/webworker-runtime/src/client/index.ts`）都用 `new Promise` 构造其 deferred。
 

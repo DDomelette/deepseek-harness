@@ -12,7 +12,7 @@ On a Chrome 114 Android browser the failure is silent and total: the mux WebSock
 
 ## Decision
 
-`packages/client/web/src/compat.ts` owns the browser floor, and `AppWebEntry.run()` installs it as its first step, before the boot imports a bundle: `AbortSignal.any` (fusing sources with the first aborting reason, and releasing source listeners once the fused signal aborts), the `Iterator` carrier described in [Iterator global shim for pdfjs-dist on pre-ES2025 browsers](2026-09-11-iterator-global-shim.md), and `Promise.withResolvers`. Each definition is skipped when the engine already provides the API.
+`packages/client/web/src/compat.ts` owns the browser floor, and `AppWebEntry.run()` installs it as its first synchronous step, before readiness waiting and module-system construction: `AbortSignal.any` (fusing sources with the first aborting reason, and releasing source listeners once the fused signal aborts), the `Iterator` carrier described in [Iterator global shim for pdfjs-dist on pre-ES2025 browsers](2026-09-11-iterator-global-shim.md), and `Promise.withResolvers`. Each definition is skipped when the engine already provides the API.
 
 Two scripts run before the shell and therefore build their own primitives instead of calling the floor: the host's injected boot-readiness tail (`packages/host/webserver/src/injections.ts`) and the worker-preview bootstrap (`packages/experimental/webworker-runtime/src/client/index.ts`) construct their deferred with `new Promise`.
 

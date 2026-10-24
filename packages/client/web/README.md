@@ -27,7 +27,7 @@ English | [中文](README.zh.md)
 
 Use it when you assemble the browser application: `apps/web`'s Vite entry runs `new AppWebEntry(container).run()` against the mount point, and the boot page carries the user through activation. Ordinary browser callers pass no options. A pre-injected page transport is the default ahead of the `seams` override: when `globalThis.__DSH_TRANSPORT__` carries `loadBundle`, the module stage adopts it as the bundle transport and skips the immediate-tier HTTP prefetch, while explicit `seams` still win (for example jsdom tests, where external `<script>` execution cannot reach the page context).
 
-Static application pages install `__DSH_BOOT_READY__` before the entry runs. The boot page renders immediately while `run()` waits; the page owner applies the Host rows with `applyIndexInjections` (also exported from `./injections`) and resolves the deferred after all scripts finish. A rejected deferred renders a boot failure unless the caller supplies `run(onFailure)` to present the error externally while retaining the loading page. Desktop uses this callback to request native recovery. Desktop and WebWorker share the injection interpreter; server-side `tapIndex` HTML transforms apply only to served documents.
+`run()` installs the browser compatibility floor before waiting for readiness or loading bundles: missing `AbortSignal.any`, `Promise.withResolvers`, and the `Iterator` prototype carrier are supplied without replacing native implementations. Static application pages install `__DSH_BOOT_READY__` before the entry runs. The boot page renders immediately while `run()` waits; the page owner applies the Host rows with `applyIndexInjections` (also exported from `./injections`) and resolves the deferred after all scripts finish. A rejected deferred renders a boot failure unless the caller supplies `run(onFailure)` to present the error externally while retaining the loading page. Desktop uses this callback to request native recovery. Desktop and WebWorker share the injection interpreter; server-side `tapIndex` HTML transforms apply only to served documents.
 
 The shell base styles apply automatic CJK/Latin spacing to ordinary content in supporting browsers. Semantic code and terminal, diff, read, and search output containers retain literal source spacing and column alignment; browsers without `text-autospace` support ignore both declarations.
 
@@ -128,7 +128,7 @@ These limits define what the boot kernel does not support. They are current pack
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-None.
+[Browser floor for the Web shell](../../../.agents/notes/implemented/bug-fix/2026-09-12-browser-floor-for-the-web-shell.md) owns the supported APIs and installation order.
 
 
 **Runtime invariant:** No companion is published. The browser boot reads and writes process-local page state — the boot manifest, the module loader queue, and the window-drag marks it installs — and owns no durable or cross-process relationship whose independent observations could diverge.

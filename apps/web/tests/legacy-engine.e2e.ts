@@ -52,14 +52,14 @@ describe('web e2e: engines below the shell browser floor', () => {
     await page.addInitScript({ content: PRE_FLOOR_ENGINE })
 
     await page.goto(scaffold.authenticatedUrl)
-    // The workspace picker is data-derived: it renders only after the forwarded
-    // Remote event generation is live.
+    // The workspace picker can paint before the Remote event generation delivers its opening frame.
     await page.getByRole('textbox', { name: 'Choose workspace' }).waitFor({ timeout: 30_000 })
 
-    expect(sockets.length, 'the mux socket never opened').toBeGreaterThan(0)
-    expect(
-      sockets.reduce((total, socket) => total + socket.received, 0),
-      'the mux socket opened but delivered no frame',
+    await expect.poll(() => sockets.length, { timeout: 30_000, message: 'the mux socket never opened' })
+      .toBeGreaterThan(0)
+    await expect.poll(
+      () => sockets.reduce((total, socket) => total + socket.received, 0),
+      { timeout: 30_000, message: 'the mux socket opened but delivered no frame' },
     ).toBeGreaterThan(0)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

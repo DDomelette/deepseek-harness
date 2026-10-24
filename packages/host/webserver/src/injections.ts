@@ -82,8 +82,9 @@ function splice(html: string, at: number, markup: string): string {
  * applies the table asynchronously installs it ahead of the entry module and
  * settles it after the last row; the served form below creates and resolves
  * it in one statement, because every row is already in the document text.
+ * The tail precedes the browser compatibility floor, so it uses `new Promise`.
  */
-const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>'
+const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } })()).resolve()</script>'
 
 /**
  * Render rows into an index.html body: head rows immediately after the

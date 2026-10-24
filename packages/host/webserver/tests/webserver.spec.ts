@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Duplex } from 'node:stream'
 import { pathToFileURL } from 'node:url'
+import { runInNewContext } from 'node:vm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, FiberState } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
@@ -536,7 +537,21 @@ describe('real Loader composition', () => {
       { kind: 'script', placement: 'head', text: 'H' },
       { kind: 'script', placement: 'body', text: 'B' },
     ])).toBe('<script>H</script><main>x</main><script>B</script>'
-      + '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>')
+      + '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } })()).resolve()</script>')
+  })
+
+  it('settles readiness before browser compatibility is installed and retains an existing gate', async () => {
+    const rendered = renderIndexInjections('', [])
+    const script = /<script>([\s\S]*?)<\/script>/.exec(rendered)![1]!
+    const browser: { __DSH_BOOT_READY__?: PromiseWithResolvers<void> } = {}
+    runInNewContext(`delete Promise.withResolvers; ${script}`, browser)
+    const gate = browser.__DSH_BOOT_READY__!
+    await expect(gate.promise).resolves.toBeUndefined()
+    expect(typeof gate.reject).toBe('function')
+    const resolve = vi.spyOn(gate, 'resolve')
+    runInNewContext(script, browser)
+    expect(browser.__DSH_BOOT_READY__).toBe(gate)
+    expect(resolve).toHaveBeenCalledOnce()
   })
 
   it('serves HTTPS to a verifying client and reports the https protocol', { timeout: 60_000 }, async () => {

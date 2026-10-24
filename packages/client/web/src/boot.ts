@@ -14,6 +14,7 @@ import { BootPage } from './boot-page.ts'
 import { mountClient } from './mount.ts'
 import { getStaticModules } from './seed.ts'
 import { installWindowDragRecall } from './window-drag/recall.ts'
+import { installBrowserCompat } from './compat.ts'
 import './base.css'
 
 /** Module transport hook replaced by jsdom tests. */
@@ -48,6 +49,7 @@ export class AppWebEntry {
    */
   async run(onFailure?: (reason: unknown) => void): Promise<void> {
     try {
+      installBrowserCompat()
       // Boot-readiness gate: whichever bootstrap applies the injection table
       // settles this deferred once every row has taken effect — the served
       // index resolves it in the rendered tail, so the await returns on the
