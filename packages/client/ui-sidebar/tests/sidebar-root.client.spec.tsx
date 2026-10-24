@@ -35,10 +35,11 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionStatus: SidebarRootComponentProps['useSessionStatus'] = selector => selector(noAttention)
 
-function mountShell({ collapsed = false, width = 300, shortcuts = [] }: {
+function mountShell({ collapsed = false, width = 300, shortcuts = [], settings }: {
   collapsed?: boolean
   width?: number
   shortcuts?: readonly ShortcutCatalogEntry[]
+  settings?: ReactNode
 } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
@@ -64,7 +65,7 @@ function mountShell({ collapsed = false, width = 300, shortcuts = [] }: {
         if (key === 'sidebar.toggle.badge') return null
         if (key === 'sidebar.settings') {
           settingsOwner = owner
-          return <div data-testid="settings-seat" data-wide={owner.wide} />
+          return <div data-testid="settings-seat" data-wide={owner.wide}>{settings}</div>
         }
         if (key === 'sidebar.footer.action') {
           footerActionOwner = owner
@@ -99,6 +100,21 @@ function mountShell({ collapsed = false, width = 300, shortcuts = [] }: {
 }
 
 describe('SidebarRoot shell', () => {
+  it('retains a settings draft while the handset button replaces the visible column', () => {
+    const shell = mountShell({ settings: <input aria-label="Settings draft" defaultValue="" /> })
+    const draft = screen.getByRole('textbox', { name: 'Settings draft' }) as HTMLInputElement
+    fireEvent.change(draft, { target: { value: 'unsaved model' } })
+
+    shell.rerender({ collapsed: true, width: 0, fab: true })
+    expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
+    expect(draft.isConnected).toBe(true)
+
+    shell.rerender({ collapsed: false, width: 300, fab: false })
+    expect(screen.getByRole('textbox', { name: 'Settings draft' })).toBe(draft)
+    expect(draft.value).toBe('unsaved model')
+  })
+
   it('advertises the effective new-session binding', () => {
     const shortcut: ShortcutCatalogEntry = { id: 'session.new' as ShortcutCommandId, label: 'New', aliases: [],
       binding: null, modified: true, conflicts: [], issue: null, keys: ['Ctrl', 'N'], aria: 'Control+N' }

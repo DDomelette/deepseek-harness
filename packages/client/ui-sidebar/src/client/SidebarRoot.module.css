@@ -22,6 +22,10 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+.root[hidden] {
+  display: none;
+}
+
 /* macOS desktop: the AppFrame column owns the translucent sidebar tint; an
    opaque fill here would sit on top of it and block the window vibrancy. */
 :global([data-platform='darwin']) .root {

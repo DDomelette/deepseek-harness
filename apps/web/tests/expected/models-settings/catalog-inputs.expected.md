@@ -59,7 +59,7 @@
       - button "取消"
       - button "保存"
     - listitem:
-      - text: Acme Gateway 自定义
-      - button "编辑 Acme Gateway (acme-gateway)": 编辑
-      - button "删除 Acme Gateway (acme-gateway)": 删除
+      - text: Acme 网关 自定义
+      - button "编辑 Acme 网关 (acme-gateway)": 编辑
+      - button "删除 Acme 网关 (acme-gateway)": 删除
   - button "添加模型提供商"
