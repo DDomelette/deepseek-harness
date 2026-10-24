@@ -128,6 +128,50 @@ describe('ClientSessionPinsModel', () => {
     expect(model.getSnapshot().flatOrder).toEqual([sid('two'), sid('one')])
   })
 
+  it('keeps a newer refreshed pin when an older reorder response arrives', async () => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    const pending = Promise.withResolvers<RemoteResult<SessionPinsSnapshot>>()
+    remote.onReorderFlat = () => pending.promise
+    const reorder = model.reorderFlat([sid('two'), sid('one')])
+    const listener = vi.fn()
+    model.subscribe(listener)
+
+    remote.onList = () => Promise.resolve(remoteOk(snapshot(['two', 'one', 'three'])))
+    await model.reload()
+    const refreshed = model.getSnapshot()
+    pending.resolve(remoteOk(snapshot(['two', 'one'])))
+    await reorder
+
+    expect(model.getSnapshot()).toBe(refreshed)
+    expect(model.getSnapshot().pinnedSessionIds).toEqual([sid('two'), sid('one'), sid('three')])
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('installs a pending committed reorder after a newer read fails', async () => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    await model.reload()
+    const pending = Promise.withResolvers<RemoteResult<SessionPinsSnapshot>>()
+    remote.onReorderFlat = () => pending.promise
+    const reorder = model.reorderFlat([sid('two'), sid('one')])
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      remote.onList = () => Promise.resolve({
+        ok: false,
+        error: new RemoteError('gateway/internal', 'wire down', {}),
+      })
+      await model.reload()
+      pending.resolve(remoteOk(snapshot(['two', 'one'])))
+      await reorder
+
+      expect(model.getSnapshot().flatOrder).toEqual([sid('two'), sid('one')])
+      expect(warning).toHaveBeenCalledExactlyOnceWith('pinned session reload failed:', 'wire down')
+    } finally {
+      warning.mockRestore()
+    }
+  })
+
   it('keeps the last committed order and logs a failed read', async () => {
     const remote = new FakePinsRemote()
     const model = modelOf(remote)

@@ -7,7 +7,8 @@
 import { describe, expect, onTestFinished, vi } from 'vitest'
 import { RemoteStreamCarrierError, type ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
+import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { frames, openStream, type RemoteMock, type StreamScript } from '@deepseek-ai/dsh-remote-mock'
 import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import {
@@ -75,6 +76,34 @@ function pinsOf(remote: ClientRemote): ClientSessionPinsModel {
 }
 
 describe('Workspace Controller Client apply', () => {
+  pluginTest('preserves a newly pinned Session when an earlier reorder reply arrives late', async ({ mock, start }) => {
+    mock.load(workspaceWorld)
+    const earlier: SessionPinsSnapshot = {
+      pinnedSessionIds: [sid('two'), sid('one')], groupOrder: {}, flatOrder: [sid('two'), sid('one')],
+    }
+    const refreshed: SessionPinsSnapshot = {
+      pinnedSessionIds: [...earlier.pinnedSessionIds, sid('three')],
+      groupOrder: {},
+      flatOrder: [...earlier.flatOrder, sid('three')],
+    }
+    mock.remote.sessionPins.list.mockResolvedValue({ ok: true, value: earlier })
+    const client = await pluginClient(mock, start, openStream([baseline('mounted')]))
+    await vi.waitFor(() => { expect(client.ctx.workspaces.pins.getSnapshot()).toEqual(earlier) })
+
+    const pending = Promise.withResolvers<RemoteResult<SessionPinsSnapshot>>()
+    mock.remote.sessionPins.reorderFlat.mockImplementationOnce(() => pending.promise)
+    const reorder = client.ctx.workspaces.reorderPins(earlier.flatOrder)
+    await vi.waitFor(() => { expect(mock.remote.sessionPins.reorderFlat).toHaveBeenCalledOnce() })
+    mock.remote.sessionPins.list.mockResolvedValue({ ok: true, value: refreshed })
+    await client.ctx.workspaces.pinSession(sid('three'))
+    const installed = client.ctx.workspaces.pins.getSnapshot()
+    expect(installed).toEqual(refreshed)
+    pending.resolve({ ok: true, value: earlier })
+    await reorder
+
+    expect(client.ctx.workspaces.pins.getSnapshot()).toBe(installed)
+  }, COLD_BOOT_TIMEOUT_MS)
+
   pluginTest('provides the Workspace service and stops its follow generation with the plugin fiber', async ({ mock, start }) => {
     const client = await pluginClient(mock, start, openStream([baseline('mounted')]))
     await vi.waitFor(() => {

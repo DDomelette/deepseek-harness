@@ -1,7 +1,7 @@
 /**
  * Client-side owner of the ordered pin snapshot that `session-pins` serves.
  * The Host owns the pin set and both saved orders; this model keeps one
- * detached copy, installs every committed mutation echo, and re-reads on
+ * detached copy, installs current committed mutation echoes, and re-reads on
  * demand so a write made through another Remote namespace becomes visible.
  * @module @deepseek-ai/dsh-api-workspace-controller/src/client/pins
  */
@@ -51,16 +51,16 @@ const sameSnapshot = (left: SessionPinsSnapshot, right: SessionPinsSnapshot): bo
   && sameGroupOrder(left.groupOrder, right.groupOrder)
 
 /**
- * Owns the Client ordered-pin projection. Every mutation installs its own
- * committed snapshot, so a caller's next read never shows a write the Host
- * refused; `reload()` is the one path for state another namespace changed.
+ * Owns the Client ordered-pin projection. Mutations install committed snapshots
+ * unless a newer mutation or successful refresh supersedes them; `reload()`
+ * reads state another namespace changed. Failed writes never change the snapshot.
  */
 export class ClientSessionPinsModel implements SessionPinsSource {
   private snapshot: SessionPinsSnapshot = EMPTY_SNAPSHOT
   private readonly listeners = new Set<() => void>()
   /** Latest read request; only its reply may install a snapshot. */
   private readSeq = 0
-  /** Latest mutation request; a later mutation or read outranks an older echo. */
+  /** A later mutation or successful current read outranks an older echo. */
   private mutationSeq = 0
 
   /** @param remote - generated `sessionPins` Remote namespace. */
@@ -71,7 +71,8 @@ export class ClientSessionPinsModel implements SessionPinsSource {
    *
    * A failed read keeps the last committed snapshot and is logged: the pin set
    * is display state, and a transient carrier fault must not empty the sidebar
-   * or reject an unrelated navigation.
+   * or reject an unrelated navigation. A successful current read supersedes
+   * pending mutation responses; a failed read leaves them eligible to install.
    * @returns resolution after the read settles.
    */
   async reload(): Promise<void> {
@@ -82,6 +83,7 @@ export class ClientSessionPinsModel implements SessionPinsSource {
       console.warn('pinned session reload failed:', result.error.message)
       return
     }
+    this.mutationSeq++
     this.install(result.value)
   }
 
