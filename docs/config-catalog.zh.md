@@ -959,6 +959,35 @@ export interface Config {
 
 来源：[`packages/experimental/claude-code-mods/src/index.ts:53`](../packages/experimental/claude-code-mods/src/index.ts)
 
+<a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
+
+## `@deepseek-ai/dsh-experimental-client-ui-cot-translation`
+
+需要：`translator` · `typert` · `sessionController`
+
+```ts config-catalog
+/** Live preferences presented on the bundle's Plugins page. */
+export interface Config {
+  /** Explicit translation provider, defaulting to Bing. */
+  provider: Volatile<CotTranslationPreferences['provider']>
+  /** Target language code; auto follows the browser UI locale. */
+  targetLanguage: Volatile<string>
+}
+
+/** Translation choices; auto targets the active browser UI language. */
+export interface CotTranslationPreferences {
+  /** Explicit provider selection; requests never fall back to another provider. */
+  provider: TranslationProvider
+  /** BCP 47 language code, or auto to follow the UI language. */
+  targetLanguage: string
+}
+```
+
+依赖：[`TranslationProvider`](subsystems/translation.zh.md) · `Volatile` (`@deepseek-ai/cordis`)
+
+来源：[`packages/experimental/client-ui-cot-translation/src/index.ts:14`](../packages/experimental/client-ui-cot-translation/src/index.ts)
+
+
 <a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
 
 ## `@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp`
@@ -4654,6 +4683,7 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-auto-review` — 需要 `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory`（[`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team`（[`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods`（[`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts)）
+- `@deepseek-ai/dsh-experimental-client-ui-voice-input` ([`packages/experimental/client-ui-voice-input/src/index.ts`](../packages/experimental/client-ui-voice-input/src/index.ts))
 - `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` — 需要 `computerUse` · `tools` · `systemPrompt`（[`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-session-inspector`（[`packages/experimental/session-inspector/src/index.ts`](../packages/experimental/session-inspector/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-tool-worktree` — 需要 `tools` · `worktrees`（[`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts)）

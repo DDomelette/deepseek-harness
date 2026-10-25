@@ -117,8 +117,11 @@
   en: 2528e94b3a986063
   zh: d2f16c332bfc2c06
 /plugin-config-catalog/deepseek-ai-dsh-experimental-claude-code-mods:
-  en: 90b2e3613613af1e
-  zh: 429ab9d340115cb0
+  en: 352e3e5c31a218fd
+  zh: 49878cb24b4b3720
+/plugin-config-catalog/deepseek-ai-dsh-experimental-client-ui-cot-translation:
+  en: a73551fbe539373b
+  zh: 251db4a5fe062db1
 /plugin-config-catalog/deepseek-ai-dsh-experimental-computer-use-cua-driver-mcp:
   en: c60a27efac198ac8
   zh: 10469e98d43be3cd
@@ -477,8 +480,8 @@
   en: b77120070735a88d
   zh: 9eab87857c778546
 /plugin-config-catalog/loadable-plugins-with-no-config:
-  en: 043a4e55f56c9d63
-  zh: 56d54460c8a0ccb6
+  en: 088e6510f1f8552f
+  zh: db4a3b7829a1587f
 /plugin-config-catalog/seam-packages-not-directly-loadable:
   en: fbbab33ae5424a08
   zh: f66f90a05dee52f4

@@ -108,6 +108,13 @@ const GROUP_ORDER = [
 
 const SERVICE_ROLES: ServiceRole[] = [
   {
+    key: 'cotTranslation',
+    pkg: 'experimental-client-ui-cot-translation',
+    title: 'Reasoning translation Remote',
+    mode: 'service',
+    note: 'Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions.',
+  },
+  {
     key: 'invariants',
     pkg: 'invariants',
     title: 'Package-owned invariant registry',
