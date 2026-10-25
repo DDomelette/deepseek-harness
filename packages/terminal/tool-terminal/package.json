@@ -44,6 +44,7 @@
     "@deepseek-ai/cordis-plugin-loader": "workspace:~",
     "@deepseek-ai/dsh-agent": "workspace:*",
     "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
+    "@deepseek-ai/dsh-fs-local": "workspace:*",
     "@deepseek-ai/dsh-llm": "workspace:*",
     "@deepseek-ai/dsh-terminal": "workspace:*",
     "@deepseek-ai/dsh-terminal-bash": "workspace:*",
@@ -58,6 +59,7 @@
     "@deepseek-ai/dsh-tool-jobs": "workspace:*",
     "@deepseek-ai/dsh-tools": "workspace:*",
     "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-session-projection": "workspace:*"
+    "@deepseek-ai/dsh-session-projection": "workspace:*",
+    "@deepseek-ai/dsh-working-directory": "workspace:*"
   }
 }

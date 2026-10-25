@@ -14503,6 +14503,9 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-fs-local':
+        specifier: workspace:*
+        version: link:../../fs/fs-local
       '@deepseek-ai/dsh-jobs':
         specifier: workspace:*
         version: link:../../jobs/jobs
@@ -14545,6 +14548,9 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: workspace:*
         version: link:../../core/tools
+      '@deepseek-ai/dsh-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
 
   packages/test-support/agent-loop-testkit:
     devDependencies:
