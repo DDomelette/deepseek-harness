@@ -52,7 +52,6 @@ const windowsUnsupportedPackages = process.platform === 'win32'
 const windowsUnsupportedTests = process.platform === 'win32'
   ? [
       ...windowsUnsupportedPackages.map(path => `${path}/tests/**/*.spec.ts`),
-      'packages/subprocess/subprocess/tests/**/*.spec.ts',
       'packages/subprocess/subprocess-local/tests/local.spec.ts',
       'packages/subprocess/subprocess-local/tests/process-inspector.spec.ts',
       'packages/subprocess/subprocess-local/tests/spawn.spec.ts',
@@ -83,7 +82,7 @@ const nonLinuxWebWorkerTests = process.platform === 'linux'
 const platformUnsupportedTests = [...windowsUnsupportedTests, ...nonLinuxWebWorkerTests]
 
 const windowsUnsupportedCoveragePackages = process.platform === 'win32'
-  ? [...windowsUnsupportedPackages, 'packages/subprocess/*']
+  ? [...windowsUnsupportedPackages, 'packages/subprocess/subprocess-local', 'packages/subprocess/win32-process']
   : []
 
 // Windows-only packages: their sources execute exclusively on win32 (koffi

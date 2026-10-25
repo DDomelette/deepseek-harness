@@ -119,6 +119,7 @@ describe('child process egress', () => {
     // A SOCKS proxy this package refuses but `curl` uses, alongside an HTTP proxy it accepts.
     process.env.HTTP_PROXY = proxyUrl
     process.env.https_proxy = 'socks5://127.0.0.1:1080'
+    const inheritedUpperProxy = process.env.HTTPS_PROXY
     const dispose = await installProxyFromEnvironment(
       createLaunchEnvironmentSnapshot([{
         source: 'process',
@@ -131,7 +132,7 @@ describe('child process egress', () => {
       // The user named `https:`, so their value survives in the casing they wrote it, even though
       // this process refused it and routes that scheme directly.
       expect(child.https_proxy).toBe('socks5://127.0.0.1:1080')
-      expect(child.HTTPS_PROXY).toBeUndefined()
+      expect(child.HTTPS_PROXY).toBe(inheritedUpperProxy)
       // The bypass list is always the resolved one; the user set none, so it is the loopback
       // entries alone — without them the child sends its own localhost traffic to the proxy.
       expect(child.NO_PROXY).toBe('localhost,127.0.0.1,::1,[::1]')
