@@ -50,6 +50,8 @@ Status: implemented
 
 `runner.spec.ts` 以真实 runner 与真实受限令牌钉住行为：两种模式下经 `cmd`、.NET、`Remove-Item` 与 libuv 的越界删除全部被拒且**宿主侧文件仍存在**；一个会话无法删除另一个授权根内的文件；NUL 在两种模式下仍可写；授权根内**文件**的 `GENERIC_ALL` 打开成功，而**目录**的同一打开被拒绝；同一目录上两份授权之一被撤销后，存留的授权仍可用。`acl.spec.ts` 钉住真实 DACL／标签生命周期、拒绝项只继承到容器、以及共享标签的撤销规则；`token-failure-paths.spec.ts` 钉住 `TokenIntegrityLevel` 的精确载荷；失败路径套件覆盖每处新增分配与提前退出，包括标签 ACL 与描述符的释放。
 
+诊断夹具先移除当前用户和 Administrators 的 allow 授权，再授予 Modify。替换不可继承的授权不会移除可继承的 FullControl 授权，残留授权会使提权 runner 上缺少 WRITE_OWNER 的用例前提失效。修复用例验证改动前的有效 WRITE_DAC 与 WRITE_OWNER，并保持 owner 和完整性标签。
+
 ## 相关
 
 - [Windows sandbox 档：原始 ACL 受限令牌](2026-08-08-windows-acl-restricted-token-sandbox.zh.md)——本次改动所扩展的档（保持 active；本笔记只取代其删除路径边界）。

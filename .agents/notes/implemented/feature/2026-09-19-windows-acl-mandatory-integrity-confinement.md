@@ -50,6 +50,8 @@ Bought: deletes confined through every authority Windows accepts AND confined to
 
 `runner.spec.ts` pins the behavior against a real runner and a real restricted token: the delete escape is denied in both modes through `cmd`, .NET, `Remove-Item`, and libuv while the file survives on disk; one session cannot delete inside another granted root; NUL stays writable in both modes; a `GENERIC_ALL` open of a file inside a granted root succeeds while the same open of a directory is denied; revoking one of two grants on a directory leaves the surviving grant usable. `acl.spec.ts` pins the real DACL/label lifecycle, that the deny inherits to containers only, and the shared-label revocation rule; `token-failure-paths.spec.ts` pins the exact `TokenIntegrityLevel` payload; the failure-path suites cover every new allocation and early exit, including the label ACL and descriptor releases.
 
+Diagnosis fixtures remove user and Administrators allow grants before granting Modify. Replacing a non-inheritable grant leaves an inheritable FullControl grant intact; that residual grant invalidates a missing-WRITE_OWNER case on elevated runners. The repair case verifies effective WRITE_DAC and WRITE_OWNER before the change and preserves the owner and integrity label.
+
 ## Related
 
 - [Windows sandbox rung: raw ACL restricted tokens](2026-08-08-windows-acl-restricted-token-sandbox.md) — the rung this change extends (kept active; this note supersedes only its delete-route boundary).
