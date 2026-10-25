@@ -1013,7 +1013,7 @@ Source: [`packages/experimental/computer-use-cua-driver-mcp/src/index.ts:20`](..
 
 ## `@deepseek-ai/dsh-experimental-inspector`
 
-Requires: `webServer`
+Requires: `webServer` · `connection`
 
 ```ts config-catalog
 /** Host plugin configuration. Fetch capture is enabled by default. */

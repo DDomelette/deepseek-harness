@@ -6,6 +6,8 @@ import WebSocket, { type RawData } from 'ws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apply, Config, inject, name, startInspector } from '../src/index.ts'
 import { isPlainObject } from '../src/shared/json.ts'
+import { INSPECTOR_BOOTSTRAP_PATH } from '../src/shared/web.ts'
+import { provideInspectorConnection } from './connection.host.ts'
 
 interface CdpResponse {
   readonly id: number
@@ -23,6 +25,7 @@ describe('experimental Inspector Host plugin', () => {
 
   it('starts the Worker, provides ctx.inspector, injects Client bootstrap, and disposes', async () => {
     context = new Context()
+    const connection = provideInspectorConnection(context)
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     context.provide('webServer', {} as WebServer)
     const fiber = context.plugin(
@@ -37,6 +40,10 @@ describe('experimental Inspector Host plugin', () => {
     expect(bootstrap).toMatchObject({ kind: 'global', name: '__DSH_INSPECTOR__' })
     expect(log).toHaveBeenCalledWith(expect.stringMatching(/^dsh inspector: devtools:\/\//u))
     expect(context.inspector).toBeDefined()
+    const handler = connection.createSharedFetchHandler('/api', connection.operator)
+    const bootstrapResponse = await handler.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`))
+    expect(bootstrapResponse.headers.get('cache-control')).toBe('no-store')
+    expect(await bootstrapResponse.json()).toEqual(bootstrap?.kind === 'global' ? bootstrap.value : undefined)
     await vi.waitFor(async () => {
       const tree = await context!.inspector.cordis.getTree()
       expect(tree.host?.source.kind).toBe('host')
@@ -81,6 +88,7 @@ describe('experimental Inspector Host plugin', () => {
   it('closes the started Worker when a later plugin registration fails', async () => {
     const port = await availablePort()
     context = new Context()
+    provideInspectorConnection(context)
     context.provide('webServer', {} as WebServer)
     context.provide('inspector', {
       publish: () => undefined,

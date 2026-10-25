@@ -27,7 +27,7 @@ Status: implemented
 
 Host 管理调试 URL、Worker 和采集生命周期。组合配置提供 `--inspect` 时，Host 尝试打开 Chrome；打开失败后打印的链接仍可使用。关闭调试窗口不会停止采集。显式启用允许执行本地代码并采集未脱敏网络数据，风险说明见 [Inspector 安全部分](../../../../packages/experimental/inspector/README.zh.md#security)。
 
-页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。Client 不接收也不打开调试 URL。
+页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。缓存页面在 `pagehide` 时挂起 source，并在 `pageshow` 时仅重连一次；逻辑 source id 保留，传输 generation 则轮换。Client 不接收也不打开调试 URL。
 
 ## 考虑过的替代方案
 

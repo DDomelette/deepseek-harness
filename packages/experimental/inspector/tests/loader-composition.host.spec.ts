@@ -10,6 +10,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import WebServer from '@deepseek-ai/dsh-host-webserver'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as Inspector from '../src/index.ts'
+import { provideInspectorConnection } from './connection.host.ts'
 
 let root: string | undefined
 let context: Context | undefined
@@ -38,6 +39,7 @@ describe('experimental Inspector through a real Loader composition', () => {
     ].join('\n'))
 
     context = new Context()
+    provideInspectorConnection(context)
     context.baseUrl = pathToFileURL(root).href + '/'
     await context.plugin(Loader)
     expect('default' in Inspector).toBe(false)

@@ -487,8 +487,6 @@ flowchart TD
   pkg_credentials_local --> pkg_home_paths
   pkg_credentials_local --> pkg_launch_environment
   pkg_e2b --> pkg_http_proxy
-  pkg_experimental_inspector --> pkg_client_modules
-  pkg_experimental_inspector --> pkg_host_webserver
   pkg_host_directory_picker_auto --> pkg_client_ui_directory_picker_browse
   pkg_host_directory_picker_auto --> pkg_client_ui_directory_picker_native
   pkg_host_directory_picker_auto --> pkg_host_directory_picker_browse
@@ -526,6 +524,9 @@ flowchart TD
   pkg_subprocess_e2b --> pkg_subprocess
   pkg_subprocess_e2b --> pkg_timeout
   pkg_experimental_computer_use_cua_driver_mcp --> pkg_computer_use
+  pkg_experimental_inspector --> pkg_client_connection
+  pkg_experimental_inspector --> pkg_client_modules
+  pkg_experimental_inspector --> pkg_host_webserver
   pkg_experimental_webworker_runtime --> pkg_client_connection
   pkg_experimental_webworker_runtime --> pkg_client_modules
   pkg_experimental_webworker_runtime --> pkg_client_web
@@ -1636,7 +1637,6 @@ flowchart TD
 | [`authorization`](../packages/credentials/authorization) | `credentials` | [`credentials`](../packages/credentials/credentials), [`llm`](../packages/llm/llm) |
 | [`credentials-local`](../packages/credentials/credentials-local) | `credentials` | [`atomic-write`](../packages/util/atomic-write), [`credentials`](../packages/credentials/credentials), [`home-paths`](../packages/util/home-paths), [`launch-environment`](../packages/util/launch-environment) |
 | [`e2b`](../packages/e2b/e2b) | `e2b` | [`http-proxy`](../packages/util/http-proxy) |
-| [`experimental-inspector`](../packages/experimental/inspector) | `experimental` | [`client-modules`](../packages/client/modules), [`host-webserver`](../packages/host/webserver) |
 | [`host-directory-picker-auto`](../packages/host/directory-picker-auto) | `host` | [`client-ui-directory-picker-browse`](../packages/client/ui-directory-picker-browse), [`client-ui-directory-picker-native`](../packages/client/ui-directory-picker-native), [`host-directory-picker-browse`](../packages/host/directory-picker-browse), [`host-directory-picker-native`](../packages/host/directory-picker-native), [`host-webserver`](../packages/host/webserver) |
 | [`anonymous-user-id`](../packages/identity/anonymous-user-id) | `identity` | [`brand`](../packages/util/brand), [`home-paths`](../packages/util/home-paths) |
 | [`lsp`](../packages/lsp/lsp) | `lsp` | [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm) |
@@ -1657,6 +1657,7 @@ flowchart TD
 | [`app-boot`](../packages/boot/app-boot) | `boot` | [`home-paths`](../packages/util/home-paths), [`launch-environment`](../packages/util/launch-environment), [`system-prompt`](../packages/core/system-prompt) |
 | [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | `e2b` | [`e2b`](../packages/e2b/e2b), [`subprocess`](../packages/subprocess/subprocess), [`timeout`](../packages/util/timeout) |
 | [`experimental-computer-use-cua-driver-mcp`](../packages/experimental/computer-use-cua-driver-mcp) | `experimental` | [`computer-use`](../packages/computer-use/computer-use) |
+| [`experimental-inspector`](../packages/experimental/inspector) | `experimental` | [`client-connection`](../packages/client/connection), [`client-modules`](../packages/client/modules), [`host-webserver`](../packages/host/webserver) |
 | [`experimental-webworker-runtime`](../packages/experimental/webworker-runtime) | `experimental` | [`client-connection`](../packages/client/connection), [`client-modules`](../packages/client/modules), [`client-web`](../packages/client/web), [`host-webserver`](../packages/host/webserver) |
 | [`host-frontend-static`](../packages/host/frontend-static) | `host` | [`client-connection`](../packages/client/connection), [`host-webserver`](../packages/host/webserver) |
 | [`persona`](../packages/preset/persona) | `preset` | [`system-prompt`](../packages/core/system-prompt) |

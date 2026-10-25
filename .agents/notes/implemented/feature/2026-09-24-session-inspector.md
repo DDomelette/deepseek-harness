@@ -27,7 +27,7 @@ The default-off `inspector-profile` optional bundle enables Session inspection a
 
 The Host owns the debugging URL, Worker, and capture lifetime. When the composition supplies `--inspect`, the Host attempts to open Chrome; failure leaves the printed link usable. Closing the debugging window does not stop capture. Explicit activation permits local code execution and unredacted network capture, as disclosed in the [Inspector security section](../../../../packages/experimental/inspector/README.md#security).
 
-A Client loaded after the page obtains current ingest parameters through an authenticated document-relative Connection route. Initial injection still supports early connections. Connection resets refresh parameters; replacement releases the previous source, and disposal aborts and waits for outstanding work. The Client never receives or launches the debugging URL.
+A Client loaded after the page obtains current ingest parameters through an authenticated document-relative Connection route. Initial injection still supports early connections. Connection resets refresh parameters; replacement releases the previous source, and disposal aborts and waits for outstanding work. A cached page suspends its source on `pagehide` and reconnects once on `pageshow`; the logical source id persists while the transport generation rotates. The Client never receives or launches the debugging URL.
 
 ## Alternatives considered
 

@@ -1016,7 +1016,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-experimental-inspector`
 
-需要：`webServer`
+需要：`webServer` · `connection`
 
 ```ts config-catalog
 /** Host plugin configuration. Fetch capture is enabled by default. */

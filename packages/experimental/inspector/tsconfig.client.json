@@ -6,6 +6,9 @@
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
   "files": [
+    "src/shared/dispose.ts",
+    "src/shared/web.ts",
+    "src/client/bridge/locales.ts",
     "src/client/bridge/controller.ts",
     "src/client/bridge/dispatcher.ts",
     "src/client/bridge/lifecycle.ts",
@@ -85,6 +88,7 @@
     "src/shared/validation.ts"
   ],
   "references": [
+    { "path": "../../client/connection/tsconfig.client.json" },
     {
       "path": "../../util/brand"
     },

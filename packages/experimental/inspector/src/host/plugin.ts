@@ -2,6 +2,9 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
+import type {} from '@deepseek-ai/dsh-client-connection'
+import { INSPECTOR_BOOTSTRAP_PATH } from '../shared/web.ts'
+import { disposeInspectorResources } from '../shared/dispose.ts'
 import { resolveInspectorOptions, startInspector, type InspectorOptions } from './bridge/controller.ts'
 import { createInspectorService } from '../shared/service.ts'
 import { publishCordisTree } from './inspection/cordis.ts'
@@ -49,34 +52,20 @@ export async function apply(ctx: Context, config: HostPluginConfig): Promise<voi
       disposers.push(ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
         table.push({ kind: 'global', name: '__DSH_INSPECTOR__', value: handle.endpoint.client })
       }))
+      disposers.push(ctx.connection.fetch.register({
+        path: INSPECTOR_BOOTSTRAP_PATH, methods: ['GET'], requestBody: 'none',
+        fetch: () => Promise.resolve(Response.json(handle.endpoint.client, {
+          headers: { 'cache-control': 'no-store' },
+        })),
+      }))
       // This readiness URL is emitted while the plugin tree is still loading, before a logger sink is guaranteed.
       console.log(`dsh inspector: ${handle.endpoint.devtoolsFrontendUrl}`)
     } catch (error) {
-      await disposeInspector(handle, disposers).catch((cleanupError: unknown) => {
+      await disposeInspectorResources(disposers, () => handle.close(), 'experimental-inspector: disposal failed').catch((cleanupError: unknown) => {
         ctx.logger.error('experimental-inspector: initialization rollback failed', cleanupError)
       })
       throw error
     }
-    return async () => { await disposeInspector(handle, disposers) }
+    return async () => { await disposeInspectorResources(disposers, () => handle.close(), 'experimental-inspector: disposal failed') }
   }, 'experimental-inspector: Host Worker')
-}
-
-async function disposeInspector(
-  handle: Awaited<ReturnType<typeof startInspector>>,
-  disposers: readonly (() => unknown)[],
-): Promise<void> {
-  const failures: unknown[] = []
-  for (const dispose of [...disposers].reverse()) {
-    try {
-      await dispose()
-    } catch (error) {
-      failures.push(error)
-    }
-  }
-  try {
-    await handle.close()
-  } catch (error) {
-    failures.push(error)
-  }
-  if (failures.length > 0) throw new AggregateError(failures, 'experimental-inspector: disposal failed')
 }

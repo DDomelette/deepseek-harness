@@ -8688,6 +8688,9 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
+      '@deepseek-ai/dsh-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
