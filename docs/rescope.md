@@ -28,7 +28,8 @@ Subpath exports keep their path: `@cordisjs/plugin-loader/repository` becomes `@
 - **The `cordis.yml` configuration family**, including `*.cordis.yml`, `*.cordis.snapshot.yml`, and `cordis.patch.yml`.
 - **Harness packages whose own names contain the word**, such as `@deepseek-ai/dsh-tool-cordis`.
 - **Upstream runtime identifiers**, such as Schemastery's `Symbol.for('schemastery')` and its `vendor:` metadata field.
-- **Prose outside `docs/`.** `vendor/*/README.md`, package READMEs, and Agent Notes keep the names they were written with; a bare `cordis` there can also be the Python SDK's option name or an agent-preset id. Inside `docs/`, prose and every Markdown fence follow the rename.
+- **Product identifiers.** The `cordis` preset id, locale namespaces, and `cordis/*` events keep their registered names. Exact file/name exceptions preserve these values while explicit module references still rescope ([decision](../.agents/notes/implemented/bug-fix/2026-10-25-rescope-preserves-product-identifiers.md)).
+- **Prose outside `docs/`.** `vendor/*/README.md`, package READMEs, and Agent Notes keep the names they were written with; a bare `cordis` there can also be the Python SDK's option name or an agent-preset id. Package references inside `docs/` prose and Markdown fences follow the rename.
 
 ## What your code has to change
 

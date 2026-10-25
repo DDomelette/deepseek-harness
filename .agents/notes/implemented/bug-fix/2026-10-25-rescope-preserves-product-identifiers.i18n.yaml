@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-25-rescope-preserves-product-identifiers.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-25-rescope-preserves-product-identifiers.md
+/agent-note-module-references-and-cordis-product-identifiers:
+  en: ee64f34ad8f0431d
+  zh: 86eb88b0e6da192e
+/agent-note-module-references-and-cordis-product-identifiers/problem:
+  en: 9c23e5052750a1c5
+  zh: da22d81e72492a44
+/agent-note-module-references-and-cordis-product-identifiers/decision:
+  en: 5c428ebce3e58a18
+  zh: f46d7dbefd820b02
+/agent-note-module-references-and-cordis-product-identifiers/alternatives-considered:
+  en: 6560ae929f7ec781
+  zh: 8540a72d95331bef
+/agent-note-module-references-and-cordis-product-identifiers/consequences:
+  en: 32d63f70dfd6cfa3
+  zh: 18ba81f4a8946bd8
