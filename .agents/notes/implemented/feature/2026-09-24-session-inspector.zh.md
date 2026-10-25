@@ -33,6 +33,8 @@ Host 管理调试 URL、Worker 和采集生命周期。组合配置提供 `--ins
 
 Cordis 服务调用的 shadow Context 表示特定接收方视图，不代表独立的插件生命周期。Inspector 通过标准 Context 身份匹配 Fiber，保留经服务创建的插件及继承的 Context 层。
 
+每条内嵌 DevTools 连接仅选择承载页面的逻辑 Client，并保留 Host。每个投影自行持有订阅，因此关闭一个窗口不会释放其它窗口或共享快照存储。
+
 ## 考虑过的替代方案
 
 **通用 Conversation View 资源与 header label。** 这需要为一个消费者增加地址校验、独立 Session 引用、视图不可用恢复和 composer 选项。已有 Sidebar 页面类型足够；通用协议应等独立消费者出现后再评审。

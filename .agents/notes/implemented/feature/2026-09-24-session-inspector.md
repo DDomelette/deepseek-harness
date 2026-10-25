@@ -33,6 +33,8 @@ A Client loaded after the page obtains current ingest parameters through an auth
 
 Cordis service-call shadow Contexts describe a receiver-specific view rather than a separate plugin lifetime. Inspector matches Fibers through canonical Context identities, preserving service-created plugins and inherited Context layers.
 
+Each embedded DevTools connection selects its embedding page's logical Client while retaining Host visibility. Each projection owns its subscriptions, so closing one window leaves sibling windows and the shared snapshot store live.
+
 ## Alternatives considered
 
 **Generic Conversation View resources and header labels.** They require address validation, separate Session references, unavailable-view recovery, and composer options for a single consumer. An existing Sidebar page type is sufficient; a generic protocol needs independent consumers before reconsideration.
