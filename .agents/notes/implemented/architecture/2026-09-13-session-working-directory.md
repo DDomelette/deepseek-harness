@@ -26,6 +26,8 @@ Web sidebar terminal environment lookup reads the effective directory without fi
 
 Playwright MCP and Chrome DevTools MCP validate the effective directory when acquiring a Session's MCP connection and use it to launch the server. Later directory changes do not restart the retained server or change its process directory.
 
+Both SDKs send directory reads and changes to the same Host service. Clients preserve relative paths on the wire so resolution uses the selected Session directory rather than the SDK process directory. Response validation rejects non-string directory values.
+
 File links and command directory labels use result metadata captured when each operation runs, so historical rows remain correct after later directory changes.
 
 The [prompt-variables note](2026-07-05-prompt-variables-and-tool-guidance-ownership.md) retains strict interpolation, route-variable ownership, and tool-guidance ownership. The [environment-suffix note](../../archived/bug-fix/2026-09-06-environment-prompt-suffix.md) retains ordered prefix/suffix placement for deployment, Harness source, and Web guidance. This decision owns directory state and placement in user context.

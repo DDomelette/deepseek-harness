@@ -61,6 +61,8 @@ with DeepSeekHarness(
 
 随附的 `sdk-minimal` profile 是独立显式配置树，而不是 `dsh-base` 上的 overlay。使用 `profile="sdk-minimal"` 选择它；普通 `model` 参数是唯一运行时模型选择，也适用于不在适配器建议目录中的模型 ID。它只提供按平台选择的持久 shell、本地执行与 JSONL 会话；文件系统工具、设置、托管凭据、遥测、Web 工具与完整默认工具清单仍由独立的完整 `sdk` 与 `web` profile 提供。
 
+`Session.get_working_directory()` 读取有效目录，并在所选目录缺失时恢复到原始项目。`Session.set_working_directory(path)` 接受绝对路径或相对此 Session 当前目录的路径，并返回选定的绝对目录。各 Session 独立选择目录；该操作不改变原始项目、写权限或已有进程。底层 `HarnessClient` 提供相同方法，并显式接收 `session_id`。
+
 ## 结果与通知
 
 `Session.run()` 的活动区间从提示词被持久 inbox 接收时开始，到整个 agent 下一次进入空闲状态时结束，并返回 `RunResult(session_id, final_response, finish_reason, events, notifications)`。`final_response` 是该区间内根会话最后提交的助手文本。`finish_reason` 是最后一个根会话 `turn/end` 的 `kind`，例如 `completed`、`max-tokens` 或 `error`；没有轮次结束时为 `None`。缺少字符串 `data.reason.kind` 的 `turn/end` 违反协议，并会抛出 `SdkProtocolError`。
