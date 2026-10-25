@@ -527,7 +527,8 @@ describe.skipIf(!isWin32 || !pwshAvailable())('windows-acl runner', () => {
     }
   }, 30_000)
 
-  it('a FullControl open inside a granted root still works for files (the deny inherits to containers only)', () => {
+  it('a FullControl open inside a granted root still works for files (the deny inherits to containers only)', (test) => {
+    // Backup/restore privileges bypass a DACL when opening a directory; the probe disables them in its own process.
     // The ambient-delete deny is 0x40, a member of FILE_ALL_ACCESS: inheriting
     // it onto files would deny every GENERIC_ALL/FullControl open by the user,
     // Administrators, SYSTEM, or the DSH host. Directories inside a granted
@@ -549,7 +550,21 @@ Add-Type -Namespace P -Name F -MemberDefinition @'
 public static extern IntPtr CreateFileW(string n, uint a, uint s, IntPtr sa, uint d, uint f, IntPtr t);
 [DllImport("kernel32.dll", SetLastError=true)]
 public static extern bool CloseHandle(IntPtr h);
+[DllImport("kernel32.dll")]
+public static extern IntPtr GetCurrentProcess();
+[DllImport("advapi32.dll", SetLastError=true)]
+public static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+[DllImport("advapi32.dll", SetLastError=true)]
+public static extern bool AdjustTokenPrivileges(IntPtr token, bool disableAll, IntPtr state, uint length, IntPtr previous, IntPtr required);
+public static void DisablePrivileges() {
+  IntPtr token;
+  if (!OpenProcessToken(GetCurrentProcess(), 0x20, out token)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+  try {
+    if (!AdjustTokenPrivileges(token, true, IntPtr.Zero, 0, IntPtr.Zero, IntPtr.Zero)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+  } finally { CloseHandle(token); }
+}
 '@ | Out-Null
+[P.F]::DisablePrivileges()
 function TryOpen([string]$label, [string]$path) {
   $h = [P.F]::CreateFileW($path, 0x10000000, 7, [IntPtr]::Zero, 3, 0x02000000, [IntPtr]::Zero)
   if ($h -eq [IntPtr]::new(-1)) { "$($label): DENIED" } else { [void][P.F]::CloseHandle($h); "$($label): OK" }
@@ -558,7 +573,9 @@ TryOpen 'FILE' '${join(granted, 'file.txt')}'
 TryOpen 'NESTED-FILE' '${join(child, 'deep.txt')}'
 TryOpen 'DIRECTORY' '${child}'
 `
-      const result = spawnSync('pwsh', ['-NoLogo', '-NonInteractive', '-NoProfile', '-Command', probe], { encoding: 'utf8', timeout: 60_000 })
+      const result = spawnSync('pwsh', ['-NoLogo', '-NonInteractive', '-NoProfile', '-Command', probe], { encoding: 'utf8', timeout: test.task.timeout })
+      expect(result.error, result.stderr).toBeUndefined()
+      expect(result.signal, result.stderr).toBeNull()
       expect(result.status, `stderr: ${result.stderr}`).toBe(0)
       expect(result.stdout).toContain('FILE: OK')
       expect(result.stdout).toContain('NESTED-FILE: OK')
@@ -567,7 +584,7 @@ TryOpen 'DIRECTORY' '${child}'
       grant.dispose()
       rmSync(granted, { recursive: true, force: true })
     }
-  }, 60_000)
+  }, Math.max(60_000, Number(process.env.DSH_COVERAGE_TEST_TIMEOUT_MS ?? 0)))
 
   it('revoking one of two grants on a directory leaves the shared Low label usable', () => {
     // Two capabilities may target one directory; the revoke of the first must

@@ -9,8 +9,8 @@
   en: adb85f1842b69545
   zh: 42a0ebb3b8015a74
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/decision:
-  en: 08406f9c720d66c1
-  zh: b9c81901488d73b5
+  en: cdb13ac5e00ae1c1
+  zh: 706d50d9ebb26607
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/alternatives-considered:
   en: 6119e2aff3b6be5a
   zh: 4237c596c10e1ee9
@@ -21,8 +21,8 @@
   en: 5f53545a83ccd02c
   zh: f8fd05c1f3440e41
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/alternatives-considered/why-not-deny-file-delete-child-with-oi-ci:
-  en: 78a36aa70395d214
-  zh: 0dd32d8ca513cb43
+  en: e78dba2bb936bbb3
+  zh: 0adf58860cf41b59
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/alternatives-considered/why-not-drop-the-confinement-layer-and-document-the-escape:
   en: 9ff963493255783c
   zh: 41b5577792e977cd
@@ -30,11 +30,11 @@
   en: c39c82f7b745d672
   zh: 7b38d3c4b889dac6
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/consequences:
-  en: 4930b2596686d377
-  zh: 022a62051a58181e
+  en: aa06c8bcb75b353f
+  zh: 2fcbb059503b93cf
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/testing:
-  en: bf08721754a27511
-  zh: 2ad658c5731bf358
+  en: a35ac1acaeb2a802
+  zh: 1e57c145ca44b0e0
 /agent-note-windows-sandbox-delete-confinement-mandatory-integrity-plus-an-ambient-delete-deny/related:
   en: 7bcd65866358de4a
   zh: a0fbb85274736365
