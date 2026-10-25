@@ -262,6 +262,7 @@ const root = {
   events: { _hooks: {} },
   async effect(callback) { const dispose = await callback(); disposers.push(dispose); return dispose; },
   on() { return () => {}; },
+  inject() { return { dispose() {} }; },
   provide(name, value) { this[name] = value; return () => { delete this[name]; }; },
 };
 root.root = root;

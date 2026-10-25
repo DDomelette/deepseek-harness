@@ -25,6 +25,8 @@ Status: implemented
 
 默认关闭的可选组合包 `inspector-profile` 启用会话检查能力、NodeJS 调试 Worker 和未脱敏的 Host fetch 采集。启用组合包不需要调试参数或用户覆盖配置。实现及显式源码／构建产物 overlay 保持可用；Web startup 不接受新参数，设置区不增加调试按钮。
 
+已发布的 Inspector 载荷包含内嵌前端，使调试不依赖运行时 CDN。固定版本的 npm 前端仍作为开发依赖；安装环境仅提供其编译产物。
+
 Host 管理调试 URL、Worker 和采集生命周期。组合配置提供 `--inspect` 时，Host 尝试打开 Chrome；打开失败后打印的链接仍可使用。关闭调试窗口不会停止采集。显式启用允许执行本地代码并采集未脱敏网络数据，风险说明见 [Inspector 安全部分](../../../../packages/experimental/inspector/README.zh.md#security)。
 
 页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。缓存页面在 `pagehide` 时挂起 source，并在 `pageshow` 时仅重连一次；逻辑 source id 保留，传输 generation 则轮换。Client 不接收也不打开调试 URL。

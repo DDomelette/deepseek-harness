@@ -209,10 +209,7 @@ describe('experimental workspace constraints', () => {
   })
 
   it('keeps the current experimental publication set explicit', () => {
-    // This fork keeps every experimental capability private, so the set holds
-    // the fork's own packages rather than upstream's empty default.
     expect([...PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES].sort()).toEqual([
-      'packages/experimental/inspector',
       'packages/experimental/webworker-packer',
       'packages/experimental/webworker-runtime',
     ])
@@ -483,12 +480,14 @@ it('requires the local speech worker and locked runtime in the published payload
   }
 })
 
-it('requires the Inspector Worker in the published payload', () => {
+it('requires the Inspector Worker and frontend in the published payload', () => {
   const dir = 'packages/experimental/inspector'
   const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
   expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
-  expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files: manifest.files!.filter(file => file !== 'lib/worker.js') } }))
-    .toEqual([expect.stringContaining('package.json files must be')])
+  for (const omitted of ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**']) {
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files: manifest.files!.filter(file => file !== omitted) } }))
+      .toEqual([expect.stringContaining('package.json files must be')])
+  }
 })
 
 it('requires the containment runner and rejects unrelated runtime files', () => {

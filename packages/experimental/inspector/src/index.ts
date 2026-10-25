@@ -99,7 +99,7 @@ export const Config: z<Config> = z.object({
 })
 
 /**
- * Apply the Host implementation from the repository-standard package entry.
+ * Start inspection when enabled; the hidden --inspect flag also opens the Host debugging window.
  * @param ctx - Host Cordis plugin context.
  * @param config - Validated Inspector configuration.
  */

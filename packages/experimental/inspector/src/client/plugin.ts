@@ -133,6 +133,11 @@ class InspectorClientSession {
         maxBytes: bootstrap.maxFrameBytes - 4_096,
       }))
       disposers.push(this.ctx.provide('inspector', createInspectorService(source)))
+      const panel = this.ctx.inject(['slots', 'shortcuts', 'locale'], async (ctx) => {
+        const { registerInspectorPage } = await import('./bottom/page.tsx')
+        registerInspectorPage(ctx, source.sourceId)
+      })
+      disposers.push(() => panel.dispose())
     } catch (error) {
       try {
         await dispose()
