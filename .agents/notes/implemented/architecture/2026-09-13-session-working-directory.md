@@ -20,6 +20,8 @@ Subagents capture the parent's current directory or an explicit override and com
 
 Live Session skill catalogs and file completion validate through the same directory owner. These reads can commit recovery and queue its notice before discovery, keeping discovered files and subsequent operations tied to the committed Session directory. Cold skill catalogs read the recorded projection without activating an Agent.
 
+LSP queries, skill tool loads, explicit skill invocations, and skill catalogs await the directory owner for each operation. Reading the header, reusing the permission root, or caching a directory when a plugin loads would let tools operate in different projects after the next change or recovery.
+
 Web sidebar terminal environment lookup reads the effective directory without filesystem validation or recovery, so a missing directory does not prevent reconnecting to a retained terminal. New terminal creation validates and recovers through the directory owner before spawning; the process keeps that directory independently of later Session changes.
 
 Playwright MCP and Chrome DevTools MCP validate the effective directory when acquiring a Session's MCP connection and use it to launch the server. Later directory changes do not restart the retained server or change its process directory.

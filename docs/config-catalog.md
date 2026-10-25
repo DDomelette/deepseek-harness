@@ -3569,7 +3569,7 @@ Source: [`packages/core/system-prompt/src/index.ts:255`](../packages/core/system
 
 ## `@deepseek-ai/dsh-terminal-bash`
 
-Requires: `terminals` · `sandboxPolicy` · `sessionProjections` · `subprocess`
+Requires: `terminals` · `sandboxPolicy` · `sessionProjections` · `subprocess` · `workingDirectory`
 
 ```ts config-catalog
 /** Public plugin configuration. */
@@ -3860,7 +3860,7 @@ Source: [`packages/jobs/tool-jobs/src/index.ts:41`](../packages/jobs/tool-jobs/s
 
 ## `@deepseek-ai/dsh-tool-lsp`
 
-Requires: `tools` · `lsp` · `systemPrompt`
+Requires: `tools` · `lsp` · `systemPrompt` · `workingDirectory`
 
 ```ts config-catalog
 /** Plugin configuration: result caps and the timeout budget. */
@@ -3874,7 +3874,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/lsp/tool-lsp/src/index.ts:57`](../packages/lsp/tool-lsp/src/index.ts)
+Source: [`packages/lsp/tool-lsp/src/index.ts:56`](../packages/lsp/tool-lsp/src/index.ts)
 
 <a id="deepseek-aidsh-tool-present"></a>
 
@@ -3987,7 +3987,7 @@ Source: [`packages/session-query/tool-session-query/src/index.ts:28`](../package
 
 ## `@deepseek-ai/dsh-tool-skill`
 
-Requires: `agents` · `tools` · `skills`
+Requires: `agents` · `tools` · `skills` · `workingDirectory`
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
@@ -3997,7 +3997,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/tool-skill/src/index.ts:61`](../packages/skill/tool-skill/src/index.ts)
+Source: [`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
 
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 

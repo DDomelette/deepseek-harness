@@ -47,7 +47,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### Failures and recovery
 
-The tool requires a session workspace root (`header.cwd`) with no fallback; absence fails with `LSP_WORKSPACE_REQUIRED` before any query. When no provider handles the file's extension, the query fails with `LSP_UNAVAILABLE`; malformed provider payloads remain structured `LSP_MALFORMED_RESPONSE` errors. These surface to the model as error tool results it can read and route on.
+The tool validates the Agent’s effective directory through `workingDirectory.ensure`; if that directory disappeared, the directory owner restores the original project before querying. A non-Agent call fails with `LSP_WORKSPACE_REQUIRED` before any query. When no provider handles the file's extension, the query fails with `LSP_UNAVAILABLE`; malformed provider payloads remain structured `LSP_MALFORMED_RESPONSE` errors. These surface to the model as error tool results it can read and route on.
 
 -----
 
@@ -61,7 +61,7 @@ This section explains the design decisions behind the tool and where the code re
 
 ### Design notes
 
-- **Consumer-only.** The tool runtime-injects only `tools`, `lsp`, and `systemPrompt`, imports no provider, and passes only `exec.signal` to the seam.
+- **Consumer-only.** The tool runtime-injects `tools`, `lsp`, `systemPrompt`, and `workingDirectory`, imports no provider, and passes only `exec.signal` to the seam.
 - **Coordinate conversion.** `parseLspArgs` validates that `line` and `character` are positive integers and converts them to the seam's zero-based positions; rendered locations convert back to one-based form.
 - **Canonical result passthrough.** The tool returns the seam's closed union (`{ kind: 'locations', locations, resolvedWorkspaceUri }` or `{ kind: 'hover', hover }`) so native renderers can inspect every acquired location and zero-based range directly.
 - **Execution-world URI rendering.** `renderUri` resolves a `file:` URI against the provider's canonical workspace URI — workspace-relative inside it, URI-derived absolute outside it, verbatim when malformed or not `file:` — never applying host-platform path rules to the session cwd.
@@ -74,7 +74,6 @@ This section explains the design decisions behind the tool and where the code re
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: config schema, tool registration, system-prompt section, execution |
 | [`src/render.ts`](src/render.ts) | Pure formatting, coordinate conversion, URI resolution, result caps, UI presentation |
-| [`src/session-cwd.ts`](src/session-cwd.ts) | Workspace root from the session `header.cwd` |
 | — | No runtime invariant companion is published; this stateless adapter contributes one tool and prompt section, while query lifecycle and result relations remain owned by the tool and LSP seams it composes. |
 
 </details>

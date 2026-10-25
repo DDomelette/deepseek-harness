@@ -33,9 +33,10 @@ kind: "package-reference"
 
 ### 组合方式
 
-挂载终端服务、子进程提供方、沙箱与策略服务、此后端以及一个工具包：
+外层组合提供文件系统、投影与系统提示服务。挂载共享工作目录服务、终端服务、子进程提供方、沙箱与策略服务、此后端以及一个工具包：
 
 ```yaml
+- name: '@deepseek-ai/dsh-working-directory'
 - name: '@deepseek-ai/dsh-terminal'
 - name: '@deepseek-ai/dsh-subprocess-local'
 - name: '@deepseek-ai/dsh-sandbox-local'
@@ -45,6 +46,8 @@ kind: "package-reference"
 ```
 
 `danger-full-access` 直接启动 shell。受限模式要求同一执行世界中存在 `ctx.sandbox` 提供方：缺少时，spawn 会在 shell 启动前失败。
+
+新终端在显式指定的 `cwd` 或 Session 经验证的当前目录中启动。目录切换只影响后续终端；已有终端进程与沙箱权限根保留各自的目录。
 
 ### 配置
 

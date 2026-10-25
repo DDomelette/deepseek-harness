@@ -3571,7 +3571,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-terminal-bash`
 
-需要：`terminals` · `sandboxPolicy` · `sessionProjections` · `subprocess`
+需要：`terminals` · `sandboxPolicy` · `sessionProjections` · `subprocess` · `workingDirectory`
 
 ```ts config-catalog
 /** Public plugin configuration. */
@@ -3862,7 +3862,7 @@ export type CompletionDelivery = 'quiet' | 'wakeup'
 
 ## `@deepseek-ai/dsh-tool-lsp`
 
-需要：`tools` · `lsp` · `systemPrompt`
+需要：`tools` · `lsp` · `systemPrompt` · `workingDirectory`
 
 ```ts config-catalog
 /** Plugin configuration: result caps and the timeout budget. */
@@ -3876,7 +3876,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/lsp/tool-lsp/src/index.ts:57`](../packages/lsp/tool-lsp/src/index.ts)
+来源：[`packages/lsp/tool-lsp/src/index.ts:56`](../packages/lsp/tool-lsp/src/index.ts)
 
 <a id="deepseek-aidsh-tool-present"></a>
 
@@ -3989,7 +3989,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-tool-skill`
 
-需要：`agents` · `tools` · `skills`
+需要：`agents` · `tools` · `skills` · `workingDirectory`
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
@@ -3999,7 +3999,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/skill/tool-skill/src/index.ts:61`](../packages/skill/tool-skill/src/index.ts)
+来源：[`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
 
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 

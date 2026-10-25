@@ -33,9 +33,10 @@ Choose this backend when work needs an interactive shell or REPL whose state per
 
 ### Composition
 
-Mount the terminal service, a subprocess provider, the sandbox and policy services, this backend, and a tool package:
+The surrounding composition provides filesystem, projection, and system-prompt services. Mount the shared working-directory owner, terminal service, subprocess provider, sandbox and policy services, this backend, and a tool package:
 
 ```yaml
+- name: '@deepseek-ai/dsh-working-directory'
 - name: '@deepseek-ai/dsh-terminal'
 - name: '@deepseek-ai/dsh-subprocess-local'
 - name: '@deepseek-ai/dsh-sandbox-local'
@@ -45,6 +46,8 @@ Mount the terminal service, a subprocess provider, the sandbox and policy servic
 ```
 
 `danger-full-access` starts the shell directly. Confined modes require a same-world `ctx.sandbox` provider: without one, the spawn fails before the shell starts.
+
+A new terminal starts in its explicit `cwd` or the Session’s validated effective directory. Directory changes affect subsequent terminals; existing terminal processes and the sandbox permission root retain their own directories.
 
 ### Configuration
 

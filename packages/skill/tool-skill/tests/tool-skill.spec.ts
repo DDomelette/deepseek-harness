@@ -1127,3 +1127,33 @@ describe('user-explicit invocation injection', () => {
     expect(invoked).toEqual(['shared-skill'])
   })
 })
+
+describe('selected Session directory', () => {
+  it.each(['tool', 'catalog', 'explicit'] as const)('discovers project skills for %s after a directory change', async (consumer) => {
+    const home = await tempDir('selected-skill')
+    const origin = join(home, 'origin')
+    const selected = join(home, 'selected')
+    await mkdir(origin)
+    await writeSkill(join(selected, '.agents', 'skills'), 'selected-skill', 'Selected project skill', 'SELECTED-SKILL-BODY')
+    const ctx = await setup(home)
+    ctx.workingDirectory.ensure = async () => selected
+    const agent = agentForCwd(origin)
+    try {
+      if (consumer === 'tool') {
+        const result = await ctx.tools.execute({ name: 'skill', arguments: { name: 'selected-skill' }, callId: ToolCallId('selected-skill'), agent, signal: testToolSignal })
+        expect(result.isError).toBe(false)
+        expect(JSON.stringify(result.content)).toContain('SELECTED-SKILL-BODY')
+      } else if (consumer === 'catalog') {
+        expect(JSON.stringify(await composePrefixForAgent(ctx, agent))).toContain('selected-skill')
+      } else {
+        const decision = await proposeStep(ctx, agent, [createUserMessage({ content: [{ type: 'text', text: '/selected-skill' }], source: { kind: 'user' } })])
+        if (decision.kind !== 'enter') throw new Error('expected skill invocation')
+        expect(decision.messages.at(-1)?.source).toMatchObject({ kind: 'skill-invocation', name: 'selected-skill' })
+        expect(JSON.stringify(decision.messages.at(-1)?.content)).toContain('SELECTED-SKILL-BODY')
+      }
+      expect(agent.session.header.cwd).toBe(origin)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+})
