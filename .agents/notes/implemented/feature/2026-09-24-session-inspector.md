@@ -35,6 +35,8 @@ Cordis service-call shadow Contexts describe a receiver-specific view rather tha
 
 Each embedded DevTools connection selects its embedding page's logical Client while retaining Host visibility. Each projection owns its subscriptions, so closing one window leaves sibling windows and the shared snapshot store live.
 
+Node forwards a fetch caller's abort signal while the wrapper Request remains reachable. A weak response-body association retains that Request for the caller's stream lifetime, including after capture stops, without making the observer retain every response.
+
 ## Alternatives considered
 
 **Generic Conversation View resources and header labels.** They require address validation, separate Session references, unavailable-view recovery, and composer options for a single consumer. An existing Sidebar page type is sufficient; a generic protocol needs independent consumers before reconsideration.
@@ -60,5 +62,7 @@ The Inspector owns local filters, disclosures, selection, breadcrumbs, and highl
 The earlier [optional-bundle decision](../architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md) continues to own installation and provider-runtime trade-offs. This feature adds the Inspector profile to that list rather than making all experimental providers optional bundles.
 
 ## Testing
+
+Native fetch GC regressions isolate V8 flags in dedicated child processes and verify cancellation during capture, after its byte limit, and after disposal.
 
 Package tests exercise registration disposal, hierarchy and folding anchors, hidden-node ordering, filters, object navigation and cache invalidation, DOM scope, smooth scrolling, picking, and cancellation. Work-count regressions bound indexed first-page reads and prevent historical regrouping during append. Diagnostic tests cover Loader activation, injected and fetched bootstrap failures, reconnect recovery, registration rollback, failed window launch, and joined disposal. The Web scenario in `snapshots/web/session-inspector` replays a recorded Session through the optional bundle and checks log filtering, object details, and Chat Group order.

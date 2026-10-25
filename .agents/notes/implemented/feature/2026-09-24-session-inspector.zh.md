@@ -35,6 +35,8 @@ Cordis 服务调用的 shadow Context 表示特定接收方视图，不代表独
 
 每条内嵌 DevTools 连接仅选择承载页面的逻辑 Client，并保留 Host。每个投影自行持有订阅，因此关闭一个窗口不会释放其它窗口或共享快照存储。
 
+Node 仅在包装层 Request 仍可达时转发 fetch 调用方的 abort 信号。响应体的弱关联在调用方流的生命周期内保留 Request，包括采集停止之后；观察器不会因此持有全部响应。
+
 ## 考虑过的替代方案
 
 **通用 Conversation View 资源与 header label。** 这需要为一个消费者增加地址校验、独立 Session 引用、视图不可用恢复和 composer 选项。已有 Sidebar 页面类型足够；通用协议应等独立消费者出现后再评审。
@@ -60,5 +62,7 @@ Cordis 服务调用的 shadow Context 表示特定接收方视图，不代表独
 此前的[可选组合包决策](../architecture/2026-09-21-experimental-capabilities-as-optional-bundles.zh.md) 继续管理安装与提供方运行时的取舍。本功能向名单增加 Inspector profile，而不是把所有实验提供方都做成可选组合包。
 
 ## 测试
+
+原生 fetch GC 回归通过独立子进程隔离 V8 标志，验证采集进行中、达到字节上限以及释放之后的取消。
 
 包级测试覆盖注册释放、层级与折叠锚点、隐藏节点顺序、筛选、对象导航与缓存失效、DOM 范围、平滑滚动、点选和取消。工作量回归限制索引集合的首屏读取量，并防止追加时重新分组历史行。诊断测试覆盖 Loader 启用、注入和主动获取 bootstrap 的失败、重连恢复、注册回滚、打开窗口失败与等待释放完成。`snapshots/web/session-inspector` 中的 Web 场景通过可选组合包重放录制 Session，检查日志筛选、对象详情和 Chat Group 顺序。
