@@ -21,6 +21,8 @@ exe 使用 [@yao-pkg/pkg](https://github.com/yao-pkg/pkg)（vercel/pkg 归档后
 
 `--sea` 要求构建目标 ≥ node22，exe 统一以 node24 为构建目标；每次 pkg 调用只打包一个构建目标，多平台各调用一次。
 
+构建流水线通过 `pnpm exec node --import tsx/esm` 启动，保留 pnpm 的 JavaScript 入口元数据，同时避免执行 workspace 的 `.cmd` 启动器。legacy deploy 在打包前恢复开发安装时可能重写这些启动器；Windows 批处理启动器若在自身被替换后继续执行，即使构建子进程成功也可能失败。
+
 构建器为完整资源归档选择 `--compress GZip`。运行时闭包包含动态导入的插件及其资源；为了迁就二进制注入器而删减资源，会让有效的 profile 组合在运行时失败。压缩在保留这些文件的同时减少传给注入器的数据。GZip 的构建成本低于 Brotli 的最高压缩路径，打包后的 VFS 读取器也支持它。
 
 Python 打包入口先把嵌入式 PTC 选择器分发到 `@deepseek-ai/dsh-ptc-runtime-node/process`，再处理普通 CLI。任一 worker 启动前都会消费私有选择器。PTC 帧限制属于 worker 参数；若送进 CLI，数字会被解释为 profile 名称，受管控制通道也无人处理。

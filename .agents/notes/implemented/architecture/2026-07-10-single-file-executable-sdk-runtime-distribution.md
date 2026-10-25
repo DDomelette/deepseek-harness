@@ -21,6 +21,8 @@ The exe is packaged with the **`--sea` (enhanced SEA) mode** of [@yao-pkg/pkg](h
 
 `--sea` requires target ≥ node22; the exe uniformly targets node24. One pkg invocation packages exactly one target; multi-platform builds invoke it once per platform.
 
+The build pipeline starts through `pnpm exec node --import tsx/esm`, which retains pnpm's JavaScript entrypoint metadata without executing a workspace `.cmd` shim. Legacy deploy restores the development installation before packaging and can rewrite those shims; a Windows batch launcher that resumes after its own replacement can fail even when the build child succeeds.
+
 The builder selects `--compress GZip` for the complete asset archive. The runtime closure includes dynamically imported plugins and their resources; removing assets to fit the binary injector would make valid profile compositions fail at runtime. Compression reduces the data passed to the injector while preserving those files. GZip keeps build cost below Brotli's maximum-compression path and is supported by the packaged VFS reader.
 
 The Python packaging entry dispatches the embedded PTC selector to `@deepseek-ai/dsh-ptc-runtime-node/process` before the ordinary CLI. It consumes the private selectors before either worker starts. PTC frame limits are worker arguments; sending them through the CLI would interpret a number as a profile name and leave the managed control channel unserved.
