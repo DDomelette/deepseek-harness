@@ -103,6 +103,8 @@ A fake that stands in for a generated stream method returns the `RemoteStreamHan
 
 `dispatch` and `open` take the endpoint and positional args; `rpc` exposes the same core through Connection's decoded carrier interface. Each mock owns its native functions and queued overrides; shared tables supply defaults without copying handlers or answer objects. Each scripted stream owns its queue, its single pending read, and its log entry; the first of `end`, `fail`, or consumer cancellation settles it.
 
+`rpc.open` passes an optional carrier uplink to `StreamHandle.uplink` without adding it to the endpoint’s business arguments. A direct `open` without a carrier uplink returns a handle whose `send()` and `end()` feed that same script input.
+
 ### Source map
 
 | File | Role |

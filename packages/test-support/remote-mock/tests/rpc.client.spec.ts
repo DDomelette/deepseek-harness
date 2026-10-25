@@ -30,8 +30,8 @@ describe('RemoteMock.rpc', () => {
     })
     const uplink = (values: readonly string[]): AsyncIterable<string> => (async function *() { yield* values })()
 
-    // This tree's carrier `open` has no uplink parameter, so a carrier open drives the downlink only.
-    await expect(drain(mock.rpc.open!('/api', 'job/attach', { args: ['job-1'] }, idle()))).resolves.toEqual([])
+    await expect(drain(mock.rpc.open!('/api', 'job/attach', { args: ['job-1'] }, idle(), uplink(['a', 'b']))))
+      .resolves.toEqual(['job-1:a', 'job-1:b'])
     await expect(drain(mock.open('job/attach', ['job-2'], idle(), uplink(['c'])))).resolves.toEqual(['job-2:c'])
     // A direct open returns the handle a generated method would: its send/end feed the script's uplink.
     const direct = mock.open('job/attach', ['job-3'], idle()) as MockClientStream

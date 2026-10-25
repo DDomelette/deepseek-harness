@@ -34,6 +34,8 @@ Acceptance lives in `apps/web/tests/preview-boot.e2e.ts`, which serves the real 
 
 The [built-bundle import sweep](tests/compile/transform-corpus-check.ts) checks bare Node imports after the library build. Its Dockkit exception accepts only Node’s unknown-extension error for the expected stylesheet; other failures and unexpectedly successful exempt imports remain errors. See the [CI observation decision](../../../.agents/notes/implemented/testing/2026-09-08-ci-completion-observations.md).
 
+Logical Remote streams carry both directions through the page/Worker tunnel. Uplink items buffer while the Host starts, `end()` half-closes the uplink, and cancellation or downlink completion releases the caller’s iterator. The same-origin tunnel drops items after half-close and does not apply the WebSocket inbox byte limit.
+
 -----
 
 <a id="model-experience"></a>

@@ -29,6 +29,8 @@ kind: "package-reference"
 
 -----
 
+`connection.rpc.open(channel, endpoint, payload, signal, uplink?)` 将调用方的可选上行流传递给进程内载体。载体拥有两个方向，直到取消或下行流结束；普通 Web 连接使用 Gateway 的 WebSocket 流载体。
+
 <a id="browser-authentication-and-request-trust"></a>
 ## 浏览器认证与请求信任
 

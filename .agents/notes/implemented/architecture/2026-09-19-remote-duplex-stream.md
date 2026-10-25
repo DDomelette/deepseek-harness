@@ -313,6 +313,8 @@ Credit frames wait until a consumer that needs sustained high-volume uplink appe
 
 An in-process carrier with no `peer` means the operator.
 
+Carrier selection preserves both directions. A terminal downlink frame stops the Worker uplink pump in the receive path, before the consumer asks for another item; cancellation also releases a caller iterator blocked on its next read. This prevents an unread terminal frame from retaining an open producer.
+
 ### Relation to `$events`
 
 `$events` is a stream on a reserved endpoint; with uplink frames, waterfall answers can become uplink items on the same `streamId`, `clientId` becomes redundant because `streamId` already identifies the generation, and `$events/result` disappears together with the race at `index.ts:527-529`. Out of scope for this Note; see Deferred.

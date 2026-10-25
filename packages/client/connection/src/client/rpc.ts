@@ -36,6 +36,7 @@ export type RpcStreamOpen = (
   endpoint: string,
   payload: unknown,
   signal: AbortSignal,
+  uplink?: AsyncIterable<unknown>,
 ) => AsyncIterable<unknown>
 
 /**
@@ -82,12 +83,12 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
       return full.result
     },
     ...openStream === undefined ? {} : {
-      open(channel, endpoint, payload, signal) {
+      open(channel, endpoint, payload, signal, uplink) {
         assertTarget(channel, endpoint)
         if (channel !== '/api') {
           throw new Error(`connection: worker-local streams require the /api channel, got ${JSON.stringify(channel)}`)
         }
-        return openStream(endpoint, payload, signal)
+        return openStream(endpoint, payload, signal, uplink)
       },
     },
   }

@@ -34,6 +34,8 @@ kind: "package-library"
 
 [已构建 bundle 导入检查](tests/compile/transform-corpus-check.ts)在库构建后检查裸 Node 导入。Dockkit 例外仅接受 Node 针对预期样式表报告的未知扩展名错误；其他失败以及意外成功的豁免导入仍然报错。参见 [CI 观察决策](../../../.agents/notes/implemented/testing/2026-09-08-ci-completion-observations.zh.md)。
 
+Remote 逻辑流通过页面／Worker 隧道传递两个方向的数据。Host 启动期间会缓冲上行项，`end()` 半关闭上行流，取消或下行完成会释放调用方迭代器。同源隧道丢弃半关闭后的项，不应用 WebSocket 的收件箱字节上限。
+
 -----
 
 <a id="model-experience"></a>

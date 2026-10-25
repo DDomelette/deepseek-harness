@@ -26,12 +26,6 @@ export interface RemoteMockOptions {
 /** Filter over the args a stream was opened with. */
 export type StreamFilter = (args: readonly unknown[]) => boolean
 
-/**
- * The uplink of an open through this tree's carrier, which carries no Client
- * uplink parameter: closed from the start, so a script that reads it finishes.
- */
-const CLOSED_UPLINK: AsyncIterable<unknown> = (async function *() {})()
-
 /** Control and synchronization for streams opened by registered scripts; native overrides are excluded. */
 export interface OpenStreams {
   /**
@@ -164,11 +158,8 @@ export class RemoteMock {
       // The carrier contract names the result envelope; the registered value is taken as that envelope unchecked.
       return value as ConnectionRpcResult<unknown>
     },
-    // This tree's carrier has no Client uplink parameter, so an open through it
-    // hands the script an already-closed uplink: the downlink is driven, and a
-    // script that reads the uplink finishes instead of blocking.
-    open: (_channel: string, endpoint: string, payload: unknown, signal: AbortSignal) =>
-      this.open(endpoint, argsOf(endpoint, payload), signal, CLOSED_UPLINK),
+    open: (_channel: string, endpoint: string, payload: unknown, signal: AbortSignal, uplink?: AsyncIterable<unknown>) =>
+      this.open(endpoint, argsOf(endpoint, payload), signal, uplink),
   }
 
   private constructor() {}

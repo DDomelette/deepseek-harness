@@ -414,6 +414,7 @@ export interface ClientConnectionRpc {
    * @param endpoint - channel-relative endpoint such as `session/follow`.
    * @param payload - channel-owned request payload.
    * @param signal - caller cancellation for this logical stream.
+   * @param uplink - Client uplink items the Host method reads through `invocation.uplink()`.
    * @returns decoded stream values from the in-process carrier.
    */
   readonly open?: (
@@ -421,5 +422,6 @@ export interface ClientConnectionRpc {
     endpoint: string,
     payload: unknown,
     signal: AbortSignal,
+    uplink?: AsyncIterable<unknown>,
   ) => AsyncIterable<unknown>
 }

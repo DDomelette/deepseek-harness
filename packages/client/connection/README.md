@@ -29,6 +29,8 @@ The browser uses HTTP POST for Remote unary calls. API Gateway owns the `/api/re
 
 -----
 
+`connection.rpc.open(channel, endpoint, payload, signal, uplink?)` forwards the caller’s optional uplink to an in-process carrier. The carrier owns both directions until cancellation or the downlink terminates; ordinary Web connections use Gateway’s WebSocket stream carrier.
+
 <a id="browser-authentication-and-request-trust"></a>
 ## Browser authentication and request trust
 

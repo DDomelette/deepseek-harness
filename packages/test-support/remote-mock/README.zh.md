@@ -103,6 +103,8 @@ await mock.streams.drained('session/follow')
 
 `dispatch` 与 `open` 接收端点与位置参数；`rpc` 通过 Connection 的已解码载体接口暴露同一个核心。每个 mock 独立持有原生函数及排队覆盖；共享表提供默认响应，不复制 handler 或应答对象。每条脚本流拥有自己的队列、唯一挂起读取和日志条目；`end`、`fail`、消费方取消三者中最先发生者定局。
 
+`rpc.open` 将可选的载体上行流传递给 `StreamHandle.uplink`，不将其加入端点的业务参数。直接 `open` 未传入载体上行流时，返回的句柄通过 `send()` 与 `end()` 向同一个脚本输入供给数据。
+
 ### 源码地图
 
 | 文件 | 职责 |

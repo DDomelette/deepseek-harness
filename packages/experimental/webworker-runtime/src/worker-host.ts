@@ -161,12 +161,6 @@ async function readImage(image: Uint8Array | string): Promise<Uint8Array> {
 }
 
 /**
- * Uplink handed to every stream this host opens. The tunnel protocol carries no
- * Client-to-Host stream items, so a Host-opened stream has none to forward.
- */
-const NO_UPLINK: AsyncIterable<unknown> = { async *[Symbol.asyncIterator]() {} }
-
-/**
  * Build the worker host without touching the network or the image.
  * @param options - Assembly inputs.
  * @returns Handle whose `handleMessage` is ready immediately.
@@ -279,10 +273,9 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
       tunnel.serve({
         directFetch: (request: Request) => handler.fetch(request),
         bootPayload: () => readBootPayload(ctx),
-        // The worker tree serves its own page, so every stream speaks for the
-        // operator and carries no Client item up the tunnel.
-        openStream: (endpoint, payload, signal) =>
-          typertGateway.wireStream.open(endpoint, payload, NO_UPLINK, undefined, signal),
+        // The worker tree serves its own page: every stream speaks for the operator.
+        openStream: (endpoint, payload, uplink, signal) =>
+          typertGateway.wireStream.open(endpoint, payload, uplink, undefined, signal),
         streamFailure: typertGateway.wireStream.failure,
       })
       started.resolve()
