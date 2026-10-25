@@ -119,7 +119,7 @@ kind: "package-reference"
 
 #### Token 影响
 
-随数据变化，并受 `maxOutputChars` 与固定截断提示约束。
+随数据变化，并受 `maxOutputChars` 与固定截断提示约束。 前缀上限以 UTF-16 代码单元计量，不会截断代理对。
 
 #### KV Cache 影响
 
