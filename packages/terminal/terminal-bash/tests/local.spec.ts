@@ -345,7 +345,7 @@ describe.skipIf(!hasPwsh)('terminal-bash pwsh real shell', () => {
         submit: true,
       })
       expect(['stdin_read', 'inferred_idle']).toContain((await first.done).waitReason)
-      const expected = `keep=ok cwd=${selectedDirectory} secret=END`
+      const expected = `keep=ok cwd=${realpathSync.native(selectedDirectory)} secret=END`
       const command = "Write-Output ('keep={0} cwd={1} secret={2}END' -f $env:KEEP, (Get-Location).Path, $env:DSH_TEST_SECRET)"
       expect(command).not.toContain(expected)
       const second = ctx.terminals.startSend(agent, created.sessionId, { text: command, submit: true })
