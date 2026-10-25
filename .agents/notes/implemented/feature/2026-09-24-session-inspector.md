@@ -31,6 +31,8 @@ The Host owns the debugging URL, Worker, and capture lifetime. When the composit
 
 A Client loaded after the page obtains current ingest parameters through an authenticated document-relative Connection route. Initial injection still supports early connections. Connection resets refresh parameters; replacement releases the previous source, and disposal aborts and waits for outstanding work. A cached page suspends its source on `pagehide` and reconnects once on `pageshow`; the logical source id persists while the transport generation rotates. The Client never receives or launches the debugging URL.
 
+Cordis service-call shadow Contexts describe a receiver-specific view rather than a separate plugin lifetime. Inspector matches Fibers through canonical Context identities, preserving service-created plugins and inherited Context layers.
+
 ## Alternatives considered
 
 **Generic Conversation View resources and header labels.** They require address validation, separate Session references, unavailable-view recovery, and composer options for a single consumer. An existing Sidebar page type is sufficient; a generic protocol needs independent consumers before reconsideration.

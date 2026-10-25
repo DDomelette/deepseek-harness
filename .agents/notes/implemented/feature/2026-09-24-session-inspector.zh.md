@@ -31,6 +31,8 @@ Host 管理调试 URL、Worker 和采集生命周期。组合配置提供 `--ins
 
 页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。缓存页面在 `pagehide` 时挂起 source，并在 `pageshow` 时仅重连一次；逻辑 source id 保留，传输 generation 则轮换。Client 不接收也不打开调试 URL。
 
+Cordis 服务调用的 shadow Context 表示特定接收方视图，不代表独立的插件生命周期。Inspector 通过标准 Context 身份匹配 Fiber，保留经服务创建的插件及继承的 Context 层。
+
 ## 考虑过的替代方案
 
 **通用 Conversation View 资源与 header label。** 这需要为一个消费者增加地址校验、独立 Session 引用、视图不可用恢复和 composer 选项。已有 Sidebar 页面类型足够；通用协议应等独立消费者出现后再评审。
