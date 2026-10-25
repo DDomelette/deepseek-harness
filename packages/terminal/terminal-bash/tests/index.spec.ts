@@ -45,7 +45,7 @@ function config(): ResolvedConfig {
   return {
     backendType: 'shell', shellDialect: 'bash', shellPath: '/bin/bash', shellArgs: [], rows: 24, cols: 80,
     scrollbackLines: 10, scrollbackMaxBytes: 100, maxReadBytes: 50,
-    pollIntervalMs: 10, exactProbeAfterMs: 20, idleSilenceMs: 50, handoffGraceMs: 10, timeoutMs: 100,
+    pollIntervalMs: 10, exactProbeAfterMs: 20, idleSilenceMs: 50, handoffGraceMs: 10, promptTailGraceMs: 0, timeoutMs: 100,
     disposeGraceMs: 10,
   }
 }
@@ -121,6 +121,66 @@ function registerStubLocalBackend(ctx: Context, createSession: () => LocalPtySes
 }
 
 describe('BashTerminalBackend startup rollback', () => {
+  it('awaits terminal cleanup when session construction fails', async () => {
+    const ctx = new Context()
+    provideWorkingDirectoryFixture(ctx)
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/tmp' })
+    const quiescent = Promise.withResolvers<undefined>()
+    const terminal = {
+      ...terminalHandle(),
+      terminate: vi.fn(() => quiescent.promise),
+    }
+    const constructionStarted = Promise.withResolvers<undefined>()
+    const failure = new Error('terminal emulator unavailable')
+    const backend = new BashTerminalBackend(
+      ctx,
+      config(),
+      async () => terminal,
+      () => {
+        constructionStarted.resolve(undefined)
+        throw failure
+      },
+    )
+
+    const spawning = backend.spawn(spec(agent(ctx)))
+    await constructionStarted.promise
+    expect(terminal.terminate).toHaveBeenCalledOnce()
+    let settled = false
+    void spawning.then(
+      () => { settled = true },
+      () => { settled = true },
+    )
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    quiescent.resolve(undefined)
+    await expect(spawning).rejects.toBe(failure)
+  })
+
+  it('does not allocate a terminal when confinement resolves after cancellation', async () => {
+    const ctx = new Context()
+    provideWorkingDirectoryFixture(ctx)
+    await ctx.plugin(RecordingSandbox)
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: '/workspace' })
+    const entered = Promise.withResolvers<AbortSignal>()
+    const response = Promise.withResolvers<ConfinedArgv>()
+    vi.spyOn(ctx.sandbox, 'confine').mockImplementation((_argv, _policy, signal) => {
+      entered.resolve(signal!)
+      return response.promise
+    })
+    const spawnTerminal = vi.fn(async () => terminalHandle())
+    const backend = new BashTerminalBackend(ctx, config(), spawnTerminal)
+    const controller = new AbortController()
+    const spawning = backend.spawn(spec(agent(ctx), controller.signal))
+    const signal = await entered.promise
+    controller.abort(new Error('cancel confinement'))
+    expect(signal.aborted).toBe(true)
+    response.resolve({ argv: ['bash'], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] })
+    await expect(spawning).rejects.toThrow('cancel confinement')
+    expect(spawnTerminal).not.toHaveBeenCalled()
+  })
+
   it('starts a new terminal in the selected directory without changing its permission root', async () => {
     const ctx = new Context()
     provideWorkingDirectoryFixture(ctx)
@@ -219,7 +279,7 @@ describe('BashTerminalBackend startup rollback', () => {
     provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(RecordingSandbox)
     await ctx.plugin(SessionProjectionRegistry)
-    await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: '/workspace' })
+    await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: resolve('/workspace') })
     const terminal = terminalHandle()
     let spawned: SubprocessTerminalSpawnSpec | undefined
     const spawnTerminal = async (spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> => {
@@ -283,7 +343,7 @@ describe('BashTerminalBackend startup rollback', () => {
       spawnTerminal,
       () => session,
     )
-    const owner = agent(ctx, '/session-workspace')
+    const owner = agent(ctx, resolve('/session-workspace'))
     setSandboxMode(owner.session, 'workspace-write')
     expect(await backend.spawn(spec(owner))).toBe(session)
 

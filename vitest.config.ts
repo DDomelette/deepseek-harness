@@ -40,7 +40,6 @@ const windowsUnsupportedPackages = process.platform === 'win32'
       'packages/experimental/hook-protocol',
       'packages/experimental/hooks-claude-code',
       'packages/experimental/hooks-codex',
-      'packages/terminal/terminal-bash',
       // The Python PTC backend refuses win32 at runtime (POSIX rlimits, fd-3
       // stdio, process-group signals), so its suites never run here.
       'packages/experimental/ptc-runtime-python',
