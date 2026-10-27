@@ -11,6 +11,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH, Config, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { BrowserAuth } from '../src/browser-auth.ts'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
@@ -164,8 +165,13 @@ describe('connection node half', () => {
     provideBrowserCredentials(ctx)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(ctx.get('connection')).toBeInstanceOf(Object)
-    await fiber.dispose()
+    try {
+      const connection = ctx.get('connection') as HostConnectionHandle
+      expect(connection).toBeInstanceOf(Object)
+      expect(connection.admit(fakeRequest({ host: '127.0.0.1:3080' }))).toEqual({ rejection: 401 })
+    } finally {
+      await fiber.dispose()
+    }
   })
 
   it('injects validated browser recovery timing and withdraws it on disposal', async () => {
@@ -852,6 +858,35 @@ describe('connection device registry handle', () => {
       expect(connection.isLocalOperatorRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
       expect(connection.isLocalOperatorRequest(fakeRequest({}))).toBe(false)
       expect(connection.isLocalOperatorRequest({ headers: { host: 'bad host' } })).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('redeems the launch token on the bound listener authority', async () => {
+    const { ctx, connection, dispose } = await mounted()
+    Object.assign(ctx.get('webServer')!, { host: '192.0.2.10', port: 3080 })
+    try {
+      const host = '192.0.2.10:3080'
+      const cookie = browserCookie(connection, host)
+      expect(connection.admit(fakeRequest({ host, cookie }))).toEqual({ peer: connection.operator })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('refuses authenticated credentials without a caller identity', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      const host = '127.0.0.1:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      const cookie = connection.devices.issueCookie(fakeRequest({ host }), device.id)!.split(';', 1)[0]!
+      const classify = vi.spyOn(BrowserAuth.prototype, 'deviceIdOf').mockReturnValueOnce(undefined)
+      try {
+        expect(() => connection.admit(fakeRequest({ host, cookie }))).toThrow('admitted request carries no authority class')
+      } finally {
+        classify.mockRestore()
+      }
     } finally {
       await dispose()
     }
