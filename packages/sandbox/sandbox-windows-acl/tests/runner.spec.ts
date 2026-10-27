@@ -527,19 +527,31 @@ describe.skipIf(!isWin32 || !pwshAvailable())('windows-acl runner', () => {
     }
   }, 30_000)
 
-  it('a FullControl open inside a granted root still works for files (the deny inherits to containers only)', (test) => {
+  it.for(['inherited', 'explicit FullControl'] as const)('keeps FullControl file opens and directory ACL precedence (%s)', {
+    timeout: Math.max(60_000, Number(process.env.DSH_COVERAGE_TEST_TIMEOUT_MS ?? 0)),
+  }, (childAccess, test) => {
     // Backup/restore privileges bypass a DACL when opening a directory; the probe disables them in its own process.
     // The ambient-delete deny is 0x40, a member of FILE_ALL_ACCESS: inheriting
     // it onto files would deny every GENERIC_ALL/FullControl open by the user,
-    // Administrators, SYSTEM, or the DSH host. Directories inside a granted
-    // root keep the deny (that is where FILE_DELETE_CHILD is evaluated), so a
-    // FullControl open of a DIRECTORY is the documented cost of the deny.
+    // Administrators, SYSTEM, or the DSH host. The root has an explicit deny;
+    // a child's explicit allow precedes its inherited deny.
     const granted = join(scratchRoot, 'fullcontrol-root')
     const child = join(granted, 'child')
     mkdirSync(granted)
     mkdirSync(child)
     writeFileSync(join(granted, 'file.txt'), 'x')
     writeFileSync(join(child, 'deep.txt'), 'x')
+    // TEMP may give new directories explicit FullControl; select the ACL under test.
+    const inherited = spawnSync('icacls', [child, '/reset'], { encoding: 'utf8' })
+    expect(inherited.error, inherited.stderr).toBeUndefined()
+    expect(inherited.signal, inherited.stderr).toBeNull()
+    expect(inherited.status, inherited.stderr).toBe(0)
+    if (childAccess === 'explicit FullControl') {
+      const explicit = spawnSync('icacls', [child, '/grant:r', '*S-1-1-0:(F)'], { encoding: 'utf8' })
+      expect(explicit.error, explicit.stderr).toBeUndefined()
+      expect(explicit.signal, explicit.stderr).toBeNull()
+      expect(explicit.status, explicit.stderr).toBe(0)
+    }
     const grant = AclWriteGrant.create(workspaceWriteSid(granted))
     grant.add(granted, true)
     try {
@@ -571,6 +583,7 @@ function TryOpen([string]$label, [string]$path) {
 }
 TryOpen 'FILE' '${join(granted, 'file.txt')}'
 TryOpen 'NESTED-FILE' '${join(child, 'deep.txt')}'
+TryOpen 'ROOT' '${granted}'
 TryOpen 'DIRECTORY' '${child}'
 `
       const result = spawnSync('pwsh', ['-NoLogo', '-NonInteractive', '-NoProfile', '-Command', probe], { encoding: 'utf8', timeout: test.task.timeout })
@@ -579,12 +592,13 @@ TryOpen 'DIRECTORY' '${child}'
       expect(result.status, `stderr: ${result.stderr}`).toBe(0)
       expect(result.stdout).toContain('FILE: OK')
       expect(result.stdout).toContain('NESTED-FILE: OK')
-      expect(result.stdout).toContain('DIRECTORY: DENIED')
+      expect(result.stdout).toContain('ROOT: DENIED')
+      expect(result.stdout).toContain(childAccess === 'inherited' ? 'DIRECTORY: DENIED' : 'DIRECTORY: OK')
     } finally {
       grant.dispose()
       rmSync(granted, { recursive: true, force: true })
     }
-  }, Math.max(60_000, Number(process.env.DSH_COVERAGE_TEST_TIMEOUT_MS ?? 0)))
+  })
 
   it('revoking one of two grants on a directory leaves the shared Low label usable', () => {
     // Two capabilities may target one directory; the revoke of the first must

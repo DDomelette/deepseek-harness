@@ -32,7 +32,7 @@ Status: implemented
 
 ### 为什么不用 `OI|CI` 施加 `FILE_DELETE_CHILD` 拒绝？
 
-那样拒绝项也会落到授权根内的每个**文件**上（用 `icacls` 观察到的正是 `Everyone:(I)(DENY)(DC)`），而 `0x40` 属于 `FILE_ALL_ACCESS`，于是这些文件上 `CreateFileW(GENERIC_ALL)` 的 DACL 检查会对用户、Administrators、SYSTEM 与 DSH host 一并返回 `ERROR_ACCESS_DENIED`。收窄标志消除了这一类影响；授权根内**目录**基于 DACL 的 FullControl 打开仍被拒绝，这是拒绝一项属于完全访问掩码的权限所无法避免的代价。
+那样拒绝项也会落到授权根内的每个**文件**上（用 `icacls` 观察到的正是 `Everyone:(I)(DENY)(DC)`），而 `0x40` 属于 `FILE_ALL_ACCESS`，于是这些文件上 `CreateFileW(GENERIC_ALL)` 的 DACL 检查会对用户、Administrators、SYSTEM 与 DSH host 一并返回 `ERROR_ACCESS_DENIED`。收窄标志消除了这一类影响；授权根基于 DACL 的 FullControl 打开仍被拒绝。根据 [Windows ACL 顺序](https://learn.microsoft.com/en-us/windows/win32/secauthz/order-of-aces-in-a-dacl)，后代目录的显式 FullControl 允许项先于继承的拒绝项。
 
 ### 为什么不干脆去掉这层约束、只把逃逸写进文档？
 
@@ -44,13 +44,13 @@ Status: implemented
 
 ## 后果
 
-所得：删除在 Windows 接受的每条授权路径上都被约束，且被约束在各自的授权根内；此前记录的 Everyone 写边界被关闭；写入、读取与进程可见性其余部分不变；每次 Win32 调用失败都 fail-closed。所失（全部记录在包 README 中）：常驻 Low 标签会向**任何**以同一用户身份运行在 Low 完整性的进程放宽该工作区树，并比 DSH 生命期更长（这是在该完整性级别上拥有写边界本身的代价）；被授权目录现在还必须授予 `WRITE_OWNER` 才能写入标签（完全控制的工作区具备，仅授予 Modify 的会大声失败）；授权根内目录基于 DACL 的 FullControl 打开被拒绝；被其他 AppContainer 工具以包 SID 标记过的目录树对 Low 子进程不可读；FAT 类目标仍未验证。[受限令牌档笔记](2026-08-08-windows-acl-restricted-token-sandbox.zh.md)仍是该档令牌列表、runner 约定与授权生命周期的归属者；本笔记只负责删除路径与封闭它的完整性层。
+所得：删除在 Windows 接受的每条授权路径上都被约束，且被约束在各自的授权根内；此前记录的 Everyone 写边界被关闭；写入、读取与进程可见性其余部分不变；每次 Win32 调用失败都 fail-closed。所失（全部记录在包 README 中）：常驻 Low 标签会向**任何**以同一用户身份运行在 Low 完整性的进程放宽该工作区树，并比 DSH 生命期更长（这是在该完整性级别上拥有写边界本身的代价）；被授权目录现在还必须授予 `WRITE_OWNER` 才能写入标签（完全控制的工作区具备，仅授予 Modify 的会大声失败）；授权根基于 DACL 的 FullControl 打开被拒绝；被其他 AppContainer 工具以包 SID 标记过的目录树对 Low 子进程不可读；FAT 类目标仍未验证。[受限令牌档笔记](2026-08-08-windows-acl-restricted-token-sandbox.zh.md)仍是该档令牌列表、runner 约定与授权生命周期的归属者；本笔记只负责删除路径与封闭它的完整性层。
 
 ## 测试
 
-`runner.spec.ts` 以真实 runner 与真实受限令牌钉住行为：两种模式下经 `cmd`、.NET、`Remove-Item` 与 libuv 的越界删除全部被拒且**宿主侧文件仍存在**；一个会话无法删除另一个授权根内的文件；NUL 在两种模式下仍可写；关闭 token 特权后的探针可成功对授权根内**文件**进行 `GENERIC_ALL` 打开，而**目录**的同一打开被拒绝；同一目录上两份授权之一被撤销后，存留的授权仍可用。`acl.spec.ts` 钉住真实 DACL／标签生命周期、拒绝项只继承到容器、以及共享标签的撤销规则；`token-failure-paths.spec.ts` 钉住 `TokenIntegrityLevel` 的精确载荷；失败路径套件覆盖每处新增分配与提前退出，包括标签 ACL 与描述符的释放。
+`runner.spec.ts` 以真实 runner 与真实受限令牌钉住行为：两种模式下经 `cmd`、.NET、`Remove-Item` 与 libuv 的越界删除全部被拒且**宿主侧文件仍存在**；一个会话无法删除另一个授权根内的文件；NUL 在两种模式下仍可写；关闭 token 特权后的 `GENERIC_ALL` 探针可打开文件，但无法打开授权根；仅继承允许项的子目录被拒绝，带显式 FullControl 允许项的子目录则可打开；同一目录上两份授权之一被撤销后，存留的授权仍可用。`acl.spec.ts` 钉住真实 DACL／标签生命周期、拒绝项只继承到容器、以及共享标签的撤销规则；`token-failure-paths.spec.ts` 钉住 `TokenIntegrityLevel` 的精确载荷；失败路径套件覆盖每处新增分配与提前退出，包括标签 ACL 与描述符的释放。
 
-诊断夹具先移除当前用户和 Administrators 的 allow 授权，再授予 Modify。替换不可继承的授权不会移除可继承的 FullControl 授权，残留授权会使提权 runner 上缺少 WRITE_OWNER 的用例前提失效。修复用例验证改动前的有效 WRITE_DAC 与 WRITE_OWNER，并保持 owner 和完整性标签。
+诊断夹具先移除当前用户和 Administrators 的 allow 授权，再授予 Modify。替换不可继承的授权不会移除可继承的 FullControl 授权，残留授权会使提权 runner 上缺少 WRITE_OWNER 的用例前提失效。修复用例验证改动前的有效 WRITE_DAC 与 WRITE_OWNER，并保持 owner 和完整性标签。子树夹具先创建后代目录并授予维护权限，再限制工作区根目录，不依赖宿主默认 DACL。
 
 ## 相关
 

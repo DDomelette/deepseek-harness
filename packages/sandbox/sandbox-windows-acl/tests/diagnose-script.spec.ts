@@ -351,11 +351,12 @@ describe.skipIf(!isWin32 || !pwshAvailable())('diagnose-windows-sandbox-acl scri
       // The sandbox reports its provisioning failure on the workspace root while the
       // conflicting entry sits deeper, so one approved call must clear both.
       const root = makeDir(scratch, 'workspace')
-      grantModifyOnly(root, 'S-1-5-11')
       const deep = makeDir(root, 'deep')
       const leaf = makeDir(deep, 'leaf')
-      icacls(deep, '/inheritance:r', '/grant:r', `*${PACKAGE_SID}:(OI)(CI)(RX)`)
-      icacls(leaf, '/inheritance:r', '/grant:r', `*${OTHER_PACKAGE_SID}:(OI)(CI)(RX)`)
+      icacls(deep, '/inheritance:r', '/grant:r', `*${meSid}:(F)`, `*${PACKAGE_SID}:(OI)(CI)(RX)`)
+      icacls(leaf, '/inheritance:r', '/grant:r', `*${meSid}:(F)`, `*${OTHER_PACKAGE_SID}:(OI)(CI)(RX)`)
+      // Restrict the root after provisioning its descendants; their default DACL is host-owned.
+      grantModifyOnly(root, 'S-1-5-11')
 
       const run = runScript(['-Path', root, '-AllowRoot', root, '-Out', join(scratch, 'out')])
       expect(run.code, run.output).toBe(0)
