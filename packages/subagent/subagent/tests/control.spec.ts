@@ -10,6 +10,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime, {
   SubagentError,
   type SubagentPromptRequestId,
+  type SubagentDescendantListEntry,
 } from '@deepseek-ai/dsh-subagent'
 import { deliverSubagentPrompt, type HostPromptDeliverer } from '@deepseek-ai/dsh-subagent/internal'
 
@@ -337,5 +338,91 @@ describe('subagent interrupt Remote', () => {
     )).toThrow(
       expect.objectContaining({ code: 'gateway/internal', message: 'subagent interrupt failed', details: {} }),
     )
+  })
+})
+
+function catalogRows(): SubagentDescendantListEntry[] {
+  return [
+    { kind: 'child', id: CHILD, parentId: PARENT, depth: 1, mode: 'continuable', label: 'active', activity: 'inactive', hasChildren: true },
+    { kind: 'child', id: SessionId('idle-child'), parentId: PARENT, depth: 1, mode: 'one-shot', activity: 'running', hasChildren: false },
+    { kind: 'child', id: SessionId('absent-child'), parentId: PARENT, depth: 1, mode: 'external', activity: 'running', hasChildren: false },
+    { kind: 'diagnostic', id: SessionId('broken-child'), parentId: PARENT, depth: 1, reason: 'corrupt' },
+    { kind: 'child', id: SessionId('grandchild'), parentId: CHILD, depth: 2, mode: 'one-shot', activity: 'running', hasChildren: false },
+  ]
+}
+
+describe('subagent catalog Remote', () => {
+  it('rejects an empty parent before observing descendants', async () => {
+    const { ctx, subagents } = await bench()
+    const listing = vi.spyOn(subagents, 'listDescendants')
+    try {
+      await expect(subagents.remoteExportList(SessionId(''), signal))
+        .rejects.toMatchObject(emptyIdFailure('subagent.list', 'parentSessionId'))
+      expect(listing).not.toHaveBeenCalled()
+    } finally {
+      listing.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each([true, false])('projects live activity with parent availability %s', async (parentAvailable) => {
+    const live = { [CHILD]: { status: 'running' as const }, 'idle-child': { status: 'idle' as const } }
+    const { ctx, subagents } = await bench({ ...live, ...parentAvailable ? { [PARENT]: { status: 'idle' as const } } : {} })
+    const rows = catalogRows()
+    const listing = vi.spyOn(subagents, 'listDescendants').mockResolvedValue(rows)
+    try {
+      const catalog = await subagents.remoteExportList(PARENT, signal)
+      expect(listing).toHaveBeenCalledWith(PARENT, signal)
+      expect(catalog.parentAvailable).toBe(parentAvailable)
+      expect(catalog.entries.map(entry => entry.id)).toEqual([CHILD, SessionId('idle-child'), SessionId('absent-child'), SessionId('broken-child')])
+      expect(catalog.entries).toMatchObject([
+        { kind: 'child', id: CHILD, activity: 'running', hasChildren: true },
+        { kind: 'child', id: 'idle-child', activity: 'inactive' },
+        { kind: 'child', id: 'absent-child', activity: 'inactive' },
+        { kind: 'diagnostic', id: 'broken-child', reason: 'corrupt' },
+      ])
+      expect(rows).toEqual(catalogRows())
+    } finally {
+      listing.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('reports every child inactive without an Agent registry', async () => {
+    const { ctx, subagents } = await bench()
+    const listing = vi.spyOn(subagents, 'listDescendants').mockResolvedValue(catalogRows())
+    try {
+      const catalog = await subagents.remoteExportList(PARENT, signal)
+      expect(catalog.parentAvailable).toBe(false)
+      expect(catalog.entries).toMatchObject([
+        { kind: 'child', activity: 'inactive' },
+        { kind: 'child', activity: 'inactive' },
+        { kind: 'child', activity: 'inactive' },
+        { kind: 'diagnostic', reason: 'corrupt' },
+      ])
+    } finally {
+      listing.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each([
+    { error: new SubagentError('missing projections', 'SUBAGENT_CONTROL_PROJECTIONS_UNAVAILABLE'), aborted: false, code: 'subagent/projections-unavailable' },
+    { error: new SubagentError('cancelled read', 'CANCELLED'), aborted: false, code: 'gateway/cancelled' },
+    { error: new SubagentError('query failed', 'SUBAGENT_CONTROL_QUERY_UNAVAILABLE'), aborted: false, code: 'gateway/internal' },
+    { error: new Error('read failed'), aborted: false, code: 'gateway/internal' },
+    { error: new Error('read failed after cancellation'), aborted: true, code: 'gateway/cancelled' },
+  ])('keeps $code distinct for $error.message, caller cancelled=$aborted', async ({ error, aborted, code }) => {
+    const { ctx, subagents } = await bench()
+    const listing = vi.spyOn(subagents, 'listDescendants').mockRejectedValue(error)
+    const caller = new AbortController()
+    if (aborted) caller.abort()
+    try {
+      await expect(subagents.remoteExportList(PARENT, caller.signal)).rejects.toMatchObject({ code, cause: error })
+      expect(listing).toHaveBeenCalledWith(PARENT, caller.signal)
+    } finally {
+      listing.mockRestore()
+      await ctx.fiber.dispose()
+    }
   })
 })
