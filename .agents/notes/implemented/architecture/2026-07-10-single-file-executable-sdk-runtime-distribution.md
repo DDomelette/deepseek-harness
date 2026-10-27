@@ -29,6 +29,8 @@ The Python packaging entry dispatches the embedded PTC selector to `@deepseek-ai
 
 `@yao-pkg/pkg` is an exact-pinned root `devDependency` invoked as `pnpm exec pkg`, with [`patches/@yao-pkg__pkg@6.21.0.patch`](../../../../patches/@yao-pkg__pkg@6.21.0.patch) removing the SEA bootstrap's `patchChildProcess` call. Unpatched, pkg rewrites spawned commands named `node` — including the string after a `-c`/`/c` flag, exactly the Bash tool's `bash -c` form — to the executable itself and stamps `PKG_EXECPATH` into every child environment, so a model-issued `node --version` silently boots the dsh CLI; Node's own SEA layer performs no such rewrite, and a SEA binary cannot impersonate plain Node because it always boots its embedded app. With the call removed, children resolve `node` through PATH like any other process (a machine without Node reports command-not-found honestly), no `PKG_EXECPATH` reaches children, absolute `process.execPath` spawns still re-enter the app, worker threads never applied the hook, and `process.pkg` sidecar selection is untouched.
 
+Node's decompressor requires a positive output limit even when a resource declares zero bytes. The patched SEA reader uses the minimum supported limit and requires an empty result, so zero-byte resources remain readable and corrupt declared-empty entries fail. The source reader, main bootstrap, and embedded worker bootstrap share this rule.
+
 Terminology reminder: pkg's `/snapshot` VFS has nothing to do with this repo's testing-system "snapshot" (ACP replay expected outputs, `$DSH_SNAPSHOT`); this document says "VFS" for the former.
 
 ### The serving interface is a plugin inside the dsh application
