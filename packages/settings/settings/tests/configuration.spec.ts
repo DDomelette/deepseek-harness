@@ -6,6 +6,13 @@ import { parse } from 'yaml'
 import z from '@deepseek-ai/schemastery'
 import { configurationFixture as fixture } from './configuration-fixture.ts'
 
+it('prepares the active profile patch for native editing without changing its contents', async () => {
+  const { ctx, profile } = await fixture({ hmr: false })
+  const before = readFileSync(profile.patchPath, 'utf8')
+  expect(await ctx.settings.prepareDocument()).toBe(profile.patchPath)
+  expect(readFileSync(profile.patchPath, 'utf8')).toBe(before)
+})
+
 it('persists a model edit, updates the real consumer without remounting, and restores it at restart', async () => {
   const { ctx, profile, start } = await fixture()
   const consumer = ctx.agentDefaultModel
