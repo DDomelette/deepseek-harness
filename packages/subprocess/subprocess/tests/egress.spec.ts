@@ -158,6 +158,22 @@ describe('child process egress', () => {
     }
   })
 
+  it('leaves HTTP proxy names absent when only HTTPS was configured', async () => {
+    process.env.HTTPS_PROXY = proxyUrl
+    const dispose = await installProxyFromEnvironment(
+      createLaunchEnvironmentSnapshot([{ source: 'process', values: { HTTPS_PROXY: proxyUrl } }]),
+      () => undefined,
+    )
+    try {
+      const child = scrubbedParentEnv()
+      expect(child.HTTPS_PROXY).toBe(proxyUrl)
+      expect(child.HTTP_PROXY).toBeUndefined()
+      expect(child.http_proxy).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
   it('adds nothing when no proxy is active', () => {
     expect(scrubbedParentEnv().NODE_USE_ENV_PROXY).toBeUndefined()
   })
