@@ -6,10 +6,23 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { computeHunkDiffs, diffsFromMeta, DIFF_CONTEXT } from '../src/diff.ts'
+import { computeHunkDiffs, diffsFromMeta, pathFromMeta, DIFF_CONTEXT } from '../src/diff.ts'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
 const lines = (n: number): string => Array.from({ length: n }, (_, i) => `line${i + 1}`).join('\n') + '\n'
+
+describe('pathFromMeta', () => {
+  it('retains the recorded path when an edit produces no diff', () => {
+    const meta = { path: 'folder/报告.txt', diffs: [] }
+    expect(diffsFromMeta(meta)).toBeUndefined()
+    expect(pathFromMeta(meta)).toBe('folder/报告.txt')
+  })
+
+  it.each([undefined, null, [], 'file.txt', {}, { path: 7 }, { path: '' }])(
+    'ignores absent or malformed persisted path metadata %j',
+    (meta) => { expect(pathFromMeta(meta)).toBeUndefined() },
+  )
+})
 
 describe('computeHunkDiffs', () => {
   it('a single-line change yields one hunk with ±context lines on both sides', () => {
