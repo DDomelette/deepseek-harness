@@ -16,6 +16,18 @@ describe('encodeMessage', () => {
 })
 
 describe('MessageDecoder', () => {
+  it('ignores empty reads while a UTF-8 message is incomplete', () => {
+    const decoder = new MessageDecoder(1_000)
+    const full = frame('{"text":"中é"}')
+    const split = full.indexOf(Buffer.from('中')) + 1
+    expect(decoder.push(Buffer.alloc(0))).toEqual([])
+    expect(decoder.push(full.subarray(0, split))).toEqual([])
+    expect(decoder.push(Buffer.alloc(0))).toEqual([])
+    expect(decoder.push(full.subarray(split))).toEqual([{ text: '中é' }])
+    expect(decoder.push(Buffer.alloc(0))).toEqual([])
+    expect(decoder.push(frame('{"id":2}'))).toEqual([{ id: 2 }])
+  })
+
   it('decodes a single framed message', () => {
     const decoder = new MessageDecoder(1_000)
     expect(decoder.push(frame('{"id":1,"result":42}'))).toEqual([{ id: 1, result: 42 }])
