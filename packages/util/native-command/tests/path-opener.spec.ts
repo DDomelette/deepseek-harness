@@ -17,11 +17,88 @@ vi.mock('node:child_process', () => ({ execFile: execFileMock }))
 
 import { release as osRelease } from 'node:os'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { canOpenNativePath, nativeFileManager, revealNativePath, openNativeAssociatedPath, openNativePath, openNativeTextFile, type PathOpenerRunner } from '../src/index.ts'
+import { canOpenNativePath, nativeFileManager, revealNativePath, openNativeAssociatedPath, openNativePath, openNativeTextFile, windowsPathToHost, type PathOpenerRunner } from '../src/index.ts'
 
 const signal = () => new AbortController().signal
 
 beforeEach(() => { execFileMock.mockReset() })
+
+describe('Windows path input on the Host', () => {
+  it.each(['win32', 'darwin', 'linux'] as const)('keeps the path on a non-WSL %s host', async (platform) => {
+    const run = vi.fn<PathOpenerRunner>()
+    const path = 'C:\\my files\\报告.txt'
+    await expect(windowsPathToHost(path, signal(), { platform, osRelease: 'generic', env: {}, run })).resolves.toBe(path)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it.each(['\n', '\r\n', ''])('passes one untranslated path argument and removes only the %j line ending', async (ending) => {
+    const path = 'C:\\my files\\报告;$x.txt'
+    const translated = '/mnt/c/my files/报告;$x.txt'
+    const run = vi.fn<PathOpenerRunner>().mockResolvedValue({ stdout: translated + ending, stderr: '' })
+    const lifetime = signal()
+    await expect(windowsPathToHost(path, lifetime, {
+      platform: 'linux', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
+    })).resolves.toBe(translated)
+    expect(run).toHaveBeenCalledExactlyOnceWith('wslpath', ['-u', path], lifetime, 'hidden')
+  })
+
+  it.each(['', 'relative/file', 'C:\\still-windows.txt'])('rejects a non-absolute Linux translation %j', async (stdout) => {
+    const run = vi.fn<PathOpenerRunner>().mockResolvedValue({ stdout, stderr: '' })
+    await expect(windowsPathToHost('C:\\file.txt', signal(), {
+      platform: 'linux', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
+    })).rejects.toThrow('no absolute Linux path')
+  })
+
+  it('does not start translation after cancellation', async () => {
+    const reason = new Error('cancelled before input conversion')
+    const run = vi.fn<PathOpenerRunner>()
+    await expect(windowsPathToHost('C:\\file.txt', AbortSignal.abort(reason), { run })).rejects.toBe(reason)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('rejects a translation that completes after cancellation', async () => {
+    const pending = Promise.withResolvers<{ stdout: string; stderr: string }>()
+    const run = vi.fn<PathOpenerRunner>(() => pending.promise)
+    const abort = new AbortController()
+    const result = windowsPathToHost('C:\\file.txt', abort.signal, {
+      platform: 'linux', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
+    })
+    expect(run).toHaveBeenCalledOnce()
+    const reason = new Error('input changed')
+    abort.abort(reason)
+    pending.resolve({ stdout: '/mnt/c/file.txt\n', stderr: '' })
+    await expect(result).rejects.toBe(reason)
+  })
+
+  it('preserves a native translation failure', async () => {
+    const failure = new Error('wslpath failed')
+    const run = vi.fn<PathOpenerRunner>().mockRejectedValue(failure)
+    await expect(windowsPathToHost('C:\\file.txt', signal(), {
+      platform: 'linux', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
+    })).rejects.toBe(failure)
+  })
+
+  it('uses the native runner when no adapter is supplied', async () => {
+    execFileMock.mockImplementation((_command, _args, _options, callback) => { callback(null, '/mnt/c/file.txt\n', '') })
+    const lifetime = signal()
+    await expect(windowsPathToHost('C:\\file.txt', lifetime, {
+      platform: 'linux', env: { WSL_DISTRO_NAME: 'Ubuntu' },
+    })).resolves.toBe('/mnt/c/file.txt')
+    expect(execFileMock).toHaveBeenCalledExactlyOnceWith('wslpath', ['-u', 'C:\\file.txt'],
+      { encoding: 'utf8', signal: lifetime, windowsHide: true }, expect.any(Function))
+  })
+
+  it('uses the ambient Host platform when no platform facts are supplied', async () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    try {
+      await expect(windowsPathToHost('C:\\file.txt', signal())).resolves.toBe('C:\\file.txt')
+      expect(nativeFileManager()).toBe('explorer')
+      expect(execFileMock).not.toHaveBeenCalled()
+    } finally {
+      platform.mockRestore()
+    }
+  })
+})
 
 describe('native path opener', () => {
   it('opens with macOS open(1)', async () => {
@@ -416,13 +493,14 @@ describe('native file manager', () => {
     await expect(revealNativePath('/file', AbortSignal.abort(new Error('cancelled')), { run })).rejects.toThrow('cancelled')
     expect(run).not.toHaveBeenCalled()
     await expect(revealNativePath('/file', signal(), { platform: 'darwin', run })).rejects.toThrow('desktop failed')
-    expect(nativeFileManager()).toBe(process.platform === 'darwin' ? 'finder' : process.platform === 'win32' ? 'explorer' : 'directory')
   })
 })
 
 
 it('uses the native runner for a file-manager handoff when none is injected', async () => {
-  execFileMock.mockImplementation((_command, _args, _options, callback) => { callback(null, '', '') })
+  execFileMock.mockImplementation((command, _args, _options, callback) => {
+    callback(null, command === 'wslpath' ? 'C:\\work\\report.txt' : '', '')
+  })
   await revealNativePath('/tmp/report.txt', signal())
   expect(execFileMock).toHaveBeenCalled()
 })
