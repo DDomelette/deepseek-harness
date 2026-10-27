@@ -53,7 +53,7 @@ kind: "package-reference"
 
 ### 设计理念
 
-选择器是一次纯决策加一次挂载：`resolveDirectoryPickerBackend` 在启动时采样宿主事实并返回一个后端类型，`apply` 把匹配的后端与界面包作为真实 Loader 条目挂进内存根树——绝不持久化到配置文件，因为根树的 `write()` 是 no-op。该 effect 的 disposer 会移除两个条目并汇合其 fiber 的拆除，因此卸载只在所挂载交互的两面完全停稳后返回。
+选择器是一次纯决策加一次挂载：`resolveDirectoryPickerBackend` 在启动时采样宿主事实并返回一个后端类型，`apply` 把匹配的后端与界面包作为真实 Loader 条目挂进内存根树——绝不持久化到配置文件，因为根树的 `write()` 是 no-op。该 effect 在移除 Loader 条目前保存各 fiber 首次释放的结果，并等待交互两面完全停稳。后续条目创建失败时，也会等待先前条目的清理；Loader 移除操作本身不提供该等待。
 
 ### 判定表
 
