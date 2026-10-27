@@ -110,7 +110,7 @@ fork 交付的是 `packages/workflow/workflow-worker-thread`，一个 `node:work
 
 - **保留 fork 自己的 settings provider 接缝。** 已否决：上游从 Loader 组合派生命名空间，这也正是插件无需注册调用即可出现其 section 的原因；两者并存会让同一个 section 出现两个权威。
 - **保持 V3 时代的会话格式版本。** 已否决：合并后的会话族、session-format catalog、迁移与 web profile 全面处于 v4，把 JSONL 后端固定在 v3 就必须回退 `createSystemMessage`、消息来源词汇以及已引入的迁移边。
-- **改写上游测试以适配 fork 的 `win32-process` API，而不是移植缺失的访问器。** 已否决：`sandbox-windows-acl` 的失败路径 spec 来自上游，而它校验的原生布局正是 fork 的即时绑定已经物化的那一个；一行访问器即可让两侧同时通过编译，无需重写 spec。
+- **改写上游测试以适配 fork 的 `win32-process` API，而不是移植缺失的访问器。** 已否决：`sandbox-windows-acl` 的失败路径 spec 来自上游，它校验共享的原生布局；上游的延迟布局访问器使两侧采用同一套已验证 ABI，无需更改失败预期。
 - **删除 job 镜像而不接线。** 已否决：`ui-jobs` 在该镜像之上渲染且 Web profile 挂载了它，上游所做的删除会移除一个已交付的头部。
 - **把每个请求都接纳为 operator。** 已否决：那样 `admit` 会把 operator Peer 交给配对设备，而设备 cookie 本就弱于启动令牌。改为把 gateway 的调用适配到 fork 的权限类别，并用一个「设备被当作 operator 即失败」的用例钉住该性质。
 - **保留 fork 的 worker-thread 工作流引擎。** 已否决：上游的[工作流沙箱复用](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)已经退役该执行基座，它的挂载、目录与消费方都是上游的，而同时保留两个引擎会让同一个接缝出现两个权威——合并后的树把两者都导入了，却只挂载了其中一个。

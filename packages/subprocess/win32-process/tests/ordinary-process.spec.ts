@@ -17,7 +17,7 @@ import {
   JobObjectBasicAccountingInformation,
   WAIT_TIMEOUT,
 } from '../src/abi.ts'
-import { PROCESS_INFORMATION, STARTUPINFOW } from '../src/ffi.ts'
+import { processInformationType, startupInfoType } from '../src/ffi.ts'
 import type {
   CurrentTokenProcessSpawnOptions,
   CurrentTokenProcessBindings,
@@ -50,7 +50,7 @@ function api(overrides: Partial<CurrentTokenProcessBindings> = {}): CurrentToken
     uvGetOsfhandle: vi.fn((fileDescriptor: number) => BigInt(100 + fileDescriptor)),
     setHandleInformation: vi.fn(() => 1),
     createProcessW: vi.fn((_app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, _startup, info) => {
-      koffi.encode(info, PROCESS_INFORMATION, {
+      koffi.encode(info, processInformationType(), {
         hProcess: 60n,
         hThread: 61n,
         dwProcessId: 1234,
@@ -75,16 +75,19 @@ function api(overrides: Partial<CurrentTokenProcessBindings> = {}): CurrentToken
 }
 
 describe('ordinary Job process operations', () => {
-  it('supplies fd 7 in the child CRT startup table and releases its temporary inheritance', () => {
+  it.each([
+    { kind: 'pipes', fileTypes: [3, 3, 3, 3], crt: [9, 9, 9, 0, 0, 0, 0, 9] },
+    { kind: 'console, disk, and pipes', fileTypes: [2, 1, 3, 3], crt: [65, 1, 9, 0, 0, 0, 0, 9] },
+  ])('supplies fd 7 with $kind and releases its temporary inheritance', ({ fileTypes, crt }) => {
     let descriptorBytes: Buffer | undefined
     const flags = vi.fn(() => 1)
     const bindings = api({
-      getFileType: vi.fn(() => 3),
+      getFileType: vi.fn((handle: NativePtr) => fileTypes[Number(handle) - 104]!),
       setHandleInformation: flags,
       createProcessW: vi.fn((_app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, startupPointer, processInfo) => {
-        const startup = koffi.decode(startupPointer, STARTUPINFOW) as { cbReserved2: number; lpReserved2: NativePtr }
+        const startup = koffi.decode(startupPointer, startupInfoType()) as { cbReserved2: number; lpReserved2: NativePtr }
         descriptorBytes = Buffer.from(koffi.decode(startup.lpReserved2, 'uint8', startup.cbReserved2) as number[])
-        koffi.encode(processInfo, PROCESS_INFORMATION, { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
+        koffi.encode(processInfo, processInformationType(), { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
         return 1
       }),
     })
@@ -93,7 +96,7 @@ describe('ordinary Job process operations', () => {
     }))).toEqual({ pid: 1234, process: 60n, job: 50n })
     const bytes = descriptorBytes as Buffer
     expect(bytes.readUInt32LE(0)).toBe(8)
-    expect([...bytes.subarray(4, 12)]).toEqual([9, 9, 9, 0, 0, 0, 0, 9])
+    expect([...bytes.subarray(4, 12)]).toEqual(crt)
     expect(bytes.readBigUInt64LE(12 + 7 * 8)).toBe(107n)
     expect(bytes.readBigUInt64LE(12 + 3 * 8)).toBe(0xffff_ffff_ffff_ffffn)
     expect(flags).toHaveBeenCalledWith(107n, 1, 1)
@@ -128,7 +131,7 @@ describe('ordinary Job process operations', () => {
       info: NativePtr,
     ) => {
       events.push('create')
-      koffi.encode(info, PROCESS_INFORMATION, { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
+      koffi.encode(info, processInformationType(), { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
       return 1
     })
     const bindings = api({
@@ -189,8 +192,8 @@ describe('ordinary Job process operations', () => {
       setHandleInformation,
       uvGetOsfhandle,
       createProcessW: vi.fn((_app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, infoPtr, processInfo) => {
-        startup = koffi.decode(infoPtr, STARTUPINFOW) as Record<string, unknown>
-        koffi.encode(processInfo, PROCESS_INFORMATION, {
+        startup = koffi.decode(infoPtr, startupInfoType()) as Record<string, unknown>
+        koffi.encode(processInfo, processInformationType(), {
           hProcess: 60n,
           hThread: 61n,
           dwProcessId: 1234,

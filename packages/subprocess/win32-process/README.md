@@ -24,7 +24,7 @@ This low-level Win32 process library is consumed by the Windows ACL sandbox and 
 <a id="behavior"></a>
 ## Behavior
 
-- **One reusable ABI owner** — `abi.ts` owns the Win32 constants and x64 layout values consumed by both process paths. `ffi.ts` lazily loads `kernel32.dll` and `advapi32.dll`, verifies `STARTUPINFOW` and `PROCESS_INFORMATION`, exposes typed operations and error formatting, and lets sandbox policy bind its remaining APIs through the same loaded libraries.
+- **One reusable ABI owner** — `abi.ts` owns the Win32 constants and x64 layout values consumed by both process paths. `ffi.ts` loads Koffi on the first native operation, materializes and verifies cached `STARTUPINFOW` and `PROCESS_INFORMATION` layouts on first type use, and lazily loads `kernel32.dll` and `advapi32.dll`. Sandbox policy binds its remaining APIs through the same libraries; importing the module alone does not load the native dependency.
 - **Restricted-token creation** — `RestrictedProcessSpawnOptions` requires the sandbox's primary token and uses `CreateProcessAsUserW`. Piped and inherited-stdio paths share command-line quoting, cwd, the restricted-token null-environment policy, checked return values, and handle cleanup.
 - **Piped process primitive** — `spawnPipedProcess()` creates anonymous stdin/stdout/stderr pipes, closes stdin immediately, returns the two read ends, and leaves process waiting and pipe draining to the caller. Every partial failure closes the handles already owned by the operation, and every Koffi out-parameter or struct allocation is freed after its Win32 lifetime.
 - **Inherited-stdio Job primitive** — `spawnInheritedJobProcess()` creates one kill-on-close Job, temporarily marks the current stdio handles inheritable, creates the restricted child suspended, assigns it to the Job, and then resumes its initial thread. Target code cannot run before Job assignment; controlled assignment or resume failures terminate the suspended child or close the assigned Job before releasing every owned handle.
@@ -43,7 +43,7 @@ The process, stdio, and Job constants plus selected structure sizes and offsets 
 g++ -std=c++20 -municode -O2 -o abi-probe.exe verify/abi-probe.cpp && ./abi-probe.exe
 ```
 
-The Koffi `STARTUPINFOW` and `PROCESS_INFORMATION` definitions also assert their 64-bit sizes at module load. The probe additionally fixes pointer and handle widths, the Unicode-environment flag, and the basic Job accounting record size and `ActiveProcesses` offset used to determine quiescence; it remains the evidence for the other recorded offsets and constants.
+The Koffi `STARTUPINFOW` and `PROCESS_INFORMATION` definitions also assert their 64-bit sizes when first requested. The probe additionally fixes pointer and handle widths, the Unicode-environment flag, and the basic Job accounting record size and `ActiveProcesses` offset used to determine quiescence; it remains the evidence for the other recorded offsets and constants.
 
 <a id="model-experience"></a>
 ## Model Experience
