@@ -10,8 +10,13 @@ import { expect, it, vi } from 'vitest'
 import { apply as hostApply } from '../src/index.ts'
 import { Band, type BandInjected } from '../src/client/Band.tsx'
 import { inject, mountModsBand } from '../src/client/mount.ts'
+import * as clientMods from '../src/client/index.ts'
 
-const REMOTE: TypertRemoteContribution = { package: '@deepseek-ai/dsh-experimental-claude-code-mods', descriptors: [] }
+const { REMOTE } = vi.hoisted(() => ({
+  REMOTE: { package: '@deepseek-ai/dsh-experimental-claude-code-mods', descriptors: [] } satisfies TypertRemoteContribution,
+}))
+
+vi.mock('@deepseek-ai/dsh-experimental-claude-code-mods/remote', () => ({ default: REMOTE }))
 
 /** Narrow the erased registry payload before exercising the band's injected face. */
 function assertBandInjected(value: Record<string, unknown>): asserts value is Record<string, unknown> & BandInjected {
@@ -74,7 +79,7 @@ async function fixture() {
   await ctx.plugin(SlotRegistry)
   ctx.slots.register({ name: 'root', children: { 'conversation.input.dock': { kind: 'list', scope: 'session' } } } as never, () => null)
   let dispose: (() => Promise<void>) | undefined
-  const fiber = ctx.plugin({ inject: [...inject], apply: async (plugin: Context) => { dispose = await mountModsBand(plugin, REMOTE) } })
+  const fiber = ctx.plugin({ inject: [...inject], apply: async (plugin: Context) => { dispose = await clientMods.apply(plugin) } })
   await fiber
   const entry = ctx.slots.entries('conversation.input.dock').find(candidate => candidate.component === Band)
   if (entry === undefined || dispose === undefined) throw new Error('the band registered no dock entry')
@@ -91,6 +96,7 @@ async function fixture() {
 it('exposes the host marker and the browser inject list', () => {
   hostApply()
   expect(inject).toEqual(['remote', 'slots', 'locale'])
+  expect(clientMods.inject).toBe(inject)
 })
 
 it('watches one stream per session, feeds snapshots into the dock entry, and ends the watches on dispose', async () => {
