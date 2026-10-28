@@ -58,23 +58,17 @@ const SYSTEM_PROMPT_SNAPSHOT = 'system-prompt.expected.md'
 const TOOL_SCHEMAS_SNAPSHOT = 'tool-schemas.expected.json'
 
 /**
- * Read one snapshot sidecar, following a shared alias a checkout materialized
- * as text. A scenario exposes another scenario's prompt or schema through a
- * symbolic link; a Git checkout without symbolic-link support (`core.symlinks`
- * false, the Windows default) writes the relative target as the file's whole
- * content instead. Resolving that single-line relative path keeps the aliased
- * scenarios readable on those hosts; a real link, or any ordinary sidecar, is
- * returned unchanged because the previous read already followed it.
+ * Read canonical LF-terminated sidecar content or a materialized relative Git link.
+ * Checkouts without symbolic-link support write the link target as one line;
+ * its target is resolved relative to this sidecar and a missing target rejects
+ * the read. A normal read already follows a native symbolic link.
  * @param path - sidecar path to read.
  * @returns the sidecar's content, or the aliased target's content.
  */
 async function readSidecarFile(path: string): Promise<string> {
   const content = await readFile(path, 'utf8')
   if (content.includes('\n')) return content
-  const target = content.trim()
-  if (!target.startsWith('./') && !target.startsWith('../')) return content
-  const resolved = resolve(dirname(path), target)
-  return existsSync(resolved) ? readFile(resolved, 'utf8') : content
+  return readFile(resolve(dirname(path), `./${content.trim()}`), 'utf8')
 }
 
 /** Return the dedicated tool-schema sidecar for one child fixture index. */
