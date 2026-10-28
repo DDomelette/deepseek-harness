@@ -9,7 +9,7 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-skills/client
 import { SkillsSection } from '../src/client/SkillsSection.tsx'
 import * as hostPlugin from '../src/index.ts'
 
-async function bench(settings: object = {}): Promise<{
+async function bench(settings: object = {}, skills: object = {}): Promise<{
   ctx: Context
   slots: SlotRegistry
   remote: TestRemote
@@ -24,7 +24,7 @@ async function bench(settings: object = {}): Promise<{
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const remote = new TestRemote(ctx, { skills: {}, settings })
+  const remote = new TestRemote(ctx, { skills, settings })
   ctx.provide('connection', { api: {}, isLoopback: true } as never)
   const sessionsListeners = new Set<() => void>()
   let currentSession: string | undefined
@@ -32,9 +32,10 @@ async function bench(settings: object = {}): Promise<{
     list: {
       // The panel addresses its catalog with the session the main view retains.
       getSnapshot: () => ({
-        byId: currentSession === undefined
-          ? {}
-          : { [currentSession]: { id: currentSession, retainedBy: { mainView: 1 } } },
+        byId: {
+          background: { id: 'background', retainedBy: {} },
+          ...currentSession === undefined ? {} : { [currentSession]: { id: currentSession, retainedBy: { mainView: 1 } } },
+        },
       }),
       subscribe: (listener: () => void) => {
         sessionsListeners.add(listener)
@@ -60,6 +61,22 @@ function declare(slots: SlotRegistry): () => void {
 }
 
 describe('ui-settings-skills apply', () => {
+  it('addresses the main view Session rather than an earlier background row', async () => {
+    const catalog = vi.fn(async () => ({ ok: true as const, value: { skills: [] } }))
+    const describe = vi.fn(async () => ({
+      ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] },
+    }))
+    const b = await bench({ describe }, { catalog })
+    b.setCurrentSession('visible-session')
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const entry = b.slots.entries('settings.section')[0]!
+    const face = (entry.inject as unknown as () => import('../src/client/SkillsSection.tsx').SkillsSectionInjected)()
+    await face.load()
+    expect(catalog).toHaveBeenCalledExactlyOnceWith({ sessionId: 'visible-session' })
+    expect(face.hooks.skills.getSnapshot()).toMatchObject({ status: 'ready', noSession: false })
+  })
+
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'sessions', 'remote', 'remote.skills', 'remote.settings'])
   })
