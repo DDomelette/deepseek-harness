@@ -5,7 +5,7 @@
  * abstract service contract, so a minimal fake backend exercises it.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
@@ -86,6 +86,19 @@ class FakeFileSystem extends FileSystem {
 }
 
 describe('FileSystem provider seam', () => {
+  it('refuses watching for providers that only implement the base capability', async () => {
+    const ctx = new Context()
+    onTestFinished(() => ctx.fiber.dispose())
+    await ctx.plugin(FakeFileSystem)
+    const target = await ctx.fs.resolve('watched.txt')
+    const controller = new AbortController()
+    await expect(ctx.fs.watch(target, () => {}, controller.signal))
+      .rejects.toMatchObject({ code: 'FS_IO_ERROR', message: 'Filesystem watching is not supported by this provider.' })
+    const reason = new Error('watch initialization canceled')
+    controller.abort(reason)
+    expect(() => ctx.fs.watch(target, () => {}, controller.signal)).toThrow(reason)
+  })
+
   it('registers as ctx.fs and serves the primitives', async () => {
     const ctx = new Context()
     await ctx.plugin(FakeFileSystem)
