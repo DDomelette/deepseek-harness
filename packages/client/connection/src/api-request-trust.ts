@@ -22,11 +22,15 @@ function header(headers: ConnectionTrustRequest['headers'], name: string): strin
   return typeof value === 'string' ? value : undefined
 }
 
-/** Normalized URL of a Host-header authority (hostname lowercased, default port stripped, IPv6 bracketed), or undefined when unparsable. */
-function parseAuthority(authority: string): URL | undefined {
+/**
+ * Normalize a bare authority under one HTTP(S) scheme.
+ * @param authority - Host header or configured host[:port].
+ * @param scheme - scheme whose default port is omitted by URL parsing.
+ * @returns the parsed authority, or undefined when invalid.
+ */
+function parseAuthority(authority: string, scheme: 'http:' | 'https:' = 'http:'): URL | undefined {
   try {
-    // http: is a WHATWG "special scheme": parsing yields a non-empty hostname or throws.
-    return new URL(`http://${authority}`)
+    return new URL(`${scheme}//${authority}`)
   } catch {
     return undefined
   }
@@ -131,9 +135,29 @@ export function isTrustedApiRequest(
   // literal "null" (sandboxed iframes, file: pages) is an opaque origin, refused.
   const origin = header(request.headers, 'origin')
   if (origin === undefined) return true
+  return isSameAuthorityOrigin(origin, host)
+}
+/**
+ * Compare Host under the Origin's HTTP(S) scheme so default ports normalize
+ * consistently. The transport may remain HTTP behind an HTTPS proxy.
+ * @param origin - verbatim Origin header value.
+ * @param host - verbatim Host header value already accepted by the Host fence.
+ * @returns true only when the Origin is this listener's own `http(s)` authority.
+ */
+function isSameAuthorityOrigin(origin: string, host: string): boolean {
+  let originUrl: URL
   try {
-    return new URL(origin).host === hostUrl.host
+    originUrl = new URL(origin)
   } catch {
     return false
   }
+  // Only http(s) can name this listener: the opaque `null` already threw above,
+  // and every other scheme (file:, ftp:) fails here rather than matching by
+  // hostname alone.
+  const scheme = originUrl.protocol === 'https:' ? 'https:'
+    : originUrl.protocol === 'http:' ? 'http:'
+      : undefined
+  if (scheme === undefined) return false
+  const hostUrl = parseAuthority(host, scheme)
+  return hostUrl !== undefined && originUrl.host === hostUrl.host
 }
