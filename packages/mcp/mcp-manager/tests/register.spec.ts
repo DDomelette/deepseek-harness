@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-settings'
@@ -7,6 +7,7 @@ import { declarativeMcpServers, MCP_CLIENT_MODULE } from '../src/declarative.ts'
 import { McpServersSchema } from '../src/schema.ts'
 import type { McpStdioEntry } from '../src/schema.ts'
 import { fakeLoader, type FakeLoaderEntry } from './fixtures.ts'
+import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 
 /** FiberState.ACTIVE mirrored numerically: FiberState is a cross-package const enum. */
 const FIBER_STATE_ACTIVE = 2
@@ -43,6 +44,25 @@ async function boot(loaderEntries: FakeLoaderEntry[] = []) {
 }
 
 describe('mcp-manager section config', () => {
+  it('keeps its instance off generated Settings pages and withdraws the policy on disposal', () =>
+    omitsGeneratedPage((ctx) => {
+      onTestFinished(() => ctx.fiber.dispose())
+      ctx.provide('loader', fakeLoader([]) as never)
+      return ctx.plugin(McpManager)
+    }))
+
+  it('reconciles a volatile roster update through the real Loader without remounting its Fiber', async () => {
+    const ctx = new Context()
+    onTestFinished(() => ctx.fiber.dispose())
+    const configuration = await liveConfig(ctx, McpManager, { servers: {} })
+    const manager = ctx.get('mcpServers') as McpManager
+    await configuration.update({ servers: { alpha: entry() } })
+    expect(configuration.entry.fiber === configuration.fiber).toBe(true)
+    expect(manager.list().entries).toEqual([
+      { serverName: 'alpha', transport: 'stdio', source: 'settings', enabled: false, status: null },
+    ])
+  })
+
   it('declares the mcp-servers section as the plugin Config and applies a commit to the running plugin', async () => {
     const { ctx, manager } = await boot()
     expect(McpManager.Config).toBe(McpServersSchema)
