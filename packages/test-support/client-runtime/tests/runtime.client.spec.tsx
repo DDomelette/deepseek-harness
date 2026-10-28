@@ -800,6 +800,39 @@ describe('fixture session face', () => {
 })
 
 describe('workspaces action face', () => {
+
+  it('records deletion and reports the addressed Session identity', async () => {
+    const runtime = await SlotTestRuntime.create()
+    try {
+      const id = 'delete-me' as SessionId
+      await expect(runtime.sessions.deleteSession(id)).resolves.toEqual({
+        ok: true, value: { deletedSessionIds: [id] },
+      })
+      expect(runtime.sessions.calls).toEqual([{ method: 'deleteSession', args: [id] }])
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
+  it('removes empty pin groups while retaining the other groups and their order', async () => {
+    const runtime = await SlotTestRuntime.create()
+    try {
+      const removed = 'removed' as SessionId
+      const kept = 'kept' as SessionId
+      await runtime.workspaces.updatePins((draft) => {
+        draft.pinnedSessionIds = [removed, kept]
+        draft.flatOrder = [kept, removed]
+        draft.groupOrder = { emptied: [removed], retained: [removed, kept] }
+      })
+      await runtime.workspaces.unpinSession(removed)
+      expect(runtime.workspaces.pins.getSnapshot()).toEqual({
+        pinnedSessionIds: [kept], flatOrder: [kept], groupOrder: { retained: [kept] },
+      })
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
   it('records pin, unpin, and reorder actions, updates the ordered pin feed, and honors stubs', async () => {
     const runtime = await SlotTestRuntime.create()
     try {
@@ -816,10 +849,14 @@ describe('workspaces action face', () => {
 
       const pin = vi.fn(async () => {})
       const unpin = vi.fn(async () => {})
+      const reorder = vi.fn(async () => {})
       ws.stub('pinSession', pin)
       ws.stub('unpinSession', unpin)
+      ws.stub('reorderPins', reorder)
       await ws.pinSession(first)
       await ws.unpinSession(second)
+      await ws.reorderPins([first])
+      expect(reorder).toHaveBeenCalledWith([first])
       expect(pin).toHaveBeenCalledWith(first)
       expect(unpin).toHaveBeenCalledWith(second)
       expect(ws.pins.getSnapshot().flatOrder).toEqual([second])
@@ -831,6 +868,7 @@ describe('workspaces action face', () => {
         { method: 'reorderPins', args: [[second]] },
         { method: 'pinSession', args: [first] },
         { method: 'unpinSession', args: [second] },
+        { method: 'reorderPins', args: [[first]] },
       ])
     } finally {
       await runtime.dispose()
