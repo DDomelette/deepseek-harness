@@ -42,8 +42,7 @@ const focusable = 'button:not(:disabled), input:not(:disabled), textarea:not(:di
  * `content-visibility: hidden`, hides it.
  */
 function rendered(element: HTMLElement): boolean {
-  const view = element.ownerDocument.defaultView
-  if (view === null) return true
+  const view = element.ownerDocument.defaultView as Window
   // Each control resolves its own inherited visibility, so an inner
   // `visibility: visible` inside a hidden ancestor stays reachable.
   if (view.getComputedStyle(element).visibility === 'hidden') return false
@@ -60,7 +59,7 @@ function rendered(element: HTMLElement): boolean {
  * Controls mounted with the dialog use data-modal-autofocus for initial focus;
  * React autoFocus runs before this layer can capture the invoking control.
  * Local menus handle their Escape during capture before this bubble listener.
- * @param dialog - mounted dialog element.
+ * @param dialog - mounted dialog element in a document with a browsing context.
  * @param open - whether this layer is active.
  * @param onClose - top-layer Escape or application close action.
  */

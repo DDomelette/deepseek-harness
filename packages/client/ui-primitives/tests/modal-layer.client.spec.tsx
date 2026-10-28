@@ -112,6 +112,7 @@ it('traps Tab on the last rendered control and skips CSS-hidden panes', () => {
       <button>Last</button>
       <div style={{ display: 'none' }}><button>Collapsed pane</button></div>
       <div style={{ contentVisibility: 'hidden' }}><button>Skipped pane</button></div>
+      <div style={{ visibility: 'hidden' }}><button>Invisible pane</button></div>
     </Modal>,
   )
   const first = screen.getByRole('button', { name: 'First' })
