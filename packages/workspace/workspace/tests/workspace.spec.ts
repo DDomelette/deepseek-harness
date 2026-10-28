@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, relative } from 'node:path'
@@ -39,7 +39,7 @@ interface HarnessOptions {
   sessionStore?: boolean
   backend?: StorageBackend
   /** `absent` boots a profile that does not mount the pins owner. */
-  pins?: 'mounted' | 'absent'
+  pins?: 'mounted' | 'absent' | 'pending'
 }
 
 /** Stand-in for the `session_pins` owner: records each delegation and projects its own ordered set. */
@@ -94,6 +94,7 @@ async function harness(options: HarnessOptions = {}) {
   ctx.provide('sessionPersistence', { list, open, stat } as never)
 
   const pins = fakePins()
+  if (options.pins === 'pending') pins.service.ready = false
   if (options.pins !== 'absent') ctx.provide('sessionPins', pins.service as never)
 
   if (options.sessionStore === true) {
@@ -1262,6 +1263,57 @@ describe('registry-global session pin', () => {
     expect(result.registry.pinnedSessionIds).toEqual(['s2'])
     expect(result.registry.archivedSessionIds).toEqual(['s1'])
     expect(result.pins.writes.at(-1)).toEqual({ sessionId: SessionId('s1'), pinned: false })
+  })
+
+  it.each(['absent', 'pending'] as const)('archives durably when the pins owner is %s', async (pins) => {
+    const result = await harness({ sessions: [header('archived')], pins })
+    onTestFinished(() => result.ctx.fiber.dispose())
+    await result.registry.archiveSession(SessionId('archived'))
+    expect(result.registry.archivedSessionIds).toEqual(['archived'])
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['archived'])
+    expect(result.pins.writes).toEqual([])
+  })
+
+  it('retains a durable archive when the pins owner rejects the unpin', async () => {
+    const result = await harness({ sessions: [header('archived')] })
+    onTestFinished(() => result.ctx.fiber.dispose())
+    const warn = vi.spyOn(result.ctx.logger, 'warn').mockImplementation(() => {})
+    onTestFinished(() => { warn.mockRestore() })
+    await result.registry.pinSession(SessionId('archived'))
+    vi.spyOn(result.pins.service, 'setPinned').mockRejectedValueOnce(new Error('pin storage unavailable'))
+    await expect(result.registry.archiveSession(SessionId('archived'))).resolves.toBeUndefined()
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['archived'])
+    expect(result.registry.pinnedSessionIds).toEqual(['archived'])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('pin storage unavailable'))
+  })
+
+  it.each(['absent', 'pending'] as const)('retains legacy pins until the owner is ready (%s)', async (pins) => {
+    const pool = storedPool([], { initialized: true, workspaceIds: [], pinnedSessionIds: ['second', 'first'] })
+    const first = await harness({ pool, pins })
+    onTestFinished(() => first.ctx.fiber.dispose())
+    expect(storedState(pool).pinnedSessionIds).toEqual(['second', 'first'])
+    expect(first.pins.writes).toEqual([])
+    await first.ctx.fiber.dispose()
+    const second = await harness({ pool })
+    onTestFinished(() => second.ctx.fiber.dispose())
+    expect(second.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
+  })
+
+  it('retries legacy pins after the durable cleanup write fails', async () => {
+    const pool = storedPool([], {
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {},
+      pinnedSessionIds: ['second', 'first'],
+    })
+    const first = await harness({ pool, backend: selectiveFailureBackend(pool, { globalAt: 1 }) })
+    onTestFinished(() => first.ctx.fiber.dispose())
+    expect(first.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual(['second', 'first'])
+    await first.ctx.fiber.dispose()
+    const second = await harness({ pool })
+    onTestFinished(() => second.ctx.fiber.dispose())
+    expect(second.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
   })
 
   it('imports the pin set earlier versions stored in this domain', async () => {
