@@ -33,15 +33,16 @@ const EMPTY_SNAPSHOT: SessionPinsSnapshot = { pinnedSessionIds: [], groupOrder: 
 const sameOrder = (left: readonly SessionId[], right: readonly SessionId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
+/** Compare own group names and each group's ordered Session ids. */
 const sameGroupOrder = (
   left: SessionPinsSnapshot['groupOrder'],
   right: SessionPinsSnapshot['groupOrder'],
 ): boolean => {
-  const keys = Object.keys(left)
-  if (keys.length !== Object.keys(right).length) return false
-  return keys.every((key) => {
-    const other = right[key]
-    return other !== undefined && sameOrder(left[key] ?? [], other)
+  const entries = Object.entries(left)
+  if (entries.length !== Object.keys(right).length) return false
+  return entries.every(([key, ids]) => {
+    const other = Object.hasOwn(right, key) ? right[key] : undefined
+    return other !== undefined && sameOrder(ids, other)
   })
 }
 

@@ -24,6 +24,8 @@ The sidebar workspace browser had no way to keep important conversations visible
 
 During a drag, every row in the source group accepts insertion, while other groups reject it. The insertion index addresses the list after the source is removed, so downward movement preserves the requested before/after relationship. The Client rejects responses from superseded reads and mutations. A successful current refresh supersedes pending mutation echoes, because its complete Host snapshot can include a pin added through another namespace. A failed refresh retains the committed snapshot, logs the failure, and leaves pending committed echoes eligible to install; a failed read contains no newer state to publish.
 
+Snapshot equality includes every saved group name, even when its order is empty; inherited object members never count as a group. Incoming arrays are copied before publication.
+
 ## Alternatives considered
 
 - **Settings namespace persistence** — a `pinnedSessions` settings namespace would reuse the settings wire and file, but the settings revision/conflict machinery is built for configuration, not for high-frequency bookmark mutations, and it would leave the session list without a host-authoritative projection.

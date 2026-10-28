@@ -58,6 +58,58 @@ function modelOf(remote: FakePinsRemote): ClientSessionPinsModel {
 }
 
 describe('ClientSessionPinsModel', () => {
+  it.each(['toString', 'valueOf'])('replaces an empty group named %s with a different group', async (key) => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    remote.onList = () => Promise.resolve(remoteOk(snapshot([], { [key]: [] })))
+    await model.reload()
+    const installed = model.getSnapshot()
+    const changed = vi.fn()
+    const unsubscribe = model.subscribe(changed)
+    remote.onList = () => Promise.resolve(remoteOk(snapshot([], { other: [] })))
+    await model.reload()
+    expect(model.getSnapshot()).not.toBe(installed)
+    expect(Object.keys(model.getSnapshot().groupOrder)).toEqual(['other'])
+    expect(changed).toHaveBeenCalledOnce()
+    unsubscribe()
+  })
+
+  it('notifies on group membership and order changes while retaining an equal snapshot', async () => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    let current = snapshot(['one', 'two'], { alpha: ['one', 'two'] })
+    remote.onList = () => Promise.resolve(remoteOk(current))
+    await model.reload()
+    const installed = model.getSnapshot()
+    const changed = vi.fn()
+    const unsubscribe = model.subscribe(changed)
+    await model.reload()
+    expect(model.getSnapshot()).toBe(installed)
+    expect(changed).not.toHaveBeenCalled()
+    current = snapshot(['one', 'two'], { alpha: ['two', 'one'] })
+    await model.reload()
+    expect(model.getSnapshot().groupOrder).toEqual({ alpha: [sid('two'), sid('one')] })
+    current = snapshot(['one', 'two'], { alpha: ['two', 'one'], beta: [] })
+    await model.reload()
+    expect(Object.keys(model.getSnapshot().groupOrder)).toEqual(['alpha', 'beta'])
+    current = snapshot(['one', 'two'])
+    await model.reload()
+    expect(model.getSnapshot().groupOrder).toEqual({})
+    expect(changed).toHaveBeenCalledTimes(3)
+    unsubscribe()
+  })
+
+  it('detaches all arrays in an installed pin snapshot from the Remote reply', async () => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    const ids = [sid('one'), sid('two')]
+    const current = { pinnedSessionIds: ids, flatOrder: ids, groupOrder: { alpha: ids } }
+    remote.onList = () => Promise.resolve(remoteOk(current))
+    await model.reload()
+    ids.reverse()
+    expect(model.getSnapshot()).toEqual(snapshot(['one', 'two'], { alpha: ['one', 'two'] }))
+  })
+
   it('starts empty and installs the owner snapshot on reload', async () => {
     const remote = new FakePinsRemote()
     const model = modelOf(remote)
