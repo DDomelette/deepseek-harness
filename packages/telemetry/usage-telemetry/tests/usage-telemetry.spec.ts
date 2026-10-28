@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createMessage, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { canonicalHeader, SessionId } from '@deepseek-ai/dsh-session'
 import UsageTelemetry, { USAGE_TELEMETRY_SETTINGS_NAMESPACE } from '../src/index.ts'
-import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
+import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 
 const appendState = vi.hoisted(() => ({
   holdAppend: false,
@@ -36,6 +36,12 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 
 let home: string
 const roots: Context[] = []
+
+it('keeps its instance off generated Settings pages and withdraws the policy on disposal', () =>
+  omitsGeneratedPage(async (ctx) => {
+    roots.push(ctx)
+    return (await liveConfig(ctx, UsageTelemetry, { enabled: false })).fiber
+  }))
 
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), 'dsh-home-'))
