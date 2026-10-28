@@ -1,5 +1,5 @@
 import { queryObjects } from 'node:v8'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, typertOwnedValue } from '@deepseek-ai/dsh-typert-protocol'
 import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
@@ -24,7 +24,7 @@ import type {
 } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { ClientRemote } from '../src/client/index.ts'
-import { apply, inject, RemoteStream } from '../src/client/index.ts'
+import { apply, inject, isRemoteFailure, RemoteStream } from '../src/client/index.ts'
 import {
   ClientUplinkQueue,
   RemoteStreamCarrierError,
@@ -95,6 +95,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
       signal?: AbortSignal,
     ) => Promise<RemoteResult<{ readonly ref: string }>>
     'probe/maybe': (value: string | null | undefined) => Promise<RemoteResult<string | null | undefined>>
+    'probe/bytes': (signal?: AbortSignal) => Promise<RemoteResult<{ readonly data: Uint8Array<ArrayBuffer>; readonly offset: number }>>
     'probe/watch': (topic: string, signal?: AbortSignal) => AsyncIterable<string>
     'probe/attach': (topic: string, signal?: AbortSignal) => RemoteStreamHandle<string, string>
   }
@@ -2222,11 +2223,13 @@ describe('Client Typert API', () => {
       rpc: { call, open: () => source() },
     } as unknown as ConnectionHandle)
     const active = ctx.remote.probe.watch('active')[Symbol.asyncIterator]()
+    const retained = ctx.remote.probe.watch
     const pending = active.next()
     await started
     await secondDispose()
     release()
     await expect(pending).rejects.toThrow('Remote method probe/watch is no longer mounted')
+    expect(() => retained('late')).toThrow('Remote method probe/watch is no longer mounted')
   })
 
   it('publishes a namespace only after every contributed method is installed', async () => {
@@ -2884,6 +2887,83 @@ describe('Client Typert API', () => {
   })
 
 
+
+  it('holds an owned Context through handler and reply settlement', async () => {
+    const replyEntered = Promise.withResolvers<undefined>()
+    const reply = Promise.withResolvers<Awaited<ReturnType<ConnectionHandle['rpc']['call']>>>()
+    const call = vi.fn<ConnectionHandle['rpc']['call']>(() => {
+      replyEntered.resolve(undefined)
+      return reply.promise
+    })
+    const { ctx, client, carrier } = await eventBench(call)
+    const target = ctx.extend()
+    const release = vi.fn()
+    const entered = Promise.withResolvers<undefined>()
+    const handler = Promise.withResolvers<undefined>()
+    ctx.typert.contexts.registerClient('agent', {
+      identity: candidate => candidate === target ? agentId('owned-context') : undefined,
+      resolve: () => typertOwnedValue(target, release),
+    })
+    target.remote.$on('fixture/approval', async () => {
+      entered.resolve(undefined)
+      await handler.promise
+      expect(release).not.toHaveBeenCalled()
+      return 'allowed'
+    })
+    try {
+      carrier.emit(approvalFrame('owned-event', 'owned-context', 'wait'))
+      await entered.promise
+      expect(release).not.toHaveBeenCalled()
+      handler.resolve(undefined)
+      await replyEntered.promise
+      expect(release).not.toHaveBeenCalled()
+      reply.resolve({ ok: true, value: undefined })
+      await vi.waitFor(() => { expect(release).toHaveBeenCalledOnce() })
+    } finally {
+      handler.resolve(undefined)
+      reply.resolve({ ok: true, value: undefined })
+      await client.dispose()
+    }
+  })
+
+  it.each(['success', 'failure'] as const)('keeps cancelled Context ownership through handler %s and joins disposal', async (outcome) => {
+    const { ctx, client, carrier, call } = await eventBench()
+    const target = ctx.extend()
+    const release = vi.fn()
+    const entered = Promise.withResolvers<AbortSignal>()
+    const handler = Promise.withResolvers<undefined>()
+    ctx.typert.contexts.registerClient('agent', {
+      identity: candidate => candidate === target ? agentId('owned-cancelled') : undefined,
+      resolve: () => typertOwnedValue(target, release),
+    })
+    target.remote.$on('fixture/approval', async (request) => {
+      if (request.signal === undefined) throw new Error('expected invocation cancellation')
+      entered.resolve(request.signal)
+      await handler.promise
+      expect(release).not.toHaveBeenCalled()
+      return 'allowed'
+    })
+    let disposal: Promise<void> | undefined
+    try {
+      carrier.emit(approvalFrame('owned-cancel-event', 'owned-cancelled', 'wait'))
+      const signal = await entered.promise
+      carrier.emit({ type: 'cancel', eventId: 'owned-cancel-event' })
+      await vi.waitFor(() => { expect(signal.aborted).toBe(true) })
+      expect(release).not.toHaveBeenCalled()
+      let disposed = false
+      disposal = client.dispose().then(() => { disposed = true })
+      expect(disposed).toBe(false)
+      if (outcome === 'failure') handler.reject(new Error('cancelled handler failed'))
+      else handler.resolve(undefined)
+      await disposal
+      expect(release).toHaveBeenCalledOnce()
+      expect(call).not.toHaveBeenCalled()
+    } finally {
+      handler.resolve(undefined)
+      await disposal
+      await client.dispose()
+    }
+  })
 })
 
 describe('Remote stream client carrier lifecycle', () => {
@@ -3191,3 +3271,93 @@ async function drainStream(source: AsyncIterable<unknown>): Promise<unknown[]> {
   for await (const value of source) values.push(value)
   return values
 }
+
+describe('Remote result decoders', () => {
+  const schema = z.object({ data: z.instanceof(Uint8Array), offset: z.number() })
+  const descriptor: InvocationDescriptor = {
+    id: '@fixture/probe#probe/bytes',
+    service: 'probe', namespace: 'probe', method: 'bytes',
+    invocation: { kind: 'direct' }, parameters: [],
+    cancellation: { parameter: 'signal' },
+    result: {
+      mode: 'strict', typeSymbol: '@fixture#Bytes',
+      create: () => schema,
+      decode: value => schema.parse(value),
+    },
+  }
+
+  it('validates metadata without copying or freezing native data on a logical RPC carrier', async () => {
+    const data = new Uint8Array([0, 128, 255])
+    const call = vi.fn<ConnectionHandle['rpc']['call']>().mockResolvedValue({ ok: true, value: { data, offset: 2 } })
+    const { ctx, client } = await benchFiber(call)
+    try {
+      await ctx.remote.$mount({ package: '@fixture/binary', descriptors: [descriptor] })
+      const result = await ctx.remote.probe.bytes()
+      expect(result).toEqual({ ok: true, value: { data, offset: 2 } })
+      if (result.ok) expect(result.value.data).toBe(data)
+      expect(Object.isFrozen(data)).toBe(false)
+      for (const value of [{ data: 'base64', offset: 2 }, { data: [0, 128], offset: 2 }, { data, offset: '2' }]) {
+        call.mockResolvedValueOnce({ ok: true, value })
+        const failure = await ctx.remote.probe.bytes()
+        expect(failure).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
+        if (!failure.ok) expect(isRemoteFailure(failure.error)).toBe(true)
+      }
+    } finally {
+      await client.dispose()
+    }
+  })
+
+  it('delegates nested fields to the result decoder and leaves JSON results untouched', async () => {
+    const data = new Uint8Array([0, 128, 255])
+    const value = { files: [{ content: data }], thumbnail: data }
+    const call = vi.fn<ConnectionHandle['rpc']['call']>().mockResolvedValue({ ok: true, value })
+    const decode = vi.fn((input: unknown) => z.object({
+      files: z.array(z.object({ content: z.instanceof(Uint8Array) })),
+      thumbnail: z.instanceof(Uint8Array),
+    }).parse(input))
+    const { ctx, client } = await benchFiber(call)
+    try {
+      const dispose = await ctx.remote.$mount({
+        package: '@fixture/binary', descriptors: [{
+          ...descriptor, result: { mode: 'strict', typeSymbol: '@fixture#Files', create: () => schema, decode },
+        }],
+      })
+      expect(await ctx.remote.probe.bytes()).toEqual({ ok: true, value })
+      expect(decode).toHaveBeenCalledWith(value)
+      expect((decode.mock.results[0]?.value as ReturnType<typeof decode>).files[0]?.content).toBe(data)
+      expect(Object.isFrozen(data)).toBe(false)
+      await dispose()
+      const json = { base64: 'AP8=', items: [1, 2] }
+      call.mockResolvedValue({ ok: true, value: json })
+      const create = vi.fn(() => schema)
+      await ctx.remote.$mount({ package: '@fixture/json', descriptors: [{
+        ...descriptor, result: { mode: 'strict', typeSymbol: '@fixture#Json', create },
+      }] })
+      const result = await ctx.remote.probe.bytes()
+      if (result.ok) expect(result.value).toBe(json)
+      expect(create).not.toHaveBeenCalled()
+    } finally {
+      await client.dispose()
+    }
+  })
+
+  it.each(['cancel', 'withdraw'] as const)('discards late binary results after %s', async (action) => {
+    const response = Promise.withResolvers<Awaited<ReturnType<ConnectionHandle['rpc']['call']>>>()
+    const call = vi.fn<ConnectionHandle['rpc']['call']>().mockReturnValue(response.promise)
+    const { ctx, client } = await benchFiber(call)
+    try {
+      const dispose = await ctx.remote.$mount({ package: '@fixture/binary', descriptors: [descriptor] })
+      const abort = new AbortController()
+      const pending = ctx.remote.probe.bytes(abort.signal)
+      expect(call).toHaveBeenCalledOnce()
+      if (action === 'cancel') abort.abort()
+      else await dispose()
+      response.resolve({ ok: true, value: { data: new Uint8Array([7]), offset: 0 } })
+      expect(await pending).toMatchObject({
+        ok: false, error: { code: action === 'cancel' ? 'gateway/cancelled' : 'gateway/internal' },
+      })
+    } finally {
+      await client.dispose()
+    }
+  })
+})
