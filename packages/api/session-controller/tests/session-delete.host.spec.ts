@@ -65,17 +65,20 @@ describe('sessions.delete', () => {
     expect(spy).toHaveBeenLastCalledWith({ sessionId: sid('root'), recursive: false })
   })
 
-  it('maps an attached Session to session/running with the identities that still run', async () => {
+  it.each([
+    { label: 'reported running identities', runningSessionIds: [sid('root')], expected: [sid('root')] },
+    { label: 'no optional identities', runningSessionIds: undefined, expected: [] },
+  ])('maps an attached Session to session/running with $label', async ({ runningSessionIds, expected }) => {
     const ctx = await composed()
     provideDeletion(ctx, () => Promise.reject(
-      new SessionDeletionError('session-running', 'session root is still attached', [sid('root')]),
+      new SessionDeletionError('session-running', 'session root is still attached', runningSessionIds),
     ))
     const response = await remote(ctx).delete({ sessionId: sid('root'), recursive: true })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error).toMatchObject({
       code: 'session/running',
-      details: { runningSessionIds: [sid('root')] },
+      details: { runningSessionIds: expected },
     })
   })
 

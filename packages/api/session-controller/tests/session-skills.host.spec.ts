@@ -5,7 +5,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-skill'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { SessionSkillCatalog } from '../src/skill-catalog.ts'
 
 function observation(
@@ -47,6 +47,49 @@ async function context(): Promise<Context> {
 }
 
 describe('SessionSkillCatalog', () => {
+  it.each([
+    { label: 'no Settings service', views: undefined, disabled: false },
+    { label: 'no skill settings row', views: [{ ns: 'other', value: {} }], disabled: false },
+    { label: 'no disabled roster', views: [{ ns: 'skill-settings', value: {} }], disabled: false },
+    { label: 'disabled review skill', views: [{ ns: 'skill-settings', value: { disabled: ['review'] } }], disabled: true },
+  ])('lists the full cold catalog with $label', async ({ views, disabled }) => {
+    const ctx = await context()
+    onTestFinished(() => ctx.fiber.dispose())
+    const sessionId = SessionId('cold-settings-catalog')
+    const observed = observation(sessionId, { cwd: '/cold/project' })
+    const dispose = vi.spyOn(observed, Symbol.dispose)
+    ctx.provide('sessionQuery', { observeSession: () => Promise.resolve(observed) } as never)
+    if (views !== undefined) ctx.provide('settings', { describe: () => views } as never)
+    const list = vi.fn(() => Promise.resolve([
+      {
+        name: 'review', description: 'Review a change.', source: 'runtime', whenToUse: 'Before publishing.',
+        invocation: { modelInvocable: !disabled, userInvocable: !disabled },
+      },
+      {
+        name: 'model-only', description: 'Model-only skill.', source: 'remote',
+        invocation: { modelInvocable: true, userInvocable: false },
+      },
+    ]))
+    ctx.provide('skills', { list } as never)
+    const resume = vi.spyOn(ctx.agents, 'resume')
+    await expect(new SessionSkillCatalog(ctx).catalog({ sessionId }, new AbortController().signal)).resolves.toEqual({
+      skills: [
+        {
+          name: 'review', description: 'Review a change.', source: 'runtime', whenToUse: 'Before publishing.',
+          modelInvocable: !disabled, userInvocable: !disabled, disabled,
+        },
+        {
+          name: 'model-only', description: 'Model-only skill.', source: 'remote',
+          modelInvocable: true, userInvocable: false, disabled: false,
+        },
+      ],
+    })
+    expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope: undefined })
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(resume).not.toHaveBeenCalled()
+    expect(ctx.agents.list()).toEqual([])
+  })
+
   it('reads a moved cold Session catalog from its recorded current directory without resuming an Agent', async () => {
     const ctx = await context()
     const sessionId = SessionId('cold-skills')
