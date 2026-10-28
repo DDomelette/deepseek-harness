@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { bindScopeParent, createScope, scopeOf } from '@deepseek-ai/dsh-scope'
 import SkillRegistry, {
@@ -12,6 +12,22 @@ import SkillRegistry, {
   type SkillProvider,
   type SkillProviderObservation,
 } from '@deepseek-ai/dsh-skill'
+
+it('keeps a replacement invocation override when an older disposer is called again', async () => {
+  const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  await ctx.plugin(SkillRegistry)
+  ctx.skills.register({ name: 'demo-skill', description: 'Demo', source: 'runtime', content: 'Demo.' })
+  const releaseFirst = ctx.skills.registerInvocationOverride(() => ({ modelInvocable: false, userInvocable: false }))
+  expect((await ctx.skills.list())[0]?.invocation).toEqual({ modelInvocable: false, userInvocable: false })
+  releaseFirst()
+  const replacement = { modelInvocable: true, userInvocable: false }
+  const releaseSecond = ctx.skills.registerInvocationOverride(() => replacement)
+  releaseFirst()
+  expect((await ctx.skills.list())[0]?.invocation).toEqual(replacement)
+  releaseSecond()
+  expect((await ctx.skills.list())[0]?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
+})
 
 function memorySkill(name: string, description: string, rank: number, body = `${name} body.`): SkillCandidate {
   return {
