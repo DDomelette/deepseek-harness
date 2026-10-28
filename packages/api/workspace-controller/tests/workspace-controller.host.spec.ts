@@ -52,7 +52,7 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
-async function harness(options: { systemDocuments?: boolean; pins?: boolean } = {}) {
+async function harness(options: { systemDocuments?: boolean; pins?: boolean; flags?: boolean } = {}) {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-workspace-controller-')))
   tempDirs.push(root)
   const ctx = new Context()
@@ -64,7 +64,7 @@ async function harness(options: { systemDocuments?: boolean; pins?: boolean } = 
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
   ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
-  await ctx.plugin(SessionFlagRegistry)
+  if (options.flags !== false) await ctx.plugin(SessionFlagRegistry)
   await ctx.plugin(WorkspaceRegistry)
   if (options.pins !== false) await ctx.plugin(SessionPinsService)
   const dispose = (): void => {}
@@ -419,6 +419,18 @@ describe('WorkspaceController follow', () => {
         type: 'baseline',
         value: { sessionFlags: { [SessionId('flagged')]: { pinned: true } } },
       })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
+  it('publishes an empty flag map when the optional registry is absent', async () => {
+    const { controller } = await harness({ flags: false, pins: false })
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({ type: 'baseline', value: { sessionFlags: {} } })
     } finally {
       abort.abort()
       await iterator.return?.()

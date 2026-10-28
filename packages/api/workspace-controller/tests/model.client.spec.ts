@@ -189,6 +189,32 @@ function baseline(
 }
 
 describe('ClientWorkspaceModel', () => {
+  it('publishes a changed archive instant for the same Session and keeps an equal snapshot stable', async () => {
+    const model = modelFor()
+    const id = sid('restamped')
+    baseline(model, [], [id])
+    await Promise.resolve()
+    const installed = model.getSnapshot()
+    const changed = vi.fn()
+    const unsubscribe = model.subscribe(changed)
+    try {
+      const restamped = { [id]: '2026-10-18T00:00:00.000Z' }
+      model.replaceArchived([id], restamped)
+      await Promise.resolve()
+      const next = model.getSnapshot()
+      expect(next).not.toBe(installed)
+      expect(next.archivedSessionIds).toEqual([id])
+      expect(next.archivedSessionAts).toEqual(restamped)
+      expect(changed).toHaveBeenCalledOnce()
+      model.replaceArchived([id], { ...restamped })
+      await Promise.resolve()
+      expect(model.getSnapshot()).toBe(next)
+      expect(changed).toHaveBeenCalledOnce()
+    } finally {
+      unsubscribe()
+    }
+  })
+
   it('publishes the prepared Workspace and leaves the list unchanged on refusal', async () => {
     const remote = new FakeWorkspaceRemote()
     const model = modelFor(remote)

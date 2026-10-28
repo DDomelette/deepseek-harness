@@ -398,6 +398,10 @@ describe('WorkspaceController', () => {
     const missingWorkspace = new RemoteError('workspace/not-found', 'gone', { workspaceId: wid('missing') })
     const missingSession = new RemoteError('session/not-found', 'missing session', { sessionId: sid('session') })
 
+    mock.remote.sessionPins.reorderFlat.mockResolvedValueOnce(err(new RemoteError('gateway/bad-request', 'invalid order', {})))
+    await expect(controller.reorderPins([sid('session')]))
+      .rejects.toThrow('workspace session pin reorder failed: gateway/bad-request: invalid order')
+
     mock.remote.workspace.initializeDefault.mockResolvedValueOnce(err(new RemoteError('gateway/internal', 'directory denied', {})))
     await expect(controller.initializeDefault()).rejects.toBeInstanceOf(WorkspaceCreateError)
 
