@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillSettings from '../src/index.ts'
-import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
+import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 import { plainConfig } from '../../../settings/settings/src/schema.ts'
 
 const BOTH = { modelInvocable: true, userInvocable: true }
@@ -11,6 +11,7 @@ const NEITHER = { modelInvocable: false, userInvocable: false }
 /** Mount the skill registry plus the settings-declaring plugin under one Loader. */
 async function boot(initial: object = {}) {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SkillRegistry)
   ctx.skills.register({ name: 'demo-skill', description: 'Demo', source: 'runtime', content: 'Demo body.' })
   const configuration = await liveConfig(ctx, SkillSettings, initial)
@@ -26,6 +27,22 @@ describe('dsh-skill-settings plugin exports', () => {
 })
 
 describe('dsh-skill-settings', () => {
+  it('keeps its instance off generated Settings pages and withdraws the policy on disposal', () =>
+    omitsGeneratedPage(async (ctx) => {
+      onTestFinished(() => ctx.fiber.dispose())
+      await ctx.plugin(SkillRegistry)
+      return ctx.plugin(SkillSettings)
+    }))
+
+  it('does not validate a pending Fiber configuration as a live settings write', async () => {
+    const { configuration } = await boot()
+    const ctx = configuration.fiber.ctx
+    const pending = ctx.plugin({ name: 'pending-config-probe', inject: ['unavailable'], apply() {} })
+    await pending.await()
+    const stored = { disabled: ['stored legacy name'] }
+    expect(ctx.waterfall(pending, 'internal/config', stored, () => stored)).toBe(stored)
+  })
+
   it('disables configured skills through the registry override and reverts live', async () => {
     const { ctx, configuration } = await boot()
     const changes = vi.fn()
