@@ -51,7 +51,7 @@ Client 查询在 `clientInspectTimeoutMs` 内接受首个有效页面响应。�
 
 ### run 会做什么
 
-定义由 `cordis_define` 记录、由 `cordis_run` 激活。只有 host 半的包直接在本进程中激活：它的代码在沙箱中运行。带浏览器半的包变成一次请求：它一直等到有人在一个页面上允许或拒绝，或提问的轮次被取消；作答页面随后先装载 host 半、再装载浏览器半。`mode: "run"` 启动当前包或重启它，`mode: "update"` 切换到另一个包版本。`cordis_stop` 结束一次存活运行——移除该包的 handler 与任何已装载的浏览器 UI——同时保留可再次运行的定义；`cordis_undefine` 停止并忘掉它。
+定义由 `cordis_define` 记录、由 `cordis_run` 激活。只有 host 半的包直接在本进程中激活：它的代码在沙箱中运行。带浏览器半的包变成一次请求：它一直等到有人在一个页面上允许或拒绝，或提问的轮次被取消；作答页面随后先装载 host 半、再装载浏览器半。`mode: "run"` 启动当前包或重启它，`mode: "update"` 切换到另一个包版本。`cordis_stop` 结束一次存活运行——移除该包的 handler 与任何已装载的浏览器 UI——同时保留可再次运行的定义；`cordis_undefine` 停止并忘掉它。 存活的 Tool 名称发生冲突时，先用 `cordis_inspect_self` 找到占用它的 Plugin，再把该 Plugin 的 `pluginId` 传给 `cordis_stop`，之后运行替代 Package。
 
 ### 定义的去向
 

@@ -51,7 +51,7 @@ Client queries accept the first valid page response within `clientInspectTimeout
 
 ### What a run does
 
-A definition is recorded by `cordis_define` and activated by `cordis_run`. A package with only a host half activates directly in this process: its code runs in the sandbox. A package with a browser half becomes a request: it waits until a person allows or declines it on a page, or the asking turn is cancelled; the answering page then loads the host half first and the browser half second. `mode: "run"` starts the current package or restarts it, `mode: "update"` switches to a different package version. `cordis_stop` ends the live run — removing the package's handlers and any loaded browser UI — while keeping the definition runnable; `cordis_undefine` stops and forgets it.
+A definition is recorded by `cordis_define` and activated by `cordis_run`. A package with only a host half activates directly in this process: its code runs in the sandbox. A package with a browser half becomes a request: it waits until a person allows or declines it on a page, or the asking turn is cancelled; the answering page then loads the host half first and the browser half second. `mode: "run"` starts the current package or restarts it, `mode: "update"` switches to a different package version. `cordis_stop` ends the live run — removing the package's handlers and any loaded browser UI — while keeping the definition runnable; `cordis_undefine` stops and forgets it. After a live Tool name collision, use `cordis_inspect_self` to find the owning Plugin, then call `cordis_stop` with its `pluginId` before running the replacement Package.
 
 ### What happens to definitions
 

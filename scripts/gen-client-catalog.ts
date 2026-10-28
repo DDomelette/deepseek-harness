@@ -1,12 +1,12 @@
 /**
- * Generate the model-facing client slot catalog consumed by `cordis_inspect
- * what:"client"`. A dynamic package's browser half can only contribute UI
+ * Generate the model-facing client slot catalog served by the Client Slot
+ * Inspect Provider. A dynamic package's browser half can only contribute UI
  * through `ctx.slots.register`, and every fact it needs to do that safely —
  * which keys exist, what each register call must pass, what the component
  * receives, who already occupies the seat, and when the seat exists at all —
  * is decided at compile time by the shipped web bundle. This generator reads
  * those facts lexically (no type-checker program) and emits them as a data
- * module inside `tool-cordis`, so the host-side toolset teaches the browser
+ * module inside `cordis-client-runner`, so the Client Inspect Provider describes the browser
  * surface without importing a single client runtime module.
  *
  * `--check` verifies the committed artifact is fresh.
@@ -92,7 +92,7 @@ const CLIENT_NOTES: readonly string[] = [
   PRIORITY_NOTE,
   'You cannot `import` anything, so the design-system components are out of reach: build markup with `React.createElement` and ship CSS through `styles.insert(css)`. Use the theme CSS variables (`var(--dsw-alias-bg-layer-1)`, `var(--dsw-alias-label-primary)`, …) instead of literal colors, or your contribution breaks in the other color scheme.',
   'Every component receives the framework hook seats listed under `framework props` for its scope; a selector hook is called with a selector, e.g. `useSessions(state => state.current)`.',
-  'This catalog is the COMPILE-TIME contract of the shipped web bundle, not a snapshot of one page: a key is registrable only where the owner that declares it is mounted. A failed registration surfaces in the browser-half load report — read it back with `cordis_inspect what:"temporary"`.',
+  'A Slot key is registrable only while the entry that declares it is mounted. Read a failed browser registration through `cordis_inspect_self` with its `pluginId` and `packageId`.',
 ]
 
 /** Standard-kit interface that applies to each scope, beyond the global one. */
@@ -446,8 +446,8 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
     ' * `pnpm run gen-client-catalog` to regenerate (freshness-gated by',
     ' * `pnpm run verify-client-catalog` in doc-sync).',
     ' *',
-    ' * The compile-time contract of the shipped web bundle\'s slot surface, as',
-    ' * `cordis_inspect what:"client"` serves it to the model: every SlotMap key a',
+    ' * The Client Slot Inspect Provider serves the shipped web bundle\'s slot API:',
+    ' * every SlotMap key a',
     ' * browser half can register into, what that register call must pass, what the',
     ' * component receives, who already occupies the seat, and which owner has to be',
     ' * mounted for the seat to exist. Data only — this module is the one legitimate',

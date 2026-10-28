@@ -3,8 +3,8 @@
  * `pnpm run gen-client-catalog` to regenerate (freshness-gated by
  * `pnpm run verify-client-catalog` in doc-sync).
  *
- * The compile-time contract of the shipped web bundle's slot surface, as
- * `cordis_inspect what:"client"` serves it to the model: every SlotMap key a
+ * The Client Slot Inspect Provider serves the shipped web bundle's slot API:
+ * every SlotMap key a
  * browser half can register into, what that register call must pass, what the
  * component receives, who already occupies the seat, and which owner has to be
  * mounted for the seat to exist. Data only — this module is the one legitimate
@@ -71,7 +71,7 @@ export const CLIENT_NOTES: readonly string[] = [
   'Do NOT pass `priority`: the browser-half facade assigns one automatically, and it is LOWER than every shipped entry — in a single or keyed cell that means your entry is the one that renders.',
   'You cannot `import` anything, so the design-system components are out of reach: build markup with `React.createElement` and ship CSS through `styles.insert(css)`. Use the theme CSS variables (`var(--dsw-alias-bg-layer-1)`, `var(--dsw-alias-label-primary)`, …) instead of literal colors, or your contribution breaks in the other color scheme.',
   'Every component receives the framework hook seats listed under `framework props` for its scope; a selector hook is called with a selector, e.g. `useSessions(state => state.current)`.',
-  'This catalog is the COMPILE-TIME contract of the shipped web bundle, not a snapshot of one page: a key is registrable only where the owner that declares it is mounted. A failed registration surfaces in the browser-half load report — read it back with `cordis_inspect what:"temporary"`.',
+  'A Slot key is registrable only while the entry that declares it is mounted. Read a failed browser registration through `cordis_inspect_self` with its `pluginId` and `packageId`.',
 ]
 
 /** Every slot the shipped web bundle declares, sorted by key. */
