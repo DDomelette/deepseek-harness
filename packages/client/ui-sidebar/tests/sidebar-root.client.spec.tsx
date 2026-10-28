@@ -107,6 +107,8 @@ describe('SidebarRoot shell', () => {
 
     shell.rerender({ collapsed: true, width: 0, fab: true })
     expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+    expect(shell.toggleSidebar).toHaveBeenCalledOnce()
     expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
     expect(draft.isConnected).toBe(true)
 
