@@ -295,7 +295,7 @@ export function tokenizeSessionFixtureCwd(rawLog: string, runCwd?: NormalizeCont
   const header = firstLine === undefined ? undefined : JSON.parse(firstLine) as { cwd?: unknown }
   const cwd = typeof header?.cwd === 'string' ? header.cwd : ''
   const spellings = runCwd === undefined ? [] : cwdSpellings(runCwd)
-  const basenames = [...new Set([cwd, ...spellings].map(spelling => spelling.split(/[\\/]/).at(-1) ?? ''))]
+  const basenames = [...new Set([cwd, ...spellings].map(spelling => spelling.split(/[\\/]/).slice(-1).join('')))]
     .filter(basename => basename.length > 0)
   if (basenames.length === 0) {
     throw new Error('acp-snapshot: cannot tokenize a cwd without a basename')

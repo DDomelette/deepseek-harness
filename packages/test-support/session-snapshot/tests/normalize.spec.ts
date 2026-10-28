@@ -981,6 +981,20 @@ describe('normalizeSessionSnapshot', () => {
 })
 
 describe('tokenizeSessionFixtureCwd', () => {
+  it('uses the live cwd when the restored Session header is already tokenized', () => {
+    const cwd = '/tmp/fresh-replay-workspace'
+    const raw = [
+      JSON.stringify({ type: 'session', version: SESSION_FORMAT_VERSION, cwd: '{{cwd}}' }),
+      JSON.stringify({ type: 'user/message', data: { content: [{ type: 'text', text: `read ${cwd}/input.txt` }] } }),
+      '',
+    ].join('\n')
+    const context = { sessionIds: [], cwd }
+    const normalized = tokenizeSessionFixtureCwd(raw, context)
+    expect(normalized).toContain('read {{cwd}}/input.txt')
+    expect(normalized).not.toContain(cwd)
+    expect(tokenizeSessionFixtureCwd(normalized, context)).toBe(normalized)
+  })
+
   it.each([
     {
       name: 'macOS',
