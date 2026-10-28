@@ -13,7 +13,7 @@ import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import E2BSubprocessRuntime from '@deepseek-ai/dsh-subprocess-e2b'
 import { E2BBase64Decoder, E2B_OUTPUT_COMPLETE_FRAME, E2BOutputReader } from '../src/output.ts'
 import { E2BSubprocessHandle } from '../src/process.ts'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 function commandError(exitCode: number): CommandExitError {
   return new CommandExitError({ exitCode, stdout: '', stderr: '', error: `exit ${exitCode}` })
@@ -467,14 +467,14 @@ describe('E2BSubprocessHandle', () => {
     await expect(handle.waitForExit()).resolves.toBe(true)
   })
 
-  it('rejects an unrepresentable graceMs before any remote work', () => {
+  it('rejects an unrepresentable graceMs before any remote work', async () => {
     const ctx = new Context()
     const service = Object.create(E2BSubprocessRuntime.prototype) as E2BSubprocessRuntime
     Reflect.set(service, 'disposing', false)
     Reflect.set(service, 'ctx', ctx)
     for (const graceMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => service.spawn(spec({ graceMs }))).toThrow('graceMs must be a positive finite number')
-      void expect(service.spawnTerminal({
+      await expect(service.spawnTerminal({
         argv: ['bash'], cwd: '/w', rows: 24, cols: 80, terminalType: 'dumb', graceMs,
       })).rejects.toThrow('graceMs must be a positive finite number')
     }
@@ -1625,6 +1625,18 @@ describe('E2BSubprocessHandle', () => {
 })
 
 describe('E2BSubprocessRuntime', () => {
+  it('reports the terminal platform without creating a sandbox and rejects cancelled inspection', async () => {
+    const fake = new FakeSandbox()
+    const provided = runtime(fake)
+    const acquire = vi.spyOn(provided, 'getSandbox')
+    const { ctx } = await service(fake, provided)
+    onTestFinished(async () => { await ctx.fiber.dispose(); acquire.mockRestore() })
+    await expect(ctx.subprocess.terminalEnvironment()).resolves.toEqual({ platform: 'posix' })
+    const reason = new Error('environment inspection cancelled')
+    await expect(ctx.subprocess.terminalEnvironment(AbortSignal.abort(reason))).rejects.toBe(reason)
+    expect(acquire).not.toHaveBeenCalled()
+  })
+
   async function service(
     fake = new FakeSandbox(),
     providedRuntime: E2BRuntime = runtime(fake),
