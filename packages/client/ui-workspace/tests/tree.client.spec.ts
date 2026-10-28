@@ -15,6 +15,13 @@ import { createWorkspaceViewStore } from '../src/client/stores.ts'
 
 const sid = (id: string) => id as SessionId
 const wid = (id: string) => id as WorkspaceId
+
+it('uses recency when the Workspace has no saved manual order', () => {
+  const one = summary('one', 1)
+  const two = summary('two', 2)
+  expect(reconcileManualOrder([one.id, two.id], undefined, { [one.id]: one, [two.id]: two })).toEqual([two.id, one.id])
+})
+
 const summary = (id: string, updatedAt: number, cwd?: string): SessionSummary => ({
   id: sid(id), title: id, displayTitle: id, running: false, blank: false,
   updatedAt, ...(cwd === undefined ? {} : { cwd }), retainedBy: {},

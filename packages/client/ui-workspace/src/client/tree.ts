@@ -288,7 +288,7 @@ function sectionMembers(
     else if (!archived.has(member.id) && rank.has(member.id)) leading.push(member)
     else rest.push(member)
   }
-  leading.sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0))
+  leading.sort((left, right) => (rank.get(left.id) as number) - (rank.get(right.id) as number))
   return [...placeholders, ...leading, ...rest]
 }
 
