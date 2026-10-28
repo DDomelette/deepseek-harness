@@ -25,6 +25,8 @@ const DEVICE_COOKIE_PAYLOAD_VERSION = 2
 const STORED_SECRET_VERSION = 1
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
 const PROCESS_LAUNCH_TOKENS = new WeakMap<object, string>()
+/** Undeclared authorities cannot redeem the operator launch token. */
+const undeclaredAuthority = (): boolean => false
 
 interface StoredSecretPayload {
   readonly version: typeof STORED_SECRET_VERSION
@@ -362,7 +364,7 @@ export class BrowserAuth {
     req: ConnectionIndexRequest,
     res: ConnectionIndexResponse,
     secure = false,
-    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+    redeemsToken: (authority: string, hostname: string) => boolean = undeclaredAuthority,
   ): ConnectionIndexAccess {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
@@ -451,7 +453,7 @@ export class BrowserAuth {
    */
   isAuthenticated(
     request: ConnectionTrustRequest,
-    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+    redeemsToken: (authority: string, hostname: string) => boolean = undeclaredAuthority,
   ): boolean {
     const payload = this.cookiePayload(request)
     return payload !== undefined && this.accepts(payload, request, redeemsToken)
@@ -465,7 +467,7 @@ export class BrowserAuth {
    */
   isLocalOperator(
     request: ConnectionTrustRequest,
-    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+    redeemsToken: (authority: string, hostname: string) => boolean = undeclaredAuthority,
   ): boolean {
     const payload = this.cookiePayload(request)
     return payload?.version === COOKIE_PAYLOAD_VERSION && this.accepts(payload, request, redeemsToken)
@@ -538,11 +540,11 @@ export class BrowserAuth {
     return this.mintDeviceCookie(payload.authority, payload.deviceId, Date.now(), expiresAt, secure)
   }
 
-  /** Whether one decoded cookie payload is still inside its lifetime for this request. */
+  /** Whether a cookie already matched to the parsed request authority is still inside its lifetime. */
   private accepts(
     payload: BrowserCookiePayload,
     request: ConnectionTrustRequest,
-    redeemsToken: (authority: string, hostname: string) => boolean = () => false,
+    redeemsToken: (authority: string, hostname: string) => boolean = undeclaredAuthority,
   ): boolean {
     const now = Date.now()
     if (!(payload.issuedAt <= now
@@ -552,10 +554,8 @@ export class BrowserAuth {
       const device = this.pairedDevices.get(payload.deviceId)
       return device !== undefined && device.revokedAt === undefined && now < (device.expiresAt ?? payload.expiresAt)
     }
-    const hostname = requestHostname(request.headers)
-    if (hostname === undefined) return false
-    // A malformed or pre-authority cookie carries an empty authority and declares nothing.
-    const declared = payload.authority.length > 0 && redeemsToken(payload.authority, hostname)
+    const hostname = new URL(`http://${payload.authority}`).hostname
+    const declared = redeemsToken(payload.authority, hostname)
     return (isLoopbackPeer(request) && isLoopbackHostname(hostname) || declared)
       && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
   }
