@@ -107,8 +107,8 @@ function fakeApi(script: Script = {}): FakeApi {
 }
 
 const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
-const refusedJoin = (code: string): ConnectPhoneRowInjected['joinUrl'] =>
-  async () => ({ ok: false, error: new RemoteError(code as 'mob/no-advertised-origin', 'refused', {}) })
+const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): ConnectPhoneRowInjected['joinUrl'] =>
+  async () => ({ ok: false, error: new RemoteError(code, 'refused', {}) })
 
 function mount(options: {
   api?: FakeApi
@@ -138,6 +138,21 @@ describe('PairingPanel', () => {
     expect(screen.getByText('这些操作只能在电脑本机上进行。')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByText('待确认的请求')).toBeNull()
+  })
+
+  it('discards a device list that arrives after the panel unmounts', async () => {
+    const pending = Promise.withResolvers<PairingResult<readonly PairedDeviceView[]>>()
+    const stale = fakeApi()
+    stale.devices.mockReturnValueOnce(pending.promise)
+    mount({ api: stale })
+    expect(stale.devices).toHaveBeenCalledOnce()
+    cleanup()
+
+    mount({ api: fakeApi({ devices: { ok: true, value: [{ ...WINDOWED, label: '当前手机' }] } }) })
+    await screen.findByText('当前手机')
+    await act(async () => { pending.resolve({ ok: true, value: [WINDOWED] }) })
+    expect(screen.queryByText(WINDOWED.label)).toBeNull()
+    expect(screen.getByText('当前手机')).toBeTruthy()
   })
 
   it('creates a code and renders the QR, the link, and the countdown', async () => {
@@ -397,6 +412,13 @@ describe('PairingPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
     })
+  })
+
+  it('shows a generic join failure without publishing a pairing QR', async () => {
+    mount({ joinUrl: refusedJoin('gateway/internal') })
+    fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe(zh['panel.failed']) })
+    expect(screen.queryByRole('img')).toBeNull()
   })
 
   it('keeps working when a decision succeeds but the refresh does not', async () => {
