@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import type { DesktopBrowserReservation } from '../src/types.ts'
+import { ElectronWebviewPresentation } from '../src/client/electron/ElectronWebviewPresentation.ts'
 import { electronFixture } from './electron-harness.client.ts'
 
 const target = { kind: 'https' as const, url: 'https://example.test/', title: 'Example' }
@@ -177,4 +178,113 @@ it('ignores superseded and aborted load promises, but publishes an active naviga
   h.frame.loadUrl(target)
   await vi.waitFor(() => { expect(h.frame.getSnapshot().error).toBeDefined() })
   expect(error).toHaveBeenCalledOnce()
+})
+
+it('restarts a remounted attachment after the old acquisition rejects without publishing its error', async () => {
+  const h = fixture()
+  const pending = Promise.withResolvers<DesktopBrowserReservation>()
+  h.bridge.acquire.mockReturnValueOnce(pending.promise)
+  const unmount = h.mount()
+  h.frame.loadUrl(target)
+  try {
+    await vi.waitFor(() => { expect(h.bridge.acquire).toHaveBeenCalledOnce() })
+    unmount()
+    h.mount()
+    pending.reject(new Error('old attachment rejected'))
+    const guest = await h.guest()
+    expect(h.bridge.acquire).toHaveBeenCalledTimes(2)
+    expect(h.frame.getSnapshot().error).toBeUndefined()
+    guest.emit('dom-ready')
+    expect(guest.loadURL).toHaveBeenCalledExactlyOnceWith(target.url)
+  } finally {
+    pending.resolve(h.reservation)
+  }
+})
+
+it('ignores pre-ready load events, repeated ready events, subframe failures and aborted main-frame loads', async () => {
+  const h = fixture()
+  h.mount()
+  h.frame.loadUrl(target)
+  const guest = await h.guest()
+  const requested = h.frame.getSnapshot()
+  guest.emit('did-start-loading')
+  expect(h.frame.getSnapshot()).toBe(requested)
+  guest.emit('did-fail-load', { isMainFrame: false, errorCode: -105, errorDescription: 'subframe failed' })
+  guest.emit('did-fail-load', { isMainFrame: true, errorCode: -3, errorDescription: 'aborted' })
+  expect(h.frame.getSnapshot().error).toBeUndefined()
+  guest.emit('dom-ready')
+  guest.emit('dom-ready')
+  expect(guest.loadURL).toHaveBeenCalledExactlyOnceWith(target.url)
+})
+
+it('retains native navigation failure details when its load promise rejects afterward', async () => {
+  const h = fixture()
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const pending = Promise.withResolvers<undefined>()
+  h.mount()
+  h.frame.loadUrl(target)
+  const guest = await h.guest()
+  guest.loadURL.mockReturnValueOnce(pending.promise)
+  guest.emit('dom-ready')
+  guest.emit('did-fail-load', { isMainFrame: true, errorCode: -105, errorDescription: 'NAME_NOT_RESOLVED' })
+  pending.reject(new Error('load promise failed'))
+  await expect(pending.promise).rejects.toThrow('load promise failed')
+  expect(h.frame.getSnapshot().error).toEqual({ code: -105, description: 'NAME_NOT_RESOLVED' })
+  expect(error).not.toHaveBeenCalled()
+})
+
+it('requires a mounted container and leaves a replacement host attached when the old disposer runs', () => {
+  const mounted = vi.fn(), unmounted = vi.fn()
+  const presentation = new ElectronWebviewPresentation({ mounted, unmounted })
+  const first = document.createElement('div'), second = document.createElement('div')
+  first.id = 'electron-first-container'
+  second.id = 'electron-second-container'
+  document.body.append(first, second)
+  try {
+    expect(() => presentation.mount('missing-electron-container')).toThrow('content container is not mounted')
+    const h = fixture()
+    const guest = presentation.createElement(h.reservation)
+    expect(() => { presentation.present(guest) }).toThrow('cannot attach without a content container')
+    presentation.show('No mounted guest')
+    const old = presentation.mount(first.id)
+    const current = presentation.mount(second.id)
+    expect(unmounted).toHaveBeenCalledOnce()
+    old()
+    expect(unmounted).toHaveBeenCalledOnce()
+    presentation.present(guest)
+    expect(second.firstElementChild).toBe(guest)
+    current()
+    expect(unmounted).toHaveBeenCalledTimes(2)
+    expect(mounted).toHaveBeenCalledTimes(2)
+  } finally {
+    presentation.dispose()
+    first.remove()
+    second.remove()
+  }
+})
+
+it('keeps its last snapshot when a synchronous navigation observer disposes the frame', async () => {
+  const h = fixture()
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  h.mount()
+  h.frame.loadUrl(target)
+  const guest = await h.guest()
+  guest.emit('dom-ready')
+  guest.state.loading = false
+  guest.emit('did-stop-loading')
+  let disposal: Promise<void> | undefined
+  const observed = vi.fn(() => { disposal = h.frame.dispose() })
+  const unsubscribe = h.frame.subscribe(observed)
+  try {
+    h.frame.reload()
+    const stopped = h.frame.getSnapshot()
+    expect(observed).toHaveBeenCalledOnce()
+    expect(disposal).toBeDefined()
+    await disposal
+    expect(h.frame.getSnapshot()).toBe(stopped)
+    expect(stopped.error).toBeUndefined()
+    expect(h.bridge.release).toHaveBeenCalledExactlyOnceWith(h.reservation.lease)
+  } finally {
+    unsubscribe()
+  }
 })
