@@ -115,6 +115,15 @@ function mount(
 afterEach(cleanup)
 
 describe('ArchivedSection', () => {
+  it('renders an invalid persisted archive instant as a dash in the row and details', () => {
+    const state = workspacesState()
+    const invalid = { ...state, archivedSessionAts: { ...state.archivedSessionAts, [sid('a1')]: 'not-a-date' } }
+    mount({}, { useWorkspaces: selector => selector(invalid) })
+    expect(screen.getByText('归档于 —')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '对话详情 alpha-1' }))
+    expect(screen.getByRole('dialog', { name: '对话详情' }).textContent).toContain('—')
+  })
+
   it('shows loading until both baselines arrive and an empty message with no archived sessions', () => {
     mount({}, { useSessions: selector => selector({ ...sessionsState(), phase: 'pending' }) })
     expect(screen.getByText(zh.loading)).toBeTruthy()
@@ -226,22 +235,24 @@ describe('ArchivedSection', () => {
     await waitFor(() => { expect(screen.queryByRole('dialog', { name: '删除对话？' })).toBeNull() })
   })
 
-  it('cancels without deleting and keeps a refused deletion in its open confirmation', async () => {
-    const remove = vi.fn<ArchivedSectionInjected['remove']>().mockRejectedValueOnce(new Error('Delete failed'))
-    mount({ remove })
-    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-2' }))
-    // The dialog's dismiss control and the footer's Cancel share one label.
-    const confirm = screen.getByRole('dialog', { name: '删除对话？' })
-    fireEvent.click(within(confirm).getAllByRole('button', { name: '取消' }).at(-1)!)
-    expect(screen.queryByRole('dialog', { name: '删除对话？' })).toBeNull()
-    expect(remove).not.toHaveBeenCalled()
+  it.each([new Error('Delete failed'), 'Delete failed'])(
+    'cancels without deleting and keeps rejection %s in its open confirmation', async (failure) => {
+      const remove = vi.fn<ArchivedSectionInjected['remove']>().mockRejectedValueOnce(failure)
+      mount({ remove })
+      fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-2' }))
+      // The dialog's dismiss control and the footer's Cancel share one label.
+      const confirm = screen.getByRole('dialog', { name: '删除对话？' })
+      fireEvent.click(within(confirm).getAllByRole('button', { name: '取消' }).at(-1)!)
+      expect(screen.queryByRole('dialog', { name: '删除对话？' })).toBeNull()
+      expect(remove).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-2' }))
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
-    await screen.findByText('Delete failed')
-    expect(remove).toHaveBeenCalledWith(sid('a2'))
-    expect(screen.getByRole('dialog', { name: '删除对话？' })).toBeTruthy()
-  })
+      fireEvent.click(screen.getByRole('button', { name: '删除对话 alpha-2' }))
+      fireEvent.click(screen.getByRole('button', { name: '删除' }))
+      await screen.findByText('Delete failed')
+      expect(remove).toHaveBeenCalledWith(sid('a2'))
+      expect(screen.getByRole('dialog', { name: '删除对话？' })).toBeTruthy()
+    },
+  )
 
   it('disables both confirmation controls while the deletion is pending', async () => {
     let settle: (() => void) | undefined

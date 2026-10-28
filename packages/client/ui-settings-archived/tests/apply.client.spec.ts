@@ -1,6 +1,8 @@
 /** Archived settings section registration: slot entry, locale label, and injected actions. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -21,18 +23,23 @@ async function bench(): Promise<{
   locale: LocaleRuntime
   sessions: {
     refresh: ReturnType<typeof vi.fn>
+    deleteSession: ReturnType<typeof vi.fn>
     list: { getSnapshot(): { byId: Record<string, unknown> }; subscribe(listener: () => void): () => void }
   }
   workspaces: { unarchiveSession: ReturnType<typeof vi.fn> }
   uiWorkspace: { openSession: ReturnType<typeof vi.fn> }
 }> {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   const sessions = {
     refresh: vi.fn(async () => {}),
+    deleteSession: vi.fn(async (sessionId: SessionId) => ({
+      ok: true as const, value: { deletedSessionIds: [sessionId] },
+    })),
     list: {
       getSnapshot: () => ({ byId: {} }),
       subscribe: () => () => {},
@@ -60,6 +67,19 @@ async function bench(): Promise<{
 }
 
 describe('ui-settings-archived apply', () => {
+  it('deletes through the injected Session action and reports a refused deletion', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const id = SessionId('archived')
+    await expect(entryInjected(b).remove(id)).resolves.toBeUndefined()
+    expect(b.sessions.deleteSession).toHaveBeenCalledExactlyOnceWith(id)
+    b.sessions.deleteSession.mockResolvedValueOnce({
+      ok: false, error: new RemoteError('gateway/bad-request', 'delete refused', {}),
+    })
+    await expect(entryInjected(b).remove(id)).rejects.toThrow('delete refused')
+  })
+
   it('loads its host entry as a function plugin', async () => {
     const ctx = new Context()
     try {
