@@ -55,7 +55,6 @@ function mount(face: Partial<ConnectPhoneRowInjected> = {}): void {
     useWorkspaces={unused as never}
     t={t}
     joinUrl={async () => ({ ok: true, value: JOIN_URL })}
-    canDecide
     api={api}
     {...face}
   />)
@@ -76,12 +75,12 @@ describe('ConnectPhoneRow', () => {
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
 
     const dialog = screen.getByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: '生成配对码' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(within(dialog).getByText('ABCD2345')).toBeTruthy() })
     expect(within(dialog).getByRole('img')).toBeTruthy()
   })
 
-  it('shows the loopback-unavailable copy when the Host refuses the join URL', async () => {
+  it('shows the missing-address guidance when the Host refuses the join URL', async () => {
     mount({
       joinUrl: async () => ({
         ok: false as const,
@@ -89,10 +88,10 @@ describe('ConnectPhoneRow', () => {
       }),
     })
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '生成配对码' }))
+    fireEvent.click(await within(screen.getByRole('dialog')).findByRole('button', { name: '生成配对码' }))
 
     await waitFor(() => {
-      expect(screen.getByText('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')).toBeTruthy()
+      expect(screen.getByText(zh['dialog.unavailable'])).toBeTruthy()
     })
   })
 
@@ -119,7 +118,7 @@ describe('ConnectPhoneRow', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '显示二维码' }))
     const dialog = screen.getByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: '生成配对码' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(within(dialog).getByText('客厅的手机')).toBeTruthy() })
 
     const row = within(dialog).getByText('客厅的手机').closest('li')!

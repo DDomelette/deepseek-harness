@@ -71,7 +71,6 @@ export function apply(ctx: ClientContext): void {
   const api = createPairingApi()
   const injected = (): ConnectPhoneRowInjected => ({
     joinUrl: () => ctx.remote.mob.joinUrl(),
-    canDecide: connection.isLoopback,
     api,
   })
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({

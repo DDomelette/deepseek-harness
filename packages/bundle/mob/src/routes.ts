@@ -3,8 +3,8 @@
  * the computer makes. `/pair` and `/pair/state` are reachable without a session
  * cookie — the phone has none yet — but they still pass the Host fence and the
  * per-source throttling of {@link PairingSessions}. Every other route requires
- * a launch-token cookie and a loopback authority and TCP peer, so only the computer itself
- * can open a request, approve or deny it, or list, rename, reschedule, revoke,
+ * an operator credential accepted by Connection for the request authority.
+ * Only that operator can open a request, approve or deny it, or list, rename, reschedule, revoke,
  * restore, and purge devices.
  * @module @deepseek-ai/dsh-mob/src/routes
  */
@@ -113,22 +113,22 @@ function codeOf(req: IncomingMessage): string | undefined {
  * @param req - incoming request.
  * @param res - response owned when the request is refused.
  * @param ctx - plugin context carrying the Connection service.
- * @param access - `public` for the phone's two routes, `loopback` for the computer's.
+ * @param access - `public` for the phone's two routes, `operator` for operator-authenticated management.
  * @returns true when the caller must stop without touching the pairing state.
  */
 function refused(
   req: IncomingMessage,
   res: ServerResponse,
   ctx: Context,
-  access: 'public' | 'loopback',
+  access: 'public' | 'operator',
 ): boolean {
   const rejection = ctx.connection.requestRejection(req)
-  if (rejection !== undefined && (rejection === 403 || access === 'loopback')) {
+  if (rejection !== undefined && (rejection === 403 || access === 'operator')) {
     res.writeHead(rejection, { 'cache-control': 'no-store' })
     res.end(rejection === 403 ? 'forbidden' : 'unauthorized')
     return true
   }
-  if (access === 'loopback' && !ctx.connection.isLocalOperatorRequest(req)) {
+  if (access === 'operator' && !ctx.connection.isLocalOperatorRequest(req)) {
     res.writeHead(403, { 'cache-control': 'no-store' })
     res.end('forbidden')
     return true
@@ -189,7 +189,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
   }
 
   /**
-   * Register one loopback device-action route: a POST whose body carries the
+   * Register one operator-authenticated device-action route: a POST whose body carries the
    * device id and whose answer is the registry's verdict.
    * @param path - exact route path.
    * @param act - registry mutation the route applies.
@@ -206,7 +206,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         sendMethodNotAllowed(res, 'POST')
         return
       }
-      if (refused(req, res, ctx, 'loopback')) return
+      if (refused(req, res, ctx, 'operator')) return
       const body = await readJsonBody(req)
       const { deviceId } = body ?? {}
       if (typeof deviceId !== 'string') {
@@ -288,7 +288,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'POST')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         // Opening a code is the operator's signal that pairing is in use again,
         // which is when a row no phone collected must stop being listed.
         await reclaimUncollected()
@@ -303,7 +303,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'GET')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         sendJson(res, 200, { requests: pairing.pending() })
       },
     }),
@@ -315,7 +315,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'POST')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         const body = await readJsonBody(req)
         const { code, label, allowed } = body ?? {}
         if (typeof code !== 'string' || !isPairingCode(code) || typeof label !== 'string' || typeof allowed !== 'boolean'
@@ -376,7 +376,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'GET')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         // A code that expired with its registration uncollected is reclaimed
         // before the list is read, so this response never shows that row.
         await reclaimUncollected()
@@ -391,7 +391,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'POST')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         const body = await readJsonBody(req)
         const { deviceId, days } = body ?? {}
         if (typeof deviceId !== 'string' || typeof days !== 'number'
@@ -413,7 +413,7 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
           sendMethodNotAllowed(res, 'POST')
           return
         }
-        if (refused(req, res, ctx, 'loopback')) return
+        if (refused(req, res, ctx, 'operator')) return
         const body = await readJsonBody(req)
         const { deviceId, label } = body ?? {}
         if (typeof deviceId !== 'string' || typeof label !== 'string'

@@ -6,7 +6,7 @@ export const en = {
   showQr: 'Show QR code',
   'dialog.title': 'Connect phone',
   'dialog.description': 'Scan with your phone to open dsh on the same network.',
-  'dialog.unavailable': 'LAN access is off: this Host serves loopback only. Start dsh web without --host 127.0.0.1.',
+  'dialog.unavailable': 'No phone address is configured. Restart with dsh web --host <LAN-IP>, or configure --public-url for your proxy.',
   'dialog.urlLabel': 'Join link',
   close: 'Close',
   'panel.generate': 'Create pairing code',
@@ -47,7 +47,9 @@ export const en = {
   'panel.lifetimeApply': 'Set lifetime',
   'panel.lifetimeNote': 'A longer window renews the credential on the phone\'s next request; a credential that already lapsed must pair again.',
   'panel.revokeHint': 'Revoke a device you no longer use, or one that saw an untrusted network; a revoked device rests in the recycle bin, where it can be restored or deleted for good.',
-  'panel.lanOnly': 'These controls belong to the computer itself.',
+  'panel.operatorOnly': 'Open the launcher’s authenticated URL to manage pairing. Paired devices cannot manage other devices.',
+  'panel.loadFailed': 'Could not load pairing controls.',
+  'panel.retry': 'Retry',
   'panel.failed': 'That failed; try again.',
 } as const
 
@@ -60,7 +62,7 @@ export const zh: Record<MobileSettingsKey, string> = {
   showQr: '显示二维码',
   'dialog.title': '连接手机',
   'dialog.description': '用手机扫码，在同一网络中打开 dsh。',
-  'dialog.unavailable': '当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web',
+  'dialog.unavailable': '尚未配置手机访问地址。请用 dsh web --host <局域网 IP> 重新启动；使用代理时请配置 --public-url',
   'dialog.urlLabel': '加入链接',
   close: '关闭',
   'panel.generate': '生成配对码',
@@ -101,6 +103,8 @@ export const zh: Record<MobileSettingsKey, string> = {
   'panel.lifetimeApply': '设为',
   'panel.lifetimeNote': '延长后，手机下一次请求时即续期；已经失效的凭证必须重新配对。',
   'panel.revokeHint': '不再使用、或在不受信任的网络上用过的设备请吊销；吊销后设备进入回收站，可以恢复或彻底删除。',
-  'panel.lanOnly': '这些操作只能在电脑本机上进行。',
+  'panel.operatorOnly': '请打开启动器提供的认证链接来管理配对。已配对设备不能管理其他设备',
+  'panel.loadFailed': '无法加载配对管理',
+  'panel.retry': '重试',
   'panel.failed': '操作失败，请重试。',
 }

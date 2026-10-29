@@ -6,25 +6,26 @@ Status: implemented
 
 ## 问题
 
-手机接入 Web GUI 最初以独立的 `dsh mob` profile 发布：一个 bundle patch 把 webserver 重绑到所有网卡——绕过了守护 CLI 路径的 `--allow-lan` 确认——并由终端播报器打印带令牌的加入 URL 二维码。这把一项能力变成了两个安全姿态不同的入口、两套文档，以及一个任何旗标门禁都看不见的重绑。
+手机接入需要与 Web GUI 共用监听器、浏览器认证和 Host/Origin 检查。独立的手机启动器或按浏览器主机名判断权限都可能与这些职责的所有者不一致：在局域网主体上认证的操作者必须能够批准手机，而已配对手机不能管理设备。
 
 ## 决策
 
-手机接入层归入 `web` profile。`PROFILE_TEMPLATES.web.bundles` 在 `@deepseek-ai/dsh-web-app` 之后组合 `@deepseek-ai/dsh-mob`；不存在 `mob` profile，CLI 也没有 `mob` 别名。在局域网提供服务只有 `dsh web --host 0.0.0.0 --allow-lan` 一条路径,因此确认、明文 HTTP 警告与就绪行都归同一条路径所有。
+发行版的 `web` profile 在 `@deepseek-ai/dsh-web-app` 之后组合 `@deepseek-ai/dsh-mob`。其只做插入的 patch 注册设置入口、`mob` Remote 命名空间和配对路由，不改变监听或认证策略。[具体绑定地址决策](2026-09-19-concrete-web-bind-address.zh.md) 负责默认回环监听和显式接口选择。
 
-该层贡献的内容种类不变、范围收窄：`web` profile 下的设置入口 设置 → 通用设置 → 连接手机，以及其背后的 `mob` Remote 命名空间（`mob.joinUrl`），后者从栅栏快照拼出局域网 origin，以及面板在其上渲染的配对链接。注册它就是插件的全部职责：`packages/bundle/mob/cordis.patch.yml` 只插入自己的行、不打任何补丁，host 半层不产生终端输出。终端二维码路径及其 `qrcode-terminal` 依赖被删除，设置入口成为唯一的加入入口。
+不带令牌的加入根 URL 依次优先使用 `--public-url`、第一个 `--trusted-host`（使用其显式端口，否则使用监听端口），以及具体的非回环绑定地址。传输协议来自监听器。回环监听器或带区域标识的非回环监听器在未声明外部主体时报告 `mob/no-advertised-origin`；设置提示给出 `dsh web --host <LAN-IP>` 和 `--public-url`。接口探测不会扩展信任。
 
-组合包保留 `@deepseek-ai/dsh-mob` 包名；插件名为 `mob-join`，说明它现在做什么。
+配对面板先读取仅操作者可访问的设备列表，再显示管理控件或轮询请求。成功时进入管理视图，禁止访问时说明需要启动器凭据，临时读取失败时提供重试。浏览器主机名不授予权限。Connection 为每条管理路由认证，因此声明的局域网主体携带启动令牌 cookie 时可以管理配对，设备 cookie 则不能。
+
+面板先解析加入根 URL，再创建短码。缺少地址不会创建无法使用的配对会话。设备列表刷新失败时保留已显示的数据。
 
 ## 曾考虑的替代方案
 
-- **把 `dsh mob` 保留为 `dsh web --allow-lan` 的薄别名。** 否决：该能力从未进入发行版，没有已装用户需要这个别名；而别名是第二个入口，必须永远保持语义一致、有文档、有测试。开发调试期想要的短命令应放在那位开发者的 shell 配置里，而不是 CLI 里。
-- **把终端二维码保留为可选旗标。** 否决：手机是通过设置入口里渲染的二维码加入的；终端路径会让二维码依赖、TTY 门控及其测试为无人使用的表层继续存在。
-- **让全接口绑定成为 `dsh web` 的默认。** 否决：局域网会话是明文 HTTP 上的承载 cookie，而宿主机可以执行命令；默认开启会把这种暴露变成每个用户的初始状态。`--allow-lan` 保留为显式确认，settings 级长期同意暂缓。这份部署后来还是采纳了默认绑定：[dsh web 默认绑定所有网卡](2026-09-13-lan-bind-by-default.zh.md)。
+- **独立的手机 profile 或启动器别名。** 否决：这会重复启动与安全决策。手机接入属于 Web profile。
+- **默认通配绑定或推断局域网信任。** 否决：操作者明确指定暴露的具体接口；手机插件不能扩大这一选择。
+- **客户端主机名门控或另设权限服务。** 否决：现有认证管理路由已经负责该判断，并区分操作者 cookie 与设备 cookie。
 
 ## 后果
 
-- 未被改动过的 installation-owned `web` 元组（`dsh-base` + `dsh-web-app`）会在下次加载 profile 时升级为随发行版模板，因此既有检出无需手改即可获得该层；bundle 列表在任何其他位置不同的 profile 属用户所有，保持不变。
-- 早先 `dsh mob` 运行创建的 `$DSH_HOME/profiles/mob` 目录属用户所有：没有随发行版模板认领该名字，`dsh --profile mob` 会继续启动该目录，直到操作者将其删除。
-- 设置入口在仅回环部署上报 `mob/loopback-only`，在全接口绑定未派生出可达地址时报 `mob/no-lan-address`，正是操作者可以着手处置的两种情形。
-- 加入 URL 的终端输出消失；携带启动令牌的回环 URL 行、不带令牌的局域网 URL 行与明文 HTTP 警告仍是 `dsh-web-app` 的就绪输出。
+操作者启动 `dsh web --host <LAN-IP>`，打开启动器打印的认证 URL，再在 设置 → 通用设置 → 连接手机 中批准手机。普通 `dsh web` 仍默认仅本机访问。代理可通过 `--public-url` 声明根 URL，并通过 `--trusted-host` 声明其主体。
+
+包测试覆盖 URL 拼接、权限读取、失败恢复及 Loader 卸载。浏览器场景使用非回环主体和独立的操作者、手机上下文，并在测试所属目录记录权限提示与缺少地址的提示。

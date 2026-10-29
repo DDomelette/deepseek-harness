@@ -40,12 +40,13 @@ async function probeBindableAddress(candidates: string[], description: string): 
  * First local non-loopback IPv4 address that really accepts a listen.
  *
  * IPv4 only: supported CI hosts need not own a non-loopback IPv6 address.
+ * @param accept - optional address filter for scenarios that cannot use every interface.
  * @returns the bindable address, or undefined when the scenario must skip.
  */
-export async function probeNonLoopbackIpv4(): Promise<string | undefined> {
+export async function probeNonLoopbackIpv4(accept: (address: string) => boolean = () => true): Promise<string | undefined> {
   const candidates: string[] = []
   for (const entry of Object.values(networkInterfaces()).flat()) {
-    if (entry !== undefined && entry.family === 'IPv4' && !entry.internal) candidates.push(entry.address)
+    if (entry !== undefined && entry.family === 'IPv4' && !entry.internal && accept(entry.address)) candidates.push(entry.address)
   }
   return probeBindableAddress(candidates, 'non-loopback IPv4')
 }

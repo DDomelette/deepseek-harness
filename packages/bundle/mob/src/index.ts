@@ -2,8 +2,8 @@
  * The host half of the phone-access layer: mounting it registers the `mob`
  * Remote namespace whose `joinUrl` method hands an authenticated client the LAN
  * origin the settings panel builds a pairing link on, and the `/pair*` routes
- * that pair a phone through a one-time code. Serving on the LAN — and the
- * `--allow-lan` acknowledgement that permits it — belongs to `dsh-web-app`; this
+ * that pair a phone through a one-time code. Serving on an explicitly named
+ * network interface belongs to `dsh-web-app`; this
  * plugin rebinds nothing and writes no terminal output.
  * @module @deepseek-ai/dsh-mob
  */

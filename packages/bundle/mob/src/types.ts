@@ -11,7 +11,7 @@ export {}
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
-    /** The deployment declared neither an advertised URL nor a trusted host a phone could reach. */
+    /** No advertised authority or URL-compatible non-loopback listener is configured for phone access. */
     'mob/no-advertised-origin': {}
   }
 }

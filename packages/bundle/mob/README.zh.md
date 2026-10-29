@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-启动 `dsh web`，再打开 设置 → 通用设置 → 连接手机，即可为同一网络中的手机配对：面板申请一次性短码，把 `/pair?c=<code>` 链接渲染成二维码，并对每个请求的手机做出决定。该层在 `web` 表层之上加入这个加入入口与应答它的 `mob` Remote 命名空间；局域网绑定及其警告、进程令牌交换（仅回环）与签名 cookie 认证仍是 `dsh web` 的行为。服务仍是明文 HTTP，因此只在可信网络上使用。
+启动 `dsh web --host <LAN-IP>`，再打开 设置 → 通用设置 → 连接手机，即可为同一网络中的手机配对：面板申请一次性短码，把 `/pair?c=<code>` 链接渲染成二维码，并对每个请求的手机做出决定。该层在 `web` 表层之上加入这个加入入口与应答它的 `mob` Remote 命名空间；局域网绑定及其警告、操作者令牌交换与签名 cookie 认证仍是 `dsh web` 的行为。监听器支持 HTTP 和配置的 TLS；仅在可信网络上使用明文 HTTP。
 
 ## 目录
 
@@ -29,19 +29,19 @@ kind: "package-bundle"
 
 ```sh
 dsh web
-dsh web --port 8080
-dsh web --host 127.0.0.1
+dsh web --host 192.168.1.5
+dsh web --host 192.168.1.5 --port 8080
 ```
 
-`web` profile 组合了本组合包，因此手机接入就是 `dsh web` 的普通能力：就绪行在回环 URL 旁打印局域网 URL，而那条局域网行**不带**进程令牌——令牌是电脑自己的凭据，只在回环上交换。因此手机通过配对加入，拿到属于它自己的设备 cookie，而不是电脑会话的副本。`dsh web` 绑定所有网卡，因此局域网一侧开箱可达；`--host 127.0.0.1` 把该次调用限制在本机，此时配对入口会提示内网访问未开启。
+`web` profile 组合了本组合包。普通 `dsh web` 仅绑定回环地址；同一网络的手机接入时，请像上例一样用 `--host` 指定电脑的具体局域网 IP。`0.0.0.0` 等通配地址会被拒绝。在电脑上打开启动器打印的认证 URL，再打开 设置 → 通用设置 → 连接手机。直接访问绑定 IP 无需重复声明 `--trusted-host`；代理通过 `--public-url` 声明浏览器访问的根 URL，通过 `--trusted-host` 声明主体。启动令牌应保留在电脑上：手机通过配对获得自己的设备 cookie。
 
 ### 从桌面会话交接
 
-浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以部署声明的 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——生成的短码只有在手机打开配对页面领取后才会进入列表，因此「允许」永远不会注册一台没有手机持有的设备；每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，每行带有可编辑的名称、批准时从 ARP 表解析到的 MAC 地址（解析得到时）、添加时间、最近一次通过认证的时间，以及一个「吊销凭证」按钮，把设备移入回收站：该设备的下一次请求即失效，而在操作者彻底删除之前，条目仍可恢复。不是电脑本机的页面看不到这些操作；从未声明可达 origin 的部署会明确说明：加入 URL 以 `mob/no-advertised-origin` 失败（用 `--public-url <url>` 启动 `dsh web`，或在显式 `--host` 旁给出 `--trusted-host <authority>`）。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。决定与设备操作一次只跑一个：在途时落下的第二次点击会被忽略，因此双击不会被上报成失败，而后来的成功会清除失败提示；已决定的请求会立即离开列表。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、手机仍持有一张较短凭证（下一次请求即续期）时的 `{days} 天（手机凭证剩余 {remaining} 天）`、手机实际持有的凭证已经过期的「凭证已失效，需重新配对」、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的「凭证有效期」下拉菜单——`1`/`7`/`30`/`90` 天档位，以及用于任意天数的「自定义…」——会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长也在手机下一次请求时续期，前提是它当前的 cookie 仍然有效——已经失效的凭证必须重新配对。列表上方的一行文案提示：不再使用或经过不受信任网络的设备请吊销，吊销的设备会留在回收站，可以恢复或彻底删除。
+浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以部署声明的 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——生成的短码只有在手机打开配对页面领取后才会进入列表，因此「允许」永远不会注册一台没有手机持有的设备；每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，每行带有可编辑的名称、批准时从 ARP 表解析到的 MAC 地址（解析得到时）、添加时间、最近一次通过认证的时间，以及一个「吊销凭证」按钮，把设备移入回收站：该设备的下一次请求即失效，而在操作者彻底删除之前，条目仍可恢复。面板先读取仅操作者可访问的设备列表：成功时启用管理操作，禁止访问时说明需要启动器凭据，临时读取失败时提供重试。通过局域网主体认证的操作者可以管理配对，已配对手机则不能。缺少手机访问地址时，`mob/no-advertised-origin` 提示配置具体的 `--host` 或对外声明的 `--public-url`，并且不会创建短码。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。决定与设备操作一次只跑一个：在途时落下的第二次点击会被忽略，因此双击不会被上报成失败，而后来的成功会清除失败提示；已决定的请求会立即离开列表。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、手机仍持有一张较短凭证（下一次请求即续期）时的 `{days} 天（手机凭证剩余 {remaining} 天）`、手机实际持有的凭证已经过期的「凭证已失效，需重新配对」、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的「凭证有效期」下拉菜单——`1`/`7`/`30`/`90` 天档位，以及用于任意天数的「自定义…」——会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长也在手机下一次请求时续期，前提是它当前的 cookie 仍然有效——已经失效的凭证必须重新配对。列表上方的一行文案提示：不再使用或经过不受信任网络的设备请吊销，吊销的设备会留在回收站，可以恢复或彻底删除。
 
 ### 配对一台手机
 
-`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。只有**没有命中活动短码**的读取才计入该来源的限流——界面正在轮询的那次配对不是"搜码"——因此同一台手机上开两个页面不会互相把对方锁在配对流程之外，而被搜码预算锁住的来源仍然可以取走它持有的那个短码的决定。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案，其中被限流的文案提示等待一分钟，因为在锁定解除前新建短码对该来源没有帮助。`POST /pair/approve` 携带决定与设备名称——批准时还会从 ARP 表解析领取手机的 MAC 地址，这是尽力而为的指纹，解析失败则不记录，手机始终没有取走 cookie 的设备行会在其短码过期后被吊销并彻底删除，因此没有设备领取的批准不会留下任何东西，而登记失败会报告错误并撤回该决定，让操作员可以重新决定，而不是把手机留在一个它永远取不到的决定上——`GET /pair/requests` 列出已被手机领取、仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/devices/label` 为一台设备改名，`POST /pair/revoke` 把某台设备移入回收站——它的下一次请求即失效——`POST /pair/devices/restore` 恢复一台回收站中的设备，`POST /pair/devices/purge` 把回收站中的设备彻底删除。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏，而按来源限流只挂在 `/pair/state` 上——其余每条路由都要求有效的启动令牌 cookie、回环 authority 和真实的回环 TCP 对端，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，与吊销、恢复、彻底删除一样属于仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays`、`expiresAt`、`credentialExpiresAt`、`macAddress` 与 `revokedAt`，面板的寿命列与回收站据此渲染；旧条目两个窗口字段都不返回。
+`POST /pair/session` 开启一次请求，并返回一个存活两分钟的 8 位短码。手机打开 `/pair?c=<code>`，该路由提供携带 `__DSH_PAIR__` 启动事实的应用外壳；浏览器半层只在该页面把配对界面注册到 `shell.overlay`，显示短码并每 1.5 秒轮询 `/pair/state`。只有**没有命中活动短码**的读取才计入该来源的限流——界面正在轮询的那次配对不是"搜码"——因此同一台手机上开两个页面不会互相把对方锁在配对流程之外，而被搜码预算锁住的来源仍然可以取走它持有的那个短码的决定。电脑批准的那一刻，这次轮询就会带回设备 cookie，界面随即跳转到 `/`，手机由此拥有自己的会话，而不再依赖电脑的启动令牌；被拒绝、已过期或已被限流的短码会停止轮询，并显示说明下一步该做什么的文案，其中被限流的文案提示等待一分钟，因为在锁定解除前新建短码对该来源没有帮助。`POST /pair/approve` 携带决定与设备名称——批准时还会从 ARP 表解析领取手机的 MAC 地址，这是尽力而为的指纹，解析失败则不记录，手机始终没有取走 cookie 的设备行会在其短码过期后被吊销并彻底删除，因此没有设备领取的批准不会留下任何东西，而登记失败会报告错误并撤回该决定，让操作员可以重新决定，而不是把手机留在一个它永远取不到的决定上——`GET /pair/requests` 列出已被手机领取、仍待决定的请求，`GET /pair/devices` 列出已批准的设备，`POST /pair/devices/label` 为一台设备改名，`POST /pair/revoke` 把某台设备移入回收站——它的下一次请求即失效——`POST /pair/devices/restore` 恢复一台回收站中的设备，`POST /pair/devices/purge` 把回收站中的设备彻底删除。`/pair` 与 `/pair/state` 接受尚无 cookie 的手机——它们仍经过 Host 栅栏，而按来源限流只挂在 `/pair/state` 上——其余每条路由都要求Connection 为该主体接受的有效操作者 cookie，因此局域网上的手机无法自行批准。`POST /pair/devices/lifetime` 携带 `{deviceId, days}`，与吊销、恢复、彻底删除一样属于仅电脑可用的决定路由，因此手机无法延长或缩短自己或他人的窗口；`GET /pair/devices` 会在条目携带时返回该设备的 `lifetimeDays`、`expiresAt`、`credentialExpiresAt`、`macAddress` 与 `revokedAt`，面板的寿命列与回收站据此渲染；旧条目两个窗口字段都不返回。
 
 短码必须恰好包含生成器字母表中的八个字符。`/pair` 与 `/pair/state` 要求查询参数 `c` 恰好出现一次；畸形或重复的短码返回 400。内嵌的启动 JSON 转义 `<`，使短码无法终止其 script 元素。
 
@@ -65,7 +65,7 @@ dsh web --host 127.0.0.1
 
 ### 部署声明的 origin
 
-origin 来自 `dsh-web-app` 从命令行读到的 `webStartup` 值：部署设置了 `--public-url` 时用它，否则用它的第一个 `--trusted-host` 加上绑定端口。两者都是 `/api` 栅栏已经接受的主体，因此以该答案拼出的配对链接必然通过栅栏。该值不带进程令牌；两者都未声明的部署会让该调用失败，而不是给出一个 origin。
+加入根 URL 依次优先使用部署的 `--public-url`、第一个 `--trusted-host` 和具体的非回环监听地址。受信主体保留其显式端口，否则使用绑定端口。监听器提供 HTTP 或 HTTPS 协议，IPv6 字面量使用方括号。回环绑定或带区域标识的非回环绑定在未声明外部主体时以 `mob/no-advertised-origin` 失败。该值不带进程令牌。
 
 ### 源码地图
 
@@ -77,7 +77,7 @@ origin 来自 `dsh-web-app` 从命令行读到的 `webStartup` 值：部署设�
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把未声明 origin 的部署分类为 `mob/no-advertised-origin` |
 | [`src/types.ts`](src/types.ts) | `mob` 失败码声明（`mob/no-advertised-origin`），两个 face 共享 |
 | [`src/pairing.ts`](src/pairing.ts) | 配对会话：8 位短码、两分钟寿命、每码一次决定，以及只统计"未命中活动短码"读取的按来源限流 |
-| [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及电脑侧仅回环可用的决定 |
+| [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及经操作者认证的决定 |
 | [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | 手机端配对界面：启动事实、状态轮询与按决定显示的文案 |
 | [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、配对面板与 `settings.mobile` 字典 |
 | [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
@@ -92,7 +92,7 @@ origin 来自 `dsh-web-app` 从命令行读到的 `webStartup` 值：部署设�
 | [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | 配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`tests/pairing-api.client.spec.ts`](tests/pairing-api.client.spec.ts) | 配对路由的客户端半边：请求形状、应答解析与 helper |
 | [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
-| [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、回环文案、关闭与重开 |
+| [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、启动提示、关闭与重开 |
 
 ### 不变量归属
 
@@ -129,11 +129,11 @@ origin 来自 `dsh-web-app` 从命令行读到的 `webStartup` 值：部署设�
 
 这些限制告诉你在不可信网络或非常规终端上会遇到什么。它们是当前包约束，不是任务积压。
 
-- **局域网服务是明文 HTTP**——网络上任何获得会话 cookie 的人都将获得完全控制权，因此只在可信网络上以显式接口地址暴露服务，并把该主体声明为 `--trusted-host`；启动警告与吊销路径见 [LAN Web 服务笔记](../../../.agents/notes/implemented/architecture/2026-09-11-lan-web-serving.zh.md)。
-- **局域网明文 HTTP 不是 secure context（安全上下文）**——手机浏览器在明文局域网 HTTP 下没有 `navigator.serviceWorker`，因此 service worker 不会注册、Android 不会出现安装提示；iOS 仍可靠支持通过 `apple-mobile-web-app-capable` 添加到主屏。完整的安装体验留待后续 TLS 工作。
+- **HTTP 会向网络暴露凭据**——请使用可信网络或配置监听器的 TLS 支持；[dsh-web-app](../web-app/README.zh.md) 负责传输与认证配置。
+- **局域网明文 HTTP 不是 secure context（安全上下文）**——手机浏览器在明文局域网 HTTP 下没有 `navigator.serviceWorker`，因此 service worker 不会注册、Android 不会出现安装提示；iOS 仍可靠支持通过 `apple-mobile-web-app-capable` 添加到主屏。请配置 HTTPS 以使用需要安全上下文的浏览器功能。
 - **iOS 主屏应用没有后台 WebSocket**——iOS 会在应用进入后台时将其挂起，回到前台时由现有 Connection generation 重连与 Remote journal stream 的恢复 cursor 恢复数据流。
-- **origin 靠声明而非探测**——加入 URL 由 `--public-url`，或由 `--trusted-host` 加绑定端口拼成；两者都未声明的部署完全没有加入 URL。
-- **通配绑定会被拒绝**——`dsh web` 拒绝 `--host 0.0.0.0`；请改用一个接口地址，并用 `--trusted-host` 声明同一主体，使配对链接与 `/api` 栅栏一致。
+- **地址靠配置而非探测**——加入根 URL 使用 `--public-url`、受信主体或具体的非回环绑定地址。网卡扫描不会扩展信任。
+- **通配绑定会被拒绝**——`dsh web` 拒绝 `--host 0.0.0.0` 和 `--host ::`，请改用一个接口地址。
 - **未声明 origin 的部署不提供加入 URL**——「连接手机」弹窗以 `mob/no-advertised-origin` 失败并指出需要添加的旗标；`dsh-web-app` 的就绪行仍是唯一打印出的 URL。
 
 <a id="dev-note"></a>

@@ -304,6 +304,8 @@ export interface WebScaffold {
 
 /** Options for {@link launchWebScaffold}. */
 export interface LaunchOptions {
+  /** Concrete listener address for direct LAN scenarios; omitted binds IPv4 loopback. */
+  bindHost?: string | undefined
   /** Override the developer-tools preference; omitted uses the shipped default. */
   developerTools?: boolean
   /** Enable the real Open In rows with deterministic launch-environment facts. */
@@ -479,7 +481,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const publicPrefix = publicMount === undefined
     ? undefined
     : `/${(publicMount.prefix ?? 'tools/dsh/').replace(/^\/+|\/+$/gu, '')}/`
-  const browserHost = options.remoteAuthority ?? '127.0.0.1'
+  const browserHost = options.remoteAuthority ?? options.bindHost ?? '127.0.0.1'
   if (mode === 'record') {
     // Both owning vitest configs (web unconditionally, snapshot in record
     // mode) load the repo-root .env before this file runs.
@@ -625,7 +627,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     {
       id: 'webserver',
       config: {
-        host: '127.0.0.1', port: 0, compression: 'gzip',
+        host: options.bindHost ?? '127.0.0.1', port: 0, compression: 'gzip',
         compressionLevel: 1, compressionThresholdBytes: 1024,
       },
     },

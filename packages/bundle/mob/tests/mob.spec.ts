@@ -12,7 +12,7 @@ const contexts: Context[] = []
 
 /** The services `MobJoinController` injects; only their presence matters here. */
 function provideInjected(ctx: Context): void {
-  ctx.provide('webServer', { host: '0.0.0.0', port: 4567, register: () => () => {} } as never)
+  ctx.provide('webServer', { host: '192.168.1.5', port: 4567, protocol: 'http:', register: () => () => {} } as never)
   ctx.provide('webStartup', { trustedHosts: ['192.168.1.5'] } as never)
   ctx.provide('connection', {
     authenticatedUrl(baseUrl: string) {

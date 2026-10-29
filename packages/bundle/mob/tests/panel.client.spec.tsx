@@ -110,18 +110,16 @@ const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, valu
 const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): ConnectPhoneRowInjected['joinUrl'] =>
   async () => ({ ok: false, error: new RemoteError(code, 'refused', {}) })
 
-function mount(options: {
+async function mount(options: {
   api?: FakeApi
-  canDecide?: boolean
   joinUrl?: ConnectPhoneRowInjected['joinUrl']
-} = {}): FakeApi {
+} = {}): Promise<FakeApi> {
   const subject = options.api ?? fakeApi()
-  render(<PairingPanel
+  await act(async () => { render(<PairingPanel
     t={t}
     api={subject.api}
-    canDecide={options.canDecide ?? true}
     joinUrl={options.joinUrl ?? okJoin}
-  />)
+  />) })
   return subject
 }
 
@@ -129,13 +127,56 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('PairingPanel', () => {
-  it('hides every control on a page that may not decide', () => {
-    mount({ canDecide: false })
+  it('keeps the default route client stable across countdown renders', async () => {
+    vi.useFakeTimers()
+    const fetch = vi.fn(async (route: string) => new Response(JSON.stringify(
+      route === '/pair/devices' ? { devices: [] } : { requests: [] },
+    ), { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+    await act(async () => { render(<PairingPanel t={t} joinUrl={okJoin} />) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+    expect(fetch.mock.calls.filter(([route]) => route === '/pair/devices')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: '生成配对码' })).toBeTruthy()
+  })
 
-    expect(screen.getByText('这些操作只能在电脑本机上进行。')).toBeTruthy()
+  it('waits for operator authentication before exposing controls or polling', async () => {
+    const pending = Promise.withResolvers<PairingResult<readonly PairedDeviceView[]>>()
+    const subject = fakeApi()
+    subject.devices.mockReturnValueOnce(pending.promise)
+    const view = await mount({ api: subject })
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(document.querySelector('[aria-busy="true"]')).toBeTruthy()
+    expect(view.requests).not.toHaveBeenCalled()
+
+    await act(async () => { pending.resolve({ ok: true, value: [] }) })
+    expect(screen.getByRole('button', { name: '生成配对码' })).toBeTruthy()
+    expect(view.requests).toHaveBeenCalledOnce()
+  })
+
+  it('retries a failed authentication read without treating a network failure as denial', async () => {
+    const subject = fakeApi({ devices: { ok: false, reason: 'failed' } })
+    await mount({ api: subject })
+    expect(screen.getByText(zh['panel.loadFailed'])).toBeTruthy()
+    expect(screen.queryByText(zh['panel.operatorOnly'])).toBeNull()
+    expect(subject.requests).not.toHaveBeenCalled()
+    subject.devices.mockResolvedValue({ ok: true, value: [WINDOWED] })
+
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await screen.findByText(WINDOWED.label)
+    expect(subject.devices).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: '生成配对码' })).toBeTruthy()
+  })
+
+  it('hides every control when the Host refuses operator access', async () => {
+    const subject = await mount({ api: fakeApi({ devices: { ok: false, reason: 'forbidden' } }) })
+
+    expect(screen.getByText(zh['panel.operatorOnly'])).toBeTruthy()
+    expect(subject.requests).not.toHaveBeenCalled()
+    expect(subject.open).not.toHaveBeenCalled()
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByText('待确认的请求')).toBeNull()
   })
@@ -144,11 +185,11 @@ describe('PairingPanel', () => {
     const pending = Promise.withResolvers<PairingResult<readonly PairedDeviceView[]>>()
     const stale = fakeApi()
     stale.devices.mockReturnValueOnce(pending.promise)
-    mount({ api: stale })
+    await mount({ api: stale })
     expect(stale.devices).toHaveBeenCalledOnce()
     cleanup()
 
-    mount({ api: fakeApi({ devices: { ok: true, value: [{ ...WINDOWED, label: '当前手机' }] } }) })
+    await mount({ api: fakeApi({ devices: { ok: true, value: [{ ...WINDOWED, label: '当前手机' }] } }) })
     await screen.findByText('当前手机')
     await act(async () => { pending.resolve({ ok: true, value: [WINDOWED] }) })
     expect(screen.queryByText(WINDOWED.label)).toBeNull()
@@ -158,7 +199,7 @@ describe('PairingPanel', () => {
   it('creates a code and renders the QR, the link, and the countdown', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(START))
-    const subject = mount()
+    const subject = await mount()
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await vi.advanceTimersByTimeAsync(0)
@@ -181,7 +222,7 @@ describe('PairingPanel', () => {
   it('copies the join link and confirms for two seconds, selecting the field without a clipboard', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(START))
-    mount()
+    await mount()
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await vi.advanceTimersByTimeAsync(0)
@@ -201,7 +242,7 @@ describe('PairingPanel', () => {
     try {
       vi.useFakeTimers()
       vi.setSystemTime(new Date(START))
-      mount()
+      await mount()
 
       fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
       await vi.advanceTimersByTimeAsync(0)
@@ -222,7 +263,7 @@ describe('PairingPanel', () => {
       expiresAt: START + 120_000,
       userAgent: 'Mozilla/5.0 (Linux; Android 10; JAD-AL50)',
     }] } })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const label = await waitFor(() => screen.getByLabelText('设备名称'))
     expect(label.getAttribute('value')).toBe('JAD-AL50')
@@ -237,7 +278,7 @@ describe('PairingPanel', () => {
     const subject = fakeApi({
       requests: { ok: true, value: [{ code: CODE, openedAt: START, expiresAt: START + 120_000 }] },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const label = await waitFor(() => screen.getByLabelText('设备名称'))
     expect(label.getAttribute('value')).toBe('')
@@ -252,7 +293,7 @@ describe('PairingPanel', () => {
       { id: 'device-2', label: 'iPad', registeredAt: START, lastSeenAt: START },
     ]
     const subject = fakeApi({ devices: { ok: true, value: active } })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const first = (await waitFor(() => screen.getAllByText('客厅的手机')))[0]!
     const row = first.closest('li')!
@@ -278,7 +319,7 @@ describe('PairingPanel', () => {
   it('restores a binned device and purges one only after a confirmation', async () => {
     const binned = { id: 'device-1', label: '旧手机', registeredAt: START, lastSeenAt: START, revokedAt: START }
     const subject = fakeApi({ devices: { ok: true, value: [binned] } })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const item = (await waitFor(() => screen.getByText('旧手机'))).closest('li')!
     expect(screen.getByText('回收站中的设备无法访问；恢复后，其 cookie 在窗口未结束时重新生效。')).toBeTruthy()
@@ -310,7 +351,7 @@ describe('PairingPanel', () => {
     const active = [{ id: 'device-1', label: '客厅的手机', registeredAt: START, lastSeenAt: START }]
     const gate: PromiseWithResolvers<void> = Promise.withResolvers()
     const subject = fakeApi({ devices: { ok: true, value: active }, revokeGate: gate.promise })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
     const revoke = within(row).getByRole('button', { name: '吊销凭证' })
@@ -331,7 +372,7 @@ describe('PairingPanel', () => {
       restore: { ok: false, reason: 'failed' },
       purge: { ok: false, reason: 'failed' },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     const item = (await waitFor(() => screen.getByText('旧手机'))).closest('li')!
     fireEvent.click(within(item).getByRole('button', { name: '恢复' }))
@@ -348,7 +389,7 @@ describe('PairingPanel', () => {
     const subject = fakeApi({ decide: { ok: false, reason: 'failed' }, requests: { ok: true, value: [
       { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
     ] } })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '允许' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
@@ -362,7 +403,7 @@ describe('PairingPanel', () => {
         { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
       ] },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     // A double click sends one decision: the Host refuses the second one, and
     // reporting that refusal would read as a failure the operator never caused.
@@ -381,7 +422,7 @@ describe('PairingPanel', () => {
     const subject = fakeApi({ decide: { ok: false, reason: 'failed' }, requests: { ok: true, value: [
       { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
     ] } })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '允许' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
@@ -393,29 +434,30 @@ describe('PairingPanel', () => {
   })
 
   it('reports a refused or failed code creation', async () => {
-    mount({ api: fakeApi({ open: { ok: false, reason: 'failed' } }) })
+    await mount({ api: fakeApi({ open: { ok: false, reason: 'failed' } }) })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
     cleanup()
 
-    mount({ api: fakeApi({ open: { ok: false, reason: 'forbidden' } }) })
+    await mount({ api: fakeApi({ open: { ok: false, reason: 'forbidden' } }) })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
+      expect(screen.getByRole('alert').textContent).toBe(zh['panel.operatorOnly'])
     })
   })
 
-  it('shows the LAN-off copy when the join URL reports no advertised origin', async () => {
-    mount({ joinUrl: refusedJoin('mob/no-advertised-origin') })
+  it('shows the missing-address copy when the join URL reports no advertised origin', async () => {
+    const subject = await mount({ joinUrl: refusedJoin('mob/no-advertised-origin') })
 
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe('当前仅服务回环地址，未开启内网访问；请去掉 --host 127.0.0.1 重新启动 dsh web')
+      expect(screen.getByRole('alert').textContent).toBe(zh['dialog.unavailable'])
     })
+    expect(subject.open).not.toHaveBeenCalled()
   })
 
   it('shows a generic join failure without publishing a pairing QR', async () => {
-    mount({ joinUrl: refusedJoin('gateway/internal') })
+    await mount({ joinUrl: refusedJoin('gateway/internal') })
     fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe(zh['panel.failed']) })
     expect(screen.queryByRole('img')).toBeNull()
@@ -425,7 +467,7 @@ describe('PairingPanel', () => {
     const subject = fakeApi({ requests: { ok: true, value: [
       { code: CODE, openedAt: START, expiresAt: START + 120_000, userAgent: 'Android 10; JAD-AL50)' },
     ] } })
-    mount({ api: subject })
+    await mount({ api: subject })
     await waitFor(() => { expect(screen.getByRole('button', { name: '允许' })).toBeTruthy() })
 
     subject.requests.mockResolvedValue({ ok: false, reason: 'failed' })
@@ -442,7 +484,7 @@ describe('PairingPanel', () => {
       devices: { ok: true, value: [{ id: 'device-1', label: 'iPad', registeredAt: START, lastSeenAt: START }] },
       revoke: { ok: false, reason: 'failed' },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: '吊销凭证' })))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('操作失败，请重试。') })
@@ -452,7 +494,7 @@ describe('PairingPanel', () => {
   it('shows each device window, an expired device, and an unknown legacy entry', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(START))
-    mount({ api: fakeApi({ devices: { ok: true, value: [
+    await mount({ api: fakeApi({ devices: { ok: true, value: [
       WINDOWED,
       { id: 'device-2', label: 'iPad', registeredAt: START, lastSeenAt: START, lifetimeDays: 7, expiresAt: START - 1 },
       { id: 'device-3', label: '旧手机', registeredAt: START, lastSeenAt: START },
@@ -471,7 +513,7 @@ describe('PairingPanel', () => {
   it('reports the credential the phone holds, not only the window the operator set', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(START))
-    mount({ api: fakeApi({ devices: { ok: true, value: [
+    await mount({ api: fakeApi({ devices: { ok: true, value: [
       { ...WINDOWED, credentialExpiresAt: START + 30 * DAY_MILLISECONDS },
       { ...WINDOWED, id: 'device-2', label: '新手机', credentialExpiresAt: START + 2 * DAY_MILLISECONDS },
       { ...WINDOWED, id: 'device-3', label: '掉线的手机', credentialExpiresAt: START - 1 },
@@ -499,7 +541,7 @@ describe('PairingPanel', () => {
         return { ok: true, value: [pending] }
       },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     // The mount read is still on the wire, so four seconds of polling must not
     // stack two more reads behind it.
@@ -535,7 +577,7 @@ describe('PairingPanel', () => {
         return { ok: true, value: [pending] }
       },
     })
-    mount({ api: subject })
+    await mount({ api: subject })
 
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     const allow = screen.getByRole('button', { name: '允许' })
@@ -561,7 +603,7 @@ describe('PairingPanel', () => {
   })
 
   it('shows the MAC address a device resolved at approval', async () => {
-    mount({ api: fakeApi({ devices: { ok: true, value: [
+    await mount({ api: fakeApi({ devices: { ok: true, value: [
       { ...WINDOWED, macAddress: '48:a7:3c:f1:87:18' },
     ] } }) })
 
@@ -570,7 +612,7 @@ describe('PairingPanel', () => {
   })
 
   it('renames a device inline, committing on Enter and cancelling on Escape', async () => {
-    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const subject = await mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
 
     fireEvent.click(within(row).getByRole('button', { name: '重命名' }))
@@ -600,7 +642,7 @@ describe('PairingPanel', () => {
   })
 
   it('consumes the Escape that cancels an inline rename', async () => {
-    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const subject = await mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
 
     const label = await waitFor(() => screen.getByText('客厅的手机'))
     const row = label.closest('li')!
@@ -622,7 +664,7 @@ describe('PairingPanel', () => {
   it('re-schedules a device from a preset and from an arbitrary day count', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(START))
-    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const subject = await mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
 
     const label = await waitFor(() => screen.getByText('客厅的手机'))
     const row = label.closest('li')!
@@ -662,7 +704,7 @@ describe('PairingPanel', () => {
   it('states the revoke guidance and reports a refused re-schedule', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(START))
-    const subject = mount({ api: fakeApi({
+    const subject = await mount({ api: fakeApi({
       devices: { ok: true, value: [WINDOWED] },
       setLifetime: { ok: false, reason: 'failed' },
     }) })
@@ -679,7 +721,7 @@ describe('PairingPanel', () => {
   })
 
   it('keeps the listed devices when the re-read after a re-schedule fails', async () => {
-    const subject = mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
+    const subject = await mount({ api: fakeApi({ devices: { ok: true, value: [WINDOWED] } }) })
     const row = (await waitFor(() => screen.getByText('客厅的手机'))).closest('li')!
     subject.devices.mockResolvedValue({ ok: false, reason: 'failed' })
 

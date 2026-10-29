@@ -1,0 +1,5 @@
+- dialog "连接手机":
+  - heading "连接手机" [level=2]
+  - button "关闭"
+  - paragraph: 用手机扫码，在同一网络中打开 dsh。
+  - paragraph: 请打开启动器提供的认证链接来管理配对。已配对设备不能管理其他设备

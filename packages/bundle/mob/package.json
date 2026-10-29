@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-typert-protocol": "workspace:*",
+    "ipaddr.js": "^2.5.0",
     "zod": "^4.4.3"
   },
   "peerDependencies": {

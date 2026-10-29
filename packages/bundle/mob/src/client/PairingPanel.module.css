@@ -7,6 +7,15 @@
   gap: 20px;
 }
 
+.queryState {
+  display: flex;
+  min-height: 128px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 /* The standalone generate button stretches; in-row primaries stay compact. */
 .panel > .primary {
   justify-content: center;

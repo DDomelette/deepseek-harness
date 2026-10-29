@@ -1,7 +1,7 @@
 /**
  * The Connect-phone row in General settings: the title and the pill button that
- * opens the pairing panel. Opening the panel is what asks the Host for a code,
- * so a deployment without LAN access learns that from the panel's own copy.
+ * opens the pairing panel. The panel verifies operator access before offering
+ * code generation and explains which phone address the deployment needs.
  */
 import { useState } from 'react'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -18,12 +18,10 @@ const contentFitClass = css.contentFit ?? ''
 /* v8 ignore next -- the css module always defines the class; the fallback satisfies the index-signature type. */
 const scrollClass = css.scroll ?? ''
 
-/** Injected business face: the join-URL read, the loopback gate, and the pairing routes. */
+/** Injected business face: the join-URL read and the operator-authenticated pairing routes. */
 export interface ConnectPhoneRowInjected {
   /** Ask the Host for the LAN origin a pairing link is built on. */
   joinUrl: () => Promise<RemoteResult<string>>
-  /** Whether this page is the loopback surface that may decide a pairing request. */
-  canDecide: boolean
   /** The pairing routes' client half. */
   api?: PairingApi | undefined
 }
@@ -39,7 +37,7 @@ export type ConnectPhoneRowComponentProps =
  * @param props - composed slot props.
  * @returns the row element tree.
  */
-export function ConnectPhoneRow({ t, joinUrl, canDecide, api }: ConnectPhoneRowComponentProps) {
+export function ConnectPhoneRow({ t, joinUrl, api }: ConnectPhoneRowComponentProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -59,7 +57,7 @@ export function ConnectPhoneRow({ t, joinUrl, canDecide, api }: ConnectPhoneRowC
         className={dialogClass}
         contentClassName={`${contentFitClass} ${scrollClass}`}
       >
-        {open && <PairingPanel t={t} joinUrl={joinUrl} canDecide={canDecide} api={api} />}
+        {open && <PairingPanel t={t} joinUrl={joinUrl} api={api} />}
       </Modal>
     </div>
   )
