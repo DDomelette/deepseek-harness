@@ -58,11 +58,16 @@ interface PendingRequest {
  * listeners; {@link close} detaches them and rejects pending requests without
  * destroying the streams. Missing request handlers return `-32601`; handler
  * failures return `-32603`. Notifications without a handler are dropped.
+ *
+ * The transport holds one terminal state: after {@link close}, an input end or
+ * error, or an output error, pending requests fail with that cause and later
+ * requests reject with it instead of waiting for a response that cannot come.
  */
 export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   private buffer = ''
   private readonly decoder = new StringDecoder('utf8')
   private started = false
+  private terminated: Error | undefined
   private requestHandler: RequestHandler | undefined
   private notificationHandler: NotificationHandler | undefined
   private readonly pending = new Map<JsonRpcId, PendingRequest>()
@@ -72,13 +77,14 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
     private readonly output: Writable,
   ) {}
 
-  /** Attach the input listeners and begin reading frames. Idempotent. */
+  /** Attach the input and output listeners and begin reading frames. Idempotent. */
   start(): void {
     if (this.started) return
     this.started = true
     this.input.on('data', this.onData)
     this.input.on('error', this.onInputError)
     this.input.on('end', this.onInputEnd)
+    this.output.on('error', this.onOutputError)
   }
 
   /**
@@ -88,7 +94,8 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
     this.input.off('data', this.onData)
     this.input.off('error', this.onInputError)
     this.input.off('end', this.onInputEnd)
-    this.failPending(new Error('JSON-RPC transport closed'))
+    this.output.off('error', this.onOutputError)
+    this.fail(new Error('JSON-RPC transport closed'))
   }
 
   /**
@@ -119,6 +126,9 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
    * @returns the result; rejects per {@link JsonRpcTransportPeer.request}.
    */
   request(method: string, params: object, signal?: AbortSignal): Promise<unknown> {
+    // A terminated transport has no peer left to answer: without this the entry
+    // would wait for a response that can never arrive.
+    if (this.terminated !== undefined) return Promise.reject(this.terminated)
     const id = `req_${randomUUID().replaceAll('-', '')}`
     const message = { jsonrpc: '2.0', id, method, params }
     return new Promise((resolve, reject) => {
@@ -156,6 +166,8 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   notify(method: string, params?: object): void {
+    // Dropped after termination: the channel that would carry it is gone.
+    if (this.terminated !== undefined) return
     this.write(params === undefined ? { jsonrpc: '2.0', method } : { jsonrpc: '2.0', method, params })
   }
 
@@ -189,13 +201,22 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private readonly onInputError = (error: Error): void => {
-    this.failPending(error)
+    this.fail(error)
   }
 
   private readonly onInputEnd = (): void => {
     this.buffer += this.decoder.end()
     this.drainLines()
-    this.failPending(new Error('JSON-RPC input closed'))
+    this.fail(new Error('JSON-RPC input closed'))
+  }
+
+  /**
+   * An asynchronous write failure (a peer that closed its read end) arrives as
+   * an 'error' event on the output stream. No response can follow it, and the
+   * input side reports nothing, so every waiter fails here.
+   */
+  private readonly onOutputError = (error: Error): void => {
+    this.fail(error)
   }
 
   private async handleLine(line: string): Promise<void> {
@@ -259,6 +280,12 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
 
   private write(message: Record<string, unknown>): void {
     this.output.write(`${JSON.stringify(message)}\n`)
+  }
+
+  /** Record the first terminal cause and fail every waiter with it. */
+  private fail(error: Error): void {
+    this.terminated ??= error
+    this.failPending(error)
   }
 
   private failPending(error: Error): void {

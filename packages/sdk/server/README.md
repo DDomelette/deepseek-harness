@@ -31,6 +31,8 @@ Mount this plugin when a runtime must serve SDK clients: add it to a `cordis.yml
 
 The plugin creates one agent per `sessionId` on first use. A registered model adapter wins the route; an unowned `deepseek-official` route mounts the DeepSeek adapter, and any other unowned provider fails initialization. The selected adapter resolves the exact model and optional reasoning effort before initialization succeeds.
 
+A launcher that provides `appReady` controls when the transport starts: no request is read before the complete startup audit succeeds. Without that service the transport starts immediately. Initialization also waits for the current Loader tree to settle, including asynchronous adapter and MCP registration.
+
 ### Configuration
 
 | Field | Default | Meaning |

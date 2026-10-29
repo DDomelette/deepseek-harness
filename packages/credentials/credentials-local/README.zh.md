@@ -143,7 +143,6 @@ records:
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 提供方：层解析、严格文档解析、写锁下的引用与记录写路径、watcher 生命周期、权限检查 |
-| — | 未发布运行时不变式配套入口；Service Definition 的配套入口（`dsh-credentials/invariant`）负责 `credentials/reference-updated` 生命周期约定；本提供方的文件与环境分层属于异步 I/O，并由其单元测试套件加以约束。 |
 
 ### 解析与写入路径
 
@@ -212,3 +211,5 @@ YAML 解析器自己的消息会引用出错的那行源码，而在这份文档
 OS 钥匙串提供方——一种模型进程根本无法读取的存储——是同 UID 限制的延后答案，应当作为平级包与本提供方并列。seam 的接口还为辅助命令与 KMS 后端提供方预留了空间；目前没有任何一种随附。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本提供方仅贡献文件型的 `ctx.credentials` 实现：按优先级顺序读取启动器快照、`.credentials.yaml` 存储文件与 `.env` 后备层，并在写锁下写入引用与记录。提供方契约与更新事件由 `dsh-credentials` 服务定义持有。

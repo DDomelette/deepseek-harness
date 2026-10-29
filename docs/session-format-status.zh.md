@@ -22,7 +22,23 @@
 
 产品的 alpha、beta 或 release-candidate 发布都会确立已发布 Session 格式的义务。GitHub 的 prerelease 标记不会让持久化用户数据成为可丢弃数据。缺少发布记录不代表尚未发布。[版本与真源决策](../.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.zh.md)拥有兼容性决策；[已发布格式迁移](../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)拥有不可变代际与相邻转换规则。
 
+<a id="finalization-record"></a>
+
 <a id="release-record"></a>
+## 定稿记录
+
+```yaml session-format-finalization
+latestFinalizedVersion: 4
+```
+
+V4 的已接受兼容性基线保存在[检查点](persistence-changes/finalized/v4.json)中。满足[读取器兼容性规则](persistence-changes/README.zh.md#compatibility-rules)并记录所需评审时，schema 变更可以保留 V4。升版本决策要求更高的写入器版本及自身的头版本转换，不能复用已接受的 3→4 转换。已接受的机器记录与变更后 schema 保持不可变。
+
+定稿不冻结 V4 之后的每项新增，也不表示已发布。下方发布记录保留独立验证的已发布版本。普通注释、别名、源码位置，以及保留已接受含义的实现修复，不改变该基线。
+
+最终 [V3 词汇](cookbook/adding-a-session-format-version.zh.md#final-v3-vocabulary)保持为历史定义，与当前 V4 新增事件无关。
+
+<a id="release-record"></a>
+
 ## 发布记录
 
 ```yaml session-format-release

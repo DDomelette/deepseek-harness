@@ -7,7 +7,7 @@ import {
   spawnPipedProcess,
 } from '../src/index.ts'
 import { CREATE_SUSPENDED } from '../src/abi.ts'
-import { PROCESS_INFORMATION } from '../src/ffi.ts'
+import { processInformationType, startupInfoType } from '../src/ffi.ts'
 import type { NativePtr, Win32ProcessBindings } from '../src/index.ts'
 
 const PVOID = koffi.pointer('void')
@@ -24,7 +24,7 @@ function inheritedApi(overrides: Partial<Win32ProcessBindings> = {}): {
     overrides.createProcessAsUserW
     ?? ((_token, _app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, _startup, info) => {
       events.push('create')
-      koffi.encode(info, PROCESS_INFORMATION, {
+      koffi.encode(info, processInformationType(), {
         hProcess: 60n,
         hThread: 61n,
         dwProcessId: 1234,
@@ -166,7 +166,7 @@ describe('spawnInheritedJobProcess', () => {
       closeHandle,
       terminateProcess,
       createProcessAsUserW: vi.fn((_token, _app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, _startup, info) => {
-        koffi.encode(info, PROCESS_INFORMATION, {
+        koffi.encode(info, processInformationType(), {
           hProcess: 60n,
           hThread: 0n,
           dwProcessId: 1234,
@@ -222,7 +222,7 @@ describe('wait and pipe cleanup', () => {
       }),
       setHandleInformation: vi.fn(() => 1),
       createProcessAsUserW: vi.fn((_token, _app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, _startup, info) => {
-        koffi.encode(info, PROCESS_INFORMATION, {
+        koffi.encode(info, processInformationType(), {
           hProcess: 60n,
           hThread: 0n,
           dwProcessId: 1234,
@@ -241,4 +241,30 @@ describe('wait and pipe cleanup', () => {
     })).toThrow('null process/thread handles')
     expect(terminateProcess).toHaveBeenCalledWith(60n, 1)
   })
+})
+
+it('inherits fd 7 through the restricted-token CRT table and releases temporary inheritance', () => {
+  let bytes: Buffer | undefined
+  const descriptor = vi.fn(() => 107n as NativePtr)
+  const flags = vi.fn(() => 1)
+  const { api } = inheritedApi({
+    uvGetOsfhandle: descriptor,
+    getFileType: vi.fn(() => 3),
+    setHandleInformation: flags,
+    createProcessAsUserW: (_token, _app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, startup, info) => {
+      const fields = koffi.decode(startup, startupInfoType()) as { cbReserved2: number; lpReserved2: NativePtr }
+      bytes = Buffer.from(koffi.decode(fields.lpReserved2, 'uint8', fields.cbReserved2) as number[])
+      koffi.encode(info, processInformationType(), { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
+      return 1
+    },
+  })
+  expect(spawnInheritedJobProcess(api, {
+    command: 'probe.exe', args: [], cwd: 'C:\\work', token: 70n as NativePtr, controlFileDescriptor: 7,
+  })).toEqual({ pid: 1234, process: 60n, job: 50n })
+  expect(descriptor).toHaveBeenCalledWith(7)
+  expect(bytes?.readUInt32LE(0)).toBe(8)
+  expect(bytes?.[4 + 7]).toBe(9)
+  expect(bytes?.readBigUInt64LE(12 + 7 * 8)).toBe(107n)
+  expect(flags).toHaveBeenCalledWith(107n, 1, 1)
+  expect(flags).toHaveBeenCalledWith(107n, 1, 0)
 })

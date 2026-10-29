@@ -63,7 +63,9 @@ export class DeepSeekHarness implements AsyncDisposable {
    * with a new subprocess unless {@link close} already ended this harness. If
    * cleanup also fails, rejects with an `AggregateError` whose ordered errors
    * preserve both causes and retains the failed client rather than spawning
-   * alongside a process whose exit was not proved.
+   * alongside a process whose exit was not proved. A call that arrives while a
+   * failed handshake is still being cleaned up awaits that same operation and
+   * observes its failure, rather than starting the client being closed.
    * @returns settlement of the (memoized) handshake.
    */
   start(): Promise<void> {
@@ -78,16 +80,24 @@ export class DeepSeekHarness implements AsyncDisposable {
           ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
         })
       } catch (error) {
-        this.initialized = undefined
+        let cleanupError: unknown
         try {
           await this.clientInstance.close()
-        } catch (cleanupError: unknown) {
+        } catch (failure: unknown) {
+          cleanupError = failure
+        }
+        if (!this.closed && cleanupError === undefined) this.clientInstance = this.createClient()
+        // Cleared only once cleanup and replacement are done: a caller arriving
+        // during cleanup must await this same handshake instead of starting the
+        // client that is being closed. "HarnessClient.close" is permanent, so
+        // reusing it here would fail that caller for no reason of its own.
+        this.initialized = undefined
+        if (cleanupError !== undefined) {
           throw new AggregateError(
             [error, cleanupError],
             'DeepSeek Harness initialization and cleanup failed',
           )
         }
-        if (!this.closed) this.clientInstance = this.createClient()
         throw error
       }
     })()
@@ -165,6 +175,25 @@ export class HarnessSession {
    * @param id - the wire session id this handle runs on.
    */
   constructor(readonly harness: DeepSeekHarness, readonly id: string) {}
+
+  /**
+   * Read the effective directory and recover a missing directory to the Session origin.
+   * @returns the absolute directory used by new independent operations.
+   */
+  async getWorkingDirectory(): Promise<string> {
+    await this.harness.start()
+    return this.harness.client.getWorkingDirectory(this.id)
+  }
+
+  /**
+   * Change the effective directory without moving existing processes or changing permissions.
+   * @param path - absolute or Session-current-directory-relative directory.
+   * @returns the validated absolute directory.
+   */
+  async setWorkingDirectory(path: string): Promise<string> {
+    await this.harness.start()
+    return this.harness.client.setWorkingDirectory(this.id, path)
+  }
 
   /**
    * Queue one prompt, then observe the whole session through its next idle.
@@ -260,8 +289,12 @@ function validatedTurnEndReason(value: unknown): TurnEndReason {
   return value as unknown as TurnEndReason
 }
 
-/** Validate the fields in a wire `session.event` envelope before returning the typed result. */
-function validatedSessionEvent(value: unknown): SessionEvent {
+/**
+ * Validate the event envelope and assistant/turn fields consumed by SDK readers.
+ * @param value - the raw `session.event` event payload.
+ * @returns the event, or throws a protocol error for malformed consumed fields.
+ */
+export function validatedSessionEvent(value: unknown): SessionEvent {
   if (!isRecord(value) || typeof value.type !== 'string') {
     throw new SdkProtocolError(`session.event carried no event envelope: ${JSON.stringify(value)}`)
   }

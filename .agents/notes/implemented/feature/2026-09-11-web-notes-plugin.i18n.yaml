@@ -1,6 +1,97 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-11-web-notes-plugin.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-11-web-notes-plugin.md
-2026-09-11-web-notes-plugin.md: f44e5e55507bc0669b76b4a86f19ab7df1b1dc31
-2026-09-11-web-notes-plugin.zh.md: 755d995e9e1179864cb397c3d1733f74bec5a6d6
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation:
+  en: bfa73ee0d0bd72b1
+  zh: b97c1ea88b20261a
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/problem:
+  en: 4745b52b6f6fa4cb
+  zh: 289210e02970cd04
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision:
+  en: ff3a6487d07672f6
+  zh: 123abc03487a30ab
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/notes-question-and-answer-runs-through-a-real-session:
+  en: 606db589a7f2f1a3
+  zh: 409f3cdaf5109f64
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/thread-attribution-records-user-message-ids:
+  en: 71c09c02758dfba5
+  zh: 76229d218d85b2c5
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/both-strategies-submit-and-a-follow-up-uses-the-notes-conversation:
+  en: c89d3149e1999ce9
+  zh: 790ea813308e47d0
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-submission-settles-with-the-turn-that-carried-it:
+  en: 96560a1adf542cc4
+  zh: cd1e7f083817aaac
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-settlement-reaches-the-panel-as-a-forwarded-host-event:
+  en: 4f502d88e0c7ab83
+  zh: 47390d5c0b75d35e
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-thread-draws-both-sides-as-markdown:
+  en: a0dc10160fb4ff82
+  zh: 77847b626ed028d0
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-concurrent-analysis-claims-its-material-on-the-domain-write-chain:
+  en: 07c519e5591f76d8
+  zh: ec2d4853f761c371
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-last-notes-conversation-cannot-be-archived:
+  en: 368823f6836c21ea
+  zh: 2ede144ffe945879
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-new-conversation-joins-the-deployment-s-default-preset:
+  en: 37ec51d9e2d94a15
+  zh: 6d45fcfbdf2e86fe
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-notes-directory-is-a-workspace-and-each-conversation-is-named:
+  en: 4ef87041f8930be1
+  zh: f8b98e011fe1ad0f
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/one-store-instance-serves-the-panel-and-the-bubble:
+  en: 40f288665bd3a25f
+  zh: b3c3656b7b4c2ffc
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/one-service-opens-the-notes-domain:
+  en: 958fd8caf82a07c6
+  zh: 1b563db01fab1cbd
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/remote-operations-report-refusals-instead-of-throwing:
+  en: f187a3f755373307
+  zh: 0ea847349d489ec3
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-remote-namespace-declares-the-services-it-reaches:
+  en: 81a2a518b4ca567a
+  zh: 77b865372555950b
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-panel-is-a-tab-type-that-reads-only-through-the-remote-namespace:
+  en: 916743623f37ad43
+  zh: 2f01370f6f131de3
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-directory-field-offers-the-host-s-own-chooser-and-browses-when-there-is-none:
+  en: ad5884b155819aa5
+  zh: 8761f67fdd640a91
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-model-override-names-a-route-the-deployment-serves:
+  en: e7d69f0b889db32e
+  zh: 135f887353980854
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-selection-feature-is-picked-named-and-prompted:
+  en: eaa99f7d0c0905f3
+  zh: a0b5f3eb590af3c3
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-header-corner-holds-more-than-one-control:
+  en: b7a8cd629c2e687d
+  zh: aa6304a47dd8369c
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/collecting-a-passage-needs-a-seat-over-the-conversation:
+  en: 01219790f006fec3
+  zh: a3e3eaa5305cdc7d
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/the-locate-entry-renders-where-there-is-a-source-to-open:
+  en: b4ab1fc063806ad4
+  zh: 274ad52b11d43345
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/a-screenshot-keeps-the-reference-not-the-bytes:
+  en: 26ab1a2f04d45441
+  zh: 7d5f06ffed1f3a6a
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/decision/thread-attribution-is-tested-as-a-pure-function:
+  en: 833ebabc564d3e71
+  zh: 07a11ea2e66893a3
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/dependency-policy-exceptions:
+  en: e7da214a86fcd9bb
+  zh: 609448fd93261352
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/alternatives-considered:
+  en: 43e05d9e4877bbec
+  zh: e740bcfcc9b3c86d
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/consequences:
+  en: ab496cb0e3f51d2f
+  zh: 2bd102364b8d9e43
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/testing:
+  en: 4cc7797025fdb794
+  zh: 5b61250276f884d0
+/agent-note-the-web-notes-plugin-keeps-materials-and-answers-each-in-its-own-conversation/related:
+  en: 9b478cf395b42c5e
+  zh: c3267239317af674

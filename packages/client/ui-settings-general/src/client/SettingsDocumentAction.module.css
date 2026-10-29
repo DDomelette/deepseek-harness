@@ -11,10 +11,10 @@
   display: none;
 }
 
-/* Handset single-pane header (back + section title + this action + close in
-   one bar): the pill trades its label for the glyph; the accessible name
-   stays on the button's aria-label. The breakpoint stays in step with
-   SETTINGS_PANE_BREAKPOINT. */
+/* Handset single-pane header (back + section name + this action + close on one
+   bar): the pill trades its label for the glyph so it no longer squeezes the
+   section name; the accessible name stays on the button's aria-label. The
+   breakpoint stays in step with SETTINGS_PANE_BREAKPOINT. */
 @media (max-width: 767px) {
   .actionIcon {
     display: inline-flex;

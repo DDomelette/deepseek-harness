@@ -5,6 +5,7 @@
  * messages.
  */
 
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -56,6 +57,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-'))
     ctx = new Context()
+    provideWorkingDirectoryFixture(ctx, dir)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: dir })
@@ -314,6 +316,7 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-bare-'))
     ctx = new Context()
+    provideWorkingDirectoryFixture(ctx, dir)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: dir })
@@ -382,6 +385,7 @@ describe('per-session cwd', () => {
     dir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-cfg-'))
     sessionDir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-session-'))
     ctx = new Context()
+    provideWorkingDirectoryFixture(ctx, dir)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: dir }) // config.cwd = dir, NOT sessionDir
@@ -427,6 +431,7 @@ describe('signal, concurrency, and the fs/observed contract', () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-'))
     ctx = new Context()
+    provideWorkingDirectoryFixture(ctx, dir)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: dir })

@@ -20,8 +20,8 @@ export interface ArchivedRow {
   /** Agent preset the session's agent was composed from, when the deployment labels it. */
   readonly agentPreset?: string
   /**
-   * ISO-8601 archive instant; absent for sessions archived before the host
-   * recorded archive times.
+   * ISO-8601 archive instant; absent for a Session archived before the registry
+   * recorded instants, which the row renders as unknown.
    */
   readonly archivedAt?: string
 }

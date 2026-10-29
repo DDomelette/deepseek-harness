@@ -71,7 +71,7 @@ describe('session pins service', () => {
     ])
   })
 
-  it('prunes an unpinned session from both orders while retaining other groups', async () => {
+  it('prunes an unpinned session from every order while retaining other groups', async () => {
     const { ctx: loaded } = await boot()
     await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true })
     await loaded.sessionPins.setPinned({ sessionId: 's2', pinned: true })
@@ -80,8 +80,40 @@ describe('session pins service', () => {
     await loaded.sessionPins.reorderFlat({ orderedIds: ['s2', 's1'] })
     await loaded.sessionPins.setPinned({ sessionId: 's3', pinned: true })
     expect(await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: false })).toEqual({
-      pinnedSessionIds: ['s2', 's3'], groupOrder: { shared: ['s2'] }, flatOrder: ['s2'],
+      pinnedSessionIds: ['s2', 's3'], groupOrder: { shared: ['s2'] }, flatOrder: ['s2', 's3'],
     })
+  })
+
+  it('keeps the flat order a permutation of the pin set through pin, reorder, and unpin', async () => {
+    const { ctx: loaded } = await boot()
+    const views = () => {
+      const snapshot = loaded.sessionPins.list()
+      return { pinned: [...snapshot.pinnedSessionIds], flat: [...snapshot.flatOrder] }
+    }
+    // The flat order starts as the complete pin set, so a reorder of what the
+    // client reads back is always a reorder the Host accepts.
+    expect(views()).toEqual({ pinned: [], flat: [] })
+    await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true })
+    await loaded.sessionPins.setPinned({ sessionId: 's2', pinned: true })
+    expect(views()).toEqual({ pinned: ['s1', 's2'], flat: ['s1', 's2'] })
+
+    // Re-pinning a pinned Session neither duplicates it nor moves it.
+    await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true })
+    expect(views()).toEqual({ pinned: ['s1', 's2'], flat: ['s1', 's2'] })
+
+    await loaded.sessionPins.reorderFlat({ orderedIds: ['s2', 's1'] })
+    expect(views()).toEqual({ pinned: ['s1', 's2'], flat: ['s2', 's1'] })
+
+    // A Session pinned after the reorder still enters the flat view, at the end
+    // its group and flat order have not placed it yet.
+    await loaded.sessionPins.setPinned({ sessionId: 's3', pinned: true })
+    expect(views()).toEqual({ pinned: ['s1', 's2', 's3'], flat: ['s2', 's1', 's3'] })
+    await expect(loaded.sessionPins.reorderFlat({ orderedIds: views().flat }))
+      .resolves.toMatchObject({ flatOrder: ['s2', 's1', 's3'] })
+
+    // Unpinning leaves both views naming the same pinned Sessions.
+    await loaded.sessionPins.setPinned({ sessionId: 's2', pinned: false })
+    expect(views()).toEqual({ pinned: ['s1', 's3'], flat: ['s1', 's3'] })
   })
 
   it('rejects incomplete, unknown, and repeated flat order entries without losing pins', async () => {
@@ -93,7 +125,7 @@ describe('session pins service', () => {
     }
     await expect(loaded.sessionPins.reorderGroup({ groupKey: '', orderedIds: ['s1', 's1'] }))
       .rejects.toBeInstanceOf(SessionPinsInvalidError)
-    expect(loaded.sessionPins.list()).toEqual({ pinnedSessionIds: ['s1', 's2'], groupOrder: {}, flatOrder: [] })
+    expect(loaded.sessionPins.list()).toEqual({ pinnedSessionIds: ['s1', 's2'], groupOrder: {}, flatOrder: ['s1', 's2'] })
   })
 
   it('bounds Remote ids, group keys, and order lists before writing', async () => {

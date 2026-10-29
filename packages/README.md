@@ -38,10 +38,14 @@ Every package lives in exactly one group; new packages join existing groups, and
 | [`llm/`](llm/README.md) | LLM capability family: abstract service + provider adapters |
 | [`e2b/`](e2b/README.md) | E2B remote-runtime providers |
 | [`subprocess/`](subprocess/README.md) | Subprocess capability family: Service Definition + local process-tree provider |
+| [`ssh/`](ssh/README.md) | POSIX remote connection with paired filesystem, subprocess and sandbox providers |
 | [`shell/`](shell/README.md) | Bash capability family: executor seam, local impl, model-facing tools |
 | [`terminal/`](terminal/README.md) | Persistent PTY capability family: owner-scoped sessions, local implementation, model-facing tools |
-| [`code-runtime/`](code-runtime/README.md) | Code-execution capability family: Service Definition + worker-thread provider + PTC mode Consumer |
+| [`ptc-runtime/`](ptc-runtime/README.md) | PTC execution capability family: Service Definition + sandboxed Node provider + PTC mode Consumer |
+| [`computer-use/`](computer-use/README.md) | Exclusive named desktop-provider registration |
+| [`browser-use/`](browser-use/README.md) | Exclusive named browser-provider registration |
 | [`sandbox/`](sandbox/README.md) | Process-confinement seam; bwrap/Landlock/Seatbelt backends |
+| [`deliverables/`](deliverables/README.md) | Turn deliverables: explicit file delivery and recorded workspace changes |
 | [`fs/`](fs/README.md) | Filesystem capability family: seam, local impl, model-facing file tools, discovery tools |
 | [`lsp/`](lsp/README.md) | LSP capability family: seam, generic stdio provider, and the `lsp` tool |
 | [`skill/`](skill/README.md) | Skill capability family: provider registry, local provider, model-facing catalog/loader |
@@ -50,7 +54,7 @@ Every package lives in exactly one group; new packages join existing groups, and
 | [`subagent/`](subagent/README.md) | Subagent capability family: provider-registry contract and model-facing delegation tools |
 | [`jobs/`](jobs/README.md) | Generic background-job runtime and model-facing job control tools |
 | [`experimental/`](experimental/README.md) | Private prototypes and internal-only plugins |
-| [`workflow/`](workflow/README.md) | Workflow seam, worker-thread engine, and model-facing `workflow`/`ralph` tools |
+| [`workflow/`](workflow/README.md) | Workflow seam, PTC process engine, and the model-facing `workflow`/`ralph` tools |
 | [`webhook/`](webhook/README.md) | Verified external events, trusted rules, and fire-and-forget Workspace Sessions |
 | [`web/`](web/README.md) | Web capability family: seam, search/fetch providers, model-facing web tools |
 | [`attachment/`](attachment/README.md) | Durable attachment identity, validation, local content-addressed storage |
@@ -62,7 +66,6 @@ Every package lives in exactly one group; new packages join existing groups, and
 | [`guard/`](guard/README.md) | Loop-hygiene guards: advisory repeat-call reminders + the `tools/execute` deadline enforcer |
 | [`bundle/`](bundle/README.md) | Installable `dsh --profile` patch layers |
 | [`extensions/`](extensions/README.md) | Agent runtime self-modification: live plugin/service inspection and model-written mount/unmount |
-| [`hooks/`](hooks/README.md) | Hook bridges + the shared Claude Code / Codex wire-protocol library |
 | [`session/`](session/README.md) | Durable session data plane: persistence seam + backends, projection seam, log-backed titles, session reporting |
 | [`session-query/`](session-query/README.md) | Session retrieval family: logical corpus, bounded reads, lineage, semantic filtering, SQLite full-text search |
 | [`settings/`](settings/README.md) | User-settings seam + file-backed provider |

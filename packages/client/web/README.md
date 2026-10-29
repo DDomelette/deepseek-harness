@@ -27,7 +27,7 @@ English | [中文](README.zh.md)
 
 Use it when you assemble the browser application: `apps/web`'s Vite entry runs `new AppWebEntry(container).run()` against the mount point, and the boot page carries the user through activation. Ordinary browser callers pass no options. A pre-injected page transport is the default ahead of the `seams` override: when `globalThis.__DSH_TRANSPORT__` carries `loadBundle`, the module stage adopts it as the bundle transport and skips the immediate-tier HTTP prefetch, while explicit `seams` still win (for example jsdom tests, where external `<script>` execution cannot reach the page context).
 
-`run()` installs the browser floor (`src/compat.ts`) before it imports any bundle: `AbortSignal.any`, the ES2025 `Iterator` global, and `Promise.withResolvers`, each skipped when the engine already provides it. The floor also subscribes to `orientationchange` and forces the shell root's `env(safe-area-inset-*)` padding to re-resolve, because some Android WebView builds keep reporting a stale, oversized top inset after a landscape→portrait rotation, shifting in-flow content down while fixed chrome stays put. Bundles, and the third-party code they carry, call those APIs unconditionally, while a LAN deployment of `dsh web` also serves the shell over plain HTTP to phone engines that predate them.
+`run()` installs the browser compatibility floor before waiting for readiness or loading bundles: missing `AbortSignal.any`, `Promise.withResolvers`, and the `Iterator` prototype carrier are supplied without replacing native implementations. Static application pages install `__DSH_BOOT_READY__` before the entry runs. The boot page renders immediately while `run()` waits; the page owner applies the Host rows with `applyIndexInjections` (also exported from `./injections`) and resolves the deferred after all scripts finish. A rejected deferred renders a boot failure unless the caller supplies `run(onFailure)` to present the error externally while retaining the loading page. Desktop uses this callback to request native recovery. Desktop and WebWorker share the injection interpreter; server-side `tapIndex` HTML transforms apply only to served documents.
 
 The shell base styles apply automatic CJK/Latin spacing to ordinary content in supporting browsers. Semantic code and terminal, diff, read, and search output containers retain literal source spacing and column alignment; browsers without `text-autospace` support ignore both declarations.
 
@@ -37,7 +37,7 @@ Boot runs in two stages: the module stage adopts the parser-loaded bootstrap bat
 
 ### The boot page
 
-The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows one spinner node whose CSS arc grows as entries activate, and reports per-entry status. The spinner and its animation phase persist until the full UI replaces the boot page. A plugin that fails import or activation is reported by name with the reason (missing service, import error, or state) instead of a blank page.
+The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows one spinner node whose CSS arc grows as entries activate, and reports per-entry status. The spinner and its animation phase persist until the full UI replaces the boot page. A plugin that fails import or activation is reported by name with the reason (missing service, import failure, or state) instead of a blank page. The console contains the original import error.
 
 ### The shared module table
 
@@ -51,6 +51,8 @@ The package accepts no plugin config of its own; the generated [configuration ca
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
+
+Menus use the shared `MenuSurface` material, including the macOS backing for background blur; custom content follows the [menu rules](../../../docs/web-styling.md#component-rules).
 
 <details>
 <summary>Implementation internals — click to expand</summary>
@@ -69,16 +71,21 @@ The kernel owns exactly three things: the module system, the Cordis Loader, and 
 
 The boot page is plain DOM with local CSS whose fallback fonts and colors match the theme tokens that arrive during loading. `internal/status` events drive one spinner node and per-entry labels; hydration preserves the node and animation phase through the application commit, and `fail()` renders the thrown reason. React mounting, slot rendering, and assembly live in `ui-renderer`; `ui-layout` owns the assembled browser-title projection.
 
+The boot kernel delegates manifest entry creation to Client Modules so live graph synchronization owns the same entry identities after startup. The initial activation audit remains strict; later page-local failures appear in Settings → Plugins → Plugin list.
+
 ### Source map
 
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Library entry: `AppWebEntry`, `getStaticModules`, platform tables |
-| [`src/boot.ts`](src/boot.ts) | `AppWebEntry`: two-stage boot, activation audit, renderer handoff |
+| [`src/boot.ts`](src/boot.ts) | `AppWebEntry`: module stage, boot page, immediate-tier prefetch, window drag-rect watcher install, then `bootClient` + `mountClient` |
+| [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`: Loader mount, one entry per manifest row, activation audit |
+| [`src/mount.ts`](src/mount.ts) | `mountClient`: renderer handoff through a `uiRenderer` dependency fiber |
 | [`src/boot-page.ts`](src/boot-page.ts) | Framework-free boot page: spinner, per-entry status, failure rendering |
-| [`src/compat.ts`](src/compat.ts) | Browser floor: APIs the bundles expect from a newer engine, plus the safe-area inset re-resolution after rotation |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`: the implicit external baseline |
 | [`src/seed.ts`](src/seed.ts) | Static module table handed to the loader at boot |
+| [`src/window-drag/regions.ts`](src/window-drag/regions.ts) | The darwin app-region composition model, and the interactive selector `base.css` subtracts |
+| [`src/window-drag/recall.ts`](src/window-drag/recall.ts) | The shell's one window drag-rect watcher (electron/electron#32341): measure the marked rows per frame and pulse the recall mark while they move |
 
 </details>
 
@@ -114,7 +121,6 @@ None; this package neither assembles nor sends a provider request.
 These limits define what the boot kernel does not support. They are current package constraints, not a task backlog.
 
 - **The application waits for the full roster** — one failed entry keeps the framework-free boot page visible with a per-entry report; partial UI availability is not supported.
-- **The browser floor names its APIs by hand** — a bundle that calls another API newer than the engines the shell is served to (for example `Object.groupBy`) fails on those engines until its definition joins `src/compat.ts`; nothing notices the omission.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -122,8 +128,8 @@ These limits define what the boot kernel does not support. They are current pack
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-None.
+[Browser floor for the Web shell](../../../.agents/notes/implemented/bug-fix/2026-09-12-browser-floor-for-the-web-shell.md) owns the supported APIs and installation order.
 
+
+**Runtime invariant:** No companion is published. The browser boot reads and writes process-local page state — the boot manifest, the module loader queue, and the window-drag marks it installs — and owns no durable or cross-process relationship whose independent observations could diverge.
 </details>
-
-**Runtime invariant:** No companion is published. The Vite entry shell provides boot glue and module-table seeding, emits no Cordis events, and holds no cross-plugin mutable state; the boot chain (loading page → settled → one-flip UI) is verified by the web smoke e2e against the real carrier.

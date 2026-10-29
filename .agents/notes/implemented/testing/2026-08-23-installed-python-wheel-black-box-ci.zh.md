@@ -16,9 +16,13 @@ Python SDK 单元测试驱动 fake peer，而打包运行时工作流可以在�
 
 黑盒测试会拒绝非 venv 进程、仓库内工作目录、源码或 editable import、不相等的 distribution 版本、未精确固定运行时版本的 SDK 依赖、位于已安装运行时包之外的可执行文件，以及未出现在运行时 distribution 记录中的可执行文件。该来源校验发生在首个 agent 请求之前，因此行为通过也不能掩盖实际运行了错误代码。
 
+SDK transport 等待启动器的 `appReady` 信号后才读取请求，因此必需插件加载失败时，不会与成功的 `initialize` 响应发生竞态。初始化还会等待 Loader 收敛，覆盖异步 adapter 与 MCP 注册。没有启动器就绪服务的 context 会立即提供服务。
+
 ### Keyless 行为
 
-每个目标都会在安装后运行完整的打包运行时场景。一个本地 SSE mock 模型提供确定性输出，公开 SDK 则覆盖默认 SDK profile、有序 patch overlay、通过 `dsh plugin` 安装外部 bundle、持久 PTY 与 editor 行为、worker thread 代码与 workflow 执行、基于 ripgrep 的搜索、外部 stdio MCP 发现与执行、模型可见及持久化快照、Zstandard 持久化、直接 JSON-RPC 与关闭。Restart 快照针对同一持久化根目录启动两个完整 SDK 运行时进程，并固定其彼此隔离的模型历史、高层结果与独立持久日志。安装后运行取代 wheel 构建前的源码 SDK 运行，因此可执行文件与 wheel 包共同接受一次验证，而不是维护两套行为清单。
+每个目标都会在安装后运行完整的打包运行时场景。一个本地 Messages SSE mock 模型提供确定性输出，公开 SDK 则覆盖默认 SDK profile、有序 patch overlay、通过 `dsh plugin` 安装外部 bundle、持久 PTY 与 editor 行为、进程隔离的 PTC 代码与 workflow 执行、基于 ripgrep 的搜索、外部 stdio MCP 发现与执行、模型可见及持久化快照、Zstandard 持久化、直接 JSON-RPC 与关闭。Restart 快照针对同一持久化根目录启动两个完整 SDK 运行时进程，并固定其彼此隔离的模型历史、高层结果与独立持久日志。安装后运行取代 wheel 构建前的源码 SDK 运行，因此可执行文件与 wheel 包共同接受一次验证，而不是维护两套行为清单。
+
+高级 profile 选择 `ptc`：线上唯一可直接调用的工具是 `run_code`，每项最终能力必须出现在当前生成的 SDK 中。直接委派只确认 activation；测试通过公开的 `session/wait` 请求等待自动完成回合。场景插件会让该子代理等到父会话结束确认回合且请求日志持久化后再执行；嵌套 workflow 子代理则跟随父会话的持久目录，而非顶层 workflow 进度事件。快照替换只覆盖本方拥有的不透明消息 id 与临时路径，包括 JSON 转义的 Windows 路径；调用 id、结果内容和业务 id 保持原值。计算检查要求精确结果：错误文本即使包含相同数字也必须失败。
 
 Linux 另外保留 manylinux 2.28 干净安装冒烟测试与 GLIBC 检查。macOS 保留部署目标与原生 helper 检查。这些平台约束补充共同黑盒行为，不能替代它。
 

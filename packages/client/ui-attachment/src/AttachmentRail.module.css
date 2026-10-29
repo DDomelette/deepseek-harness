@@ -33,7 +33,7 @@
   padding: 0;
   overflow: hidden;
   border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
-  border-radius: 16px;
+  border-radius: var(--dsw-radius-xl);
   background: var(--dsw-alias-interactive-bg-hover);
   cursor: zoom-in;
 }
@@ -106,6 +106,14 @@
   background: var(--dsw-alias-interactive-bg-hover-solid);
 }
 
+.arrowLeft {
+  left: 4px;
+}
+
+.arrowRight {
+  right: 4px;
+}
+
 /* Composer-floor opt-out (see ComposerAttachments.module.css): the paging
    arrows keep their drawn 24px size; a transparent hit centered on each
    preserves the 44px touch target. */
@@ -120,12 +128,4 @@
     position: absolute;
     inset: -10px;
   }
-}
-
-.arrowLeft {
-  left: 4px;
-}
-
-.arrowRight {
-  right: 4px;
 }

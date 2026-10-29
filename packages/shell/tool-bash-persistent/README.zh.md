@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+新 shell 从 Session 的当前工作目录启动。创建后，shell 的目录与环境独立保留，不受后续 Session 目录切换影响。
+
 在 agent 需要在命令之间保持 shell 状态的任何组合中加载本插件——例如长时间构建会话、已激活的环境，或为后续步骤导出变量的脚本。它注册 `bash` 工具，需要 `ctx.tools` 与 `ctx.terminals` 服务，并在执行时需要拥有者 agent 会话。
 
 ### 何时选择
@@ -56,7 +58,7 @@ kind: "package-reference"
 
 ### 可能出什么问题
 
-没有拥有者 agent 会话的调用会以 `bash requires an owning agent session` 失败，没有 PTY 后端的组合会激活该工具，但首次调用以 `no PTY backend registered for "shell"` 失败。交互式前台子进程（例如 REPL）只有在后端证明其 stdin 等待时才提前返回部分输出；否则调用一直运行到 `timeoutMs`，随后关闭不确定的 shell 并报告重置。取消也会重置并丢弃结果，即使完整状态标记已经可观察。
+没有拥有者 agent 会话的调用会以 `bash requires an owning agent session` 失败，没有 PTY 后端的组合会激活该工具，但首次调用以 `no PTY backend registered for "shell"` 失败。交互式前台子进程（例如 REPL）只有在后端证明其 stdin 等待时才提前返回部分输出；否则调用一直运行到 `timeoutMs`，随后关闭不确定的 shell 并报告重置。取消也会重置并丢弃结果，即使完整状态标记已经可观察。清理完成后，ToolRuntime 发布 `Error: tool call aborted`，错误码为 `ABORTED`；取消原因不作为命令输出渲染。排队期间被取消的调用不发送命令。
 
 -----
 
@@ -80,7 +82,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：shell 注册表、命令包装、scrollback 轮询、提取与渲染 |
-| — | 不发布运行时不变式伴生入口；适配器私有的 owner-to-shell 缓存没有可观察的事件或数据关系。shell 复用仍可通过工具执行观察。生命周期测试会验证其清理行为，无需仅为不变式增加公共 API。 |
 
 ### 命令流程
 
@@ -157,3 +158,5 @@ kind: "package-reference"
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。该工具注册 `bash`，并为每个 agent 保留一个限定所有者范围的 `ctx.terminals` 会话与一条串行队列；PTY 生命周期与回滚缓冲由 terminal 服务持有，进程行为由 `shell` 后端持有。

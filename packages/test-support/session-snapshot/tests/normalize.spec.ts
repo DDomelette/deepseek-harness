@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
+import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import {
   type NormalizeContext,
   extractSnapshotSpillPaths,
   normalizeSessionLog,
-  normalizeSessionFormatProvenance,
+  normalizeSessionFormatMetadata,
   normalizeSessionSnapshot,
   normalizeSessionSnapshots,
   normalizeStdout,
@@ -152,6 +154,31 @@ describe('normalizeStdout', () => {
       path: '{{cwd}}/nested/proof.txt',
       regex: String.raw`\d+\w+`,
       command: String.raw`printf "\\n"`,
+    })
+  })
+
+  it('scrubs the JSON-escaped spelling of a Windows cwd in model-visible text', () => {
+    const windowsCtx: NormalizeContext = {
+      sessionIds: [],
+      cwd: String.raw`C:\Users\runner\AppData\Local\Temp\acp-snapshot`,
+    }
+    // Model-visible text quotes the directory with JSON.stringify, so a Windows
+    // spelling reaches the transcript with every separator doubled.
+    const escaped = windowsCtx.cwd.replaceAll('\\', '\\\\')
+    const raw = JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'session/update',
+      params: {
+        context: `Current working directory: ${JSON.stringify(windowsCtx.cwd)}.`,
+        marker: `<path>${escaped}\\escalated.md</path>`,
+      },
+    })
+    const frame = JSON.parse(normalizeStdout(raw, windowsCtx)) as {
+      params: { context: string; marker: string }
+    }
+    expect(frame.params).toEqual({
+      context: 'Current working directory: "{{cwd}}".',
+      marker: '<path>{{cwd}}/escalated.md</path>',
     })
   })
 
@@ -706,7 +733,7 @@ describe('normalizeSessionSnapshot', () => {
           message: {
             id: 'v2-to-v3-system-590b72aa4994fd6d3c6e61bb4bf5bf2f80bae0bc7564d388378ba4f51b816fd6',
             role: 'system',
-            source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+            source: { kind: 'system-prompt' },
             content: [],
           },
         },
@@ -753,13 +780,80 @@ describe('normalizeSessionSnapshot', () => {
       .toThrow('session snapshot must start with a session header')
   })
 
-  it('preserves delivery and captured-source generations after artifact migration', () => {
+  function deliveryLog(version: number, deliveryVersion = version, id = 'delivery'): string {
+    return [
+      { type: 'session', version, id, createdAt: 1, isSeeded: false, delegationDepth: 0 },
+      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
+      {
+        type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
+        data: { sessionId: id, throughSeq: 0, sessionFormatVersion: deliveryVersion },
+      },
+    ].map(record => JSON.stringify(record)).join('\n') + '\n'
+  }
+
+  it('compares each strictly restored input using its own native delivery generation', () => {
+    const [historical, current] = normalizeSessionSnapshots(
+      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION)], ctx, { nativeWriterOutput: true },
+    )
+    expect(historical).toBe(current)
+    expect(current).toContain('"sessionFormatVersion":"{{sourceSessionFormatVersion}}"')
+    expect(normalizeSessionSnapshot(deliveryLog(SESSION_FORMAT_VERSION), ctx))
+      .toContain(`"sessionFormatVersion":${SESSION_FORMAT_VERSION}`)
+  })
+
+  it('keeps source-versus-migrated-artifact delivery comparison generation-exact by default', () => {
+    const source = deliveryLog(3)
+    const target = prepareSessionSnapshotFixtureForComparison(source)
+    const [historical, migrated] = normalizeSessionSnapshots([source, target], ctx)
+    expect(historical).toBe(migrated)
+    expect(migrated).toContain('"sessionFormatVersion":3')
+  })
+
+  it('keeps a wrong native delivery generation distinguishable from historical writer output', () => {
+    const [historical, staleCurrent] = normalizeSessionSnapshots(
+      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION, 3)], ctx, { nativeWriterOutput: true },
+    )
+    expect(staleCurrent).not.toBe(historical)
+    expect(staleCurrent).toContain('"sessionFormatVersion":3')
+  })
+
+  it('refuses source delivery claiming V4 before creating comparison tokens', () => {
+    expect(() => normalizeSessionSnapshots([deliveryLog(3, 4)], ctx, { nativeWriterOutput: true }))
+      .toThrow('format v3 delivery marker claims target format v4')
+  })
+
+  it('retains future delivery generations without renaming their event identity', () => {
+    const source = deliveryLog(3, 99, 'recorded-session')
+    const target = prepareSessionSnapshotFixtureForComparison(source)
+    const marker = JSON.parse(target.trimEnd().split('\n').at(-1)!) as unknown
+    expect(marker).toEqual({
+      type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
+      data: { sessionId: 'recorded-session', throughSeq: 0, sessionFormatVersion: 99 },
+    })
+    const [historical, migrated] = normalizeSessionSnapshots([source, target], ctx, { nativeWriterOutput: true })
+    expect(historical).toBe(migrated)
+    expect(historical).toContain('"sessionFormatVersion":99')
+    expect(historical).not.toContain('{{sourceSessionFormatVersion}}')
+  })
+
+  it('keeps captured generations and delivery lookalikes numeric in versioned inputs', () => {
+    const log = deliveryLog(SESSION_FORMAT_VERSION) + JSON.stringify({
+      type: 'custom/event', seq: 2, time: 3, ignorable: true,
+      data: { capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION },
+    }) + '\n'
+    const [normalized] = normalizeSessionSnapshots([log], ctx, { nativeWriterOutput: true })
+    expect(normalized).toContain(JSON.stringify({
+      capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION,
+    }))
+  })
+
+  it('preserves delivery and captured-source generations without a validated source generation', () => {
     const event = (version: number): string => JSON.stringify({
       type: 'session-log-deepseek/delivery-accepted',
       data: { sessionId: 's', throughSeq: 4, sessionFormatVersion: version },
     })
-    expect(normalizeSessionFormatProvenance(event(0))).toBe(event(0))
-    expect(normalizeSessionFormatProvenance(event(3))).not.toBe(normalizeSessionFormatProvenance(event(0)))
+    expect(normalizeSessionFormatMetadata(event(0))).toBe(event(0))
+    expect(normalizeSessionFormatMetadata(event(3))).not.toBe(normalizeSessionFormatMetadata(event(0)))
   })
 
   it('preserves opaque generation qualifiers and their lookalikes', () => {
@@ -841,7 +935,7 @@ describe('normalizeSessionSnapshot', () => {
       type: 'user/message',
       data: { source: { kind: 'session-reference', form: 'recall', version: 1, references: {} } },
     })
-    expect(normalizeSessionFormatProvenance(raw)).toBe(raw)
+    expect(normalizeSessionFormatMetadata(raw)).toBe(raw)
   })
 
   it('keeps session-reference lookalikes outside Message source positions unchanged', () => {
@@ -862,12 +956,12 @@ describe('normalizeSessionSnapshot', () => {
       '',
     ].join('\n')
 
-    const normalized = normalizeSessionFormatProvenance(lookalike).split('\n')
+    const normalized = normalizeSessionFormatMetadata(lookalike).split('\n')
     expect(JSON.parse(normalized[0] as string)).not.toHaveProperty('version')
     expect(normalized[1]).toBe(lookalike.split('\n')[1])
   })
 
-  it('projects persisted provenance ranges back to logical seq arrays', () => {
+  it('projects persisted source-event ranges back to logical seq arrays', () => {
     const raw = [
       JSON.stringify({ type: 'session', version: 0 }),
       JSON.stringify({
@@ -887,6 +981,20 @@ describe('normalizeSessionSnapshot', () => {
 })
 
 describe('tokenizeSessionFixtureCwd', () => {
+  it('uses the live cwd when the restored Session header is already tokenized', () => {
+    const cwd = '/tmp/fresh-replay-workspace'
+    const raw = [
+      JSON.stringify({ type: 'session', version: SESSION_FORMAT_VERSION, cwd: '{{cwd}}' }),
+      JSON.stringify({ type: 'user/message', data: { content: [{ type: 'text', text: `read ${cwd}/input.txt` }] } }),
+      '',
+    ].join('\n')
+    const context = { sessionIds: [], cwd }
+    const normalized = tokenizeSessionFixtureCwd(raw, context)
+    expect(normalized).toContain('read {{cwd}}/input.txt')
+    expect(normalized).not.toContain(cwd)
+    expect(tokenizeSessionFixtureCwd(normalized, context)).toBe(normalized)
+  })
+
   it.each([
     {
       name: 'macOS',
@@ -1087,6 +1195,17 @@ describe('scrubModelRequestBulk', () => {
 })
 
 describe('scrubSessionSnapshot', () => {
+  it('writes expanded source-event references and remains idempotent', () => {
+    const input = [
+      { type: 'session', id: 's' },
+      { type: 'assistant/message', sourceEventSeqs: [[1, 3], 5], surfaceOp: 'append', data: { turn: 1, step: 1 } },
+    ].map(record => JSON.stringify(record)).join('\n')
+
+    const output = scrubSessionSnapshot(input)
+    expect(output).toContain('"sourceEventSeqs":[1,2,3,5]')
+    expect(scrubSessionSnapshot(output)).toBe(output)
+  })
+
   it('writes stable feedback clocks while retaining notes and version identity', () => {
     const input = [
       { type: 'session', id: 's' },
@@ -1151,6 +1270,23 @@ describe('scrubSystemPrompts', () => {
 })
 
 describe('scrubToolSchemas', () => {
+  it('retains historical tool names when developer messages reference declarations', () => {
+    const header = JSON.stringify({ type: 'request/header', data: { header: { tools: [
+      { name: 'search', description: 'Full schema', parameters: {} },
+      { name: 'fetch', description: 'Fetch schema', parameters: {} },
+    ] } } })
+    const update = JSON.stringify({ type: 'developer/message', data: {
+      headerSeq: 0, message: { content: [{ type: 'tool-addition', toolName: 'fetch' }] },
+    } })
+    const out = scrubToolSchemas(`${header}\n${update}\n`)
+    expect(JSON.parse(out.split('\n')[0]!)).toEqual({
+      type: 'request/header', data: { header: { tools: ['search', 'fetch'] } },
+    })
+    expect(out.split('\n')[1]).toBe(update)
+    expect(out).not.toContain('Full schema')
+    expect(scrubToolSchemas(out)).toBe(out)
+  })
+
   it('scrubs only tool-schema payloads while keeping prompts verbatim', () => {
     const header = JSON.stringify({
       type: 'request/header', seq: 1, time: 2,

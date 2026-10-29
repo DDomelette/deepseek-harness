@@ -85,7 +85,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：`Config`、`LocalSpillStore` 服务、清理生命周期、定位信息与取回提示的组装 |
 | [`src/cleanup.ts`](src/cleanup.ts) | 一次性按年龄扫描、文件系统身份检查、符号链接和所有权保护 |
 | [`src/store.ts`](src/store.ts) | 与 Cordis 无关的存储机制：私有根目录、会话目录、安全名称编码、排他写入 |
-| — | 不发布运行时不变式伴生入口；除由所属 seam 强制执行的约定外，本包不暴露独立事件序列或可变数据关系。 |
 
 ### 文件命名与写入
 
@@ -140,3 +139,5 @@ kind: "package-reference"
 取回模型假定模型的 `read`/`grep` 工具可以检查返回的路径，即使 spill 目录在会话工作目录之外。未来的工作区隔离策略必须显式允许本地 spill 路径，或者改用非文件 spill 后端。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。此后端仅贡献 `ctx.spillStore` 实现，把超大文本写入私有的会话级文件并运行启动清理；spill 决策与预览由 `@deepseek-ai/dsh-spill-policy` 持有，seam 契约由 `@deepseek-ai/dsh-spill` 持有。

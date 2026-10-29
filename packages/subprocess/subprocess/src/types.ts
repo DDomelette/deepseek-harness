@@ -7,7 +7,7 @@
  * @module dsh-subprocess/types
  */
 
-import type { Readable, Writable } from 'node:stream'
+import type { Duplex, Readable, Writable } from 'node:stream'
 
 /** Namespace prefix reserved for DeepSeek Harness-managed child environment facts. */
 export const DSH_ENV_PREFIX = 'DSH_' as const
@@ -64,6 +64,8 @@ export interface SubprocessStdio {
   stdin: SubprocessStdinMode
   stdout: SubprocessOutputMode
   stderr: SubprocessOutputMode
+  /** Request a separate byte-mode duplex channel; omission creates none. */
+  control?: 'pipe'
 }
 
 /**
@@ -120,9 +122,9 @@ export interface SubprocessOutcome {
 
 /** One incremental {@link SubprocessOutputReader.readFrom} read. */
 export interface SubprocessOutputRead {
-  /** Stream text from the requested offset (the whole retained tail when lossy). */
+  /** Stream text from the requested offset (the whole retained tail when lossy), ending at a complete UTF-8 character. */
   text: string
-  /** Whole-stream offset to resume from on the next read. */
+  /** Whole-stream offset to resume from on the next read: the end of the returned text. */
   nextOffset: number
   /** True when the requested offset slid out of the in-memory tail window. */
   lossy: boolean
@@ -141,7 +143,9 @@ export interface SubprocessOutputReader {
   /**
    * Read everything captured since `fromByte`. When that offset has slid out
    * of the in-memory tail window the read is `lossy` — it returns the whole
-   * retained tail and the gap is only recoverable from the spill file.
+   * retained tail and the gap is only recoverable from the spill file. A read
+   * ends at the last complete UTF-8 character: text still arriving byte by
+   * byte is returned whole by the read that completes it.
    * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 for the first read).
    * @returns the delta text, the next offset, the `lossy` flag, and the spill path when one exists.
    */
@@ -171,6 +175,8 @@ export interface SubprocessHandle {
   readonly stdout: Readable | undefined
   /** The child's raw stderr, present iff spawned with `stderr: 'pipe'`. */
   readonly stderr: Readable | undefined
+  /** Separate caller-owned byte channel when requested; native startup failure may leave it absent. */
+  readonly control: Duplex | undefined
   /** Offset-based readers for collect-mode streams (also readable after exit). */
   readonly collected: SubprocessCollectedOutputs
   /** Resolves with spawned-command exit facts; rejects for spawn or provider failures. */
@@ -198,6 +204,14 @@ export interface SubprocessHandle {
  */
 export type SubprocessTerminalSignal = 'SIGINT' | 'SIGTERM' | 'SIGKILL' | 'SIGTSTP' | 'SIGHUP'
 
+/** Shell-selection facts from the subprocess provider's execution environment. */
+export interface SubprocessTerminalEnvironment {
+  /** Operating-system family that interprets executable paths and shell arguments. */
+  platform: 'posix' | 'windows'
+  /** Login or environment-selected shell, when the provider can resolve one. */
+  defaultShell?: string
+}
+
 /** A fully specified terminal-process spawn. */
 export interface SubprocessTerminalSpawnSpec {
   /** Executable and arguments; `argv[0]` is the program. */
@@ -210,6 +224,10 @@ export interface SubprocessTerminalSpawnSpec {
   rows: number
   /** Initial terminal column count. */
   cols: number
+  /** Terminal emulation advertised to the child through TERM. */
+  terminalType: string
+  /** Request supported interactive-shell lifecycle observation; unsupported launches report unknown activity. */
+  shellActivity?: boolean | undefined
   /** TERM-to-KILL cleanup grace for the complete terminal session. */
   graceMs: number
   /** Cancellation of terminal allocation; a published handle owns its later lifetime. */
@@ -224,6 +242,13 @@ export interface SubprocessTerminalForeground {
   inputWaiting: boolean
 }
 
+/** Provider observation of shell lifecycle and surviving owned jobs. */
+export interface SubprocessTerminalActivity {
+  /** Idle requires positive prompt evidence and no observed foreground, background, or stopped jobs. */
+  state: 'idle' | 'busy' | 'unknown'
+  /** Changes with input, shell transitions, and changed process observations; scoped to this handle. */
+  revision: number
+}
 /**
  * One live terminal process and its owned OS session. Terminal allocation,
  * foreground-group inspection/signalling, and whole-session quiescence are one
@@ -246,7 +271,18 @@ export interface SubprocessTerminalHandle {
    * Inspect the current foreground process group.
    * @returns its id and input-wait fact, or undefined when no foreground group can be resolved.
    */
+  /**
+   * Change the terminal dimensions and notify its foreground application.
+   * @param cols - positive terminal column count.
+   * @param rows - positive terminal row count.
+   */
+  resize(cols: number, rows: number): Promise<void>
   inspectForeground(): Promise<SubprocessTerminalForeground | undefined>
+  /**
+   * Observe command activity without interpreting output or treating silence as completion.
+   * @returns a fresh observation; unsupported shells and incomplete observations report unknown.
+   */
+  inspectActivity(): Promise<SubprocessTerminalActivity>
   /**
    * Deliver a signal to the current foreground process group.
    * @param signal - permitted terminal signal.

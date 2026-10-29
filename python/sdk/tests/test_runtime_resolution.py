@@ -36,7 +36,7 @@ def test_explicit_mode_wins_over_env_mode(monkeypatch: pytest.MonkeyPatch) -> No
         args = resolve_bundled_launch_args("exe")
     except FileNotFoundError:
         return  # explicit 'exe' was honored; only the artifact is missing
-    assert args[0].endswith(("-x64", "-arm64"))
+    assert Path(args[0]).stem.endswith(("-x64", "-arm64"))
 
 
 def test_runtime_requires_spawn_helper_only_on_macos(

@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-16-pinned-sessions.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-16-pinned-sessions.md
-2026-08-16-pinned-sessions.md: 81651a0a8bb1f62bfa86d5180ec96fa4e5ec171c
-2026-08-16-pinned-sessions.zh.md: db4bc2085de82ccda865e40f191170d955e78084
+/agent-note-pinned-sidebar-sessions:
+  en: 27920be6b8cbe6f6
+  zh: b4013f2e3b3f2a6e
+/agent-note-pinned-sidebar-sessions/problem:
+  en: b0cc444494b3d634
+  zh: 1d359b30f55e21a9
+/agent-note-pinned-sidebar-sessions/decision:
+  en: c7f63fb9a9bc4fe9
+  zh: 366e92805b1aa6c6
+/agent-note-pinned-sidebar-sessions/alternatives-considered:
+  en: 193f4870c5b15314
+  zh: 2bb0998518f14617
+/agent-note-pinned-sidebar-sessions/consequences:
+  en: d162ab3c45f84f5b
+  zh: a53034bae372e6a5
+/agent-note-pinned-sidebar-sessions/testing:
+  en: 6357f86ece1a2da6
+  zh: 5dcf1ec851bb6241

@@ -2,7 +2,7 @@
  * Build the dsh executables and development Node carrier for the Python runtime wheel. The fixed
  * `@yao-pkg/pkg --sea` route, deploy flags, and artifact layout are owned by
  * .agents/notes/implemented/architecture/2026-07-10-single-file-executable-sdk-runtime-distribution.md.
- * The staged closure is symlink-free, and whole-tree assets cover Cordis's
+ * The staged closure is symlink-free, and GZip-compressed whole-tree assets cover Cordis's
  * runtime imports that pkg cannot discover statically.
  */
 
@@ -243,13 +243,13 @@ function pnpmInvocation(args: string[]): [command: string, args: string[]] {
 }
 
 /**
- * Render a command for logs and errors, quoting arguments with spaces.
+ * Render a command for logs and errors.
  * @param command - the executable.
  * @param args - its arguments.
  * @returns the printable command line.
  */
 function formatCommand(command: string, args: string[]): string {
-  return [command, ...args].map(part => (part.includes(' ') ? JSON.stringify(part) : part)).join(' ')
+  return [command, ...args].join(' ')
 }
 
 /**
@@ -286,17 +286,25 @@ class SingleExeBuild {
     }
     if (this.cli.dryRun) console.log(`build-exe-for-python-sdk: [dry-run] rm -rf ${this.staging}`)
     else await rm(this.staging, { recursive: true, force: true })
-    await this.runPnpm('deploy', [
-      '--filter',
-      DEPLOY_ROOT_PACKAGE,
-      'deploy',
-      '--legacy',
-      '--prod',
-      '--config.node-linker=hoisted',
-      '--config.auto-install-peers=false',
-      '--config.link-workspace-packages=true',
-      this.staging,
-    ])
+    try {
+      await this.runPnpm('deploy', [
+        '--filter',
+        DEPLOY_ROOT_PACKAGE,
+        'deploy',
+        '--legacy',
+        '--prod',
+        // Production deployment omits workspace tooling such as Electron's patched signer.
+        '--config.allow-unused-patches=true',
+        '--config.node-linker=hoisted',
+        '--config.auto-install-peers=false',
+        '--config.link-workspace-packages=true',
+        '--config.hoist-workspace-packages=false',
+        this.staging,
+      ])
+    } finally {
+      // Legacy deploy records production-only workspace state; restore the development installation before exec.
+      await this.runPnpm('restore development dependencies', ['install', '--offline', '--frozen-lockfile', '--prod=false', '--ignore-scripts'])
+    }
     await this.restoreLegacyHoists()
     await this.materializeStagedLinks()
     if (this.cli.dryRun) {
@@ -428,6 +436,8 @@ class SingleExeBuild {
       'pkg',
       this.staging,
       '--sea',
+      '--compress',
+      'GZip',
       '--targets',
       target.spec,
       '--output',

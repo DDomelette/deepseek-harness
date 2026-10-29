@@ -1,6 +1,61 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/bundle/mob/README.md
-README.md: a0cf273713b4a41096425515479f9a3d74093321
-README.zh.md: 6a1088d4ce4abf71ab8b4a64c0f3921dd027f79c
+/:
+  en: d905b492433ce3b5
+  zh: 2f75d6dd8dfcf1c8
+/deepseek-ai-dsh-mob:
+  en: 1012ee29c7eed762
+  zh: 4992330be446537d
+/deepseek-ai-dsh-mob/summary:
+  en: f6f1d371861726d9
+  zh: 2206a3bc8675f6a0
+/deepseek-ai-dsh-mob/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-mob/use-this-package:
+  en: bbff250eba0f1b89
+  zh: 0a618f05cc88ee2b
+/deepseek-ai-dsh-mob/use-this-package/starting-the-lan-surface:
+  en: 13ca6c3368057137
+  zh: f5943d5f1a70a6fe
+/deepseek-ai-dsh-mob/use-this-package/handing-off-from-a-desktop-session:
+  en: 82bd127708ea14e5
+  zh: 6e82a9341a94a9fe
+/deepseek-ai-dsh-mob/use-this-package/pairing-a-phone:
+  en: 5c4fcbdf2fd5fc8e
+  zh: 8ac2a5a02547e65f
+/deepseek-ai-dsh-mob/use-this-package/coming-back-after-a-revocation:
+  en: 766c3c847aeb9346
+  zh: 4ee0aa7b3aa400f1
+/deepseek-ai-dsh-mob/use-this-package/what-you-get:
+  en: 821a07fb2cbbe485
+  zh: b486d88cfadcdc8f
+/deepseek-ai-dsh-mob/understand-the-implementation:
+  en: de04eb7eb119fcf0
+  zh: 5d04b2c0dad16b5f
+/deepseek-ai-dsh-mob/understand-the-implementation/the-advertised-origin:
+  en: 52f4a83a094d68f7
+  zh: 19992501fcae466c
+/deepseek-ai-dsh-mob/understand-the-implementation/source-map:
+  en: 1de6db617e4aa0ea
+  zh: c3179cdbd66162cc
+/deepseek-ai-dsh-mob/understand-the-implementation/invariant-ownership:
+  en: 97a557242fbf975d
+  zh: 839e3bc8f91ab69e
+/deepseek-ai-dsh-mob/further-exploration:
+  en: 31f4e70febc837be
+  zh: f9f5fecf1548d324
+/deepseek-ai-dsh-mob/model-experience:
+  en: e4b223af7c5fa7f9
+  zh: a181cb7cd25c7610
+/deepseek-ai-dsh-mob/model-experience/kv-cache-effect:
+  en: d8b0c6e2c02a1b09
+  zh: 2036cc4da8dee521
+/deepseek-ai-dsh-mob/known-limitations-and-deferred-work:
+  en: d69554b6c551f4d3
+  zh: a6e65bb4416b3095
+/deepseek-ai-dsh-mob/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

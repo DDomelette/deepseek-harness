@@ -1,0 +1,9 @@
+version: 1
+scenario: cordis-registration-conflict
+profile: headless
+composition: cordis-registration-conflict
+recording: authored
+header:
+  class: dynamic
+  pin: true
+  changes: 3

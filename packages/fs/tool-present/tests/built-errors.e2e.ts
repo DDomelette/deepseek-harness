@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 const root = await mkdtemp(join(tmpdir(), 'present-built-'))
 const ctx = new Context()
+ctx.provide('workingDirectory', { ensure: () => Promise.resolve(root) })
 try {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -32,7 +33,7 @@ try {
   const scope = ctx.plugin(() => {})
   const session = Session.create('built-present', [], { version: SESSION_FORMAT_VERSION, id: 'built-present', createdAt: 0, cwd: root, isSeeded: false })
   const owner = { id: 'built-present', session, ctx: scope.ctx, options: {}, status: 'idle' }
-  ctx.agents.register(owner)
+  await ctx.agents.register(owner)
   const events = []
   ctx.on('tools/result', (_exec, result) => events.push(result))
   let n = 0

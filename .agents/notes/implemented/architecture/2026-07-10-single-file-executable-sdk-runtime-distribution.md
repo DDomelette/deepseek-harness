@@ -21,7 +21,15 @@ The exe is packaged with the **`--sea` (enhanced SEA) mode** of [@yao-pkg/pkg](h
 
 `--sea` requires target ≥ node22; the exe uniformly targets node24. One pkg invocation packages exactly one target; multi-platform builds invoke it once per platform.
 
+The build pipeline starts through `pnpm exec node --import tsx/esm`, which retains pnpm's JavaScript entrypoint metadata without executing a workspace `.cmd` shim. Legacy deploy restores the development installation before packaging and can rewrite those shims; a Windows batch launcher that resumes after its own replacement can fail even when the build child succeeds.
+
+The builder selects `--compress GZip` for the complete asset archive. The runtime closure includes dynamically imported plugins and their resources; removing assets to fit the binary injector would make valid profile compositions fail at runtime. Compression reduces the data passed to the injector while preserving those files. GZip keeps build cost below Brotli's maximum-compression path and is supported by the packaged VFS reader.
+
+The Python packaging entry dispatches the embedded PTC selector to `@deepseek-ai/dsh-ptc-runtime-node/process` before the ordinary CLI. It consumes the private selectors before either worker starts. PTC frame limits are worker arguments; sending them through the CLI would interpret a number as a profile name and leave the managed control channel unserved.
+
 `@yao-pkg/pkg` is an exact-pinned root `devDependency` invoked as `pnpm exec pkg`, with [`patches/@yao-pkg__pkg@6.21.0.patch`](../../../../patches/@yao-pkg__pkg@6.21.0.patch) removing the SEA bootstrap's `patchChildProcess` call. Unpatched, pkg rewrites spawned commands named `node` — including the string after a `-c`/`/c` flag, exactly the Bash tool's `bash -c` form — to the executable itself and stamps `PKG_EXECPATH` into every child environment, so a model-issued `node --version` silently boots the dsh CLI; Node's own SEA layer performs no such rewrite, and a SEA binary cannot impersonate plain Node because it always boots its embedded app. With the call removed, children resolve `node` through PATH like any other process (a machine without Node reports command-not-found honestly), no `PKG_EXECPATH` reaches children, absolute `process.execPath` spawns still re-enter the app, worker threads never applied the hook, and `process.pkg` sidecar selection is untouched.
+
+Node's decompressor requires a positive output limit even when a resource declares zero bytes. The patched SEA reader uses the minimum supported limit and requires an empty result, so zero-byte resources remain readable and corrupt declared-empty entries fail. The source reader, main bootstrap, and embedded worker bootstrap share this rule.
 
 Terminology reminder: pkg's `/snapshot` VFS has nothing to do with this repo's testing-system "snapshot" (ACP replay expected outputs, `$DSH_SNAPSHOT`); this document says "VFS" for the former.
 
@@ -62,7 +70,7 @@ The Python client launches the packaged `dsh` command with the selected profile 
 
 ## Disposition of worker-style plugins
 
-`dsh-workflow-worker-thread` and `dsh-code-runtime-worker-thread` are supported inside the exe. Their built hosts convert the sibling `lib/worker.cjs` URL with `fileURLToPath()` and pass the resulting filesystem string to `Worker`, which is the form pkg's Worker hook resolves inside the VFS. The worker entries are CommonJS because that hook compiles VFS worker files as CommonJS. The workflow engine keeps its data-URL bootstrap for unbuilt source execution; only its built sibling entry uses the filesystem string. The custom-config executable smoke loads both backends, invokes a real `run_code` call and a zero-agent `workflow` call, and requires each worker to return `42` from inside pkg's VFS.
+`dsh-workflow-ptc` sends its self-contained guest program through `dsh-ptc-runtime-node`. The shared provider starts a managed child through the executable's private Node bootstrap dispatch, with a dedicated control channel; no separate workflow worker asset is required. The [sandboxed Node decision](2026-09-11-sandboxed-node-ptc-runtime.md) owns process and policy lifetime, and [workflow sandbox reuse](2026-09-13-workflow-ptc-sandbox-reuse.md) owns the workflow adapter. The custom-config executable smoke loads the backend, invokes a real `run_code` call and a zero-agent `workflow` call, and requires the child to return `42` from inside pkg's VFS.
 
 ## Testing
 
@@ -86,4 +94,4 @@ Manual-driving caveat: the bin treats stdin EOF as "the client is gone" and disp
 
 **Bought**: zero-dependency single-file distribution on target platforms; plugin semantics strictly identical to running from source (the same real package tree, no transpilation, no registry); the serving interface, the plugin set, and the configuration all converge on two sources of truth — `cordis.yml` plus one dependency manifest; the exe and node carriers share one tree and one semantics, so development verification never waits for packaging; official Node binaries remove the patched-binary supply-chain concern.
 
-**Paid**: artifacts on the order of 174MB with source entering the blob as-is (no bytecode obfuscation; a closed-source distribution requirement needs a separate evaluation); pkg's VFS/module-hook layer remains community-maintained (`@yao-pkg/pkg` is an exact-pinned, pnpm-patched root devDependency; upgrading re-records the patch and is an explicit change); `--sea` is one invocation per target (matching CI's one leg per platform; local multi-platform builds are serial).
+**Paid**: artifact size depends on the platform runtime and compressed closure, with source preserved inside the archive (no bytecode obfuscation; a closed-source distribution requirement needs a separate evaluation); compression adds build and file-read work; pkg's VFS/module-hook layer remains community-maintained (`@yao-pkg/pkg` is an exact-pinned, pnpm-patched root devDependency; upgrading re-records the patch and is an explicit change); `--sea` is one invocation per target (matching CI's one leg per platform; local multi-platform builds are serial).

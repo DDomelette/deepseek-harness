@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-21-notes-settings-card-polish.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-21-notes-settings-card-polish.md
-2026-09-21-notes-settings-card-polish.md: 713311363541e1ebe2423a02fedfaf9a0bfcc39d
-2026-09-21-notes-settings-card-polish.zh.md: dc8effb2b18befed6ae0a88b7660db4784e3d7c1
+/agent-note-notes-settings-card-save-timing-and-polish:
+  en: 33a66a7040d89ef8
+  zh: 20ad7ac164c4a929
+/agent-note-notes-settings-card-save-timing-and-polish/problem:
+  en: eac76e9ce28d9cb5
+  zh: 816bf7f75e18d3d9
+/agent-note-notes-settings-card-save-timing-and-polish/decision:
+  en: e3df54de2e3f389f
+  zh: 3c198692f705e6bd
+/agent-note-notes-settings-card-save-timing-and-polish/alternatives-considered:
+  en: e2f2df7ba265896f
+  zh: 7f401b459c97bf7c
+/agent-note-notes-settings-card-save-timing-and-polish/consequences:
+  en: a4c292403c58d502
+  zh: 2d2b682aeaf0f4bc

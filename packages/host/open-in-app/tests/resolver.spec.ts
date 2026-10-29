@@ -17,6 +17,12 @@ import {
   type OpenInAppInternals, type OpenInAppLauncher, type OpenInAppResolvedLaunch,
 } from '../src/resolver.ts'
 
+// Kernel detection stays independent of the machine running this catalog fixture.
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  release: () => '6.8.0-generic',
+}))
+
 const TIMEOUT_MS = 5_000
 
 const roots: string[] = []
@@ -581,15 +587,15 @@ describe('launchResolved', () => {
         },
       }),
     )).resolves.toBe('launched')
-    // The opener is the shipped Invoke-Item channel; the detached spawner never runs.
+    // The opener is the shipped Explorer channel; the detached spawner never runs.
     expect(spawns).toEqual([])
     expect(commands).toEqual([
-      ['powershell.exe', '-NoProfile', '-Command', "Invoke-Item -LiteralPath 'C:\\w\\dir'"],
+      ['explorer.exe', 'file:///C:/w/dir'],
     ])
   })
 
   it('counts a shell-open opener that outlives the watch window as launched, and a fast failure as failed', async () => {
-    // A cold powershell start can outlive the window: still-running counts launched.
+    // A cold shell opener can outlive the window: still-running counts launched.
     await expect(launchResolved(
       { launch: { kind: 'shell-open' } }, '/w/dir', 25,
       bare({ platform: 'darwin', run: () => new Promise(() => {}) }),

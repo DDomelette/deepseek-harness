@@ -21,7 +21,15 @@ exe 使用 [@yao-pkg/pkg](https://github.com/yao-pkg/pkg)（vercel/pkg 归档后
 
 `--sea` 要求构建目标 ≥ node22，exe 统一以 node24 为构建目标；每次 pkg 调用只打包一个构建目标，多平台各调用一次。
 
+构建流水线通过 `pnpm exec node --import tsx/esm` 启动，保留 pnpm 的 JavaScript 入口元数据，同时避免执行 workspace 的 `.cmd` 启动器。legacy deploy 在打包前恢复开发安装时可能重写这些启动器；Windows 批处理启动器若在自身被替换后继续执行，即使构建子进程成功也可能失败。
+
+构建器为完整资源归档选择 `--compress GZip`。运行时闭包包含动态导入的插件及其资源；为了迁就二进制注入器而删减资源，会让有效的 profile 组合在运行时失败。压缩在保留这些文件的同时减少传给注入器的数据。GZip 的构建成本低于 Brotli 的最高压缩路径，打包后的 VFS 读取器也支持它。
+
+Python 打包入口先把嵌入式 PTC 选择器分发到 `@deepseek-ai/dsh-ptc-runtime-node/process`，再处理普通 CLI。任一 worker 启动前都会消费私有选择器。PTC 帧限制属于 worker 参数；若送进 CLI，数字会被解释为 profile 名称，受管控制通道也无人处理。
+
 `@yao-pkg/pkg` 是精确钉版的根 `devDependency`，经 `pnpm exec pkg` 调用，并以 [`patches/@yao-pkg__pkg@6.21.0.patch`](../../../../patches/@yao-pkg__pkg@6.21.0.patch) 移除 SEA bootstrap 中的 `patchChildProcess` 调用。未打补丁时，pkg 会把 spawn 的 `node` 命令——包括 `-c`/`/c` 标志后的命令串，恰是 Bash 工具的 `bash -c` 形态——改写为 exe 自身，并向每个子进程环境注入 `PKG_EXECPATH`，模型下发的 `node --version` 会静默启动 dsh CLI；Node 自身的 SEA 层没有这种改写，且 SEA 二进制永远启动内嵌应用、无法充当纯 Node。移除该调用后，子进程像普通进程一样经 PATH 解析 `node`（无 Node 的机器如实报 command not found），子进程环境不再出现 `PKG_EXECPATH`，以 `process.execPath` 绝对路径 spawn 的重入不受影响，worker 线程本来就未应用该钩子，`process.pkg` 侧车选择也不受影响。
+
+Node 解压器要求输出上限为正数，即使资源声明为零字节。打补丁后的 SEA reader 使用最小受支持上限，并要求解压结果为空，因此零字节资源可正常读取，损坏的声明为空条目会失败。源码 reader、主 bootstrap 与内嵌 Worker bootstrap 采用相同规则。
 
 术语提醒：pkg 的 `/snapshot` VFS 与本仓库测试体系的「快照」（ACP（Agent Client Protocol）回放预期输出、`$DSH_SNAPSHOT`）无关，本文用「VFS」指前者。
 
@@ -62,7 +70,7 @@ Python 客户端使用所选 profile（默认 `sdk`）、有序 patch 文件和�
 
 ## 工作线程插件
 
-exe 内支持 `dsh-workflow-worker-thread` 与 `dsh-code-runtime-worker-thread`。两个后端构建后的宿主都通过 `fileURLToPath()` 转换相邻 `lib/worker.cjs` 的 URL，再将所得文件系统字符串传给 `Worker`；pkg 的 Worker 钩子可以用这种形式解析 VFS 内文件。该钩子会把 VFS 内的工作线程文件作为 CommonJS 编译，所以工作线程入口采用 CommonJS。工作流引擎在未构建的源码执行中仍保留 `data:` URL 引导程序，只有构建后的相邻入口使用文件系统字符串。自定义配置的可执行文件冒烟测试会加载两个后端，实际调用 `run_code` 与不启动 agent（智能体）的 `workflow`，并要求两个工作线程都从 pkg 的 VFS 内返回 `42`。
+`dsh-workflow-ptc` 通过 `dsh-ptc-runtime-node` 发送自包含 guest 程序。共享提供方通过可执行文件的私有 Node bootstrap 分派启动受管子进程，并使用专用控制通道；不需要独立的工作流 worker 资源。[沙箱 Node 决策](2026-09-11-sandboxed-node-ptc-runtime.zh.md)负责进程与策略生命周期，[工作流沙箱复用](2026-09-13-workflow-ptc-sandbox-reuse.zh.md)负责工作流适配器。自定义配置的可执行文件冒烟测试会加载该后端，实际调用 `run_code` 与不启动 agent（智能体）的 `workflow`，并要求该子进程从 pkg 的 VFS 内返回 `42`。
 
 ## 测试
 
@@ -87,4 +95,4 @@ exe 内支持 `dsh-workflow-worker-thread` 与 `dsh-code-runtime-worker-thread`�
 
 **买到的**：目标平台零依赖的单文件分发；插件语义与源码运行严格一致（同一棵真实包树，无转译、无注册表）；对外服务接口、插件集与配置全部收敛到 `cordis.yml` 和一份依赖 manifest 这两个真源；exe 与 `node` 双载体使用同一棵树和相同语义，开发验证无需等待打包；官方 Node 二进制消除了补丁版二进制的供应链顾虑。
 
-**付出的**：产物约 174MB，且源码原样进入 blob（没有字节码混淆；闭源分发诉求需要另行评估）；pkg 的 VFS/模块钩子层仍由社区维护（`@yao-pkg/pkg` 为精确钉版、带 pnpm 补丁的根 devDependency，升级需重录补丁，属显式改动）；`--sea` 每个构建目标调用一次（与 CI 每个平台一个任务相匹配，本地多平台构建串行执行）。
+**付出的**：产物大小取决于平台运行时与压缩后的闭包，源码保留在归档内（没有字节码混淆；闭源分发诉求需要另行评估）；压缩增加构建与文件读取的工作；pkg 的 VFS/模块钩子层仍由社区维护（`@yao-pkg/pkg` 为精确钉版、带 pnpm 补丁的根 devDependency，升级需重录补丁，属显式改动）；`--sea` 每个构建目标调用一次（与 CI 每个平台一个任务相匹配，本地多平台构建串行执行）。

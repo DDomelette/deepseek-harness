@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-18-handset-drawer-restored.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-18-handset-drawer-restored.md
+/agent-note-restore-the-handset-drawer-the-upstream-merge-dropped:
+  en: d7873ba24cb7cbf0
+  zh: 0773566586016274
+/agent-note-restore-the-handset-drawer-the-upstream-merge-dropped/problem:
+  en: aa6ee414bf2b335a
+  zh: 4aed5cab99d99747
+/agent-note-restore-the-handset-drawer-the-upstream-merge-dropped/decision:
+  en: 635b50aa01d2b03a
+  zh: c8ee6bfe208073d6
+/agent-note-restore-the-handset-drawer-the-upstream-merge-dropped/alternatives-considered:
+  en: 195ff815a722ba85
+  zh: a0f77598da577cdf
+/agent-note-restore-the-handset-drawer-the-upstream-merge-dropped/consequences:
+  en: 13b5391ba5683318
+  zh: fb1bb98bdec6b086

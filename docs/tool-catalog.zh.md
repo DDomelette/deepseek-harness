@@ -9,7 +9,7 @@
 
 英文源文件由系统**生成**，并通过 `pnpm run verify-tool-catalog`（`doc-sync`（文档同步门禁）的一部分）验证新鲜度；本中文文件作为经评审对侧通过双语配对维护。与 Cordis 目录（纯源码 AST 处理）不同，英文生成器会在真实上下文中**启动**每个工具插件并读取 `ctx.tools.schemas()`，因为工具 schema 无法通过静态分析完全确定，例如运行时展开的枚举、拼接的描述、由配置决定的名称以及使用原始 JSON Schema 的 MCP 工具。完整性守卫会 glob 匹配 `packages/*/tool-*`；如果生成器的启动 manifest（元数据清单）遗漏任何包，检查就会失败，因此新工具不会在无人察觉的情况下缺少文档。
 
-范围：`packages/*/tool-*` 下已发布的产品工具，每个工具均使用其**默认**配置启动；但如果某个 Config 字段是**必填项**且没有默认值，生成器就必须作出选择，对应包的说明会记录本页展示的是哪个分支。注册的工具**名称**可以是加载时配置，例如 `tool-subagent` 的 `toolName`，因此部署可能以不同名称或额外名称提供某个包；如果存在随产品发布的别名，对应包的说明会予以记录。`examples/` 中的演示工具（例如 `echo`）不在范围内，这与 Cordis 目录仅涵盖包的范围一致。
+范围：`packages/*/tool-*` 下已发布的产品工具，每个工具使用默认配置启动，但对应包的说明可以指定显式启用的能力或必填字段值。注册的工具**名称**可以是加载时配置，例如 `tool-subagent` 的 `toolName`，因此部署可能以不同名称或额外名称提供某个包；如果存在随产品发布的别名，对应包的说明会予以记录。`examples/` 中的演示工具（例如 `echo`）不在范围内，这与 Cordis 目录仅涵盖包的范围一致。
 
 <a id="tool-package-map"></a>
 
@@ -25,7 +25,7 @@
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs at call time for run_in_background` | `tool/call`、`tool/result` | - | bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@deepseek-ai/dsh-tool-jobs`）收集／停止；禁用 `enableRunInBackground` 配置（默认为 true）后，该参数会被完全移除。 |
 | `@deepseek-ai/dsh-tool-present` | `present` | `ctx.tools`, `ctx.fs`, `ctx.sessionProjections` | `tool/call`, `deliverables/presented 在成功的最终结果之后`, `tool/result` | - | 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。 |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs at call time for run_in_background` | `tool/call`、`tool/result` | - | pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@deepseek-ai/dsh-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@deepseek-ai/dsh-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。 |
-| `@deepseek-ai/dsh-tool-cordis` | `cordis_define`、`cordis_inspect_list`、`cordis_inspect_query`、`cordis_inspect_self`、`cordis_run`、`cordis_stop`、`cordis_undefine` | `ctx.tools`、`ctx.dynamicCordisRunner` | `tool/call`、`tool/result`、`process-local dynamic package lifecycle` | - | 不在任何随产品发布的树中，需要显式选择启用；动态 Package 代码可以访问真实运行时，见 .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md。该工具集注入 `@deepseek-ai/dsh-cordis-host-runner` 提供的 `ctx.dynamicCordisRunner`，后者拥有定义注册表和 vm 沙箱；组合缺少它时这些工具不会激活。运行中的 Package 在停止、undefine 或 DSH 重启前可以注册**额外的**模型可见工具；发生这类工具集变化时，系统会记录完整且有变动的请求头。 |
+| `@deepseek-ai/dsh-tool-cordis` | `cordis_define`、`cordis_inspect_list`、`cordis_inspect_query`、`cordis_inspect_self`、`cordis_run`、`cordis_stop`、`cordis_undefine` | `ctx.tools`、`ctx.cordisInspect`、`ctx.systemPrompt and ctx.dynamicCordisRunner when dynamicPlugins is true` | `tool/call`、`tool/result`、`process-local dynamic package lifecycle` | - | 默认工具集提供两个只读检查工具。随产品发布的 Web cordis 预设显式开启 dynamicPlugins；本目录收集完整的显式启用能力。动态工具需要 ctx.systemPrompt 与 ctx.dynamicCordisRunner，由 runner 拥有定义注册表与 vm 沙箱。运行中的 Package 可注册额外的模型可见工具，直到停止、undefine 或 DSH 重启；变化后的请求头会记录工具集变化。 |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。 |
 | `@deepseek-ai/dsh-tool-pwsh-persistent` | `pwsh` | `ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 pwsh 工具，持久 bash 工具的 Windows 对应物；部署组合提供 pwsh 方言的 PTY 后端，并可覆盖面向模型的环境描述。 |
 | `@deepseek-ai/dsh-tool-str-replace-editor` | `str_replace_editor` | `ctx.tools`、`ctx.fs` | `tool/call`、`fs/observed after view presence/absence, edit absence, or successful mutation`、`tool/result` | - | 基于文件系统 seam 的独立查看／创建／唯一字面量替换／按行插入工具；可与任何 shell 或终端接口组合。 |
@@ -33,7 +33,7 @@
 | `@deepseek-ai/dsh-tool-fs-search` | `glob`、`grep` | `ctx.tools`、`ctx.subprocess`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn 随包提供的 ripgrep 二进制文件（`@vscode/ripgrep`），并作为普通前台调用运行，绝不作为后台任务；无需在宿主机安装 `rg`，也不经过 shell 层。本目录使用 `sampleOverCapGlobResults: true`；部署必须显式选择该行为。结果超过上限时，会通过可选的 ctx.spillStore 后端保存完整的格式化列表；在共置部署中，如果后端公开本地路径，返回的定位信息可供后续读取／搜索。 |
 | `@deepseek-ai/dsh-tool-terminal` | `terminal_close`、`terminal_list`、`terminal_open`、`terminal_read`、`terminal_send`、`terminal_signal` | `ctx.tools`、`ctx.terminals`、`ctx.systemPrompt`、`ctx.jobs at call time for run_in_background` | `tool/call`、`tool/result` | - | 这 6 个终端工具需要选择启用，用于补充一次性 bash／文件系统工具。`terminal_send(run_in_background: true)` 会注册到 `ctx.jobs`；schema 不包含 TUI、具名按键序列、BEL、调整尺寸、自动启动和跨 agent 共享。 |
 | `@deepseek-ai/dsh-tool-goal` | `create_goal`、`get_goal`、`update_goal` | `ctx.tools`、`ctx.agents`、`ctx.goals`、`ctx.systemPrompt`、`a calling Agent in an authorized open turn` | `tool/call`、`goal/change for mutations`、`tool/result` | - | create、edit、pause 和 resume 要求直接来自人类的根权限；complete 和 blocked 也接受确切的当前 Goal Round。blocked 的默认下限是 3 个获准的 Round。 |
-| `@deepseek-ai/dsh-schedule` | `schedule_create`、`schedule_delete`、`schedule_list` | `ctx.tools`、`ctx.sessions`、Session 持久化、未来创建的 live 根 Agent | `tool/call`、`schedule/change create or delete`、`tool/result` | - | 仅在选择启用的 Schedule 插件加载后创建的 live 根 Agent scope 内注册。版本 1 接受 after_seconds、显式绝对 at 和有界固定速率 every_seconds，并披露 session-local 交付；管理读取与变更必须通过共享的 Session 持久化 barrier。 |
+| `@deepseek-ai/dsh-tool-schedule` | `schedule_create`、`schedule_delete`、`schedule_list`、`schedule_update` | `ctx.tools`、`ctx.schedule` | `tool/call`、`Schedule storage domain create, update, or delete`、`tool/result` | - | preset 或 Agent 作用域负责挂载本包；由 preset 决定哪些 agent 获得这四个管理工具。每次调用都作用于发起调用的 Agent 的 Session。接受 after_seconds、显式绝对 at、有界固定速率 every_seconds、位于显式 IANA 时区的每日与每周本地时间，以及五字段 cron 表达式。管理使用宿主 storage domain；到期消息会在原 Session 中恢复。 |
 | `@deepseek-ai/dsh-tool-lsp` | `lsp` | `ctx.tools`、`ctx.lsp`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，因此其模型可见 schema 在更换提供方时保持稳定。运行时要求已注册提供方，例如 `@deepseek-ai/dsh-lsp-stdio`；如果没有提供方，查询会返回结构化 `LSP_UNAVAILABLE` 错误，而不会改变 schema。 |
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`、`ctx.workflowEngine`、`ctx.subagents`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents every fresh round)` | `tool/call`、`tool/result`、`workflow and child session events during execution` | - | 固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。 |
 | `@deepseek-ai/dsh-tool-skill` | `skill` | `ctx.tools`、`ctx.agents`、`ctx.skills` | `tool/call`、`tool/result`、`user/message replacement catalogs via agent.inject()` | - | - |
@@ -45,6 +45,409 @@
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
+| `@deepseek-ai/dsh-plugin-manager` | `plugin_manager` | `ctx.tools`, `ctx.pluginManager`, `ctx.sandboxPolicy` | `tool/call`, `tool/result`, `user/message` | - | - |
+| `@deepseek-ai/dsh-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
+| `@deepseek-ai/dsh-experimental-browser-use-stagehand-native` | `stagehand_act`, `stagehand_extract`, `stagehand_navigate`, `stagehand_observe`, `stagehand_screenshot`, `stagehand_tabs` | `ctx.browserUse`, `ctx.agents`, `ctx.tools`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | - |
+| `@deepseek-ai/dsh-tool-working-directory` | `working_directory` | `ctx.tools`, `ctx.workingDirectory` | `tool/call`, `working-directory/change`, `user context for directory changes`, `tool/result` | - | 读取或改变调用方 Session 的目录。已有 shell 和进程保留自己的目录；原始元数据和权限根目录保持不变。 |
+| `@deepseek-ai/dsh-experimental-tool-worktree` | `create_worktree` | `ctx.tools`, `ctx.worktrees`, `a calling Agent` | `tool/call`, `Git branch and checkout`, `working-directory/change`, `tool/result` | - | 仅通过显式实验组合加载。在现有写权限下从固定的本地提交创建新分支与检出目录，再改变 Session 工作目录。离开时保留分支与检出目录。 |
+| `@deepseek-ai/dsh-tool-workspace-dependencies` | `load_workspace_dependencies` | `ctx.tools` | `tool/call`, `tool/result` | - | - |
+
+<a id="deepseek-aidsh-plugin-manager"></a>
+
+## `@deepseek-ai/dsh-plugin-manager`
+
+### `plugin_manager`
+
+列出当前 profile 中的插件或组合包，启用或禁用它们，安装组合包或移除已安装的组合包。每项操作都要求 danger-full-access 权限或本次调用的批准。批准不改变会话权限模式。变更影响该 profile 的所有会话。先列出条目以获取准确标识。包安装可能运行已获批准的构建脚本。支持热更新的 profile 立即应用变更；仅启动时加载的 profile 需要重启。不兼容的 DSH peer 依赖会阻止安装和激活。版本豁免可能导致崩溃和数据丢失：授权前必须警告用户，并获得用户对精确插件版本与运行时版本组合的明确许可。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Management operation.",
+      "enum": [
+        "list_plugins",
+        "list_bundles",
+        "set_plugin",
+        "set_bundle",
+        "install_bundle",
+        "remove_bundle",
+        "list_version_exemptions",
+        "set_version_exemption"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "description": "Plugin entry id, bundle package name, or installation spec, according to action. For an Official catalog entry, pass list_bundles installTarget.spec to install_bundle."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Required for set operations; defaults to true for installation. For set_version_exemption, true grants and false revokes."
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "description": "For set_version_exemption: exact DSH version from list_version_exemptions. Target must be the manifest package-name@version, not an alias or version range."
+    },
+    "acceptRisk": {
+      "type": "boolean",
+      "description": "For granting an exemption: true only after warning the user about possible crashes and data loss and receiving explicit permission for this exact plugin/runtime pair. General installation permission is not enough."
+    },
+    "approvedBuilds": {
+      "type": "array",
+      "description": "For install_bundle: pass names from pendingBuilds only after the user explicitly approves running their install scripts in the conversation. This grants persistent permission for this profile.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "registry": {
+      "type": "string",
+      "description": "For install_bundle: the npm registry URL asked first, when the user names one; otherwise the configured registry is asked, and its configured fallbacks while a registry is unreachable."
+    },
+    "offset": {
+      "type": "number",
+      "description": "Zero-based list offset; defaults to 0."
+    },
+    "limit": {
+      "type": "number",
+      "description": "List page size, from 1 to 100; defaults to 25."
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
+```
+
+Source: [`packages/boot/plugin-manager/src/tools.ts`](../packages/boot/plugin-manager/src/tools.ts)
+
+<a id="deepseek-aidsh-mcp-resources"></a>
+
+## `@deepseek-ai/dsh-mcp-resources`
+
+### `list_mcp_resource_templates`
+
+列出 MCP 服务器提供的参数化资源 URI 模板。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `list_mcp_resources`
+
+List resources available from an MCP server.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "cursor": {
+      "type": "string",
+      "description": "Continuation cursor returned by this server."
+    }
+  },
+  "required": [
+    "server"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+### `read_mcp_resource`
+
+Read an MCP resource by URI from the named server. Use a listed URI or an expanded resource template.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "string",
+      "description": "Configured MCP server name."
+    },
+    "uri": {
+      "type": "string",
+      "description": "Resource URI to read."
+    }
+  },
+  "required": [
+    "server",
+    "uri"
+  ]
+}
+```
+
+Source: [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
+
+<a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
+
+## `@deepseek-ai/dsh-experimental-browser-use-stagehand-native`
+
+### `stagehand_act`
+
+使用已配置的 Stagehand 模型执行一次自然语言浏览器操作。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "instruction"
+  ],
+  "additionalProperties": false
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
+
+### `stagehand_extract`
+
+使用已配置的 Stagehand 模型与可选的 JSON Schema 提取页面数据。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema0"
+      }
+    }
+  },
+  "required": [
+    "instruction"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
+
+### `stagehand_navigate`
+
+将 Stagehand 浏览器标签页导航到指定 URL。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "additionalProperties": false
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
+
+### `stagehand_observe`
+
+使用已配置的 Stagehand 模型查找与指令匹配的浏览器操作。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "instruction"
+  ],
+  "additionalProperties": false
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
+
+### `stagehand_screenshot`
+
+截取 Stagehand 标签页截图以供视觉检查。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fullPage": {
+      "default": false,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fullPage"
+  ],
+  "additionalProperties": false
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
+
+### `stagehand_tabs`
+
+列出、创建、选择或关闭 Stagehand 浏览器标签页。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "list"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "new"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "select",
+            "close"
+          ]
+        },
+        "pageId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "action",
+        "pageId"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "type": "object"
+}
+```
+
+Source: [`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -132,18 +535,34 @@ ask_user_question 会暂停工具调用，直到当前 UI 提供方返回人类�
 {
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Provide `description` before `code` in the arguments. Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+    },
     "code": {
       "type": "string",
       "description": "The program: the body of an async TypeScript function."
     },
-    "description": {
+    "timeoutMs": {
+      "type": "number",
+      "description": "Positive elapsed-time budget in milliseconds, capped by the deployment maximum."
+    },
+    "sandbox_permissions": {
       "type": "string",
-      "description": "Clear, concise description of what this program does in active voice, 5-10 words (shown in the UI). Examples: \"Count TODO markers across packages\"; \"Read failing test and its fixture\"; \"Rename config key in every cordis.yml\"."
+      "description": "Wider sandbox mode for this complete program execution; requires justification and approval.",
+      "enum": [
+        "workspace-write",
+        "danger-full-access"
+      ]
+    },
+    "justification": {
+      "type": "string",
+      "description": "Reason this complete program needs wider access, shown to the user for approval. Use the language of the user’s current request."
     }
   },
   "required": [
-    "code",
-    "description"
+    "description",
+    "code"
   ]
 }
 ```
@@ -191,13 +610,13 @@ ask_user_question 会暂停工具调用，直到当前 UI 提供方返回人类�
 {
   "type": "object",
   "properties": {
-    "command": {
-      "type": "string",
-      "description": "The bash command to execute."
-    },
     "description": {
       "type": "string",
       "description": "Clear, concise description of what this command does in active voice, 5-10 words (shown in the UI). Examples: \"ls\" → \"List files in current directory\"; \"git status\" → \"Show working tree status\"; \"npm install\" → \"Install package dependencies\"."
+    },
+    "command": {
+      "type": "string",
+      "description": "The bash command to execute."
     },
     "timeoutMs": {
       "type": "number",
@@ -206,15 +625,11 @@ ask_user_question 会暂停工具调用，直到当前 UI 提供方返回人类�
     "workdir": {
       "type": "string",
       "description": "Working directory for this command. Defaults to the session workspace; a relative path is resolved against it."
-    },
-    "run_in_background": {
-      "type": "boolean",
-      "description": "Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies."
     }
   },
   "required": [
-    "command",
-    "description"
+    "description",
+    "command"
   ]
 }
 ```
@@ -229,7 +644,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
 
 ### `present`
 
-声明交付 Session 文件系统可访问的已有文件。如果你创建或更新的文件是用户要求接收的成果，则必须在写入完成后、最终回复前调用 present，包括通过 Bash 或代码执行创建的文件。在回复中提到文件路径不能替代这次调用。文件必须已存在。用户打开当前源文件；不复制或保存其内容。
+把已有文件声明为面向用户的最终交付物。当用户需要一份独立文件时使用它，尤其是 Office 文档、电子表格和幻灯片；最终回复本身足够时优先使用最终回复。用户打开的是当前文件；其内容不会被复制。
 
 ```json
 {
@@ -237,6 +652,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
   "properties": {
     "files": {
       "type": "array",
+      "description": "Usually the 1-2 most important deliverables; at most 4 per call.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -262,7 +678,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
 }
 ```
 
-来源： [`packages/fs/tool-present/src/index.ts`](../packages/fs/tool-present/src/index.ts)
+来源：[`packages/fs/tool-present/src/index.ts`](../packages/fs/tool-present/src/index.ts)
 
 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。
 
@@ -278,13 +694,13 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
 {
   "type": "object",
   "properties": {
-    "command": {
-      "type": "string",
-      "description": "The PowerShell command to execute."
-    },
     "description": {
       "type": "string",
       "description": "Clear, concise description of what this command does in active voice, 5-10 words (shown in the UI). Examples: \"ls\" → \"List files in current directory\"; \"git status\" → \"Show working tree status\"; \"Get-Process\" → \"List running processes\"."
+    },
+    "command": {
+      "type": "string",
+      "description": "The PowerShell command to execute."
     },
     "timeoutMs": {
       "type": "number",
@@ -293,15 +709,11 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_bac
     "workdir": {
       "type": "string",
       "description": "Working directory for this command. Defaults to the session workspace; a relative path is resolved against it."
-    },
-    "run_in_background": {
-      "type": "boolean",
-      "description": "Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies."
     }
   },
   "required": [
-    "command",
-    "description"
+    "description",
+    "command"
   ]
 }
 ```
@@ -316,7 +728,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 ### `cordis_define`
 
-定义一个不可变的 Cordis Package。新建 Plugin 时使用 kind:"new"，只提供 3 至 6 位小写英文字母组成的语义前缀；Host 返回最终 pluginId 和 packageId。修改现有 Plugin 时使用 kind:"existing" 并传入精确 pluginId，以追加 Package 而不覆盖旧版本。code.host 与 code.client 至少提供一个；每个值都是返回 Cordis Plugin 的 plain JavaScript 函数体，不经过 TypeScript、JSX 或 import 转换。依赖 Service、Event、Builtin、Slot 或 token 前先查询 Inspect。Define 只校验参数和语法并记录源码，不申请审批、不执行 apply，也不改变 currentPackageId。成功后用返回的 ID 调用 cordis_run。
+定义不可变的 Cordis Package。新建 Plugin 时使用 kind:"new"，且只提供由 3–6 个小写英文字母组成的语义前缀；Host 返回最终的 pluginId 与 packageId。修改现有 Plugin 时，使用 kind:"existing" 和确切 pluginId 追加 Package，不覆盖旧版本。code.host 与 code.client 至少提供一项，各值是返回 Cordis Plugin 的普通 JavaScript 函数体，不进行 TypeScript、JSX 或 import 转换。依赖 Service、Event、Builtin、Slot 或 token 前先查询 Inspect。Define 只验证参数和语法并记录源码，不请求批准、不执行 apply，也不改变 currentPackageId。成功后用返回的 ID 调用 cordis_run。
 
 ```json
 {
@@ -394,11 +806,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_inspect_list`
 
-列出 Host 当前已知的全部 Cordis Inspect Provider，包括本地 Host Provider 和 Client 最近同步的 manifest。每项包含所属平台、用途、只读方法及输入／输出 schema。创建或修改 Package 前先调用本 Tool，再从结果中选择 cordis_inspect_query 的 provider 和 method。不要猜测名称，也不要把 Inspect method 当作 Plugin 代码可调用的业务 Service。
+列出 Host 当前已知的全部 Cordis Inspect Provider，包括本地 Host Provider 和 Client 最近同步的 manifest。每项包含所属平台、用途、只读方法及输入／输出 schema。编写或配置插件前先调用本 Tool，再从结果中选择 cordis_inspect_query 的 provider 和 method。不要猜测名称，也不要把 Inspect method 当作 Plugin 代码可调用的业务 Service。
 
 ```json
 {
@@ -407,11 +819,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_inspect_query`
 
-执行 Inspect Provider 显式声明的只读查询。platform、provider 和 method 必须来自 cordis_inspect_list，input 必须符合该方法的 schema。在 cordis_define 前用本 Tool 读取精确 Service 方法、Event mode、Builtin 签名、Tool schema、主题 token，或实时 Slot 树及 props。Host 查询在本地执行；Client 查询等待首个有效页面响应，在页面回答或 Tool 被取消前保持 pending。本 Tool 不能调用业务 Service 方法或修改运行时。查询 Service.listService 和 Event.listEvents 时，先不传 input 浏览紧凑签名目录，再查询精确 service 或 event 获取结构化约定和引用类型。查询 Slots.listSubTree 时，先不传 root 浏览紧凑树，再查询精确 root 获取完整注册约定和 props。
+执行 Inspect Provider 声明的只读查询。platform、provider 和 method 必须来自 cordis_inspect_list，input 必须符合该方法的 schema。编写插件代码前用本 Tool 读取精确 Service 方法、Event mode、插件 Config schema、Tool schema、主题 token，或实时 Slot 树及 props。Host 查询在本地执行；Client 查询在配置的超时内等待首个有效页面响应，否则报告 Client 失败，或要求你重新连接后重试。本 Tool 不能调用业务 Service 方法或修改运行时。
 
 ```json
 {
@@ -445,11 +857,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_inspect_self`
 
-按逐层增加的详细程度检查当前 Session 拥有的动态 Cordis 对象。不传 ID 时只列 Plugin 摘要；只传 pluginId 时返回版本指针、最新 Run 和全部 Package 摘要；只有同时传 pluginId 与 packageId 才返回该不可变 Package 的 Host/Client 源码和运行诊断。packageId 不能单独传入。处理 @pluginId、修复异步失败或定义更新版本前，先查询精确 Package。本 Tool 只读，不执行代码，也不改变版本指针。
+按逐级细化的方式检查当前 Session 拥有的动态 Cordis 对象。不提供 ID 时只列出 Plugin 摘要；仅提供 pluginId 时返回版本指针、最新 Run 与所有 Package 摘要；同时提供 pluginId 和 packageId 才返回该不可变 Package 的 Host/Client 源码与运行时诊断。不能单独提供 packageId。处理 @pluginId、修复异步失败或定义更新版本前，先查询确切 Package。本工具只读，不执行代码，也不改变版本指针。
 
 ```json
 {
@@ -467,11 +879,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_run`
 
-激活动态 Plugin 的一个精确 Package。首次激活、重启 currentPackageId 或回退使用 mode:"run"；已有 current 时，即使 Plugin 当前已停止，切换到其他 Package 也使用 mode:"update"。未授权的 Client Package 创建审批请求并返回 awaiting-approval；已授权的 Package 返回 starting，并在浏览器中异步继续。两种结果都不会在 Tool 内等待最终结局。currentPackageId 只在完整成功后改变；失败时保留旧 current 和目标 next。异步成功、拒绝或技术失败通过状态与 steering 报告。技术失败后，用 cordis_inspect_self 读取诊断，修正同一 Plugin 并自主重试。用户拒绝后不要再次申请审批。
+激活动态 Plugin 的某个确切 Package。首次激活、重启 currentPackageId 或回滚时使用 mode:"run"；已有 current 时，即使 Plugin 已停止，也应使用 mode:"update" 切换到其他 Package。未经授权的 Client Package 会创建批准请求并返回 awaiting-approval；已授权 Package 返回 starting，并在浏览器中异步继续。工具不会等待最终结果。只有完全成功才改变 currentPackageId；失败时保留旧 current 与目标 next。异步成功、拒绝或技术失败通过状态和 steering 报告。技术失败后，用 cordis_inspect_self 读取诊断，修正同一 Plugin 并自主重试。用户拒绝后不得再次请求批准。
 
 ```json
 {
@@ -502,11 +914,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_stop`
 
-停止动态 Plugin 的当前 Run，并取消尚未完成的审批或激活请求。保留 Plugin、全部不可变 Package、授权、currentPackageId 和 nextPackageId，以便之后直接运行或更新。停止已处于停止状态的 Plugin 会幂等成功。临时禁用副作用使用本 Tool；永久移除使用 cordis_undefine。
+停止动态 Plugin 的当前 Run，并取消尚未完成的批准或激活请求。保留 Plugin、所有不可变 Package、授权、currentPackageId 与 nextPackageId，供之后直接运行或更新。停止已停止的 Plugin 也会幂等成功。本工具用于暂时禁用效果；永久删除应使用 cordis_undefine。
 
 ```json
 {
@@ -523,11 +935,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 ### `cordis_undefine`
 
-永久移除当前 Session 拥有的动态 Plugin。如果它正在运行或等待审批，先停止并取消请求，再删除全部 Package、授权和版本指针。返回后，其 pluginId、packageIds、@ 引用和 Package 业务视图均失效；历史卡片只保留“Plugin 已移除”记录。需要保留版本以便重启或回退时不要调用本 Tool，应改用 cordis_stop。
+永久删除当前 Session 拥有的动态 Plugin。若正在运行或等待批准，先停止并取消请求，再删除所有 Package、授权及版本指针。返回后，其 pluginId、packageId、@ 引用和 Package 业务视图均失效；历史卡片只保留“Plugin removed”记录。需要保留版本以便重启或回滚时不要调用本工具，应使用 cordis_stop。
 
 ```json
 {
@@ -544,9 +956,9 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 }
 ```
 
-来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
+来源： [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
-不在任何随产品发布的树中，需要显式选择启用；动态 Package 代码可以访问真实运行时，见 .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md。该工具集注入 `@deepseek-ai/dsh-cordis-host-runner` 提供的 `ctx.dynamicCordisRunner`，后者拥有定义注册表和 vm 沙箱；组合缺少它时这些工具不会激活。运行中的 Package 在停止、undefine 或 DSH 重启前可以注册**额外的**模型可见工具；发生这类工具集变化时，系统会记录完整且有变动的请求头。
+默认工具集提供两个只读检查工具。随产品发布的 Web cordis 预设显式开启 dynamicPlugins；本目录收集完整的显式启用能力。动态工具需要 ctx.systemPrompt 与 ctx.dynamicCordisRunner，由 runner 拥有定义注册表与 vm 沙箱。运行中的 Package 可注册额外的模型可见工具，直到停止、undefine 或 DSH 重启；变化后的请求头会记录工具集变化。
 
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 
@@ -724,11 +1136,11 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
   "properties": {
     "file_path": {
       "type": "string",
-      "description": "Path to edit, resolved by the filesystem backend."
+      "description": "Path to edit, resolved by the filesystem backend. Provide `file_path` before `old_string` and `new_string` in the arguments."
     },
     "old_string": {
       "type": "string",
-      "description": "Literal text to replace. Must match exactly."
+      "description": "Literal text to replace."
     },
     "new_string": {
       "type": "string",
@@ -780,7 +1192,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 ### `read_image`
 
-读取 PNG/JPEG/WebP/GIF 文件并返回图像本身。无扩展名的路径同样被接受；格式按文件内容检测，因此规范化附件路径可以直接传入，无需复制或重命名。Harness 会在下一次模型请求前校验并缩小受支持的大图，因此仅为查看图片时应直接使用此工具，无需安装图片库或创建缩略图。可以用小批次并发读取彼此独立的文件。要求当前模型接受图像输入。
+读取 PNG/JPEG/WebP/GIF 文件并返回图像本身。大图会自动缩小；仅为查看图片时无需安装图片库或创建缩略图。
 
 ```json
 {
@@ -809,7 +1221,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
   "properties": {
     "file_path": {
       "type": "string",
-      "description": "Path to write, resolved by the filesystem backend."
+      "description": "Path to write, resolved by the filesystem backend. Provide `file_path` before `content` in the arguments."
     },
     "content": {
       "type": "string",
@@ -833,7 +1245,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 ### `glob`
 
-查找路径匹配 glob 模式的文件。只返回匹配的文件路径，绝不返回目录；包括隐藏文件和被忽略的文件，但排除 VCS 元数据目录。最多按修改时间顺序返回 100 条路径；如果结果更多，则改为返回从顶层条目中抽样的 100 条路径，说明已抽样，并报告完整排序列表的保存位置。该工具不枚举目录条目。
+查找路径匹配 glob 模式的文件（不含目录），包括隐藏文件和被忽略的文件。最多按修改时间顺序返回 100 条路径；更大的结果会从顶层条目中抽样，并报告完整列表的保存位置。
 
 ```json
 {
@@ -858,7 +1270,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 ### `grep`
 
-使用 ripgrep 正则表达式搜索文件内容。返回带行号的匹配行，并按文件分组。前 250 条匹配会直接返回；结果达到上限时会报告完整匹配列表的保存位置。如需周边上下文，请对匹配的文件使用 read。
+使用 ripgrep 正则表达式搜索文件内容。返回带行号的匹配行，并按文件分组。最多返回 250 条匹配；更大的结果会报告完整匹配列表的保存位置。
 
 ```json
 {
@@ -943,7 +1355,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
     },
     "cwd": {
       "type": "string",
-      "description": "Initial working directory. Defaults to the deployment workspace root."
+      "description": "Initial working directory, relative to the Session current directory when not absolute."
     }
   },
   "required": [
@@ -1112,7 +1524,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
     },
     "action": {
       "type": "string",
-      "description": "edit | pause | resume | complete | blocked",
+      "description": "edit, pause, and resume require a direct top-level human request. complete and blocked are also allowed during an automatic continuation of this goal; blocked is rejected before the configured minimum round count.",
       "enum": [
         "edit",
         "pause",
@@ -1131,7 +1543,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
     },
     "blocked_reason": {
       "type": "string",
-      "description": "Concrete blocking condition; required only with action blocked."
+      "description": "Required only with action blocked: the concrete condition that persisted across rounds and blocks progress."
     }
   },
   "required": [
@@ -1146,13 +1558,13 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
 
 create、edit、pause 和 resume 要求直接来自人类的根权限；complete 和 blocked 也接受确切的当前 Goal Round。blocked 的默认下限是 3 个获准的 Round。
 
-<a id="deepseek-aidsh-schedule"></a>
+<a id="deepseek-aidsh-tool-schedule"></a>
 
-## `@deepseek-ai/dsh-schedule`
+## `@deepseek-ai/dsh-tool-schedule`
 
 ### `schedule_create`
 
-在当前会话中创建一条提醒。请提供非空 prompt 和恰好一个 selector：正的安全整数 after_seconds 延时；作为严格带偏移日期时间或本地日期／时间对象的 at；或不小于 300 的安全整数 every_seconds。固定速率提醒始终与创建时刻对齐，会跳过错过的发生时点，并把每条逾期规则的最新一个发生时点合并到一个批次中。交付模式是 session-local：只有此会话处于 live 状态时，提醒才会准时运行；否则提醒会进入 overdue 状态，直至会话恢复。
+在当前会话中创建一条提醒，到期时投递 prompt。请恰好提供一个时间参数：after_seconds、at、every_seconds、daily、weekly 或 cron。在该时区中不存在的本地时间会被跳过；重复的本地时间只触发一次，取较早的那个时刻。停机之后，重复提醒只投递最近一次错过的发生时点。崩溃后投递可能重复。
 
 ```json
 {
@@ -1162,13 +1574,82 @@ create、edit、pause 和 resume 要求直接来自人类的根权限；complete
       "type": "string",
       "description": "Reminder content to present when the target becomes due."
     },
+    "title": {
+      "type": "string",
+      "description": "Task name of at most 120 characters, shown on the task card and in task lists."
+    },
     "after_seconds": {
       "type": "number",
-      "description": "Positive safe-integer delay in seconds."
+      "description": "Delay in whole seconds."
     },
     "every_seconds": {
       "type": "number",
-      "description": "Fixed-rate safe-integer interval in seconds, at least 300."
+      "description": "Fixed-rate interval in whole seconds, at least 60, aligned to the creation time; changing it with schedule_update re-aligns it to the save time."
+    },
+    "daily": {
+      "type": "object",
+      "description": "Every day at a local time.",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "type": "string",
+          "description": "HH:mm:ss with optional 1-3 fractional digits, for example 23:00:00."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        }
+      },
+      "required": [
+        "time",
+        "time_zone"
+      ]
+    },
+    "weekly": {
+      "type": "object",
+      "description": "On the given weekdays at a local time.",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "type": "string",
+          "description": "HH:mm:ss with optional 1-3 fractional digits, for example 09:00:00."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        },
+        "weekdays": {
+          "type": "array",
+          "description": "ISO weekdays, Monday 1 through Sunday 7, without repetitions.",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "required": [
+        "time",
+        "time_zone",
+        "weekdays"
+      ]
+    },
+    "cron": {
+      "type": "object",
+      "description": "Five-field Vixie cron expression in a time zone.",
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": "string",
+          "description": "minute hour day-of-month month day-of-week, for example \"*/15 9-17 * * 1-5\". When both day fields are restricted, a date matches if either one matches."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        }
+      },
+      "required": [
+        "expression",
+        "time_zone"
+      ]
     },
     "at": {
       "oneOf": [
@@ -1196,20 +1677,21 @@ create、edit、pause 和 resume 要求直接来自人类的根权限；complete
           ]
         }
       ],
-      "description": "Absolute target as strict offset RFC 3339 or local date/time with an explicit IANA zone."
+      "description": "Absolute target: an RFC 3339 date-time with offset, or a local date, time, and IANA time_zone."
     }
   },
   "required": [
-    "prompt"
+    "prompt",
+    "title"
   ]
 }
 ```
 
-来源：[`packages/schedule/schedule/src/tools.ts`](../packages/schedule/schedule/src/tools.ts)
+来源：[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)
 
 ### `schedule_delete`
 
-使用 schedule_create 或 schedule_list 返回的确切 id，删除当前会话中的一条活动提醒。未知或已经结束的 id 会返回 deleted false。
+删除当前会话中的一条提醒，无论其处于活动还是非活动状态。删除不会撤回已经排队的提醒消息。
 
 ```json
 {
@@ -1217,7 +1699,7 @@ create、edit、pause 和 resume 要求直接来自人类的根权限；complete
   "properties": {
     "id": {
       "type": "string",
-      "description": "Exact session-local schedule id."
+      "description": "Exact schedule id."
     }
   },
   "required": [
@@ -1226,11 +1708,11 @@ create、edit、pause 和 resume 要求直接来自人类的根权限；complete
 }
 ```
 
-来源：[`packages/schedule/schedule/src/tools.ts`](../packages/schedule/schedule/src/tools.ts)
+来源：[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)
 
 ### `schedule_list`
 
-按创建顺序列出当前会话中的所有活动提醒，包括确切 id、UTC 目标、scheduled 或 overdue 状态，以及 session-local 交付模式。
+列出当前会话中的活动提醒。
 
 ```json
 {
@@ -1239,9 +1721,135 @@ create、edit、pause 和 resume 要求直接来自人类的根权限；complete
 }
 ```
 
-来源：[`packages/schedule/schedule/src/tools.ts`](../packages/schedule/schedule/src/tools.ts)
+来源：[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)
 
-仅在选择启用的 Schedule 插件加载后创建的 live 根 Agent scope 内注册。版本 1 接受 after_seconds、显式绝对 at 和有界固定速率 every_seconds，并披露 session-local 交付；管理读取与变更必须通过共享的 Session 持久化 barrier。
+### `schedule_update`
+
+就地修改一条提醒，保留其 id。可以提供新的 title、prompt，或至多一个时间参数；省略的字段保留已存值。要改变相对延时，请新建一条提醒。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Schedule id returned by schedule_list."
+    },
+    "title": {
+      "type": "string",
+      "description": "New task name of at most 120 characters."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "New reminder content."
+    },
+    "every_seconds": {
+      "type": "number",
+      "description": "Fixed-rate interval in whole seconds, at least 60, aligned to the creation time; changing it with schedule_update re-aligns it to the save time."
+    },
+    "daily": {
+      "type": "object",
+      "description": "Every day at a local time.",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "type": "string",
+          "description": "HH:mm:ss with optional 1-3 fractional digits, for example 23:00:00."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        }
+      },
+      "required": [
+        "time",
+        "time_zone"
+      ]
+    },
+    "weekly": {
+      "type": "object",
+      "description": "On the given weekdays at a local time.",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "type": "string",
+          "description": "HH:mm:ss with optional 1-3 fractional digits, for example 09:00:00."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        },
+        "weekdays": {
+          "type": "array",
+          "description": "ISO weekdays, Monday 1 through Sunday 7, without repetitions.",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "required": [
+        "time",
+        "time_zone",
+        "weekdays"
+      ]
+    },
+    "cron": {
+      "type": "object",
+      "description": "Five-field Vixie cron expression in a time zone.",
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": "string",
+          "description": "minute hour day-of-month month day-of-week, for example \"*/15 9-17 * * 1-5\". When both day fields are restricted, a date matches if either one matches."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "UTC or IANA Area/Location, for example Asia/Shanghai."
+        }
+      },
+      "required": [
+        "expression",
+        "time_zone"
+      ]
+    },
+    "at": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "date": {
+              "type": "string"
+            },
+            "time": {
+              "type": "string"
+            },
+            "time_zone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "date",
+            "time",
+            "time_zone"
+          ]
+        }
+      ],
+      "description": "Absolute target: an RFC 3339 date-time with offset, or a local date, time, and IANA time_zone."
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+来源：[`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts)
+
+preset 或 Agent 作用域负责挂载本包；由 preset 决定哪些 agent 获得这四个管理工具。每次调用都作用于发起调用的 Agent 的 Session。接受 after_seconds、显式绝对 at、有界固定速率 every_seconds、位于显式 IANA 时区的每日与每周本地时间，以及五字段 cron 表达式。管理使用宿主 storage domain；到期消息会在原 Session 中恢复。
 
 <a id="deepseek-aidsh-tool-lsp"></a>
 
@@ -1328,7 +1936,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 ### `skill`
 
-加载可用 skill（技能）的完整说明。在执行点名某项 skill 或与其明确匹配的任务前，请使用会话 skill 目录中的确切名称调用此工具。
+加载 skill（技能）的完整说明。当任务点名或明显匹配会话 skill 目录中的某项 skill 时，先调用它再行动。
 
 ```json
 {
@@ -1616,6 +2224,10 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 {
   "type": "object",
   "properties": {
+    "cwd": {
+      "type": "string",
+      "description": "Initial child working directory. Relative paths use your current directory; omitted inherits it. Later directory changes in either agent are independent."
+    },
     "description": {
       "type": "string",
       "description": "A short (3-5 word) description of the delegated task, for display."
@@ -1623,10 +2235,6 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     "prompt": {
       "type": "string",
       "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
-    },
-    "run_in_background": {
-      "type": "boolean",
-      "description": "Whether to run as a background job and return its id. Defaults to false; collect with job_output or stop with job_kill."
     }
   },
   "required": [
@@ -1654,7 +2262,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "agent_id": {
       "type": "string",
-      "description": "The agent id of the running agent to interrupt."
+      "description": "The id of an agent created under you: your direct child or a deeper descendant."
     }
   },
   "required": [
@@ -1675,7 +2283,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "scope": {
       "type": "string",
-      "description": "children (default) lists direct children only; descendants walks the complete tree below you.",
+      "description": "children (default) lists direct children, which accept send_message in any status. descendants lists the whole tree below you with each entry's parent session id and depth; entries deeper than 1 accept only interrupt_agent.",
       "enum": [
         "children",
         "descendants"
@@ -1771,11 +2379,11 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     },
     "wait": {
       "type": "boolean",
-      "description": "Block until the job reaches a terminal status or the timeout expires. A timed-out wait returns [status: running] and leaves the job alive."
+      "description": "Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false."
     },
     "timeout_ms": {
       "type": "number",
-      "description": "Max wait in milliseconds (only meaningful with wait: true). Defaults to the configured wait timeout; capped by the configured maximum."
+      "description": "Max wait in milliseconds with wait: true. Defaults to and is capped by configuration."
     }
   },
   "required": [
@@ -1802,7 +2410,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "target": {
       "type": "string",
-      "description": "Teammate name."
+      "description": "Teammate target returned by spawn_teammate or list_agents."
     }
   },
   "required": [
@@ -1815,7 +2423,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 ### `list_agents`
 
-列出 Lead 与所有持久 teammate，以及各自当前的运行时状态。
+列出 Lead 与所有持久 teammate，以及各自可寻址的 target 与当前可用性。inactive 表示没有 turn 正在执行，而不表示任务结果；provisioning 与 failed 描述成员的创建。
 
 ```json
 {
@@ -1828,7 +2436,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 ### `send_message`
 
-向另一名 Team member 发送一条持久消息。running target 会在最近的步骤边界收到消息；idle target 会启动一个 turn；inactive teammate 会冷恢复。
+向另一名 Team member 发送一条消息。running target 会在最近的步骤边界收到消息；inactive target 会启动或恢复一个 turn。
 
 ```json
 {
@@ -1836,7 +2444,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
   "properties": {
     "target": {
       "type": "string",
-      "description": "Team member name, or lead."
+      "description": "Member target returned by spawn_teammate or list_agents, including lead."
     },
     "message": {
       "type": "string",
@@ -1971,7 +2579,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     },
     "owner": {
       "type": "string",
-      "description": "Optional member-name filter; use unowned for tasks without an owner."
+      "description": "Optional member target from spawn_teammate or list_agents, matching ownerName; use unowned for tasks without an owner."
     },
     "ready": {
       "type": "boolean",
@@ -2045,7 +2653,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
     },
     "owner": {
       "type": "string",
-      "description": "Member name for Lead-only reassign; omit to unassign."
+      "description": "Member target from spawn_teammate or list_agents for Lead-only reassign; omit to unassign."
     }
   },
   "required": [
@@ -2060,7 +2668,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 ### `wait_agent`
 
-等待本次调用开始后下一次 teammate 状态、mailbox 或共享任务变更。它绝不会唤醒 inactive member；若没有其他 member 正在 running 或 provisioning，则立即返回 noProgress。唤醒或超时后应重新列出状态，而不是轮询。
+等待本次调用开始后下一次 teammate 状态、消息或共享任务变更。它绝不会唤醒 inactive member；若没有其他 member 正在 running 或 provisioning，则立即返回 noProgress。唤醒或超时后应重新列出状态，而不是轮询。
 
 ```json
 {
@@ -2129,6 +2737,58 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。
 
+<a id="deepseek-aidsh-tool-working-directory"></a>
+
+## `@deepseek-ai/dsh-tool-working-directory`
+
+### `working_directory`
+
+读取当前工作目录，或通过 cd 改变它。相对路径使用当前目录。已有 shell 和运行中的进程保留自己的目录。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "cd": {
+      "type": "string",
+      "description": "Existing directory to enter. Omit to read the current directory."
+    }
+  }
+}
+```
+
+Source: [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts)
+
+读取或改变调用方 Session 的目录。已有 shell 和进程保留自己的目录；原始元数据和权限根目录保持不变。
+
+<a id="deepseek-aidsh-experimental-tool-worktree"></a>
+
+## `@deepseek-ai/dsh-experimental-tool-worktree`
+
+### `create_worktree`
+
+从本地提交、分支或标签创建新的 Git 分支与工作树，再将本 Session 的工作目录切换到该位置。默认使用 HEAD 和自动生成的名称。未提交文件保留在源检出目录中。名称已存在时失败。使用 working_directory 的 cd 参数离开；检出目录与分支仍然保留。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "New branch name, also used as the checkout directory. Omit to generate a unique name."
+    },
+    "from": {
+      "type": "string",
+      "description": "Local commit, branch, or tag to start from. Defaults to HEAD; no fetch is performed."
+    }
+  }
+}
+```
+
+Source: [`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts)
+
+仅通过显式实验组合加载。在现有写权限下从固定的本地提交创建新分支与检出目录，再改变 Session 工作目录。离开时保留分支与检出目录。
+
 <a id="deepseek-aidsh-tool-workflow"></a>
 
 ## `@deepseek-ai/dsh-tool-workflow`
@@ -2137,18 +2797,13 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 运行用于大规模编排 subagent 的 JavaScript 工作流脚本。当工作会分散到许多相互独立的部分时，请使用此工具，例如审查大量文件、执行迁移、开展多角度研究或对发现进行对抗式验证；此时应将编排写成脚本，而不是逐轮委派。
 
-工作流的身份通过 `meta` 参数以 JSON 形式传入：必填的 `name`（简短 kebab-case）和 `description` 字符串，以及可选的 `whenToUse` 字符串和 `phases` 数组（`{title, detail?, provider?, model?}`）。`script` 参数只能是纯 JavaScript **函数体**，不能是 TypeScript，也不能包含 `export const meta` 语句；meta 是参数而非代码。脚本支持顶层 await；请以 `return <value>` 结尾，该值必须可以 JSON 序列化，并作为此工具的结果。
-
 脚本函数体提供以下钩子：
-
-- `agent(prompt, opts?): Promise<any>`：运行一个 subagent 直至完成。不提供 `opts.schema` 时，解析为子级最终文本；提供 `opts.schema` 时，它必须是以对象为根、且**只能**使用 type/properties/required/additionalProperties/items/enum/const/oneOf 的 JSON Schema，不支持 pattern/format/数值边界，此时解析为通过校验的对象。子级失败时解析为 `null`，可使用 `.filter(Boolean)` 过滤。其他选项包括 `label`（显示名称）、`phase`（进度组），以及相互独立的 `provider`／`model` LLM（大语言模型）目标覆盖项，两者可单独提供。其他任何选项（`effort`／`isolation`／`agentType`）都会明确报错。
+- `agent(prompt, opts?): Promise<any>`：运行一个 subagent 直至完成。不提供 `opts.schema` 时，解析为子级最终文本；提供 `opts.schema`（以对象为根、且**只能**使用 type/properties/required/additionalProperties/items/enum/const/oneOf 的 JSON Schema）时，解析为通过校验的对象。子级失败时解析为 `null`，可用 `.filter(Boolean)` 过滤。其他选项包括 `label`（显示名称）、`phase`（进度组），以及相互独立的 `provider`／`model` LLM 目标覆盖项。
 - `pipeline(items, ...stages): Promise<any[]>`：让每个条目分别经过各阶段，阶段之间**没有**屏障；多阶段工作优先使用它。每个阶段接收 `(prev, item, index)`。普通的阶段异常会将该**条目**变为 `null`，并跳过它的剩余阶段。
 - `parallel(thunks): Promise<any[]>`：并发运行零参数函数并等待**全部**完成。它会形成屏障，仅当某个阶段确实需要汇总全部先前结果时使用。抛出异常的 thunk 解析为 `null`。
 - `phase(title)`：开始一个进度阶段；`log(message)`：说明进度；`args`：工具调用的 `args` 输入，原样提供。
 
-如果误用钩子（参数错误、未知选项、不受支持的 schema、触发上限），抛出的错误**总会**终止脚本，绝不会退化为单个条目的 `null`。
-
-约束：并发上限和 agent 总数上限均会生效；不提供文件系统、网络、定时器或 Node.js API。具体工作由 agent 完成，脚本只负责编排。该运行在前台执行：整个脚本完成后，调用才会返回。
+如果误用钩子（参数错误、未知选项、不受支持的 schema、触发上限），整个脚本会结束，而不是产生 `null`。脚本不提供文件系统、网络、定时器或 Node.js API；具体工作由 agent 完成。
 
 ```json
 {
@@ -2156,11 +2811,11 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
   "properties": {
     "script": {
       "type": "string",
-      "description": "The plain-JS workflow script body (top-level await allowed; NO `export const meta` statement; end with `return <json-value>`)."
+      "description": "The plain JavaScript body, not TypeScript and without an `export const meta` statement; top-level await is allowed. End with `return <value>`; the JSON-serializable value is this tool's result."
     },
     "meta": {
       "type": "object",
-      "description": "The workflow identity block (plain JSON — never code).",
+      "description": "The workflow identity as plain JSON, not code.",
       "additionalProperties": true,
       "properties": {
         "name": {
@@ -2214,6 +2869,10 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
       "type": "object",
       "description": "Optional JSON input exposed to the script as the `args` global (wrap a bare list as a field, e.g. {\"files\": [...]}).",
       "additionalProperties": true
+    },
+    "run_in_background": {
+      "type": "boolean",
+      "description": "Run as a background job: return a job id immediately instead of waiting; the return value arrives with the completion notice."
     }
   },
   "required": [
@@ -2224,6 +2883,23 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 ```
 
 来源：[`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
+
+<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+
+## `@deepseek-ai/dsh-tool-workspace-dependencies`
+
+### `load_workspace_dependencies`
+
+获取随包附带的 Python 和库目录的绝对路径，以及随包 Python 发行版的版本。payload 提供 Node.js 和 pnpm 时才返回对应路径。Python 含 numpy、pandas、python-docx、python-pptx、openpyxl、Pillow、lxml 与 XlsxWriter。除非用户或工作区指令选择了别的环境，Office 文件请使用这些库。返回 Node.js 和 pnpm 路径时，用该 Node 可执行文件和 pnpm 脚本路径运行 pnpm。本工具不改 PATH，也不改包管理器设置。
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/skill/tool-workspace-dependencies/src/index.ts`](../packages/skill/tool-workspace-dependencies/src/index.ts)
 
 <a id="deepseek-aidsh-tool-web"></a>
 
@@ -2260,7 +2936,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
   "properties": {
     "queries": {
       "type": "array",
-      "description": "Required search queries; accepts 1–4 items and merges their results.",
+      "description": "1–4 search queries; their results are merged.",
       "items": {
         "type": "string"
       }

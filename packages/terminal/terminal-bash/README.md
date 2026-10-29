@@ -33,9 +33,10 @@ Choose this backend when work needs an interactive shell or REPL whose state per
 
 ### Composition
 
-Mount the terminal service, a subprocess provider, the sandbox and policy services, this backend, and a tool package:
+The surrounding composition provides filesystem, projection, and system-prompt services. Mount the shared working-directory owner, terminal service, subprocess provider, sandbox and policy services, this backend, and a tool package:
 
 ```yaml
+- name: '@deepseek-ai/dsh-working-directory'
 - name: '@deepseek-ai/dsh-terminal'
 - name: '@deepseek-ai/dsh-subprocess-local'
 - name: '@deepseek-ai/dsh-sandbox-local'
@@ -45,6 +46,8 @@ Mount the terminal service, a subprocess provider, the sandbox and policy servic
 ```
 
 `danger-full-access` starts the shell directly. Confined modes require a same-world `ctx.sandbox` provider: without one, the spawn fails before the shell starts.
+
+A new terminal starts in its explicit `cwd` or the Session’s validated effective directory. Directory changes affect subsequent terminals; existing terminal processes and the sandbox permission root retain their own directories.
 
 ### Configuration
 
@@ -57,7 +60,7 @@ Mount the terminal service, a subprocess provider, the sandbox and policy servic
 | `timeoutMs` | `30000` | Absolute bound on one send wait |
 | `disposeGraceMs` | `3000` | Grace before teardown escalates to `SIGKILL` |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-terminal-bash) is the exhaustive source for every field, including the readiness timings (`pollIntervalMs`, `exactProbeAfterMs`, `idleSilenceMs`, `handoffGraceMs`), terminal size (`rows`, `cols`), and scrollback bounds (`scrollbackLines`, `scrollbackMaxBytes`).
+The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-terminal-bash) is the exhaustive source for every field, including the readiness timings (`pollIntervalMs`, `exactProbeAfterMs`, `idleSilenceMs`, `handoffGraceMs`, `promptTailGraceMs`), terminal size (`rows`, `cols`), and scrollback bounds (`scrollbackLines`, `scrollbackMaxBytes`).
 
 ### Shell dialects and readiness
 
@@ -69,7 +72,7 @@ The shell runs under the effective sandbox boundary for its whole life. Changing
 
 ### Observable outcomes and failures
 
-An open returns the session id and a bounded startup message. Sends settle with one of the four wait reasons and a session status; `session_exit` means the top-level shell exited. Setup failures reject the open: a missing sandbox provider in a confined mode, a shell that exits during startup, a shell that fails to reach readiness before the startup timeout, or caller cancellation. Cleanup failures reject the close instead of claiming success.
+An open returns the session id and a bounded startup message. Sends settle with one of the four wait reasons and a session status; `session_exit` means the top-level shell exited. Setup failures reject the open: a missing sandbox provider in a confined mode, a shell that exits during startup, a shell that fails to reach readiness before the startup timeout, or caller cancellation. Unpublished setup waits for process-tree cleanup before rejecting, including when the terminal emulator cannot be constructed. Cleanup failures reject the close instead of claiming success.
 
 -----
 
@@ -97,6 +100,8 @@ One backend serves both dialects: bash and pwsh share the same session machinery
 ### Readiness model
 
 Three bounded tiers settle a send: exact stdin-wait evidence from the subprocess provider (Linux only), the verified private prompt marker with an exact printable tail, and output silence (`inferred_idle`); an absolute timeout always bounds the wait. Pwsh startup uses one deadline across initial readiness and its complete setup loop, so an `inferred_idle` follow-up does not restart the bound. Evidence collected before the provider write is discarded at the write boundary, a stdin wait that predates the write is not post-write readiness, and unknown foreground state is never a positive exact-idle signal.
+
+`promptTailGraceMs` adds a configurable silence tolerance only while an observed prompt marker still has an incomplete printable tail; its default of zero preserves the ordinary silence bound.
 
 An empty send without Enter continues observing the same shell input state and retains partial or complete prompt evidence. Only an actual input write clears that evidence.
 

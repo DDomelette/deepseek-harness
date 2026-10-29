@@ -1,0 +1,55 @@
+# Bilingual-pair consistency record for 2026-10-12-upstream-merge-integration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-12-upstream-merge-integration.md
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions:
+  en: 616fa06d5697a01b
+  zh: 4aeda9d965d19ff8
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/problem:
+  en: 084d1d13a2a22537
+  zh: ce6eb6c3b1c657af
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/decision:
+  en: b81624bc48da1238
+  zh: 0e2fe384a2203d61
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/the-loader-is-upstream-s-and-fail-loud-moves-to-the-startup-audit:
+  en: f099f5fa48b7a1f6
+  zh: fa90adc5f1d4fe57
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/job-changes-ride-the-merged-jobs-event-stream:
+  en: a6dd6254298e715b
+  zh: 01fcc7f0d311d0bd
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/the-subprocess-control-channel-is-an-additive-port:
+  en: f34da28f1e91072a
+  zh: 362eaf51cf8283a3
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/session-deletion-forgets-through-the-workspace-registry:
+  en: 469278531067602f
+  zh: 82ed75603f246693
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/subagent-working-directory-injection:
+  en: 6ea5d9da20626d1a
+  zh: 450135df9e430136
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/workflow-execution-is-upstream-s-ptc-runtime:
+  en: 1377fadddb9d7bec
+  zh: 43adc83817ac0a38
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/settings-namespaces-come-from-the-composition:
+  en: 268c1e5dc669bd9f
+  zh: 663a200467787529
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/session-format-v4-admission:
+  en: 2f8c7f99484bfcf1
+  zh: 90c1e161f8fac930
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/the-archive-instant-is-restored-at-its-producer:
+  en: 1a056175681cdb43
+  zh: 990e248c084bf636
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/the-gateway-follows-upstream-caller-authority-stays-the-fork-s:
+  en: 8afde9998db87a71
+  zh: 67b13679955cdb8a
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/deliberate-shelvings:
+  en: 91cd2fb3e08b6726
+  zh: 7c972351906be80e
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/what-the-whole-worktree-acceptance-found:
+  en: a38eb784a06c5752
+  zh: 72036d5ddd8c84bd
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/alternatives-considered:
+  en: e0e89cc36f515469
+  zh: 15299c1f654fc9d1
+/agent-note-upstream-0-2-1-alpha-2-merge-integration-decisions/consequences:
+  en: 0e41b3220e9b2e17
+  zh: da010c784589967d

@@ -33,7 +33,7 @@
       "path": "../../core/tools"
     },
     {
-      "path": "../workflow"
+      "path": "../../workflow/workflow"
     }
   ]
 }

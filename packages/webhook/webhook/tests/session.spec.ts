@@ -11,7 +11,7 @@ import {
 import { createWebhookSession } from '../src/session.ts'
 
 interface HarnessOptions {
-  failAt?: 'permission-resolve' | 'preset-resolve' | 'standing' | 'workspace' | 'agent' | 'attach' | 'permission-set' | 'title' | 'followup'
+  failAt?: 'permission-resolve' | 'preset-resolve' | 'preset-scope' | 'workspace' | 'agent' | 'attach' | 'permission-set' | 'title' | 'followup'
   failDetach?: boolean
   failDispose?: boolean
   abortAt?: 'workspace' | 'agent'
@@ -98,10 +98,10 @@ function harness(options: HarnessOptions = {}): SessionHarness {
         if (options.failAt === 'preset-resolve') throw new Error('preset resolve failed')
         return { id: name }
       },
-      async standingKeyFor(name: string) {
-        calls.push(`standing:${name}`)
-        if (options.failAt === 'standing') throw new Error('standing failed')
-        return {}
+      async acquireScope(name: string) {
+        calls.push(`preset-scope:${name}`)
+        if (options.failAt === 'preset-scope') throw new Error('preset scope failed')
+        return { key: 'preset-scope', [Symbol.asyncDispose]: async () => {} }
       },
       async mount(_agentCtx: unknown, name: string) {
         calls.push(`mount:${name}`)
@@ -200,7 +200,7 @@ describe('webhook Session creation', () => {
       'default-model',
       'permission-resolve:read-only',
       'preset-resolve:standard',
-      'standing:standard',
+      'preset-scope:standard',
       'workspace:/workspace',
       'agent-create',
       'mount:standard',
@@ -288,7 +288,7 @@ describe('webhook Session creation', () => {
   })
 
   it.each([
-    'permission-resolve', 'preset-resolve', 'standing', 'workspace', 'agent', 'attach',
+    'permission-resolve', 'preset-resolve', 'preset-scope', 'workspace', 'agent', 'attach',
   ] as const)('contains a %s failure before prompt admission', async (failAt) => {
     const test = harness({ failAt })
     await expect(create(test)).rejects.toThrow()

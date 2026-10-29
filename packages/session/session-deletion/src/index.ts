@@ -12,7 +12,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type {} from '@deepseek-ai/dsh-workspace'
-import { deletionDomainSpec, type DeletionPlanRecord } from './spec.ts'
+import { deletionDomainSpec, type DeletionPlanMember, type DeletionPlanRecord } from './spec.ts'
 
 /** Closed failure codes callers can map to transport-specific errors. */
 export type SessionDeletionErrorCode =
@@ -146,8 +146,101 @@ export default class SessionDeletionService extends Service {
   ): Promise<{ readonly deletedSessionIds: SessionId[] }> {
     const { sessionId, recursive } = input
     const table = this.requireTable()
-    const existingPlan = table.get(sessionId)
+    // Every id this call reserves, released together: a plan member another
+    // deletion already owns never enters this set.
+    const reserved = new Set<SessionId>()
+    const claim = (id: SessionId): void => {
+      if (this.activeMembers.has(id) && !reserved.has(id)) {
+        throw new SessionDeletionError('session-running', 'another deletion owns a plan member', [id])
+      }
+      this.activeMembers.add(id)
+      reserved.add(id)
+    }
 
+    // The target is reserved before the first await: the synchronous
+    // `session/created` guard refuses a new child of an active member, so a
+    // subagent created while enumeration is pending can no longer be missed.
+    claim(sessionId)
+    try {
+      let { plan, order } = await this.planMembers(sessionId, recursive, table.get(sessionId))
+      // Reserve what this pass found and enumerate again. Only a creation that
+      // preceded its own parent's reservation can still appear, and every pass
+      // reserves more ids, so the closure grows monotonically over a finite set
+      // of sessions and the loop ends when a pass discovers nothing new.
+      for (;;) {
+        for (const member of plan.members) claim(member.sessionId)
+        const next = await this.planMembers(sessionId, recursive, plan)
+        const settled = next.plan.members.length === plan.members.length
+        plan = next.plan
+        order = next.order
+        if (settled) break
+      }
+
+      await detach?.(plan.members.map(member => member.sessionId))
+      const attached = plan.members.map(member => member.sessionId)
+        .filter(id => this.ctx.sessions.get(id) !== undefined)
+      if (attached.length > 0) {
+        throw new SessionDeletionError('session-running', `cannot delete attached session(s): ${attached.join(', ')}`, attached)
+      }
+      await table.put(sessionId, plan)
+      // Execution order is re-derived from this attempt's closure, so a member
+      // discovered on a retry is still deleted before its own ancestor. The
+      // plan's member array keeps its order, which stays the reported set.
+      const byId = new Map(plan.members.map(member => [member.sessionId, member]))
+      const executionOrder = [
+        ...order.map(id => byId.get(id)).filter((member): member is DeletionPlanMember => member !== undefined),
+        ...plan.members.filter(member => !order.includes(member.sessionId)),
+      ]
+      let latest = plan
+      for (const member of executionOrder) {
+        if (member.persistence === 'pending') {
+          try {
+            await this.ctx.sessionPersistence.delete(member.sessionId)
+            latest = await this.advance(latest, member.sessionId, {
+              persistence: 'done',
+            })
+          } catch (error) {
+            if (!isNotFound(error)) throw error
+            latest = await this.advance(latest, member.sessionId, {
+              persistence: 'missing',
+            })
+          }
+        }
+        if (member.workspace === 'pending') {
+          const registry = this.ctx.get('workspaceRegistry')
+          if (registry === undefined) {
+            latest = await this.advance(latest, member.sessionId, {
+              workspace: 'skipped',
+            })
+          } else {
+            await registry.forgetSession(member.sessionId)
+            latest = await this.advance(latest, member.sessionId, {
+              workspace: 'done',
+            })
+          }
+        }
+      }
+      await table.delete(sessionId)
+      return { deletedSessionIds: latest.members.map(member => member.sessionId) }
+    } finally {
+      for (const id of reserved) this.activeMembers.delete(id)
+    }
+  }
+
+  /**
+   * Enumerate one lineage closure and merge it into the durable plan: existing
+   * progress is authoritative, newly discovered members start pending.
+   * @param sessionId - deletion target.
+   * @param recursive - whether descendants join the plan.
+   * @param existingPlan - the durable plan already holding per-member progress, when one exists.
+   * @returns the merged plan and this pass's leaves-first order over the closure.
+   * @throws SessionDeletionError when descendants exist without `recursive`, or the target is unknown and unplanned.
+   */
+  private async planMembers(
+    sessionId: SessionId,
+    recursive: boolean,
+    existingPlan: DeletionPlanRecord | undefined,
+  ): Promise<{ plan: DeletionPlanRecord; order: SessionId[] }> {
     const identities = new Map<SessionId, SessionIdentity>()
     for (const session of this.ctx.sessions.list()) {
       identities.set(session.header.id, {
@@ -197,61 +290,15 @@ export default class SessionDeletionService extends Service {
       if (byId.has(id)) continue
       ordered.push({ sessionId: id, persistence: 'pending', workspace: 'pending' })
     }
-    const plan: DeletionPlanRecord = {
-      rootSessionId: sessionId,
-      recursive,
-      members: ordered,
-      createdAt: existingPlan?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-
-    for (const member of plan.members) {
-      if (this.activeMembers.has(member.sessionId)) {
-        throw new SessionDeletionError('session-running', 'another deletion owns a plan member', [member.sessionId])
-      }
-    }
-    for (const member of plan.members) this.activeMembers.add(member.sessionId)
-    try {
-      await detach?.(plan.members.map(member => member.sessionId))
-      const attached = plan.members.map(member => member.sessionId)
-        .filter(id => this.ctx.sessions.get(id) !== undefined)
-      if (attached.length > 0) {
-        throw new SessionDeletionError('session-running', `cannot delete attached session(s): ${attached.join(', ')}`, attached)
-      }
-      await table.put(sessionId, plan)
-      let latest = plan
-      for (const member of latest.members) {
-        if (member.persistence === 'pending') {
-          try {
-            await this.ctx.sessionPersistence.delete(member.sessionId)
-            latest = await this.advance(latest, member.sessionId, {
-              persistence: 'done',
-            })
-          } catch (error) {
-            if (!isNotFound(error)) throw error
-            latest = await this.advance(latest, member.sessionId, {
-              persistence: 'missing',
-            })
-          }
-        }
-        if (member.workspace === 'pending') {
-          const registry = this.ctx.get('workspaceRegistry')
-          if (registry === undefined) {
-            latest = await this.advance(latest, member.sessionId, {
-              workspace: 'skipped',
-            })
-          } else {
-            await registry.forgetSession(member.sessionId)
-            latest = await this.advance(latest, member.sessionId, {
-              workspace: 'done',
-            })
-          }
-        }
-      }
-      await table.delete(sessionId)
-      return { deletedSessionIds: latest.members.map(member => member.sessionId) }
-    } finally {
-      for (const member of plan.members) this.activeMembers.delete(member.sessionId)
+    return {
+      plan: {
+        rootSessionId: sessionId,
+        recursive,
+        members: ordered,
+        createdAt: existingPlan?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      order: currentOrder,
     }
   }
 

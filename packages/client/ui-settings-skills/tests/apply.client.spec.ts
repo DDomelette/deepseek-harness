@@ -9,7 +9,7 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-skills/client
 import { SkillsSection } from '../src/client/SkillsSection.tsx'
 import * as hostPlugin from '../src/index.ts'
 
-async function bench(settings: object = {}): Promise<{
+async function bench(settings: object = {}, skills: object = {}): Promise<{
   ctx: Context
   slots: SlotRegistry
   remote: TestRemote
@@ -24,13 +24,19 @@ async function bench(settings: object = {}): Promise<{
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const remote = new TestRemote(ctx, { skills: {}, settings })
+  const remote = new TestRemote(ctx, { skills, settings })
   ctx.provide('connection', { api: {}, isLoopback: true } as never)
   const sessionsListeners = new Set<() => void>()
   let currentSession: string | undefined
   ctx.provide('sessions', {
     list: {
-      getSnapshot: () => ({ current: currentSession }),
+      // The panel addresses its catalog with the session the main view retains.
+      getSnapshot: () => ({
+        byId: {
+          background: { id: 'background', retainedBy: {} },
+          ...currentSession === undefined ? {} : { [currentSession]: { id: currentSession, retainedBy: { mainView: 1 } } },
+        },
+      }),
       subscribe: (listener: () => void) => {
         sessionsListeners.add(listener)
         return () => { sessionsListeners.delete(listener) }
@@ -55,6 +61,22 @@ function declare(slots: SlotRegistry): () => void {
 }
 
 describe('ui-settings-skills apply', () => {
+  it('addresses the main view Session rather than an earlier background row', async () => {
+    const catalog = vi.fn(async () => ({ ok: true as const, value: { skills: [] } }))
+    const describe = vi.fn(async () => ({
+      ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] },
+    }))
+    const b = await bench({ describe }, { catalog })
+    b.setCurrentSession('visible-session')
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const entry = b.slots.entries('settings.section')[0]!
+    const face = (entry.inject as unknown as () => import('../src/client/SkillsSection.tsx').SkillsSectionInjected)()
+    await face.load()
+    expect(catalog).toHaveBeenCalledExactlyOnceWith({ sessionId: 'visible-session' })
+    expect(face.hooks.skills.getSnapshot()).toMatchObject({ status: 'ready', noSession: false })
+  })
+
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'sessions', 'remote', 'remote.skills', 'remote.settings'])
   })
@@ -114,7 +136,7 @@ describe('ui-settings-skills apply', () => {
   it('routes skill toggles through the registered section into revision-guarded settings', async () => {
     const describe = vi.fn(async () => ({
       ok: true as const,
-      value: { writable: true, hasDocument: true, namespaces: [{ ns: 'skills', value: { disabled: [] }, revision: 4 }] },
+      value: { writable: true, hasDocument: true, namespaces: [{ ns: 'skill-settings', value: { disabled: [] }, revision: 4 }] },
     }))
     const update = vi.fn(async () => ({ ok: true as const, value: undefined }))
     const b = await bench({ describe, update })
@@ -126,7 +148,7 @@ describe('ui-settings-skills apply', () => {
     await face.load()
     await face.setEnabled('bundled-tool', false)
 
-    expect(update).toHaveBeenCalledWith('skills', { disabled: ['bundled-tool'] }, 4)
+    expect(update).toHaveBeenCalledWith('skill-settings', { disabled: ['bundled-tool'] }, 4)
     expect(describe).toHaveBeenCalledTimes(2)
     expect(face.hooks.skills.getSnapshot()).toMatchObject({ status: 'ready', writing: [] })
   })

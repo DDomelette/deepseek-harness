@@ -83,7 +83,8 @@ kind: "package-reference"
 
 | 文件 | 职责 |
 |---|---|
-| [`src/index.ts`](src/index.ts) | 6 个工具定义、schema、指引章节、后台任务集成 |
+| [`src/index.ts`](src/index.ts) | 6 个工具定义、schema、指引章节、后台任务注册 |
+| [`src/background.ts`](src/background.ts) | 一次后台发送的输出所经的注册表拉取源 |
 | [`src/render.ts`](src/render.ts) | 结果渲染与完整结果的 UTF-8 上限 |
 
 ### 结果上限

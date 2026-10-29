@@ -1,6 +1,6 @@
 // Web e2e scenario: the Skills settings panel — the real host serves the
-// complete catalog for the current session's composition (`skill.catalog`), grouped by declared
-// group with source fallback, and toggling a skill writes the `skills`
+// complete catalog for the current session's composition (`skills.catalog`),
+// grouped by discovery source, and toggling a skill writes the `skills`
 // settings namespace through the revision-guarded seam. The effective
 // disablement is asserted end-to-end through the composer's slash menu (the
 // same host registry override the model catalog reads). No model call is
@@ -34,19 +34,25 @@ interface SeedSkill {
 }
 
 const SKILLS: readonly SeedSkill[] = [
-  { name: 'panel-grouped-a', description: 'Panel grouped A', frontmatter: 'group: superpowers\n' },
+  { name: 'panel-grouped-a', description: 'Panel grouped A', frontmatter: '' },
   {
     name: 'panel-grouped-b',
     description: 'Panel grouped B',
-    frontmatter: 'group: superpowers\ndisable-model-invocation: true\n',
+    frontmatter: 'disable-model-invocation: true\n',
   },
   { name: 'panel-solo', description: 'Panel solo', frontmatter: '' },
 ]
 
-/** The scaffold's user-skill root: `skill.catalog` lists it through the current session's composition. */
+/** Seed isolated user and bundled discovery roots for the current Session composition. */
 async function seedSkills(scaffold: WebScaffold): Promise<void> {
-  for (const skill of SKILLS) {
-    const directory = join(scaffold.harnessHome, 'skills', skill.name)
+  const roots = [
+    { path: join(scaffold.harnessHome, 'skills'), skills: SKILLS },
+    { path: join(scaffold.workspaceCwd, '.bundled-skills'), skills: [
+      { name: 'panel-bundled', description: 'Panel bundled skill', frontmatter: '' },
+    ] },
+  ]
+  for (const root of roots) for (const skill of root.skills) {
+    const directory = join(root.path, skill.name)
     await mkdir(directory, { recursive: true })
     await writeFile(join(directory, 'SKILL.md'), [
       '---',
@@ -59,6 +65,19 @@ async function seedSkills(scaffold: WebScaffold): Promise<void> {
       '',
     ].join('\n'))
   }
+}
+
+
+/**
+ * The active profile's Cordis patch, which is where the merged settings plane
+ * persists writes ("Changes persist through the active profile's Cordis patch",
+ * `packages/settings/settings/README.md`). `$DSH_HOME/settings.yaml` is only a
+ * legacy import source and stays absent.
+ * @param harnessHome - the scaffold's isolated harness home.
+ * @returns the profile patch path the settings document accumulates in.
+ */
+function profilePatch(harnessHome: string): string {
+  return join(harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
 }
 
 describe('web e2e: skills settings panel', () => {
@@ -83,7 +102,7 @@ describe('web e2e: skills settings panel', () => {
     await scaffold?.close()
   })
 
-  it('groups the catalog by declared group with source fallback, and a toggle disables a skill end-to-end', async () => {
+  it('groups the catalog by discovery source, and a toggle disables a skill end-to-end', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skills-settings'))
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Settings' })
@@ -91,27 +110,28 @@ describe('web e2e: skills settings panel', () => {
     await dialog.getByRole('button', { name: 'Skills' }).click()
     await dialog.getByRole('heading', { name: 'Skills', exact: true }).waitFor({ timeout: 10_000 })
 
-    // One icon per group: the declared superpowers group plus the user-dsh
-    // source fallback group, each wearing its count.
-    const superpowersIcon = dialog.getByRole('button', { name: /superpowers/ })
-    await superpowersIcon.waitFor({ timeout: 10_000 })
-    expect(await superpowersIcon.textContent()).toContain('2 skills')
+    // One icon per discovery source: the seeded user skills and the bundled
+    // ones, each wearing its count.
     const userSkillsIcon = dialog.getByRole('button', { name: /User skills/ })
-    expect(await userSkillsIcon.textContent()).toContain('1 skill')
+    await userSkillsIcon.waitFor({ timeout: 10_000 })
+    expect(await userSkillsIcon.textContent()).toContain('3 skills')
+    const bundledIcon = dialog.getByRole('button', { name: /Bundled skills/ })
+    expect(await bundledIcon.textContent()).toContain('1 skill')
     const grid = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(GRID_EXPECTED, grid, MODE)
 
-    // Drill into the declared group: both skills, the user-only marker, and
-    // per-skill switches reflecting the effective disabled state.
-    await superpowersIcon.click()
-    await dialog.getByRole('heading', { name: 'superpowers' }).waitFor({ timeout: 10_000 })
+    // Drill into the source group: every seeded skill, the user-only marker,
+    // and per-skill switches reflecting the effective disabled state.
+    await userSkillsIcon.click()
+    await dialog.getByRole('heading', { name: 'User skills' }).waitFor({ timeout: 10_000 })
     await expect.poll(() => dialog.getByText('panel-grouped-a').count(), { timeout: 10_000 }).toBe(1)
     await expect.poll(() => dialog.getByText('panel-grouped-b').count(), { timeout: 10_000 }).toBe(1)
+    await expect.poll(() => dialog.getByText('panel-solo').count(), { timeout: 10_000 }).toBe(1)
     expect(await dialog.getByText('User-only').count()).toBe(1)
     const group = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(GROUP_EXPECTED, group, MODE)
 
-    // Toggle panel-grouped-a off: the write lands in settings.yaml and the
+    // Toggle panel-grouped-a off: the write lands in the profile patch and the
     // page reload reflects the new effective state.
     const row = dialog.locator('li', { hasText: 'panel-grouped-a' })
     const toggle = row.getByRole('switch')
@@ -123,7 +143,7 @@ describe('web e2e: skills settings panel', () => {
       () => row.getByRole('switch').getAttribute('aria-checked'),
       { timeout: 30_000 },
     ).toBe('false')
-    const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
+    const document = await readFile(profilePatch(scaffold.harnessHome), 'utf8')
     expect(document).toContain('disabled:')
     expect(document).toContain('panel-grouped-a')
 
@@ -139,7 +159,12 @@ describe('web e2e: skills settings panel', () => {
       () => menu.getByRole('option', { name: /panel-grouped-b/ }).count(),
       { timeout: 10_000 },
     ).toBe(1)
-    expect(await menu.getByRole('option', { name: /panel-grouped-a/ }).count()).toBe(0)
+    // The menu's cached catalog survives until the write settles host-side, so
+    // absence is polled rather than read once.
+    await expect.poll(
+      () => menu.getByRole('option', { name: /panel-grouped-a/ }).count(),
+      { timeout: 10_000 },
+    ).toBe(0)
     await input.fill('/panel-solo')
     await expect.poll(
       () => menu.getByRole('option', { name: /panel-solo/ }).count(),

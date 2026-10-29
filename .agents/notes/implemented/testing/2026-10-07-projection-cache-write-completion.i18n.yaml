@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-projection-cache-write-completion.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/testing/2026-10-07-projection-cache-write-completion.md
-2026-10-07-projection-cache-write-completion.md: ff4412ccd6c8e1ed4b1f01b1aa508a67c8cf735b
-2026-10-07-projection-cache-write-completion.zh.md: 46c2c5a7de29479e745d603949d57ad4081eda31
+/agent-note-projection-cache-checkpoints-report-write-completion:
+  en: 1eab61ccb15703c3
+  zh: 8e905a6e37524686
+/agent-note-projection-cache-checkpoints-report-write-completion/problem:
+  en: f9b5429f01731be6
+  zh: c091f993ec9d0843
+/agent-note-projection-cache-checkpoints-report-write-completion/decision:
+  en: 799857c4fa749a69
+  zh: 158fbd6ad37dda77
+/agent-note-projection-cache-checkpoints-report-write-completion/alternatives-considered:
+  en: 5c023deff30498f7
+  zh: 328ef8d83a253610
+/agent-note-projection-cache-checkpoints-report-write-completion/consequences:
+  en: ae21f1abb72552e1
+  zh: e53e3b947d6762aa

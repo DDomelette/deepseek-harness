@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-`@deepseek-ai/dsh-session-flags` 提供服务端展示标记注册表。置顶客户端读取 `remote.sessionPins`，通过 UI 工作区服务提供标记；API 工作区投影仅包含领域成员关系及归档状态。
+`@deepseek-ai/dsh-session-flags` 提供服务端展示标记注册表。API 工作区投影携带置顶归属及合并后的展示标记；Client 工作区服务通过 `ClientSessionPinsModel` 从 `remote.sessionPins` 读取置顶顺序。
 
 `@deepseek-ai/dsh-session-pins` 拥有会话置顶能力。它持久化一个 `session_pins` storage-domain global：`pinnedSessionIds`、按工作区的 `groupOrder` 覆盖，以及单列表的 `flatOrder` 覆盖，并暴露 `remote.sessionPins` 的 `list`、`setPinned`、`reorderGroup` 和 `reorderFlat`。每次变更先写 domain，再返回完整快照。重排命名了未知、未置顶或重复 id 时，在写入前以 `session-pins-invalid` 失败。同一插件注册唯一的 flag provider，投影 `pinned: true`。
 
@@ -22,7 +22,9 @@ Status: implemented
 
 `ui-workspace` 从分组树和单列表中过滤 `pinned: true` 会话，在全组置顶时保留项目组标题和新建会话入口，并把置顶搜索匹配排在最前。置顶顺序默认为项目账号顺序（分组）或 recency（单列表），可通过拖拽覆盖；项目账号顺序从不被改写，因此取消置顶会恢复原位。
 
-拖拽期间，源行所在组的每一行都接受插入，其他组则拒绝放置。插入索引以移除源行后的列表为准，使向下移动仍保持请求的前后关系。客户端串行执行变更与重连刷新；刷新失败时保留已提交的置顶快照，并在共享 store 中记录错误。
+拖拽期间，源行所在组的每一行都接受插入，其他组则拒绝放置。插入索引以移除源行后的列表为准，使向下移动仍保持请求的前后关系。Client 拒绝已被取代的读取与变更响应。成功的当前刷新会取代待定的变更回显，因为完整的 Host 快照可能包含经其他命名空间新增的置顶。刷新失败时保留已提交快照、记录错误，并仍允许待定的已提交回显安装其结果；失败的读取没有可发布的新状态。
+
+快照相等性涵盖每个已保存的分组名，包括顺序为空的分组；继承的对象成员不算分组。传入数组在发布前会被复制。
 
 ## Alternatives considered
 
@@ -39,4 +41,4 @@ Status: implemented
 
 ## Testing
 
-服务端领域和 Remote 行为由 [session-pins 测试](../../../../packages/session/session-pins/tests)覆盖；标记合并由 [session-flags 测试](../../../../packages/session/session-flags/tests)覆盖；UI 注册、过滤、排序及刷新失败后的恢复由置顶会话和工作区客户端包测试覆盖。[工作区浏览器场景](../../../../apps/web/tests/workspace-management.e2e.ts)对照持久化的宿主快照与重载后的可见顺序，检查分组视图和单列表视图中的拖拽排序。
+服务端领域和 Remote 行为由 [session-pins 测试](../../../../packages/session/session-pins/tests)覆盖；标记合并由 [session-flags 测试](../../../../packages/session/session-flags/tests)覆盖；UI 注册、过滤、排序及刷新失败后的恢复由置顶会话和工作区客户端包测试覆盖。[Workspace Controller 传输场景](../../../../packages/api/workspace-controller/tests/transport.client.spec.ts)启动已发布 Client 插件的依赖闭包，检查经 Workspace 命名空间写入的置顶能保留到较早排序请求返回之后。使用延迟响应的模型测试还覆盖相反的响应顺序及刷新失败。

@@ -871,6 +871,7 @@ function selectedDocumentsParams(query: string, persistenceVisible: boolean): Ar
 }
 
 function observeLive(session: Session): ObservedSession {
+  // oxlint-disable-next-line typescript/no-deprecated -- existing Session history read
   return observeSession(session.header, session.inheritedEventCount, session.snapshotEvents())
 }
 

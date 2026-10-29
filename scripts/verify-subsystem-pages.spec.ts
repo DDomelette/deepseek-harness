@@ -39,7 +39,7 @@ describe('package-group subsystem pages', () => {
   it('rejects a new group whose README never declares subsystem ownership', () => {
     const root = fixture()
     write(root, 'packages/schedule/README.md', '# Schedule\n')
-    write(root, 'packages/schedule/tool-schedule/package.json', '{}\n')
+    write(root, 'packages/schedule/schedule/package.json', '{}\n')
 
     expect(auditSubsystemPages(root, {}).violations).toEqual([
       'packages/schedule/README.md: no reader-visible direct docs/subsystems/*.md link; add the owning page and link, or add a justified GROUPS_WITHOUT_SUBSYSTEM_PAGE entry',

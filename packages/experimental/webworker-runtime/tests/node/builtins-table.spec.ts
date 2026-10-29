@@ -43,6 +43,24 @@ describe('the replacement table', () => {
     expect(Object.keys(table)).toEqual(expect.arrayContaining(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']))
   })
 
+  it('pipes data and reports completion through the stream promise subpath', async () => {
+    const require = loaderRequire()
+    const { Readable, Writable } = require('node:stream') as typeof import('node:stream')
+    const promises = require('node:stream/promises') as typeof import('node:stream/promises')
+    expect(require('stream/promises')).toBe(promises)
+    const chunks: string[] = []
+    const sink = new Writable({
+      write(chunk: Uint8Array, _encoding, callback) { chunks.push(new TextDecoder().decode(chunk)); callback() },
+    })
+    await promises.pipeline(Readable.from(['first', 'second']), sink)
+    await promises.finished(sink)
+    expect(chunks).toEqual(['first', 'second'])
+    const failure = new Error('source failed')
+    const source = new Readable({ read() { this.destroy(failure) } })
+    await expect(promises.pipeline(source, new Writable({ write(_chunk, _encoding, callback) { callback() } })))
+      .rejects.toBe(failure)
+  })
+
   it('leaves process out, because the host installs that global itself', () => {
     const table = createNodeBuiltins()
     expect([table['process'], table['node:process']]).toEqual([undefined, undefined])
@@ -105,7 +123,7 @@ describe('module identity through the loader', () => {
 
   it('refuses a specifier the table does not hold, instead of resolving it empty', () => {
     const require = loaderRequire()
-    expect(() => require('node:dns')).toThrow()
+    expect(() => require('node:inspector')).toThrow()
   })
 
   it('exposes the package search paths used by the VFS resolver', () => {

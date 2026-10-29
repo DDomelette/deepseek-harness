@@ -245,7 +245,7 @@ def write_profile_patch(
 def write_advanced_profile_patch(root: Path, name: str, sessions: Path) -> Path:
     """Write the shared custom, snapshot, and restart profile patch."""
     return write_profile_patch(root, name, sessions, [
-        {"id": "tools", "config": {"mode": "both"}},
+        {"id": "tools", "config": {"mode": "ptc"}},
         {
             "id": "system-prompt",
             "config": {
@@ -265,9 +265,9 @@ def write_advanced_profile_patch(root: Path, name: str, sessions: Path) -> Path:
             },
         },
         {"insert": [
-            {"id": "code-runtime", "name": "@deepseek-ai/dsh-code-runtime-worker-thread"},
+            {"id": "ptc-runtime", "name": "@deepseek-ai/dsh-ptc-runtime-node"},
             {"id": "cordis-host-runner", "name": "@deepseek-ai/dsh-cordis-host-runner"},
-            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis"},
+            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis", "config": {"dynamicPlugins": True}},
         ]},
     ])
 
@@ -305,8 +305,7 @@ class MockModelHandler(BaseHTTPRequestHandler):
         self.end_headers()
         chunks = completion_chunks(body)
         for chunk in chunks:
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
-        self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.write(f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n".encode())
         self.wfile.flush()
 
     def log_message(self, _format: str, *_args: object) -> None:
@@ -323,9 +322,13 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(latest, dict):
         raise AssertionError(f"model request has an invalid latest message: {body}")
 
-    if latest.get("role") == "tool":
+    result_blocks = [
+        block for block in latest.get("content", [])
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+    ]
+    if result_blocks:
         call_id, tool_name = latest_tool_call(messages)
-        tool_text = message_text(latest.get("content"))
+        tool_text = message_text(result_blocks[-1].get("content"))
         mcp = mcp_tool_followup(call_id, tool_name, tool_text)
         if mcp is not None:
             return mcp
@@ -341,18 +344,20 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         advanced = advanced_tool_followup(body, call_id, tool_name, tool_text)
         if advanced is not None:
             return advanced
-        if "42" not in tool_text:
+        if tool_text != "42":
             raise AssertionError(f"{tool_name} worker returned no expected value: {latest}")
-        if tool_name == "run_code":
+        if call_id == "call-code-worker" and tool_name == "run_code":
             return text_chunks(CODE_WORKER_TEXT)
-        if tool_name == "workflow":
+        if call_id == "call-workflow-worker" and tool_name == "run_code":
             return text_chunks(WORKFLOW_WORKER_TEXT)
         raise AssertionError(f"unexpected tool follow-up: {tool_name}")
 
     user_prompts = [
-        message_text(message.get("content"))
+        block["text"]
         for message in reversed(messages)
         if isinstance(message, dict) and message.get("role") == "user"
+        for block in message.get("content", [])
+        if isinstance(block, dict) and isinstance(block.get("text"), str)
     ]
     minimal_prompt = next((prompt for prompt in user_prompts if prompt == MINIMAL_PROMPT), None)
     # The minimal composition's assembled system prompt, advertised tool schemas, and
@@ -380,21 +385,26 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         (candidate for candidate in user_prompts if candidate in scenario_prompts),
         message_text(latest.get("content")),
     )
+    if SNAPSHOT_PROMPT in user_prompts and "DIRECT_CHILD_OK" in user_prompts:
+        return advanced_workflow_chunks(body)
     if prompt == SNAPSHOT_DIRECT_CHILD_PROMPT:
         return text_chunks("DIRECT_CHILD_OK")
     if prompt == SNAPSHOT_WORKFLOW_CHILD_PROMPT:
         return text_chunks("WORKFLOW_CHILD_OK")
     if prompt == SNAPSHOT_PROMPT:
-        assert_advertised_tool(body, "cordis_define")
-        return tool_call_chunks(
-            "advanced-define",
-            "cordis_define",
-            {
+        assert_ptc_capability(body, "cordis_define")
+        arguments = {
                 "plugin": {"kind": "new", "idPrefix": "snap"},
                 "name": "Snapshot Double",
                 "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
                 "code": {"host": SNAPSHOT_PLUGIN_CODE},
-            },
+        }
+        return ptc_call_chunks(
+            body, "advanced-define",
+            f"const value = await tools.cordis_define({json.dumps(arguments)}); "
+            "if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); "
+            "return 'DEFINED';",
+            "Define the temporary Plugin",
         )
     if prompt == RESTART_FIRST_PROMPT:
         return text_chunks(RESTART_FIRST_TEXT)
@@ -414,17 +424,20 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             {"code": "return 6 * 7", "description": "Compute the smoke value"},
         )
     if prompt == WORKFLOW_PROMPT:
-        assert_advertised_tool(body, "workflow")
-        return tool_call_chunks(
-            "call-workflow-worker",
-            "workflow",
-            {
+        assert_ptc_capability(body, "workflow")
+        arguments = {
                 "script": "return 6 * 7",
                 "meta": {
                     "name": "pkg-worker-smoke",
                     "description": "exercise the packaged workflow worker",
                 },
-            },
+        }
+        return ptc_call_chunks(
+            body, "call-workflow-worker",
+            f"const value = await tools.workflow({json.dumps(arguments)}); "
+            "if (value.kind !== 'foreground' || value.result !== 42) throw new Error('unexpected workflow result'); "
+            "return value.result;",
+            "Compute the workflow smoke value",
         )
     if prompt == FS_SEARCH_PROMPT:
         assert_advertised_tool(body, "grep")
@@ -449,12 +462,13 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             {"a": 19, "b": 23},
         )
     if prompt == PROFILE_PLUGIN_PROMPT:
-        system_text = "\n".join(
+        prompts = [message_text(body.get("system"))]
+        prompts.extend(
             message_text(message.get("content"))
             for message in messages
             if isinstance(message, dict) and message.get("role") == "system"
         )
-        if PROFILE_PLUGIN_MARKER not in system_text:
+        if PROFILE_PLUGIN_MARKER not in "\n".join(prompts):
             raise AssertionError("external profile plugin contributed no model-visible marker")
         return text_chunks(PROFILE_PLUGIN_TEXT)
     return text_chunks(EXPECTED_TEXT)
@@ -559,108 +573,113 @@ def advanced_tool_followup(
     """Advance the executable snapshot's deterministic parent tool chain."""
     if not call_id.startswith("advanced-"):
         return None
-    if call_id == "advanced-define" and tool_name == "cordis_define":
-        if "Defined snap-1/pkg-1 (Snapshot Double)" not in tool_text:
+    if call_id == "advanced-define" and tool_name == "run_code":
+        if tool_text != "DEFINED":
             raise AssertionError(f"cordis_define returned no dynamic Package ids: {tool_text}")
-        if "snapshot_double" in advertised_tool_names(body):
+        if "snapshot_double" in ptc_capability_names(body):
             raise AssertionError("snapshot_double was advertised before cordis_run")
-        assert_advertised_tool(body, "cordis_run")
-        return tool_call_chunks(
-            "advanced-run",
-            "cordis_run",
-            {"pluginId": "snap-1", "packageId": "pkg-1", "mode": "run"},
+        assert_ptc_capability(body, "cordis_run")
+        return ptc_call_chunks(
+            body, "advanced-run",
+            "const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); "
+            "if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); "
+            "return 'RUNNING';",
+            "Run the temporary Plugin",
         )
-    if call_id == "advanced-run" and tool_name == "cordis_run":
-        if "snap-1/pkg-1 is running (run-1)" not in tool_text:
+    if call_id == "advanced-run" and tool_name == "run_code":
+        if tool_text != "RUNNING":
             raise AssertionError(f"cordis_run returned no running Package ids: {tool_text}")
-        assert_advertised_tool(body, "run_code")
-        assert_advertised_tool(body, "snapshot_double")
-        return tool_call_chunks(
-            "advanced-code",
-            "run_code",
-            {
-                "code": "return await tools.snapshot_double({ value: 21 })",
-                "description": "Run the temporary Plugin tool",
-            },
+        assert_ptc_capability(body, "snapshot_double")
+        return ptc_call_chunks(
+            body, "advanced-code", "return await tools.snapshot_double({ value: 21 })",
+            "Run the temporary Plugin tool",
         )
     if call_id == "advanced-code" and tool_name == "run_code":
-        if "42" not in tool_text:
+        if tool_text != "42":
             raise AssertionError(f"run_code returned no dynamic-tool value: {tool_text}")
-        assert_advertised_tool(body, "subagent")
-        return tool_call_chunks(
-            "advanced-direct-child",
-            "subagent",
-            {
-                "description": "Check direct child",
-                "prompt": SNAPSHOT_DIRECT_CHILD_PROMPT,
-            },
+        assert_ptc_capability(body, "subagent")
+        arguments = {"description": "Check direct child", "prompt": SNAPSHOT_DIRECT_CHILD_PROMPT}
+        return ptc_call_chunks(
+            body, "advanced-direct-child", f"return await tools.subagent({json.dumps(arguments)})",
+            "Check direct child",
         )
-    if call_id == "advanced-direct-child" and tool_name == "subagent":
-        if "DIRECT_CHILD_OK" not in tool_text:
-            raise AssertionError(f"subagent returned no expected child value: {tool_text}")
-        assert_advertised_tool(body, "workflow")
-        return tool_call_chunks(
-            "advanced-workflow",
-            "workflow",
-            {
-                "script": SNAPSHOT_WORKFLOW_SCRIPT,
-                "meta": {
-                    "name": "advanced-exe-snapshot",
-                    "description": "exercise one packaged workflow child",
-                },
-            },
-        )
-    if call_id == "advanced-workflow" and tool_name == "workflow":
+    if call_id == "advanced-direct-child" and tool_name == "run_code":
+        receipt = json.loads(tool_text)
+        if receipt.get("kind") != "activation" or not isinstance(receipt.get("subagentId"), str):
+            raise AssertionError(f"subagent returned no activation acknowledgement: {receipt}")
+        return text_chunks("Waiting for the direct child to finish.")
+    if call_id == "advanced-workflow" and tool_name == "run_code":
         if "WORKFLOW_CHILD_OK" not in tool_text:
             raise AssertionError(f"workflow returned no expected child value: {tool_text}")
-        assert_advertised_tool(body, "cordis_undefine")
-        return tool_call_chunks(
-            "advanced-undefine",
-            "cordis_undefine",
-            {"pluginId": "snap-1"},
+        assert_ptc_capability(body, "cordis_undefine")
+        return ptc_call_chunks(
+            body, "advanced-undefine",
+            "const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); "
+            "if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); "
+            "return 'REMOVED';",
+            "Remove the temporary Plugin",
         )
-    if call_id == "advanced-undefine" and tool_name == "cordis_undefine":
-        if "Removed dynamic Plugin snap-1 and all of its Packages." not in tool_text:
+    if call_id == "advanced-undefine" and tool_name == "run_code":
+        if tool_text != "REMOVED":
             raise AssertionError(f"cordis_undefine returned no removal result: {tool_text}")
-        if "snapshot_double" in advertised_tool_names(body):
+        if "snapshot_double" in ptc_capability_names(body):
             raise AssertionError("snapshot_double remained advertised after cordis_undefine")
         return text_chunks(SNAPSHOT_FINAL_TEXT)
     raise AssertionError(f"unexpected advanced tool follow-up: {call_id} {tool_name}: {tool_text}")
 
 
-def text_chunks(text: str) -> list[dict[str, object]]:
-    """Build a complete streaming text response."""
-    return [
-        {"choices": [{"delta": {"role": "assistant", "content": None, "reasoning_content": ""}}]},
-        {"choices": [{"delta": {"content": text}}]},
-        {
-            "choices": [{"delta": {"content": ""}, "finish_reason": "stop"}],
-            "usage": {"prompt_tokens": 3, "completion_tokens": 3},
+def advanced_workflow_chunks(body: dict[str, object]) -> list[dict[str, object]]:
+    """Continue the parent after the direct child's automatic completion notice."""
+    assert_ptc_capability(body, "workflow")
+    arguments = {
+        "script": SNAPSHOT_WORKFLOW_SCRIPT,
+        "meta": {
+            "name": "advanced-exe-snapshot",
+            "description": "exercise one packaged workflow child",
         },
+    }
+    return ptc_call_chunks(
+        body, "advanced-workflow", f"return await tools.workflow({json.dumps(arguments)})",
+        "Check workflow child",
+    )
+
+
+def text_chunks(text: str) -> list[dict[str, object]]:
+    """Build a complete DeepSeek Messages text response."""
+    return [
+        message_start(),
+        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": text}},
+        {"type": "content_block_stop", "index": 0},
+        {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 3}},
+        {"type": "message_stop"},
     ]
 
 
 def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> list[dict[str, object]]:
-    """Build a complete streaming function-call response."""
+    """Build a complete DeepSeek Messages tool-use response."""
     return [
-        {"choices": [{"delta": {"role": "assistant", "content": None, "reasoning_content": ""}}]},
+        message_start(),
         {
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "id": call_id,
-                        "type": "function",
-                        "function": {"name": name, "arguments": json.dumps(arguments)},
-                    }],
-                },
-            }],
+            "type": "content_block_start", "index": 0,
+            "content_block": {"type": "tool_use", "id": call_id, "name": name, "input": {}},
         },
         {
-            "choices": [{"delta": {"content": ""}, "finish_reason": "tool_calls"}],
-            "usage": {"prompt_tokens": 3, "completion_tokens": 3},
+            "type": "content_block_delta", "index": 0,
+            "delta": {"type": "input_json_delta", "partial_json": json.dumps(arguments)},
         },
+        {"type": "content_block_stop", "index": 0},
+        {"type": "message_delta", "delta": {"stop_reason": "tool_use"}, "usage": {"output_tokens": 3}},
+        {"type": "message_stop"},
     ]
+
+
+def message_start() -> dict[str, object]:
+    """Start one deterministic Messages response with disjoint token usage."""
+    return {
+        "type": "message_start",
+        "message": {"id": "smoke-message", "model": "smoke-model", "usage": {"input_tokens": 3, "output_tokens": 0}},
+    }
 
 
 def latest_tool_call(messages: list[object]) -> tuple[str, str]:
@@ -668,25 +687,24 @@ def latest_tool_call(messages: list[object]) -> tuple[str, str]:
     for message in reversed(messages[:-1]):
         if not isinstance(message, dict):
             continue
-        calls = message.get("tool_calls")
+        calls = message.get("content")
         if not isinstance(calls, list):
             continue
         for call in reversed(calls):
             if not isinstance(call, dict):
                 continue
-            function = call.get("function")
             call_id = call.get("id")
             if (
-                isinstance(call_id, str)
-                and isinstance(function, dict)
-                and isinstance(function.get("name"), str)
+                call.get("type") == "tool_use"
+                and isinstance(call.get("name"), str)
+                and isinstance(call_id, str)
             ):
-                return call_id, function["name"]
+                return call_id, call["name"]
     raise AssertionError(f"tool result has no preceding assistant tool call: {messages}")
 
 
 def message_text(content: object) -> str:
-    """Read OpenAI text content in either string or block-list form."""
+    """Read Messages text content in either string or block-list form."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -707,9 +725,8 @@ def advertised_tool_names(body: dict[str, object]) -> set[str]:
     for tool in tools:
         if not isinstance(tool, dict):
             continue
-        function = tool.get("function")
-        if isinstance(function, dict) and isinstance(function.get("name"), str):
-            names.add(function["name"])
+        if isinstance(tool.get("name"), str):
+            names.add(tool["name"])
     return names
 
 
@@ -718,6 +735,37 @@ def assert_advertised_tool(body: dict[str, object], expected: str) -> None:
     names = advertised_tool_names(body)
     if expected not in names:
         raise AssertionError(f"model request did not advertise {expected}: {names}")
+
+
+def ptc_capability_names(body: dict[str, object]) -> set[str]:
+    """Read the current TypeScript SDK declaration while requiring PTC-only wire tools."""
+    names = advertised_tool_names(body)
+    if names != {"run_code"}:
+        raise AssertionError(f"PTC request advertised unexpected direct tools: {names}")
+    prompts = [message_text(body.get("system"))]
+    prompts.extend(
+        message_text(message.get("content"))
+        for message in body["messages"] if message.get("role") == "system"
+    )
+    sdk = next((prompt for prompt in reversed(prompts) if "interface ToolArgsMap {" in prompt), None)
+    if sdk is None:
+        raise AssertionError("PTC request contains no ToolArgsMap declaration")
+    arguments = sdk.split("interface ToolArgsMap {", 1)[1].split("\n}", 1)[0]
+    return set(re.findall(r"^  ([A-Za-z_$][A-Za-z0-9_$]*):", arguments, re.MULTILINE))
+
+
+def assert_ptc_capability(body: dict[str, object], expected: str) -> None:
+    """Require an end-capability in the model's current generated SDK."""
+    names = ptc_capability_names(body)
+    if expected not in names:
+        raise AssertionError(f"PTC SDK did not declare {expected}: {names}")
+
+
+def ptc_call_chunks(body: dict[str, object], call_id: str, code: str, description: str) -> list[dict[str, object]]:
+    """Invoke a program through the sole model-visible PTC transport."""
+    if advertised_tool_names(body) != {"run_code"}:
+        raise AssertionError("PTC program requires exactly the run_code wire tool")
+    return tool_call_chunks(call_id, "run_code", {"code": code, "description": description})
 
 
 class MockModel:
@@ -1190,12 +1238,14 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
             result = harness.run(MCP_PROMPT, session_id="mcp-smoke")
 
         assert result.final_response == MCP_TEXT, result.final_response
-        assert discovery_log.read_text().splitlines() == [
+        discovery = discovery_log.read_text(encoding="utf-8").splitlines()
+        assert discovery == [
+            "server/discover",
             "initialize",
             "notifications/initialized",
             "tools/list",
             "tools/call",
-        ]
+        ], discovery
         assert_session_log(sessions, root, MCP_TEXT, "mcp__fixture__add", "42")
 
 
@@ -1283,7 +1333,11 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
 
 def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) -> None:
     """Drive and compare the advanced SDK/executable behavioral snapshot."""
-    from deepseek_harness import DeepSeekHarness
+    from deepseek_harness import DeepSeekHarness, Notification, RunResult
+    from pydantic import BaseModel
+
+    class WaitResponse(BaseModel):
+        model_config = {"extra": "forbid"}
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-snapshot-") as temporary:
         root = Path(temporary).resolve()
@@ -1295,6 +1349,7 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
                 Path(__file__).resolve().parent / "fixtures/python-snapshot-workflow-order.mjs"
             ).as_uri(), "config": {
                 "parentSessionId": SNAPSHOT_SESSION_ID, "prompt": SNAPSHOT_WORKFLOW_CHILD_PROMPT,
+                "direct": {"prompt": SNAPSHOT_DIRECT_CHILD_PROMPT, "callId": "advanced-direct-child"},
             }},
             {"id": "snapshot-message-feedback", "name": "@deepseek-ai/dsh-message-feedback",
              "config": {"maxNoteBytes": 1024}},
@@ -1317,25 +1372,55 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
             base_url=base_url,
             request_timeout_seconds=60,
         ) as harness:
-            result = harness.run(SNAPSHOT_PROMPT, session_id=SNAPSHOT_SESSION_ID)
+            notifications: list[Notification] = []
+            with harness.client.subscribe_session_notifications(SNAPSHOT_SESSION_ID) as subscription:
+                harness.client.session_prompt(
+                    SNAPSHOT_SESSION_ID, [{"type": "text", "text": SNAPSHOT_PROMPT}],
+                    on_notification=notifications.append, notification_subscription=subscription,
+                )
+                harness.client.request(
+                    "session/wait", {"sessionId": SNAPSHOT_SESSION_ID}, response_model=WaitResponse,
+                    on_notification=notifications.append, notification_subscription=subscription,
+                )
+            events = [
+                notification.payload["event"] for notification in notifications
+                if notification.method == "session.event" and notification.payload.get("sessionId") == SNAPSHOT_SESSION_ID
+            ]
+            messages = [event["data"] for event in events if event.get("type") == "assistant/message"]
+            endings = [event["data"] for event in events if event.get("type") == "turn/end"]
+            final = messages[-1].get("message", messages[-1]) if messages else {}
+            result = RunResult(
+                session_id=SNAPSHOT_SESSION_ID, final_response=message_text(final.get("content")),
+                finish_reason=endings[-1]["reason"]["kind"], events=events, notifications=notifications,
+            )
 
         assert result.final_response == SNAPSHOT_FINAL_TEXT, result.final_response
         feedback_types = [event.get("type") for event in result.events
                           if str(event.get("type")).startswith("feedback/")]
-        if feedback_types != ["feedback/record", "feedback/record", "feedback/message-put", "feedback/message-put", "feedback/message-delete"]:
+        if len(endings) != 2:
+            raise AssertionError(f"advanced snapshot expected two parent turns: {endings}")
+        if feedback_types != ["feedback/record", "feedback/record", "feedback/message-put", "feedback/message-put", "feedback/message-delete"] * 2:
             raise AssertionError(f"advanced snapshot did not exercise all feedback mutations: {feedback_types}")
         methods = [notification.method for notification in result.notifications]
         if methods.count("subagent.started") != 2 or methods.count("subagent.finished") != 2:
             raise AssertionError(f"advanced snapshot emitted unexpected subagent lifecycle: {methods}")
         ptc_events = [event for event in result.events
                       if event.get("type") in ("tool/ptc-dispatch-start", "tool/ptc-dispatch")]
-        if [event["type"] for event in ptc_events] != ["tool/ptc-dispatch-start", "tool/ptc-dispatch"]:
+        calls = [
+            ("advanced-define", "cordis_define"), ("advanced-run", "cordis_run"),
+            ("advanced-code", "snapshot_double"), ("advanced-direct-child", "subagent"),
+            ("advanced-workflow", "workflow"), ("advanced-undefine", "cordis_undefine"),
+        ]
+        if [event["type"] for event in ptc_events] != ["tool/ptc-dispatch-start", "tool/ptc-dispatch"] * len(calls):
             raise AssertionError(f"advanced snapshot emitted unexpected PTC dispatch events: {ptc_events}")
-        for event in ptc_events:
+        for index, event in enumerate(ptc_events):
             data = event["data"]
+            call_id, name = calls[index // 2]
             identity = (data.get("rootCallId"), data.get("parentCallId"), data.get("subCallId"))
-            if identity != ("advanced-code", "advanced-code", "advanced-code:ptc:1"):
+            if identity != (call_id, call_id, f"{call_id}:ptc:1") or data.get("name") != name:
                 raise AssertionError(f"advanced snapshot emitted unexpected PTC dispatch identity: {identity}")
+            if event["type"] == "tool/ptc-dispatch" and data.get("isError") is not False:
+                raise AssertionError(f"advanced PTC capability failed: {data}")
 
         logs = read_session_logs(sessions)
         child_ids = snapshot_child_ids(result)
@@ -1673,8 +1758,8 @@ def session_header_version(content: str, label: str) -> int:
     return version
 
 
-def assert_current_session_version(version: int, label: str) -> None:
-    """Require generated logs to use the source writer generation, independent of goldens."""
+def current_session_format_version() -> int:
+    """Read the writer generation the TypeScript session package currently declares."""
     source = Path(__file__).resolve().parents[1] / "packages/core/session/src/types.ts"
     declarations = re.findall(
         r"^export const SESSION_FORMAT_VERSION = ([0-9]+)$",
@@ -1683,7 +1768,12 @@ def assert_current_session_version(version: int, label: str) -> None:
     )
     if len(declarations) != 1:
         raise AssertionError(f"{source}: expected one literal SESSION_FORMAT_VERSION declaration")
-    current_version = int(declarations[0])
+    return int(declarations[0])
+
+
+def assert_current_session_version(version: int, label: str) -> None:
+    """Require generated logs to use the source writer generation, independent of goldens."""
+    current_version = current_session_format_version()
     if version != current_version:
         raise AssertionError(
             f"{label}: expected current Session format v{current_version}, got v{version}",
@@ -1750,7 +1840,7 @@ def assert_session_log(sessions: Path, cwd: Path, *expected_texts: str) -> None:
     logs = latest_persisted_session_paths(sessions)
     if len(logs) != 1:
         raise AssertionError(f"expected one JSONL session log under {sessions}, found {logs}")
-    content = logs[0].read_text()
+    content = logs[0].read_text(encoding="utf-8")
     assert_persisted_session_version(logs[0], content)
     lines = content.splitlines()
     header = json.loads(lines[0])
@@ -1842,13 +1932,19 @@ def build_in_history_snapshot_files(
     request_prompts = []
     for index, request in enumerate(requests):
         messages = request["messages"]
-        assert messages[0]["role"] == "system" and message_text(messages[0]["content"]) == prompts[0]
+        assert message_text(request.get("system")) == prompts[0]
+        assert messages[0]["role"] == "user", messages
         assert request["tools"] == requests[0]["tools"], "prompt update changed tool schemas"
         positions = [position for position, message in enumerate(messages) if message["role"] == "system"]
-        texts = [message_text(messages[position]["content"]) for position in positions]
+        texts = [message_text(request.get("system")), *[
+            message_text(messages[position]["content"]) for position in positions
+        ]]
         assert texts == (prompts[:1] if index == 0 else prompts), texts
         if index > 0:
-            assert messages[positions[1] - 1]["role"] == "tool", messages
+            previous = messages[positions[0] - 1]
+            assert previous["role"] == "user" and any(
+                block.get("type") == "tool_result" for block in previous["content"]
+            ), messages
         request_prompts.append(texts)
     evidence = {
         "requestSystemPrompts": request_prompts,
@@ -1868,9 +1964,8 @@ def build_minimal_snapshot_files(
     Every assembled system prompt, advertised tool schema, and system or user message is
     kept verbatim: they carry what the deployment actually shows the model, so a plugin
     that contributes an unintended system section or user message cannot pass unnoticed.
-    Assistant and tool payloads keep only their call identity because their text differs
-    across the platforms this expected output must replay on. The shipped profile omits
-    dynamic runtime context, so every message it emits is compared.
+    Assistant tool calls and tool results keep only their call identity because their
+    payloads differ across the platforms this expected output must replay on.
     """
     snapshot = []
     for body in requests:
@@ -1878,6 +1973,7 @@ def build_minimal_snapshot_files(
         if not isinstance(messages, list):
             raise AssertionError(f"minimal model request has no messages: {body}")
         snapshot.append({
+            "system": minimal_snapshot_text(body.get("system"), cwd),
             "tools": minimal_snapshot_text(body.get("tools"), cwd),
             "messages": [
                 minimal_snapshot_message(message, cwd)
@@ -1892,29 +1988,35 @@ def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
     if not isinstance(message, dict):
         raise AssertionError(f"minimal model request has an invalid message: {message}")
     role = message.get("role")
+    content = message.get("content")
+    if not isinstance(content, list):
+        raise AssertionError(f"minimal Messages content is not a block list: {message}")
     if role in ("system", "user"):
-        return {"role": role, "text": minimal_snapshot_text(message_text(message.get("content")), cwd)}
+        return {
+            "role": role,
+            "content": [
+                {"type": "tool_result", "tool_use_id": block["tool_use_id"], "content": "{{tool-result}}"}
+                if block.get("type") == "tool_result"
+                else minimal_snapshot_text(block, cwd)
+                for block in content
+            ],
+        }
     if role == "assistant":
-        calls = message.get("tool_calls")
-        if not isinstance(calls, list):
-            raise AssertionError(f"minimal assistant message has no tool calls: {message}")
         return {
             "role": role,
             "toolCalls": [
-                {"id": call.get("id"), "name": (call.get("function") or {}).get("name")}
-                for call in calls
-                if isinstance(call, dict)
+                {"id": call["id"], "name": call["name"]}
+                for call in content
+                if call.get("type") == "tool_use"
             ],
         }
-    if role == "tool":
-        return {"role": role, "toolCallId": message.get("tool_call_id"), "text": "{{tool-result}}"}
     raise AssertionError(f"minimal model request has an unexpected message role: {message}")
 
 
 def minimal_snapshot_text(value: object, cwd: Path) -> object:
     """Replace the scenario's temporary working directory everywhere it appears."""
     if isinstance(value, str):
-        return value.replace(str(cwd), "{{cwd}}")
+        return replace_snapshot_tokens(value, [(str(cwd), "{{cwd}}")])
     if isinstance(value, list):
         return [minimal_snapshot_text(item, cwd) for item in value]
     if isinstance(value, dict):
@@ -2025,6 +2127,7 @@ def build_restart_snapshot_files(
     request_value = [
         {
             "model": request.get("model"),
+            "system": "{{system}}",
             "messages": restart_request_messages(request),
             "toolNames": sorted(advertised_tool_names(request)),
         }
@@ -2055,7 +2158,9 @@ def build_restart_snapshot_files(
 
 
 def restart_request_messages(request: dict[str, object]) -> list[object]:
-    """Project model history while tokenizing composition-owned system prose."""
+    """Project Messages history after requiring the separate initial system prompt."""
+    if not isinstance(request.get("system"), str) or not request["system"]:
+        raise AssertionError("restart snapshot request has no initial system prompt")
     messages = request.get("messages")
     if not isinstance(messages, list):
         raise AssertionError(f"restart snapshot request has no messages: {request}")
@@ -2068,15 +2173,19 @@ def restart_request_messages(request: dict[str, object]) -> list[object]:
 
 
 def snapshot_workflow_run_id(result: "RunResult") -> str:
-    """Return the one workflow run id emitted by the advanced scenario."""
+    """Read the nested workflow's canonical id from its model-visible PTC result."""
     run_ids: set[str] = set()
     for event in result.events:
-        event_type = event.get("type")
         data = event.get("data")
-        if not isinstance(event_type, str) or not event_type.startswith("tool-workflow/"):
+        if event.get("type") != "tool/result" or not isinstance(data, dict):
             continue
-        if isinstance(data, dict) and isinstance(data.get("runId"), str):
-            run_ids.add(data["runId"])
+        message = data.get("message", {})
+        if message.get("source", {}).get("callId") != "advanced-workflow":
+            continue
+        value = json.loads(message_text(message.get("content")))
+        if value.get("kind") != "foreground" or not isinstance(value.get("runId"), str):
+            raise AssertionError(f"advanced workflow returned no foreground run id: {value}")
+        run_ids.add(value["runId"])
     if len(run_ids) != 1:
         raise AssertionError(f"advanced snapshot expected one workflow run id: {sorted(run_ids)}")
     return next(iter(run_ids))
@@ -2104,10 +2213,7 @@ def normalize_snapshot_value(
 ) -> object:
     """Scrub volatile values and bulky request headers without losing behavior."""
     if isinstance(value, str):
-        normalized = value
-        for actual, token in replacements:
-            normalized = normalized.replace(actual, token)
-        return normalized
+        return replace_snapshot_tokens(value, replacements)
     if isinstance(value, list):
         return [normalize_snapshot_value(item, replacements) for item in value]
     if not isinstance(value, dict):
@@ -2139,7 +2245,12 @@ def normalize_snapshot_value(
                 dt = member.get("dt")
                 if isinstance(dt, list):
                     member["dt"] = [0] * len(dt)
-    if isinstance(normalized.get("id"), str) and normalized.get("role") in ("assistant", "system", "user"):
+    source = normalized.get("source")
+    tool_message = (
+        normalized.get("role") == "tool" and isinstance(source, dict)
+        and source.get("kind") == "tool" and isinstance(normalized.get("toolCallId"), str)
+    )
+    if isinstance(normalized.get("id"), str) and (normalized.get("role") in ("assistant", "system", "user") or tool_message):
         if not normalized["id"].startswith("{{message:"):
             normalized["id"] = "{{messageId}}"
     if normalized.get("type") in ("feedback/message-put", "feedback/message-delete"):
@@ -2153,6 +2264,13 @@ def normalize_snapshot_value(
     scrub_snapshot_header(normalized)
     scrub_snapshot_system_message(normalized)
     return normalized
+
+
+def replace_snapshot_tokens(value: str, replacements: list[tuple[str, str]]) -> str:
+    """Replace owned volatile values, including their JSON-escaped spelling in prose."""
+    for actual, token in replacements:
+        value = value.replace(json.dumps(actual, ensure_ascii=False)[1:-1], token).replace(actual, token)
+    return value
 
 
 def scrub_snapshot_header(value: dict[object, object]) -> None:

@@ -6,7 +6,7 @@ import { isAbsolute } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
-import type {} from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import { boundContextSummary, createUserMessage, errorChain, type LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-permission-presets'
 import type { SessionId } from '@deepseek-ai/dsh-session'
@@ -124,7 +124,9 @@ export async function createWebhookSession(
   const resolved = resolveRequest(ctx, request)
   ctx.permissionPresets.resolve(resolved.permissionPreset)
   const preset = await ctx.agentPresets.resolve(resolved.agentPreset)
-  await ctx.agentPresets.standingKeyFor(preset.id)
+  // Hold the preset's composition for the whole creation: acquiring the lease
+  // is what fails loud on an unknown or unusable preset, before any workspace exists.
+  await using _presetScope = await ctx.agentPresets.acquireScope(preset.id)
   signal.throwIfAborted()
 
   const workspace = await ctx.workspaceRegistry.create(resolved.workspacePath)

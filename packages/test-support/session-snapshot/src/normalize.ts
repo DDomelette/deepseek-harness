@@ -11,6 +11,7 @@ import {
 } from '@deepseek-ai/dsh-session'
 import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import { redactSessionSnapshotIds } from './identity.ts'
+import { sessionHeaderVersion } from './session-files.ts'
 
 const SESSION_ID = '{{sessionId}}'
 const MESSAGE_ID = '{{messageId}}'
@@ -20,6 +21,7 @@ const SYSTEM = '{{system}}'
 const TOOLS = '{{tools}}'
 const EVENT_TIME = '{{eventTime}}'
 const EVENT_OMITTED_BYTES = '{{eventOmittedBytes}}'
+const SOURCE_SESSION_FORMAT = '{{sourceSessionFormatVersion}}'
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
 function isPackedFixtureRow(record: Record<string, unknown>): boolean {
@@ -105,6 +107,12 @@ export interface NormalizeOptions {
   identityMode?: 'legacy' | 'preserve'
 }
 
+/** Comparison controls for complete primary and child Session logs. */
+export interface SessionSnapshotComparisonOptions extends Omit<NormalizeOptions, 'identityMode'> {
+  /** Inputs are captured native writer output, rather than source-versus-migrated-artifact comparisons. */
+  nativeWriterOutput?: true
+}
+
 /** Return every known spelling of the generated cwd, most specific first. */
 function cwdSpellings(ctx: NormalizeContext): string[] {
   const spellings = [...new Set([ctx.cwd, ...ctx.cwdAliases ?? []])]
@@ -112,7 +120,12 @@ function cwdSpellings(ctx: NormalizeContext): string[] {
   const macAliases = spellings
     .filter(spelling => spelling.startsWith('/') && !spelling.startsWith('/private/'))
     .map(spelling => `/private${spelling}`)
-  return [...new Set([...spellings, ...macAliases])]
+  // Model-visible text quotes the directory with JSON.stringify, so a Windows
+  // spelling appears with every separator doubled. Cover that spelling too.
+  const escapedAliases = spellings
+    .filter(spelling => spelling.includes('\\'))
+    .map(spelling => spelling.replaceAll('\\', '\\\\'))
+  return [...new Set([...spellings, ...macAliases, ...escapedAliases])]
     .sort((left, right) => right.length - left.length)
 }
 
@@ -175,6 +188,8 @@ function scrubString(
   // token.
   out = out.split(`/private${CWD}`).join(CWD)
   if (cwdPathMode === 'canonical') {
+    // An escaped spelling leaves its own doubled separators after the token.
+    out = out.replaceAll(`${CWD}\\\\`, `${CWD}/`)
     // Restrict separator conversion to paths rooted at the cwd token. A global
     // backslash rewrite would corrupt regexes, commands, and model-authored text.
     out = out.replace(CWD_ROOTED_PATH_RE, path => path.replaceAll('\\', '/'))
@@ -230,29 +245,32 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Replace any absolute spelling whose final segment is the generated cwd basename. */
-function tokenizeFixtureString(value: string, ctx: NormalizeContext, basename: string): string {
-  const exact = replaceCwd(value, ctx, CWD)
-  const absoluteCwd = new RegExp(
-    String.raw`(?:[A-Za-z]:)?[\\/](?:[^\\/\s<>"]+[\\/])*${escapeRegExp(basename)}`
-    + String.raw`(?=$|[\\/\s<>'"()\[\]{},;:!?=])`,
-    'g',
-  )
-  return exact.replace(absoluteCwd, CWD).split(`/private${CWD}`).join(CWD)
+/** Replace any absolute spelling whose final segment is a generated cwd basename. */
+function tokenizeFixtureString(value: string, ctx: NormalizeContext, basenames: readonly string[]): string {
+  let out = replaceCwd(value, ctx, CWD)
+  for (const basename of basenames) {
+    const absoluteCwd = new RegExp(
+      String.raw`(?:[A-Za-z]:)?[\\/](?:[^\\/\s<>"]+[\\/])*${escapeRegExp(basename)}`
+      + String.raw`(?=$|[\\/\s<>'"()\[\]{},;:!?=])`,
+      'g',
+    )
+    out = out.replace(absoluteCwd, CWD)
+  }
+  return out.split(`/private${CWD}`).join(CWD)
 }
 
 /** Recursively replace generated-cwd spellings while preserving every other JSON value. */
 function tokenizeFixtureValue(
   value: unknown,
   ctx: NormalizeContext,
-  basename: string,
+  basenames: readonly string[],
 ): unknown {
-  if (typeof value === 'string') return tokenizeFixtureString(value, ctx, basename)
-  if (Array.isArray(value)) return value.map(item => tokenizeFixtureValue(item, ctx, basename))
+  if (typeof value === 'string') return tokenizeFixtureString(value, ctx, basenames)
+  if (Array.isArray(value)) return value.map(item => tokenizeFixtureValue(item, ctx, basenames))
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
       key,
-      tokenizeFixtureValue(item, ctx, basename),
+      tokenizeFixtureValue(item, ctx, basenames),
     ]))
   }
   return value
@@ -265,22 +283,27 @@ function tokenizeFixtureValue(
  * path.
  *
  * @param rawLog The raw or refresh-stabilized session JSONL fixture.
+ * @param runCwd The run's own cwd spellings, when the stabilized log header no
+ *   longer carries them: a refresh keeps the committed fixture's header values,
+ *   so the body may name the fresh temporary directory the run used.
  * @returns Compact JSONL whose known cwd spellings become `{{cwd}}`.
  * @throws If a non-empty line is invalid JSON or the session cwd has no basename.
  */
-export function tokenizeSessionFixtureCwd(rawLog: string): string {
+export function tokenizeSessionFixtureCwd(rawLog: string, runCwd?: NormalizeContext): string {
   const lines = rawLog.split('\n')
   const firstLine = lines.find(line => line.trim().length > 0)
   const header = firstLine === undefined ? undefined : JSON.parse(firstLine) as { cwd?: unknown }
   const cwd = typeof header?.cwd === 'string' ? header.cwd : ''
-  const basename = cwd.split(/[\\/]/).at(-1)
-  if (basename === undefined || basename.length === 0) {
+  const spellings = runCwd === undefined ? [] : cwdSpellings(runCwd)
+  const basenames = [...new Set([cwd, ...spellings].map(spelling => spelling.split(/[\\/]/).slice(-1).join('')))]
+    .filter(basename => basename.length > 0)
+  if (basenames.length === 0) {
     throw new Error('acp-snapshot: cannot tokenize a cwd without a basename')
   }
-  const ctx: NormalizeContext = { sessionIds: [], cwd }
+  const ctx: NormalizeContext = { sessionIds: [], cwd: runCwd?.cwd ?? cwd }
   return lines.map((line) => {
     if (line.trim().length === 0) return line
-    return JSON.stringify(tokenizeFixtureValue(JSON.parse(line), ctx, basename))
+    return JSON.stringify(tokenizeFixtureValue(JSON.parse(line), ctx, basenames))
   }).join('\n')
 }
 
@@ -432,41 +455,52 @@ export function normalizeSessionSnapshot(
 
 /**
  * Normalize one scenario's primary and child logs with shared typed identity redaction.
+ * Native-writer comparison strictly restores each input before tokenizing its own delivery generation.
  * @param rawLogs - primary-first persisted or projected session JSONL.
  * @param ctx - generated cwd spellings and other volatile run facts.
- * @param options - separator controls; relationship-preserving identity mode is mandatory.
- * @returns normalized session fixtures in input order.
+ * @param options - separator and native-writer comparison controls; identity relationships are preserved.
+ * @returns comparison-only Session records in input order; not persistence or fixture write-back input.
  */
 export function normalizeSessionSnapshots(
   rawLogs: readonly string[],
   ctx: NormalizeContext,
-  options: Omit<NormalizeOptions, 'identityMode'> = {},
+  options: SessionSnapshotComparisonOptions = {},
 ): string[] {
-  const currentLogs = rawLogs.map(log => hasSessionFormatVersion(log)
-    ? prepareSessionSnapshotFixtureForComparison(log)
-    : log)
-  const comparableLogs = currentLogs.map(normalizeSessionFormatProvenance)
+  const { nativeWriterOutput, ...normalizeOptions } = options
+  const comparableLogs = rawLogs.map((log) => {
+    if (!hasSessionFormatVersion(log)) return normalizeSessionFormatMetadata(log)
+    const currentLog = prepareSessionSnapshotFixtureForComparison(log)
+    return normalizeSessionFormatMetadata(currentLog, nativeWriterOutput
+      ? sessionHeaderVersion(log, 'source Session snapshot') : undefined)
+  })
   return redactSessionSnapshotIds(comparableLogs).map(log => projectSessionSnapshot(
     scrubSessionSnapshot(normalizeSessionLog(
       log,
       { ...ctx, sessionIds: [] },
-      { ...options, identityMode: 'preserve' },
+      { ...normalizeOptions, identityMode: 'preserve' },
     )),
   ))
 }
 
 /**
  * Omit the artifact header generation after official migration for comparison.
- * Delivery and captured-source generations retain their opaque recorded values.
+ * An explicit source version tokenizes only delivery markers for that original input generation.
+ * Other delivery generations and every captured-source generation retain their recorded values.
  * @param rawLog - Session records or events as compact JSON lines.
- * @returns the same records with only the Session header version omitted.
+ * @param sourceVersion - original generation of strictly validated native writer output; otherwise omit.
+ * @returns comparison-only records with the Session header version omitted and native delivery qualifiers tokenized.
  */
-export function normalizeSessionFormatProvenance(rawLog: string): string {
+export function normalizeSessionFormatMetadata(rawLog: string, sourceVersion?: number): string {
   return rawLog.split('\n').map((line) => {
     if (line.trim().length === 0) return line
     const record = JSON.parse(line) as Record<string, unknown>
-    if (record.type !== 'session' || !Object.hasOwn(record, 'version')) return line
-    delete record.version
+    if (record.type === 'session' && Object.hasOwn(record, 'version')) {
+      delete record.version
+    } else if (sourceVersion !== undefined && record.type === 'session-log-deepseek/delivery-accepted') {
+      const data = record.data as Record<string, unknown> | undefined
+      if (data?.sessionFormatVersion !== sourceVersion) return line
+      data.sessionFormatVersion = SOURCE_SESSION_FORMAT
+    } else return line
     return JSON.stringify(record)
   }).join('\n')
 }
@@ -499,7 +533,9 @@ export function scrubSystemPrompts(rawLog: string): string {
 
 /**
  * Replace tool schemas in full request-header snapshots with `{{tools}}`
- * tokens while retaining field presence. System-prompt text stays verbatim so
+ * tokens while retaining field presence. Logs containing developer messages
+ * retain tool names so historical addition references remain verifiable.
+ * System-prompt text stays verbatim so
  * pinning fixtures can move only schema bulk into their dedicated JSON
  * sidecar. Lines without a tool payload pass through byte-for-byte; the
  * transform is idempotent.
@@ -529,7 +565,8 @@ export function scrubModelRequestBulk(rawLog: string): string {
 /**
  * Project a persisted session log while tokenizing prompt text and schema
  * bulk. Each non-empty line is parsed at most once; the session header stays
- * byte-identical. Body records omit their persistence-only envelopes.
+ * byte-identical. Body records omit their persistence-only envelopes and expand
+ * source-event ranges without changing reference order.
  *
  * @param rawLog - persisted or already-projected session JSONL.
  * @returns committed snapshot JSONL with prompt text and tool schemas tokenized.
@@ -545,6 +582,9 @@ export function scrubSessionSnapshot(rawLog: string): string {
       return line
     }
     omitFixtureEnvelope(record)
+    if (Object.hasOwn(record, 'sourceEventSeqs')) {
+      record.sourceEventSeqs = decodeSeqRanges(record.sourceEventSeqs)
+    }
     normalizeFeedbackClocks(record)
     return JSON.stringify(record)
   }).join('\n')
@@ -579,9 +619,11 @@ function systemPromptBlock(data: Record<string, unknown>): Record<string, unknow
 /** Transform the selected model-request payloads. */
 function scrubModelRequestContent(rawLog: string, options: ModelRequestScrubOptions): string {
   const lines = rawLog.split('\n')
-  const out = lines.map((line) => {
-    if (line.trim().length === 0) return line
-    const record = JSON.parse(line) as Record<string, unknown>
+  const records = lines.map(line => line.trim().length === 0 ? undefined : JSON.parse(line) as Record<string, unknown>)
+  const retainToolNames = records.some(record => record?.type === 'developer/message')
+  const out = lines.map((line, index) => {
+    const record = records[index]
+    if (record === undefined) return line
     const data = record.data as Record<string, unknown> | null | undefined
     if (data === null || typeof data !== 'object') return line
     if (options.system === true && record.type === 'system/message') {
@@ -593,7 +635,9 @@ function scrubModelRequestContent(rawLog: string, options: ModelRequestScrubOpti
     if (options.tools === true && record.type === 'request/header') {
       const header = data.header as Record<string, unknown> | null | undefined
       if (header === null || typeof header !== 'object' || !('tools' in header)) return line
-      header.tools = TOOLS
+      header.tools = retainToolNames && Array.isArray(header.tools)
+        ? header.tools.map((tool: string | { name: string }) => typeof tool === 'string' ? tool : tool.name)
+        : TOOLS
       return JSON.stringify(record)
     }
     return line

@@ -70,7 +70,6 @@ The plugin prepends an `agent/pre-step` listener that runs only on the first ste
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: first-step listener, shell query, change suppression, scheduling |
-| — | No runtime invariant companion is published; a reading is a per-turn snapshot of external tmux state, so the session holds no cross-event relation to check; scheduling and format are owned by pipeline tests. |
 
 ### Main flow
 
@@ -139,3 +138,5 @@ These limits define when tmux location context is a poor fit. They are current p
 None.
 
 </details>
+
+**Runtime invariant:** No companion is published. This request-context plugin contributes one durable, source-attributed message per changed turn, while the read-only query's execution remains owned by the `ctx.shell` executor service and the tmux server owns the pane state it reports.

@@ -35,6 +35,7 @@ import {
   parseSystemPromptSnapshot,
   parseToolSchemasSnapshot,
   refreshFixtureReplacements,
+  reconcileCatalogCreationTimes,
   scenarioSkipped,
   restorePinnedToolSchemas,
   type SharedSnapshotClaim,
@@ -137,12 +138,23 @@ if (!BOOTSTRAP) {
   rmSync(join(recordDir, 'rec-pin', 'session.v3.jsonl'))
   writeFileSync(join(recordDir, 'rec-child', 'session.2.v3.jsonl'), retiredChildFixture)
 }
+const linkedDir = mkdtempSync(join(tmpdir(), 'acp-snap-linked-suite-'))
+cpSync(REPLAY_DIR, linkedDir, { recursive: true })
+for (const [file, target] of [
+  ['system-prompt.expected.md', './system-prompt.contents.md'],
+  ['tool-schemas.expected.json', '../pin-turn/tool-schemas.contents.json'],
+] as const) {
+  const pin = join(linkedDir, 'pin-turn')
+  writeFileSync(join(pin, target), readFileSync(join(pin, file), 'utf8'))
+  writeFileSync(join(pin, file), target)
+}
 const refreshDir = mkdtempSync(join(tmpdir(), 'acp-snap-refresh-suite-'))
 cpSync(REPLAY_DIR, refreshDir, { recursive: true })
 staleRefreshFixtures(refreshDir)
 afterAll(async () => {
   if (!BOOTSTRAP) await rm(recordDir, { recursive: true, force: true })
   await rm(refreshDir, { recursive: true, force: true })
+  await rm(linkedDir, { recursive: true, force: true })
 })
 
 function staleRefreshFixtures(dir: string): void {
@@ -171,6 +183,10 @@ function staleRefreshFixtures(dir: string): void {
 
 describe('defineAcpSnapshotSuite: replay mode', () => {
   defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: REPLAY_DIR, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
+})
+
+describe('defineAcpSnapshotSuite: materialized sidecars', () => {
+  defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: linkedDir, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
 })
 
 // The record suite's tests run in registration order: rec-pin re-records the
@@ -892,6 +908,17 @@ describe('tool-schema snapshots', () => {
       .toEqual({ system: '{{system}}', tools: snapshot.initial })
   })
 
+  it('restores ordered tool names only when they match the sidecar', () => {
+    const schemas = [{ name: 'read' }, { name: 'write' }]
+    expect(restorePinnedToolSchemas({ tools: ['read', 'write'] }, schemas)).toEqual({ tools: schemas })
+    for (const tools of [['write', 'read'], ['read'], ['read', 'missing'], [1, 'write']]) {
+      expect(() => restorePinnedToolSchemas({ tools }, schemas)).toThrow(/must equal/)
+    }
+    for (const schema of [null, 'read', {}, { name: 'other' }]) {
+      expect(() => restorePinnedToolSchemas({ tools: ['read'] }, [schema])).toThrow(/must equal/)
+    }
+  })
+
   it('rejects invalid headers and a missing tool token', () => {
     expect(() => restorePinnedToolSchemas(null, snapshot.initial)).toThrow(/must be an object/)
     expect(() => restorePinnedToolSchemas('invalid', snapshot.initial)).toThrow(/must be an object/)
@@ -943,6 +970,15 @@ describe('stabilizeFixtureMessageIds', () => {
       expect(fixture).toContain(`"id":"${existingId}"`)
       expect(fixture).not.toContain(freshId)
     }
+  })
+
+  it('stabilizes developer message identities through their explicit surface case', () => {
+    const freshId = '11111111-1111-4111-8111-111111111111'
+    const oldId = '22222222-2222-4222-8222-222222222222'
+    const log = (id: string) => JSON.stringify({ type: 'developer/message', data: { turn: 1, step: 1, message: {
+      id, role: 'developer', source: { kind: 'tool-registry' }, content: [{ type: 'tool-addition', toolName: 'search' }],
+    } } }) + '\n'
+    expect(stabilizeFixtureMessageIds([log(freshId)], [log(oldId)])).toEqual([log(oldId)])
   })
 
   it('rewrites only complete messages carried by surface events or durable inbox splices', () => {
@@ -1567,5 +1603,31 @@ describe('stabilizeRefreshLog', () => {
     const outputIds = stabilize(log(freshNames), log(existingNames)).trim().split('\n').slice(1)
       .map(line => (JSON.parse(line) as { data: { id: string } }).data.id)
     expect(outputIds).toEqual(freshNames.map(name => ids[name as keyof typeof ids]))
+  })
+})
+
+
+describe('raw parent and child catalog clocks', () => {
+  const child = '{"type":"session","id":"child","createdAt":100}\n'
+  const parent = (time: number) => [
+    { type: 'session', id: 'parent', createdAt: 1 },
+    { type: 'subagent/catalog', seq: 0, time: 2, data: { version: 0, childId: 'child', childCreatedAt: time, mode: 'one-shot' } },
+  ].map(row => JSON.stringify(row) + '\n').join('')
+
+  it('rejects mismatched raw clocks before normalization can erase them', () => {
+    expect(() => reconcileCatalogCreationTimes([parent(200), child], 'validate')).toThrow('creation time 200 disagrees with child header 100')
+    expect(reconcileCatalogCreationTimes([parent(100), child], 'validate')).toEqual([parent(100), child])
+  })
+
+  it('keeps retained child clocks in newly generated catalog fixtures', () => {
+    const output = reconcileCatalogCreationTimes([parent(200), child], 'preserve-headers')
+    expect(output).toEqual([parent(100), child])
+    expect(reconcileCatalogCreationTimes(output, 'validate')).toEqual(output)
+    expect(reconcileCatalogCreationTimes(output, 'preserve-headers')).toEqual(output)
+  })
+
+  it('preserves partial corpora and unrelated rows verbatim', () => {
+    const partial = parent(200) + '{"type":"feedback/record","data":null}\n'
+    expect(reconcileCatalogCreationTimes([partial], 'validate')).toEqual([partial])
   })
 })

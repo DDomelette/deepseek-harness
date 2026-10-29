@@ -47,6 +47,8 @@ describe('Python runtime executable builder CLI', () => {
     expect(bootstrap).toContain('await runCli()')
     expect(bootstrap).toContain("import('@deepseek-ai/dsh-subprocess-local/runner')")
     expect(bootstrap).toContain('await runSelectedSubprocessRunner(selection)')
+    expect(bootstrap).toContain("Reflect.deleteProperty(process.env, 'DSH_PTC_RUNTIME_NODE')")
+    expect(bootstrap).toContain("import('@deepseek-ai/dsh-ptc-runtime-node/process')")
   })
 
   it('runs pnpm through its JavaScript entrypoint without a command shell', () => {
@@ -63,6 +65,7 @@ describe('Python runtime executable builder CLI', () => {
     expect(result.stdout).not.toContain(resolve(root, 'python/sdk-runtime/runtime-bootstrap.mjs'))
     expect(result.stdout).toContain('"bin":"runtime-bootstrap.mjs"')
     expect(result.stdout).toContain(`${process.execPath} C:\\tools\\pnpm.cjs exec pkg`)
+    expect(result.stdout).toContain('--sea --compress GZip --targets node24-macos-arm64')
     expect(result.stdout).not.toMatch(/pnpm\.cmd/i)
   })
 
@@ -97,7 +100,7 @@ describe('Python runtime executable builder CLI', () => {
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('exec pkg')
-    expect(result.stdout).toContain('--sea --targets node24-macos-x64')
+    expect(result.stdout).toContain('--sea --compress GZip --targets node24-macos-x64')
   })
 
   it('rejects a Windows arm64 product before any build step', () => {

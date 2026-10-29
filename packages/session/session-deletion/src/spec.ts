@@ -9,12 +9,15 @@ import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 
 const sessionIdSchema = z.string().transform(value => value as SessionId)
 
-/** Durable per-member progress; ordering is defined by the member array. */
+/** Durable per-member progress; the member array is the plan's membership and report order. */
 export const deletionMember = z.object({
   sessionId: sessionIdSchema,
   persistence: z.enum(['pending', 'done', 'missing']),
   workspace: z.enum(['pending', 'done', 'skipped']),
 })
+
+/** One durable deletion-plan member. */
+export type DeletionPlanMember = z.infer<typeof deletionMember>
 
 /** One recursive deletion transaction, persisted before the first destructive write. */
 export const deletionPlanRecord = z.object({

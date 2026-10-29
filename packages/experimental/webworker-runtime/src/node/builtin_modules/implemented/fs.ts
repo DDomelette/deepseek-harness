@@ -226,6 +226,35 @@ export function realpathSync(path: PathArg): string {
 }
 
 /**
+ * Resolve a canonical VFS path through Node's callback form.
+ * @param path - Path to resolve.
+ * @param optionsOrCallback - Encoding options or the completion callback.
+ * @param maybeCallback - Completion callback when options are present.
+ */
+export function realpath(
+  path: PathArg,
+  optionsOrCallback: EncodingOption | 'buffer' | { encoding: 'buffer' } | ((error: NodeJS.ErrnoException | null, path?: string | Buffer) => void),
+  maybeCallback?: (error: NodeJS.ErrnoException | null, path?: string | Buffer) => void,
+): void {
+  const options = typeof optionsOrCallback === 'function' ? undefined : optionsOrCallback
+  const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback
+  if (callback === undefined) throw new TypeError('The "callback" argument must be of type function')
+  queueMicrotask(() => {
+    let result: string
+    try {
+      result = realpathSync(path)
+    } catch (error) {
+      callback(error as NodeJS.ErrnoException)
+      return
+    }
+    const encoding = typeof options === 'string' ? options : options?.encoding
+    callback(null, encoding === 'buffer' ? Buffer.from(result) : encoding === undefined || encoding === null || encoding === 'utf8' ? result : Buffer.from(result).toString(encoding))
+  })
+}
+
+realpath.native = realpath
+
+/**
  * List a directory.
  * @param path - directory path.
  * @param options - `withFileTypes` selects Dirent objects.
@@ -834,7 +863,7 @@ export const __esModule = true
  */
 type OwnSignature =
   | 'constants' | 'promises' | 'Dirent' | 'FSWatcher' | 'StatWatcher' | 'ReadStream' | 'WriteStream'
-  | 'readFileSync' | 'writeFileSync' | 'appendFileSync' | 'statSync' | 'lstatSync' | 'realpathSync'
+  | 'readFileSync' | 'writeFileSync' | 'appendFileSync' | 'statSync' | 'lstatSync' | 'realpathSync' | 'realpath'
   | 'readdirSync' | 'mkdirSync' | 'mkdtempSync' | 'rmSync' | 'opendirSync'
   | 'openSync' | 'readSync' | 'writeSync' | 'stat' | 'lstat' | 'watch' | 'watchFile' | 'unwatchFile'
   | 'createReadStream' | 'createWriteStream'
@@ -850,7 +879,7 @@ type NodeFace = Partial<Omit<typeof import('node:fs'), OwnSignature>>
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
   constants, promises, Dirent, FSWatcher, StatWatcher, ReadStream, WriteStream,
-  readFileSync, writeFileSync, appendFileSync, existsSync, statSync, stat, lstatSync, lstat, realpathSync, chmodSync,
+  readFileSync, writeFileSync, appendFileSync, existsSync, statSync, stat, lstatSync, lstat, realpathSync, realpath, chmodSync,
   readdirSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, renameSync, accessSync, opendirSync,
   openHandleSync, linkSync,
   openSync, readSync, writeSync, closeSync, watch, watchFile, unwatchFile,

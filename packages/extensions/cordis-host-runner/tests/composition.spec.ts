@@ -173,8 +173,8 @@ describe('stop reaches quiescence', () => {
     const harness = await setup()
     await mount(harness, REVERSE_TOOL_CODE)
 
-    // A second package registering the same tool name collides; the teaching
-    // error points at the stop-then-run recipe rather than a bare conflict.
-    await expect(mount(harness, REVERSE_TOOL_CODE)).rejects.toThrow('first cordis_stop that package\'s id')
+    await expect(mount(harness, REVERSE_TOOL_CODE)).rejects.toThrow(
+      'use cordis_inspect_self to find the Plugin holding this registration, then cordis_stop its pluginId before running this Package',
+    )
   })
 })

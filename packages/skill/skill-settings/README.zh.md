@@ -11,20 +11,20 @@ kind: "package-reference"
 
 基于 [`@deepseek-ai/dsh-skill`](../skill) 注册表的用户级 skill 启用覆盖。
 
-该插件通过可选设置缝注册 `skills` 设置命名空间（`{ disabled: string[] }`），并把它推入注册表的调用策略覆盖槽位。禁用是彻底的：被列出的 skill 既不能由模型也不能由用户调用，因此模型目录、`skill` 工具、`/name` 手势和配置列表保持一致。变更在下一次注册表读取时即生效，无需清除发现缓存；隔离失败的 `skills/change` 广播会通知持有目录的消费方重新拉取。
+本插件的 Loader 条目把实时的 `disabled` 名单声明为自己的 Config，因此设置命名空间就是条目 id `skill-settings`；该名单被推入注册表的调用策略覆盖槽位。禁用是彻底的：被列出的 skill 既不能由模型也不能由用户调用，因此模型目录、`skill` 工具、`/name` 手势和配置列表保持一致。变更在下一次注册表读取时即生效，无需清除发现缓存；隔离失败的 `skills/change` 广播会通知持有目录的消费方重新拉取。
 
-需要 `ctx.skills`（`inject: ['skills']`）；设置接线是可选的，仅当设置服务存在时挂载。
+要求：`ctx.skills`（`inject: ['skills']`）；设置服务是可选的。
 
 
 ## 目录
 
-- [设置命名空间：`skills`](#settings-namespace-skills)
+- [设置命名空间：`skill-settings`](#settings-namespace-skills)
 - [模型体验](#model-experience)
 - [已知限制与暂缓事项](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
 
 <a id="settings-namespace-skills"></a>
-## 设置命名空间：`skills`
+## 设置命名空间：`skill-settings`
 
 | 字段 | 默认值 | 含义 |
 |---|---|---|
@@ -46,7 +46,7 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - **覆盖按名称全局生效**：其他项目或 scope 中的同名 skill 也会被禁用；覆盖不支持按工作区或按 preset。
-- **仅在存在设置服务时注册命名空间**：没有设置服务时不存在覆盖，目录行为与组合配置完全一致。
+- **仅在存在设置服务时可写该命名空间**：没有设置服务时，组合条目就是该名单，目录行为与组合配置完全一致。
 
 <a id="dev-note"></a>
 ### 开发备注

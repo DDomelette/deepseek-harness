@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-22-notes-material-titles.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-notes-material-titles.md
-2026-09-22-notes-material-titles.md: 1f39a7d410ff5c17b9b1d141d2bbbf29c61ed766
-2026-09-22-notes-material-titles.zh.md: 9e907d712fce65c8b0bc97f1375cbc80d8f2a87f
+/agent-note-material-titles-and-row-tail-menu:
+  en: a5fc4d32b59a7e23
+  zh: 52cf8e6dd173437f
+/agent-note-material-titles-and-row-tail-menu/problem:
+  en: 6992ecd962a0077e
+  zh: da3874117dffb480
+/agent-note-material-titles-and-row-tail-menu/decision:
+  en: e028cbefcfe97f47
+  zh: 3d3afb792b7a6d10
+/agent-note-material-titles-and-row-tail-menu/alternatives-considered:
+  en: 772fbbcddd78c910
+  zh: 427d0cd20a3e9f23
+/agent-note-material-titles-and-row-tail-menu/consequences:
+  en: 6ea865638e01b527
+  zh: e6d63dc911ea5a14

@@ -738,9 +738,9 @@ describe('createFixtureApi', () => {
       data: { meta: { url: 'https://www.deepseek.com/blog/harness-architecture', statusCode: 200 } },
     })
     const terminal = results.find(event => event.data.turn === 66)
-    expect(terminal).toHaveProperty('data.message.content.0.content.0.type', 'text')
+    expect(terminal).toHaveProperty('data.message.content.0.type', 'text')
     expect(terminal).toHaveProperty(
-      'data.message.content.0.content.0.text',
+      'data.message.content.0.text',
       expect.stringContaining('\n[exit code: 1]'),
     )
   })
@@ -1361,7 +1361,7 @@ describe('createFixtureApi', () => {
     expect(initialSessions.result).toMatchObject({ ok: true, value: { items: [] } })
     expect(await readWorkspaceBaseline(api.workspaceRemote)).toEqual({
       items: [],
-      archivedSessionIds: [],
+      archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {},
     })
 
     const made = await api.workspace.create(req({ path: '/tmp/fixture-workspaces/nova' }))

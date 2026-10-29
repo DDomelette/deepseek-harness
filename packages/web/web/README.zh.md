@@ -105,7 +105,6 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：`WebRuntime` 服务、两个提供方注册表与执行时选择 |
 | [`src/types.ts`](src/types.ts) | 词汇：请求／结果类型、封闭的 `WebFetchBody` 联合与 `WebError` 分类体系 |
-| — | 不发布运行时不变式配套项；提供方映射是私有数据，服务会在每次调用时执行提供方选择并强制执行结果上限；该 seam 不发布独立注册表，也不发布请求／结果观测流。 |
 
 ### 数据模型
 
@@ -167,3 +166,5 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 没有提供方变更事件或能力状态查询；消费方只能通过执行调用并按抛出的 code 路由来观测可用性。如果消费方需要逐提供方原因，恢复一个小的观测接口是可行的，但已归档的简化笔记记录了为何放弃此前的那个接口。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个无状态 Service Definition 持有搜索与抓取的词汇、选择规则与 `WebError` 分类体系；网络访问与各自的可用性检查由其他包注册的提供方持有。

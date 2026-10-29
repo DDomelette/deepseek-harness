@@ -1,32 +1,19 @@
 - dialog "Settings":
   - navigation:
     - text: Settings
-    - button "General":
-      - img
-      - text: General
-    - button "Models":
-      - img
-      - text: Models
-    - button "Plugins":
-      - img
-      - text: Plugins
-    - button "Agent presets":
-      - img
-      - text: Agent presets
-    - button "Skills":
-      - img
-      - text: Skills
-    - button "Archived":
-      - img
-      - text: Archived
+    - button "General"
+    - button "Models"
+    - button "Built-in plugins"
+    - button "Agent presets"
+    - button "Skills"
+    - button "MCP"
+    - button "Archived"
   - button "Open configuration file"
-  - button "Close":
-    - img
-    - text: Close
+  - button "Close"
   - heading "Skills" [level=2]
-  - paragraph: Skills extend what the agent can do. Grouped by their declared group or their discovery source — open a group to switch individual skills on or off.
+  - paragraph: Skills extend what the agent can do. Grouped by their discovery source — open a group to switch individual skills on or off.
   - button "Back"
-  - heading "superpowers" [level=3]
+  - heading "User skills" [level=3]
   - list:
     - listitem:
       - text: panel-grouped-a Panel grouped A
@@ -34,3 +21,6 @@
     - listitem:
       - text: panel-grouped-b User-only Panel grouped B
       - switch "Toggle panel-grouped-b" [checked]
+    - listitem:
+      - text: panel-solo Panel solo
+      - switch "Toggle panel-solo" [checked]

@@ -96,7 +96,7 @@ view.activation                        // 'armed' | 'disarmed' — not persisted
 
 - **事件溯源状态。** 每次变更都追加持久的 `goal/change` 事件（版本 1），携带变更后的完整快照；clear 写入带 revision 的 tombstone。会话日志是唯一的持久权威。
 - **比较并设置的变更。** `ctx.goals` 只接受以对应 id 注册的完全相同的活跃 `Agent` 实例。`get()` 返回脱离状态的 `GoalView`；变更携带 `GoalRef { id, revision }` 并拒绝陈旧引用。创建在提交前于内部解析部署默认值。
-- **续行启用状态是进程本地的。** `armed` 与 `disarmed` 保存在每会话缓存中，绝不持久化。新缓存与每次 `agent/session-start` 边界都会停用续行，即使回放发现持久 phase 为 active；`disarm()` 移除续行权限，不写入 revision 也不发出变更事件。
+- **续行启用状态是进程本地的。** `armed` 与 `disarmed` 保存在每会话缓存中，绝不持久化。新缓存与每次 `agent/created` 边界都会停用续行，即使回放发现持久 phase 为 active；`disarm()` 移除续行权限，不写入 revision 也不发出变更事件。
 - **严格回放。** 折叠只从 `goal/change` 派生生命周期变更，并拒绝形状错误、不连续 revision、非法 phase 转换、每目标时间戳非单调，以及不连续的已准入 Round。只有已准入的来源为 goal 的 `user/message` 事件会推进正数 Round；挂钟时间倒退时，变更时间戳会限制在不早于上一次更新的值。
 - **投影单元。** 本包要求提供投影注册表，并注册一个严格的 `goal` 单元。其宿主状态保留回放校验数据与第一次失败，客户端视图提供最新有效的完整 goal 或 `null`；保留回放失败后，`GoalService` 会拒绝访问。
 
@@ -109,7 +109,6 @@ view.activation                        // 'armed' | 'disarmed' — not persisted
 | [`src/types.ts`](src/types.ts) | 纯客户端安全类型：`GoalView`、`GoalSnapshot`、`GoalActivationChanged`、投影键声明 |
 | [`src/fold.ts`](src/fold.ts) | 持久 goal 变更的严格回放折叠与解码器 |
 | [`src/runtime.ts`](src/runtime.ts) | `GoalId` 品牌、`GoalError` 代码、变更版本常量 |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式配套模块：对每个已挂接会话的独立增量折叠 |
 
 ### 事件与归属
 
@@ -170,3 +169,5 @@ Goal 变更事件本身不增加模型 token。工具结果与续行调度提示
 本开发备注是维护者的工作上下文，明确不具权威性。开放且未决的方向：为需要在每个模型请求中看到目标的部署提供始终可见的 goal 上下文插件，以及由评估器支持的完成与阻塞认证。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本服务通过追加 `goal/change` 事件保存唯一目标，只有会话日志是其持久权威；调度与续行归 `dsh-goal-round-driver`，armed 标志仅存在于进程内。

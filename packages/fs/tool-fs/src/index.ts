@@ -19,7 +19,7 @@ import { FsSandboxController } from './sandbox.ts'
 export const name = 'tool-fs'
 
 /** Services required by the filesystem tool suite. */
-export const inject = ['tools', 'fs', 'systemPrompt']
+export const inject = ['tools', 'fs', 'systemPrompt', 'workingDirectory']
 
 /** Plugin config (all optional — `Config` supplies the defaults). */
 export interface Config {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
@@ -32,6 +33,7 @@ async function mount(
   config: ToolLsp.Config = {},
 ): Promise<{ ctx: Context }> {
   const ctx = new Context()
+  provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(Lsp)
@@ -110,6 +112,20 @@ describe('tool-lsp registration', () => {
 })
 
 describe('tool-lsp execution', () => {
+  it('queries the selected directory while retaining the original Session directory', async () => {
+    const provider = stubProvider(() => okLocations)
+    const { ctx } = await mount(provider)
+    const selected = resolve('/virtual/selected')
+    ctx.workingDirectory.ensure = async () => selected
+    try {
+      const result = await call(ctx, { operation: 'hover', file_path: 'a.ts', line: 1, character: 1 }, workspaceRoot)
+      expect(result.isError).toBe(false)
+      expect(provider.seen[0]?.workspaceRoot).toBe(selected)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('converts one-based coordinates and passes the session cwd as workspaceRoot', async () => {
     const provider = stubProvider(() => okLocations)
     const { ctx } = await mount(provider)

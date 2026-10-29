@@ -96,7 +96,6 @@ A `per-record` table document at `<root>/<unit>/<table>/<key>.json` has the form
 | [`src/per-record-unit.ts`](src/per-record-unit.ts) | One `per-record` unit: tree reads, path-safe records, and one-document writes |
 | [`src/format.ts`](src/format.ts) | Whole-unit and record serialization with version validation |
 | [`src/atomic.ts`](src/atomic.ts) | Atomic file replacement: temp write, fsync, rename, directory fsync |
-| — | No runtime invariant companion is published; correctness here is write-durability and publish-then-reparse equivalence, which require medium round-trip tests (the shared backend conformance suite); the backend exposes no continuously observable in-process relation. |
 
 </details>
 
@@ -151,3 +150,5 @@ These limits define when this backend is a poor fit or needs special operational
 The Agent Note flags the whole-unit rewrite scale premise as a risk: if a second consumer lands on this backend at thousand-record scale before being routed to SQLite, rewrite cost surfaces earlier than expected. The mitigation is configuration — point `routes` at the SQLite backend — not a change to this package.
 
 </details>
+
+**Runtime invariant:** No companion is published. This backend contributes the `single` and `per-record` JSON layouts under a configured root, while the storage hub owns backend registration and each domain owns its own write ordering.

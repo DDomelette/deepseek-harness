@@ -1,0 +1,4 @@
+# The base bundle owns the `skill-badge` row and ships it disabled; overriding
+# that row keeps exactly one `skill-badge` entry in the composed tree.
+- id: skill-badge
+  disabled: false

@@ -7,7 +7,7 @@
   height: 64px;
   padding: 0 12px;
   border: 0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
-  border-radius: 16px;
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-specific-input-major, transparent);
   box-sizing: border-box;
   text-align: left;
@@ -106,28 +106,6 @@
   opacity: 1;
 }
 
-/* Same composer-floor opt-out as ComposerAttachments.module.css: the badge
-   keeps its drawn 18px size, with a transparent hit zone for the touch
-   target. The inline retry text button restores its natural inline size —
-   a 44px minimum would overflow the 64px card. */
-@media (pointer: coarse) {
-  .card .remove {
-    min-width: 18px;
-    min-height: 18px;
-  }
-
-  .card .remove::after {
-    content: '';
-    position: absolute;
-    inset: -13px;
-  }
-
-  .card .retry {
-    min-width: 0;
-    min-height: 0;
-  }
-}
-
 @media (pointer: coarse) {
   .remove {
     opacity: 1;
@@ -159,7 +137,7 @@
   overflow: hidden;
   height: 2px;
   border-radius: 1px;
-  background: var(--dsw-alias-fill-tertiary, rgba(0, 0, 0, 0.08));
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .progressBar {
@@ -183,5 +161,26 @@
 @media (pointer: coarse) {
   .remove {
     opacity: 1;
+  }
+}
+
+/* Same composer-floor opt-out as ComposerAttachments.module.css: the badge
+   keeps its drawn 18px size, with a transparent hit zone for the touch
+   target. The inline retry text button restores its natural inline size 鈥?   a 44px minimum would overflow the 64px card. */
+@media (pointer: coarse) {
+  .card .remove {
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .card .remove::after {
+    content: '';
+    position: absolute;
+    inset: -13px;
+  }
+
+  .card .retry {
+    min-width: 0;
+    min-height: 0;
   }
 }

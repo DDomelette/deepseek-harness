@@ -58,6 +58,8 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 Loading a listed skill returns its full instructions; the model sees one canonical shape whether the load came from the tool or from a user's explicit invocation. An invalid name reports `Error: invalid skill name "<name>"`, an unknown name reports the skill is unknown or no longer available, and a skill disabled for model invocation reports it is not available for model invocation. The catalog is omitted entirely when no catalog was ever published and either no model-invocable skills exist or the `skill` tool is hidden or shadowed; after a catalog has been published, either visibility loss — the `skill` tool hidden or shadowed by a same-name scoped tool — or removal of every skill instead appends an empty catalog that retires older names.
 
+Tool loads, explicit skill invocations, and catalog discovery validate the Session’s effective directory through `workingDirectory.ensure`. Project skills follow directory changes; a missing selected directory is recovered by the directory owner before discovery.
+
 -----
 
 <a id="understand-the-implementation"></a>

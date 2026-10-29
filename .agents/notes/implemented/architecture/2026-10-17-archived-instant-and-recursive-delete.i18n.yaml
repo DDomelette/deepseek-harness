@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-17-archived-instant-and-recursive-delete.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-17-archived-instant-and-recursive-delete.md
+/agent-note-archived-session-instants-and-recursive-delete-over-workspace-and-session-remotes:
+  en: a3fafb4193e47a68
+  zh: ce7015826c54c005
+/agent-note-archived-session-instants-and-recursive-delete-over-workspace-and-session-remotes/problem:
+  en: c79020dcf72ad64d
+  zh: 7a965d5de66f9568
+/agent-note-archived-session-instants-and-recursive-delete-over-workspace-and-session-remotes/decision:
+  en: 1a47e3195897ed17
+  zh: afe38926902dbc72
+/agent-note-archived-session-instants-and-recursive-delete-over-workspace-and-session-remotes/alternatives-considered:
+  en: fae2559805c6b96e
+  zh: f11c4735a68f2d7b
+/agent-note-archived-session-instants-and-recursive-delete-over-workspace-and-session-remotes/consequences:
+  en: 989ce5acd8514b7e
+  zh: 8ae3e093bde3f79a

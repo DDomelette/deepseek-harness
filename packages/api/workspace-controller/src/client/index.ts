@@ -9,15 +9,24 @@ import {
 import type { WorkspaceFollowFrame, WorkspaceFollowIncrement } from '../types.ts'
 import type { WorkspaceFollowSink } from './model.ts'
 import { ClientWorkspaceModel } from './model.ts'
+import { ClientSessionPinsModel } from './pins.ts'
 import { WorkspaceController } from './service.ts'
 
 export { ClientWorkspaceModel } from './model.ts'
+export { ClientSessionPinsModel } from './pins.ts'
+export type { SessionPinsRemote, SessionPinsSource } from './pins.ts'
+// The ordered pin snapshot is the `session-pins` domain's own declaration, so
+// a surface reads the very type the Host emits.
+export type { SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins/types'
 export type {
   WorkspaceFollowSink, WorkspaceListPhase, WorkspaceRemote, WorkspaceSnapshot,
 } from './model.ts'
-export { WorkspaceController, WorkspaceCreateError } from './service.ts'
+export { WorkspaceArchiveError, WorkspaceController, WorkspaceCreateError } from './service.ts'
 export type { IWorkspaces, WorkspaceSource } from './service.ts'
-export type { WorkspaceId, WorkspaceView } from '../types.ts'
+export type {
+  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, WorkspaceId,
+  WorkspaceView,
+} from '../types.ts'
 
 type WorkspaceBaselineFrame = Extract<WorkspaceFollowFrame, { type: 'baseline' }>
 
@@ -35,21 +44,27 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Required Client Remote services. */
-export const inject = ['remote', 'remote.workspace']
+export const inject = ['remote', 'remote.workspace', 'remote.sessionPins']
 
 /**
- * Install Client Workspace state, commands, and reconnecting follow control.
+ * Install Client Workspace state, ordered pin state, commands, and
+ * reconnecting follow control.
  * @param ctx - Client root Context.
  */
 export function apply(ctx: Context): void {
   const model = new ClientWorkspaceModel(ctx.remote.workspace)
-  new WorkspaceController(ctx, model)
+  const pins = new ClientSessionPinsModel(ctx.remote.sessionPins)
+  new WorkspaceController(ctx, model, pins)
   const control = createWorkspaceStateStream(ctx.remote, {
     accept: model,
     carrierFailed: () => { model.handleCarrierFailure() },
     failed: (error) => { model.handleStreamFailure(error) },
   })
   control.start()
+  // The pins snapshot is read on demand, not streamed: the first read and
+  // every reconnection are when another surface's pins can have moved.
+  void pins.reload()
+  ctx.on('connection/reset', () => { void pins.reload() })
   ctx.effect(
     () => async () => { await control.dispose() },
     'workspace-controller.client.control',
@@ -106,6 +121,9 @@ function acceptIncrement(accept: WorkspaceFollowSink, frame: WorkspaceFollowIncr
       return
     case 'archived':
       accept.replaceArchived(frame.archivedSessionIds, frame.archivedSessionAts)
+      return
+    case 'pinned':
+      accept.replacePinned(frame.pinnedSessionIds)
       return
     /* v8 ignore next -- the generated Remote codec validates this closed union */
     default:

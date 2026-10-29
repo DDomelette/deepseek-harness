@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
+import { HostConnectionService } from '@deepseek-ai/dsh-client-connection/src/rpc-host.ts'
+import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '@deepseek-ai/dsh-client-connection/src/http-bridge.ts'
 import { SessionMediaReferences } from '../src/media-references.ts'
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
@@ -55,6 +57,33 @@ describe('SessionMediaReferences /api/file', () => {
       dispose: () => ctx.fiber.dispose(),
     }
   }
+
+  it('registers GET and HEAD with the real Connection and withdraws both on disposal', async () => {
+    const ctx = new Context()
+    contexts.push(ctx)
+    ctx.provide('attachments', { imageLimits: { maxImageBytes: DEFAULT_LIMIT } } as never)
+    await ctx.plugin((pluginCtx) => {
+      // Fetch dispatch is already authenticated; this test never enters BrowserAuth.
+      new HostConnectionService(pluginCtx, [], {} as never, DEFAULT_MAX_REQUEST_BODY_BYTES)
+    }).await()
+    await ctx.plugin(LocalFileSystem, { cwd: root }).await()
+    const media = ctx.plugin(SessionMediaReferences)
+    await media.await()
+    const connection = ctx.connection
+    const shared = connection.createSharedFetchHandler('/api', connection.operator)
+    const path = join(root, 'image.png')
+    await writeFile(path, PNG_BYTES)
+    const url = new URL(`http://127.0.0.1/api/file?path=${encodeURIComponent(path)}`)
+    for (const method of ['GET', 'HEAD']) {
+      expect(shared.requestBodyMode({ method, url })).toBe('none')
+      const response = await shared.fetch(new Request(url, { method }))
+      expect(response.status).toBe(200)
+      if (method === 'GET') expect(await responseBytes(response)).toEqual(PNG_BYTES)
+      else expect(response.body).toBeNull()
+    }
+    await media.dispose()
+    expect((await shared.fetch(new Request(url))).status).toBe(404)
+  })
 
   it('serves the inclusive image cap and refuses larger images for GET, HEAD and Range', async () => {
     const route = await mount(PNG_BYTES.length)

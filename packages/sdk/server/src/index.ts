@@ -10,6 +10,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-cmdline'
 import type { Readable, Writable } from 'node:stream'
 import Schema from '@deepseek-ai/schemastery'
 import { JsonRpcLineTransport } from '@deepseek-ai/dsh-sdk-protocol'
@@ -18,8 +19,7 @@ import { HarnessSdkJsonRpcServer } from './server.ts'
 export * from './server.ts'
 
 export const name = 'sdk-jsonrpc-server'
-// Only the agent factory is required; initialize reads the optional LLM seam with ctx.get().
-export const inject = ['agents']
+export const inject = ['agents', 'workingDirectory']
 
 /** JSON-RPC deployment config plus runtime-only test hooks. */
 export interface JsonRpcConfig {
@@ -93,8 +93,11 @@ export function apply(ctx: Context, config: JsonRpcConfig): void {
   })
 
   ctx.effect(() => {
-    transport.start()
+    const ready = ctx.get('appReady')
+    const detachReady = ready?.onReady(() => { transport.start() })
+    if (ready === undefined) transport.start()
     return async () => {
+      detachReady?.()
       await server.shutdown()
       transport.close()
     }

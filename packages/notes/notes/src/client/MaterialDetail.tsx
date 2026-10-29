@@ -15,7 +15,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconChevronDownOutline14, IconEllipsisOutline16, MarkdownText, Menu, RiskConfirmation, Tag,
+  Button, IconChevronDownOutlineMedium, IconEllipsisOutlineMedium, MarkdownText, Menu, RiskConfirmation, Tag,
   writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -151,7 +151,7 @@ export function MaterialDetail({
             onClick={() => { setSourceOpen(open => !open) }}
           >
             {t('detail.sourceToggle')}
-            <IconChevronDownOutline14 />
+            <IconChevronDownOutlineMedium />
           </Button>
           <Menu
             open={menuOpen}
@@ -163,7 +163,7 @@ export function MaterialDetail({
                 data-notes-detail-menu
                 onClick={() => { setMenuOpen(open => !open) }}
               >
-                <IconEllipsisOutline16 />
+                <IconEllipsisOutlineMedium />
               </Button>
             )}
             items={menuItems}

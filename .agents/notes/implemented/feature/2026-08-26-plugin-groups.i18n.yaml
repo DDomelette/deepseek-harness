@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-26-plugin-groups.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-26-plugin-groups.md
-2026-08-26-plugin-groups.md: 4b5270a18992c688d2368dd3618121ee2f779ecf
-2026-08-26-plugin-groups.zh.md: a7442af9369097a3cbf82dce30bd17738345b9ba
+/agent-note-browser-local-plugin-groups-in-the-inventory-tab:
+  en: 5c2ac06cb2a6335d
+  zh: f1e90434bb826729
+/agent-note-browser-local-plugin-groups-in-the-inventory-tab/problem:
+  en: 0f4103a41191b37b
+  zh: f1f7cc43d75fdd7e
+/agent-note-browser-local-plugin-groups-in-the-inventory-tab/decision:
+  en: 7f01525e88648d80
+  zh: 55029ffb0e852fea
+/agent-note-browser-local-plugin-groups-in-the-inventory-tab/alternatives-considered:
+  en: d366f27c73affd30
+  zh: 7b7b81af51bd5585
+/agent-note-browser-local-plugin-groups-in-the-inventory-tab/consequences:
+  en: a9b566d96f7fa2c4
+  zh: 8ac99c8964e31763

@@ -265,6 +265,9 @@ export function gatesForMode(selected: Mode): Gate[] {
         pnpmScript('runtime-closure', 'verify-runtime-closure', { label: 'runtime closure' }),
         pnpmScript('cordis-config', 'verify-cordis-config', { label: 'Cordis config' }),
         pnpmScript('client-domain-graph', 'verify-client-domain-graph', { label: 'client domain graph' }),
+        pnpmScript('client-token-vocabulary', 'verify-client-token-vocabulary', {
+          label: 'client token vocabulary',
+        }),
         pnpmScript('test', 'test'),
         pnpmScript('approval-policy', 'test:approval-policy', { label: 'Weighted approval policy' }),
         pnpmScript('issue-management', 'test:issue-management', { label: 'Issue management policy' }),
@@ -308,7 +311,11 @@ function ciSharedStaticGates(): Gate[] {
       label: 'optional dependency imports',
     }),
     pnpmScript('client-packages', 'verify-client-packages', { label: 'client packages' }),
+    pnpmScript('client-domain-graph', 'verify-client-domain-graph', { label: 'client domain graph' }),
     pnpmScript('client-ui-i18n', 'verify-client-ui-i18n', { label: 'client UI i18n' }),
+    pnpmScript('client-token-vocabulary', 'verify-client-token-vocabulary', {
+      label: 'client token vocabulary',
+    }),
     pnpmScript('no-bare-dispatcher', 'verify-no-bare-dispatcher', { label: 'proxy-aware dispatchers' }),
     pnpmScript('approval-policy', 'test:approval-policy', { label: 'Weighted approval policy' }),
     pnpmScript('issue-management', 'test:issue-management', { label: 'Issue management policy' }),
@@ -366,11 +373,11 @@ function nodeCompatGates(): Gate[] {
 
 function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
   const gates: Gate[] = [
-    pnpmExec('source-worker-smoke', [
+    pnpmExec('source-runtime-smoke', [
       'vitest',
       'run',
-      'packages/workflow/workflow-worker-thread/tests/source-worker.compat.spec.ts',
-    ], { label: 'source worker smoke' }),
+      'packages/workflow/workflow-ptc/tests/source-runtime.compat.spec.ts',
+    ], { label: 'source runtime smoke' }),
     pnpmExec('jsonl-zstd-smoke', [
       'vitest',
       'run',
@@ -734,13 +741,13 @@ function docSyncLeafGates(options: {
     pnpmScript('cordis-catalog', 'verify-cordis-catalog', { label: 'cordis catalog' }),
     pnpmScript('cordis-inspect-catalog', 'verify-cordis-inspect-catalog', { label: 'Cordis inspect catalog' }),
     pnpmScript('mermaid', 'verify-mermaid'),
-    pnpmScript('scoped-events', 'verify-scoped-events', { label: 'scoped events' }),
     pnpmScript('translation-pairing', 'verify-translation-pairing', { label: 'translation pairing', quick: true }),
     pnpmScript('markdown-wrap', 'verify-md-wrap', { label: 'markdown wrap', quick: true }),
     pnpmScript('client-catalog', 'verify-client-catalog', { label: 'client catalog' }),
     pnpmScript('export-jsdoc', 'verify-export-jsdoc', { label: 'export jsdoc' }),
     pnpmScript('tool-catalog', 'verify-tool-catalog', { label: 'tool catalog' }),
     pnpmScript('config-catalog', 'verify-config-catalog', { label: 'config catalog' }),
+    pnpmScript('plugin-packages', 'verify-plugin-packages', { label: 'skill plugin package list' }),
     pnpmScript('persistence-catalog', 'verify-persistence-catalog', { label: 'persistence catalog' }),
     pnpmScript('session-format-catalog', 'verify-session-format-catalog', { label: 'Session format catalog' }),
     pnpmScript('public-repository-links', 'verify-public-repository-links', { label: 'public repository links', quick: true }),
@@ -796,8 +803,7 @@ function builtBinSmokeGate(needs: string[] = ['build']): Gate {
     // Built execution consumers: the only automated proof that package-name
     // imports reach their lib/ entrypoints under plain Node. The e2e lane runs
     // unbuilt, so these files self-skip there.
-    'packages/workflow/workflow-worker-thread/tests/built-worker.e2e.ts',
-    'packages/code-runtime/code-runtime-worker-thread/tests/built-lib.e2e.ts',
+    'packages/workflow/workflow-ptc/tests/built-runtime.e2e.ts',
     'packages/session/session-persistence-jsonl/tests/built-migration-worker.e2e.ts',
     'packages/lsp/lsp-stdio/tests/built-lib.e2e.ts',
   ], {

@@ -26,15 +26,33 @@ interface WebRoute {
 
 匹配顺序固定：先查 exact 表，再取最长匹配前缀，最后落到已注册的回退。注册顺序不携带任何面向请求的语义：具名路由在组合上互不相交，任何未被具名路由认领的请求都由回退席位应答；席位只有一个所有者，第二次注册会抛出异常。发布的 Web 组合用 [`dsh-host-frontend-static`](../../packages/host/frontend-static/src/index.ts) 认领席位，即遵循固定语义的 SPA dist 服务器：Connection 在读取 dist 根目录和配置 index 的 HTML 前完成认证；非 index 资产保持公开；非 GET/HEAD 返回 405，越出 dist 根目录的遍历返回 403，现有文件直接提供，缺失或不是文件的目标返回空的 404，未知扩展名按 octet-stream 发送。
 
+<a id="config"></a>
 ## 配置
 
 ```ts type-equiv
-/** Web server listen and response-compression config. */
+/** Web server listen, TLS, and response-compression config. */
 interface Config {
-  /** Listen host; the two supported values are loopback and all-interfaces. */
-  host: '127.0.0.1' | '0.0.0.0'
+  /**
+   * Listen address: a concrete IPv4 or IPv6 literal of one local interface,
+   * for example the container's own Pod address from `hostname -i`. A loopback
+   * literal (any address in 127/8, `::1`, or a mapped form of either) keeps the
+   * server on this machine; any other literal serves the network that address
+   * belongs to, over plain HTTP unless `tls` is set. The unspecified address —
+   * IPv4 any, IPv6 any, and the IPv4-mapped forms of IPv4 any — is rejected at
+   * load: it would expose the port on every interface at once.
+   */
+  host: string
   /** Listen port; zero requests an OS-assigned port. */
   port: number
+  /**
+   * Serve HTTPS with this certificate and key instead of plain HTTP. Both files
+   * are read once, before the listener binds: an unreadable or empty file,
+   * invalid PEM, or a key that does not match the certificate rejects
+   * initialization rather than falling back to HTTP. The material is never
+   * re-read, so replacing a certificate takes a reload. Omitted or null listens
+   * over plain HTTP.
+   */
+  tls?: TlsConfig
   /** Response compression for socket-backed HTTP requests. @default 'none' */
   compression?: 'none' | 'gzip'
   /** Gzip DEFLATE level from 0 through 9. @default 1 */
@@ -60,11 +78,73 @@ interface Config {
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.zh.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxconnection--hostconnectionhandle"></a>
+
+### `ctx.connection` — `HostConnectionHandle`
+
+Host `ctx.connection` shape consumed by transport-independent adapters.
+
+```ts cordis-catalog
+/**
+ * Compose exact Fetch routes and the shared-channel RPC interceptor.
+ * @param channel - shared channel mounted by Connection.
+ * @param peer - Peer the admitted request speaks for, from {@link admit}.
+ * @returns Fetch handler for trusted, authenticated requests.
+ */
+createSharedFetchHandler(channel: '/api', peer: PeerScope): ConnectionFetchHandler
+
+/**
+ * Apply Connection's Host/Origin checks and browser authentication to
+ * another Web route.
+ * @param request - request headers from the HTTP or upgrade request.
+ * @returns rejection status, or undefined when the route may accept the request.
+ */
+requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
+
+/**
+ * Admit one request as the caller its credential names. A request that fails
+ * the Host/Origin fence or carries no accepted credential is refused with the
+ * same status {@link requestRejection} returns; every admitted request gets
+ * the Peer of its own authority class — the operator Peer for the loopback
+ * launch-token credential, that device's Peer for a paired-device cookie.
+ * @param request - request headers from the HTTP or upgrade request.
+ * @returns the admitted caller's Peer, or the rejection status.
+ */
+admit(request: ConnectionTrustRequest): PeerAdmission
+
+/**
+ * Authenticate one frontend index request. A valid loopback launch-token
+ * exchange or an existing accepted cookie is decided here; a client that
+ * holds none is told what it may serve instead.
+ * @param request - root or configured-index HTTP request.
+ * @param response - response owned when the result is `answered`.
+ * @returns whether the caller serves the shell, and under which marking.
+ */
+authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess
+
+/**
+ * Add the fresh process token to an ordinary Web application URL.
+ * @param baseUrl - clean canonical browser origin.
+ * @returns root URL accepted by {@link authorizeIndex} for initial login.
+ */
+authenticatedUrl(baseUrl: string): string
+
+/**
+ * Whether a request authenticates the local operator for device management.
+ * @param request - HTTP headers and the actual TCP peer supplied by the server.
+ * @returns true for a loopback peer and authority with a valid launch-token cookie;
+ *   paired-device cookies never authorize management.
+ */
+isLocalOperatorRequest(request: ConnectionTrustRequest): boolean
+```
+
+Source: [`packages/client/connection/src/rpc.ts`](../../packages/client/connection/src/rpc.ts)
+
 <a id="ctxwebserver--webserver"></a>
 
 ### `ctx.webServer` — `WebServer`
 
-The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A listen failure rejects initialization, and the boot process reports the failed fiber.
+The browser HTTP carrier service. Activation loads any configured TLS material, then listens immediately; a material or listen failure rejects initialization, and the boot process reports the failed fiber. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers.
 
 ```ts cordis-catalog
 /**

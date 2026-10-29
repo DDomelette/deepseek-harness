@@ -17,6 +17,19 @@
   padding-right: 48px;
 }
 
+/* Handset single-pane: the description keeps the full row and the selector
+   drops to its own line below it. */
+@media (max-width: 767px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .rowText {
+    flex: 1 1 100%;
+    padding-right: 0;
+  }
+}
+
 .title {
   font-size: 14px;
   font-weight: 400;
@@ -38,7 +51,7 @@
   height: 36px;
   padding: 0 14px;
   border: none;
-  border-radius: 18px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-module-platform);
   font: inherit;
   font-size: 14px;
@@ -57,20 +70,4 @@
 
 .chevron {
   flex: none;
-}
-
-/* Handset single-pane: the side-by-side split squeezes the description into a
-   character-wide column beside the selector, so the text takes the full row
-   and the selector moves to its own line. The row renders only inside the
-   settings panel, so the panel's own breakpoint is the right gate — in step
-   with SETTINGS_PANE_BREAKPOINT. */
-@media (max-width: 767px) {
-  .row {
-    flex-wrap: wrap;
-  }
-
-  .rowText {
-    flex: 1 1 100%;
-    padding-right: 0;
-  }
 }

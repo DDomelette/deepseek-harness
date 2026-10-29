@@ -19,7 +19,7 @@ function fail<T>(code: string, message: string): RemoteResult<T> {
 }
 
 const SKILLS = [
-  { name: 'grouped-a', description: 'Grouped A', group: 'superpowers', source: 'user-dsh', modelInvocable: true, userInvocable: true, disabled: false },
+  { name: 'grouped-a', description: 'Grouped A', source: 'user-dsh', modelInvocable: true, userInvocable: true, disabled: false },
   { name: 'solo-b', description: 'Solo B', source: 'bundled', modelInvocable: false, userInvocable: false, disabled: true },
 ]
 

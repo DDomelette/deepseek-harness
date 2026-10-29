@@ -1,5 +1,8 @@
 /** Host fetch observation behavior. */
 
+import { fileURLToPath } from 'node:url'
+import { execa } from 'execa'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFetchObserver, type FetchObserver } from '../src/host/inspection/network.ts'
 import type { InspectorRecordInput } from '../src/shared/bridge/messages/observation.ts'
@@ -113,6 +116,29 @@ describe('full fetch observer', () => {
       responseCaptureError: 'AbortError: aborted',
     })
     expect(records.some(record => record.topic === 'fetch/error')).toBe(false)
+  })
+
+  it.for([
+    { label: 'while capture reads', limit: 1_024, stopped: false },
+    { label: 'after the capture byte limit', limit: 4, stopped: false },
+    { label: 'after capture is stopped', limit: 1_024, stopped: true },
+  ])('forwards a caller abort to native fetch after Request collection $label', {
+    timeout: Math.max(30_000, Number(process.env.DSH_COVERAGE_TEST_TIMEOUT_MS ?? 0)),
+  }, async ({ limit, stopped }, test) => {
+    const pending = execa(process.execPath, [
+      '--expose-gc', '--import', 'tsx/esm',
+      fileURLToPath(new URL('./fixtures/fetch-abort.ts', import.meta.url)), String(limit), String(stopped),
+    ], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      timeout: test.task.timeout, cancelSignal: test.signal, killSignal: 'SIGKILL', reject: false,
+    })
+    test.onTestFinished(async () => { await pending })
+    const result = await pending
+    expect(result.timedOut, result.stderr).toBe(false)
+    expect(result.isCanceled, result.stderr).toBe(false)
+    expect(result.signal, result.stderr).toBeUndefined()
+    expect(result.exitCode, result.stderr).toBe(0)
+    expect(JSON.parse(result.stdout.trim()) as unknown).toEqual({ aborted: true, captureTruncated: limit === 4, observerStopped: stopped })
   })
 
   it('reports a fetch rejected before response headers as a canceled request', async () => {
@@ -393,6 +419,7 @@ describe('full fetch observer', () => {
       .toMatchObject({ canceled: false })
   })
 })
+
 
 function payload(records: readonly InspectorRecordInput[], topic: string): Record<string, unknown> {
   const record = records.find(candidate => candidate.topic === topic)

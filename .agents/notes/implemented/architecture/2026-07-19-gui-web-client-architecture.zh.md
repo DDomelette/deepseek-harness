@@ -103,7 +103,7 @@ src/client/
   index.ts     public contract surface
 ```
 
-各领域实现文件不 import 兄弟领域；共享面统一经过 `contract/`。`scripts/verify-client-domain-graph.ts` 把守分层（contract=0、domain=1、apply/index=2；import 只准指向不高于自身的层级；兄弟领域依赖会失败）。Tool 展示已经拆为独立 `ui-tool` 包，只通过 ui-conversation 声明的 slot 到达 chat 与 details。
+各领域实现文件不 import 兄弟领域；共享面统一经过 `contract/`。`scripts/verify-client-domain-graph.ts` 把守分层（`contract=0、domain=1、apply/index=2`；import 只准指向不高于自身的层级）。兄弟领域依赖除已在 `scripts/client-domain-graph.baseline.json` 中登记之外都会失败，[棘轮笔记](../process/2026-10-19-client-domain-graph-ratchet.zh.md) 记录该基线只允许缩小。Tool 展示已经拆为独立 `ui-tool` 包，只通过 ui-conversation 声明的 slot 到达 chat 与 details。
 
 ## 怎么开发
 

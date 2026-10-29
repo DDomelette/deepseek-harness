@@ -106,16 +106,18 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  it('keeps the hero composer selectors labeled and the send action tappable on touch', async () => {
+  it('keeps the hero composer selectors identifiable and the send action tappable on touch', async () => {
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'workspace-selectors')
-    // The hero card is exempt from the docked composer's handset icon row:
-    // both selectors keep their labels on a coarse pointer.
+    // A coarse pointer keeps the permission label (its container query would
+    // drop it). The control row measures expanded demand, so at 390px the model
+    // seat collapses to its glyph and keeps the name on its accessible name.
     const permission = page.getByRole('button', { name: /Access mode, current: / })
     await permission.waitFor({ timeout: 15_000 })
     expect((await permission.innerText()).trim()).toMatch(/Read Only|Workspace Write|Full access/)
     const model = page.getByRole('button', { name: /Select model/ })
-    expect((await model.innerText()).trim()).not.toBe('')
-    // Keeping the labels costs row width: the send action must still land
+    expect(await model.getAttribute('aria-label')).toContain('DeepSeek-V4-Flash')
+    expect(await model.getAttribute('title')).toContain('DeepSeek-V4-Flash')
+    // Identifying the selectors costs row width: the send action must still land
     // inside the viewport and answer a tap at its own center.
     const send = page.getByRole('button', { name: 'Send message' })
     const hitTest = await send.evaluate((el) => {

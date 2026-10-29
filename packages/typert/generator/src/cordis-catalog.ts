@@ -124,6 +124,8 @@ export interface CordisCatalogPolicy {
   readonly inheritedEvents: readonly InheritedEntry[]
   /** Manually curated framework context members inherited by every plugin. */
   readonly inheritedServices: readonly InheritedEntry[]
+  /** Maximum rendered characters per runtime type declaration. */
+  readonly runtimeDeclarationMaxChars?: number
 }
 
 /** Complete model-level Cordis projection used by every text renderer. */
@@ -333,26 +335,46 @@ export class CordisCatalogProjector {
   ): { name: string; declaration: string }[] {
     const declarations = new Map<string, string>()
     const ambiguous = new Set<string>()
+    const frameworkEnums = new Map<string, string>()
+    const contestedEnums = new Set<string>()
+    const maxDeclarationChars = this.policy.runtimeDeclarationMaxChars ?? DEFAULT_MAX_DECL_CHARS
+    const bounded = (text: string): string => text.length > maxDeclarationChars
+      ? `${text.slice(0, maxDeclarationChars)} /* …truncated — full shape in source */`
+      : text
     for (const declaration of this.sourceDeclarations) {
-      if (declaration.face !== this.face.face || declaration.kind === 'enum'
-        || !/^packages\/[^/]+\/[^/]+\/src\/.+\.tsx?$/.test(declaration.location.file)) continue
+      if (declaration.face !== this.face.face
+        || (!/^packages\/[^/]+\/[^/]+\/src\/.+\.tsx?$/.test(declaration.location.file)
+          && !isFrameworkEnum(declaration))) continue
+      if (isFrameworkEnum(declaration)) {
+        if (frameworkEnums.has(declaration.name)) contestedEnums.add(declaration.name)
+        frameworkEnums.set(declaration.name, bounded(declaration.text))
+        continue
+      }
       if (declarations.has(declaration.name)) {
         ambiguous.add(declaration.name)
         continue
       }
-      declarations.set(
-        declaration.name,
-        declaration.text.length > MAX_DECL_CHARS
-          ? `${declaration.text.slice(0, MAX_DECL_CHARS)} /* …truncated — full shape in source */`
-          : declaration.text,
-      )
+      declarations.set(declaration.name, bounded(declaration.text))
     }
     for (const name of ambiguous) declarations.delete(name)
+    // The pinned framework owns its enum names: a harness declaration of the
+    // same name mirrors the framework type (a re-export alias carries no shape
+    // of its own), so the framework text fills the name rather than the
+    // ambiguity rule dropping both. Two framework enums sharing one name stay
+    // ambiguous — that is a real conflict between packages.
+    for (const [name, declaration] of frameworkEnums) {
+      if (!contestedEnums.has(name)) declarations.set(name, declaration)
+    }
     return referencedTypes([
       ...services.flatMap(service => service.methods.map(method => method.signature)),
       ...events.map(event => event.signature),
     ], declarations)
   }
+}
+
+/** Whether one indexed declaration is a framework enum admitted from the pinned vendor tier. */
+function isFrameworkEnum(declaration: SourceDeclarationModel): boolean {
+  return declaration.kind === 'enum' && /^vendor\/[^/]+\/src\/.+\.ts$/.test(declaration.location.file)
 }
 
 /**
@@ -613,7 +635,7 @@ function signatureTypeNames(renderer: TypeGraphRenderer, signature: SignatureMod
 }
 
 /** Declarations longer than this render as a truncated stub. */
-const MAX_DECL_CHARS = 1500
+const DEFAULT_MAX_DECL_CHARS = 1_500
 
 /** Render one value as a single-quoted TypeScript literal. */
 function quote(value: string): string {

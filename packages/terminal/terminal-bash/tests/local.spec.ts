@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,7 +16,7 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local/src/resolve.ts'
 import * as ptyLocal from '@deepseek-ai/dsh-terminal-bash'
-import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 
 const roots: string[] = []
 const contexts: Context[] = []
@@ -29,7 +29,7 @@ afterEach(async () => {
 class PassthroughSandbox extends SandboxProvider {
   calls: { argv: readonly string[]; policy: SandboxPolicy }[] = []
 
-  confine(argv: readonly string[], policy: SandboxPolicy): ConfinedArgv {
+  async confine(argv: readonly string[], policy: SandboxPolicy): Promise<ConfinedArgv> {
     this.calls.push({ argv, policy })
     return { argv: [...argv], enforcement: 'full', denialSignatures: [], runnerFailureRules: [] }
   }
@@ -59,6 +59,7 @@ async function harness(
   const root = mkdtempSync(join(tmpdir(), 'dsh-pty-local-'))
   roots.push(root)
   const ctx = new Context()
+  provideWorkingDirectoryFixture(ctx)
   contexts.push(ctx)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(TerminalSessionService)
@@ -333,16 +334,18 @@ describe.skipIf(!hasPwsh)('terminal-bash pwsh real shell', () => {
       expect(created.motd).toContain('dsh> ')
 
       const releaseFile = join(root, 'release-command')
+      const selectedDirectory = join(root, 'selected')
+      mkdirSync(selectedDirectory)
       // Hold the command across the silence settlement without relying on host load.
       const barrier = holdCommand
         ? `while (-not [IO.File]::Exists('${releaseFile.replaceAll("'", "''")}')) { [Threading.Thread]::Sleep(10) }; `
         : ''
       const first = ctx.terminals.startSend(agent, created.sessionId, {
-        text: barrier + '$env:KEEP = "ok"; Set-Location /',
+        text: barrier + `$env:KEEP = "ok"; Set-Location -LiteralPath '${selectedDirectory.replaceAll("'", "''")}'`,
         submit: true,
       })
       expect(['stdin_read', 'inferred_idle']).toContain((await first.done).waitReason)
-      const expected = 'keep=ok cwd=/ secret=END'
+      const expected = `keep=ok cwd=${realpathSync.native(selectedDirectory)} secret=END`
       const command = "Write-Output ('keep={0} cwd={1} secret={2}END' -f $env:KEEP, (Get-Location).Path, $env:DSH_TEST_SECRET)"
       expect(command).not.toContain(expected)
       const second = ctx.terminals.startSend(agent, created.sessionId, { text: command, submit: true })

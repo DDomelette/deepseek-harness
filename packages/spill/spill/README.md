@@ -33,13 +33,13 @@ Choose spill storage when a deployment needs to keep full text retrievable after
 
 ### Smallest working composition
 
-Mount a backend and the policy together; with `maxInlineBytes` set, any oversized plain-text tool result becomes a preview plus a locator automatically.
+Mount a backend and the policy together; with `maxInlineTokens` set, an oversized text/image tool result becomes a preview plus a locator automatically.
 
 ```yaml
 - name: '@deepseek-ai/dsh-spill-local'
 - name: '@deepseek-ai/dsh-spill-policy'
   config:
-    maxInlineBytes: 50000
+    maxInlineTokens: 12500
 ```
 
 ### Saving text
@@ -89,11 +89,10 @@ The package is built on one separation and a deliberate minimum:
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: the abstract `SpillStore` service and its `saveText` contract |
 | [`src/types.ts`](src/types.ts) | Vocabulary: `SaveTextSpill`, `SpillRef`, branded `SpillLocator`, `SpillOwner`, `SpillSource` |
-| — | No runtime invariant companion is published; this package exposes no independent event sequence or mutable data relation beyond contracts enforced at its owning seam. |
 
 ### Data model
 
-`SaveTextSpill` separates storage ownership from descriptive provenance. `SpillSource` accepts either the tool source `{ kind: "tool", toolName, callId, label }` or `{ kind: "session-reference", sessionId, label }`, whose id names the captured source session. Session references never fabricate tool call ids. Neither provenance nor the owner namespace grants read access. Consumers treat the returned locator as opaque and present it with its retrieval hint.
+`SaveTextSpill` separates storage ownership from its source description. `SpillSource` accepts either the tool source `{ kind: "tool", toolName, callId, label }` or `{ kind: "session-reference", sessionId, label }`, whose id names the captured source session. Session references never fabricate tool call ids. Neither the source descriptor nor the owner namespace grants read access. Consumers treat the returned locator as opaque and present it with its retrieval hint.
 
 ### Lifecycle
 
@@ -153,3 +152,5 @@ The seam has only `saveText`; a save-file or link/copy path for existing executo
 Remote or database backends remain open. The local backend applies its [startup-cleanup policy](../spill-local/README.md#startup-cleanup); the service defines no per-session cleanup or locator-refresh API.
 
 </details>
+
+**Runtime invariant:** No companion is published. This Service Definition contributes the `SpillStore` service, its `saveText` contract, and the shared vocabulary, while `@deepseek-ai/dsh-spill-local` owns the private session-scoped writes and the artifacts its locators name.

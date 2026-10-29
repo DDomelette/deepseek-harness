@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-07-23-client-plugin-loading-model.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-07-23-client-plugin-loading-model.md
-2026-07-23-client-plugin-loading-model.md: 21bad78792c6b5aad48b51f454f6c08c0400ad72
-2026-07-23-client-plugin-loading-model.zh.md: 2758f28f3bd34131ece3bed74152fbfe0b36174e
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload:
+  en: 874618fd5ad1d06a
+  zh: a5e4bfad490fab34
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/problem:
+  en: 46c4b208707e024e
+  zh: b6f86a6374b251da
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision:
+  en: a15c7c13f167e5ac
+  zh: a15c7c13f167e5ac
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/package-membership-and-module-requests:
+  en: ba29fc10eb9a4b63
+  zh: bd127c0415b97dcc
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/one-module-system-one-plugin-governor:
+  en: 92db25ee4e417a97
+  zh: 03ebca90a09dd9b3
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/combo-external-script-arrival-and-source-maps:
+  en: cf16a15c9352ba21
+  zh: d7ebef049d21b425
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/the-loading-flow-end-to-end:
+  en: 90b94b3422bb1bd4
+  zh: 5b20f639e0d0e04c
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/hot-reload-one-driver-plugin-self-watched-bundles:
+  en: 22821648e1f5e5fe
+  zh: beaf5b34c7b6affe
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/package-ownership:
+  en: 94ca0d09e6fd1e3a
+  zh: d5949a2bdec795ba
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/consequences:
+  en: f4e0ea1cd42843dd
+  zh: ef74fbad2cfb28a0
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/alternatives-considered:
+  en: 5f6cbcca4cdc2526
+  zh: 053102cadbfb414e

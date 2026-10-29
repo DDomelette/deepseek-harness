@@ -1,6 +1,25 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-14-attempt-scoped-local-usage-telemetry.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-14-attempt-scoped-local-usage-telemetry.md
-2026-08-14-attempt-scoped-local-usage-telemetry.md: e3a417990c9e71e34934095b2d54b10a8d73a347
-2026-08-14-attempt-scoped-local-usage-telemetry.zh.md: 732b74d1b2e18950fcf1ac785a720f22fb667c0e
+/agent-note-attempt-scoped-local-usage-telemetry:
+  en: 6a7ee052485d5fa4
+  zh: b0fe4340c621d9fd
+/agent-note-attempt-scoped-local-usage-telemetry/problem:
+  en: 9ee49bb29c8d1db5
+  zh: c6b4698c53438be2
+/agent-note-attempt-scoped-local-usage-telemetry/decision:
+  en: 74fcabf5ceba5b2d
+  zh: d105efb409370541
+/agent-note-attempt-scoped-local-usage-telemetry/division-from-replay-token-measurement:
+  en: 02a8e31e196a0eac
+  zh: dd1cfa0c78f06330
+/agent-note-attempt-scoped-local-usage-telemetry/alternatives-considered:
+  en: 7df89be63048200a
+  zh: 3e58b8c9a113cf01
+/agent-note-attempt-scoped-local-usage-telemetry/verification:
+  en: 3d50e9bf5fdfbba2
+  zh: a0c89ac9fded38bc
+/agent-note-attempt-scoped-local-usage-telemetry/consequences:
+  en: 678b5fd4a9817da7
+  zh: 279bbd30202268e2

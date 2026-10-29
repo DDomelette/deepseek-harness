@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-06-readiness-follows-committed-startup.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-readiness-follows-committed-startup.md
-2026-10-06-readiness-follows-committed-startup.md: e830e6f5818960d5e2b1504accb9787f64493e3f
-2026-10-06-readiness-follows-committed-startup.zh.md: 87ca6291277b6c53812b981bce114529339e077e
+/agent-note-readiness-follows-committed-startup:
+  en: b7031f5d7fb50b86
+  zh: eb54720aec310898
+/agent-note-readiness-follows-committed-startup/problem:
+  en: d11e07182839a0ea
+  zh: 38f7c9e84efc6cc9
+/agent-note-readiness-follows-committed-startup/decision:
+  en: e85b43c0044e43c7
+  zh: 09458a4012b7d330
+/agent-note-readiness-follows-committed-startup/alternatives-considered:
+  en: 882298258a37c993
+  zh: 77980ee6532a4e59
+/agent-note-readiness-follows-committed-startup/consequences:
+  en: 32c2092aeb122923
+  zh: dbdc60b3c86250f9
+/agent-note-readiness-follows-committed-startup/testing:
+  en: fc076d92667b665e
+  zh: 7264d22259d3d96a

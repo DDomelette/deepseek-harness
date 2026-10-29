@@ -2,6 +2,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
+import type {} from '@deepseek-ai/dsh-session-flags'
 import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import {
@@ -14,6 +15,10 @@ import type {
   WorkspaceFollowFrame,
   WorkspaceView,
 } from './types.ts'
+import { sameArchiveInstants } from './archive-instants.ts'
+
+/** The storage domain `@deepseek-ai/dsh-session-pins` owns; its writes move the pin set. */
+const PINS_DOMAIN = 'session_pins'
 
 /**
  * Project one authoritative Workspace entity into its Remote value.
@@ -49,6 +54,8 @@ export class WorkspaceFeed {
   private knownIds: Set<string>
   private order: readonly string[]
   private archived: readonly string[]
+  private archivedAts: Readonly<Record<string, string>>
+  private pinned: readonly string[]
 
   /** @param ctx - Host context containing the authoritative Workspace registry. */
   constructor(private readonly ctx: Context) {
@@ -56,6 +63,8 @@ export class WorkspaceFeed {
     this.knownIds = new Set(baseline.map(workspace => String(workspace.id)))
     this.order = baseline.map(workspace => String(workspace.id))
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
+    this.archivedAts = { ...ctx.workspaceRegistry.archivedSessionAts }
+    this.pinned = ctx.workspaceRegistry.pinnedSessionIds.map(String)
     ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
     ctx.effect(() => () => {
       for (const follower of this.followers) follower.close()
@@ -65,14 +74,21 @@ export class WorkspaceFeed {
 
   /**
    * Read the complete current projection synchronously.
-   * @returns all active Workspaces and archived Session identities.
+   * @returns all active Workspaces plus archived and pinned Session identities.
    */
   baseline(): WorkspaceBaseline {
     return {
       items: this.ctx.workspaceRegistry.list().map(workspaceView),
       archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
       archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
+      pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds],
+      sessionFlags: this.flagProjection(),
     }
+  }
+
+  /** Merge every mounted flag provider; a Host without the registry reports no flags. */
+  private flagProjection(): WorkspaceBaseline['sessionFlags'] {
+    return this.ctx.get('sessionFlags')?.snapshot().flags ?? {}
   }
 
   /**
@@ -94,6 +110,12 @@ export class WorkspaceFeed {
   }
 
   private changed(change: DomainChanged): void {
+    // Ordered pins live in their own domain, projected by the Workspace
+    // registry; a write there is what moves the pin set this stream reports.
+    if (change.domain === PINS_DOMAIN) {
+      this.refreshPinned()
+      return
+    }
     if (change.domain !== 'workspace') return
     if (change.table === '') {
       if (change.operation !== 'put') return
@@ -112,9 +134,17 @@ export class WorkspaceFeed {
       this.order = nextOrder
       if (orderChanged) this.publish({ type: 'order', workspaceIds: [...state.workspaceIds] })
       const nextArchived = state.archivedSessionIds.map(String)
-      if (!sameStrings(this.archived, nextArchived)) {
+      const nextArchivedAts = { ...state.archivedSessionAts }
+      // The registry stamps every archived id, so the id list and the instant
+      // map change together; comparing the ids alone would miss a re-stamp.
+      if (!sameStrings(this.archived, nextArchived) || !sameArchiveInstants(this.archivedAts, nextArchivedAts)) {
         this.archived = nextArchived
-        this.publish({ type: 'archived', archivedSessionIds: [...state.archivedSessionIds], archivedSessionAts: { ...state.archivedSessionAts } })
+        this.archivedAts = nextArchivedAts
+        this.publish({
+          type: 'archived',
+          archivedSessionIds: [...state.archivedSessionIds],
+          archivedSessionAts: { ...state.archivedSessionAts },
+        })
       }
       return
     }
@@ -129,6 +159,14 @@ export class WorkspaceFeed {
       type: 'upsert',
       workspace: changedWorkspaceView(change.key, change.value),
     })
+  }
+
+  /** Publish the complete pin projection when the pins domain moved it. */
+  private refreshPinned(): void {
+    const pinnedSessionIds = this.ctx.workspaceRegistry.pinnedSessionIds
+    if (sameStrings(this.pinned, pinnedSessionIds.map(String))) return
+    this.pinned = pinnedSessionIds.map(String)
+    this.publish({ type: 'pinned', pinnedSessionIds: [...pinnedSessionIds] })
   }
 
   private publish(frame: Exclude<WorkspaceFollowFrame, { readonly type: 'baseline' }>): void {

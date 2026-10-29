@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   CommandExitError,
   FileNotFoundError,
@@ -85,6 +85,7 @@ class FakeTerminalSandbox {
   readonly commands: string[] = []
   readonly commandOptions: CommandOptions[] = []
   readonly inputs: Array<{ pid: number; data: Buffer }> = []
+  readonly resizes: Array<{ pid: number; cols: number; rows: number; signal: AbortSignal | undefined }> = []
   readonly removed: string[] = []
   readonly directories: string[] = []
   readonly writes = new Map<string, string>()
@@ -196,6 +197,10 @@ class FakeTerminalSandbox {
       },
     },
     pty: {
+      resize: async (pid: number, size: { cols: number; rows: number }, options?: { signal?: AbortSignal }): Promise<void> => {
+        options?.signal?.throwIfAborted()
+        this.resizes.push({ pid, ...size, signal: options?.signal })
+      },
       create: async (options: Parameters<Sandbox['pty']['create']>[0]): Promise<CommandHandle> => {
         this.createOptions = options
         if (this.createError !== undefined) throw this.createError
@@ -240,6 +245,7 @@ function spec(overrides: Partial<SubprocessTerminalSpawnSpec> = {}): SubprocessT
     cwd: '/workspace',
     rows: 24,
     cols: 80,
+    terminalType: 'dumb',
     graceMs: 5,
     env: { TERM: 'dumb', DSH_SESSION_ID: 'owner', TOKEN_EXPLICIT: 'kept' },
     ...overrides,
@@ -270,6 +276,23 @@ function testSpawn(
 }
 
 describe('E2B terminal allocation', () => {
+  it('forwards a live resize and refuses it after the terminal exits', async () => {
+    const fake = new FakeTerminalSandbox()
+    const terminal = await testSpawn(runtime(fake), spec(), '/runtime/terminal-resize')
+    onTestFinished(() => terminal.terminate())
+    await expect(terminal.inspectActivity()).resolves.toEqual({ state: 'unknown', revision: 0 })
+    await terminal.resize(100, 30)
+    expect(fake.resizes).toHaveLength(1)
+    expect(fake.resizes[0]).toMatchObject({ pid: terminal.pid, cols: 100, rows: 30 })
+    expect(fake.resizes[0]?.signal).toBeInstanceOf(AbortSignal)
+    expect(fake.resizes[0]?.signal?.aborted).toBe(false)
+    fake.groups = []
+    fake.handle.succeed()
+    await terminal.done
+    await expect(terminal.resize(120, 40)).rejects.toThrow('terminal process has exited')
+    expect(fake.resizes).toHaveLength(1)
+  })
+
   it('hides bootstrap-shell bytes and preserves requested-shell bytes across the output boundary', async () => {
     const fake = new FakeTerminalSandbox()
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/terminal-one')

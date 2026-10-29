@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-22-notes-row-overlay-controls.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-22-notes-row-overlay-controls.md
-2026-09-22-notes-row-overlay-controls.md: 36269df4be08d58cd92f4e6159776e870056c131
-2026-09-22-notes-row-overlay-controls.zh.md: a782ad9374303141c9ece92f0d1b4cb9604bf6dc
+/agent-note-row-tail-controls-float-over-the-card-edge:
+  en: fac775fb197743b1
+  zh: 8bcec9e8a621c9cb
+/agent-note-row-tail-controls-float-over-the-card-edge/problem:
+  en: 1090519e1e8b482c
+  zh: 3298fd590ccf24ea
+/agent-note-row-tail-controls-float-over-the-card-edge/decision:
+  en: e4531318b862edf4
+  zh: efff23ab3547e18f
+/agent-note-row-tail-controls-float-over-the-card-edge/alternatives-considered:
+  en: dc31a9624e40c6d2
+  zh: ea40f21824471603
+/agent-note-row-tail-controls-float-over-the-card-edge/consequences:
+  en: 8a7578f607fcab67
+  zh: 595ccae98aa350c5

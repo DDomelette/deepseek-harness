@@ -5,16 +5,19 @@ import { indexSubagentDescendants } from '../src/client/subagent-lineage.ts'
 const sid = (id: string): SessionId => id as SessionId
 
 describe('UI Workspace descendant projection', () => {
-  it('counts nested running descendants and stops at ordinary forks', () => {
+  it.each([
+    { leafRunning: false, rootRunning: 1, childRunning: 0 },
+    { leafRunning: true, rootRunning: 2, childRunning: 1 },
+  ])('counts nested running descendants and stops at ordinary forks (leaf running=$leafRunning)', ({ leafRunning, rootRunning, childRunning }) => {
     const root = { id: sid('root'), running: false }
     const child = { id: sid('child'), parentId: root.id, origin: 'subagent' as const, running: true }
-    const leaf = { id: sid('leaf'), parentId: child.id, origin: 'subagent' as const, running: false }
+    const leaf = { id: sid('leaf'), parentId: child.id, origin: 'subagent' as const, running: leafRunning }
     const fork = { id: sid('fork'), parentId: child.id, running: false }
     const result = indexSubagentDescendants(Object.fromEntries(
       [root, child, leaf, fork].map(item => [item.id, item]),
     ))
-    expect(result.get(root.id)).toEqual({ count: 2, runningCount: 1 })
-    expect(result.get(child.id)).toEqual({ count: 1, runningCount: 0 })
+    expect(result.get(root.id)).toEqual({ count: 2, runningCount: rootRunning })
+    expect(result.get(child.id)).toEqual({ count: 1, runningCount: childRunning })
     expect(result.has(fork.id)).toBe(false)
   })
 

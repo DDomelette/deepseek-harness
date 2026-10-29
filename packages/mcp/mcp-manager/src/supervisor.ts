@@ -8,7 +8,7 @@
 import type { Context, Fiber } from '@deepseek-ai/cordis'
 import * as McpClient from '@deepseek-ai/dsh-mcp-client'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
-import type { McpServerEntryConfig, McpServersSection } from './schema.ts'
+import type { McpServerEntryConfig, McpServersSnapshot } from './schema.ts'
 
 /** One reconciler action between two sections. */
 export interface ServerAction {
@@ -20,7 +20,7 @@ export interface ServerAction {
 export interface ManagedServerState {
   readonly serverName: string
   /** Transport copied from the settings entry at mount time. */
-  readonly transport: McpServerEntryConfig['transport']
+  readonly transport: McpServersSnapshot[string]['transport']
   /** Always true: disabled entries carry no state — `list()` reports mounted servers only. */
   readonly enabled: boolean
   /**
@@ -48,7 +48,7 @@ interface Mount {
  * @param next - newly resolved section.
  * @returns actions in stable key order (disposes before mounts).
  */
-export function planServerDiff(prev: McpServersSection, next: McpServersSection): ServerAction[] {
+export function planServerDiff(prev: McpServersSnapshot, next: McpServersSnapshot): ServerAction[] {
   const actions: ServerAction[] = []
   for (const [key, before] of Object.entries(prev)) {
     const after = next[key]
@@ -77,7 +77,7 @@ export function planServerDiff(prev: McpServersSection, next: McpServersSection)
  */
 export class McpServerSupervisor {
   private readonly mounts = new Map<string, Mount>()
-  private section: McpServersSection = {}
+  private section: McpServersSnapshot = {}
   private queue: Promise<void> = Promise.resolve()
   private disposed = false
 
@@ -91,7 +91,7 @@ export class McpServerSupervisor {
    * immediately; the actions run on the supervisor's serial queue.
    * @param next - newly resolved `mcp-servers` section.
    */
-  sync(next: McpServersSection): void {
+  sync(next: McpServersSnapshot): void {
     if (this.disposed) return
     const actions = planServerDiff(this.section, next)
     const changed = !deepEqualJson(this.section, next)
@@ -130,7 +130,7 @@ export class McpServerSupervisor {
    * a read stays a stable snapshot.
    * @returns the current resolved `mcp-servers` section.
    */
-  currentSection(): McpServersSection {
+  currentSection(): McpServersSnapshot {
     return this.section
   }
 
@@ -144,14 +144,15 @@ export class McpServerSupervisor {
     for (const serverName of [...this.mounts.keys()].reverse()) await this.unmount(serverName)
   }
 
-  private mount(serverName: string, entry: McpServerEntryConfig): void {
+  private mount(serverName: string, entry: McpServersSnapshot[string]): void {
     const state: ManagedServerState = { serverName, transport: entry.transport, enabled: true, status: 'connecting' }
     // The settings seam hands out deep-frozen resolved sections. Schemastery's
     // dict/object validation writes adapted values back onto its input, so a
     // frozen nested env/headers/reconnect map makes mcp-client's config check
     // throw in strict mode. Clone before the spread: mcp-client must receive a
-    // writable plain copy, never the frozen settings snapshot.
-    const { enabled: _enabled, ...config } = structuredClone(entry)
+    // writable plain copy, never the frozen settings snapshot — the cast
+    // restores the mutability `structuredClone` preserves as readonly types.
+    const { enabled: _enabled, ...config } = structuredClone(entry) as McpServerEntryConfig
     let fiber: Fiber
     try {
       fiber = this.ctx.plugin(McpClient, { ...config, serverName })

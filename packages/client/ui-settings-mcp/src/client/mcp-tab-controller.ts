@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bridge between the MCP roster tab and its two data sources: the
  * `mcp-servers` settings scope (enablement writes) and the `mcpServers`
  * Remote (roster reads). The tab never sees ctx; this controller is the
@@ -9,8 +9,8 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: the wire types plus the ctx.remote Context merge carrying the
 // generated `mcpServers` namespace face.
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
-import { type SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { type SettingsPathOpView as SettingsScopeMutation } from '@deepseek-ai/dsh-api-remotes/client'
+import { type ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import { type SettingsPathOpView as ConfigFormMutation } from '@deepseek-ai/dsh-api-remotes/client'
 import type { McpSettingsTabInjected } from './McpSettingsTab.tsx'
 import type { NewServerDraft } from './AddServerForm.tsx'
 import type { ServerPatch } from './EditServerForm.tsx'
@@ -48,8 +48,15 @@ export interface McpServerSettingsEntry {
   readonly reconnect?: ReconnectDraft
 }
 
-/** The `mcp-servers` section as the scope snapshot presents it: a dict keyed by serverName. */
-export type McpServersSettings = Record<string, McpServerSettingsEntry>
+/**
+ * The `mcp-servers` section as the scope snapshot presents it: the roster lives
+ * under the `servers` field of the manager's plugin Config, which is the
+ * volatile node settings edits address.
+ */
+export type McpServersSettings = { readonly servers: Record<string, McpServerSettingsEntry> }
+
+/** Config field carrying the roster inside the `mcp-servers` section. */
+const ROSTER_FIELD = 'servers'
 
 /** The generated `mcpServers` Remote namespace face, narrowed from ctx.remote. */
 type McpServersRemote = Context['remote']['mcpServers']
@@ -64,7 +71,7 @@ export class McpTabController {
    * @param remote - the generated `mcpServers` Remote namespace face.
    */
   constructor(
-    private readonly scope: SettingsScope<McpServersSettings>,
+    private readonly scope: ConfigForm<McpServersSettings>,
     private readonly remote: McpServersRemote,
   ) {}
 
@@ -77,7 +84,8 @@ export class McpTabController {
       list: () => this.list(),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
       addServer: draft => this.addServer(draft),
-      readEntry: serverName => this.scope.getSnapshot().value?.[serverName],
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
+      readEntry: serverName => this.scope.getSnapshot().value?.servers?.[serverName],
       updateServer: (serverName, patch) => this.updateServer(serverName, patch),
       removeServer: serverName => this.removeServer(serverName),
     }
@@ -100,8 +108,9 @@ export class McpTabController {
    * next publication re-syncs the roster.
    */
   private async setEnabled(serverName: string, enabled: boolean): Promise<void> {
-    if (this.scope.getSnapshot().value?.[serverName] === undefined) return
-    await this.scope.mutate([{ op: 'set', path: [serverName, 'enabled'], value: enabled }])
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
+    if (this.scope.getSnapshot().value?.servers?.[serverName] === undefined) return
+    await this.scope.mutate([{ op: 'set', path: [ROSTER_FIELD, serverName, 'enabled'], value: enabled }])
   }
 
   /**
@@ -114,7 +123,7 @@ export class McpTabController {
    */
   private async addServer(draft: NewServerDraft): Promise<McpLocaleKey | null> {
     const { serverName, ...entry } = draft
-    return await this.scope.mutate([{ op: 'set', path: [serverName], value: entry }]) ? null : 'saveFailed'
+    return await this.scope.mutate([{ op: 'set', path: [ROSTER_FIELD, serverName], value: entry }]) ? null : 'saveFailed'
   }
 
   /**
@@ -127,14 +136,15 @@ export class McpTabController {
    * @returns null when the Host accepted every edit, otherwise the failure key.
    */
   private async updateServer(serverName: string, patch: ServerPatch): Promise<McpLocaleKey | null> {
-    if (this.scope.getSnapshot().value?.[serverName] === undefined) return 'loadFailed'
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
+    if (this.scope.getSnapshot().value?.servers?.[serverName] === undefined) return 'loadFailed'
     const { unsetTimeout, ...fields } = patch
-    const ops: SettingsScopeMutation[] = []
+    const ops: ConfigFormMutation[] = []
     if (unsetTimeout === true) {
-      ops.push({ op: 'unset', path: [serverName, 'toolCallTimeoutMs'] })
+      ops.push({ op: 'unset', path: [ROSTER_FIELD, serverName, 'toolCallTimeoutMs'] })
     }
     for (const [field, value] of Object.entries(fields)) {
-      ops.push({ op: 'set', path: [serverName, field], value })
+      ops.push({ op: 'set', path: [ROSTER_FIELD, serverName, field], value })
     }
     if (ops.length === 0) return null
     return await this.scope.mutate(ops) ? null : 'saveFailed'
@@ -148,6 +158,6 @@ export class McpTabController {
    * @returns null when the Host accepted the removal, otherwise the failure key.
    */
   private async removeServer(serverName: string): Promise<McpLocaleKey | null> {
-    return await this.scope.mutate([{ op: 'unset', path: [serverName] }]) ? null : 'saveFailed'
+    return await this.scope.mutate([{ op: 'unset', path: [ROSTER_FIELD, serverName] }]) ? null : 'saveFailed'
   }
 }

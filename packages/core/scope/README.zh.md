@@ -65,8 +65,6 @@ await scope.dispose()   // unwinds every registration made through scope.ctx
 |---|---|
 | [`src/index.ts`](src/index.ts) | `createScope`、`scopeOf`、`scopeTarget`、`bindScopeParent`/`scopeParentOf`/`scopeChainOf`、载体标记 |
 | [`src/store.ts`](src/store.ts) | `ScopedLayers`、`NamedEntries`、`AnonymousEntries`、`ScopeLayer` |
-| [`src/invariant.ts`](src/invariant.ts) | 基于生成的作用域事件映射的不变式配套 |
-| [`src/scoped-events.generated.ts`](src/scoped-events.generated.ts) | 已声明带作用域事件的生成解析器映射 |
 
 ### 父链
 
@@ -86,8 +84,7 @@ await scope.dispose()   // unwinds every registration made through scope.ctx
 包级约定对大多数消费方已经足够；需要周边领域与设计原理时再阅读以下页面。
 
 - [作用域注册子系统](../../../docs/subsystems/scope.zh.md)——身份、载体与层类型。
-- [agent 作用域上下文 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-08-agent-scope-contexts.zh.md)——安全非目标与上下文设计。
-- [agent 作用域运行时设计 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-12-agent-scope-runtime-design.zh.md)——循环如何构建按 agent 的作用域。
+- [agent 作用域运行时设计 reference](../agent-loop/README.zh.md)——循环如何构建按 agent 的作用域。
 - [core 分组地图](../README.zh.md)——core 各包如何组合。
 
 -----
@@ -111,3 +108,5 @@ await scope.dispose()   // unwinds every registration made through scope.ctx
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。这个零依赖库仅贡献作用域标签、`scopeTarget` 事件载体与各层存储；按 `scopeOf()` 归档贡献的注册表，以及创建按 agent 作用域的 agent loop，持有它只负责路由的关系。

@@ -1,6 +1,43 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-13-mcp-settings-page.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-13-mcp-settings-page.md
-2026-08-13-mcp-settings-page.md: 191ab40db1e5e4eb4d53062da73736c2a684d1c3
-2026-08-13-mcp-settings-page.zh.md: 730a4bd46b63f3156816f261dff450172d4d2ed9
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones:
+  en: 61c6d5fc32edd2d4
+  zh: bc194d70bd008990
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/problem:
+  en: 81a6feda6b3b0aa0
+  zh: ecba045745b14011
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision:
+  en: 57f0f5edceb87fbf
+  zh: 4a7a8cb1f108e818
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/two-sources-one-roster:
+  en: e6d7347c41f6dcde
+  zh: c2413d4f6d0abb43
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/persistence-and-hot-apply:
+  en: d80deaa32f99aa40
+  zh: 97bb45ced3c8326b
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/name-ownership:
+  en: 2202ce85b8a5f195
+  zh: 4dbb9ec6b7783b2c
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/secret-handling:
+  en: 89bb03033fa3455a
+  zh: 43b21164c8c93cc4
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/frozen-settings-snapshots:
+  en: e560113fd6fda65b
+  zh: 992db933362f249e
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/decision/status-reporting:
+  en: 8ee0fec5b60fd7b3
+  zh: ae09e418663cbc4d
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/alternatives-considered:
+  en: a1c4854b046ba02a
+  zh: e85226fec606e1e2
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/consequences:
+  en: 71e2aa55d6bb40f6
+  zh: a98c6ff05394cd37
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/testing:
+  en: ff44549ef052ee26
+  zh: bfc62fc4a95fb55b
+/agent-note-mcp-settings-page-panel-managed-mcp-servers-beside-declarative-ones/deferred:
+  en: 287db2aa90d0a10c
+  zh: 9d679fdbd657f7b2

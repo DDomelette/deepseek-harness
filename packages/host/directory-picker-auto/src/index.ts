@@ -73,14 +73,14 @@ export async function apply(ctx: Context): Promise<void> {
     // backend lands first: the surface's browser half drives the capability
     // the backend registers.
     const ids: string[] = []
-    const unmount = async () => {
+    const unmount = async (): Promise<void> => {
       for (const id of [...ids].reverse()) {
-        // Tree teardown (group.stop) can have removed the entry already;
-        // nothing is left to unmount or await then.
-        if (ctx.loader.store[id] === undefined) continue
-        // remove() disposes the entry transactionally, so the chooser's unload
-        // signals completion only after that face quiesced.
-        await ctx.loader.remove(id)
+        const entry = ctx.loader.store[id]
+        if (entry === undefined) continue
+        // Cordis disposers are single-shot; retain the first call's completion.
+        const disposal = entry.fiber?.dispose()
+        ctx.loader.remove(id)
+        await disposal
       }
     }
     try {

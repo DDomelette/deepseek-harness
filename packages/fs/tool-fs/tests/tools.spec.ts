@@ -5,12 +5,10 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
+import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
 import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type ToolResult } from '@deepseek-ai/dsh-tools'
@@ -30,7 +28,7 @@ import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import { STREAM_MIN_SIZE } from '../src/read.ts'
 import { formatReadOutput } from '../src/read-render.ts'
 import type { FileReadOutcome } from '../src/read-render.ts'
-import { sessionCwd } from '../src/session-cwd.ts'
+import { sessionResolveOptions } from '../src/session-cwd.ts'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
@@ -53,7 +51,7 @@ class FakeFs extends FileSystem {
   override async resolve(path: string): Promise<FsTarget> {
     return { targetKey: FsTargetKey(`key:${path}`), displayPath: `/abs/${path}` }
   }
-  override processPath(target: FsTarget): string { return String(target.targetKey) }
+  override processPath(target: FsTarget): string { return target.displayPath }
   override fileUrl(target: FsTarget): string { return `file://${target.targetKey}` }
   override contains(parent: FsTarget, child: FsTarget): boolean {
     return child.targetKey === parent.targetKey || String(child.targetKey).startsWith(`${parent.targetKey}/`)
@@ -112,6 +110,7 @@ async function setup() {
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(FakeFs)
   await ctx.plugin(FsPolicy)
+  provideWorkingDirectoryFixture(ctx, '/abs')
   await ctx.plugin(ToolFs)
   const fs = ctx.fs as FakeFs
   return { ctx, fs }
@@ -132,29 +131,18 @@ function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
 }
 
-describe('session cwd resolution', () => {
-  const execution = (cwd?: string) => cwd === undefined
-    ? {}
-    : { agent: { session: { header: { cwd } } } }
-
-  it('retains ordinary spelling but resolves the cwd before parent traversal', () => {
-    const cwd = process.cwd()
-    const throughParent = `${cwd}${sep}..`
-    expect(sessionCwd(execution() as never, 'file.txt')).toBeUndefined()
-    expect(sessionCwd(execution(cwd) as never, 'file.txt')).toBe(cwd)
-    expect(sessionCwd(execution(throughParent) as never, 'file.txt')).toBe(realpathSync.native(throughParent))
-
-    const root = mkdtempSync(join(tmpdir(), 'dsh-tool-fs-session-cwd-'))
-    const physical = join(root, 'physical')
-    const link = join(root, 'link')
-    try {
-      mkdirSync(physical)
-      symlinkSync(physical, link, process.platform === 'win32' ? 'junction' : 'dir')
-      expect(sessionCwd(execution(link) as never, 'child.txt')).toBe(link)
-      expect(sessionCwd(execution(link) as never, `..${sep}parent.txt`)).toBe(realpathSync.native(link))
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
+describe('current directory resolution', () => {
+  it('uses the directory service and keeps non-agent provider defaults', async () => {
+    const ctx = new Context()
+    const ensure = vi.fn(async () => '/current/project')
+    ctx.provide('workingDirectory', { ensure })
+    const agent = { session: { header: { cwd: '/original/project' } } }
+    const exec = { agent, signal: testToolSignal }
+    expect(await sessionResolveOptions(ctx, exec as never)).toEqual({ cwd: '/current/project', signal: testToolSignal })
+    expect(ensure).toHaveBeenCalledWith(agent, testToolSignal)
+    expect(await sessionResolveOptions(ctx, { signal: testToolSignal } as never)).toEqual({ signal: testToolSignal })
+    expect(ensure).toHaveBeenCalledTimes(1)
+    await ctx.fiber.dispose()
   })
 })
 
@@ -178,8 +166,8 @@ describe('registration', () => {
     const { ctx } = await setup()
     const prompt = renderPrompt(await ctx.systemPrompt.assemble())
     expect(prompt).toContain('Use the read tool')
-    expect(prompt).toContain('Use the write tool')
-    expect(prompt).toContain('Use the edit tool')
+    expect(prompt).toContain('Read an existing file before overwriting it with write')
+    expect(prompt).toContain('Read a file before editing it')
   })
 
   it('stays pending until ctx.fs exists (inject)', async () => {
@@ -196,6 +184,7 @@ describe('registration', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
     await ctx.plugin(FsPolicy)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     const fiber = await ctx.plugin(ToolFs)
     // Each tool contributes BOTH a schema and a prompt section; disposal must
     // withdraw both, not just the schemas.
@@ -609,7 +598,7 @@ describe('result-time contextual diff (meta + presentResult)', () => {
   // presentResult narrows it back into a replayable `diff` result card.
   const withContext = 'a\nb\nc\nOLD\nd\ne\nf\n'
 
-  it('edit: execute attaches the applied hunk as meta { diffs }', async () => {
+  it('edit: execute attaches the applied hunk as meta { path, diffs }', async () => {
     const { ctx, fs } = await setup()
     const session = { header: {} }
     fs.files.set('key:a.txt', withContext)
@@ -617,7 +606,8 @@ describe('result-time contextual diff (meta + presentResult)', () => {
     const result = await call(ctx, 'edit', { file_path: 'a.txt', old_string: 'OLD', new_string: 'NEW' }, { session })
     expect(result.isError).toBe(false)
     expect(result.meta).toEqual({
-      diffs: [{ path: 'a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }],
+      path: '/abs/a.txt',
+      diffs: [{ path: '/abs/a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }],
     })
   })
 
@@ -630,7 +620,7 @@ describe('result-time contextual diff (meta + presentResult)', () => {
     const view = ctx.tools.get('edit')?.presentResult?.({ file_path: 'a.txt', old_string: 'OLD', new_string: 'NEW' }, result)
     expect(view).toEqual({
       card: 'diff', title: 'Edit a.txt',
-      diffs: [{ path: 'a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }],
+      diffs: [{ path: '/abs/a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }],
     })
   })
 
@@ -641,9 +631,13 @@ describe('result-time contextual diff (meta + presentResult)', () => {
     await call(ctx, 'read', { file_path: 'a.txt' }, { session })
     const result = await call(ctx, 'write', { file_path: 'a.txt', content: 'a\nb\nc\nNEW\nd\ne\nf\n' }, { session })
     expect(result.isError).toBe(false)
-    expect(result.meta).toEqual({ diffs: [{ path: 'a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }] })
+    expect(result.meta).toEqual({
+      operation: 'update',
+      path: '/abs/a.txt',
+      diffs: [{ path: '/abs/a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }],
+    })
     const view = ctx.tools.get('write')?.presentResult?.({ file_path: 'a.txt', content: 'x' }, result)
-    expect(view).toEqual({ card: 'diff', title: 'Write a.txt', diffs: [{ path: 'a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }] })
+    expect(view).toEqual({ card: 'diff', title: 'Write a.txt', diffs: [{ path: '/abs/a.txt', oldText: 'a\nb\nc\nOLD\nd\ne\nf', newText: 'a\nb\nc\nNEW\nd\ne\nf' }] })
   })
 
   it('write CREATE: an empty applied-diff projection still falls back to the whole-file diff card', async () => {
@@ -653,9 +647,9 @@ describe('result-time contextual diff (meta + presentResult)', () => {
     const session = { header: {} }
     const result = await call(ctx, 'write', { file_path: 'new.txt', content: 'fresh\n' }, { session })
     expect(result.isError).toBe(false)
-    expect(result.meta).toEqual({ diffs: [] })
+    expect(result.meta).toEqual({ operation: 'create', path: '/abs/new.txt', diffs: [] })
     const view = ctx.tools.get('write')?.presentResult?.({ file_path: 'new.txt', content: 'fresh\n' }, result)
-    expect(view).toEqual({ card: 'diff', title: 'Write new.txt', diffs: [{ path: 'new.txt', oldText: null, newText: 'fresh\n' }] })
+    expect(view).toEqual({ card: 'diff', title: 'Write new.txt', diffs: [{ path: '/abs/new.txt', oldText: null, newText: 'fresh\n' }] })
   })
 
   it('write OVERWRITE with identical content: an empty applied-diff projection falls back to a whole-file diff', async () => {
@@ -665,9 +659,9 @@ describe('result-time contextual diff (meta + presentResult)', () => {
     await call(ctx, 'read', { file_path: 'a.txt' }, { session })
     const result = await call(ctx, 'write', { file_path: 'a.txt', content: 'same\n' }, { session })
     expect(result.isError).toBe(false)
-    expect(result.meta).toEqual({ diffs: [] })
+    expect(result.meta).toEqual({ operation: 'update', path: '/abs/a.txt', diffs: [] })
     const view = ctx.tools.get('write')?.presentResult?.({ file_path: 'a.txt', content: 'same\n' }, result)
-    expect(view).toEqual({ card: 'diff', title: 'Write a.txt', diffs: [{ path: 'a.txt', oldText: null, newText: 'same\n' }] })
+    expect(view).toEqual({ card: 'diff', title: 'Write a.txt', diffs: [{ path: '/abs/a.txt', oldText: null, newText: 'same\n' }] })
   })
 
   it('presentResult returns undefined on an error result (nothing applied)', async () => {
@@ -703,6 +697,7 @@ describe('read caps are plugin config', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
     await ctx.plugin(FsPolicy)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs, config)
     return { ctx, fs: ctx.fs as FakeFs }
   }
@@ -759,6 +754,7 @@ describe('read caps are plugin config', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(FakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await expect(ctx.plugin(ToolFs, config)).rejects.toThrow(new RegExp(`tool-fs: ${name} must be a positive integer`))
   })
 
@@ -806,6 +802,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await ctx.plugin(SandboxingFakeFs)
     await ctx.plugin(FsPolicy)
     if (opts.approval === true) await ctx.plugin(ApprovalService)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs)
     return { ctx, fs: ctx.fs as SandboxingFakeFs }
   }
@@ -865,6 +862,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SandboxingFakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await expect(ctx.plugin(ToolFs)).rejects.toThrow('tool-fs: the mounted filesystem confines but ctx.sandboxPolicy is missing')
   })
 
@@ -892,7 +890,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await call(ctx, 'write', { file_path: 'a.txt', content: 'x' }, escalationAgent())
     expect(fs.stamped).toEqual([{
       mode: 'workspace-write',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -902,7 +900,7 @@ describe('sandbox escalation API (write/edit)', () => {
     await call(ctx, 'write', { file_path: 'a.txt', content: 'x' }, escalationAgent([{ type: 'sandbox/mode', data: { mode: 'read-only' } }]))
     expect(fs.stamped).toEqual([{
       mode: 'read-only',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -939,7 +937,7 @@ describe('sandbox escalation API (write/edit)', () => {
     })
     expect(fs.stamped).toEqual([{
       mode: 'danger-full-access',
-      workspaceRoot: resolve('/session-project'),
+      workspaceRoot: '/session-project',
       sessionId: SessionId('sess-fs-esc'),
     }])
   })
@@ -992,9 +990,9 @@ async function guidanceScope(ctx: Context) {
 }
 
 const originalGuidance = {
-  read: 'Use the read tool — not shell commands like cat — to inspect text files. Results include line numbers. Use offset and limit to continue reading large files.',
-  write: 'Use the write tool to create files or completely replace file contents. Existing files are overwritten, so read an existing file first (the default fs-observation-policy requires it) and prefer edit for targeted changes.',
-  edit: 'Use the edit tool for targeted changes to existing UTF-8 text files. It replaces literal old_string with new_string; by default old_string must appear exactly once. If old_string appears multiple times, provide a more specific old_string or set replace_all to true. Read the file first (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
+  read: 'Use the read tool — not shell commands like cat — to inspect text files. Use offset and limit to continue reading large files.',
+  write: 'Read an existing file before overwriting it with write (the default fs-observation-policy requires it) and prefer edit for targeted changes.',
+  edit: 'Read a file before editing it (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
 }
 
 describe('scope-aware filesystem guidance', () => {
@@ -1048,19 +1046,23 @@ function withPersona(...sections: string[]): string {
 }
 
 /** Schema assembly only: these cases never execute user code. */
-class GuidanceCodeRuntime extends CodeRuntime {
+class GuidancePtcRuntime extends PtcRuntime {
+  resolve(request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest): import('@deepseek-ai/dsh-ptc-runtime').PtcRunSpec { return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs ?? 120_000 } }
+
   readonly language = 'typescript'
   readonly isolation = 'fake'
   run() { return Promise.resolve({ logs: [] }) }
 }
 
 describe('scope-aware PTC guidance', () => {
-  it.each(['ptc', 'both'] as const)('uses capability visibility in %s mode', async (mode) => {
+  it('uses capability visibility in PTC mode', async () => {
+    const mode = 'ptc'
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GuidanceCodeRuntime)
+    await ctx.plugin(GuidancePtcRuntime)
     await ctx.plugin(ToolRuntime, { mode })
     await ctx.plugin(FakeFs)
+    provideWorkingDirectoryFixture(ctx, '/abs')
     await ctx.plugin(ToolFs)
     const { key, scope } = await guidanceScope(ctx)
     try {

@@ -70,7 +70,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：第一步监听器、shell 查询、变化抑制、调度 |
-| — | 不发布运行时不变式伴生入口；每次读取都是外部 tmux 状态的单轮快照，会话没有可检查的跨事件关系；调度与格式由流水线测试负责。 |
 
 ### 主要流程
 
@@ -139,3 +138,5 @@ window active=<0|1>, pane active=<0|1>, layout <window-layout>
 无。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本请求上下文插件仅在 tmux 位置变化时贡献一条持久、带来源标记的上下文消息；只读查询的执行关系仍由 `ctx.shell` 执行器服务持有，而插件报告的 pane 状态由 tmux 服务器持有。

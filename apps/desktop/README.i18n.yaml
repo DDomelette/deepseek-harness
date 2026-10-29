@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/desktop/README.md
-README.md: cf350a9d5e9577f5cf52c4371b32f16e278133f9
-README.zh.md: aa870c2a74f3b74d3f6de921c4bc5ef04fbfad3f
+/deepseek-harness-desktop:
+  en: 8ef480815daf03a4
+  zh: ff1d53e9bb1be21c
+/deepseek-harness-desktop/key-technical-decisions:
+  en: febdb7d3e684140a
+  zh: db05591474f294e6
+/deepseek-harness-desktop/installation-ownership:
+  en: 21a1752a3a3243a3
+  zh: 83b61bf3703d876f
+/deepseek-harness-desktop/installation-ownership/seed-installation:
+  en: 5c7979ffbf9b6879
+  zh: 5b67d779e3af7714
+/deepseek-harness-desktop/develop:
+  en: bac0b8ab9f858f19
+  zh: 274fc4f01e382d22
+/deepseek-harness-desktop/package:
+  en: 5a7821f2fab8ab43
+  zh: 688192a3f460bd57
+/deepseek-harness-desktop/package/upload-updates:
+  en: 3fc5d8ea1998b5c0
+  zh: e090a2f2b5e44ae0
+/deepseek-harness-desktop/package/windows-ev-signing:
+  en: 959aa3171bce0b90
+  zh: 760c97bc3722606e
+/deepseek-harness-desktop/updates:
+  en: 33a646dd66fe8bef
+  zh: 9dddc715288e1b34
+/deepseek-harness-desktop/low-level-development-overrides:
+  en: e7f84f1fb4cbc61b
+  zh: 1118ca131b33d26d
+/deepseek-harness-desktop/known-limitations:
+  en: dbddd880cd10e094
+  zh: 133954f744204904

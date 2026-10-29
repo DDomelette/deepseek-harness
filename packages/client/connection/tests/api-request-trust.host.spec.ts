@@ -1,13 +1,45 @@
 /** Behavior of the /api browser-trust fence (rebinding + cross-site defense). */
 
 import { describe, expect, it } from 'vitest'
-import { assertTrustedAuthority, isTrustedApiRequest } from '../src/api-request-trust.ts'
+import { assertTrustedAuthority, isDeclaredAuthority, isTrustedApiRequest } from '../src/api-request-trust.ts'
 
 function request(headers: Record<string, string | undefined>): { headers: Record<string, string | undefined> } {
   return { headers }
 }
 
 describe('isTrustedApiRequest', () => {
+  it('accepts the exact bound authority and refuses a different host or port', () => {
+    expect(isTrustedApiRequest(request({ host: '192.168.1.5:3080' }), [], '192.168.1.5:3080')).toBe(true)
+    expect(isTrustedApiRequest(request({ host: '192.168.1.5:9999' }), [], '192.168.1.5:3080')).toBe(false)
+    expect(isTrustedApiRequest(request({ host: '192.168.1.6:3080' }), [], '192.168.1.5:3080')).toBe(false)
+  })
+
+  it('compares Origin and Host under the Origin scheme, so HTTPS default ports normalize like HTTP ones', () => {
+    // A browser omits the default port it dialed, while a proxy or a direct
+    // client may still write it in Host: both spellings name one authority.
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:443' }), ['harness.internal'])).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'https://harness.internal:443' }), ['harness.internal'])).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(true)
+    // A TLS-terminating proxy forwards the browser's https Origin to a plain-HTTP upstream.
+    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(true)
+    // A real hostname or port difference still decides, in both directions.
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:444' }), ['harness.internal'])).toBe(false)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(false)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(false)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://evil.example' }), ['harness.internal'])).toBe(false)
+    // Cross-site labelling outranks a purely spelling-level match.
+    expect(isTrustedApiRequest(request({
+      host: 'harness.internal:443',
+      origin: 'https://harness.internal',
+      'sec-fetch-site': 'cross-site',
+    }), ['harness.internal'])).toBe(false)
+    // Only http(s) names this listener; opaque and other schemes never compare as an authority.
+    for (const origin of ['ftp://harness.internal', 'file://harness.internal', 'ws://harness.internal', 'null']) {
+      expect(isTrustedApiRequest(request({ host: 'harness.internal', origin }), ['harness.internal']), origin).toBe(false)
+    }
+  })
+
   it('holds markerless requests to the same Host fence — a plain-HTTP browser read carries no markers', () => {
     // Over plain HTTP a browser attaches neither Origin nor Fetch-Metadata to
     // reads (EventSource, images, navigations), so a rebound-origin GET is
@@ -113,3 +145,15 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ ...markers, host: '128.0.0.1' }), [])).toBe(false)
   })
 })
+
+it('rejects malformed declared authorities and accepts a valid hostname', () => {
+  expect(isDeclaredAuthority('bad host', ['harness.internal'])).toBe(false)
+  expect(isDeclaredAuthority('[', ['harness.internal'])).toBe(false)
+  expect(isDeclaredAuthority('harness.internal:443', ['harness.internal'])).toBe(true)
+})
+
+it.each(['ftp://harness.internal', 'file://harness.internal', 'ws://harness.internal'])(
+  'refuses a non-HTTP(S) Origin %s even on a trusted Host', (origin) => {
+    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin }), ['harness.internal'])).toBe(false)
+  },
+)

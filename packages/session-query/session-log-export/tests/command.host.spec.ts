@@ -19,6 +19,7 @@ describe('/export Web download command', () => {
     const fiber = await ctx.plugin(SessionLogDownload)
 
     expect(descriptor).toMatchObject({
+      definitionId: '@deepseek-ai/dsh-session-log-export',
       name: 'export',
       description: 'Download this Session log as a ZIP archive',
     })

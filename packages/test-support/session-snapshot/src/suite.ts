@@ -20,7 +20,7 @@
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { isSurfaceEligibleType } from '@deepseek-ai/dsh-session/surface'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { describe, expect, it } from 'vitest'
@@ -56,6 +56,20 @@ const SYSTEM_PROMPT_SNAPSHOT = 'system-prompt.expected.md'
 
 /** The structured tool-schema snapshot beside its owning header pin. */
 const TOOL_SCHEMAS_SNAPSHOT = 'tool-schemas.expected.json'
+
+/**
+ * Read canonical LF-terminated sidecar content or a materialized relative Git link.
+ * Checkouts without symbolic-link support write the link target as one line;
+ * its target is resolved relative to this sidecar and a missing target rejects
+ * the read. A normal read already follows a native symbolic link.
+ * @param path - sidecar path to read.
+ * @returns the sidecar's content, or the aliased target's content.
+ */
+async function readSidecarFile(path: string): Promise<string> {
+  const content = await readFile(path, 'utf8')
+  if (content.includes('\n')) return content
+  return readFile(resolve(dirname(path), `./${content.trim()}`), 'utf8')
+}
 
 /** Return the dedicated tool-schema sidecar for one child fixture index. */
 function childToolSchemasSnapshot(index: number): string {
@@ -524,7 +538,7 @@ export function parseToolSchemasSnapshot(snapshot: string): ToolSchemasSnapshot 
 /**
  * Restore one sidecar schema set into a tokenized pinned header.
  *
- * @param header The parsed request header carrying `tools: "{{tools}}"`.
+ * @param header The parsed request header carrying a tools token or ordered tool names matching the sidecar.
  * @param schemas The complete schemas for this full header snapshot.
  * @returns A copy of the header with its complete schemas restored.
  */
@@ -532,8 +546,15 @@ export function restorePinnedToolSchemas(header: unknown, schemas: readonly unkn
   if (header === null || typeof header !== 'object' || Array.isArray(header)) {
     throw new Error('acp-snapshot: pinned request header must be an object')
   }
-  if ((header as { tools?: unknown }).tools !== TOOLS_TOKEN) {
-    throw new Error(`acp-snapshot: pinned request header tools must equal ${TOOLS_TOKEN}`)
+  const tools = (header as { tools?: unknown }).tools
+  const namesMatch = Array.isArray(tools) && tools.length === schemas.length
+    && tools.every((name, index) => {
+      const schema = schemas[index]
+      return typeof name === 'string' && schema !== null && typeof schema === 'object'
+        && 'name' in schema && schema.name === name
+    })
+  if (tools !== TOOLS_TOKEN && !namesMatch) {
+    throw new Error(`acp-snapshot: pinned request header tools must equal ${TOOLS_TOKEN} or the ordered sidecar tool names`)
   }
   return { ...header, tools: schemas }
 }
@@ -646,6 +667,7 @@ function surfaceEventMessage(record: Record<string, unknown>): Record<string, un
       message = data
       break
     case 'system/message':
+    case 'developer/message':
     case 'assistant/message':
     case 'tool/result':
       message = data.message
@@ -762,7 +784,7 @@ export function stabilizeFixtureMessageIds(logs: readonly string[], fixtures: re
 /** One packed row's member times, or `undefined` for an ordinary record. */
 function packedTimes(record: Record<string, unknown>): number[] | undefined {
   if (!PACKED_CHUNK_ROW_TYPES.has(record.type as string)) return undefined
-  const row = record as unknown as { time0?: number; data: { dt: number[] } }
+  const row = record as { time0?: number; data: { dt: number[] } }
   const times = [row.time0 ?? 0]
   for (const gap of row.data.dt) times.push((times[times.length - 1] as number) + gap)
   return times
@@ -837,6 +859,32 @@ export function refreshFixtureReplacements(logs: HarvestedLog[], fixtures: strin
   return replacements
 }
 
+/**
+ * Check raw parent/child clocks before normalization, or preserve their equality during refresh.
+ * @param logs - one scenario's parent and child logs with shared Session ids.
+ * @param policy - validate live output, or align refreshed catalogs to the retained child headers.
+ * @returns logs with only conflicting catalog creation times replaced under preserve-headers.
+ */
+export function reconcileCatalogCreationTimes(logs: readonly string[], policy: 'validate' | 'preserve-headers'): string[] {
+  const headers = new Map(logs.map((log) => {
+    const header = parseJsonlRecords(log)[0]
+    return [header?.['id'], header] as const
+  }))
+  return logs.map(log => log.split('\n').map((line) => {
+    if (line.length === 0) return line
+    const record = JSON.parse(line) as Record<string, unknown>
+    if (record.type !== 'subagent/catalog' || !isRecord(record.data)) return line
+    const child = headers.get(record.data.childId)
+    // Partial harvested corpora need not retain every cataloged child log.
+    if (child === undefined || record.data.childCreatedAt === child.createdAt) return line
+    if (policy === 'validate') {
+      throw new Error(`catalog child ${String(record.data.childId)} creation time ${String(record.data.childCreatedAt)} disagrees with child header ${String(child.createdAt)}`)
+    }
+    record.data.childCreatedAt = child.createdAt
+    return JSON.stringify(record)
+  }).join('\n'))
+}
+
 function preserveFixtureVolatiles(record: Record<string, unknown>, existing: Record<string, unknown> | undefined): void {
   if (existing === undefined || existing.type !== record.type) return
   if (record.type === 'session') {
@@ -864,7 +912,7 @@ function preservePackedMemberTimes(
   existingMembers: Record<string, unknown>[],
 ): void {
   if (!PACKED_CHUNK_ROW_TYPES.has(record.type as string)) return
-  const row = record as unknown as { time0: number; data: { dt: number[] } }
+  const row = record as { time0: number; data: { dt: number[] } }
   const firstTime = existingMembers[0]?.time
   if (!Number.isSafeInteger(firstTime)) return
   row.time0 = firstTime as number
@@ -1308,6 +1356,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
           ...scenario.configPath !== undefined ? { configPath: scenario.configPath } : {},
         })
 
+        reconcileCatalogCreationTimes(result.sessionLogs.map(log => log.content), 'validate')
         for (const log of result.sessionLogs) {
           expect(unknownToolCallIds(log.content), `session ${log.id}: snapshot scenarios must not accept UNKNOWN_TOOL`)
             .toEqual([])
@@ -1330,8 +1379,10 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
 
         // Record writes live model fixtures; keyless refresh writes every comparable replayed
         // fixture. Pinning JSONL keeps prefixes but moves prompts and schemas into sidecars.
+        // The run's own cwd spellings decide the token: a refresh keeps the committed
+        // header values, so the body may name the fresh temporary directory instead.
         const portableFixture = scenario.workspaceParent === undefined
-          ? tokenizeSessionFixtureCwd
+          ? (log: string): string => tokenizeSessionFixtureCwd(log, ctx)
           : (log: string): string => log
         const writesSessionFixtures = writesCurrentSessionFixtures(manifest, mode)
           && ((RECORDING && scenario.recorded && scenario.hasModelTurn) || (REFRESHING && comparesLog))
@@ -1361,7 +1412,9 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
               ctx,
             ))))
             : result.sessionLogs.map(log => scrubSessionSnapshot(portableFixture(log.content)))
-          const outputFixtures = redactSessionSnapshotIds(stabilizeFixtureMessageIds(freshFixtures, existingFixtures))
+          const outputFixtures = redactSessionSnapshotIds(stabilizeFixtureMessageIds(
+            reconcileCatalogCreationTimes(freshFixtures, 'preserve-headers'), existingFixtures,
+          ))
           await Promise.all(outputFixtures.map((fixture, index) =>
             writeFile(join(dir, outputFixtureFiles[index] as string), fixture)))
           fixtureFiles = outputFixtureFiles
@@ -1439,8 +1492,8 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
             sessionIds: fixtureContexts.flatMap(context => context.sessionIds),
             cwd: (fixtureContexts[0] as NormalizeContext).cwd,
           }
-          const actualSnapshots = normalizeSessionSnapshots(harvested, ctx)
-          const expectedSnapshots = normalizeSessionSnapshots(fixtures, fixtureCtx)
+          const actualSnapshots = normalizeSessionSnapshots(harvested, ctx, { nativeWriterOutput: true })
+          const expectedSnapshots = normalizeSessionSnapshots(fixtures, fixtureCtx, { nativeWriterOutput: true })
           for (const [index, actual] of actualSnapshots.entries()) {
             expect(actual, `${fixtureFiles[index]} mismatch`).toEqual(expectedSnapshots[index])
           }
@@ -1459,18 +1512,16 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         const [pinningFixtureFile] = await sessionFixtures(pinningDir)
         const pinnedFixture = await readFile(join(pinningDir, pinningFixtureFile as string), 'utf8')
         const pinned = pinningHeaderPayloads(pinnedFixture, fixtureContext(pinnedFixture))
-        const promptSnapshot = await readFile(
+        const promptSnapshot = await readSidecarFile(
           join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT),
-          'utf8',
         )
         const initialPromptSnapshot = initialSystemPromptSnapshot(promptSnapshot)
         expect(pinned.length, `the pinning fixture (${pinningScenario.name}) has an unexpected request/header count`)
           .toBe(1 + (pinningScenario.expectedHeaderChanges ?? 0))
         expect(parseSystemPromptSnapshot(promptSnapshot).changes.length, `the prompt source (${promptSource.name}) has an unexpected system prompt change count`)
           .toBe(pinningScenario.expectedPromptChanges ?? 0)
-        const toolSchemasSnapshot = await readFile(
+        const toolSchemasSnapshot = await readSidecarFile(
           join(snapshotsDir, schemaSource.name, TOOL_SCHEMAS_SNAPSHOT),
-          'utf8',
         )
         const toolSchemas = parseToolSchemasSnapshot(toolSchemasSnapshot)
         const pinnedSchemaSets = [toolSchemas.initial, ...toolSchemas.changes]
@@ -1482,7 +1533,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         ))
         const childPinnedSchemas = new Map<number, unknown[][]>()
         for (const index of childSchemaPins) {
-          const sidecar = await readFile(join(dir, childToolSchemasSnapshot(index)), 'utf8')
+          const sidecar = await readSidecarFile(join(dir, childToolSchemasSnapshot(index)))
           const parsed = parseToolSchemasSnapshot(sidecar)
           childPinnedSchemas.set(index, [parsed.initial, ...parsed.changes])
         }
@@ -1490,7 +1541,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         for (const index of childPromptPins) {
           childPinnedPrompts.set(
             index,
-            await readFile(join(dir, childSystemPromptSnapshot(index)), 'utf8'),
+            await readSidecarFile(join(dir, childSystemPromptSnapshot(index))),
           )
         }
         for (const [logIndex, log] of result.sessionLogs.entries()) {
@@ -1638,15 +1689,13 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
         const [fixtureFile] = await sessionFixtures(fixtureDir)
         const fixture = await readFile(join(fixtureDir, fixtureFile as string), 'utf8')
         const headers = pinningHeaderPayloads(fixture, fixtureContext(fixture))
-        const promptSnapshot = await readFile(
+        const promptSnapshot = await readSidecarFile(
           join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT),
-          'utf8',
         )
         expect(headers.length, `${scenario.name}: unexpected request/header count`)
           .toBe(1 + (scenario.expectedHeaderChanges ?? 0))
-        const toolSchemasSnapshot = await readFile(
+        const toolSchemasSnapshot = await readSidecarFile(
           join(snapshotsDir, schemaSource.name, TOOL_SCHEMAS_SNAPSHOT),
-          'utf8',
         )
         const toolSchemas = parseToolSchemasSnapshot(toolSchemasSnapshot)
         const schemaSets = [toolSchemas.initial, ...toolSchemas.changes]
@@ -1672,11 +1721,11 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
     it('stores each distinct prompt and tool-schema snapshot once', async () => {
       const prompts = await Promise.all([...promptOwners].map(async (owner): Promise<NamedSnapshotContent> => ({
         path: `${owner}/${SYSTEM_PROMPT_SNAPSHOT}`,
-        content: await readFile(join(snapshotsDir, owner, SYSTEM_PROMPT_SNAPSHOT), 'utf8'),
+        content: await readSidecarFile(join(snapshotsDir, owner, SYSTEM_PROMPT_SNAPSHOT)),
       })))
       const schemas = await Promise.all([...schemaOwners].map(async (owner): Promise<NamedSnapshotContent> => ({
         path: `${owner}/${TOOL_SCHEMAS_SNAPSHOT}`,
-        content: await readFile(join(snapshotsDir, owner, TOOL_SCHEMAS_SNAPSHOT), 'utf8'),
+        content: await readSidecarFile(join(snapshotsDir, owner, TOOL_SCHEMAS_SNAPSHOT)),
       })))
       assertUniqueSnapshotContents('system-prompt', prompts)
       assertUniqueSnapshotContents('tool-schema', schemas)
@@ -1701,10 +1750,10 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
           expect(files[index], `${scenario.name}: child prompt pin ${index} must name an existing session.<n>.jsonl fixture`)
             .toBeDefined()
           const file = childSystemPromptSnapshot(index)
-          const sidecar = await readFile(join(dir, file), 'utf8')
+          const sidecar = await readSidecarFile(join(dir, file))
           /* v8 ignore next -- registration guarantees every scenario class has resolved sources. */
           const promptSource = promptSourceByClass.get(classOf(scenario)) ?? scenario
-          const classPin = await readFile(join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT), 'utf8')
+          const classPin = await readSidecarFile(join(snapshotsDir, promptSource.name, SYSTEM_PROMPT_SNAPSHOT))
           assertChildSystemPromptSnapshot(sidecar, initialSystemPromptSnapshot(classPin), `${scenario.name}/${file}`)
         }
       }

@@ -103,6 +103,12 @@ describe('client bundle purity gate', () => {
     expect(() => resolveId('@deepseek-ai/dsh-host-open-in-app')).toThrow(/purity/)
   })
 
+  it('admits only the pure preset display fold, not its registry implementation', () => {
+    expect(resolveId('@deepseek-ai/dsh-agent-preset-registry/display')).toBeNull()
+    expect(() => resolveId('@deepseek-ai/dsh-agent-preset-registry')).toThrow(/purity/)
+    expect(() => resolveId('@deepseek-ai/dsh-agent-preset-registry/display/internal')).toThrow(/purity/)
+  })
+
   it('admits only the pure spill notice entry, not its Host policy', () => {
     expect(resolveId('@deepseek-ai/dsh-spill-policy/notice')).toBeNull()
     expect(resolveId('@deepseek-ai/dsh-output-retention')).toBeNull()

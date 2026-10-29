@@ -33,9 +33,10 @@ kind: "package-reference"
 
 ### 组合方式
 
-挂载终端服务、子进程提供方、沙箱与策略服务、此后端以及一个工具包：
+外层组合提供文件系统、投影与系统提示服务。挂载共享工作目录服务、终端服务、子进程提供方、沙箱与策略服务、此后端以及一个工具包：
 
 ```yaml
+- name: '@deepseek-ai/dsh-working-directory'
 - name: '@deepseek-ai/dsh-terminal'
 - name: '@deepseek-ai/dsh-subprocess-local'
 - name: '@deepseek-ai/dsh-sandbox-local'
@@ -45,6 +46,8 @@ kind: "package-reference"
 ```
 
 `danger-full-access` 直接启动 shell。受限模式要求同一执行世界中存在 `ctx.sandbox` 提供方：缺少时，spawn 会在 shell 启动前失败。
+
+新终端在显式指定的 `cwd` 或 Session 经验证的当前目录中启动。目录切换只影响后续终端；已有终端进程与沙箱权限根保留各自的目录。
 
 ### 配置
 
@@ -57,7 +60,7 @@ kind: "package-reference"
 | `timeoutMs` | `30000` | 一次发送等待的绝对上限 |
 | `disposeGraceMs` | `3000` | 清理升级到 `SIGKILL` 前的宽限时间 |
 
-生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-terminal-bash)是每个字段的穷尽式真源，包括就绪计时（`pollIntervalMs`、`exactProbeAfterMs`、`idleSilenceMs`、`handoffGraceMs`）、终端尺寸（`rows`、`cols`）与 scrollback 上限（`scrollbackLines`、`scrollbackMaxBytes`）。
+生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-terminal-bash)是每个字段的穷尽式真源，包括就绪计时（`pollIntervalMs`、`exactProbeAfterMs`、`idleSilenceMs`、`handoffGraceMs`、`promptTailGraceMs`）、终端尺寸（`rows`、`cols`）与 scrollback 上限（`scrollbackLines`、`scrollbackMaxBytes`）。
 
 ### shell 方言与就绪
 
@@ -69,7 +72,7 @@ shell 在整个生命周期内运行在有效的沙箱边界之下。当所有�
 
 ### 可观察结果与失败
 
-打开会返回会话 id 与有界启动消息。发送以四种等待原因之一与一个会话状态结算；`session_exit` 表示顶层 shell 已退出。设置失败会拒绝打开：受限模式下缺少沙箱提供方、shell 在启动期间退出、shell 未能在启动超时前达到就绪，或调用方取消。清理失败会拒绝关闭，而不是声称成功。
+打开会返回会话 id 与有界启动消息。发送以四种等待原因之一与一个会话状态结算；`session_exit` 表示顶层 shell 已退出。设置失败会拒绝打开：受限模式下缺少沙箱提供方、shell 在启动期间退出、shell 未能在启动超时前达到就绪，或调用方取消。未发布的设置会先等待进程树清理再拒绝，包括无法构造终端仿真器的情况。清理失败会拒绝关闭，而不是声称成功。
 
 -----
 
@@ -97,6 +100,8 @@ shell 在整个生命周期内运行在有效的沙箱边界之下。当所有�
 ### 就绪模型
 
 三个有界档位结算一次发送：来自子进程提供方的精确 stdin 等待证据（仅 Linux）、带精确可打印尾部的受控私有提示符标记，以及输出静默（`inferred_idle`）；绝对超时始终限制等待。pwsh 启动的初次就绪等待与完整设置循环共用同一个截止时间，因此 `inferred_idle` 后续发送不会重新计时。提供方写入前收集的证据会在写入边界丢弃，早于写入的 stdin 等待不算写入后就绪，未知的前台状态绝不是精确空闲的正向信号。
+
+`promptTailGraceMs` 仅在已观察到提示符标记而可打印尾部尚未完整到达时增加可配置的静默宽限；默认值零保留普通静默上界。
 
 不提交 Enter 的空发送会继续观察同一 shell 输入状态，并保留部分或完整的提示符证据。只有实际写入输入时才会清除这些证据。
 

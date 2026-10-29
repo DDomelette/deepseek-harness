@@ -96,7 +96,6 @@ kind: "package-reference"
 | [`src/per-record-unit.ts`](src/per-record-unit.ts) | 一个 `per-record` 单元：目录树读取、路径安全记录与单文档写入 |
 | [`src/format.ts`](src/format.ts) | 带版本校验的整单元与记录序列化 |
 | [`src/atomic.ts`](src/atomic.ts) | 原子文件替换：临时文件写入、fsync、rename、目录 fsync |
-| — | 不发布运行时不变式伴生入口；此处要求保证写入持久性及发布后重新解析的等价性，这两点需要通过介质往返测试（共享后端符合性测试套件）验证；本后端不公开任何可持续观察的进程内关系。 |
 
 </details>
 
@@ -151,3 +150,5 @@ kind: "package-reference"
 Agent Note 把整单元重写的规模前提标记为风险：如果在被路由到 SQLite 之前，第二个消费方以千条记录规模落到本后端，重写成本会比预期更早显现。缓解办法是配置——把 `routes` 指向 SQLite 后端——而不是修改本包。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。本后端贡献配置根目录下的 `single` 与 `per-record` JSON 布局；后端注册由 storage hub 持有，写入顺序由各领域层自行持有。

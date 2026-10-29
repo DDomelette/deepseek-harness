@@ -127,6 +127,21 @@ afterEach(() => {
 })
 
 describe('BrowserAuth', () => {
+  it.each([false, true])('marks launch and device cookies Secure only for TLS (%s)', async (secure) => {
+    const store = new RecordCredentials()
+    store.setPairedDevices({ version: 1, devices: [deviceEntry('phone-1')] })
+    const auth = await createAuth(store)
+    const url = new URL(auth.authenticatedUrl('http://127.0.0.1:3080/'))
+    const res = response()
+    expect(auth.authorizeIndex(request(url.pathname + url.search), res.value, secure)).toBe('answered')
+    const launchCookie = res.state.headers?.['set-cookie']
+    expect(launchCookie?.includes('; Secure')).toBe(secure)
+    expect(launchCookie).toContain('; HttpOnly')
+    const deviceCookie = auth.issueDeviceCookie('127.0.0.1:3080', PHONE, secure)
+    expect(deviceCookie.includes('; Secure')).toBe(secure)
+    expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: cookiePair(deviceCookie) }))).toBe(true)
+  })
+
   it('refuses launch-token exchange and launch cookies from a non-loopback peer', async () => {
     const auth = await createAuth(new RecordCredentials())
     const { cookie, launchUrl } = exchange(auth)
@@ -184,7 +199,7 @@ describe('BrowserAuth', () => {
       status: 303,
       headers: {
         'cache-control': 'no-store',
-        'location': '/',
+        'location': './',
         'referrer-policy': 'no-referrer',
       },
     })
@@ -218,7 +233,7 @@ describe('BrowserAuth', () => {
       status: 303,
       headers: {
         'cache-control': 'no-store',
-        'location': '/',
+        'location': './',
         'referrer-policy': 'no-referrer',
       },
     })

@@ -2,6 +2,7 @@
 
 import { Buffer } from 'node:buffer'
 import { PassThrough, Writable } from 'node:stream'
+import type { Duplex } from 'node:stream'
 import { posix } from 'node:path'
 import {
   CommandExitError,
@@ -160,6 +161,8 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   readonly stdin: Writable | undefined
   readonly stdout: PassThrough | undefined
   readonly stderr: PassThrough | undefined
+  /** An E2B sandbox inherits no file descriptors, so the seam's byte channel is always absent. */
+  readonly control: Duplex | undefined = undefined
   readonly collected: SubprocessHandle['collected']
   readonly done: Promise<SubprocessOutcome>
 

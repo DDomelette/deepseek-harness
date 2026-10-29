@@ -203,8 +203,8 @@ interface CreateSessionOptions {
   readonly seed?: readonly SessionEvent[]
   /**
    * Exact fork-inherited prefix length when `meta.isSeeded` is true. The
-   * constructor seed is exactly this inherited prefix; the constructor
-   * appends the child-owned tagged marker at the cut.
+   * constructor appends the child-owned tagged marker at the cut unless
+   * the seed already includes it followed by child-owned fork closers.
    */
   readonly inheritedEventCount?: SessionLogOffset
   /**
@@ -280,11 +280,11 @@ declare class SessionPreparation implements Disposable {
   /** The exact Session to use for setup and publication. */
   readonly session: Session;
   /**
-   * Wrap an unpublished Session in one preparation lifetime.
-   * @param session - exact unpublished Session.
-   * @param options - optional provider release behavior.
-   * @returns a preparation disposed after publication or rollback.
-   */
+     * Wrap an unpublished Session in one preparation lifetime.
+     * @param session - exact unpublished Session.
+     * @param options - optional provider release behavior.
+     * @returns a preparation disposed after publication or rollback.
+     */
   static create(session: Session, options?: SessionPreparationOptions): SessionPreparation;
   /** Release provider state once when this preparation leaves its caller. */
   [Symbol.dispose](): void;
@@ -311,6 +311,8 @@ type SessionPersistenceRevision = Branded<'SessionPersistenceRevision'>
 interface SessionPersistenceSnapshot {
   /** Detached metadata for one stored session. */
   readonly header: SessionHeader
+  /** Header-only format classification; absent without versioned artifact metadata. */
+  readonly formatStatus?: 'current' | 'migration-required'
   /** Opaque change token; see {@link SessionPersistence.stat}. */
   readonly revision: SessionPersistenceRevision
   /** Logical event count, when the backend can provide it cheaply from metadata; otherwise absent. */

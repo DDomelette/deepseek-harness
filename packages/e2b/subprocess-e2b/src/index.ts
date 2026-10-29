@@ -14,6 +14,7 @@ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type {
   SubprocessHandle,
   SubprocessSpawnSpec,
+  SubprocessTerminalEnvironment,
   SubprocessTerminalHandle,
   SubprocessTerminalSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
@@ -181,6 +182,18 @@ export class E2BSubprocessRuntime extends SubprocessRuntime {
       // Retain the handle so service disposal can retry its cleanup transaction.
     })
     return handle
+  }
+
+  /**
+   * E2B sandboxes are Linux images whose shell selection belongs to the image, so this
+   * provider reports the platform and leaves `defaultShell` to the caller's explicit argv.
+   * @param signal - cancellation of the environment probe.
+   * @returns the posix platform fact this provider can resolve.
+   */
+  // oxlint-disable-next-line typescript/require-await -- Keep the provider promise rejection semantics for cancelled inspection.
+  async terminalEnvironment(signal?: AbortSignal): Promise<SubprocessTerminalEnvironment> {
+    signal?.throwIfAborted()
+    return { platform: 'posix' }
   }
 
   /** @inheritdoc */

@@ -1,18 +1,29 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionFlagRegistry from '@deepseek-ai/dsh-session-flags'
+import SessionPinsService from '@deepseek-ai/dsh-session-pins'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import WorkspaceRegistry from '@deepseek-ai/dsh-workspace'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import WorkspaceController from '../src/index.ts'
+import { DEFAULT_WORKSPACE_DIRECTORY } from '../src/default-workspace.ts'
 import { WorkspaceFeed } from '../src/feed.ts'
 import type { WorkspaceFollowFrame } from '../src/types.ts'
 import { MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
+
+// The controller relays whatever families the providers report; this suite merges its own.
+declare module '@deepseek-ai/dsh-workspace/types' {
+  interface SessionActivityKindMap {
+    probe: true
+    'probe-items': true
+  }
+}
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
@@ -41,7 +52,7 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
-async function harness() {
+async function harness(options: { systemDocuments?: boolean; pins?: boolean; flags?: boolean } = {}) {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-workspace-controller-')))
   tempDirs.push(root)
   const ctx = new Context()
@@ -53,13 +64,15 @@ async function harness() {
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
   ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
+  if (options.flags !== false) await ctx.plugin(SessionFlagRegistry)
   await ctx.plugin(WorkspaceRegistry)
+  if (options.pins !== false) await ctx.plugin(SessionPinsService)
   const dispose = (): void => {}
   ctx.provide('typert', {
     lookups: { configure: () => dispose },
     contexts: { configureHost: () => dispose },
   } as never)
-  const controller = new WorkspaceController(ctx)
+  const controller = new WorkspaceController(ctx, options.systemDocuments === true ? {} : { documentsDirectory: root })
   return { controller, ctx, root, storageDomain }
 }
 
@@ -75,6 +88,23 @@ async function nextFrame(
   const next = await iterator.next()
   if (next.done === true) throw new Error('Workspace stream ended before the expected frame')
   return next.value
+}
+
+/**
+ * Archive identities that carry a parseable ISO-8601 instant, in set order.
+ * Asserting through this helper keeps the instant assertion typed; an
+ * `expect.any(...)` matcher would assign `any` into the expected object.
+ * @param value - an archive response or `archived` increment.
+ * @returns the ids whose instant parses.
+ */
+function stampedInstants(value: {
+  readonly archivedSessionIds: readonly SessionId[]
+  readonly archivedSessionAts: Readonly<Record<SessionId, string>>
+}): readonly SessionId[] {
+  return value.archivedSessionIds.filter((id) => {
+    const instant = value.archivedSessionAts[id]
+    return instant !== undefined && !Number.isNaN(Date.parse(instant))
+  })
 }
 
 describe('WorkspaceController commands', () => {
@@ -151,9 +181,21 @@ describe('WorkspaceController commands', () => {
     vi.spyOn(ctx.workspaceRegistry, 'archiveSession').mockRejectedValueOnce(archiveFailure)
     await expect(controller.archiveSession({ sessionId: SessionId('session') }))
       .rejects.toBe(archiveFailure)
-    vi.spyOn(ctx.workspaceRegistry, 'unarchiveSession').mockRejectedValueOnce(archiveFailure)
+
+    const unarchiveFailure = new Error('unarchive storage failed')
+    vi.spyOn(ctx.workspaceRegistry, 'unarchiveSession').mockRejectedValueOnce(unarchiveFailure)
     await expect(controller.unarchiveSession({ sessionId: SessionId('session') }))
-      .rejects.toBe(archiveFailure)
+      .rejects.toBe(unarchiveFailure)
+
+    const pinFailure = new Error('pin storage failed')
+    vi.spyOn(ctx.workspaceRegistry, 'pinSession').mockRejectedValueOnce(pinFailure)
+    await expect(controller.pinSession({ sessionId: SessionId('session') }))
+      .rejects.toBe(pinFailure)
+
+    const unpinFailure = new Error('unpin storage failed')
+    vi.spyOn(ctx.workspaceRegistry, 'unpinSession').mockRejectedValueOnce(unpinFailure)
+    await expect(controller.unpinSession({ sessionId: SessionId('session') }))
+      .rejects.toBe(unpinFailure)
   })
 
   it('resolves queued Workspace identities when their operation starts', async () => {
@@ -220,16 +262,102 @@ describe('WorkspaceController commands', () => {
       sessionId: session.id,
     })).rejects.toMatchObject({ code: 'workspace/not-found' })
 
-    await expect(controller.archiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string } })
-    expect(controller.list()).toMatchObject({
-      archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+    // A session reported active by the registry's activity waterfall is a
+    // stable business failure carrying what still runs, and nothing is written.
+    const activity = [{ kind: 'probe' as const }, { kind: 'probe-items' as const, items: [{ id: 'item-1', label: 'build' }] }]
+    const stopReporting = ctx.on('workspace/session-activity', async ({ sessionId }, next) =>
+      sessionId === session.id ? [...activity, ...(await next())] : next())
+    await expect(controller.archiveSession({ sessionId: session.id })).rejects.toMatchObject({
+      code: 'workspace/session-active',
+      details: { sessionId: session.id, activity },
     })
+    expect([...ctx.workspaceRegistry.archivedSessionIds]).toEqual([])
+    // Asking to stop the work archives the still-active Session and reaches
+    // the stop providers first.
+    const stops: string[] = []
+    const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
+    expect(stampedInstants(await controller.archiveSession({ sessionId: session.id, stopActivity: true })))
+      .toEqual([session.id])
+    expect(stops).toEqual([String(session.id)])
+    stopListening()
+    await expect(controller.unarchiveSession({ sessionId: session.id }))
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
+    stopReporting()
+
+    expect(stampedInstants(await controller.archiveSession({ sessionId: session.id })))
+      .toEqual([session.id])
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
     await expect(controller.unarchiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
-    expect(workspace.sessionIds).toEqual([session.id])
+    // Unarchive is idempotent: an id that is not archived is not an error.
+    await expect(controller.unarchiveSession({ sessionId: session.id }))
+      .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
+  })
+
+  it('pins only known unarchived Sessions and unpins idempotently', async () => {
+    const { controller, ctx, root } = await harness()
+    const created = await controller.create({ path: stageDir(root, 'pins') })
+    const session = ctx.sessions.create(SessionId('pin-me'), {
+      meta: { cwd: created.workspace.path },
+    })
+
+    await expect(controller.pinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [session.id] })
+    await expect(controller.pinSession({ sessionId: SessionId('unknown') }))
+      .rejects.toMatchObject({ code: 'session/not-found' })
+
+    // Pinning an archived Session is a caller error, not a missing session.
+    const archived = ctx.sessions.create(SessionId('stored'), {
+      meta: { cwd: created.workspace.path },
+    })
+    await controller.archiveSession({ sessionId: archived.id })
+    await expect(controller.pinSession({ sessionId: archived.id }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [] })
+    // Unpin is idempotent: an id that is not pinned is not an error.
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [] })
+  })
+
+  it('writes every pin through the pins domain the ordered model owns', async () => {
+    const { controller, ctx, root } = await harness()
+    const created = await controller.create({ path: stageDir(root, 'pin-agreement') })
+    const session = ctx.sessions.create(SessionId('agree'), {
+      meta: { cwd: created.workspace.path },
+    })
+
+    // The workspace command is a writer only through `ctx.sessionPins`: the
+    // ordered model's own `list()` sees exactly what the command reported.
+    await expect(controller.pinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [session.id] })
+    expect(ctx.sessionPins.list()).toEqual({
+      pinnedSessionIds: [session.id],
+      groupOrder: {},
+      flatOrder: [session.id],
+    })
+    expect(ctx.workspaceRegistry.pinnedSessionIds).toEqual([session.id])
+
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .resolves.toEqual({ pinnedSessionIds: [] })
+    expect(ctx.sessionPins.list().pinnedSessionIds).toEqual([])
+    expect(ctx.sessionPins.list().flatOrder).toEqual([])
+  })
+
+  it('refuses pinning in a composition that does not mount the pins domain', async () => {
+    const { controller, ctx, root } = await harness({ pins: false })
+    const created = await controller.create({ path: stageDir(root, 'no-pins') })
+    const session = ctx.sessions.create(SessionId('unpinnable'), {
+      meta: { cwd: created.workspace.path },
+    })
+
+    await expect(controller.pinSession({ sessionId: session.id }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(controller.unpinSession({ sessionId: session.id }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    expect(ctx.workspaceRegistry.pinnedSessionIds).toEqual([])
   })
 })
 
@@ -252,9 +380,61 @@ describe('WorkspaceController follow', () => {
           initialized: true,
           workspaceIds: ['missing'],
           archivedSessionIds: [],
+          archivedSessionAts: {},
+          pinnedSessionIds: [],
         },
       })
     }).toThrow('references missing Workspace "missing"')
+  })
+
+  it('starts a fresh feed with existing pins and follows their removal', async () => {
+    const { controller, ctx, root } = await harness()
+    const session = ctx.sessions.create(SessionId('already-pinned'), { meta: { cwd: root } })
+    await controller.pinSession({ sessionId: session.id })
+    const feed = new WorkspaceFeed(ctx)
+    const abort = new AbortController()
+    const iterator = feed.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'baseline', value: { pinnedSessionIds: [session.id] },
+      })
+      await controller.unpinSession({ sessionId: session.id })
+      await expect(nextFrame(iterator)).resolves.toEqual({ type: 'pinned', pinnedSessionIds: [] })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
+  it('merges every session flag provider into the baseline', async () => {
+    const { controller, ctx } = await harness()
+    ctx.sessionFlags.registerProvider({
+      id: 'fixture-pins',
+      list: () => ({ [SessionId('flagged')]: { pinned: true } }),
+    })
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'baseline',
+        value: { sessionFlags: { [SessionId('flagged')]: { pinned: true } } },
+      })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
+  it('publishes an empty flag map when the optional registry is absent', async () => {
+    const { controller } = await harness({ flags: false, pins: false })
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({ type: 'baseline', value: { sessionFlags: {} } })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
   })
 
   it('starts with a complete baseline and emits committed increments in domain order', async () => {
@@ -263,7 +443,7 @@ describe('WorkspaceController follow', () => {
     const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
     await expect(nextFrame(iterator)).resolves.toEqual({
       type: 'baseline',
-      value: { items: [], archivedSessionIds: [], archivedSessionAts: {} },
+      value: { items: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [], sessionFlags: {} },
     })
 
     const first = await controller.create({ path: stageDir(root, 'first') })
@@ -298,8 +478,23 @@ describe('WorkspaceController follow', () => {
       meta: { cwd: first.workspace.path },
     })
     await controller.archiveSession({ sessionId: session.id })
+    const archivedFrame = await nextFrame(iterator)
+    expect(archivedFrame).toMatchObject({ type: 'archived', archivedSessionIds: [session.id] })
+    expect(archivedFrame.type === 'archived' && stampedInstants(archivedFrame))
+      .toEqual([session.id])
+    // Unarchive rides the same complete-set increment: no new frame type.
+    await controller.unarchiveSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) as string },
+      type: 'archived', archivedSessionIds: [], archivedSessionAts: {},
+    })
+    await controller.pinSession({ sessionId: session.id })
+    await expect(nextFrame(iterator)).resolves.toEqual({
+      type: 'pinned', pinnedSessionIds: [session.id],
+    })
+    // Unpin rides the same complete-set increment: no new frame type.
+    await controller.unpinSession({ sessionId: session.id })
+    await expect(nextFrame(iterator)).resolves.toEqual({
+      type: 'pinned', pinnedSessionIds: [],
     })
     await controller.delete({ workspaceId: second.workspace.workspaceId })
     await expect(nextFrame(iterator)).resolves.toEqual({
@@ -342,5 +537,36 @@ describe('WorkspaceController follow', () => {
     await ctx.fiber.dispose()
     roots.splice(roots.indexOf(ctx), 1)
     await expect(closing).resolves.toEqual({ done: true, value: undefined })
+  })
+})
+
+describe('first-use Remote', () => {
+  it('reuses an initialized Workspace without looking up system Documents', async () => {
+    const { controller, ctx, root } = await harness({ systemDocuments: true })
+    const workspace = await ctx.workspaceRegistry.initializeDefault(async () => root)
+    const signal = AbortSignal.abort()
+    await expect(controller.initializeDefault(signal))
+      .resolves.toMatchObject({ workspace: { workspaceId: workspace!.id, path: root, title: basename(root) } })
+  })
+
+  it('returns a durable Workspace named after its fixed directory without allocating a Session', async () => {
+    const { controller, ctx, root } = await harness()
+    const signal = new AbortController().signal
+    const result = await controller.initializeDefault(signal)
+    expect(result!.workspace.path).toBe(join(root, 'deepseek-harness', DEFAULT_WORKSPACE_DIRECTORY))
+    expect(result!.workspace.title).toBe(DEFAULT_WORKSPACE_DIRECTORY)
+    expect(existsSync(result!.workspace.path)).toBe(true)
+    expect(ctx.sessions.list()).toEqual([])
+    expect(await controller.initializeDefault(signal)).toEqual(result)
+  })
+
+  it('skips ineligible first use and propagates preparation failures', async () => {
+    const { controller, ctx, root } = await harness()
+    await ctx.workspaceRegistry.create(root)
+    await expect(controller.initializeDefault(new AbortController().signal))
+      .resolves.toBeUndefined()
+    vi.spyOn(ctx.workspaceRegistry, 'initializeDefault').mockRejectedValueOnce(new Error('permission denied'))
+    await expect(controller.initializeDefault(new AbortController().signal))
+      .rejects.toThrow('permission denied')
   })
 })

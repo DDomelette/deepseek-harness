@@ -13,9 +13,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, ReactNode } from 'react'
 import {
-  Button, IconArchiveOutline20, IconFullscreenOutline16, IconListPenOutline16,
-  IconPanelLeftOutline16, IconPaperclipOutline16, IconPlusOutline16, IconRefreshOutline16,
-  IconSettingsOutline16, Menu, Tooltip,
+  Button, IconArchiveOutlineMedium, IconFullscreenOutlineMedium, IconListPenOutlineMedium,
+  IconPanelLeftOutlineMedium, IconPaperclipOutlineMedium, IconPlusOutlineMedium, IconRefreshOutlineMedium,
+  IconSettingsOutlineMedium, Menu, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   InjectFace, PropsLocale, PropsRuntime, PropsStore,
@@ -232,7 +232,7 @@ export function NotesPanel({
               data-notes-archive-session
               onClick={() => { archiveSession(active.id) }}
             >
-              <IconArchiveOutline20 size={14} />
+              <IconArchiveOutlineMedium size={14} />
               <span className={css.toolLabel}>{t('panel.archive')}</span>
             </button>
           </Tooltip>
@@ -246,7 +246,7 @@ export function NotesPanel({
               data-notes-add-image
               onClick={() => { fileRef.current?.click() }}
             >
-              <IconPaperclipOutline16 size={14} />
+              <IconPaperclipOutlineMedium size={14} />
               <span className={css.toolLabel}>{t('panel.image')}</span>
             </button>
           </Tooltip>
@@ -260,7 +260,7 @@ export function NotesPanel({
               data-notes-new
               onClick={createConversation}
             >
-              <IconPlusOutline16 size={14} />
+              <IconPlusOutlineMedium size={14} />
               <span className={css.toolLabel}>{t('panel.create')}</span>
             </button>
           </Tooltip>
@@ -273,7 +273,7 @@ export function NotesPanel({
             data-notes-present={panel.floating ? 'dock' : 'float'}
             onClick={() => { present(tab.id, panel.id, panel.floating) }}
           >
-            {panel.floating ? <IconPanelLeftOutline16 size={14} /> : <IconFullscreenOutline16 size={14} />}
+            {panel.floating ? <IconPanelLeftOutlineMedium size={14} /> : <IconFullscreenOutlineMedium size={14} />}
             <span className={css.toolLabel}>{panel.floating ? t('panel.dock') : t('panel.float')}</span>
           </button>
         </Tooltip>
@@ -288,7 +288,7 @@ export function NotesPanel({
               readSettings()
             }}
           >
-            <IconSettingsOutline16 size={14} />
+            <IconSettingsOutlineMedium size={14} />
             <span className={css.toolLabel}>{t('panel.settings')}</span>
           </button>
         </Tooltip>
@@ -300,7 +300,7 @@ export function NotesPanel({
             data-notes-refresh
             onClick={refresh}
           >
-            <IconRefreshOutline16 size={14} />
+            <IconRefreshOutlineMedium size={14} />
             <span className={css.toolLabel}>{t('panel.refresh')}</span>
           </button>
         </Tooltip>
@@ -351,7 +351,7 @@ export function NotesPanel({
             )}
             {selected === undefined && (
               <div className={css.detailEmpty} data-notes-detail-empty>
-                <IconListPenOutline16 size={24} />
+                <IconListPenOutlineMedium size={24} />
                 <p className={css.detailEmptyLine}>{t('detail.empty')}</p>
               </div>
             )}

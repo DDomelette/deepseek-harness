@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-session-deletion",
   "description": "Recursive session deletion orchestration for the DeepSeek Harness",
-  "version": "0.1.5-rc.1",
+  "version": "0.2.1-alpha.2",
   "publishConfig": {
     "access": "public"
   },
@@ -30,17 +30,17 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/dsh-session-persistence": "workspace:^",
-    "@deepseek-ai/dsh-workspace": "workspace:^",
-    "@deepseek-ai/dsh-storage-domain": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-session-persistence": "workspace:*",
+    "@deepseek-ai/dsh-workspace": "workspace:*",
+    "@deepseek-ai/dsh-storage-domain": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/dsh-session-persistence": "workspace:^",
-    "@deepseek-ai/dsh-workspace": "workspace:^",
-    "@deepseek-ai/dsh-storage-domain": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-session-persistence": "workspace:*",
+    "@deepseek-ai/dsh-workspace": "workspace:*",
+    "@deepseek-ai/dsh-storage-domain": "workspace:*"
   }
 }

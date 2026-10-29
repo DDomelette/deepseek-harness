@@ -29,8 +29,10 @@ Unsupported platforms and missing executables or sidecars raise `FileNotFoundErr
 
 External profile management uses `dsh plugin --profile <name> ...`. That command requires `pnpm` on `PATH`; ordinary SDK/profile execution does not.
 
+The executable dispatches embedded PTC workers, so `run_code` and workflow execution use the same packaged dependencies without starting another application profile.
+
 ## Build and distribution
 
-From the repository root, `pnpm exec tsx scripts/build-exe-for-python-sdk.ts` verifies the closure, builds packages, deploys a symlink-free tree, packages the selected target, and syncs the executable and sidecars into this module. `scripts/build-python-release.py` stages release-shaped wheels at the root repository version and pins `deepseek-harness-sdk` to the exact runtime version.
+From the repository root, `pnpm exec node --import tsx/esm scripts/build-exe-for-python-sdk.ts` verifies the closure, builds packages, deploys a symlink-free tree, packages the selected target with GZip-compressed SEA assets, and syncs the executable and sidecars into this module. Compression preserves the complete runtime closure, including zero-byte resources in the main runtime and workers. `scripts/build-python-release.py` stages release-shaped wheels at the root repository version and pins `deepseek-harness-sdk` to the exact runtime version.
 
 The installed-wheel smoke creates a clean virtual environment outside the checkout, proves distribution and executable provenance, then exercises default and customized SDK profiles, external plugins, MCP, native tools, direct JSON-RPC, committed snapshots, and the real provider on trusted runs. See the [Python contributor workflow](../development.md) and [installed-wheel testing decision](../../.agents/notes/implemented/testing/2026-08-23-installed-python-wheel-black-box-ci.md).

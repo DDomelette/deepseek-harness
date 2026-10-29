@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-12-phone-device-pairing.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-12-phone-device-pairing.md
-2026-09-12-phone-device-pairing.md: 87da6c2cd0f38f3ab9285c7568fbc2fb7b2c06b1
-2026-09-12-phone-device-pairing.zh.md: 015596151a7bed8261a1f7ab56e0b900d5b97ef7
+/agent-note-phone-device-pairing:
+  en: f7fd9ca613ec6c06
+  zh: b0952578fd71c718
+/agent-note-phone-device-pairing/problem:
+  en: 4b7ec1cb6ad86657
+  zh: eefa5d9afc909690
+/agent-note-phone-device-pairing/decision:
+  en: 037ca71835c4928f
+  zh: 6e2ba0d6e9dd18b6
+/agent-note-phone-device-pairing/alternatives-considered:
+  en: b7a4b20950979f65
+  zh: 8305a8145690b47c
+/agent-note-phone-device-pairing/consequences:
+  en: f823b67450dc6374
+  zh: c8baf279f57fadf8

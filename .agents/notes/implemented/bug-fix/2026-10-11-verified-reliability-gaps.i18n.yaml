@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-11-verified-reliability-gaps.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-11-verified-reliability-gaps.md
+/agent-note-closing-verified-reliability-gaps-in-output-reads-deletion-client-lifecycle-projection-and-framing:
+  en: ea3b68d9981844b1
+  zh: 39fd1bf9771fc66a
+/agent-note-closing-verified-reliability-gaps-in-output-reads-deletion-client-lifecycle-projection-and-framing/problem:
+  en: bfbf6f6b1f48d321
+  zh: 1e420772df711c48
+/agent-note-closing-verified-reliability-gaps-in-output-reads-deletion-client-lifecycle-projection-and-framing/decision:
+  en: dc42daecfb613920
+  zh: 989ac6901c3c57d3
+/agent-note-closing-verified-reliability-gaps-in-output-reads-deletion-client-lifecycle-projection-and-framing/alternatives-considered:
+  en: ae60f3cbfd486e8c
+  zh: 126f5d5d556d0ace
+/agent-note-closing-verified-reliability-gaps-in-output-reads-deletion-client-lifecycle-projection-and-framing/consequences:
+  en: 810b24eb444f38a7
+  zh: d20270825f21aae9

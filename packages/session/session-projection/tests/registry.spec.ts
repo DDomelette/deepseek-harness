@@ -228,6 +228,20 @@ describe('SessionProjectionRegistry drive', () => {
     expect(snapshot.values['test/marks']).toEqual({ marks: [] })
   })
 
+  it('contains a failing change listener without starving the listeners after it', async () => {
+    const { ctx, session } = await harness()
+    ctx.sessionProjections.register(marksUnit())
+    const seen: unknown[] = []
+    ctx.sessionProjections.onChanged(() => { throw new Error('listener broke') })
+    ctx.sessionProjections.onChanged((_session, key, value) => {
+      if (key === 'test/marks') seen.push(value)
+    })
+
+    expect(() => { mark(session, ['contained']) }).not.toThrow()
+    expect(seen).toEqual([{ marks: ['contained'] }])
+    expect(ctx.sessionProjections.snapshot(session).values['test/marks']).toEqual({ marks: ['contained'] })
+  })
+
   it('notifies onChanged with the validated view and the causing seq, and skips same-reference applies', async () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())

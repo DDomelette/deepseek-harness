@@ -62,6 +62,32 @@ def test_bundled_runtime_boots_the_sdk_profile(
 
 
 @pytest.mark.parametrize("mode", _MODES)
+def test_session_directories_follow_the_host_service_and_recover_missing_selections(
+    tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _select_mode(mode, monkeypatch)
+    selected = tmp_path / "selected"
+    selected.mkdir()
+    with DeepSeekHarness(
+        model="deepseek-v4-pro",
+        cwd=str(tmp_path),
+        dsh_home=str(tmp_path / "home"),
+        env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1"},
+        api_key="sk-dummy-for-boot",
+        base_url="http://127.0.0.1:9",
+        request_timeout_seconds=120,
+    ) as harness:
+        first = harness.start_session("first")
+        second = harness.start_session("second")
+        assert Path(first.get_working_directory()) == tmp_path
+        assert Path(first.set_working_directory("selected")) == selected
+        assert Path(first.get_working_directory()) == selected
+        assert Path(second.get_working_directory()) == tmp_path
+        selected.rmdir()
+        assert Path(first.get_working_directory()) == tmp_path
+
+
+@pytest.mark.parametrize("mode", _MODES)
 def test_python_sdk_applies_an_ordered_profile_patch(
     tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -87,12 +113,12 @@ def test_python_sdk_applies_an_ordered_profile_patch(
 
 
 @pytest.mark.parametrize("mode", _MODES)
-def test_bundled_runtime_surfaces_unbundled_plugin_failure(
+def test_bundled_runtime_surfaces_a_missing_required_entry(
     tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     patch = tmp_path / "missing.patch.yml"
     patch.write_text(json.dumps([{
-        "insert": [{"id": "missing", "name": "@deepseek-ai/dsh-does-not-exist"}],
+        "insert": [{"id": "webserver", "name": "@deepseek-ai/dsh-does-not-exist"}],
     }]))
 
     client = _client(tmp_path, mode, monkeypatch, patch)

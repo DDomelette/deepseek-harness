@@ -21,6 +21,7 @@
  * other import. Deferring a shim's own start-up cost therefore belongs inside
  * that shim, on the path that first needs it.
  */
+import * as nodeAssertStrict from './builtin_modules/implemented/assert/strict.ts'
 import * as nodeAsyncHooks from './builtin_modules/implemented/async_hooks.ts'
 import * as nodeBuffer from './builtin_modules/implemented/buffer.ts'
 import * as nodeCrypto from './builtin_modules/implemented/crypto.ts'
@@ -29,11 +30,14 @@ import * as nodeEvents from './builtin_modules/implemented/events.ts'
 import * as nodeFs from './builtin_modules/implemented/fs.ts'
 import * as nodeFsPromises from './builtin_modules/implemented/fs/promises.ts'
 import * as nodeHttp from './builtin_modules/implemented/http.ts'
+import * as nodeHttps from './builtin_modules/mock/https.ts'
 import * as nodeModule from './builtin_modules/implemented/module.ts'
 import * as nodeOs from './builtin_modules/implemented/os.ts'
 import * as nodePath from './builtin_modules/implemented/path.ts'
 import * as nodePerfHooks from './builtin_modules/implemented/perf_hooks.ts'
 import * as nodeStream from './builtin_modules/implemented/stream.ts'
+import * as nodeStreamPromises from './builtin_modules/implemented/stream/promises.ts'
+import * as nodeReadline from './builtin_modules/mock/readline.ts'
 import * as nodeTimersPromises from './builtin_modules/implemented/timers/promises.ts'
 import * as nodeTty from './builtin_modules/implemented/tty.ts'
 import * as nodeUrl from './builtin_modules/implemented/url.ts'
@@ -47,6 +51,8 @@ import * as nodeVm from './builtin_modules/mock/vm.ts'
 import * as nodeWorkerThreads from './builtin_modules/mock/worker_threads.ts'
 import * as systemFlock from './external_packages/node-addon-system-flock.ts'
 import * as koffi from './external_packages/koffi.ts'
+import * as execa from './external_packages/execa.ts'
+import * as got from './external_packages/got.ts'
 import * as nodePty from './external_packages/node-pty.ts'
 import * as piAi from './external_packages/pi-ai.ts'
 import * as ripgrep from './external_packages/ripgrep.ts'
@@ -57,6 +63,7 @@ import type { StaticModuleFactory } from '../module-system/module-loader.ts'
 
 /** Builtin modules, keyed with and without the `node:` prefix. */
 const BUILTINS: Record<string, StaticModuleFactory> = {
+  'assert/strict': () => nodeAssertStrict,
   async_hooks: () => nodeAsyncHooks,
   buffer: () => nodeBuffer,
   child_process: () => nodeChildProcess,
@@ -66,6 +73,7 @@ const BUILTINS: Record<string, StaticModuleFactory> = {
   fs: () => nodeFs,
   'fs/promises': () => nodeFsPromises,
   http: () => nodeHttp,
+  https: () => nodeHttps,
   module: () => nodeModule,
   net: () => nodeNet,
   os: () => nodeOs,
@@ -74,6 +82,8 @@ const BUILTINS: Record<string, StaticModuleFactory> = {
   perf_hooks: () => nodePerfHooks,
   sqlite: () => nodeSqlite,
   stream: () => nodeStream,
+  'stream/promises': () => nodeStreamPromises,
+  readline: () => nodeReadline,
   'timers/promises': () => nodeTimersPromises,
   tty: () => nodeTty,
   url: () => nodeUrl,
@@ -88,6 +98,8 @@ const BUILTINS: Record<string, StaticModuleFactory> = {
 const EXTERNALS: Record<string, StaticModuleFactory> = {
   '@deepseek-ai/node-addon-system/flock': () => systemFlock,
   'koffi': () => koffi,
+  'execa': () => execa,
+  'got': () => got,
   'sharp': () => sharp,
   'node-pty': () => nodePty,
   'ws': () => ws,

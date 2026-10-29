@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-21-notes-selection-bubble-placement.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-21-notes-selection-bubble-placement.md
-2026-09-21-notes-selection-bubble-placement.md: e6fa6cee0b49047965d38aaf60e02b4ced1bc808
-2026-09-21-notes-selection-bubble-placement.zh.md: d0e2227ba0cc8e0b7e62a39f7281825c7257062f
+/agent-note-selection-bubble-placement-and-dismissal:
+  en: 7bf4a7dc24d86866
+  zh: 10b598af483edead
+/agent-note-selection-bubble-placement-and-dismissal/problem:
+  en: 5674500f8bd44a1d
+  zh: 8ac16cb986965f07
+/agent-note-selection-bubble-placement-and-dismissal/decision:
+  en: 15c9b175af4e820e
+  zh: 6a2721f327772a7c
+/agent-note-selection-bubble-placement-and-dismissal/alternatives-considered:
+  en: 0c640eacc1703f04
+  zh: fa052f26f8867eca
+/agent-note-selection-bubble-placement-and-dismissal/consequences:
+  en: 9dab1ad46ea12174
+  zh: 1d018a91b3888b0b

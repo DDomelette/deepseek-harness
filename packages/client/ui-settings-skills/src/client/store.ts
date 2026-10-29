@@ -3,8 +3,8 @@
 import type { ClientRemote, RemoteResult, SessionId, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
-/** Settings namespace carrying the user-disabled skill names (host: dsh-skill-settings). */
-export const SKILLS_NAMESPACE = 'skills'
+/** Settings namespace carrying the user-disabled skill names (the dsh-skill-settings Loader entry id). */
+export const SKILLS_NAMESPACE = 'skill-settings'
 
 /** One reread closes a catalog/settings race without leaving the page in a retry loop. */
 const MAX_LOAD_ATTEMPTS = 2

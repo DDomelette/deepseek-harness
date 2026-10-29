@@ -128,9 +128,15 @@ export const inject: string[] = []
  * provides both halves here instead of forking this plugin.
  */
 export interface ClientTransportHooks {
-  /** Transport for generic unary RPC channels (the Typert gateway). */
-  fetch: RpcFetch
-  /** Worker-local Gateway stream carrier; absent when the page uses the Gateway WebSocket. */
+  /**
+   * Already decoded logical RPC carrier. When present it replaces the HTTP
+   * caller outright: no envelopes, no `fetch`, no `openStream` (an in-process
+   * Host such as a test mock plugs in here).
+   */
+  rpc?: ClientConnectionRpc
+  /** Transport for generic unary RPC channels (the Typert gateway); unused when `rpc` is present. */
+  fetch?: RpcFetch
+  /** Worker-local Gateway stream carrier; absent when the page uses the Gateway WebSocket or `rpc` is present. */
   openStream?: RpcStreamOpen
   /**
    * Bundle transport for the module system, present when the carrier also owns
@@ -147,12 +153,29 @@ export interface ClientTransportHooks {
    * transport can set this; served pages never carry the global at all.
    */
   ownsHost?: boolean
+  /** HTTP origin of a shell-owned Host when its WebSocket uses a different page origin. */
+  streamBaseUrl?: string
 }
 
 /** Page global carrying {@link ClientTransportHooks}; absent in the served web app. */
 interface ClientTransportGlobal {
   __DSH_TRANSPORT__?: ClientTransportHooks
   __DSH_CONNECTION_RECOVERY__?: unknown
+}
+
+/** Browser location fields used to classify loopback authority. */
+export interface ConnectionLocation {
+  readonly hostname: string
+}
+
+/** Instance-local inputs for installing a Connection service. */
+export interface ConnectionInstallOptions {
+  /** Explicit physical carrier; omit for the browser HTTP + WebSocket carrier. */
+  readonly transport?: ClientTransportHooks
+  /** Reconnect timing overrides; omitted fields use controller defaults. */
+  readonly recovery?: ConnectionRecoveryConfig
+  /** Page location; omit for a non-browser composition. */
+  readonly location?: ConnectionLocation
 }
 
 /**
@@ -228,16 +251,15 @@ function watchBrowserNetwork(controller: ConnectionController): () => void {
 }
 
 /**
- * Client plugin body: pick physical carriers by page mode and provide ctx.connection.
- * @param ctx - client cordis context.
+ * Install one Context-owned Connection service from explicit composition inputs.
+ * @param ctx - client Cordis context.
+ * @param options - physical carrier, reconnect timing, and page location.
  */
-export function apply(ctx: Context): void {
-  const pageLocation = typeof location === 'undefined' ? undefined : location
-  const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
-  const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
-  const transport = (globalThis as ClientTransportGlobal).__DSH_TRANSPORT__
-  const recovery = resolveConnectionConfig((globalThis as ClientTransportGlobal).__DSH_CONNECTION_RECOVERY__)
-  const created = fixtureRpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
+export function installConnection(ctx: Context, options: ConnectionInstallOptions = {}): void {
+  const pageLocation = options.location
+  const transport = options.transport
+  const recovery = options.recovery ?? {}
+  const created = transport?.rpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
   let generationSource: ConnectionGenerationSource | undefined
   let owner: ConnectionOwner | undefined
   let generationId = 0
@@ -385,4 +407,24 @@ export function apply(ctx: Context): void {
     },
   }
   ctx.provide('connection', handle)
+}
+
+/**
+ * Client plugin body: install ctx.connection from the page's carriers and location.
+ * @param ctx - client Cordis context.
+ */
+export function apply(ctx: Context): void {
+  const globals = globalThis as ClientTransportGlobal
+  const pageLocation = typeof location === 'undefined' ? undefined : location
+  const declared = globals.__DSH_TRANSPORT__
+  // The served app's `?fixture` query selects the recorded fixture Host; an
+  // explicit carrier from the shell still supplies every other hook field.
+  const transport = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
+    ? { ...declared, rpc: createFixtureConnectionRpc() }
+    : declared
+  installConnection(ctx, {
+    ...(transport === undefined ? {} : { transport }),
+    recovery: resolveConnectionConfig(globals.__DSH_CONNECTION_RECOVERY__),
+    ...(pageLocation === undefined ? {} : { location: pageLocation }),
+  })
 }

@@ -17,14 +17,17 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   api/         Remote BFF assembly and Typert RPC gateway
   typert/      type graph generator, loader, and runtime registry
   llm/         LLM capability: Service Definition/Consumer + DeepSeek providers
-  e2b/         E2B POC: sandbox + FS/subprocess adapters
+  e2b/         E2B POC adapters
   shell/        bash capability: Service Definition + local/pwsh providers + shell Consumers
   subprocess/  subprocess capability + local process-tree provider + shared Win32 library
   terminal/         persistent sessions
   fs/          filesystem capability + policy
   lsp/         language-server capability
-  skill/       skill provider registry + local impl + catalog/loader tool
-  web/         web capability: Service Definition + search/fetch providers + tool Consumer
+  skill/       skill provider registry + local impl + loader tool
+  web/         web capability: search/fetch providers + tool Consumer
+  computer-use/, browser-use/   exclusive named desktop/browser-provider registration
+  ssh/         POSIX remote connection
+  deliverables/ turn deliverables
   compaction/     compaction capability + basic provider
   context/     request-context plugins
   subagent/    subagent capability: Service Definition + providers + delegation Consumers
@@ -34,7 +37,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   todo/        todo_write tool
   plan/        plan mode as logged state
   preset/      per-session agent composition from preset cordis.yml files
-  guard/       loop-hygiene + tool-timeout plugins
+  guard/       loop-hygiene + timeout plugins
   self-modification/  the agent inspects/mounts its own plugins
   hooks/       Claude Code/Codex hook bridges + wire-protocol library
   session/     durable session data: persistence, projection, titles, telemetry
@@ -105,7 +108,7 @@ Real-API tests and demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, 
 - ESM everywhere (`"type": "module"`). Use package names across packages and `.ts` in local relative imports. Config subprocesses run built `lib/` under plain Node; source regressions use their declared launcher ([testing policy](docs/testing.md#test-subprocess-launch-modes)). The `dsh` CLI source launch runs through tsx's ESM-only hook (`node --import tsx/esm`); modules it reaches must stay ESM (no CJS-only exports) — Node's native TypeScript modes are unavailable across the engines range ([source-launch contract](.agents/notes/implemented/architecture/2026-07-29-dsh-source-launch-tsx-esm.md)). Raw/Web `cordis.yml` bare plugins must appear in their resolver manifest's `dependencies`; `verify-cordis-config` enforces it.
 - **Registrations are effects**: every contribution goes through `ctx.effect()` / `ctx.on()`; a registry's `register()` returns the disposer.
 - **Runtime invariants assert owned relationships.** Publish `./invariant` only when independent observations can diverge. Otherwise omit its source and wiring and record why in its README; empty installers and checks of service presence, plugin metadata, effects, or fixed examples are invalid ([package invariant rules](packages/AGENTS.md)).
-- **Typed events use declaration merging** and merge-extensible maps. Event JSDoc needs `@mode` and payload `@param`; scoped keys absent from payloads need `@dshScopeScan unsupported`. Public service methods document parameters and non-void returns. `SessionEventMap` members are required-on-read by default — builds that do not know a type refuse the log unless the event carries the envelope's `ignorable: true`; only structural format changes bump `SESSION_FORMAT_VERSION` ([mechanism](.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md)).
+- **Typed events use declaration merging** and merge-extensible maps. Event JSDoc needs `@mode` and payload `@param`. Public service methods document parameters and non-void returns. `SessionEventMap` members are required-on-read by default — builds that do not know a type refuse the log unless the event carries the envelope's `ignorable: true`; only structural format changes bump `SESSION_FORMAT_VERSION` ([mechanism](.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md)).
 - **Switch on discriminant tags.** Closed unions end in `assertNever`; merge-extensible unions fall through a documented default.
 - **Waterfall listeners MUST call `next()`** to delegate; returning without it short-circuits the chain ([semantics](docs/cordis-primer.md#cordis-waterfall-semantics)).
 - **Model-visible ⟺ logged**: anything that reaches a model request must be reconstructable from the session log; a new model-visible input requires a session event.

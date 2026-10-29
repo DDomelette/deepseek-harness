@@ -4,6 +4,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import {
   CordisDynamicPackageId, CordisDynamicPluginId,
@@ -20,33 +21,47 @@ import {
   presentStopCall, presentUndefineCall,
 } from './present.ts'
 import { CORDIS_SYSTEM_PROMPT } from './prompt.ts'
-import { hostInspectProviders } from './providers.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'tool-cordis': ToolCordisReferenceSource
+  }
+}
+
+/** Context this tool injects for an `@pluginId` reference named in a prompt. */
+export interface ToolCordisReferenceSource {
+  readonly kind: 'tool-cordis'
+  /** Injected Plugin references are instructions for the model to follow. */
+  readonly form: 'instructions'
+}
 
 export const name = 'tool-cordis'
-export const inject = ['tools', 'systemPrompt', 'dynamicCordisRunner', 'cordisInspect']
+export const inject = ['tools', 'cordisInspect']
+
+/** Options for the dynamic-plugin surface this package adds beyond read-only inspection. */
+export interface Config {
+  /** Register the dynamic define/run/stop/undefine tools and their prompt section; requires a mounted `dynamicCordisRunner`. */
+  dynamicPlugins?: boolean
+}
+
+/** Validated options. */
+export const Config: z<Config> = z.object({
+  dynamicPlugins: z.boolean(),
+})
 
 function requireAgent(exec: ToolExecution): Agent {
   if (exec.agent === undefined) throw new Error('Cordis dynamic tools require an Agent-backed session')
   return exec.agent
 }
 
-/** Register the Cordis tools and explicit `@pluginId` context injection. */
-export function apply(ctx: Context): void {
-  ctx.systemPrompt.section({
-    name: 'tool:cordis',
-    order: ctx.systemPrompt.getSectionOrder('TOOL_CORDIS'),
-    text: CORDIS_SYSTEM_PROMPT,
-  })
-  for (const provider of hostInspectProviders(ctx)) {
-    ctx.effect(() => ctx.cordisInspect.register(provider), `tool-cordis: inspect ${provider.manifest.id}`)
-  }
-
+/** Register read-only inspection and the configured dynamic tools. */
+export function apply(ctx: Context, config: Config = {}): void {
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_list',
     description:
       'List every Cordis Inspect Provider currently known to the Host, including local Host Providers and the latest '
       + 'manifests synchronized from the Client. Each entry includes its platform, purpose, read-only methods, and '
-      + 'input/output schemas. Call this Tool before creating or modifying a Package, then select the provider and '
+      + 'input/output schemas. Call this Tool before writing or configuring a plugin, then select the provider and '
       + 'method for cordis_inspect_query from its result. Do not guess names or treat an Inspect method as a business '
       + 'Service that Plugin code can call.',
     parameters: {},
@@ -63,15 +78,12 @@ export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_query',
     description:
-      'Run a read-only query explicitly declared by an Inspect Provider. platform, provider, and method must come '
-      + 'from cordis_inspect_list, and input must satisfy that method\'s schema. Use this Tool before cordis_define '
-      + 'to read exact Service methods, Event modes, Builtin signatures, Tool schemas, theme tokens, or live Slot '
-      + 'trees and props. Host queries run locally. A Client query waits for the first valid page response and '
-      + 'remains pending until a page answers or the Tool is cancelled. This Tool cannot invoke business Service '
-      + 'methods or modify the runtime. For Service.listService and Event.listEvents, query without input to navigate '
-      + 'the compact signature directory, then query the exact service or event for its structured contract and '
-      + 'referenced types. For Slots.listSubTree, query without root to navigate the compact tree, then query the '
-      + 'exact root for its complete registration contract and props.',
+      'Run a read-only query declared by an Inspect Provider. platform, provider, and method must come from '
+      + 'cordis_inspect_list, and input must satisfy that method\'s schema. Use this Tool before writing plugin code '
+      + 'to read exact Service methods, Event modes, plugin Config schemas, Tool schemas, theme tokens, or live '
+      + 'Slot trees and props. Host queries run locally. A Client query waits for the first valid page response '
+      + 'within the configured timeout; otherwise it reports a Client failure or asks you to reconnect and retry. '
+      + 'This Tool cannot invoke business Service methods or modify the runtime.',
     parameters: {
       platform: { type: 'string', required: true, enum: ['host', 'client'], description: 'Runtime platform that owns the Provider.' },
       provider: { type: 'string', required: true, description: 'Exact Provider ID returned by cordis_inspect_list.' },
@@ -95,6 +107,17 @@ export function apply(ctx: Context): void {
     },
     presentCall: presentInspectQueryCall,
   }))
+
+  if (config.dynamicPlugins !== true) return
+  ctx.inject(['systemPrompt', 'dynamicCordisRunner'], applyDynamicTools)
+}
+
+function applyDynamicTools(ctx: Context): void {
+  ctx.systemPrompt.section({
+    name: 'tool:cordis',
+    order: ctx.systemPrompt.getSectionOrder('TOOL_CORDIS'),
+    text: CORDIS_SYSTEM_PROMPT,
+  })
 
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_self',
@@ -394,7 +417,7 @@ export function apply(ctx: Context): void {
           type: 'text',
           text: reference === undefined ? renderUnavailableReference(id) : renderReference(reference),
         }],
-        source: { kind: 'plugin', plugin: name, form: 'instructions' },
+        source: { kind: 'tool-cordis', form: 'instructions' },
       })
     })
     return { ...decision, messages: [...decision.messages, ...contexts] }

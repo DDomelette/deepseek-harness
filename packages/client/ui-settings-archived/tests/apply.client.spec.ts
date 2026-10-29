@@ -1,6 +1,8 @@
 /** Archived settings section registration: slot entry, locale label, and injected actions. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -20,22 +22,24 @@ async function bench(): Promise<{
   slots: SlotRegistry
   locale: LocaleRuntime
   sessions: {
-    open: ReturnType<typeof vi.fn>
-    deleteSession: ReturnType<typeof vi.fn>
     refresh: ReturnType<typeof vi.fn>
+    deleteSession: ReturnType<typeof vi.fn>
     list: { getSnapshot(): { byId: Record<string, unknown> }; subscribe(listener: () => void): () => void }
   }
-  workspaces: { unarchiveSession: ReturnType<typeof vi.fn>; refresh: ReturnType<typeof vi.fn> }
+  workspaces: { unarchiveSession: ReturnType<typeof vi.fn> }
+  uiWorkspace: { openSession: ReturnType<typeof vi.fn> }
 }> {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   const sessions = {
-    open: vi.fn(),
-    deleteSession: vi.fn(async () => {}),
     refresh: vi.fn(async () => {}),
+    deleteSession: vi.fn(async (sessionId: SessionId) => ({
+      ok: true as const, value: { deletedSessionIds: [sessionId] },
+    })),
     list: {
       getSnapshot: () => ({ byId: {} }),
       subscribe: () => () => {},
@@ -43,24 +47,39 @@ async function bench(): Promise<{
   }
   const workspaces = {
     unarchiveSession: vi.fn(async () => {}),
-    refresh: vi.fn(async () => {}),
     list: {
-      getSnapshot: () => ({ archivedSessionAts: {}, items: [], archivedSessionIds: [] }),
+      getSnapshot: () => ({ items: [], archivedSessionIds: [] }),
       subscribe: () => () => {},
     },
   }
+  const uiWorkspace = { openSession: vi.fn() }
   ctx.provide('sessions', sessions as never)
   ctx.provide('workspaces', workspaces as never)
+  ctx.provide('uiWorkspace', uiWorkspace as never)
   return {
     ctx,
     slots: ctx.get('slots') as SlotRegistry,
     locale,
     sessions,
     workspaces,
+    uiWorkspace,
   }
 }
 
 describe('ui-settings-archived apply', () => {
+  it('deletes through the injected Session action and reports a refused deletion', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const id = SessionId('archived')
+    await expect(entryInjected(b).remove(id)).resolves.toBeUndefined()
+    expect(b.sessions.deleteSession).toHaveBeenCalledExactlyOnceWith(id)
+    b.sessions.deleteSession.mockResolvedValueOnce({
+      ok: false, error: new RemoteError('gateway/bad-request', 'delete refused', {}),
+    })
+    await expect(entryInjected(b).remove(id)).rejects.toThrow('delete refused')
+  })
+
   it('loads its host entry as a function plugin', async () => {
     const ctx = new Context()
     try {
@@ -72,7 +91,7 @@ describe('ui-settings-archived apply', () => {
   })
 
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces'])
+    expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace'])
   })
 
   it('registers the archived nav entry with order 40 and locale copy', async () => {
@@ -95,23 +114,19 @@ describe('ui-settings-archived apply', () => {
     const injected = entry.inject as unknown as () => import('../src/client/ArchivedSection.tsx').ArchivedSectionInjected
     await expect(injected().restore('s1' as never)).resolves.toBe(false)
     expect(b.workspaces.unarchiveSession).toHaveBeenCalledWith('s1')
-    expect(b.sessions.open).not.toHaveBeenCalled()
+    expect(b.uiWorkspace.openSession).not.toHaveBeenCalled()
 
     b.sessions.list.getSnapshot = () => ({ byId: { s1: {} } })
     await expect(injected().restore('s1' as never)).resolves.toBe(true)
-    expect(b.sessions.open).toHaveBeenCalledWith('s1')
+    expect(b.uiWorkspace.openSession).toHaveBeenCalledWith('s1')
   })
 
-  it('refresh fans out to both baselines and deleteSession delegates', async () => {
+  it('refresh reloads the session list', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const injected = entryInjected(b)
-    await injected.refresh()
+    await entryInjected(b).refresh()
     expect(b.sessions.refresh).toHaveBeenCalledOnce()
-    expect(b.workspaces.refresh).toHaveBeenCalledOnce()
-    await injected.deleteSession('s1' as never)
-    expect(b.sessions.deleteSession).toHaveBeenCalledWith('s1')
   })
 })
 

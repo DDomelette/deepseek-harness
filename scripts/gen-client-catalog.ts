@@ -1,12 +1,12 @@
 /**
- * Generate the model-facing client slot catalog consumed by `cordis_inspect
- * what:"client"`. A dynamic package's browser half can only contribute UI
+ * Generate the model-facing client slot catalog served by the Client Slot
+ * Inspect Provider. A dynamic package's browser half can only contribute UI
  * through `ctx.slots.register`, and every fact it needs to do that safely —
  * which keys exist, what each register call must pass, what the component
  * receives, who already occupies the seat, and when the seat exists at all —
  * is decided at compile time by the shipped web bundle. This generator reads
  * those facts lexically (no type-checker program) and emits them as a data
- * module inside `tool-cordis`, so the host-side toolset teaches the browser
+ * module inside `cordis-client-runner`, so the Client Inspect Provider describes the browser
  * surface without importing a single client runtime module.
  *
  * `--check` verifies the committed artifact is fresh.
@@ -14,6 +14,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import ts from 'typescript'
 import {
   declaredTypes,
   indexExportedTypes,
@@ -91,7 +92,7 @@ const CLIENT_NOTES: readonly string[] = [
   PRIORITY_NOTE,
   'You cannot `import` anything, so the design-system components are out of reach: build markup with `React.createElement` and ship CSS through `styles.insert(css)`. Use the theme CSS variables (`var(--dsw-alias-bg-layer-1)`, `var(--dsw-alias-label-primary)`, …) instead of literal colors, or your contribution breaks in the other color scheme.',
   'Every component receives the framework hook seats listed under `framework props` for its scope; a selector hook is called with a selector, e.g. `useSessions(state => state.current)`.',
-  'This catalog is the COMPILE-TIME contract of the shipped web bundle, not a snapshot of one page: a key is registrable only where the owner that declares it is mounted. A failed registration surfaces in the browser-half load report — read it back with `cordis_inspect what:"temporary"`.',
+  'A Slot key is registrable only while the entry that declares it is mounted. Read a failed browser registration through `cordis_inspect_self` with its `pluginId` and `packageId`.',
 ]
 
 /** Standard-kit interface that applies to each scope, beyond the global one. */
@@ -208,7 +209,7 @@ export function validateSlotContracts(
     }
   }
   for (const registration of registrations) {
-    if (!byKey.has(registration.key)) {
+    if (registration.factory !== true && !byKey.has(registration.key)) {
       problems.push(`registration into '${registration.key}' (${registration.source}) targets a slot no SlotMap merge declares; either the scan has a blind spot or the registration is dead.`)
     }
     for (const child of registration.children) {
@@ -267,7 +268,8 @@ function entryOf(
   types: ReadonlyMap<string, TypeDeclaration>,
   kits: ReadonlyMap<string, readonly string[]>,
 ): SlotEntry {
-  const occupants = registrations.filter(registration => registration.key === declaration.key)
+  const occupants = registrations.filter(registration =>
+    registration.factory !== true && registration.key === declaration.key)
   const cellOccupied = occupants.some(occupant =>
     declaration.kind === 'single' || occupant.entryKey !== undefined)
   const doc = docProse(declaration.jsDoc)
@@ -287,7 +289,9 @@ function entryOf(
     slotInject: declaration.injectType ?? '',
     declaredBy: declaredBy === undefined
       ? 'the runtime itself (built in; always present)'
-      : `an entry in '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that entry is mounted`,
+      : declaredBy.factory === true
+        ? `factory '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that definition is registered`
+        : `an entry in '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that entry is mounted`,
     occupants: occupants.map(occupant => [
       shortPackage(occupant.package),
       occupant.component,
@@ -303,22 +307,38 @@ function entryOf(
 }
 
 /**
- * The owner-props contract at ONE level: the owner declaration(s) themselves,
- * plus the names of the shapes their fields reference. Expanding transitively
- * pulled the whole session model into four seats (one report exceeded 2400
- * lines), which defeats the purpose of narrowing to a single slot — a registrant
- * needs the fields and their documented meaning, not the type graph behind them.
+ * Owner declarations include the aliases that compose their top-level fields.
+ * Field value types remain references so one slot does not expand the Session graph.
  */
 function ownerShapes(
   ownerType: string | undefined,
   types: ReadonlyMap<string, TypeDeclaration>,
 ): { declarations: TypeDeclaration[]; references: string[] } {
   if (ownerType === undefined) return { declarations: [], references: [] }
-  const declarations = declaredTypes(referencedTypeNames([ownerType], types), types)
-  const own = new Set(declarations.map(declaration => declaration.name))
+  const own = new Map(declaredTypes(referencedTypeNames([ownerType], types), types)
+    .map(declaration => [declaration.name, declaration]))
+  for (const declaration of own.values()) {
+    const source = ts.createSourceFile(declaration.source, declaration.text, ts.ScriptTarget.Latest, true)
+    const alias = source.statements.find(ts.isTypeAliasDeclaration)
+    if (alias === undefined) continue
+    for (const composed of declaredTypes(ownerCompositionNames(alias.type), types)) {
+      own.set(composed.name, composed)
+    }
+  }
+  const declarations = [...own.values()].sort((left, right) => left.name.localeCompare(right.name))
   const references = referencedTypeNames(declarations.map(declaration => declaration.text), types)
     .filter(name => !own.has(name))
   return { declarations, references }
+}
+
+/** Top-level composition excludes nested field values and generic arguments. */
+function ownerCompositionNames(type: ts.TypeNode): string[] {
+  if (ts.isUnionTypeNode(type) || ts.isIntersectionTypeNode(type)) return type.types.flatMap(ownerCompositionNames)
+  if (ts.isParenthesizedTypeNode(type)) return ownerCompositionNames(type.type)
+  if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName) && type.typeArguments === undefined) {
+    return [type.typeName.text]
+  }
+  return []
 }
 
 /** How a keyed slot's key domain is constrained, '' for the other kinds. */
@@ -333,6 +353,8 @@ function keyDomainOf(declaration: SlotDeclaration, occupants: readonly SlotRegis
 
 /** A runnable minimal registration for one slot, per cardinality. */
 function exampleOf(declaration: SlotDeclaration): string {
+  const authored = blockTag(declaration.jsDoc, 'example')
+  if (authored !== undefined) return authored
   const options = [`name: '${declaration.key}'`, ...KIND_EXAMPLE[declaration.kind] ?? []].join(', ')
   return [
     'return {',
@@ -345,6 +367,21 @@ function exampleOf(declaration: SlotDeclaration): string {
     '  },',
     '}',
   ].join('\n')
+}
+
+/** One multiline JSDoc block tag, without comment decoration. */
+function blockTag(jsDoc: string, name: string): string | undefined {
+  const lines = jsDoc.replace(/^\/\*\*/, '').replace(/\*\/$/, '').split('\n')
+    .map(line => line.replace(/^\s*\*?\s?/, '').replace(/\s+$/, ''))
+  const start = lines.findIndex(line => line === `@${name}` || line.startsWith(`@${name} `))
+  if (start < 0) return undefined
+  const body = [lines[start]?.slice(name.length + 1).trimStart() ?? '']
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('@')) break
+    body.push(line)
+  }
+  const value = body.join('\n').trim()
+  return value === '' ? undefined : value
 }
 
 /** Extra example options per cardinality. */
@@ -409,8 +446,8 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
     ' * `pnpm run gen-client-catalog` to regenerate (freshness-gated by',
     ' * `pnpm run verify-client-catalog` in doc-sync).',
     ' *',
-    ' * The compile-time contract of the shipped web bundle\'s slot surface, as',
-    ' * `cordis_inspect what:"client"` serves it to the model: every SlotMap key a',
+    ' * The Client Slot Inspect Provider serves the shipped web bundle\'s slot API:',
+    ' * every SlotMap key a',
     ' * browser half can register into, what that register call must pass, what the',
     ' * component receives, who already occupies the seat, and which owner has to be',
     ' * mounted for the seat to exist. Data only — this module is the one legitimate',

@@ -9,11 +9,12 @@
 
 import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setImmediate } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { Context, FiberState } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import HttpServer from '@deepseek-ai/dsh-host-webserver'
@@ -90,10 +91,25 @@ afterEach(async () => {
   renameControl.remainingFailures = 0
 })
 
+/**
+ * The first non-internal IPv4 literal this machine exposes: the concrete
+ * address a network-serving deployment must name, because the webserver rejects
+ * the unspecified address at load.
+ * @returns the literal, or undefined on a machine with no such interface.
+ */
+function firstLanAddress(): string | undefined {
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family === 'IPv4' && !address.internal) return address.address
+    }
+  }
+  return undefined
+}
+
 /** Write a two-row cordis.yml (webserver + chooser), then boot it through the real Loader. */
 async function loadComposition(
-  bindHost: '127.0.0.1' | '0.0.0.0',
-  options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot } = {},
+  bindHost: string,
+  options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot; beforeBoot?: (ctx: Context) => void } = {},
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
   const configPath = join(root, 'cordis.yml')
@@ -129,6 +145,7 @@ async function loadComposition(
       return modules.get(specifier)
     },
   } as unknown as NonNullable<typeof context.loader.internal>
+  options.beforeBoot?.(context)
   await context.loader.create({
     name: 'cordis:include',
     config: { path: pathToFileURL(configPath).href },
@@ -220,6 +237,79 @@ describe('real Loader composition', () => {
     expect(await readFile(configPath, 'utf8')).not.toContain(NATIVE)
   })
 
+  it('joins asynchronous backend cleanup before chooser disposal completes', { timeout: 60_000 }, async () => {
+    stubAttendedHost()
+    const { ctx } = await loadComposition('127.0.0.1')
+    const backend = [...ctx.loader.entries()].find(entry => entry.options.name === NATIVE)!
+    const chooser = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
+    const started = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    onTestFinished(() => { release.resolve(undefined) })
+    const finished = Promise.withResolvers<undefined>()
+    backend.fiber!.ctx.effect(() => async () => {
+      started.resolve(undefined)
+      await release.promise
+      finished.resolve(undefined)
+    })
+    let settled = false
+    const disposal = chooser.fiber!.dispose().then(() => { settled = true })
+    try {
+      await started.promise
+      await setImmediate()
+      expect(settled).toBe(false)
+    } finally {
+      release.resolve(undefined)
+      await finished.promise
+      await disposal
+    }
+    expect(entryNames(ctx)).not.toContain(NATIVE)
+    expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+    expect(ctx.get('directoryPicker')).toBeUndefined()
+    await includeTree(ctx).stop()
+  })
+
+  it('joins backend cleanup before publishing a later entry creation failure', { timeout: 60_000 }, async () => {
+    stubAttendedHost()
+    const started = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    onTestFinished(() => { release.resolve(undefined) })
+    const finished = Promise.withResolvers<undefined>()
+    const restore: Array<() => void> = []
+    onTestFinished(() => { for (const dispose of restore) dispose() })
+    let settled = false
+    const boot = loadComposition('127.0.0.1', {
+      beforeBoot(ctx) {
+        const create = ctx.loader.create.bind(ctx.loader)
+        const spy = vi.spyOn(ctx.loader, 'create').mockImplementation(async (options, parent, position) => {
+          if (options.name !== NATIVE_SURFACE) return create(options, parent, position)
+          const backend = [...ctx.loader.entries()].find(entry => entry.options.name === NATIVE)!
+          backend.fiber!.ctx.effect(() => async () => {
+            started.resolve(undefined)
+            await release.promise
+            finished.resolve(undefined)
+          })
+          throw new Error('surface entry creation refused')
+        })
+        restore.push(() => { spy.mockRestore() })
+      },
+    }).then((result) => { settled = true; return result })
+    try {
+      await started.promise
+      await setImmediate()
+      expect(settled).toBe(false)
+    } finally {
+      release.resolve(undefined)
+      await finished.promise
+      try { await boot } finally { for (const dispose of restore) dispose() }
+    }
+    const { ctx } = await boot
+    const chooser = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
+    expect(chooser.fiber!.state).toBe(FiberState.FAILED)
+    expect(entryNames(ctx)).not.toContain(NATIVE)
+    expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+    expect(ctx.get('directoryPicker')).toBeUndefined()
+  })
+
   it('mounts the browse backend under an SSH launch', { timeout: 60_000 }, async () => {
     stubAttendedHost()
     vi.stubEnv('SSH_CONNECTION', '10.0.0.2 55 10.0.0.9 22')
@@ -233,9 +323,16 @@ describe('real Loader composition', () => {
     expect(picker.capability().kind).toBe('browse')
   })
 
-  it('mounts the browse backend for an all-interfaces bind even on an attended host', { timeout: 60_000 }, async () => {
+  it('mounts the browse backend for a network bind even on an attended host', { timeout: 60_000 }, async (context) => {
     stubAttendedHost()
-    const { ctx } = await loadComposition('0.0.0.0')
+    // The webserver rejects the unspecified address at load, so a deployment
+    // that serves the network names one concrete interface instead.
+    const lan = firstLanAddress()
+    if (lan === undefined) {
+      context.skip()
+      return
+    }
+    const { ctx } = await loadComposition(lan)
 
     expect(entryNames(ctx)).toContain(BROWSE)
     expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
@@ -243,15 +340,22 @@ describe('real Loader composition', () => {
     expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
   })
 
-  it('unmounts the backend when the surface entry fails to load', { timeout: 60_000 }, async () => {
+  it('keeps the mounted backend when the surface entry fails to import', { timeout: 60_000 }, async () => {
     stubAttendedHost()
-    await expect(loadComposition('127.0.0.1', { failSurface: true })).rejects.toThrow(/surface import failed/)
+    const { ctx } = await loadComposition('127.0.0.1', { failSurface: true })
 
-    // Setup owns both entries until it returns its disposer, so a failed surface
-    // must take the mounted backend with it: otherwise a retry collides with the
-    // directoryPicker registration this backend already made.
-    expect(entryNames(context!)).not.toContain(NATIVE)
-    expect(context!.get('directoryPicker')).toBeUndefined()
+    // The merged Loader settles a failing row instead of rejecting the mount:
+    // an entry whose import fails is reported through the Loader's own error
+    // channel and left without a fiber, while the sibling backend it was set up
+    // with keeps running. Startup policy is applied one layer up, by `boot()`'s
+    // activation audit, which turns an inactive row into a `StartupError`.
+    const running = (name: string): boolean => [...ctx.loader.entries()]
+      .some(entry => entry.options.name === name && entry.fiber !== undefined)
+    expect(running(NATIVE)).toBe(true)
+    expect(running(NATIVE_SURFACE)).toBe(false)
+    expect(ctx.get('directoryPicker')).toBeDefined()
+    expect(ctx.logger.buffer.some(message => message.args
+      .some(argument => String(argument).includes('surface import failed')))).toBe(true)
   })
 
   it('tolerates the mounted entry being removed by the tree before the chooser unloads', { timeout: 60_000 }, async () => {
@@ -259,7 +363,7 @@ describe('real Loader composition', () => {
     const { ctx, configPath } = await loadComposition('127.0.0.1')
 
     const backendEntry = [...ctx.loader.entries()].find(entry => entry.options.name === NATIVE)!
-    await ctx.loader.remove(backendEntry.id)
+    ctx.loader.remove(backendEntry.id)
     const autoEntry = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
     renameControl.remainingFailures = 1
     await expect(autoEntry.fiber!.dispose()).resolves.not.toThrow()

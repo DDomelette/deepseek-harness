@@ -18,7 +18,7 @@
   padding: 0;
   overflow: hidden;
   border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
-  border-radius: 16px;
+  border-radius: var(--dsw-radius-xl);
   background: var(--dsw-alias-interactive-bg-hover);
   cursor: zoom-in;
 }
@@ -61,6 +61,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .remove {
+    transition: none;
+  }
+}
+
 /* The composer's coarse-pointer floor (InputBar.module.css, WCAG 2.5.5)
    reaches every button in the card, including this slot's badges: a 44px
    remove badge would bury the 64px thumbnail and sit asymmetrically inside
@@ -76,11 +82,5 @@
     content: '';
     position: absolute;
     inset: -13px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .remove {
-    transition: none;
   }
 }

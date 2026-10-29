@@ -8,6 +8,7 @@
  * imports can create two slots, leaving the bridge with no mounted filesystem.
  */
 import { expect, test } from 'vitest'
+import { promisify } from 'node:util'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import * as fs from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/fs.ts'
@@ -62,6 +63,18 @@ check('statSync isFile', fs.statSync('/dsh/config/cordis.yml').isFile(), true)
 check('statSync size', fs.statSync('/dsh/config/cordis.yml').size, 12)
 check('statSync dir', fs.statSync('/dsh/config').isDirectory(), true)
 check('realpathSync', fs.realpathSync('/dsh/config/../config/cordis.yml'), '/dsh/config/cordis.yml')
+
+test('realpath.native supports promisified canonical paths and missing-path errors', async () => {
+  const resolve = promisify(fs.realpath.native)
+  await expect(resolve('/dsh/config/../config/cordis.yml')).resolves.toBe('/dsh/config/cordis.yml')
+  await expect(resolve('/dsh/no-such-file')).rejects.toMatchObject({ code: 'ENOENT' })
+  await expect(new Promise((resolve, reject) => {
+    fs.realpath('/dsh/config/cordis.yml', { encoding: 'buffer' }, (error, result) => {
+      if (error !== null) reject(error)
+      else resolve(result)
+    })
+  })).resolves.toEqual(Buffer.from('/dsh/config/cordis.yml'))
+})
 
 fs.appendFileSync('/dsh/config/cordis.yml', '- id: llm\n')
 check('appendFileSync', fs.readFileSync('/dsh/config/cordis.yml', 'utf8'), '- id: timer\n- id: llm\n')

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -9,12 +9,25 @@ import { apply, inject } from '../src/client/index.ts'
 import { NativeDirectoryFlow } from '../src/client/flow.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
-afterEach(cleanup)
+const desktopIpc = await vi.hoisted(async () => {
+  const { createRequire } = await import('node:module')
+  const path = await import('node:path')
+  // Electron belongs to the Desktop app; resolve its mock from that workspace.
+  const electron = createRequire(path.resolve(import.meta.dirname, '../../../../apps/desktop/package.json')).resolve('electron')
+  return { invoke: vi.fn(), on: vi.fn(), electron }
+})
+vi.mock(desktopIpc.electron, () => ({
+  ipcRenderer: { invoke: desktopIpc.invoke, on: desktopIpc.on },
+  contextBridge: { exposeInMainWorld: (name: string, value: unknown) => { vi.stubGlobal(name, value) } },
+}))
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); desktopIpc.invoke.mockReset(); desktopIpc.on.mockReset() })
 
 const HOLES = ['conversation.hero.workspace.directoryFlow', 'sidebar.workspaces.directoryFlow'] as const
 
 async function bench() {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SlotRegistry).await()
   const pickDirectory = vi.fn(async (): Promise<string | null> => '/tmp/picked')
   ctx.provide('uiWorkspace', { pickDirectory } as never)
@@ -147,6 +160,52 @@ describe('directory-picker-native client half', () => {
     const injected = (entry.inject as () => { pick: () => Promise<string | null> })()
     await expect(injected.pick()).resolves.toBe('/tmp/picked')
     expect(b.pickDirectory).toHaveBeenCalledOnce()
+  })
+
+  it.each(['win32', 'darwin'] as const)('uses the Host chooser with the current Desktop preload on %s', async (platform) => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+    vi.resetModules()
+    vi.stubGlobal('location', new URL('dsh-app://app/'))
+    // Desktop's preload is typechecked by its own compiler program.
+    const preload = '../../../../apps/desktop/src/preload-app.ts'
+    await import(/* @vite-ignore */ preload)
+    expect(Reflect.get(globalThis, 'dshDesktop')).toEqual({ protocolVersion: 1 })
+    expect(Reflect.get(globalThis, '__DSH_DIRECTORY_PICKER__')).toBeUndefined()
+    const b = await bench()
+    const dispose = b.declare()
+    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    try {
+      await fiber.await()
+      const entry = b.slots.entries(HOLES[0])[0]!
+      const injected = (entry.inject as () => { pick: () => Promise<string | null> })()
+      await expect(injected.pick()).resolves.toBe('/tmp/picked')
+      expect(b.pickDirectory).toHaveBeenCalledOnce()
+      expect(desktopIpc.invoke).not.toHaveBeenCalled()
+    } finally {
+      await fiber.dispose()
+      dispose()
+    }
+  })
+
+  it('uses the desktop bridge without calling the Host and preserves cancellation and errors', async () => {
+    const pick = vi.fn<() => Promise<string | null>>().mockResolvedValue('/desktop/workspace')
+    vi.stubGlobal('__DSH_DIRECTORY_PICKER__', { pick })
+    const b = await bench()
+    b.declare()
+    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    await fiber.await()
+    try {
+      const entry = b.slots.entries(HOLES[0])[0]!
+      const injected = (entry.inject as () => { pick: () => Promise<string | null> })()
+      await expect(injected.pick()).resolves.toBe('/desktop/workspace')
+      pick.mockResolvedValue(null)
+      await expect(injected.pick()).resolves.toBeNull()
+      pick.mockRejectedValue(new Error('desktop dialog failed'))
+      await expect(injected.pick()).rejects.toThrow('desktop dialog failed')
+      expect(b.pickDirectory).not.toHaveBeenCalled()
+    } finally {
+      await fiber.dispose()
+    }
   })
 
   it('runs one pick per open edge and reports the path to the latest onPicked', async () => {

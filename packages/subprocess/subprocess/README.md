@@ -60,6 +60,11 @@ const output = handle.collected.stdout?.readFrom(0)
 
 Reads are offset-based and non-consuming: a background reader and a final batch read can share one stream without stealing each other's bytes.
 
+<a id="using-a-control-pipe"></a>
+### Using a control pipe
+
+Set `stdio.control: 'pipe'` to receive a separate raw `Duplex` in `handle.control`. The Node child opens fd 7 with `openInheritedControlChannel()` from `@deepseek-ai/dsh-subprocess/control`; this helper consumes the provider-owned `DSH_SUBPROCESS_CONTROL=pipe` marker. Callers cannot supply that marker through `env`. Control bytes never enter stdout/stderr collectors. The consumer owns framing, validation, backpressure, and closing its endpoint; provider disposal destroys any endpoint remaining after process teardown. Omitting the request returns `control: undefined`. This channel is available only for ordinary processes, and carries no authority to bypass tool approval.
+
 ### Managing process lifetime
 
 Termination and waiting use one provider-managed range. `terminate()` starts the provider's documented procedure, is idempotent, and becomes a no-op after that range is empty; the request's abort signal starts the same procedure. `waitForExit()` observes the same range and resolves only after the provider proves it quiescent, so direct command completion does not hide a surviving descendant. It rejects when the selected owner can no longer prove quiescence. Providers document their native owners and weaker fallbacks; callers own deadlines, teardown ladders, and cause classification.
@@ -74,7 +79,7 @@ Children never inherit the harness's ambient secrets: credential-shaped names an
 
 ### What can go wrong
 
-An executable that cannot be resolved fails loudly with a stable error. A spawn that never starts rejects `done`; there is no buffered output for a process that never ran. `waitForExit()` also rejects when the provider cannot prove its selected range is empty, and a provider fallback may not own descendants that escape its process group or observed session. When a transport owns its own spawn (the SDK client, MCP), route around the service and import `scrubbedParentEnv` directly so environment policy stays single-sourced.
+An executable that cannot be resolved fails loudly with `SubprocessExecutableNotFoundError`. A spawn that never starts rejects `done`; there is no buffered output for a process that never ran. `waitForExit()` also rejects when the provider cannot prove its selected range is empty, and a provider fallback may not own descendants that escape its process group or observed session. When a transport owns its own spawn (the SDK client, MCP), route around the service and import `scrubbedParentEnv` directly so environment policy stays single-sourced.
 
 -----
 
@@ -94,13 +99,13 @@ The seam is built on one separation: the service owns process coordinates and li
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | Plugin entry: abstract `SubprocessRuntime`, `ctx.subprocess` registration, the shared `scrubbedParentEnv` scrub |
+| [`src/index.ts`](src/index.ts) | Plugin entry: abstract `SubprocessRuntime`, `ctx.subprocess` registration, the shared `scrubbedParentEnv` scrub and `readCompleteUtf8` read boundary |
 | [`src/types.ts`](src/types.ts) | Vocabulary: spawn spec, stdio modes, handles, readers, outcomes, `DSH_*` namespace |
 | — | No runtime invariant companion is published; this stateless Service Definition owns spawn-spec/handle types, while Service Providers own observations. |
 
 ### Data model and flow
 
-A spawn returns a live handle immediately without exposing target identity. `done` independently reports the direct command outcome or failure, while `waitForExit()` reports managed-range quiescence. The request's abort signal drives the same termination procedure as `terminate()`. Collected readers are cursor-free: offsets are whole-stream byte coordinates the caller owns, so independent readers cannot consume one another's output, and a read whose offset slid out of the in-memory tail is `lossy` and points at the spill file when one exists. `spawnTerminal` is one deep primitive because ordinary pipes cannot allocate a controlling terminal or clean terminal-session members.
+A spawn returns a live handle immediately without exposing target identity. `done` independently reports the direct command outcome or failure, while `waitForExit()` reports managed-range quiescence. The request's abort signal drives the same termination procedure as `terminate()`. Collected readers are cursor-free: offsets are whole-stream byte coordinates the caller owns, so independent readers cannot consume one another's output, and a read whose offset slid out of the in-memory tail is `lossy` and points at the spill file when one exists. A read ends at the last complete UTF-8 character, and providers cut that boundary with the shared `readCompleteUtf8` so text still arriving byte by byte is returned whole by the read that completes it. `spawnTerminal` is one deep primitive because ordinary pipes cannot allocate a controlling terminal or clean terminal-session members.
 
 ### Lifecycle and invariants
 

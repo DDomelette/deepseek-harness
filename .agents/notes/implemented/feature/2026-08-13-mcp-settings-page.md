@@ -31,7 +31,7 @@ A settings entry whose `serverName` collides with a declarative row is refused a
 
 ### Secret handling
 
-`env` and `headers` are secret fields and are redacted on read. Enablement, additions, edits and removals use `SettingsScope.mutate` path operations. Each transaction returns explicit Host acceptance; a redacted mirror cannot prove a save succeeded. Blank secret fields are omitted from edits, preserving stored secrets.
+`env` and `headers` are secret fields and are redacted on read. Enablement, additions, edits and removals use `ConfigForm.mutate` path operations. Each transaction returns explicit Host acceptance; a redacted mirror cannot prove a save succeeded. Blank secret fields are omitted from edits, preserving stored secrets.
 
 ### Frozen settings snapshots
 
@@ -64,7 +64,7 @@ The gateway reports mount lifecycle only (connecting → ready/failed), not live
 - `packages/mcp/mcp-manager`: schema and reconnect defaults, registration and write-time refusal, supervisor diff and mount/dispose/remount, lifecycle invalidation, gateway merge, and a settings commit with a non-empty frozen `env` map regressing the clone-before-mount path; per-file 100% coverage.
 - `packages/client/ui-settings-mcp`: tab invalidation and stale-response ordering, add/edit reconnect fields, controller atomic writes and refusal handling; 100% coverage.
 - `apps/web/tests/mcp-config.e2e.ts`: real scaffold — add with reconnect policy, toggle, and remove write through to `$DSH_HOME/settings.yaml`, plus search and the declarative row under the memorix example overlay; roster and add-form aria goldens live in `snapshots/mcp-config`.
-- `SettingsScope.setPath` and `SettingsScope.mutate`: unit tests in `packages/client/ui-settings/tests/settings-scope.client.spec.ts`.
+- `ConfigForm.set` and `ConfigForm.mutate`: unit tests in `packages/client/ui-settings/tests/config-form.client.spec.ts`.
 
 ## Deferred
 

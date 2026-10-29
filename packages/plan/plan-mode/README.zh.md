@@ -60,7 +60,7 @@ kind: "package-reference"
 
 agent 完成计划后，会以 markdown 形式、从标题开头书写计划并调用 `exit_plan_mode`。你评审该计划的原文，选择 `Approve` 离开计划模式，或选择 `Keep planning` 带反馈把 agent 送回去。
 
-选择 `Keep planning`（可附自由文本反馈）会让 agent 回去修订计划；关闭评审改为发言，则告知 agent 等待你的下一条消息。若没有可用的交互评审，`exit_plan_mode` 无法运行，你仍可用 `/plan off` 离开计划模式。
+选择 `Keep planning`（可附自由文本反馈）会让 agent 回去修订计划；关闭评审改为发言，则结束 agent 当前轮次，你的下一条消息开始下一次请求。若没有可用的交互评审，`exit_plan_mode` 无法运行，你仍可用 `/plan off` 离开计划模式。
 
 ### 观察计划状态
 
@@ -103,7 +103,8 @@ agent 完成计划后，会以 markdown 形式、从标题开头书写计划并�
 | [`src/index.ts`](src/index.ts) | 插件入口：`Config` schema、`ctx.planMode` 服务、`plan:policy` 段落、`/plan` 命令、`exit_plan_mode` 工具 |
 | [`src/types.ts`](src/types.ts) | `plan` 投影 key 声明与 `PlanProjection` 协议值 |
 | [`src/client.ts`](src/client.ts) | types 出口的客户端命名空间再导出 |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式伴生插件：校验 `plan/mode` 载荷结构 |
+
+审批意图携带发起工具调用的标识，让 Web 客户端在审批关闭后重新打开同一份计划。完整 Markdown 保留在已有的原生调用或 PTC dispatch 日志中。
 
 </details>
 
@@ -163,7 +164,7 @@ You are in plan mode. Explore and design before presenting the complete plan thr
 
 #### 模型看到什么
 
-[`exit_plan_mode` schema](../../../docs/tool-catalog.zh.md#deepseek-aidsh-plan-mode) 在两种状态下均可用；在计划模式之外执行会失败，而计划模式内经批准的评审返回规范的 `{ approved: true }` 值，并渲染既有的确认文本。拒绝仍是携带评审反馈的失败调用，放弃评审则是一次指明用户接手的失败调用。
+[`exit_plan_mode` schema](../../../docs/tool-catalog.zh.md#deepseek-aidsh-plan-mode) 在两种状态下均可用；在计划模式之外执行会失败，而计划模式内经批准的评审返回规范的 `{ approved: true }` 值，并渲染既有的确认文本。拒绝仍是携带评审反馈的失败调用。放弃评审返回 `{ approved: false }`，渲染一条说明用户将自行回复的文本，并结束当前轮次，不再发起模型请求。
 
 #### Token 影响
 
@@ -199,3 +200,5 @@ You are in plan mode. Explore and design before presenting the complete plan thr
 设计说明拒绝了通用命名模式注册表，因为产品只交付了 `plan`；未来的协作状态只应在出现两个具体用例后建立共享 seam，任何抽取都必须保持 `plan/mode` 的仅记日志折叠、边界追加与经评审的退出不变。
 
 </details>
+
+**运行时不变式：** 不发布伴生入口。控制器只贡献 `plan:policy` 段落、`/plan` 命令、`exit_plan_mode` 工具与 `plan` 投影；`plan/mode` 由 Session 日志持有，其折叠由 `sessionProjections` 校验。

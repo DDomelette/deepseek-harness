@@ -17,7 +17,8 @@
 ```ts type-equiv
 /**
  * Merge-extensible content blocks keyed by `type`. New core blocks must land
- * with adapter, UI, and compaction support.
+ * with adapter, UI, and compaction support. Tool-change blocks belong to
+ * developer messages; `projectToolUpdates` selects what each route receives.
  */
 interface ContentBlockMap {
   'text': TextBlock
@@ -25,7 +26,8 @@ interface ContentBlockMap {
   'image': ImageBlock
   'file': FileBlock
   'tool-call': ToolCallBlock
-  'tool-result': ToolResultBlock
+  'tool-addition': ToolAdditionBlock
+  'tool-removal': ToolRemovalBlock
 }
 ```
 
@@ -49,7 +51,7 @@ interface ImageAttachmentAccess {
 
 ```ts type-equiv
 /** Provider/model identity and adapter-private replay data for an assistant message. */
-interface AssistantProvenance {
+interface AssistantProviderMetadata {
   /** Provider route that produced the message. */
   provider: string
   /** Provider model id that produced the message. */
@@ -64,31 +66,25 @@ interface AssistantProvenance {
 ```
 
 ```ts type-equiv
-/** One immutable message representation shared by delivery, durable history, and model requests. */
-interface Message {
-  /** Stable identity preserved across every representation boundary. */
-  readonly id: MessageId
-  /** Provider-neutral conversation role. */
-  readonly role: 'system' | 'user' | 'assistant'
-  /** Exact model-facing blocks. */
-  readonly content: ContentBlock[]
-  /** Required source fields supplied by the producer. */
-  readonly source: MessageSource
-}
+/** Any persisted conversation message, discriminated by its `role`. */
+type Message = MessageRoleMap[keyof MessageRoleMap]
 ```
 
 消息来源本身也是一个可合并扩展的和类型：
 
 ```ts type-equiv
 /**
- * Where a message (or injected content) came from.
- * Merge-extensible sum type — plugins add their own `kind`s.
+ * Where a message (or injected content) came from, in the harness's own
+ * vocabulary. Merge-extensible sum type — each producer declares its own
+ * `kind` in its own module; there is no shared catch-all `plugin` kind.
+ * Model and tool sources answer their role messages; user messages carry any
+ * producer's kind, and consumers fall through unknown kinds.
  */
 interface MessageSourceMap {
   user: { kind: 'user' }
-  plugin: { kind: 'plugin'; plugin: string } & ContextFormed
   model: ModelMessageSource
   tool: ToolMessageSource
+  'system-prompt': SystemPromptMessageSource
 }
 ```
 
@@ -97,7 +93,7 @@ interface MessageSourceMap {
 ```ts type-equiv
 /**
  * The kind of information in producer-supplied context, declared by the
- * producer beside its provenance.
+ * producer in the same `MessageSource`.
  *
  * `MessageSource.kind` answers *who produced this*; `form` answers *what kind
  * of thing it is*, and the two axes are deliberately independent — several
@@ -246,6 +242,13 @@ interface LlmFailure {
   readonly providerRetryAfterMs?: number
   /** Opaque provider-issued request identifier for diagnostics. */
   readonly requestId?: ProviderRequestId
+  /**
+   * With code `IMAGE_OFFLOAD_REQUIRED`: how many more of the oldest retained
+   * image occurrences the route needs offloaded before the same request fits
+   * its exact byte accounting. `dsh-compaction-image-offload` records the
+   * selected occurrences in an `image/offload` event and retries the step.
+   */
+  readonly offloadImages?: number
 }
 ```
 
@@ -280,10 +283,11 @@ interface LlmImageRequestPrice {
 interface LlmImageRequestPricing {
   /**
    * Price every image occurrence of one request projection.
-   * @param images - durable image references in request order, one entry per occurrence.
+   * @param images - surface image blocks in request order, one entry per occurrence; an `offloaded` block
+   *   is priced as its placeholder text.
    * @returns one price per occurrence, aligned by index with `images`.
    */
-  priceImages(images: readonly ImageAttachmentRef[]): readonly LlmImageRequestPrice[]
+  priceImages(images: readonly ImageBlock[]): readonly LlmImageRequestPrice[]
 }
 ```
 
@@ -382,41 +386,41 @@ interface TokenUsage {
  */
 declare class BlockAssembler {
   /**
-   * Feed one chunk into the assembly state.
-   * @param chunk - the next raw chunk, in stream order.
-   */
+     * Feed one chunk into the assembly state.
+     * @param chunk - the next raw chunk, in stream order.
+     */
   push(chunk: StreamChunk): void;
   /**
-   * Assemble all blocks seen so far, in stream order.
-   * @returns one block per seen index, except that max-token truncation drops
-   *   tool calls that cannot be executed safely; an open block assembles from
-   *   its accumulated deltas (an unknown block type never closed by `block-end` throws).
-   */
+     * Assemble all blocks seen so far, in stream order.
+     * @returns one block per seen index, except that max-token truncation drops
+     *   tool calls that cannot be executed safely; an open block assembles from
+     *   its accumulated deltas (an unknown block type never closed by `block-end` throws).
+     */
   blocks(): ContentBlock[];
   /**
-   * Assemble the prefix an interrupted stream can safely finalize: closed and
-   * open text/reasoning blocks with non-whitespace content, in stream order.
-   * Tool calls are omitted because interruption precedes dispatch; retaining
-   * one would require a fabricated result. Open unknown blocks are also omitted.
-   * @returns the kept blocks; empty when nothing streamed before the interruption.
-   */
+     * Assemble the prefix an interrupted stream can safely finalize: closed and
+     * open text/reasoning blocks with non-whitespace content, in stream order.
+     * Tool calls are omitted because interruption precedes dispatch; retaining
+     * one would require a fabricated result. Open unknown blocks are also omitted.
+     * @returns the kept blocks; empty when nothing streamed before the interruption.
+     */
   interruptedBlocks(): ContentBlock[];
   /** Usage from the `usage` chunk; undefined until one arrives. */
   get usage(): TokenUsage | undefined;
   /** Finish reason from the `finish` chunk; `{kind: 'stop'}` when the stream ended without one. */
   get finish(): FinishReason;
   /**
-   * Replay metadata from the terminal finish chunk, if any, with per-block
-   * entries pruned in step with {@link blocks}. Undefined when the envelope's
-   * entries do not align with the emitted blocks.
-   */
+     * Replay metadata from the terminal finish chunk, if any, with per-block
+     * entries pruned in step with {@link blocks}. Undefined when the envelope's
+     * entries do not align with the emitted blocks.
+     */
   get replayState(): ReplayEnvelope | undefined;
   /**
-   * The assembled assistant message.
-   * @param source - producer attribution for the assembled message.
-   * @returns a frozen assistant-role message over `blocks()` (same open-block assembly rules).
-   */
-  message(source: MessageSource = { kind: 'plugin', plugin: 'dsh-llm/assembler' }): Message;
+     * The assembled assistant message.
+     * @param source - provider/model attribution (without the `kind` tag) for the assembled message.
+     * @returns a frozen assistant-role message over `blocks()` (same open-block assembly rules).
+     */
+  message(source: Omit<ModelMessageSource, 'kind'>): AssistantMessage;
 }
 ```
 
@@ -551,7 +555,7 @@ interface LlmReasoningEffortInfo {
 ```ts type-equiv
 /** Selectable reasoning efforts for one exact provider/model route. */
 interface LlmModelReasoningInfo {
-  /** Supported efforts in adapter-preferred display order. */
+  /** Supported efforts from least to greatest selectable reasoning effort, not predicted token use or latency. */
   efforts: readonly LlmReasoningEffortInfo[]
   /**
    * Adapter-configured default materialized into requests when callers omit
@@ -572,6 +576,8 @@ interface LlmResolvedModelInfo extends LlmModelInfo {
   reasoning?: LlmModelReasoningInfo
   /** Declared mid-conversation system prompt handling; absent means only a leading system message is read. */
   systemPromptUpdate?: SystemPromptUpdate
+  /** Declared mid-conversation tool declaration handling; absent means every request declares the complete tool list. */
+  toolUpdate?: ToolUpdate
 }
 ```
 
@@ -587,9 +593,9 @@ interface GenerateOptions {
    * Ordered conversation messages, exactly as the provider sees them. A
    * loop-built request passes the derived history (dsh-agent-loop), whose
    * leading system-role message carries the system prompt; a hand-built
-   * one-shot passes any list.
+   * one-shot may include identity-free user inputs.
    */
-  messages: Message[]
+  messages: RequestMessage[]
   /**
    * System prompt text for one-shot callers; adapters map it to the provider's
    * system slot ahead of `messages`. Loop-built requests leave it undefined.
@@ -597,6 +603,8 @@ interface GenerateOptions {
   system?: string
   /** Tool schemas (adapters map to the provider's `tools` field). */
   tools?: ToolSchema[]
+  /** Session-folded tool history used for route projection; omission sends complete declarations without tool updates. */
+  toolHistory?: ToolHistory
   temperature?: number
   maxTokens?: number
   /**
@@ -613,8 +621,8 @@ interface GenerateOptions {
   sessionId?: Branded<'SessionId'>
   /**
    * Provider-neutral classification for an auxiliary model call. Adapters may
-   * map the purpose to model-hidden transport metadata or purpose-specific
-   * generation policy. Ordinary conversation requests leave it unset.
+   * map the purpose to model-hidden transport metadata. Ordinary conversation
+   * requests leave it unset.
    */
   purpose?: 'compaction' | 'session-title'
 }
@@ -649,6 +657,12 @@ interface FinishReasonMap {
  * it from this package.
  */
 interface ToolSchema {
+  /**
+   * Requests deferred loading of the tool definition into model context,
+   * independently of whether a tool-addition block records the tool.
+   * Uses Anthropic's defer_loading terminology.
+   */
+  deferLoading?: true
   name: string
   description: string
   /** JSON Schema object for the arguments. */
@@ -702,6 +716,8 @@ interface LlmDiscoveredModel {
   contextWindow?: number
   /** Maximum output tokens, when disclosed. */
   maxTokens?: number
+  /** Accepted input types when disclosed by the catalog or endpoint; absent means unknown. */
+  inputModalities?: readonly ModelModality[]
 }
 ```
 
@@ -722,13 +738,9 @@ FIXME(call-config-shape)：重新审视其余哪些字段出于缓存目的确�
  * the loop builds requests from the logged header rather than accepting these
  * per call.
  */
-interface LlmCallConfig {
+interface LlmCallConfig extends LlmCallControls {
   provider: string
   model: string
-  reasoningEffort?: ReasoningEffortId
-  temperature?: number
-  maxTokens?: number
-  stop?: string[]
 }
 ```
 
@@ -766,6 +778,8 @@ interface PreparedLlmCall {
   readonly inputModalities?: readonly ModelModality[]
   /** Exact model system prompt update mode captured with the adapter dispatch generation. */
   readonly systemPromptUpdate?: SystemPromptUpdate
+  /** Exact model tool update mode captured with the adapter dispatch generation. */
+  readonly toolUpdate?: ToolUpdate
   /** Config fields materialized by the captured adapter rather than proposed by the caller. */
   readonly adapterDefaults: LlmCallConfigAdapterDefaults
   /**
@@ -788,64 +802,65 @@ interface PreparedLlmCall {
  */
 declare abstract class LlmAdapter {
   /**
-   * Describe one provider route owned by this adapter.
-   * @param provider - a route passed to `registerAdapter()` for this instance.
-   * @returns detached display metadata whose id must equal `provider`.
-   */
+     * Describe one provider route owned by this adapter.
+     * @param provider - a route passed to `registerAdapter()` for this instance.
+     * @returns detached display metadata whose id must equal `provider`.
+     */
   providerInfo(provider: string): LlmProviderInfo;
   /**
-   * Return the provider-owned retry policy captured with this route.
-   * @param _provider - a route passed to `registerAdapter()` for this instance.
-   * @returns a resolved policy, or `undefined` to use the normal defaults.
-   */
+     * Return the provider-owned retry policy captured with this route.
+     * @param _provider - a route passed to `registerAdapter()` for this instance.
+     * @returns a resolved policy, or `undefined` to use the normal defaults.
+     */
   providerRetryPolicy(_provider: string): ResolvedRetryPolicy | undefined;
   /**
-   * Resolve provider-side request-image pricing for one exact model route.
-   * The default declares none, so consumers fall back to their own neutral
-   * estimate. Implementations must answer synchronously without I/O; the
-   * token meter resolves this per measurement.
-   * @param _provider - a route passed to `registerAdapter()` for this instance.
-   * @param _model - exact model id passed to {@link GenerateOptions.model}.
-   * @returns route-owned image pricing, or `undefined` when the route declares none.
-   */
+     * Resolve provider-side request-image pricing for one exact model route.
+     * The default declares none, so consumers fall back to their own neutral
+     * estimate. Implementations must answer synchronously without I/O; the
+     * token meter resolves this per measurement.
+     * @param _provider - a route passed to `registerAdapter()` for this instance.
+     * @param _model - exact model id passed to {@link GenerateOptions.model}.
+     * @returns route-owned image pricing, or `undefined` when the route declares none.
+     */
   imageRequestPricing(_provider: string, _model: string): LlmImageRequestPricing | undefined;
   /**
-   * List models this adapter can currently advertise for one owned provider.
-   * The result is advisory: an adapter may accept unlisted model ids, and
-   * consumers must not turn absence into request rejection.
-   * @param _provider - one provider route owned by this adapter.
-   * @returns discoverable models in adapter-preferred order.
-   */
+     * List models this adapter can currently advertise for one owned provider.
+     * Core routing accepts unlisted model ids; catalog-driven entry points such
+     * as the GUI may require membership. Adapters used there must advertise
+     * their available models; the base empty catalog offers no GUI selection.
+     * @param _provider - one provider route owned by this adapter.
+     * @returns discoverable models in adapter-preferred order.
+     */
   listModels(_provider: string): Promise<readonly LlmModelInfo[]>;
   /**
-   * Resolve all metadata available for one exact model. This query is
-   * independent of the advisory catalog and does not validate request routing.
-   * @param provider - one provider route owned by this adapter.
-   * @param model - exact model id passed to {@link GenerateOptions.model}.
-   * @param _signal - cancellation for this exact-model lookup; asynchronous
-   *   implementations must settle promptly after it aborts.
-   * @returns provider/model identity plus any context, call-default, and reasoning metadata.
-   */
+     * Resolve all metadata available for one exact model. This query is
+     * independent of the advisory catalog and does not validate request routing.
+     * @param provider - one provider route owned by this adapter.
+     * @param model - exact model id passed to {@link GenerateOptions.model}.
+     * @param _signal - cancellation for this exact-model lookup; asynchronous
+     *   implementations must settle promptly after it aborts.
+     * @returns provider/model identity plus any context, call-default, and reasoning metadata.
+     */
   resolveModel(
-    provider: string,
-    model: string,
-    _signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo>;
+      provider: string,
+      model: string,
+      _signal?: AbortSignal,
+    ): Promise<LlmResolvedModelInfo>;
   /**
-   * Bind exact model metadata and the eventual request dispatch to one adapter generation.
-   * Dynamic adapters override this so settings changes between preparation and
-   * dispatch cannot combine one generation's capabilities with another's endpoint.
-   * @param provider - registered provider route.
-   * @param model - exact model id.
-   * @param signal - cancellation for model resolution.
-   * @returns model metadata and a one-generation stream entry point.
-   */
+     * Bind exact model metadata and the eventual request dispatch to one adapter generation.
+     * Dynamic adapters override this so settings changes between preparation and
+     * dispatch cannot combine one generation's capabilities with another's endpoint.
+     * @param provider - registered provider route.
+     * @param model - exact model id.
+     * @param signal - cancellation for model resolution.
+     * @returns model metadata and a one-generation stream entry point.
+     */
   async prepareCall(provider: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall>;
   /**
-   * Stream one model call as raw chunks. The only required method.
-   * @param options - the fully-assembled request; implementations must honor `options.signal`.
-   * @returns the chunk stream, obeying the adapter contract documented on `StreamChunk`.
-   */
+     * Stream one model call as raw chunks. The only required method.
+     * @param options - the fully-assembled request; implementations must honor `options.signal`.
+     * @returns the chunk stream, obeying the adapter contract documented on `StreamChunk`.
+     */
   abstract stream(options: GenerateOptions): AsyncIterable<StreamChunk>;
 }
 ```
@@ -877,8 +892,9 @@ register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSe
 
 /**
  * Prepare every currently registered field from one immutable base request.
- * Preparation failures reject before HTTP dispatch. Field values are cloned and frozen;
- * providers retain no mutable alias to the outgoing request.
+ * A provider whose preparation throws, or whose value cannot be cloned, is omitted
+ * from this request; the first such failure per field is logged. Only cancellation rejects. Field values are cloned
+ * and frozen; providers retain no mutable alias to the outgoing request.
  * @param request - exact serialized request facts before extension fields.
  * @returns detached fields and their idempotent joint acceptance transaction.
  */
@@ -988,7 +1004,8 @@ fileRequestText(ref: FileAttachmentRef): string
 
 /**
  * Discover models advertised by one registered provider. Catalog membership
- * is advisory and never changes routing or request validation.
+ * does not constrain core routing. Catalog-driven entry points may restrict
+ * selection and submission to the advertised models.
  * @param provider - registered provider route to inspect.
  * @returns detached model metadata in adapter-preferred order.
  */
@@ -1021,11 +1038,15 @@ async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<Ll
  * Resolve one call under its current adapter registration. The returned
  * one-shot handle keeps that registration across header logging and dispatch,
  * so HMR cannot combine one adapter's capability result with another adapter.
- * @param config - provider/model route and optional request controls.
+ * An optional synchronous callback selects concrete controls using captured
+ * model metadata. Defaults and validation apply to its result. Callback
+ * failures and cancellation reject preparation before dispatch.
+ * @param config - provider/model route and optional concrete request controls.
  * @param signal - optional cancellation for adapter-owned capability lookup.
+ * @param configure - pure control selection, called once before defaults and validation.
  * @returns a prepared config and its registration-bound stream entry point.
  */
-async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>
+async prepareCall( config: LlmCallConfig, signal?: AbortSignal, configure?: ConfigureCall, ): Promise<PreparedLlmCall>
 
 /**
  * Stream one model call as raw chunks (token-level deltas). Replay state is
@@ -1085,8 +1106,8 @@ Waterfall around every streaming model call (retry, replay, routing). Bound to t
  *   process-local {@link markAgentLoopRequest} identity and arrives deep-frozen
  *   (mutation throws): its content is a pure function of the session log (the
  *   reconstructability Agent Note), so listeners read it, never rewrite it.
- *   Hand-built calls do not carry that marker; their messages already obey
- *   the immutable creation contract.
+ *   Hand-built calls do not carry that marker; callers own their request
+ *   inputs and must keep them unchanged until the stream settles.
  * @mode waterfall
  */
 'llm/stream'(this: LlmRuntime, options: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk>

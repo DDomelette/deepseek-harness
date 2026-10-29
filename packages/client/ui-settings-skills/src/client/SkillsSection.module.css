@@ -37,7 +37,7 @@
   margin: 0;
   font-size: 12px;
   line-height: 18px;
-  color: var(--dsw-alias-state-error-label);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .empty {
@@ -51,9 +51,9 @@
   align-self: flex-start;
   height: 28px;
   padding: 0 12px;
-  border: 0.5px solid var(--dsw-alias-border-secondary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 14px;
-  background: var(--dsw-alias-surface-primary);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
   line-height: 18px;
@@ -61,7 +61,7 @@
 }
 
 .secondaryButton:hover {
-  background: var(--dsw-alias-surface-secondary);
+  background: var(--dsw-alias-bg-layer-2);
 }
 
 /* One icon per display group; the count rides a caption line below the label. */
@@ -82,9 +82,9 @@
   align-items: flex-start;
   justify-content: center;
   gap: 6px;
-  border: 0.5px solid var(--dsw-alias-border-secondary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
-  background: var(--dsw-alias-surface-primary);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
   padding: 12px;
@@ -92,7 +92,7 @@
 }
 
 .groupIcon:hover {
-  background: var(--dsw-alias-surface-secondary);
+  background: var(--dsw-alias-bg-layer-2);
 }
 
 .groupGlyph {
@@ -114,9 +114,9 @@
 .backButton {
   height: 28px;
   padding: 0 12px;
-  border: 0.5px solid var(--dsw-alias-border-secondary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 14px;
-  background: var(--dsw-alias-surface-primary);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
   line-height: 18px;
@@ -146,9 +146,9 @@
   justify-content: space-between;
   gap: 16px;
   padding: 10px 12px;
-  border: 0.5px solid var(--dsw-alias-border-secondary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
-  background: var(--dsw-alias-surface-primary);
+  background: var(--dsw-alias-bg-layer-1);
 }
 
 .skillIdentity {
@@ -172,7 +172,7 @@
   line-height: 18px;
   padding: 0 8px;
   border-radius: 9px;
-  background: var(--dsw-alias-surface-secondary);
+  background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
 }

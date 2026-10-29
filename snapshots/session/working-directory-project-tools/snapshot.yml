@@ -1,0 +1,9 @@
+version: 1
+scenario: working-directory-project-tools
+profile: headless
+composition: lsp
+recording: authored
+# Windows includes a bundled ACL-diagnostics skill in the model-visible catalog.
+platform: posix
+header:
+  class: lsp

@@ -37,6 +37,9 @@
     },
     {
       "path": "../cordis-host-runner"
+    },
+    {
+      "path": "../../boot/app-boot"
     }
   ]
 }

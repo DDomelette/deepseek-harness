@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-16-usage-exporter.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-16-usage-exporter.md
-2026-08-16-usage-exporter.md: 0ed7942ffeff05f718ed5379e85efa38df11d243
-2026-08-16-usage-exporter.zh.md: 4a609ca6062b1159e42ed22e693f6873cefa8e03
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl:
+  en: 62dec3c3ff3bd88e
+  zh: 31284e9bbc234fe2
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl/problem:
+  en: e5c90cab457a3697
+  zh: 209ac3f70d13cc9b
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl/decision:
+  en: d0664a104d4f2dc6
+  zh: bf155ee7bf75eb38
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl/alternatives-considered:
+  en: c4096a9e8b065f4d
+  zh: 6199ac459299faf8
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl/consequences:
+  en: d378862faf6c8d7f
+  zh: 758ae7e707ac06fa
+/agent-note-optional-usage-exporter-over-the-local-telemetry-jsonl/testing:
+  en: 529bee0f99c3ae95
+  zh: 44b0df5cfd7f8fc1

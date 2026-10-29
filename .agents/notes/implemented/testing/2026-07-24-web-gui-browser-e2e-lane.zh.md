@@ -26,6 +26,8 @@ Web GUI 以一条真实组装链交付——chromium 页面 → client 插件 bu
 
 ### 确定性规则
 
+固定日历日期的浏览器场景通过 `pinBrowserClock` 按真实经过时间对齐 fixture 日期，并在每次更新时用 `clock.runFor(0)` 执行已经到期的回调。这不会快进期限或回放节奏。输入提交和终端解析必须能在 fixture 时钟下继续运行；等待仍断言 DOM 状态、持久事件或真实 shell 输出。
+
 回放模式下浏览器断言的屏障栈，按序：（1）host 侧 `await agent.whenIdle()` 加超时，以进程内 `turn/end` 为锚——空闲翻转发生在持久化落盘之后，一次等待同时覆盖轮次完成与持久性；（2）浏览器安定轮询（流式输出节点已卸载、最终文本可见）。录制模式下，日志采收在 `whenIdle()` 之后、scaffold 释放之前进行，此时运行中的会话仍然可用。单独监听进程内 `turn/end` 是错误屏障（它先于 SSE 帧到达浏览器、先于 fsync 触发）；禁止轮询持久化文件来充当轮次完成或持久性屏障（NFS 上慢，且被 `whenIdle` 取代），但工具控制的临时就绪标记可以仅作为该完成屏障之前的交互门控进行轮询；`networkidle` 被彻底禁止（SSE 流保持打开时它永不解析）。导航断言会在页面加载前同时监听 `session.list` 和 `workspace.list` 的初始响应，随后等待播种数据投影到 DOM；仅凭 shell 已挂载不能判定就绪，因为较晚完成的 bootstrap 可能替换受控状态。
 
 不做单次瞬态 DOM 断言：从 replay yield 到 React commit 的每一跳都可能合并 chunk，采样 `[data-streaming]` 天然就是竞态。流式增量性通过有序 `agent/assistant-stream` follow path 断言，最终持久 `assistant/message` 或 `assistant/attempt` 则嵌入 replay 使用的精确 stream。`dsh-llm-replay` 的可选 `paceMs`（默认缺省 = burst）只是让浏览器观察到真正增量 SSE 的真实感旋钮；正确性绝不依赖它，且 pace wait 期间 abort 会即时取消。
@@ -89,7 +91,6 @@ Web GUI 以一条真实组装链交付——chromium 页面 → client 插件 bu
 ## 暂缓
 
 - **恢复后追问场景**：真实 wire 上的历史/实时缝合路径；当该代码变更或回归时作为独立场景补充。
-- **输入框 steering 手势**：输入在运行期间锁定（只能停止或等待），因此 steering 场景从页面走 wire 做 steer；`TODO(web-steer-composer)` 待产品长出真实的输入框手势后，把驱动步骤升级为该手势。
 - **拖拽会话重排**：`workspace.insertSessionBefore` 尚无浏览器场景；它需要在同一个工作区里物化两个会话，并合成 HTML5 拖拽事件。当该表面变更或回归时再补充。无行为的会话 Rename/Fork/Delete 和工作区 Delete 菜单行待获得行为后再补充场景。
 - **长历史 Chat 到 Trajectory 的 Inspect**：两个视图共用 Session 分页，而所选 Trajectory 记录由一个派生的表格索引定位；随着较早页面前插，该索引可能移动。短历史 Inspect 仍有覆盖；在选中项具有稳定的语义身份之前，长历史交互约定不包含这项交接。
 

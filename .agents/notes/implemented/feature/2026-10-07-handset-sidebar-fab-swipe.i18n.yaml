@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-10-07-handset-sidebar-fab-swipe.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-07-handset-sidebar-fab-swipe.md
-2026-10-07-handset-sidebar-fab-swipe.md: 9396bbd7ebc69c1b1c4315114b68f280051e020d
-2026-10-07-handset-sidebar-fab-swipe.zh.md: 41d2fe7ea32f99bccf6c6900a7e660c3aacfacc0
+/agent-note-handset-sidebar-floating-brand-button-and-edge-swipe:
+  en: 7327707663f2f0e4
+  zh: 93676f83a8cb852e
+/agent-note-handset-sidebar-floating-brand-button-and-edge-swipe/problem:
+  en: 55c3c3871c9ba203
+  zh: 1dcfb46670ccb85c
+/agent-note-handset-sidebar-floating-brand-button-and-edge-swipe/decision:
+  en: 3995fd888b737674
+  zh: a38c37872830e2aa
+/agent-note-handset-sidebar-floating-brand-button-and-edge-swipe/alternatives-considered:
+  en: 01041463ca0e25ff
+  zh: 7b3e797273fc89d7
+/agent-note-handset-sidebar-floating-brand-button-and-edge-swipe/consequences:
+  en: d58e90ef5241e220
+  zh: 68d4af7c92c15954

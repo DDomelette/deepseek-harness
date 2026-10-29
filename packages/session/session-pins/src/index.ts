@@ -26,6 +26,24 @@ declare module '@deepseek-ai/cordis' {
 const cloneOrder = (order: Readonly<Record<string, readonly SessionId[]>>): Record<string, SessionId[]> =>
   Object.fromEntries(Object.entries(order).map(([key, ids]) => [key, [...ids]]))
 
+/**
+ * Reconcile the flat order with the pin set it describes.
+ *
+ * The flat order is the complete flat-view order, so it must stay a
+ * permutation of the pin set: an unpinned id leaves it, and a pinned id no
+ * manual order has reached yet joins at the end, in pin order — the position a
+ * flat view gives a Session outside its override.
+ *
+ * @param order - persisted flat order.
+ * @param pinned - the pin set after this mutation.
+ * @returns the reconciled order.
+ */
+const reconcileFlatOrder = (order: readonly SessionId[], pinned: ReadonlySet<SessionId>): SessionId[] => {
+  const next = order.filter(id => pinned.has(id))
+  for (const id of pinned) if (!next.includes(id)) next.push(id)
+  return next
+}
+
 const snapshotOf = (state: SessionPinsDomainState): SessionPinsSnapshot => ({
   pinnedSessionIds: [...state.pinnedSessionIds],
   groupOrder: Object.fromEntries(Object.entries(state.groupOrder).map(([key, ids]) => [key, [...ids]])),
@@ -61,6 +79,18 @@ export class SessionPinsService extends TypertRemoteService {
         return flags
       },
     }), 'session-pins.flagProvider')
+  }
+
+  /**
+   * Whether the pins domain is open. A consumer that projects this service's
+   * state from `ctx.get('sessionPins')` reads this first: the service is
+   * registered while its initialization is still pending, and `list()` throws
+   * until the domain opens.
+   *
+   * @returns true once the domain is open and every mutation is durable.
+   */
+  get ready(): boolean {
+    return this.global !== undefined
   }
 
   private requireState(): SessionPinsDomainState {
@@ -101,7 +131,6 @@ export class SessionPinsService extends TypertRemoteService {
       const sessionId = SessionId(input.sessionId)
       const current = this.requireState()
       const pinnedSessionIds = new Set(current.pinnedSessionIds)
-      const flatOrder = [...current.flatOrder]
       let groupOrder: Record<string, SessionId[]>
       if (input.pinned) {
         pinnedSessionIds.add(sessionId)
@@ -113,8 +142,8 @@ export class SessionPinsService extends TypertRemoteService {
           const next = ids.filter(id => id !== sessionId)
           if (next.length > 0) groupOrder[key] = next
         }
-        flatOrder.splice(0, flatOrder.length, ...flatOrder.filter(id => id !== sessionId))
       }
+      const flatOrder = reconcileFlatOrder(current.flatOrder, pinnedSessionIds)
       return this.commit({ ...current, pinnedSessionIds: [...pinnedSessionIds], groupOrder, flatOrder })
     })
   }

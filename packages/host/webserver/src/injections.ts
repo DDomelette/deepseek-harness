@@ -20,7 +20,7 @@ export type IndexInjection =
   /**
    * External classic script, executed in table order: a parser-blocking tag
    * when served, an awaited fetch-and-execute in the worker form (whose
-   * loader resolves worker-only URLs such as `/plugins/...`).
+   * loader resolves worker-only references such as `plugins/...`).
    */
   | { kind: 'script-src'; placement: IndexInjectionPlacement; src: string }
   /** Advisory preload for an external classic script; static workers may ignore it. */
@@ -82,15 +82,9 @@ function splice(html: string, at: number, markup: string): string {
  * applies the table asynchronously installs it ahead of the entry module and
  * settles it after the last row; the served form below creates and resolves
  * it in one statement, because every row is already in the document text.
- *
- * The deferred is built without `Promise.withResolvers` (Chrome 119, Safari
- * 17.4): this markup is the earliest script in the document, running before the
- * shell installs its browser floor, so it may not assume that API exists.
+ * The tail precedes the browser compatibility floor, so it uses `new Promise`.
  */
-const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => {'
-  + ' const held = {};'
-  + ' held.promise = new Promise((resolve, reject) => { held.resolve = resolve; held.reject = reject });'
-  + ' return held })()).resolve()</script>'
+const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } })()).resolve()</script>'
 
 /**
  * Render rows into an index.html body: head rows immediately after the

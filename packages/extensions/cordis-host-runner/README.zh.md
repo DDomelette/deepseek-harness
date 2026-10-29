@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-cordis-host-runner` 让动态包在本进程中可运行：模型用 `cordis_define` 记录的定义留在这里，host 半在 `node:vm` 沙箱中运行，带浏览器半的包会等待人在页面上批准或拒绝，模型也可以在这里检查实时运行时及其定义。面向模型的工具在 `@deepseek-ai/dsh-tool-cordis` 中，浏览器半经 `@deepseek-ai/dsh-cordis-client-runner` 装载。定义只存在于进程内存中，因此 DSH 重启即清空，也不会向磁盘写任何东西。唯一的配置字段 `vmTimeoutMs` 限制同步沙箱求值的时长。
+`dsh-cordis-host-runner` 让动态包在本进程中可运行：模型用 `cordis_define` 记录的定义留在这里，host 半在 `node:vm` 沙箱中运行，带浏览器半的包会等待人在页面上批准或拒绝，模型也可以在这里通过 inspect 注册表检查实时运行时及其定义。定义只存在于进程内存中，因此 DSH 重启即清空。两个配置字段划定边界：`vmTimeoutMs` 限制同步沙箱求值的时长，`clientInspectTimeoutMs` 限制 Client 检查查询等待页面的时长，查询失败时会提示调用方打开或重新连接 Harness 页面后重试。
 
 ## 目录
 
@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-在任何一个应当支持动态包的组合中挂载本插件——它支撑模型的 `cordis_*` 工具，而带浏览器半的包还需要在客户端组合中额外挂载 client runner 与 UI 包。常用路径是显式的：加载本包，按需设置 `vmTimeoutMs`，其余交给工具与浏览器。
+在任何一个应当支持动态包的组合中挂载本插件——它支撑模型的 `cordis_*` 工具，而带浏览器半的包还需要在客户端组合中额外挂载 client runner 与 UI 包。常用路径是显式的：加载本包，按需设置 `vmTimeoutMs` 或 `clientInspectTimeoutMs`，其余交给工具与浏览器。
 
 ### 最小配置
 
@@ -38,12 +38,20 @@ kind: "package-reference"
 | 字段 | 默认值 | 含义 |
 |---|---|---|
 | `vmTimeoutMs` | `5000` | host 半在 vm 中同步执行的那部分被中止求值前可运行的毫秒数 |
+| `clientInspectTimeoutMs` | `10000` | 等待有效 Client 检查响应的最长时间；1 到 2147483647 毫秒之间的整数 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-cordis-host-runner)是每个受支持字段的穷尽式真源。
 
+<a id="client-inspection"></a>
+### Client 检查
+
+装载 Gateway 时，没有活动事件流的 Client 查询在发送前就会失败。此检查不订阅断连：已发送的查询仍沿用原期限。没有 Gateway 的独立事件传输保持相同的超时行为。
+
+Client 查询在 `clientInspectTimeoutMs` 内接受首个有效页面响应。某个页面失败不会阻止其他页面成功回答。若没有有效结果，查询返回首个 Client 错误或输出校验诊断；若没有页面回答，则提示调用方打开或重新连接 Harness 页面后重试。取消和注册表卸载也会结束待处理查询。页面重连不会重放错过的请求，因此需在连接恢复后重试。Host 查询不受此超时影响。
+
 ### run 会做什么
 
-定义由 `cordis_define` 记录、由 `cordis_run` 激活。只有 host 半的包直接在本进程中激活：它的代码在沙箱中运行。带浏览器半的包变成一次请求：它一直等到有人在一个页面上允许或拒绝，或提问的轮次被取消；作答页面随后先装载 host 半、再装载浏览器半。`mode: "run"` 启动当前包或重启它，`mode: "update"` 切换到另一个包版本。`cordis_stop` 结束一次存活运行——移除该包的 handler 与任何已装载的浏览器 UI——同时保留可再次运行的定义；`cordis_undefine` 停止并忘掉它。
+定义由 `cordis_define` 记录、由 `cordis_run` 激活。只有 host 半的包直接在本进程中激活：它的代码在沙箱中运行。带浏览器半的包变成一次请求：它一直等到有人在一个页面上允许或拒绝，或提问的轮次被取消；作答页面随后先装载 host 半、再装载浏览器半。`mode: "run"` 启动当前包或重启它，`mode: "update"` 切换到另一个包版本。`cordis_stop` 结束一次存活运行——移除该包的 handler 与任何已装载的浏览器 UI——同时保留可再次运行的定义；`cordis_undefine` 停止并忘掉它。 存活的 Tool 名称发生冲突时，先用 `cordis_inspect_self` 找到占用它的 Plugin，再把该 Plugin 的 `pluginId` 传给 `cordis_stop`，之后运行替代 Package。
 
 ### 定义的去向
 

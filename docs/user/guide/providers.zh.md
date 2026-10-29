@@ -40,17 +40,17 @@ Provider ID 是永久的，因为请求、已保存会话、模型默认值和�
 
 ## 进阶配置
 
-自动生成的[插件配置目录](../../config-catalog.zh.md)列出每个插件的所有受支持字段与默认值；[`dsh-llm-pi-ai`](../../config-catalog.zh.md#deepseek-aidsh-llm-pi-ai) 就是本页所配置的那个提供方段落。[`dsh-llm-pi-ai`](../../../packages/llm/llm-pi-ai/README.zh.md) 和 [`dsh-llm-deepseek`](../../../packages/llm/llm-deepseek/README.zh.md) 参考文档负责直接 `settings.yaml` 配置、目录解析、推理控制、凭据与适配器错误。
+自动生成的[插件配置目录](../../config-catalog.zh.md)列出每个插件的所有受支持字段与默认值；[`dsh-llm-pi-ai`](../../config-catalog.zh.md#deepseek-aidsh-llm-pi-ai) 就是本页所配置的那个提供方段落。[`dsh-llm-pi-ai`](../../../packages/llm/llm-pi-ai/README.zh.md) 和 [`dsh-llm-deepseek`](../../../packages/llm/llm-deepseek/README.zh.md) 参考文档负责直接 `cordis.patch.yml` 配置、目录解析、推理控制、凭据与适配器错误。
 
 ::: tip 表单刻意保持精简
-模型页只开放让一条路由得以存在的字段：API 密钥、显示名称、API 地址、API 协议，以及每个模型的 ID、显示名称、上下文窗口和最大输出 token 数。其余所有字段——推理等级、图片输入、请求兼容性开关、请求头、超时、重试策略——都在 `$DSH_HOME/settings.yaml` 中设置，也就是模型页写入的同一份文档。可以直接编辑它；浏览器与服务器在同一台机器时，也可以点击设置页顶部的**打开配置文件**打开它。适配器会在下一次请求时重新读取，无需重启任何东西。下面各小节介绍多数网关会用到的字段。
+模型页只开放让一条路由得以存在的字段：API 密钥、显示名称、API 地址、API 协议，以及每个模型的 ID、显示名称、上下文窗口和最大输出 token 数。其余所有字段——推理等级、图片输入、请求兼容性开关、请求头、超时、重试策略——都在 `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 中设置，也就是模型页写入的同一份文档。可以直接编辑它；浏览器与服务器在同一台机器时，也可以点击设置页顶部的**打开配置文件**打开它。适配器会在下一次请求时重新读取，无需重启任何东西。下面各小节介绍多数网关会用到的字段。
 :::
 
 ### 图片输入
 
 手动输入的模型在自己声明之前一律按纯文本对待，因为没有任何环节能去询问端点接受哪些模态。给这类模型附加图片，会在发送前就被拒绝，并点名该模型。
 
-因此自定义提供方下的视觉模型需要加一行。表单没有对应字段；请在 `$DSH_HOME/settings.yaml` 中给该模型加上 `input`：
+因此自定义提供方下的视觉模型需要加一行。表单没有对应字段；请在 `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 中给该模型加上 `input`：
 
 ```yaml
 llm-pi-ai:
@@ -99,7 +99,7 @@ llm-pi-ai:
 
 ### 推理等级
 
-对于声明了推理等级的模型，模型选择器会提供**推理等级**菜单。内置提供方的模型从已安装目录继承其等级。手动录入的模型不声明任何等级，因此模型菜单里不会出现推理等级项，由端点自身的默认值决定模型是否思考。请在 `$DSH_HOME/settings.yaml` 中用 `reasoningEfforts` 声明等级：
+对于声明了推理等级的模型，模型选择器会提供**推理等级**菜单。内置提供方的模型从已安装目录继承其等级。手动录入的模型不声明任何等级，因此模型菜单里不会出现推理等级项，由端点自身的默认值决定模型是否思考。请在 `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 中用 `reasoningEfforts` 声明等级：
 
 ```yaml
 llm-pi-ai:
@@ -143,7 +143,7 @@ llm-deepseek:
 
 网关可能持有可用的密钥、地址也通得到，却仍然拒绝每一个请求。pi-ai 依据端点的 URL 决定请求的形状——系统提示词由哪个角色承载、输出上限写在哪个字段、思考级别如何传输——而对于它无法识别的地址，会当作 OpenAI 本身来对待。多数 OpenAI 兼容网关至少会拒绝 OpenAI 所接受的某一样东西。
 
-其中两样占了绝大多数。声明了推理能力的模型，其系统提示词会以 `role: "developer"` 发出，很多网关直接拒绝；输出上限则写作 `max_completion_tokens`，只认 `max_tokens` 的服务端会拒绝。表单里没有这两个字段；请在 `$DSH_HOME/settings.yaml` 的路由上更正：
+其中两样占了绝大多数。声明了推理能力的模型，其系统提示词会以 `role: "developer"` 发出，很多网关直接拒绝；输出上限则写作 `max_completion_tokens`，只认 `max_tokens` 的服务端会拒绝。表单里没有这两个字段；请在 `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 的路由上更正：
 
 ```yaml
 llm-pi-ai:
@@ -183,7 +183,7 @@ llm-pi-ai:
 - **获取可用模型提示既没有 `data` 数组也没有 `models` 对象**：端点返回的列表格式不在探测的读取范围内。请手动输入模型。
 - **密钥与地址都正确，网关却拒绝每一个请求**：它的请求形状与 OpenAI 不同。先在路由上设 `compat.supportsDeveloperRole: false` 与 `compat.maxTokensField: max_tokens`。
 - **只有推理模型失败**：pi-ai 把它们的系统提示词以 `developer` 角色发出，而网关拒绝该角色。设 `compat.supportsDeveloperRole: false`。
-- **手动录入的模型没有推理等级菜单**：该模型没有声明任何等级。在 `settings.yaml` 中给该模型加上 `reasoningEfforts`。
+- **手动录入的模型没有推理等级菜单**：该模型没有声明任何等级。在 `cordis.patch.yml` 中给该模型加上 `reasoningEfforts`。
 - **`off` 无法让 DeepSeek 模型停止思考**：留空的 `off` 不发送任何推理字段，默认思考的端点就继续思考。请在模型或路由上设置 `compat.thinkingFormat: deepseek`。
 - **某个 compat 开关因没有值而被拒绝**：冒号后什么都没写。给它一个值，或删掉该键以沿用已安装 catalog 的值。
 - **图片在发送前被拒绝**：该模型未声明图片模态。请给自定义提供方的模型加上 `input: [text, image]`；在 DeepSeek 自身的路由上，请从配置的目录中选择支持图片的条目（默认为 `deepseek-flash`），并确认网关提供该模型且支持图片输入。

@@ -9,6 +9,12 @@ import type { Fiber } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'cordis-host-runner': { kind: 'cordis-host-runner' }
+  }
+}
+
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isPlugin, normalizeHandler } from './guard.ts'
@@ -88,6 +94,8 @@ declare module '@deepseek-ai/cordis' {
 export interface Config {
   /** Maximum synchronous VM evaluation time in milliseconds. */
   vmTimeoutMs?: number
+  /** Maximum wait for a valid Client inspect response in milliseconds. */
+  clientInspectTimeoutMs?: number
 }
 
 type ResolvedConfig = Required<Config>
@@ -126,6 +134,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
 
   static Config: z<Config> = z.object({
     vmTimeoutMs: z.number().min(1).default(5000),
+    clientInspectTimeoutMs: z.number().step(1).min(1).max(2_147_483_647).default(10_000),
   })
 
   private readonly rootCtx: Context
@@ -140,7 +149,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     super(ctx, 'dynamicCordisRunner')
     this.rootCtx = ctx
     this.resolved = config as ResolvedConfig
-    this.inspectRegistry = new CordisInspectRegistryService(ctx)
+    this.inspectRegistry = new CordisInspectRegistryService(ctx, this.resolved.clientInspectTimeoutMs)
   }
 
   /**
@@ -501,11 +510,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
   }
 
   /**
-   * Claim one pending Client inspect query with its live result.
+   * Submit a Client inspect result or failure for a pending query.
    * @param agent - Session that owns the query.
    * @param requestId - exact pending query identity.
    * @param resolution - provider result or structured refusal.
-   * @returns whether this answer won the query.
+   * @returns acknowledgement with accepted true only for a valid success that settles the query;
+   * pending-query failures return { accepted: false } and retain only the first diagnostic.
    */
   @Remote('resolveInspectQuery')
   resolveInspectQuery(
@@ -1042,7 +1052,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     }
     agent.steer(createUserMessage({
       content: [{ type: 'text', text }],
-      source: { kind: 'plugin', plugin: 'cordis-host-runner' },
+      source: { kind: 'cordis-host-runner' },
     }))
   }
 
@@ -1063,7 +1073,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
           + 'Inspect the failed Package, fix the Client code by defining a new Package on the same Plugin, and '
           + 'activate that Package autonomously with cordis_run mode:"update".',
       }],
-      source: { kind: 'plugin', plugin: 'cordis-host-runner' },
+      source: { kind: 'cordis-host-runner' },
     }))
   }
 
@@ -1088,7 +1098,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
           + 'the new Package autonomously with cordis_run mode:"update". If the handler needs a Service, either declare '
           + 'that Service in the returned Plugin inject list or read it with ctx.get(name) and handle undefined.',
       }],
-      source: { kind: 'plugin', plugin: 'cordis-host-runner' },
+      source: { kind: 'cordis-host-runner' },
     }))
   }
 
@@ -1112,7 +1122,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
           + 'The Plugin remains running. Inspect this Package, define a corrected Package on the same Plugin, and '
           + 'activate it autonomously with cordis_run mode:"update".',
       }],
-      source: { kind: 'plugin', plugin: 'cordis-host-runner' },
+      source: { kind: 'cordis-host-runner' },
     }))
   }
   /* jscpd:ignore-end */
@@ -1152,7 +1162,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
     if (agents?.get(agent.id) !== agent) return
     agent.inject(createUserMessage({
       content: [{ type: 'text', text }],
-      source: { kind: 'plugin', plugin: 'cordis-host-runner' },
+      source: { kind: 'cordis-host-runner' },
     }))
   }
 

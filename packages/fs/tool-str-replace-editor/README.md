@@ -119,7 +119,7 @@ Views return numbered text or a shallow directory listing. Calls expose file loc
 
 #### Token effect
 
-Data-dependent and bounded by `maxOutputChars` plus the fixed clipping notice.
+Data-dependent and bounded by `maxOutputChars` plus the fixed clipping notice. The prefix limit counts UTF-16 code units and never splits a surrogate pair.
 
 #### KV Cache effect
 

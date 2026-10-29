@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-device-lifetime-authority.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.md
-2026-09-13-device-lifetime-authority.md: 7f6e1c2dca3c80fd32566f2cd565afb71fcd21fe
-2026-09-13-device-lifetime-authority.zh.md: 5ce2348e6f94a64a483de83dea9bff6d16b6fc1f
+/agent-note-per-device-device-lifetime:
+  en: b88b6f9cbc4491cc
+  zh: 8fa4161743fe3ddc
+/agent-note-per-device-device-lifetime/problem:
+  en: d88359f37ded5da8
+  zh: 0e32c22b25fe87cc
+/agent-note-per-device-device-lifetime/decision:
+  en: ba9d2f9fc0143209
+  zh: e81ed03f8ca24a43
+/agent-note-per-device-device-lifetime/alternatives-considered:
+  en: 83a75cac1ceee9c7
+  zh: 0c9a58352cedf9f5
+/agent-note-per-device-device-lifetime/consequences:
+  en: 1f3c474ee562d101
+  zh: 9cc8dd20e8582d02

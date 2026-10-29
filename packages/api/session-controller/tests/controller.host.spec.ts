@@ -5,7 +5,6 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { SessionDeletionError } from '@deepseek-ai/dsh-session-deletion'
 import { describe, expect, it, vi } from 'vitest'
 import SessionController from '../src/index.ts'
 import type { ApiSessionAgentController } from '../src/agent.ts'
@@ -17,37 +16,6 @@ const defaults = {
 }
 
 describe('SessionController facade', () => {
-  it('publishes deletion only after completion and maps domain refusal to Remote errors', async () => {
-    const ctx = new Context()
-    try {
-      await ctx.plugin(SessionStore)
-      await ctx.plugin(AgentRegistry)
-      const controller = createSessionTestController(ctx, defaults)
-      const request = { sessionId: SessionId('deleted'), recursive: true }
-      const removed = vi.fn()
-      ctx.on('api-session/removed', removed)
-      await expect(controller.deleteSession(request)).rejects.toMatchObject({ code: 'gateway/internal' })
-      const remove = vi.fn(async (_request: typeof request, detach?: (ids: readonly SessionId[]) => Promise<void>) => {
-        await detach?.([request.sessionId])
-        return { deletedSessionIds: [request.sessionId] }
-      })
-      ctx.provide('sessionDeletion', { delete: remove } as never)
-      await expect(controller.deleteSession(request)).resolves.toEqual({ deletedSessionIds: ['deleted'] })
-      expect(removed).toHaveBeenCalledWith('deleted')
-      removed.mockClear()
-      remove.mockRejectedValueOnce(new SessionDeletionError('session-not-found', 'gone'))
-      await expect(controller.deleteSession(request)).rejects.toMatchObject({ code: 'session/not-found' })
-      remove.mockRejectedValueOnce(new SessionDeletionError('session-running', 'busy'))
-      await expect(controller.deleteSession(request)).rejects.toMatchObject({ code: 'session/agent-busy' })
-      const failure = new Error('storage unavailable')
-      remove.mockRejectedValueOnce(failure)
-      await expect(controller.deleteSession(request)).rejects.toBe(failure)
-      expect(removed).not.toHaveBeenCalled()
-    } finally {
-      await ctx.fiber.dispose()
-    }
-  })
-
   it('does not require the Tools service', () => {
     expect(SessionController.inject).not.toContain('tools')
   })
@@ -106,7 +74,7 @@ describe('SessionController facade', () => {
       status: 'idle',
       ctx,
     } as Agent
-    ctx.agents.register(agent)
+    await ctx.agents.register(agent)
     const resolveUploadAgent = (id: SessionId): Promise<Agent> => {
       if (uploadResolver === undefined) throw new Error('file upload resolver was not registered')
       return uploadResolver(id)

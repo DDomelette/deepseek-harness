@@ -12,7 +12,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { proxyEnvironmentForChild } from '@deepseek-ai/dsh-http-proxy'
 import { DSH_ENV_PREFIX } from './types.ts'
 import type { SubprocessHandle, SubprocessSpawnSpec } from './types.ts'
-import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from './types.ts'
+import type { SubprocessTerminalEnvironment, SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from './types.ts'
 
 export { DSH_ENV_PREFIX } from './types.ts'
 export type {
@@ -29,6 +29,8 @@ export type {
   SubprocessSpawnSpec,
   SubprocessStdinMode,
   SubprocessStdio,
+  SubprocessTerminalActivity,
+  SubprocessTerminalEnvironment,
   SubprocessTerminalForeground,
   SubprocessTerminalHandle,
   SubprocessTerminalSignal,
@@ -75,6 +77,39 @@ export function scrubbedParentEnv(): Record<string, string> {
     else env[name] = value
   }
   return env
+}
+
+/**
+ * Decode one collected-output read window up to its last complete UTF-8
+ * character. A read that stopped inside a multi-byte character would replace
+ * that character with U+FFFD on both sides of the split, so a provider returns
+ * this text and resumes its cursor at `end`, where the read that receives the
+ * remaining bytes returns the character whole. Exported as a plain function so
+ * every provider implementing {@link SubprocessOutputReader} cuts the same
+ * read boundary.
+ * @param window - the bytes a provider currently retains for one stream.
+ * @param start - first byte of `window` the read covers.
+ * @returns the decoded text and the exclusive offset in `window` just past it.
+ */
+export function readCompleteUtf8(window: Buffer, start: number): { text: string; end: number } {
+  let lead = window.length - 1
+  let continuations = 0
+  let byte = lead >= start ? window[lead] : undefined
+  while (byte !== undefined && continuations < 3 && (byte & 0xc0) === 0x80) {
+    lead -= 1
+    continuations += 1
+    byte = lead >= start ? window[lead] : undefined
+  }
+  if (byte === undefined) return { text: window.toString('utf8', start), end: window.length }
+  // A lead byte outside the UTF-8 ranges starts no sequence to wait for; the
+  // decoder replaces those bytes in the read that already holds them.
+  const expected = byte >= 0xf5 ? 1
+    : byte >= 0xf0 ? 4
+      : byte >= 0xe0 ? 3
+        : byte >= 0xc2 ? 2
+          : 1
+  const end = window.length - lead < expected ? lead : window.length
+  return { text: window.toString('utf8', start, end), end }
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -135,6 +170,12 @@ export abstract class SubprocessRuntime extends Service {
   ): Promise<string>
 
   /**
+   * Inspect shell-selection facts in the provider's execution environment.
+   * @param signal - cancellation of remote environment inspection.
+   * @returns platform and preferred shell; executable lookup and allocation remain separate operations.
+   */
+  abstract terminalEnvironment(signal?: AbortSignal): Promise<SubprocessTerminalEnvironment>
+  /**
    * Start one managed child process from a fully-specified spec; this seam
    * applies no defaults.
    * @param spec - argv, directory, stdio dispositions, grace, cancellation, and environment.
@@ -154,3 +195,15 @@ export abstract class SubprocessRuntime extends Service {
 }
 
 export default SubprocessRuntime
+
+/** Executable lookup completed without finding an executable file. */
+export class SubprocessExecutableNotFoundError extends Error {
+  /**
+   * @param message - provider-specific lookup diagnostic.
+   * @param options - original provider failure, when available.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'SubprocessExecutableNotFoundError'
+  }
+}

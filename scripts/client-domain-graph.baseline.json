@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "file": "packages/client/ui-chat/src/client/contract/slots.ts",
+      "imported": "../chat/flow-motion.ts"
+    },
+    {
+      "file": "packages/client/ui-conversation/src/client/skeleton/InputBar.tsx",
+      "imported": "../input/editor/DraftEditor.tsx"
+    },
+    {
+      "file": "packages/client/ui-conversation/src/client/skeleton/InputBar.tsx",
+      "imported": "../input/editor/view-binding.ts"
+    },
+    {
+      "file": "packages/client/ui-conversation/src/client/skeleton/InputBar.tsx",
+      "imported": "../input/submission-policy.ts"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/DesktopOnboarding.tsx",
+      "imported": "./assets/onboarding-back.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingCreditStep.tsx",
+      "imported": "./assets/onboarding-recharge-dark.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingCreditStep.tsx",
+      "imported": "./assets/onboarding-recharge-zh-dark.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingCreditStep.tsx",
+      "imported": "./assets/onboarding-recharge-zh.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingCreditStep.tsx",
+      "imported": "./assets/onboarding-recharge.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingProcessStep.tsx",
+      "imported": "./assets/onboarding-compact.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingProcessStep.tsx",
+      "imported": "./assets/onboarding-detailed.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingProcessStep.tsx",
+      "imported": "./assets/onboarding-standard.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingPurposeStep.tsx",
+      "imported": "./assets/onboarding-code.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingPurposeStep.tsx",
+      "imported": "./assets/onboarding-office.svg"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingWelcomeStep.tsx",
+      "imported": "./assets/onboarding-welcome-dark.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingWelcomeStep.tsx",
+      "imported": "./assets/onboarding-welcome-zh-dark.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingWelcomeStep.tsx",
+      "imported": "./assets/onboarding-welcome-zh.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/OnboardingWelcomeStep.tsx",
+      "imported": "./assets/onboarding-welcome.png"
+    },
+    {
+      "file": "packages/client/ui-settings-account/src/client/locales.ts",
+      "imported": "./locales/onboarding.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/browser/BrowserPage.ts",
+      "imported": "../view/BrowserPresentation.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/browser/IframeImpl.ts",
+      "imported": "../view/IframePresentation.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebViewImpl.ts",
+      "imported": "../browser/BrowserFrame.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebViewImpl.ts",
+      "imported": "../browser/BrowserPage.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebViewImpl.ts",
+      "imported": "../browser/BrowserPersistence.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebViewImpl.ts",
+      "imported": "../browser/url.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebviewPresentation.ts",
+      "imported": "../view/Browser.module.css"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/ElectronWebviewPresentation.ts",
+      "imported": "../view/BrowserPresentation.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/electron/pages.ts",
+      "imported": "../browser/BrowserPage.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/pages.ts",
+      "imported": "./browser/BrowserPage.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/pages.ts",
+      "imported": "./browser/IframeImpl.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/pages.ts",
+      "imported": "./view/IframePresentation.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserBody.tsx",
+      "imported": "../browser/BrowserController.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserBody.tsx",
+      "imported": "../browser/BrowserFrame.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserBody.tsx",
+      "imported": "../browser/BrowserPersistence.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserBody.tsx",
+      "imported": "../browser/store.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserTitle.tsx",
+      "imported": "../browser/BrowserPersistence.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/BrowserTitle.tsx",
+      "imported": "../browser/store.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-browser/src/client/view/IframePresentation.ts",
+      "imported": "../browser/url.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx",
+      "imported": "./document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx",
+      "imported": "./document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx",
+      "imported": "./document/unviewable.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx",
+      "imported": "./text/index.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/TextPreview.tsx",
+      "imported": "./text/lines.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/code/CodeBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/excel/LazyExcelBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/face.ts",
+      "imported": "./document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/face.ts",
+      "imported": "./document/resource-group.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/html/HtmlBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/html/index.ts",
+      "imported": "../document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/ImageBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/ImageBody.tsx",
+      "imported": "../zoom/ZoomViewport.tsx"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/ImageBody.tsx",
+      "imported": "../zoom/store.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/ImageBody.tsx",
+      "imported": "../zoom/types.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/index.ts",
+      "imported": "../document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/index.ts",
+      "imported": "../document/tab-lifetime.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/index.ts",
+      "imported": "../zoom/store.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/image/locales.ts",
+      "imported": "../zoom/locales.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/markdown/MarkdownBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts",
+      "imported": "../document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/office/OfficeBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/office/index.ts",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/office/index.ts",
+      "imported": "../document/tab-lifetime.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/office/index.ts",
+      "imported": "../pdf/LazyPdfBody.tsx"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/office/index.ts",
+      "imported": "../pdf/index.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts",
+      "imported": "../document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts",
+      "imported": "../document/tab-lifetime.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts",
+      "imported": "../zoom/ZoomViewport.tsx"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/locales.ts",
+      "imported": "../zoom/locales.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/pdf.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/pdf.tsx",
+      "imported": "../zoom/ZoomViewport.tsx"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/pdf.tsx",
+      "imported": "../zoom/types.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/pdf/store.ts",
+      "imported": "../zoom/types.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/store.ts",
+      "imported": "./document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/text/TextBody.tsx",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/text/index.ts",
+      "imported": "../document/registry.ts"
+    },
+    {
+      "file": "packages/client/ui-sidebar-documentpreview/src/client/text/lines.ts",
+      "imported": "../document/contract.ts"
+    },
+    {
+      "file": "packages/client/ui-workspace/src/client/session-actions/ArchiveSession.tsx",
+      "imported": "../rows/Rows.module.css"
+    },
+    {
+      "file": "packages/client/ui-workspace/src/client/session-actions/ArchiveSession.tsx",
+      "imported": "../rows/WorkspaceBrowser.module.css"
+    },
+    {
+      "file": "packages/client/ui-workspace/src/client/session-actions/PinSession.tsx",
+      "imported": "../rows/Rows.module.css"
+    },
+    {
+      "file": "packages/client/ui-workspace/src/client/session-actions/RenameSession.tsx",
+      "imported": "../rows/WorkspaceBrowser.module.css"
+    }
+  ]
+}

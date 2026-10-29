@@ -31,14 +31,18 @@ An optional detach callback receives the complete reserved plan before durable c
 
 The service requires `storageDomain` and stores one `session_deletion` plan per root id.
 
+The Web bundle mounts this row so the [Session Controller](../../api/session-controller/README.md) can answer `session.delete`, which the [Archived settings page](../../client/ui-settings-archived/README.md) calls after its confirmation. A profile that mounts neither simply has no deletion surface: the Remote method reports `session/deletion-unavailable`.
+
 <a id="behavior"></a>
 ## Behavior
 
 - The full deletion plan is durable before the first destructive write.
 - Retries load the plan instead of deriving lineage from the remaining logs.
+- The target is reserved before lineage enumeration begins, and the plan is re-derived until it stops growing, so a subagent created while the plan is being built joins the plan instead of surviving its deleted parent.
 - Attached cascade members refuse the whole deletion with `session-running`.
 - Non-recursive deletion refuses when descendants exist with `session-has-descendants`.
 - Deletion order is leaves-first so no dangling parent exists after a crash.
+- Cleanup order is re-derived from the current lineage on every attempt, so a member discovered on a retry is deleted before its own ancestor; a member no longer persisted is cleaned last, and the plan's member order stays the reported deletion set.
 - Already-gone members are marked `missing` and still receive workspace cleanup.
 - Each member transition persists before the next operation.
 - The synchronous `session/created` listener rolls back creation of an active plan member or a new child of one; unrelated Sessions remain available.

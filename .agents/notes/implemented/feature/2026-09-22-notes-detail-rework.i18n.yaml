@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-22-notes-detail-rework.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-22-notes-detail-rework.md
-2026-09-22-notes-detail-rework.md: 4374182142c9252674033b8930fe265d4ab5d05a
-2026-09-22-notes-detail-rework.zh.md: 3e62d8bc886d9aeda4559dfd959712b61fb73f81
+/agent-note-material-detail-head-chrome-and-thread-framing:
+  en: e896d6dbd76f6c30
+  zh: 769701bb82cee501
+/agent-note-material-detail-head-chrome-and-thread-framing/problem:
+  en: b506a6f4db435788
+  zh: 0c849cd7f8eb2176
+/agent-note-material-detail-head-chrome-and-thread-framing/decision:
+  en: 5dae241b4d60d1d4
+  zh: 27f7aecf0405d2b1
+/agent-note-material-detail-head-chrome-and-thread-framing/alternatives-considered:
+  en: d2b0534f731a0c7e
+  zh: 5252deb6a362e4a2
+/agent-note-material-detail-head-chrome-and-thread-framing/consequences:
+  en: 4fe83c227dc220a3
+  zh: f49eb656113f87b7

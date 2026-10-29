@@ -8,7 +8,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`@deepseek-ai/dsh-api-workspace-controller` owns the Host `ctx.workspaceController` service and the generated Client `ctx.remote.workspace` namespace. Its Remote methods create, rename, remove, and reorder Workspaces, reorder Sessions within a Workspace, archive Sessions from Workspace navigation, and follow the complete Workspace projection. Use it through API Gateway when a Client must change or follow Workspace navigation. The package also owns `ctx.directoryPickerController` and the generated `ctx.remote.directoryPicker` namespace, because the directory-picking seam it carries is abstract and never a Loader entry of its own.
+`@deepseek-ai/dsh-api-workspace-controller` owns the Host `ctx.workspaceController` service and the generated Client `ctx.remote.workspace` namespace. Its Remote methods create, rename, remove, and reorder Workspaces, reorder Sessions within a Workspace, archive and unarchive Sessions from Workspace navigation, and follow the complete Workspace projection. Use it through API Gateway when a Client must change or follow Workspace navigation. The package also owns `ctx.directoryPickerController` and the generated `ctx.remote.directoryPicker` namespace, because the directory-picking seam it carries is abstract and never a Loader entry of its own.
 
 ## Table of Contents
 
@@ -22,12 +22,25 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
+The Host controller serializes mutations whose correctness depends on current registry state and throws `RemoteError` with a stable error code for expected failures. Its `follow()` stream synchronously attaches to durable Workspace changes, emits one complete baseline first, then emits ordered `upsert`, `remove`, `order`, `archived`, and `pinned` increments. Archive and pin sets are Session id arrays; the pin array is the registry's projection of the `session-pins` service, so `pinSession` and `unpinSession` write through that owner and the `pinned` increment follows its domain, while a composition without the service refuses both verbs as `gateway/bad-request`. Every archive frame, baseline, and archive response pairs that id array with `archivedSessionAts`, the ISO-8601 archive instant per id that the registry stamps and drops with the id. A Session archived before the registry recorded instants has no entry, so a consumer renders an unknown archive time instead of inventing one. A reconnect starts another generation with a replacement baseline, so consumers do not depend on receiving every increment while disconnected. Each baseline also carries `sessionFlags`, the merged presentation flags of the Host's `sessionFlags` providers keyed by Session; the generation reads them when it opens, so a flag change reaches an open follower through the next generation. `archiveSession` without `stopActivity` refuses a Session with running work as `workspace/session-active`, whose details list that work by family (`turn`, `subagent`, `job`, `schedule`) with item ids and labels; with `stopActivity: true` the registry's providers stop the work first and the response arrives once the archive set is durable, while the stops settle in the background.
 
-`WorkspaceBaseline` pairs ordered Workspace `items` with `archivedSessionIds` and `archivedSessionAts`. List, baseline, archive and unarchive responses carry the same archive state. Archive mutations return copies of committed state and propagate storage failures; archiving an unknown Session reports `session/not-found`. Timestamps are absent for archives whose original instant was not recorded; unary echoes cannot overwrite a newer streamed frame.
+The Client entry provides `ClientWorkspaceModel`, `ClientSessionPinsModel`, and `createWorkspaceStateStream()`. The model owns Workspace rows, registry order, archived and pinned Session identities, the archive instants paired with those identities, unary mutation echoes, and stream/unary race resolution. A newer Host row wins by `updatedAt`; a committed stream order outranks an older unary response; a removed Workspace id cannot be resurrected by delayed data. Pin snapshots change when pin membership, flat order, or any own group name or member order changes, and an archive snapshot changes when a re-archived id receives a new instant, because [`sameArchiveInstants`](src/archive-instants.ts) compares values as well as keys. `ClientSessionPinsModel` owns the ordered pin state the `sessionPins` namespace serves — the pin set, its saved group orders, and the flat display order — installs committed mutation echoes unless a later mutation or successful refresh supersedes them, and re-reads on apply and on each `connection/reset`, so `IWorkspaces.pins` is the single source a surface reads pin membership and pin order from; `IWorkspaces.reorderPins` writes the complete flat order through it, and a pin or archive written through the Workspace namespace re-reads the order. A failed pin refresh retains the snapshot and leaves pending mutation responses eligible to install. The package exposes framework-neutral snapshots and subscriptions, leaving navigation policy and React hooks to the UI owner. `WorkspaceController.archiveSession(sessionId, { stopActivity })` throws `WorkspaceArchiveError` with the Host's `rpcError`, so a surface can tell the running-work refusal from a missing Session or a carrier fault and offer to stop the work.
 
-The Host controller serializes mutations whose correctness depends on current registry state and throws `RemoteError` with a stable `workspace/*` or `directory-picker/*` code for expected failures. Its `follow()` stream synchronously attaches to durable Workspace changes, emits one complete baseline first, then emits ordered `upsert`, `remove`, `order`, and `archived` increments. A reconnect starts another generation with a replacement baseline, so consumers do not depend on receiving every increment while disconnected.
+<a id="first-use-workspace"></a>
+### First-use Workspace
 
-The Client entry provides `ClientWorkspaceModel` and `createWorkspaceStateStream()`. The model owns Workspace rows, registry order, archived Session ids, unary mutation echoes, and stream/unary race resolution. A newer Host row wins by `updatedAt`; a committed stream order outranks an older unary response; a removed Workspace id cannot be resurrected by delayed data. The package exposes framework-neutral snapshots and subscriptions, leaving navigation policy and React hooks to the UI owner.
+`workspace.initializeDefault()` returns the durable default Workspace; the Client service exposes it as `workspaces.initializeDefault(signal?)`. It takes no request: the Host owns the fixed `default-workspace` directory name, and the registry derives the initial title from that same segment, so one installation keeps one on-disk path and one stored title in every language. The Host places the directory under its account's `<Documents>/deepseek-harness`, including on remote Web hosts. OS filename restrictions apply. Linux system lookup requires `xdg-user-dir` with an enabled Documents directory; hosts without it must configure `documentsDirectory` or use the folder picker.
+
+The [Workspace registry](../../workspace/workspace/README.md#first-use-workspace) owns eligibility, directory creation, and durable initialization. An existing default Workspace is returned without another Documents lookup and is never renamed or relocated. Ineligible first use returns `undefined`, so startup can leave directory selection to the user. Lookup and creation failures use standard Remote error handling. Initialization creates no Session and sends no message.
+
+`DEFAULT_WORKSPACE_DIRECTORY` and `workspaceDisplayTitle(title, localizedDefault)` are published from `./default-workspace` for browser consumers: a Workspace still carrying the automatic title reads as the reader's localized default name, and every other title reads verbatim. A Workspace the user renamed to exactly `default-workspace` — or a folder of that name adopted from the picker — is labeled as the default; nothing else depends on the distinction.
+
+| Configuration | Default | Purpose |
+| --- | --- | --- |
+| `documentsDirectory` | System Documents directory | Fully qualified Host directory override |
+| `documentsLookupTimeoutMs` | `10000` | Positive maximum duration of OS directory lookup, in milliseconds |
+
+Documents lookup holds the registry mutation queue, so other Workspace mutations, including registration of a picked directory, can wait up to `documentsLookupTimeoutMs`. Cancellation can stop the lookup; after resolution succeeds, it does not roll back creation or registration.
 
 -----
 
@@ -56,6 +69,6 @@ No direct effect; Workspace mutations do not alter model requests.
 
 None.
 
-</details>
 
 **Runtime invariant:** No companion is published. Workspace Registry owns persistence; every stream generation is a full projection.
+</details>

@@ -4,7 +4,7 @@
 // confirmed recursive delete removes a parent and its subagent child from
 // persistence, the archive set, and the workspace account.
 import { readFile } from 'node:fs/promises'
-import { basename, dirname } from 'node:path'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -16,7 +16,7 @@ import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import {
   launchWebScaffold, realizeSeedFixture, seedSession, watchConsole, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const PARENT_ID = 'archived-settings-parent'
@@ -36,7 +36,12 @@ describe('web e2e: archived sessions settings', () => {
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await connectFreshWorkspace(page, dirname(scaffold.workspaceCwd), basename(scaffold.workspaceCwd))
+    // Adopt the workspace on the Host: this scenario's subject is the Archived
+    // page, and the picker's own dialog flow is covered by the workspace
+    // scenarios, so the browser never has to drive it here.
+    await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd)
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
 
     const seedText = await readFile(SEED, 'utf8')
     const parentId = await seedSession(scaffold, seedText, PARENT_ID)

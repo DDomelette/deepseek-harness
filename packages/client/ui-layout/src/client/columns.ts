@@ -21,9 +21,14 @@ export const SIDEBAR_COLLAPSED = 56
  * LG breakpoint); a manual toggle below it re-expands over the squeezed center
  * (stores.ts narrowExpanded). */
 export const SIDEBAR_AUTO_COLLAPSE = 1024
-/** Viewport width below which an expanded sidebar floats over the center as a
- * drawer instead of squeezing it (handset breakpoint); between this and
- * SIDEBAR_AUTO_COLLAPSE the squeeze behavior is unchanged. */
+/**
+ * Viewport width below which an expanded sidebar leaves the grid and floats
+ * over the center as a drawer, and the closed frame marks itself
+ * `data-sidebar-fab`: the rail is replaced by one floating brand button, so the
+ * column owns no track and the consumers that align to the composer's
+ * clearance-wide column (ui-conversation, ui-chat, ui-goal, ui-model-selection)
+ * key their handset rules on that frame attribute.
+ */
 export const SIDEBAR_OVERLAY = 768
 /** Right column drag clamp floor. */
 export const RIGHTBAR_MIN = 300
@@ -48,11 +53,13 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param rightbar - requested right panel width in px (0 = no track).
+ * @param collapsedWidth - track width of the closed sidebar; the default keeps
+ *   the icon rail, 0 hides the column entirely (macOS desktop).
  * @returns actual widths after shrinking or removing the right track; only
  *   without that track may the center fall below its minimum, down to zero.
  */
-export function computeColumns(viewport: number, sidebar: number, rightbar: number): Columns {
-  const s = sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+export function computeColumns(viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED): Columns {
+  const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const available = viewport - s - CENTER_MIN
   const r = rightbar === 0 || available < RIGHTBAR_MIN
     ? 0

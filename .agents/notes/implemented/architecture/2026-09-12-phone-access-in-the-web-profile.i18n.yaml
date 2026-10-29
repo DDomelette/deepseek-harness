@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-12-phone-access-in-the-web-profile.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-12-phone-access-in-the-web-profile.md
-2026-09-12-phone-access-in-the-web-profile.md: 9120f565ee7bc85d57e229170839e65de37f6f65
-2026-09-12-phone-access-in-the-web-profile.zh.md: 866d3eedf07ab463c3443b74daecdd0c05144604
+/agent-note-phone-access-in-the-web-profile:
+  en: e3114e499223f80b
+  zh: 15bea80cff92fb34
+/agent-note-phone-access-in-the-web-profile/problem:
+  en: 9f15b29809499129
+  zh: b027f11f513d54b6
+/agent-note-phone-access-in-the-web-profile/decision:
+  en: acf6059475b1d096
+  zh: a7f3e164d84b9a99
+/agent-note-phone-access-in-the-web-profile/alternatives-considered:
+  en: b24ed104e583964d
+  zh: afa3727280baeb6e
+/agent-note-phone-access-in-the-web-profile/consequences:
+  en: 525f126c15f5814e
+  zh: fbcb640b7faf7a40

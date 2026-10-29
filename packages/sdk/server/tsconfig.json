@@ -21,6 +21,9 @@
       "path": "../../llm/llm-deepseek"
     },
     {
+      "path": "../../llm/llm-deepseek-api-key"
+    },
+    {
       "path": "../../core/agent"
     },
     {
@@ -34,6 +37,9 @@
     },
     {
       "path": "../../subagent/subagent"
+    },
+    {
+      "path": "../../boot/cmdline"
     }
   ]
 }

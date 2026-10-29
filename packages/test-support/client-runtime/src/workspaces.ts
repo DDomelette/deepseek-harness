@@ -1,7 +1,7 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  IWorkspaces, SessionPinsSnapshot, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -10,6 +10,9 @@ import type { FixtureSnapshot, Stabilizer } from './fixtures.ts'
 
 /** Writable test representation of the immutable Workspace Controller snapshot. */
 type WorkspaceFixtureSnapshot = FixtureSnapshot<WorkspaceSnapshot>
+
+/** The ordered pin state the Workspace Controller's pin model owns. */
+type PinsFixtureSnapshot = FixtureSnapshot<SessionPinsSnapshot>
 
 /** Callable command names on the production Workspace Controller face. */
 type WorkspaceAction = {
@@ -32,6 +35,9 @@ export class TestWorkspaces implements IWorkspaces {
   /** The useWorkspaces standard feed. */
   readonly list: SnapshotStore<WorkspaceFixtureSnapshot>
 
+  /** The useSessionPins standard feed: the ordered pin set the pin domain owns. */
+  readonly pins: SnapshotStore<PinsFixtureSnapshot>
+
   /** Calls observed on the action face, newest last. */
   readonly calls: { method: string; args: unknown[] }[] = []
 
@@ -43,6 +49,17 @@ export class TestWorkspaces implements IWorkspaces {
    */
   constructor(private readonly stabilize: Stabilizer) {
     this.list = createSnapshotStore<WorkspaceFixtureSnapshot>({ ...workspaceSnapshot() })
+    this.pins = createSnapshotStore<PinsFixtureSnapshot>({
+      pinnedSessionIds: [], groupOrder: {}, flatOrder: [],
+    })
+  }
+
+  /**
+   * Update the ordered pin state through an immer draft.
+   * @param mutate - draft mutator.
+   */
+  async updatePins(mutate: (draft: PinsFixtureSnapshot) => void): Promise<void> {
+    await this.stabilize(() => { this.pins.update(mutate) })
   }
 
   /**
@@ -78,6 +95,17 @@ export class TestWorkspaces implements IWorkspaces {
       path: input.path,
       sessionIds: [],
     } as unknown as WorkspaceView
+  }
+
+  /**
+   * Initialize the default Workspace through a test stub; defaults to an ineligible first use.
+   * @param signal - caller lifetime.
+   * @returns the stubbed Workspace, or undefined when initialization is ineligible.
+   */
+  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined> {
+    this.calls.push({ method: 'initializeDefault', args: [signal] })
+    const stub = this.stubs.get('initializeDefault')
+    return await (stub?.(signal) as Promise<WorkspaceView | undefined> | undefined)
   }
 
   /**
@@ -142,21 +170,83 @@ export class TestWorkspaces implements IWorkspaces {
       draft.archivedSessionIds = [...draft.archivedSessionIds, sessionId]
     })
   }
-  /** Restore an archived Session; @param sessionId - archived identity. */
+
+  /**
+   * Unarchive a session (recorded). The default mirrors the production face's
+   * observable effect: the id leaves the list state's archive set.
+   * @param sessionId - session to unarchive.
+   */
   async unarchiveSession(sessionId: SessionId): Promise<void> {
     this.calls.push({ method: 'unarchiveSession', args: [sessionId] })
     const stub = this.stubs.get('unarchiveSession')
-    if (stub !== undefined) { await stub(sessionId); return }
+    if (stub !== undefined) {
+      await (stub(sessionId) as Promise<void>)
+      return
+    }
     await this.update((draft) => {
       draft.archivedSessionIds = draft.archivedSessionIds.filter(id => id !== sessionId)
-      draft.archivedSessionAts = Object.fromEntries(Object.entries(draft.archivedSessionAts).filter(([id]) => id !== sessionId))
     })
   }
 
-  /** Record a Workspace refresh, invoking the optional replacement. */
-  async refresh(): Promise<void> {
-    this.calls.push({ method: 'refresh', args: [] })
-    await this.stubs.get('refresh')?.()
+  /**
+   * Pin a session (recorded). The default mirrors the production face's
+   * observable effect: the id joins the ordered pin set, whose order the pin
+   * domain owns.
+   * @param sessionId - session to pin.
+   */
+  async pinSession(sessionId: SessionId): Promise<void> {
+    this.calls.push({ method: 'pinSession', args: [sessionId] })
+    const stub = this.stubs.get('pinSession')
+    if (stub !== undefined) {
+      await (stub(sessionId) as Promise<void>)
+      return
+    }
+    await this.updatePins((draft) => {
+      if (draft.flatOrder.includes(sessionId)) return
+      draft.pinnedSessionIds = [...draft.pinnedSessionIds, sessionId]
+      draft.flatOrder = [...draft.flatOrder, sessionId]
+    })
   }
 
+  /**
+   * Unpin a session (recorded). The default mirrors the production face's
+   * observable effect: the id leaves the ordered pin set in both places.
+   * @param sessionId - session to unpin.
+   */
+  async unpinSession(sessionId: SessionId): Promise<void> {
+    this.calls.push({ method: 'unpinSession', args: [sessionId] })
+    const stub = this.stubs.get('unpinSession')
+    if (stub !== undefined) {
+      await (stub(sessionId) as Promise<void>)
+      return
+    }
+    await this.updatePins((draft) => {
+      draft.pinnedSessionIds = draft.pinnedSessionIds.filter(id => id !== sessionId)
+      draft.flatOrder = draft.flatOrder.filter(id => id !== sessionId)
+      draft.groupOrder = Object.fromEntries(
+        Object.entries(draft.groupOrder)
+          .map(([key, ids]) => [key, ids.filter(id => id !== sessionId)] as const)
+          .filter(([, ids]) => ids.length > 0),
+      )
+    })
+  }
+
+  /**
+   * Replace the pinned display order (recorded). The default mirrors the
+   * production face's observable effect: the committed order becomes the
+   * pin set's order.
+   * @param orderedIds - every pinned Session id, in display order.
+   */
+  async reorderPins(orderedIds: readonly SessionId[]): Promise<void> {
+    this.calls.push({ method: 'reorderPins', args: [orderedIds] })
+    const stub = this.stubs.get('reorderPins')
+    if (stub !== undefined) {
+      await (stub(orderedIds) as Promise<void>)
+      return
+    }
+    await this.updatePins((draft) => {
+      draft.pinnedSessionIds = [...orderedIds]
+      draft.flatOrder = [...orderedIds]
+    })
+  }
 }
