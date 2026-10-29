@@ -37,7 +37,7 @@ export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSideba
       const pane = findTabPane(layout, tabId)
       return {
         sidebar: { expanded: layout.expanded, fullscreen },
-        panel: { id: pane.id },
+        panel: { id: pane.id, floating: pane.host === 'float' },
         tab: {
           ...tab,
           visible: pane.host === 'float' || (layout.expanded && (title || pane.activeTabId === tabId)),

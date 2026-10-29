@@ -84,8 +84,10 @@ export function apply(ctx: ClientContext): void {
       if (!result.ok) throw new Error(`sessionPins.list failed: ${result.error.code}: ${result.error.message}`)
       commit(result.value)
     })
-    tail = operation.then(() => undefined, () => undefined)
-    return operation
+    tail = operation.then(() => undefined, (error: unknown) => {
+      bound?.fail(error instanceof Error ? error.message : String(error))
+    })
+    return tail
   }
   ctx.effect(() => ctx.on('connection/reset', () => { void reload() }), 'ui-pinned-sessions: reset refresh')
 

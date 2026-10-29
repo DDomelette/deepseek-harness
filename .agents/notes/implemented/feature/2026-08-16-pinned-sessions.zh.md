@@ -22,6 +22,8 @@ Status: implemented
 
 `ui-workspace` 从分组树和单列表中过滤 `pinned: true` 会话，在全组置顶时保留项目组标题和新建会话入口，并把置顶搜索匹配排在最前。置顶顺序默认为项目账号顺序（分组）或 recency（单列表），可通过拖拽覆盖；项目账号顺序从不被改写，因此取消置顶会恢复原位。
 
+拖拽期间，源行所在组的每一行都接受插入，其他组则拒绝放置。插入索引以移除源行后的列表为准，使向下移动仍保持请求的前后关系。客户端串行执行变更与重连刷新；刷新失败时保留已提交的置顶快照，并在共享 store 中记录错误。
+
 ## Alternatives considered
 
 - **Settings 命名空间持久化** — `pinnedSessions` settings 命名空间可以复用 settings 线路和文件，但 settings 的 revision/冲突机制面向配置，不适合高频书签变更，而且它无法让会话列表拥有宿主权威投影。
@@ -33,8 +35,8 @@ Status: implemented
 - 核心增加了一个通用标记接缝和三个工作区槽位；置顶能力保持可独立挂载。
 - 搜索结果和项目树现在读取标记投影；provider 失败时保留 last good 完整快照，或退化为空投影。
 - 跨进程实时置顶同步暂缓：客户端在重连或重启后通过 `list()` 收敛。
-- 置顶行只渲染取消置顶操作；重命名/分叉/归档仍保留在该会话的项目行上。
+- 非空置顶行提供取消置顶、重命名、分叉和归档操作。
 
 ## Testing
 
-服务端领域和 Remote 行为由 `packages/session/session-pins/tests` 覆盖；标记合并由 `packages/session/session-flags/tests` 覆盖；UI 注册、过滤及排序由置顶会话和工作区客户端包测试覆盖。
+服务端领域和 Remote 行为由 [session-pins 测试](../../../../packages/session/session-pins/tests)覆盖；标记合并由 [session-flags 测试](../../../../packages/session/session-flags/tests)覆盖；UI 注册、过滤、排序及刷新失败后的恢复由置顶会话和工作区客户端包测试覆盖。[工作区浏览器场景](../../../../apps/web/tests/workspace-management.e2e.ts)对照持久化的宿主快照与重载后的可见顺序，检查分组视图和单列表视图中的拖拽排序。

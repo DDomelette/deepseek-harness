@@ -15,12 +15,15 @@ export type ConversationRootProps = ConversationSlotProps
 
 /** localStorage key for the dragged transcript width preference (px). */
 const WIDTH_PREF_KEY = 'dsh.conversation.contentWidth'
-/** Floor for a dragged content width; matches the layout center-column minimum. */
+/** Floor for a dragged content width; matches the layout center-column minimum.
+ * On a column narrower than it the effective floor degrades to the column
+ * width itself (content = column), so a handset column is never overflowed. */
 const CONTENT_MIN = 640
 /** Column budget the content must leave free: 88px per side keeps the width
  * handles fully placeable (24px inset + 40px strip + 24px safe zone) — a
  * larger dragged width would push its own handles off the column and leave no
- * way to drag back. */
+ * way to drag back. On a column narrower than CONTENT_MIN the budget yields
+ * to content = column width (the handles are hidden there anyway). */
 const CONTENT_EDGE_BUDGET = 176
 
 /** Reads the persisted width preference; durable-storage boundary, so a
@@ -34,13 +37,16 @@ function readWidthPreference(): number | null {
 }
 
 /** Resolves the content width the CSS axis would show for a column width.
+ * The floor is adaptive: min(CONTENT_MIN, columnWidth) — a column narrower
+ * than CONTENT_MIN resolves content = column instead of overflowing.
  * @param columnWidth - the conversation column's rendered width in px.
  * @param preference - the dragged preference, or null for the adaptive clamp.
  * @returns the resolved content width in px (mirrors the CSS clamp). */
 function resolveContentWidth(columnWidth: number, preference: number | null): number {
-  const max = Math.max(CONTENT_MIN, columnWidth - CONTENT_EDGE_BUDGET)
-  if (preference !== null) return Math.min(Math.max(preference, CONTENT_MIN), max)
-  return Math.max(680, Math.min(columnWidth * 0.64, 920))
+  const effectiveMin = Math.min(CONTENT_MIN, columnWidth)
+  const max = Math.max(effectiveMin, columnWidth - CONTENT_EDGE_BUDGET)
+  if (preference !== null) return Math.min(Math.max(preference, effectiveMin), max)
+  return Math.max(Math.min(680, columnWidth), Math.min(columnWidth * 0.64, 920))
 }
 
 /** One transcript width handle: pointer capture + rAF-throttled symmetric

@@ -79,7 +79,22 @@ interface BootReadyGlobal {
 }
 
 function bootReadyGate(): PromiseWithResolvers<void> {
-  return (globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= Promise.withResolvers<void>()
+  return (globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= createBootReadyDeferred()
+}
+
+/**
+ * Build the boot-readiness deferred without `Promise.withResolvers` (Chrome 119,
+ * Safari 17.4). This page bootstrap runs before the shell installs its browser
+ * floor, so it cannot assume that API exists.
+ */
+function createBootReadyDeferred(): PromiseWithResolvers<void> {
+  let resolve!: () => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<void>((settle, fail) => {
+    resolve = settle
+    reject = fail
+  })
+  return { promise, resolve, reject }
 }
 
 /**

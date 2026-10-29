@@ -21,10 +21,12 @@ export const usageRowSchema = z.object({
   sessionId: z.string().min(1),
   cwd: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
+  /* jscpd:ignore-start -- Frozen telemetry rows evolve independently of token-meter projection state. */
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   cacheReadTokens: z.number().int().nonnegative(),
   cacheWriteTokens: z.number().int().nonnegative(),
+  /* jscpd:ignore-end */
 }).strict()
 
 /** A validated v1 usage-telemetry row before JSONL serialization. */

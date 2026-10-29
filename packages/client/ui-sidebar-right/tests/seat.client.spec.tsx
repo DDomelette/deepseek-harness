@@ -69,7 +69,7 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0) {
   runtime.slots.installLocale(locale)
   await runtime.declare({
     'rightbar': { kind: 'single', scope: 'root' },
-    'conversation.session.header.corner': { kind: 'single', scope: 'session' },
+    'conversation.session.header.corner': { kind: 'list', scope: 'session' },
   })
   await runtime.sessions.add({ id: SESSION })
   const feature = await runtime.mount({ inject: [...inject], apply })

@@ -32,7 +32,7 @@ DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `se
 - `groupOrder` — 可选的手动顺序覆盖，以工作区 id 或未分组的 `''` 为 key。
 - `flatOrder` — 单列表视图的可选手动顺序覆盖。
 
-重排时命名了当前未置顶 id、重复 id，或（单列表）遗漏某个置顶 id，都会在写入前以 `session-pins-invalid` 拒绝。
+重排时命名了当前未置顶 id、重复 id，或（单列表）遗漏某个置顶 id，都会在写入前以 `session-pins-invalid` 拒绝。被拒绝的请求不会改变置顶集合及两种已保存的顺序。
 
 <a id="model-experience"></a>
 ## 模型体验

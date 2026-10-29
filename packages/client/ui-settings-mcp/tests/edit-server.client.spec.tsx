@@ -155,6 +155,11 @@ describe('EditServerForm', () => {
     await act(async () => { gate.resolve('saveFailed') })
     expect((await screen.findByText(en.saveFailed)).textContent).toBe(en.saveFailed)
     expect(onDone).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: '' } })
+    expect(screen.getByRole('alert').textContent).toBe(en.missingCommand)
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: 'memorix' } })
+    expect(screen.getByRole('alert').textContent).toBe(en.saveFailed)
   })
 
   it('asks for confirmation before removing and cancels cleanly', async () => {

@@ -6,6 +6,7 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-archived/client'
 import { ArchivedSection } from '../src/client/ArchivedSection.tsx'
+import * as host from '../src/index.ts'
 
 function declare(slots: SlotRegistry): void {
   slots.register({
@@ -60,6 +61,16 @@ async function bench(): Promise<{
 }
 
 describe('ui-settings-archived apply', () => {
+  it('loads its host entry as a function plugin', async () => {
+    const ctx = new Context()
+    try {
+      expect('default' in host).toBe(false)
+      await ctx.plugin(host).await()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'sessions', 'workspaces'])
   })

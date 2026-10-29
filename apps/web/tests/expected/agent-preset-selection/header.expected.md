@@ -10,3 +10,5 @@
   - img
 - button "Open right sidebar":
   - img
+- button "Open the notes panel":
+  - img

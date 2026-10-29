@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-20-settings-handset-polish.md
+2026-09-20-settings-handset-polish.md: a031e9adff850d0b99e518d21cb11655535a2c67
+2026-09-20-settings-handset-polish.zh.md: 601d5e82d2804406f5fa2b64a7de2e4ee030c955

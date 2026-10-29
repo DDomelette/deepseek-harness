@@ -20,6 +20,19 @@ interface AnchorProps {
 type TooltipLabel = string | (() => string)
 
 /**
+ * Whether the current pointer can hover. Touch pointers synthesize mouseenter
+ * on tap but no mouseleave, and the tap leaves the anchor focused, so a
+ * touch-triggered bubble sticks on screen with no gesture that clears it;
+ * only hover-capable fine pointers get one. The anchor's accessible name
+ * already lives on its aria-label, so touch users lose no semantics.
+ * jsdom (the unit lane) implements no matchMedia despite lib.dom's types;
+ * there the desktop answer stands.
+ */
+const hoverCapable = (): boolean =>
+  (window as unknown as { matchMedia?: Window['matchMedia'] }).matchMedia
+    ?.('(hover: hover) and (pointer: fine)').matches ?? true
+
+/**
  * Attach a hover/focus tooltip to an anchor element.
  * @param props.label - bubble text, or a resolver evaluated only while the bubble is visible.
  * @param props.side - placement relative to the anchor (default 'right').
@@ -110,7 +123,7 @@ export function Tooltip({ label, side = 'right', delayMs = 0, disabled = false, 
   }, [cancelShow, disabled])
 
   const show = () => {
-    if (disabled) return
+    if (disabled || !hoverCapable()) return
     const el = anchor.current
     /* v8 ignore next -- the ref is attached by event time: events fire on the cloned anchor. */
     if (el === null) return

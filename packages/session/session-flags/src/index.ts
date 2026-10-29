@@ -62,7 +62,7 @@ export class SessionFlagRegistry extends Service {
       this.lastGood = { flags, complete: true }
       return this.lastGood
     }
-    if (Object.keys(flags).length === 0 && this.lastGood.complete) return this.lastGood
+    if (Object.keys(flags).length === 0) return this.lastGood
     return { flags, complete: false }
   }
 }

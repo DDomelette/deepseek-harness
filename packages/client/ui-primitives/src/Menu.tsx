@@ -181,6 +181,9 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Consume the key: the frame drawer, the lowest-priority Escape owner,
+        // acts only on an Escape no surface closed itself with.
+        e.preventDefault()
         onClose()
         if (autoFocus) rootRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
       }

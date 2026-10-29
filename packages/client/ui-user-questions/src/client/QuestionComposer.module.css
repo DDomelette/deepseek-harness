@@ -1,6 +1,7 @@
 /* The takeover seats where the input card sits, centered on the InputBar
    axis at the shared content width (input card - 32): sides = clearance +
-   16px so the relation also holds on narrow viewports. */
+   16px so the relation also holds on desktop widths where the axis binds;
+   the 720px query drops the inset on handsets (see below). */
 .frame {
   display: flex;
   justify-content: center;
@@ -16,8 +17,9 @@
   max-width: var(--dsh-chat-content-width);
   /* Composer seat sits in a fixed-height conversation column (overflow
      hidden): cap the card against the viewport and scroll the option list
-     so header and footer actions stay reachable on long batches. */
-  max-height: min(60vh, 520px);
+     so the header, the pinned custom-answer row, and the footer actions stay
+     reachable on long batches. */
+  max-height: min(60dvh, 520px);
   padding: 0 0 10px;
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2-darkmode-thin);
@@ -162,6 +164,12 @@
   padding: 4px 12px;
 }
 
+/* Options followed by the pinned custom-answer seat: the seat carries the
+   4px bottom inset, so the list keeps only its gap above it. */
+.optionsPinned {
+  padding-bottom: 0;
+}
+
 .option {
   display: flex;
   /* flex-start, not center: with a wrapped description the indicator must
@@ -294,7 +302,9 @@
 }
 
 /* Custom answer row (figma 973:36427): an option-shaped row whose copy is an
-   inline text input; focus or a typed draft lifts it to the selected look. */
+   inline text input; focus or a typed draft lifts it to the selected look.
+   With options it is pinned below the scroll region (see .customPinned) so the
+   custom entry stays visible however short the capped card gets. */
 .customRow {
   display: flex;
   /* Same first-line alignment as .option — the indicator seat carries the
@@ -303,8 +313,8 @@
   gap: 8px;
   width: 100%;
   min-height: 40px;
-  /* Same reason as .option: the custom row is scroll content, and shrinking
-     it pushes the inline input past the footer. */
+  /* Same reason as .option: a shrinkable row collapses to min-height while its
+     copy keeps the taller intrinsic height and paints outside the row box. */
   flex-shrink: 0;
   padding: 8px 12px 8px 8px;
   border: 1px solid transparent;
@@ -321,6 +331,17 @@
 .customRow:focus-within,
 .customRowActive {
   border-color: var(--dsw-alias-border-l2);
+}
+
+/* The custom row's pinned seat between the scroll region and the footer: the
+   metrics reproduce what the row had as the list's last item — the list's 1px
+   row gap as the top margin, the list's 4px bottom inset as the bottom
+   padding, and the list's 12px side padding — so pinning changes nothing
+   until the card caps and the list starts scrolling. */
+.customPinned {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 0 12px 4px;
 }
 
 /* Auto-growing free-text answer (see AnswerField): mirror and textarea share
@@ -420,7 +441,20 @@
 }
 
 @media (max-width: 720px) {
+  .frame {
+    /* Handsets drop the 16px inset that keeps the card at input-card - 32 on
+       desktop: the takeover replaces the input card, so it takes the input
+       card's own gutter — the bare side clearance. */
+    padding-right: var(--dsh-composer-side-clearance);
+    padding-left: var(--dsh-composer-side-clearance);
+  }
+
   .card {
+    /* The reading-length axis (--dsh-chat-content-width) shrinks with the
+       column's 64% term, which can leave the card narrower than its own
+       footer on handsets; at this width the card hugs the frame like the
+       composer card does. */
+    max-width: 100%;
     border-radius: 16px;
   }
 
@@ -430,6 +464,14 @@
 
   .options {
     padding: 4px 8px;
+  }
+
+  .optionsPinned {
+    padding-bottom: 0;
+  }
+
+  .customPinned {
+    padding: 0 8px 4px;
   }
 
   .title {
@@ -443,6 +485,11 @@
   }
 
   .footer {
+    /* Wrap insurance for the narrowest handsets: pager plus actions can
+       exceed even the full-width card, and overflow:hidden would clip the
+       submit action out of reach. */
+    flex-wrap: wrap;
+    row-gap: 8px;
     align-items: flex-end;
     padding: 0 10px;
   }

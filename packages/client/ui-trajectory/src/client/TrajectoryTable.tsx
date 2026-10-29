@@ -2436,6 +2436,8 @@ export function TrajectoryTable({
                       aria-selected={!isCollapsedSummary && !isRequestOnly && selectedIndex === record.cell.index}
                       data-kind={record.cell.kind}
                       data-trajectory-row-key={trajectoryVirtualRecordKey(record)}
+                      data-trajectory-seq={record.cell.sourceSeq}
+                      data-trajectory-call-id={record.cell.callId}
                       data-virtual-position={virtualizationEnabled ? position : undefined}
                       data-record-index={!isCollapsedSummary && !isRequestOnly
                         ? record.cell.index

@@ -1,0 +1,40 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": [
+    "src/analysis.ts",
+    "src/compose.ts",
+    "src/domain.ts",
+    "src/index.ts",
+    "src/materials.ts",
+    "src/note-sessions.ts",
+    "src/remote-events.ts",
+    "src/remote.ts",
+    "src/settings.ts",
+    "src/store.ts",
+    "src/thread.ts",
+    "src/turns.ts",
+    "src/types.ts"
+  ],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/schemastery" },
+    { "path": "../../attachment/attachment" },
+    { "path": "../../core/agent" },
+    { "path": "../../core/agent-default-model" },
+    { "path": "../../core/session" },
+    { "path": "../../llm/llm" },
+    { "path": "../../preset/agent-presets" },
+    { "path": "../../session/session-title" },
+    { "path": "../../settings/settings" },
+    { "path": "../../storage/storage" },
+    { "path": "../../storage/storage-domain" },
+    { "path": "../../typert/protocol" },
+    { "path": "../../util/brand" },
+    { "path": "../../workspace/workspace" }
+  ]
+}

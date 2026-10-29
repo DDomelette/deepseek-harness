@@ -84,6 +84,10 @@ Tier 2 在持续 `idleSilenceMs` 没有输出后返回 `inferred_idle`，因此 
 
 `node-pty` data 通知进入同一个终端 parser。parser 的 carry state 会处理跨 callback 的控制序列和位于 callback 末尾的回车；因此，即使 CRLF 被拆开，也只会生成一个换行，而不会产生改变分页的空行。实现会规范化行式输出，但不承诺正确操作全屏应用。
 
+空观察发送会保留提示符证据，因为 Linux stdin 等待检测可能在可打印提示符尾部到达前就结束一次发送。如果后续观察清除先前的标记，即使 shell 没有收到新输入，启动流程也无法识别随后完成的提示符。
+
+pwsh 在提交设置前等待 shell 初次输入就绪。在 POSIX 上，过早发送的回车可能经过 `ICRNL` 转换，以 Ctrl+Enter 到达 PSReadLine，使设置停留在编辑缓冲区中。初次就绪等待与受控提示符验证共用同一个绝对截止时间。
+
 ### 模型可见输出与持久性
 
 现有持久化 `tool/call` 与 `tool/result` 事件是模型发送文本和返回给模型的渲染输出的真源。`terminal_open` 通过已记录的工具结果返回 MOTD；前台 `send`/`read`/`list`/`signal`/`close` 结果走同一路径记录。PTY 包不会把原始字节流重复写入自定义会话事件。

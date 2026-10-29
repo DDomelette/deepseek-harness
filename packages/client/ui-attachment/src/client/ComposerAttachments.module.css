@@ -61,6 +61,24 @@
   }
 }
 
+/* The composer's coarse-pointer floor (InputBar.module.css, WCAG 2.5.5)
+   reaches every button in the card, including this slot's badges: a 44px
+   remove badge would bury the 64px thumbnail and sit asymmetrically inside
+   it. The badge keeps its drawn 18px size here; a transparent hit zone
+   centered on it preserves the 44px touch target. */
+@media (pointer: coarse) {
+  .rail .remove {
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .rail .remove::after {
+    content: '';
+    position: absolute;
+    inset: -13px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .remove {
     transition: none;

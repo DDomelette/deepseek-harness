@@ -15,6 +15,11 @@
  * scrollbar at all: the shell tracks the pointer and rebinds ui-theme's
  * scrollbar indirection away while it is elsewhere, so a list the user is not
  * pointing at carries no bar.
+ *
+ * Below the layout's overlay breakpoint the rail leaves the grid (owner prop
+ * `fab`): collapsed renders one floating brand button fixed to the frame's
+ * top-left corner as the drawer trigger, and the rail controls stay out of the
+ * tree until the band is left.
  */
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
@@ -88,6 +93,7 @@ function PanelRow({ id, label, wide, usePanelInfo, selectPanel, renderSlot }: Pa
 export function SidebarRoot({
   collapsed,
   width,
+  fab,
   startSession,
   toggleSidebar,
   selectPanel,
@@ -162,6 +168,26 @@ export function SidebarRoot({
   }, [pointerInside])
 
   const buildVersion = localBuildVersion()
+
+  // Handset band (owner prop fab): the rail's whole job collapses into one
+  // floating brand button fixed to the frame's top-left corner. Opening the
+  // drawer flips `collapsed`, so the button unmounts itself.
+  if (collapsed && fab) {
+    return (
+      <Tooltip label={t('toggle.open')} delayMs={500}>
+        <button
+          type="button"
+          className={css.fab}
+          aria-label={t('toggle.open')}
+          onClick={() => { toggleSidebar() }}
+        >
+          <span className={css.fabMark} aria-hidden="true">
+            {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+          </span>
+        </button>
+      </Tooltip>
+    )
+  }
 
   return (
     <div

@@ -1,6 +1,6 @@
 /** Strict per-session header/body content inserted into the resident conversation layout. */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -177,6 +177,9 @@ export function ConversationSession({
   const inputState = useInput(s => s)
   const storedDraft = useStore(s => s.draft)
   const viewRequest = useStore(s => s.viewRequest ?? null)
+  // The covering layer anchors to what the reader selected inside this element,
+  // so it needs the element itself rather than a handle it would have to guess at.
+  const [content, setContent] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     if (inputState.draft === '' && storedDraft !== '') inputActions.setDraft(storedDraft)
@@ -188,12 +191,13 @@ export function ConversationSession({
 
   if (session.blank && conversationPhase(session, conversation) === 'blank') return null
   return (
-    <div className={css.viewArea}>
+    <div className={css.viewArea} ref={setContent}>
       {active !== undefined && renderSlot('conversation.view', {
         viewRequest,
         openView,
         completeViewRequest: actions.completeViewRequest,
       }, { only: active.id })}
+      {renderSlot('conversation.session.overlay', { view: active?.id ?? '', content })}
     </div>
   )
 }

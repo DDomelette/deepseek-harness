@@ -78,6 +78,7 @@
   height: 22px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -86,15 +87,6 @@
 
 .iconButton:hover {
   background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.visuallyHidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
 }
 
 .dropBefore::before,

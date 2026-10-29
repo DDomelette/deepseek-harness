@@ -41,7 +41,7 @@ The service requires `storageDomain` and stores one `session_deletion` plan per 
 - Deletion order is leaves-first so no dangling parent exists after a crash.
 - Already-gone members are marked `missing` and still receive workspace cleanup.
 - Each member transition persists before the next operation.
-- A `session/created` for an active plan member rolls back the attach.
+- The synchronous `session/created` listener rolls back creation of an active plan member or a new child of one; unrelated Sessions remain available.
 
 <a id="errors"></a>
 ## Errors

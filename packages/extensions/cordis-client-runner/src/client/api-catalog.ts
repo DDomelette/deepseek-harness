@@ -88,7 +88,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     methods: [
       {
         signature: 'selectPanel(panelId: MainPanelId | null): void',
-        description: 'Select a global central panel without changing the current Session.',
+        description: 'Select a global central panel without changing the current Session. In the handset overlay band the selection also ends the drawer presentation, the same way the scrim, Escape, and the close gesture do.',
         parameters: [{ name: 'panelId', description: 'registered main key, or null to show the Conversation.' }],
         throws: ['if the selected main key is not registered; preserves the current selection.'],
       },
@@ -511,6 +511,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ComposedProps<K extends keyof SlotMap & string, EntryKey extends EntryKeyOf<K>, S extends keyof SlotMap & string, H, I extends object, M = never, N = undefined> = PropsRuntime<K, EntryKey> & PropsRenderSlots<S> & PropsStore<H> & InjectFace<I> & MatchedShare<SlotMap[K], M> & PropsLocale<N>;',
   },
   {
+    name: 'ConnectionFailure',
+    declaration: 'export interface ConnectionFailure {\n    readonly reason: ConnectionFailureReason;\n    readonly detail: string;\n}',
+  },
+  {
+    name: 'ConnectionFailureReason',
+    declaration: 'export type ConnectionFailureReason = \'auth\' | \'forbidden\' | \'timeout\' | \'unreachable\' | \'internal\';',
+  },
+  {
+    name: 'ConnectionFailureSource',
+    declaration: 'export interface ConnectionFailureSource {\n    getSnapshot(): ConnectionFailure | undefined;\n    subscribe(listener: () => void): () => void;\n}',
+  },
+  {
     name: 'ConnectionGeneration',
     declaration: 'export interface ConnectionGeneration {\n    readonly id: number;\n    readonly host: ConnectionHostInfo;\n}',
   },
@@ -524,7 +536,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionHandle',
-    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly state: ConnectionStateSource;\n    readonly rpc: ClientConnectionRpc;\n    reconnect(): void;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionRecoveryConfig): ConnectionLoop;\n}',
+    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly state: ConnectionStateSource;\n    readonly failure: ConnectionFailureSource;\n    readonly rpc: ClientConnectionRpc;\n    reconnect(): void;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionRecoveryConfig): ConnectionLoop;\n}',
   },
   {
     name: 'ConnectionHostInfo',
@@ -548,7 +560,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionSinks',
-    declaration: 'export interface ConnectionSinks {\n    onConnected?: (host: ConnectionHostInfo) => void;\n    onStateChange?: (state: ConnectionState) => void;\n    onReconnectRequested?: () => void;\n}',
+    declaration: 'export interface ConnectionSinks {\n    onConnected?: (host: ConnectionHostInfo) => void;\n    onStateChange?: (state: ConnectionState) => void;\n    onReconnectRequested?: () => void;\n    onFailure?: (error: Error) => void;\n}',
   },
   {
     name: 'ConnectionState',

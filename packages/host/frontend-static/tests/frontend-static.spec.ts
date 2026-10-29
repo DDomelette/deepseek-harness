@@ -6,7 +6,9 @@
  * GET/HEAD, and seat release on fiber disposal (HMR safety).
  */
 
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -38,6 +40,10 @@ async function loadComposition(): Promise<Context> {
   await writeFile(distIndex, '<head></head><body>shell</body>')
   await writeFile(join(dist, 'app.js'), 'export {}')
   await writeFile(join(dist, 'blob.bin'), 'BLOB')
+  await writeFile(join(dist, 'icon.png'), 'PNG')
+  await writeFile(join(dist, 'shell.woff2'), 'WOFF2')
+  await writeFile(join(dist, 'shell.woff'), 'WOFF')
+  await writeFile(join(dist, 'shell.ttf'), 'TTF')
   await writeFile(join(dist, 'manifest.webmanifest'), '{}')
   await mkdir(join(dist, 'empty'))
   const configPath = join(root, 'cordis.yml')
@@ -51,6 +57,9 @@ async function loadComposition(): Promise<Context> {
     "    host: '127.0.0.1'",
     '    port: 0',
     "- name: '@deepseek-ai/dsh-client-connection'",
+    '  config:',
+    '    trustedHosts:',
+    "      - '192.168.1.5'",
     '- id: frontend',
     "  name: '@deepseek-ai/dsh-host-frontend-static'",
     '  config:',
@@ -93,6 +102,37 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
   }
 }
 
+/**
+ * GET one path with the Host header a browser on another machine sends.
+ * @param port - loopback port the fixture server listens on.
+ * @param host - the authority the request declares.
+ * @param cookie - optional Cookie header.
+ * @returns status, content-type, and the body.
+ */
+function lanRequest(port: number, host: string, cookie?: string): Promise<{ status: number; type: string | undefined; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      path: '/',
+      method: 'GET',
+      headers: { host, ...cookie === undefined ? {} : { cookie } },
+    }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          type: res.headers['content-type'],
+          body: Buffer.concat(chunks).toString('utf8'),
+        })
+      })
+    })
+    req.once('error', reject)
+    req.end()
+  })
+}
+
 describe('real Loader composition', () => {
   it('serves explicit index entries and files while preserving HTTP error semantics', { timeout: 60_000 }, async () => {
     const loaded = await loadComposition()
@@ -121,6 +161,33 @@ describe('real Loader composition', () => {
       body: 'dsh web authentication required; reopen the URL printed by dsh web.\n',
     })
 
+    // A browser on the LAN holds no launch token, so it receives the shell
+    // marked as needing authentication instead of a dead end; the pairing
+    // screen renders from that fact.
+    const lanAuthority = '192.168.1.5:3080'
+    const anonymous = await lanRequest(port, lanAuthority)
+    expect(anonymous.status).toBe(401)
+    expect(anonymous.type).toBe('text/html; charset=utf-8')
+    expect(anonymous.body).toContain('globalThis.__DSH_AUTH_REQUIRED__ = true')
+    expect(anonymous.body).toContain('shell')
+
+    // The fence keeps the shell away from an authority this Host does not
+    // trust: an undeclared name receives the plain refusal, never the app.
+    const untrusted = await lanRequest(port, 'evil.example:3080')
+    expect(untrusted.status).toBe(401)
+    expect(untrusted.type).toBe('text/plain; charset=utf-8')
+    expect(untrusted.body).not.toContain('__DSH_AUTH_REQUIRED__')
+
+    // A paired device's own cookie is the LAN credential: the same request then
+    // serves the ordinary shell.
+    const device = await loaded.connection.devices.register({ label: 'phone' })
+    const issued = loaded.connection.devices.issueCookie({ headers: { host: lanAuthority } }, device.id)
+    if (issued === undefined) throw new Error('pairing did not issue a device cookie')
+    const paired = await lanRequest(port, lanAuthority, issued.split(';', 1)[0])
+    expect(paired.status).toBe(200)
+    expect(paired.type).toBe('text/html; charset=utf-8')
+    expect(paired.body).not.toContain('__DSH_AUTH_REQUIRED__')
+
     // Real assets with their MIME types; a live rebuild is served on the next read.
     expect(await request(port, '/app.js')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8', body: 'export {}' })
     expect(await request(port, '/manifest.webmanifest')).toMatchObject({
@@ -139,6 +206,18 @@ describe('real Loader composition', () => {
     // Unknown extension ships as octet-stream.
     expect(await request(port, '/blob.bin')).toMatchObject({ status: 200, type: 'application/octet-stream', body: 'BLOB' })
 
+    // The icon fonts and images the shipped dist carries are served as
+    // themselves, not as octet-stream downloads.
+    const typed = [
+      ['/icon.png', 'image/png', 'PNG'],
+      ['/shell.woff2', 'font/woff2', 'WOFF2'],
+      ['/shell.woff', 'font/woff', 'WOFF'],
+      ['/shell.ttf', 'font/ttf', 'TTF'],
+    ] as const
+    for (const [path, type, body] of typed) {
+      expect(await request(port, path)).toMatchObject({ status: 200, type, body })
+    }
+
     // Only the root and index path render index.html through registered taps.
     const untap = server.tapIndex(html => html.replace('<head>', '<head><script>window.__T__=1</script>'))
     for (const path of ['/', '/index.html', '/?fixture']) {
@@ -153,17 +232,47 @@ describe('real Loader composition', () => {
       type: 'text/html; charset=utf-8',
       body: '',
     })
+
+    // A path that differs only in case names the same file on a case-insensitive
+    // volume (NTFS, APFS). Comparing path text would serve it as a static asset
+    // and skip the index's authentication, so this probe picks the expectation
+    // and both branches pin correct behavior — the Windows job runs the first.
+    const caseInsensitiveVolume = existsSync(join(root!, 'dist', 'INDEX.HTML'))
+    for (const alias of ['/INDEX.html', '/Index.HTML']) {
+      const anonymous = await request(port, alias)
+      const paired = await request(port, alias, authenticated())
+      if (caseInsensitiveVolume) {
+        expect([alias, anonymous.status, anonymous.type])
+          .toEqual([alias, 401, 'text/plain; charset=utf-8'])
+        expect([alias, paired.status, paired.body.includes('__T__')]).toEqual([alias, 200, true])
+      } else {
+        expect([alias, anonymous.status, paired.status]).toEqual([alias, 404, 404])
+      }
+    }
     untap()
     expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
 
-    // A missing configured index follows the same empty-404 contract for both
-    // of its public entry paths and for both supported methods.
+    // A headless shell receives the fact ahead of every script, the placement
+    // the webserver's own injection renderer uses for a page without a head.
+    await writeFile(join(root!, 'dist', 'index.html'), '<body>shell</body>')
+    const headless = await lanRequest(port, lanAuthority)
+    expect(headless.status).toBe(401)
+    expect(headless.body.startsWith('<script>globalThis.__DSH_AUTH_REQUIRED__ = true</script>')).toBe(true)
+    expect(headless.body).toContain('shell')
+
+    // A missing configured index answers 404 with the build hint for both of its
+    // public entry paths: the readiness line already advertised a URL, so the
+    // operator learns which step produces the shell instead of a bare 404.
     await rm(join(root!, 'dist', 'index.html'))
     for (const path of ['/', '/index.html']) {
       const get = await request(port, path, authenticated())
       const head = await request(port, path, authenticated({ method: 'HEAD' }))
-      expect(get).toEqual({ status: 404, type: null, body: '' })
-      expect(head).toEqual(get)
+      expect(get).toEqual({
+        status: 404,
+        type: 'text/plain; charset=utf-8',
+        body: 'the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n',
+      })
+      expect(head).toEqual({ status: 404, type: get.type, body: '' })
     }
 
     // Ordinary unknown paths and static-resource misses are empty 404s for
@@ -193,6 +302,10 @@ describe('real Loader composition', () => {
     // malformed filesystem target still reaches the webserver's 400 guard.
     expect((await request(port, '/..%2f..%2fetc%2fpasswd')).status).toBe(403)
     expect((await request(port, '/app.js', { method: 'POST' })).status).toBe(405)
+    // A 405 names the methods this seat answers, so a client learns what to
+    // retry with instead of guessing.
+    const notAllowed = await fetch(`http://127.0.0.1:${String(port)}/app.js`, { method: 'POST' })
+    expect(notAllowed.headers.get('allow')).toBe('GET, HEAD')
     expect((await request(port, '/bad%00path')).status).toBe(400)
 
     // HMR safety: disposing the frontend row releases the fallback seat (the
@@ -202,5 +315,24 @@ describe('real Loader composition', () => {
     await frontendEntry!.fiber?.dispose()
     expect((await request(port, '/no/such/route')).status).toBe(404)
     expect(() => server.registerFallback(() => {})).not.toThrow()
+  })
+
+  it('keeps a dist read failure that is not absence loud', async () => {
+    const ctx = new Context()
+    ctx.provide('webServer', {
+      registerFallback: () => () => {},
+      renderIndex: (html: string) => html,
+    } as never)
+    ctx.provide('connection', { authorizeIndex: () => 'serve' } as never)
+    try {
+      // A configured index path this build cannot even attempt to read: the
+      // miss answer belongs to an absent dist, so the failure reaches the
+      // caller instead of reading as "unbuilt".
+      FrontendStatic.apply(ctx, { distIndex: `${join('tmp', 'dist')}\u0000index.html` })
+      const frontend = ctx.get(FrontendStatic.FRONTEND_SERVICE) as { renderIndex(): Promise<string | undefined> }
+      await expect(frontend.renderIndex()).rejects.toThrow(/without null bytes/u)
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 })

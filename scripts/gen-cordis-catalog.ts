@@ -183,6 +183,12 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   sidebarRight: 'client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API',
   sidebarRightTabs: 'client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API',
   documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
+  notesStore: 'Host service the notes function plugin mounts to own the notes storage domain — packages/notes/notes/README.md owns the API',
+  notesMaterials: 'Host service the notes function plugin mounts for durable material storage — packages/notes/notes/README.md owns the API',
+  notesSessions: 'Host service the notes function plugin mounts for notes-conversation records — packages/notes/notes/README.md owns the API',
+  notesSettings: 'Host service the notes function plugin mounts as the settings-section owner — packages/notes/notes/README.md owns the API',
+  notesAnalysis: 'Host service the notes function plugin mounts to submit a material into its notes conversation — packages/notes/notes/README.md owns the API',
+  notes: 'Host service the notes function plugin mounts as the Remote namespace the Web panel calls — packages/notes/notes/README.md owns the API',
 }
 
 /**
@@ -207,6 +213,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'fs': 'filesystem.md',
   'goal': 'goal.md',
   'llm': 'llm-streaming.md',
+  'notes': 'session.md',
   'session': 'session.md',
   'settings': 'settings.md',
   'skills': 'skills.md',
@@ -691,6 +698,8 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
+  MaterialId: 'notes material identity is owned by packages/notes/notes/src/types.ts',
+  NoteSessionId: 'notes conversation identity is owned by packages/notes/notes/src/types.ts',
   SkillCatalogValue: 'Service-local type documented in packages/api/session-controller/README.md',
   WorkspaceBaseline: 'Service-local type documented in packages/api/workspace-controller/README.md',
   SessionFlagProvider: 'Service-local type documented in packages/session/session-flags/README.md',

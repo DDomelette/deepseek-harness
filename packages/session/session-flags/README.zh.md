@@ -24,13 +24,13 @@ DeepSeek Harness 的通用按会话展示标记。Provider 注册其拥有的会
 ## 服务 API
 
 - `registerProvider(provider)` — 注册一个 `SessionFlagProvider`（`id` 加同步的 `list()`）；返回移除它的 disposer。重复 id 会抛出。
-- `snapshot()` — 按注册顺序合并 provider。后面的 provider 在会话和标记键上获胜。返回 `{ flags, complete }`；任一 provider 失败后 `complete` 为 `false`。
+- `snapshot()` — 按注册顺序合并 provider。后面的 provider 在会话和标记键上获胜。返回 `{ flags, complete }`；部分结果带有 `complete: false`，回退时则保留先前的完整快照。
 
 <a id="failure-semantics"></a>
 ## 失败语义
 
 - 失败的 provider 被记录并跳过；成功的 provider 仍会贡献。
-- 当所有 provider 都失败且存在先前的完整快照时，返回先前的完整快照。
+- 当失败导致没有任何标记时，返回先前的完整快照；其初始值为空。
 - 完整快照会成为 last-good 快照。
 
 <a id="model-experience"></a>

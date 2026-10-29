@@ -986,17 +986,20 @@ describe('registry-global session archive', () => {
 
   it('unarchiveSession removes the id from the archive set and is idempotent', async () => {
     const dir = await makeDir('unarchive-home')
-    const result = await harness({ sessions: [header('s1', dir, 100)] })
+    const result = await harness({ sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
+    await result.registry.archiveSession(SessionId('s2'))
+    const retainedAt = result.registry.archivedSessionAts[SessionId('s2')]
     await result.registry.archiveSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual(['s1'])
+    expect(result.registry.archivedSessionIds).toEqual(['s2', 's1'])
     expect(result.registry.archivedSessionAts).toHaveProperty('s1')
     await result.registry.unarchiveSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual([])
-    expect(result.registry.archivedSessionAts).toEqual({})
+    expect(result.registry.archivedSessionIds).toEqual(['s2'])
+    expect(storedState(result.pool).archivedSessionAts).toEqual({ s2: retainedAt })
+    result.changes.length = 0
     await result.registry.unarchiveSession(SessionId('s1'))
-    expect(result.registry.archivedSessionIds).toEqual([])
     await result.registry.unarchiveSession(SessionId('never-archived'))
-    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.archivedSessionIds).toEqual(['s2'])
+    expect(result.changes).toEqual([])
   })
 
   it('forgetSession removes archive membership and every workspace account slot', async () => {

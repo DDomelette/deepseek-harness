@@ -97,6 +97,22 @@ describe('coverage partition count', () => {
 })
 
 describe('coverage partition timeout', () => {
+  it('applies the lane budget to each actual Vitest project', async () => {
+    vi.stubEnv(COVERAGE_TEST_TIMEOUT_ENV, '90000')
+    vi.resetModules()
+    try {
+      const configModule: unknown = await import(new URL('../vitest.config.ts', import.meta.url).href)
+      const timing = { testTimeout: 90000, hookTimeout: 90000, expect: { poll: { timeout: 90000 } } }
+      expect(configModule).toMatchObject({ default: { test: {
+        ...timing,
+        projects: [{ test: timing }, { test: timing }],
+      } } })
+    } finally {
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    }
+  })
+
   it('applies one configured timeout to tests, polling, and hooks', () => {
     expect(coverageTestTimeoutArgs('30000')).toEqual([
       '--testTimeout=30000',

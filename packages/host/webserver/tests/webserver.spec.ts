@@ -250,10 +250,27 @@ describe('real Loader composition', () => {
     expect((await request(port, '/once')).body).toContain('shell') // back to the fallback owner
     expect(() => server.register({ kind: 'exact', path: '/once', handler: () => {} })).not.toThrow()
 
+    // An owner releases its own registration, not the path: a disposer that runs
+    // again after another owner took the path must leave that route serving.
+    const disposeFirst = server.register({ kind: 'exact', path: '/shared', handler: (_req, res) => { res.writeHead(200); res.end('FIRST') } })
+    disposeFirst()
+    const disposeSecond = server.register({ kind: 'exact', path: '/shared', handler: (_req, res) => { res.writeHead(200); res.end('SECOND') } })
+    disposeFirst()
+    expect(await request(port, '/shared')).toMatchObject({ status: 200, body: 'SECOND' })
+    disposeSecond()
+    expect((await request(port, '/shared')).body).toContain('shell')
+
     // Releasing the seat restores the unclaimed 404 and registrability.
     releaseFallback()
     expect((await request(port, '/no/such/route')).status).toBe(404)
-    expect(() => server.registerFallback(() => {})).not.toThrow()
+    const releaseNoopSeat = server.registerFallback(() => {})
+    expect(() => server.registerFallback(() => {})).toThrow(/fallback already registered/)
+    // The seat holds the same identity rule as a route: the disposer of an owner
+    // that already released the seat cannot take it from the owner holding it.
+    releaseFallback()
+    expect(() => server.registerFallback(() => {})).toThrow(/fallback already registered/)
+    releaseNoopSeat()
+    expect((await request(port, '/no/such/route')).status).toBe(404)
 
     // Upgrade routes match exact pathnames, reject duplicate ownership, and
     // become registrable again after disposal. The accepted socket stays open
@@ -352,7 +369,10 @@ describe('real Loader composition', () => {
       { kind: 'script', placement: 'head', text: 'H' },
       { kind: 'script', placement: 'body', text: 'B' },
     ])).toBe('<script>H</script><main>x</main><script>B</script>'
-      + '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>')
+      + '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => {'
+      + ' const held = {};'
+      + ' held.promise = new Promise((resolve, reject) => { held.resolve = resolve; held.reject = reject });'
+      + ' return held })()).resolve()</script>')
   })
 
   it('fails the fiber when the port is already taken (fail-loud at activation)', { timeout: 60_000 }, async () => {

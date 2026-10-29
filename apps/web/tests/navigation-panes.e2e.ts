@@ -277,16 +277,21 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     const exportButton = page.getByRole('button', { name: 'More actions' })
     expect(await exportButton.isDisabled()).toBe(false)
     const header = exportButton.locator('xpath=ancestor::header[1]')
-    // The right Sidebar's expand button holds the header's corner; the export
-    // control sits immediately to its left.
+    // The header's corner is a list seat, so the right Sidebar's expand control
+    // and whatever the assembly registers beside it both hold it: the notes
+    // control is rightmost in the shipped profile, and the export control sits
+    // to the left of them.
     const sidebarButton = page.getByRole('button', { name: 'Open right sidebar' })
-    const [buttonBox, sidebarBox, headerBox] = await Promise.all([
-      exportButton.boundingBox(), sidebarButton.boundingBox(), header.boundingBox(),
+    const notesButton = page.getByRole('button', { name: 'Open the notes panel' })
+    const [buttonBox, sidebarBox, notesBox, headerBox] = await Promise.all([
+      exportButton.boundingBox(), sidebarButton.boundingBox(),
+      notesButton.boundingBox(), header.boundingBox(),
     ])
-    if (buttonBox === null || sidebarBox === null || headerBox === null) {
+    if (buttonBox === null || sidebarBox === null || notesBox === null || headerBox === null) {
       throw new Error('Session Header export geometry is unavailable')
     }
-    expect(headerBox.x + headerBox.width - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(32)
+    expect(headerBox.x + headerBox.width - (notesBox.x + notesBox.width)).toBeLessThanOrEqual(32)
+    expect(notesBox.x - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(32)
     expect(sidebarBox.x - (buttonBox.x + buttonBox.width)).toBeLessThanOrEqual(32)
     const responsePromise = page.waitForResponse(response =>
       response.request().method() === 'HEAD'

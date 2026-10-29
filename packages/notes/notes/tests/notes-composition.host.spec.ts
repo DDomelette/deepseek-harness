@@ -1,0 +1,210 @@
+/**
+ * The notes plugin through a real Loader composition.
+ *
+ * `packages/AGENTS.md` requires a non-unit composition test for a
+ * product-visible plugin, so this boots a test-owned `cordis.yml` through the
+ * real Loader rather than hand-building a context. The row carries no `config`,
+ * so what it serves is exactly what the schema defaults compose.
+ *
+ * The config is written into a temporary directory this spec owns instead of a
+ * committed fixture: suites run in forked workers beside the other gate
+ * processes, and a shared fixture path (or a shared environment variable naming
+ * one) would couple them.
+ */
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { Context, FiberState } from '@deepseek-ai/cordis'
+import Include from '@deepseek-ai/cordis-plugin-include'
+import Loader from '@deepseek-ai/cordis-plugin-loader'
+import Storage from '@deepseek-ai/dsh-storage'
+import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
+import * as StorageJson from '@deepseek-ai/dsh-storage-json'
+import { afterEach, describe, expect, it } from 'vitest'
+import * as Notes from '../src/index.ts'
+import { notesDomainSpec } from '../src/domain.ts'
+import { material, noteId, noteSession, published, sessionId } from './bench.ts'
+
+const NOTES_PACKAGE = '@deepseek-ai/dsh-notes'
+
+/** A conversation id no fixture ever writes to. */
+const listedNoteId = noteId('probe-conversation')
+
+/** The resume requests the composition's stand-in registry received. */
+const resumed: Record<string, unknown>[] = []
+
+/**
+ * Stand-in for the host's agent row. The notes row resolves `agents` from a
+ * sibling host row in the shipped composition, so this mounts as its own Loader
+ * row rather than as a root-level provide.
+ *
+ * Resolving no live agent is enough to activate the notes row; `resume` is here
+ * because a conversation recorded by an earlier run is loaded again through it,
+ * and this spec pins that the Loader-composed plugin reaches that path with the
+ * Session its own record names.
+ */
+const FakeAgentRegistry = {
+  name: 'fake-agent-registry',
+  apply: (ctx: Context): void => {
+    ctx.provide('agents', {
+      get: () => undefined,
+      resume: async (options: Record<string, unknown>) => {
+        resumed.push(options)
+        return {
+          agent: {
+            session: { id: options['resumeSessionId'], snapshotEvents: () => [] },
+            followup: () => undefined,
+            options: {},
+          },
+          dispose: async () => undefined,
+        }
+      },
+    } as never)
+  },
+}
+
+let root: string | undefined
+const contexts: Context[] = []
+
+afterEach(async () => {
+  await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
+  if (root !== undefined) await rm(root, { recursive: true, force: true })
+  root = undefined
+  resumed.length = 0
+})
+
+/**
+ * Boot one composition file through the Loader.
+ * @param configPath - absolute path of the `cordis.yml` to boot.
+ * @returns the settled context.
+ */
+async function loadComposition(configPath: string): Promise<Context> {
+  const ctx = new Context()
+  contexts.push(ctx)
+  ctx.baseUrl = `${pathToFileURL(root as string).href}/`
+  await ctx.plugin(Loader)
+  ctx.loader.builtins.include = Include
+  const modules = new Map<string, unknown>([
+    ['@deepseek-ai/dsh-storage', Storage],
+    ['@deepseek-ai/dsh-storage-json', StorageJson],
+    ['@deepseek-ai/dsh-storage-domain', StorageDomain],
+    ['@deepseek-ai/dsh-agent', FakeAgentRegistry],
+    [NOTES_PACKAGE, Notes],
+  ])
+  ctx.loader.internal = {
+    version: 'v2',
+    async import(specifier: string) {
+      if (!modules.has(specifier)) throw new Error(`unexpected Loader import: ${specifier}`)
+      return modules.get(specifier)
+    },
+  } as unknown as NonNullable<typeof ctx.loader.internal>
+  await ctx.loader.create({
+    name: 'cordis:include',
+    config: { path: pathToFileURL(configPath).href },
+  })
+  await ctx.loader.await()
+  expect([...ctx.loader.entries()]
+    .filter(entry => entry.fiber === undefined && !entry.disabled)
+    .map(entry => entry.options.name)).toEqual([])
+  return ctx
+}
+
+/** Write the test composition into the spec's temporary directory. */
+async function writeComposition(): Promise<string> {
+  root = await mkdtemp(join(tmpdir(), 'dsh-notes-loader-'))
+  const configPath = join(root, 'cordis.yml')
+  await writeFile(configPath, [
+    "- name: '@deepseek-ai/dsh-storage'",
+    "- name: '@deepseek-ai/dsh-storage-json'",
+    '  config:',
+    `    root: ${JSON.stringify(join(root, 'storage'))}`,
+    "- name: '@deepseek-ai/dsh-storage-domain'",
+    '  config:',
+    '    backend: json',
+    // A sibling row, not a root-level provide: the notes row must resolve
+    // `agents` the way it does in the shipped composition, where another host
+    // row owns the registry.
+    "- name: '@deepseek-ai/dsh-agent'",
+    '- id: notes',
+    `  name: '${NOTES_PACKAGE}'`,
+    '',
+  ].join('\n'))
+  return configPath
+}
+
+describe('notes through a real Loader composition', () => {
+  it('activates the host half and serves the row schema defaults', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+
+    const rows = [...ctx.loader.entries()].filter(entry => entry.options.name === NOTES_PACKAGE)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.fiber?.state).toBe(FiberState.ACTIVE)
+    await published(() => ctx.get('notesSessions'), 'notesSessions')
+    expect(ctx.notesSessions.list()).toEqual([])
+    expect(ctx.notesMaterials.list(listedNoteId)).toEqual([])
+    // The bare row supplies no config, so these values are the schema defaults
+    // the Loader resolved — not anything this spec passed in.
+    expect(ctx.notesSettings.strategy()).toBe('manual')
+    expect(ctx.notesSettings.actions().map(action => action.id)).toEqual(['translate'])
+    expect(ctx.notesSettings.workspace()).toBeNull()
+    expect(ctx.notesSettings.model()).toBeNull()
+  })
+
+  it('activates the analysis service when a sibling host row owns the agent registry', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+
+    await published(() => ctx.get('notesAnalysis'), 'notesAnalysis')
+    expect(ctx.notesAnalysis).toBeDefined()
+  })
+
+  it('answers the Remote namespace without reaching past its own injections', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+    await published(() => ctx.get('notesSessions'), 'notesSessions')
+
+    // The loaded runtime enforces what a hand-built context does not: a service
+    // the namespace reaches without declaring it throws
+    // `cannot get property "…" without inject`, which reaches the panel as an
+    // unreachable Host. Every operation below must answer with a notes result.
+    expect(ctx.notes.sessionList()).toEqual({ ok: true, value: { sessions: [], archived: [], activeId: null } })
+    expect(ctx.notes.materialList({ noteId: listedNoteId }))
+      .toEqual({ ok: false, error: { code: 'session-not-found', id: listedNoteId } })
+    // No settings provider is mounted here, so the section is refused rather
+    // than answered — the refusal, not a throw.
+    expect(ctx.notes.settingsRead()).toEqual({ ok: false, error: { code: 'settings-unavailable' } })
+  })
+
+  it('analyses a material whose conversation this process no longer holds', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+    await published(() => ctx.get('notesSessions'), 'notesSessions')
+    // A conversation an earlier run recorded: the notes domain holds the
+    // record, while this process holds no Agent for its Session.
+    const note = await ctx.notesSessions.record(
+      noteSession({ sessionId: sessionId('dsh-cold'), title: '笔记 · 00' }),
+    )
+    const id = await ctx.notesMaterials.create(material({ noteId: note, text: 'body' }))
+
+    await expect(ctx.notes.materialAnalyze({ id })).resolves.toEqual({ ok: true, value: { applied: true } })
+
+    expect(resumed).toEqual([expect.objectContaining({ resumeSessionId: 'dsh-cold' })])
+    expect(ctx.notesMaterials.get(id)?.status).toBe('analyzing')
+  })
+
+  it('releases the domain name when the notes row unmounts', async () => {
+    const configPath = await writeComposition()
+    const ctx = await loadComposition(configPath)
+    await published(() => ctx.get('notesStore'), 'notesStore')
+
+    const notesRow = [...ctx.loader.entries()].find(entry => entry.options.name === NOTES_PACKAGE)
+    await notesRow?.fiber?.dispose()
+
+    // The row's domain close ran with its fiber, so this context can open the
+    // same domain name again.
+    const reopened = await ctx.storageDomain.open(notesDomainSpec)
+    await reopened.close()
+  })
+})

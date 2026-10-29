@@ -23,6 +23,7 @@ import { SessionInputShell } from '../src/client/input/facade.ts'
 import { en, zh } from '../src/client/locales.ts'
 import { ConversationRoot } from '../src/client/skeleton/ConversationRoot.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
+import type { ConversationOverlayOwnerProps } from '../src/client/contract/slots.ts'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
 import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
 import type { HeroShellProps } from '../src/client/skeleton/EmptyHero.tsx'
@@ -170,6 +171,8 @@ function mount(
   const open = vi.fn()
   const slotCalls: string[] = []
   const lineageOwners: ConversationHeaderLineageOwnerProps[] = []
+  /** Owner share handed to the Session body's covering layer, per render. */
+  const overlayOwners: ConversationOverlayOwnerProps[] = []
   const viewTabs = options.viewTabs ?? [
     { id: 'chat', label: 'Chat' },
     { id: 'trajectory', label: 'Trajectory' },
@@ -214,6 +217,10 @@ function mount(
           t={t}
         />
       )
+    }
+    if (key === 'conversation.session.overlay') {
+      overlayOwners.push(owner as ConversationOverlayOwnerProps)
+      return null
     }
     if (key === 'conversation.session') {
       return (
@@ -318,7 +325,8 @@ function mount(
   }
   const view = render(<ConversationRoot {...props} />)
   return {
-    view, store, wiring, sink, retargetWorkspace, session, conversation, slotCalls, lineageOwners, seatOwners, open,
+    view, store, wiring, sink, retargetWorkspace, session, conversation, slotCalls, lineageOwners, seatOwners,
+    overlayOwners, open,
     pickerOwner: () => pickerOwner,
     rerender: () => { view.rerender(<ConversationRoot {...props} />) },
   }
@@ -451,6 +459,18 @@ describe('ConversationRoot resident composer', () => {
     expect(b.slotCalls).toContain('conversation.session.header.actions')
     expect(b.slotCalls).toContain('conversation.session.header.utilities')
     expect(b.slotCalls).toContain('conversation.session.header.corner')
+  })
+
+  it('covers the Session body, handing the layer the shown View and its content element', () => {
+    const b = mount(sessionSnapshotOf())
+    const last = b.overlayOwners.at(-1)
+
+    expect(b.slotCalls).toContain('conversation.session.overlay')
+    expect(last?.view).toBe('chat')
+    // The element is the one the View is rendered into, so a layer can tell
+    // whether a selection belongs to this conversation.
+    expect(last?.content?.className).toContain('viewArea')
+    expect(b.view.container.contains(last?.content ?? null)).toBe(true)
   })
 
   it('sticky composer seat wraps the whole overlay chain, not only the fallback stack', () => {
@@ -623,13 +643,44 @@ describe('ConversationRoot resident composer', () => {
     const b = mount(sessionSnapshotOf())
     const root = b.view.container.querySelector('[data-phase]') as HTMLElement
     // jsdom offsetWidth is 0 until faked: the observer publishes whatever the
-    // layout reports, and the CSS clamp() floors the axis at 680px either way.
+    // layout reports, and the CSS clamp floors the axis at min(680px, column)
+    // either way.
     Object.defineProperty(root, 'offsetWidth', { value: 1200, configurable: true })
     act(() => { fireResize(root) })
     expect(root.style.getPropertyValue('--dsh-conversation-column-width')).toBe('1200px')
     // No dragged preference: the user-width override stays absent so the
     // adaptive clamp term applies.
     expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('')
+  })
+
+  it('fits the content width to a handset column, clamping even a stored wide preference', () => {
+    localStorage.setItem('dsh.conversation.contentWidth', '800')
+    const b = mount(sessionSnapshotOf())
+    const root = b.view.container.querySelector('[data-phase]') as HTMLElement
+    // A 390px handset column: the floor degrades to the column width, so even
+    // a stored 800px preference clamps down to content = column.
+    Object.defineProperty(root, 'offsetWidth', { value: 390, configurable: true })
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('390px')
+    // No preference: the override stays absent and the CSS clamp's
+    // min(680px, column) floor resolves the same full-width result (e2e
+    // verifies the CSS side).
+    localStorage.removeItem('dsh.conversation.contentWidth')
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('')
+  })
+
+  it('keeps the desktop width axis unchanged on wide columns', () => {
+    localStorage.setItem('dsh.conversation.contentWidth', '800')
+    const b = mount(sessionSnapshotOf())
+    const root = b.view.container.querySelector('[data-phase]') as HTMLElement
+    // A stored preference inside the desktop bounds is used verbatim. The
+    // no-preference adaptive values (column 1000 → 680 floor, column 2000 →
+    // 920 cap) are formula-identical to before; the 1600 drag round-trip
+    // above covers the 920 cap through the handle base.
+    Object.defineProperty(root, 'offsetWidth', { value: 1000, configurable: true })
+    act(() => { fireResize(root) })
+    expect(root.style.getPropertyValue('--dsh-chat-user-width')).toBe('800px')
   })
 
   it('drag → persist → window clamp round-trip on a width handle', () => {

@@ -361,7 +361,19 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
-  /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
+  /**
+   * Delivery window in days a newly registered device receives. Each paired
+   * device's own window is set in the Connect-phone panel and stored in the
+   * `client-connection/paired-devices` record; this value only decides what a
+   * device starts with. Integer 1–365; there is no never-expires option.
+   * Default: 1.
+   */
+  deviceLifetimeDays?: number
+  /**
+   * Maximum bytes buffered for one request body on any buffered carrier route of
+   * this activation: the shared `/api` route and every channel registered through
+   * `connection.rpc.handle`. Default: 300 MiB.
+   */
   maxRequestBodyBytes?: number
 }
 
@@ -383,7 +395,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:72`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:78`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
@@ -903,7 +915,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/directory-picker-browse/src/index.ts:182`](../packages/host/directory-picker-browse/src/index.ts)
+Source: [`packages/host/directory-picker-browse/src/index.ts:222`](../packages/host/directory-picker-browse/src/index.ts)
 
 <a id="deepseek-aidsh-host-frontend-static"></a>
 
@@ -919,7 +931,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/frontend-static/src/index.ts:30`](../packages/host/frontend-static/src/index.ts)
+Source: [`packages/host/frontend-static/src/index.ts:56`](../packages/host/frontend-static/src/index.ts)
 
 <a id="deepseek-aidsh-host-open-in-app"></a>
 
@@ -1593,6 +1605,58 @@ export interface Config {
 ```
 
 Source: [`packages/feedback/message-feedback/src/index.ts:40`](../packages/feedback/message-feedback/src/index.ts)
+
+<a id="deepseek-aidsh-notes"></a>
+
+## `@deepseek-ai/dsh-notes`
+
+Requires: `storageDomain`
+
+```ts config-catalog
+/** Composition entry, also the settings base layer. */
+export interface Config {
+  /** `manual` waits for an explicit analyse; `auto` analyses on collection. */
+  readonly strategy: NotesStrategy
+  /** Collection actions the selection bubble offers. */
+  readonly actions: ActionDef[]
+  /**
+   * Absolute workspace path for notes conversations. Absent until first-run
+   * setup has chosen one; schemastery reserves `null` as "no default", so
+   * absence is `undefined` and the accessors report it as `null`.
+   */
+  readonly workspace?: string
+  /**
+   * Model override for notes conversations; absent follows the session default.
+   * A nested literal rather than a named type, so the config catalog renders
+   * both fields with their own prose.
+   */
+  readonly model?: {
+    /** Registered provider route. */
+    readonly provider: string
+    /** Provider-owned model id. */
+    readonly model: string
+    /** Adapter-owned reasoning effort; absent asks for the route's own default. */
+    readonly reasoningEffort?: string
+  }
+}
+
+/** When a newly collected material is sent to the model. */
+export type NotesStrategy = 'manual' | 'auto'
+
+/** One collection action: the bubble entry and the prompt it prepends. */
+export interface ActionDef {
+  /** Stable action id, stored as the material's `action`. */
+  readonly id: string
+  /** Localized label the selection bubble shows. */
+  readonly label: string
+  /** Prompt text prepended to the material body before submission. */
+  readonly prompt: string
+  /** Whether picking the action analyses immediately, ignoring the strategy. */
+  readonly autoSend: boolean
+}
+```
+
+Source: [`packages/notes/notes/src/settings.ts:83`](../packages/notes/notes/src/settings.ts)
 
 <a id="deepseek-aidsh-permission-presets"></a>
 
@@ -3566,6 +3630,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-mcp-manager` — requires `settings` · `loader` ([`packages/mcp/mcp-manager/src/index.ts`](../packages/mcp/mcp-manager/src/index.ts))
+- `@deepseek-ai/dsh-mob` — requires `webServer` · `connection` ([`packages/bundle/mob/src/index.ts`](../packages/bundle/mob/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))

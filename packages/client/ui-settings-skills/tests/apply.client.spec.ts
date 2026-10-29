@@ -1,14 +1,15 @@
 /** Skills settings section registration: slot injection, locale-following label, and disposal. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-skills/client'
 import { SkillsSection } from '../src/client/SkillsSection.tsx'
+import * as hostPlugin from '../src/index.ts'
 
-async function bench(): Promise<{
+async function bench(settings: object = {}): Promise<{
   ctx: Context
   slots: SlotRegistry
   remote: TestRemote
@@ -17,11 +18,13 @@ async function bench(): Promise<{
   setCurrentSession: (id: string | undefined) => void
 }> {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  await ctx.plugin(hostPlugin).await()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const remote = new TestRemote(ctx, { skills: {}, settings: {} })
+  const remote = new TestRemote(ctx, { skills: {}, settings })
   ctx.provide('connection', { api: {}, isLoopback: true } as never)
   const sessionsListeners = new Set<() => void>()
   let currentSession: string | undefined
@@ -106,6 +109,26 @@ describe('ui-settings-skills apply', () => {
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     b.remote.emit('skills/change', [])
     b.ctx.emit('connection/reset')
+  })
+
+  it('routes skill toggles through the registered section into revision-guarded settings', async () => {
+    const describe = vi.fn(async () => ({
+      ok: true as const,
+      value: { writable: true, hasDocument: true, namespaces: [{ ns: 'skills', value: { disabled: [] }, revision: 4 }] },
+    }))
+    const update = vi.fn(async () => ({ ok: true as const, value: undefined }))
+    const b = await bench({ describe, update })
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const entry = b.slots.entries('settings.section')[0]!
+    const face = (entry.inject as unknown as () => import('../src/client/SkillsSection.tsx').SkillsSectionInjected)()
+
+    await face.load()
+    await face.setEnabled('bundled-tool', false)
+
+    expect(update).toHaveBeenCalledWith('skills', { disabled: ['bundled-tool'] }, 4)
+    expect(describe).toHaveBeenCalledTimes(2)
+    expect(face.hooks.skills.getSnapshot()).toMatchObject({ status: 'ready', writing: [] })
   })
 
   it('refreshes a loaded page on catalog, connection, and active composition changes only', async () => {

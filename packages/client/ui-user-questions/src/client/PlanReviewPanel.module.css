@@ -2,7 +2,8 @@
   display: flex;
   justify-content: center;
   /* Sides = clearance + 16px: the card lands on the shared content width
-     (input card - 32) at every viewport. */
+     (input card - 32) at desktop widths where the axis binds; the 720px
+     query drops the inset on handsets (see below). */
   padding: 6px calc(var(--dsh-composer-side-clearance) + 16px) 10px;
 }
 
@@ -15,7 +16,7 @@
   /* Composer seat sits in a fixed-height conversation column (overflow
      hidden): cap the card against the viewport and scroll the plan, so the
      strip and the decision row stay reachable on a long plan. */
-  max-height: min(60vh, 520px);
+  max-height: min(60dvh, 520px);
   border: 1px solid var(--dsw-alias-state-warn-secondary);
   border-radius: 20px;
   background: var(--dsw-specific-input-major);
@@ -101,7 +102,17 @@
 }
 
 @media (max-width: 720px) {
+  .frame {
+    /* Same handset gutter as the question card and the input card it
+       replaces: the bare side clearance, dropping the desktop 16px inset. */
+    padding-right: var(--dsh-composer-side-clearance);
+    padding-left: var(--dsh-composer-side-clearance);
+  }
+
   .card {
+    /* Same handset rule as the question card: the reading-length axis can
+       shrink the card below its own decision row, so it hugs the frame. */
+    max-width: 100%;
     border-radius: 16px;
   }
 
@@ -110,7 +121,22 @@
   }
 
   .footer {
+    /* Wrap insurance for the narrowest handsets: discuss plus both decision
+       capsules can exceed even the full-width card, and overflow:hidden
+       would clip the decision out of reach. The actions group wraps too —
+       its three buttons are wider than the card on their own. */
+    flex-wrap: wrap;
+    row-gap: 8px;
     align-items: flex-end;
     padding: 8px 12px 10px;
+  }
+
+  .actions {
+    /* flex-shrink: 0 (base) sizes the group to max-content, which never
+       wraps; cap it at the footer width so the capsules stack. */
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    justify-content: flex-end;
   }
 }

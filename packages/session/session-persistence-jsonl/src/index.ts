@@ -456,6 +456,7 @@ class JsonlSessionPersistence extends SessionPersistence {
         await rm(join(dir, entry), { recursive: true, force: true })
       }
       for (const generation of generations) await rm(join(dir, generation.name))
+      /* v8 ignore next -- native Windows skips directory fsync; POSIX coverage exercises its durability barrier. */
       if (process.platform !== 'win32') await this.syncDirPosix(dir)
       this.coldLogMemo.delete(id)
     } finally {

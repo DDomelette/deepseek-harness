@@ -7,15 +7,16 @@ import clsx from 'clsx'
  */
 
 import { useMemo, useState } from 'react'
-import type { ChangeEvent, ReactNode } from 'react'
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ReactNode } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpServerSettingsEntry } from './mcp-tab-controller.ts'
 import { parseKeyValues, splitArgs, validateDraft, type NewServerDraft } from './AddServerForm.tsx'
 import type { McpLocaleKey } from './locales.ts'
 import {
-  DEFAULT_RECONNECT_FORM, DEFAULT_RECONNECT_POLICY, parseReconnect, ReconnectFields,
-  type ReconnectDraft, type ReconnectFormState,
+  DEFAULT_RECONNECT_FORM, DEFAULT_RECONNECT_POLICY, parseReconnect,
+  type ReconnectDraft,
 } from './ReconnectFields.tsx'
+import { ServerFormFields, type ServerFormState } from './ServerFormFields.tsx'
 import css from './AddServerForm.module.css'
 
 /** Incremental update for one server entry: only the fields the user changed. */
@@ -37,16 +38,7 @@ export type ServerPatch = {
 }
 
 /** Raw field text this form stages. */
-export interface FormState {
-  command: string
-  args: string
-  env: string
-  cwd: string
-  url: string
-  headers: string
-  timeout: string
-  reconnect: ReconnectFormState
-}
+export type FormState = ServerFormState
 
 function sameReconnect(left: ReconnectDraft, right: ReconnectDraft): boolean {
   return left.enabled === right.enabled
@@ -152,13 +144,6 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
   const ready = useMemo(() => editPatch(entry, serverName, state), [entry, serverName, state])
   const blocked = 'error' in ready ? ready.error : null
 
-  const edit = (field: keyof FormState) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    // Captured before the functional update runs: React nulls currentTarget
-    // once the dispatch settles, while the updater executes on the next render.
-    const value = event.currentTarget.value
-    setState(prev => ({ ...prev, [field]: value }))
-  }
-
   const save = (): void => {
     // The save button is disabled while busy or blocked; this guards a racing
     // click that lands before the next render paints the disabled state.
@@ -207,49 +192,14 @@ export function EditServerForm({ serverName, entry, updateServer, removeServer, 
   return (
     <div className={clsx(css.form)}>
       <h3 className={clsx(css.title)}>{serverName}</h3>
-      {entry.transport === 'stdio' ? (
-        <>
-          <label className={clsx(css.field)} htmlFor={`mcp-command-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('commandLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id={`mcp-command-${serverName}`} value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor={`mcp-args-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('argsLabel')}</span>
-            <textarea id={`mcp-args-${serverName}`} className={clsx(css.multiline)} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor={`mcp-env-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('envLabel')}</span>
-            <textarea id={`mcp-env-${serverName}`} className={clsx(css.multiline)} value={state.env} onChange={edit('env')} placeholder={t('keepSecretHint')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor={`mcp-cwd-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('cwdLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id={`mcp-cwd-${serverName}`} value={state.cwd} onChange={edit('cwd')} />
-          </label>
-        </>
-      ) : (
-        <>
-          <label className={clsx(css.field)} htmlFor={`mcp-url-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('urlLabel')}</span>
-            <Input className={clsx(css.fieldInput)} id={`mcp-url-${serverName}`} value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
-          </label>
-          <label className={clsx(css.field)} htmlFor={`mcp-headers-${serverName}`}>
-            <span className={clsx(css.fieldLabel)}>{t('headersLabel')}</span>
-            <textarea id={`mcp-headers-${serverName}`} className={clsx(css.multiline)} value={state.headers} onChange={edit('headers')} placeholder={t('keepSecretHint')} />
-          </label>
-        </>
-      )}
-      <label className={clsx(css.field)} htmlFor={`mcp-timeout-${serverName}`}>
-        <span className={clsx(css.fieldLabel)}>{t('timeoutLabel')}</span>
-        <Input className={clsx(css.fieldInput)} id={`mcp-timeout-${serverName}`} type="text" inputMode="numeric" value={state.timeout} onChange={edit('timeout')} />
-      </label>
-      <ReconnectFields
-        idPrefix={`mcp-edit-${serverName}`}
-        state={state.reconnect}
-        setState={(reconnect) => { setState(prev => ({ ...prev, reconnect })) }}
+      <ServerFormFields
+        serverName={serverName}
+        transport={entry.transport}
+        state={state}
+        setState={setState}
+        error={blocked ?? saveError}
         t={t}
       />
-      {blocked !== null ? <p role="alert" className={clsx(css.error)}>{t(blocked)}</p> : null}
-      {saveError !== null && blocked === null ? <p role="alert" className={clsx(css.error)}>{t(saveError)}</p> : null}
       <div className={clsx(css.actions)}>
         <Button variant="primary" size="sm" onClick={save} disabled={busy || blocked !== null}>
           {busy ? t('saving') : t('save')}

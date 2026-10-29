@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi, type MockInstance } from 'vitest'
 import {
   cliGateOptions,
+  collectDescendants,
   defaultConcurrency,
   formatGateResultReason,
   gatesForMode,
@@ -927,6 +928,32 @@ describe('process-table parsing', () => {
 
   it('drops blank and malformed lines', () => {
     expect(parsePidPpidLines('  123   1\n\ncommand not found\n999 abc\n')).toEqual([[123, 1]])
+  })
+})
+
+describe('process-table descendants', () => {
+  it('keeps breadth-first order and excludes unrelated processes', () => {
+    expect(collectDescendants(1, [[4, 2], [2, 1], [3, 1], [5, 3], [9, 8]])).toEqual([2, 3, 4, 5])
+    expect(collectDescendants(7, [[2, 1]])).toEqual([])
+  })
+
+  it.each<{ name: string; rows: Array<[number, number]>; expected: number[] }>([
+    { name: 'self-parented root', rows: [[1, 1], [2, 1]], expected: [2] },
+    { name: 'edge back to root', rows: [[2, 1], [1, 2], [3, 2]], expected: [2, 3] },
+    { name: 'descendant self-loop', rows: [[2, 1], [2, 2], [3, 2]], expected: [2, 3] },
+    { name: 'descendant back-edge', rows: [[2, 1], [3, 2], [2, 3], [4, 3]], expected: [2, 3, 4] },
+  ])('terminates with a $name', ({ rows, expected }) => {
+    expect(collectDescendants(1, rows)).toEqual(expected)
+  })
+
+  it('visits duplicate rows and multiply referenced descendants only once', () => {
+    expect(collectDescendants(1, [[2, 1], [2, 1], [3, 2], [3, 2], [4, 1], [3, 4]])).toEqual([2, 4, 3])
+  })
+
+  it('collects a wide descendant level without exceeding function argument limits', () => {
+    const descendants = Array.from({ length: 200_000 }, (_, index) => index + 3)
+    const rows: Array<[number, number]> = [[2, 1], ...descendants.map((pid): [number, number] => [pid, 2])]
+    expect(collectDescendants(1, rows)).toEqual([2, ...descendants])
   })
 })
 

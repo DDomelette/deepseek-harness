@@ -26,7 +26,7 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import {
-  connectFreshWorkspace, newEnglishPage, saveFailureShot, ZH_BROWSER_LOCALE,
+  connectFreshWorkspace, newEnglishPage, readSettledWidth, saveFailureShot, ZH_BROWSER_LOCALE,
 } from './support.ts'
 
 /** The produced file the seeded turn writes, and what the preview should show. */
@@ -133,7 +133,7 @@ async function resetSidebar(page: Page): Promise<Locator> {
   await expandOf(page).waitFor({ timeout: 15_000 })
   await ensureExpanded(page, column)
   await expect.poll(async () => await tabTitles(column)).toEqual(['Files'])
-  await width(column)
+  await readSettledWidth(column)
   return column
 }
 
@@ -184,27 +184,6 @@ async function tabTitles(root: Locator): Promise<string[]> {
   return await root.locator('[data-dockkit-tab-title]').allInnerTexts()
 }
 
-/**
- * A rendered width, read once the frame's track transition has settled.
- *
- * The frame eases its grid tracks, so a single sample taken right after a
- * gesture reports a frame of the animation. Column arithmetic is only exact at
- * rest, so this samples until three consecutive readings agree.
- */
-async function width(locator: Locator): Promise<number> {
-  let last = Number.NaN
-  let steady = 0
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    // Layout width, not the visible box: a zero-width track is still an answer.
-    const now = Math.round(await locator.evaluate(node => node.getBoundingClientRect().width))
-    steady = now === last ? steady + 1 : 0
-    if (steady === 2) return now
-    last = now
-    await locator.page().waitForTimeout(50)
-  }
-  throw new Error(`width never settled (last ${last}px)`)
-}
-
 describe('web e2e: shipped right Sidebar', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -236,7 +215,7 @@ describe('web e2e: shipped right Sidebar', () => {
     expect(await frame.getAttribute('data-rightbar-collapsed')).toBe('true')
     expect(await column.locator('[data-sidebar-right-panel]').count()).toBe(0)
     expect(await expandOf(page).count()).toBe(0)
-    expect(await width(column)).toBe(0)
+    expect(await readSettledWidth(column)).toBe(0)
     await shot(page, '01-hero-no-sidebar')
 
     expect(tripwire.pageErrors).toEqual([])
@@ -347,7 +326,7 @@ describe('web e2e: shipped right Sidebar', () => {
       if (conversationBoxBefore === null) throw new Error('conversation is not rendered')
       // How far the utilities' right edge sits from the conversation's own.
       const gapBefore = (conversationBoxBefore.x + conversationBoxBefore.width) - (rowBox.x + rowBox.width)
-      const centerBefore = await width(conversation)
+      const centerBefore = await readSettledWidth(conversation)
       await shot(page, '02a-collapsed-header-button')
 
       // Opening squeezes by default: the column takes a track of the panel's
@@ -356,9 +335,9 @@ describe('web e2e: shipped right Sidebar', () => {
       await expand.click()
       await expect.poll(async () => await frame.getAttribute('data-rightbar-collapsed')).toBe(null)
       await expect.poll(async () => await column.locator('[data-sidebar-right-open]').count()).toBe(1)
-      const panelWidth = await width(column)
+      const panelWidth = await readSettledWidth(column)
       expect(panelWidth).toBeGreaterThan(0)
-      expect(await width(conversation)).toBe(centerBefore - panelWidth)
+      expect(await readSettledWidth(conversation)).toBe(centerBefore - panelWidth)
       await expect.poll(async () => await expand.count()).toBe(0)
       // The corner seat collapses with its button, so the utilities' right edge
       // moves out toward the conversation's own.
@@ -423,15 +402,15 @@ describe('web e2e: shipped right Sidebar', () => {
       const column = page.locator('[data-rightbar-col]')
       const panel = column.locator('[data-sidebar-right-panel]')
       const conversation = page.locator('[class*="centerCol"]').first()
-      const squeezed = await width(conversation)
+      const squeezed = await readSettledWidth(conversation)
       const before = await panel.boundingBox()
-      const trackWidth = await width(column)
+      const trackWidth = await readSettledWidth(column)
 
       await column.locator('[data-sidebar-right-mode="fullscreen"]').click()
       await expect.poll(async () => await panel.getAttribute('data-sidebar-right-panel')).toBe('fullscreen')
       expect(await frame.getAttribute('data-rightbar-collapsed')).toBe(null)
-      expect(await width(conversation)).toBe(squeezed)
-      expect(await width(column)).toBe(trackWidth)
+      expect(await readSettledWidth(conversation)).toBe(squeezed)
+      expect(await readSettledWidth(column)).toBe(trackWidth)
       const viewport = page.viewportSize()
       if (viewport === null) throw new Error('expected a fixed viewport')
       await expect.poll(async () => await panel.boundingBox()).toEqual({ x: 0, y: 0, ...viewport })
@@ -441,7 +420,7 @@ describe('web e2e: shipped right Sidebar', () => {
 
       await column.locator('[data-sidebar-right-mode="push"]').click()
       await expect.poll(async () => await panel.getAttribute('data-sidebar-right-panel')).toBe('push')
-      expect(await width(conversation)).toBe(squeezed)
+      expect(await readSettledWidth(conversation)).toBe(squeezed)
       expect(await panel.boundingBox()).toEqual(before)
 
       expect(tripwire.pageErrors).toEqual([])
@@ -563,29 +542,29 @@ describe('web e2e: shipped right Sidebar', () => {
         const leftGrip = frame.locator('[data-side="sidebar"]')
         const grip = await centre(leftGrip)
         await dragElement(page, leftGrip, { x: 420, y: grip.y })
-        await expect.poll(async () => await width(sidebar)).toBe(420)
+        await expect.poll(async () => await readSettledWidth(sidebar)).toBe(420)
         await expect.poll(async () => await column.locator('[data-sidebar-right-open]').count()).toBe(0)
         await page.setViewportSize(viewport)
-        await expect.poll(async () => await width(sidebar)).toBe(420)
+        await expect.poll(async () => await readSettledWidth(sidebar)).toBe(420)
         expect(await column.locator('[data-sidebar-right-open]').count()).toBe(0)
         await expandOf(page).click()
         await expect.poll(async () => await column.locator('[data-sidebar-right-open]').count()).toBe(1)
 
         await page.setViewportSize({ width: 767, height: viewport.height })
         await expect.poll(async () => await panel.getAttribute('data-sidebar-right-panel')).toBe('fullscreen')
-        await expect.poll(async () => await width(panel)).toBe(767)
+        await expect.poll(async () => await readSettledWidth(panel)).toBe(767)
         await expect.poll(() => frame.getAttribute('data-rightbar-fullscreen')).toBe('true')
         expect(await frame.locator('[data-side="rightbar"]').count()).toBe(0)
         await column.locator('[data-sidebar-right-mode="push"]').click()
         await expect.poll(async () => await column.locator('[data-sidebar-right-open]').count()).toBe(0)
         await page.setViewportSize(viewport)
-        await expect.poll(async () => await width(sidebar)).toBe(420)
+        await expect.poll(async () => await readSettledWidth(sidebar)).toBe(420)
         expect(await column.locator('[data-sidebar-right-open]').count()).toBe(0)
       } finally {
         await page.setViewportSize(viewport)
         const grip = await centre(frame.locator('[data-side="sidebar"]'))
         await dragElement(page, frame.locator('[data-side="sidebar"]'), { x: 280, y: grip.y })
-        await expect.poll(async () => await width(sidebar)).toBe(280)
+        await expect.poll(async () => await readSettledWidth(sidebar)).toBe(280)
         await ensureExpanded(page, column)
       }
       expect(tripwire.pageErrors).toEqual([])
@@ -614,7 +593,7 @@ describe('web e2e: shipped right Sidebar', () => {
       try {
         await page.setViewportSize({ width: 1000, height: viewport.height })
         await ensureExpanded(page, column)
-        await width(column)
+        await readSettledWidth(column)
         const grip = frame.locator('[data-side="rightbar"]')
         // The frame reads the new viewport through a throttled ResizeObserver,
         // a couple of frames after the resize; until then the grip sits at the
@@ -633,8 +612,8 @@ describe('web e2e: shipped right Sidebar', () => {
         await page.mouse.move(980, from.y, { steps: 30 })
         await page.mouse.up()
         // The panel holds its floor, still open, with its grip still rendered.
-        await expect.poll(async () => await width(panel)).toBeLessThanOrEqual(302)
-        expect(await width(panel)).toBeGreaterThanOrEqual(300)
+        await expect.poll(async () => await readSettledWidth(panel)).toBeLessThanOrEqual(302)
+        expect(await readSettledWidth(panel)).toBeGreaterThanOrEqual(300)
         expect(await column.locator('[data-sidebar-right-open]').count()).toBe(1)
         expect(await grip.count()).toBe(1)
         // Widen with overshoot to the far left: clamped by the frame's range.
@@ -643,7 +622,7 @@ describe('web e2e: shipped right Sidebar', () => {
         await page.mouse.down()
         await page.mouse.move(20, back.y, { steps: 30 })
         await page.mouse.up()
-        const widened = await width(panel)
+        const widened = await readSettledWidth(panel)
         expect(widened).toBeGreaterThan(302)
         expect(widened).toBeLessThan(1000)
         expect(await column.locator('[data-sidebar-right-open]').count()).toBe(1)
@@ -804,7 +783,7 @@ describe('web e2e: shipped right Sidebar', () => {
         const frame = fx.locator('[class*="frame"]').first()
         const column = fx.locator('[data-rightbar-col]')
         await ensureExpanded(fx, column)
-        await width(column)
+        await readSettledWidth(column)
         await fx.getByRole('button', { name: `Open ${SAMPLE_NAME}` }).click()
         await column.locator('[data-textpreview-state="text"]').waitFor({ timeout: 15_000 })
         const wrap = column.locator('[data-textpreview-tool="wrap"]')
@@ -883,14 +862,14 @@ describe('web e2e: shipped right Sidebar', () => {
       await expect.poll(async () => await splitButtons.count()).toBe(0)
 
       const outer = column.locator('[data-dockkit-divider]').first()
-      const before = await width(panes.last())
+      const before = await readSettledWidth(panes.last())
       const grip = await centre(outer)
       await dragElement(page, outer, { x: grip.x - 100, y: grip.y })
-      await expect.poll(async () => await width(panes.last())).toBeGreaterThan(before)
+      await expect.poll(async () => await readSettledWidth(panes.last())).toBeGreaterThan(before)
       await dragElement(page, outer, { x: 0, y: grip.y })
       const ratio = async (): Promise<number> => {
-        const left = await width(panes.first())
-        const right = await width(panes.last())
+        const left = await readSettledWidth(panes.first())
+        const right = await readSettledWidth(panes.last())
         return left / (left + right)
       }
       await expect.poll(ratio).toBeCloseTo(0.2, 2)
@@ -1058,7 +1037,7 @@ describe('web e2e: shipped right Sidebar', () => {
         // Wait for the track, not just the panel: the copy is only legible once
         // the column has the width, and a screenshot taken mid-transition reads
         // as a layout defect that is not there.
-        expect(await width(column)).toBeGreaterThan(300)
+        expect(await readSettledWidth(column)).toBeGreaterThan(300)
         await expect.poll(async () => await tabTitles(column)).toEqual(['文件', '开始'])
         await expect.poll(async () => await guide.locator('[data-sidebar-right-guide-entry="files"]').innerText())
           .toBe('工作区文件\n浏览会话工作区的文件')

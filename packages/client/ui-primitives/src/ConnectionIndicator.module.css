@@ -4,8 +4,9 @@
   grid-template-columns: 14px max-content;
   align-items: center;
   column-gap: 4px;
-  height: 32px;
-  padding: 0 10px;
+  /* A single state line keeps the original 32px pill; a failure reason adds rows. */
+  min-height: 32px;
+  padding: 4px 10px;
   box-sizing: border-box;
   border: none;
   border-radius: 8px;
@@ -79,6 +80,28 @@
   display: inline-block;
   width: 1.5em;
   text-align: left;
+}
+
+/* Failure rows sit under the state line; the detail is the raw carrier text, so
+   it wraps and clamps instead of widening the pill without bound. */
+.failureLabel {
+  max-width: 200px;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.failureDetail {
+  max-width: 200px;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 400;
+  opacity: 0.85;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .secondDot {

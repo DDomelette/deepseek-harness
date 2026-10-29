@@ -34,6 +34,48 @@ function turnOf(node: ChatNode | undefined): number | undefined {
   return location?.kind === 'turn' || location?.kind === 'step' ? location.turn.turn : undefined
 }
 
+/**
+ * The identity fields a Node payload may carry, as this seat reads them. A
+ * business Definition owns its own payload, so the seat reads the names the
+ * Definitions that carry an identity agree on rather than enumerating kinds; a
+ * Definition that nests its sequence elsewhere publishes none.
+ */
+interface NodeIdentity {
+  readonly seq?: unknown
+  readonly messageId?: unknown
+  readonly finalNode?: { readonly seq?: unknown; readonly messageId?: unknown } | undefined
+  readonly root?: { readonly seq?: unknown } | undefined
+}
+
+function identityOf(node: ChatNode | undefined): NodeIdentity | undefined {
+  return node?.data as NodeIdentity | undefined
+}
+
+/**
+ * The durable event sequence one row renders.
+ * @param node - the row's Node.
+ * @returns the sequence its payload names, or undefined when it names none.
+ */
+function sourceSeq(node: ChatNode | undefined): number | undefined {
+  const identity = identityOf(node)
+  return integer(identity?.seq) ?? integer(identity?.finalNode?.seq) ?? integer(identity?.root?.seq)
+}
+
+/**
+ * The durable message one row renders.
+ * @param node - the row's Node.
+ * @returns the message id its payload names, or undefined for a row that is not a message.
+ */
+function sourceMessageId(node: ChatNode | undefined): string | undefined {
+  const identity = identityOf(node)
+  const messageId = identity?.messageId ?? identity?.finalNode?.messageId
+  return typeof messageId === 'string' ? messageId : undefined
+}
+
+function integer(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) ? value : undefined
+}
+
 /** Subscribe, apply Turn-process visibility, and dispatch one stable Context key. */
 export const ChatNodeSeat = memo(function ChatNodeSeat({
   nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript,
@@ -129,6 +171,8 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       data-chat-flow-key={routedNode.key}
       data-chat-flow-kind={routedNode.kind}
       data-chat-turn={turn}
+      data-chat-seq={sourceSeq(routedNode)}
+      data-chat-message-id={sourceMessageId(routedNode)}
       data-turn-process-member={processMember || undefined}
       data-turn-process-hidden={processHidden || undefined}
       data-turn-process-answer={compactAnswer || undefined}

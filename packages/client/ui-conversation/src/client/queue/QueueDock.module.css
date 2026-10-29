@@ -25,6 +25,17 @@
   padding: 0 var(--dsh-composer-dock-inset);
 }
 
+/* Handset (frame data-sidebar-fab): the wrapper drops the two insets and
+   spans the shared clearance-wide centered column — its edge matches the
+   input card it tucks under. */
+[data-sidebar-fab] .dock {
+  width: calc(
+    100% -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-side-clearance)
+  );
+}
+
 .panel {
   position: relative;
   overflow: hidden;

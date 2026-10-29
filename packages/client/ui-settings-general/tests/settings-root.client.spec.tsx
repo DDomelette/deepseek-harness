@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import type { ConnectionFailure } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -59,8 +60,10 @@ function mount({
   // plays a ledger change through the same observable contract.
   let current = rows
   let currentConnectionState = connectionState
+  let currentConnectionFailure: ConnectionFailure | undefined
   const listeners = new Set<() => void>()
   const connectionListeners = new Set<() => void>()
+  const failureListeners = new Set<() => void>()
   const reconnect = vi.fn()
   const renderSlot = vi.fn(
     ((key: string, _owner: unknown, opts?: { only?: string }) => {
@@ -94,6 +97,15 @@ function mount({
       return select(currentConnectionState)
     },
     useOnboardingSteps: select => select(steps),
+    useConnectionFailure: (select) => {
+      const [, force] = useState(0)
+      useEffect(() => {
+        const listener = () => { force(n => n + 1) }
+        failureListeners.add(listener)
+        return () => { failureListeners.delete(listener) }
+      }, [])
+      return select(currentConnectionFailure)
+    },
     useSections: (select) => {
       const [, force] = useState(0)
       useEffect(() => {
@@ -118,7 +130,13 @@ function mount({
       for (const fn of [...connectionListeners]) fn()
     })
   }
-  return { view, renderSlot, bump, listeners, reconnect, setConnectionState }
+  const setConnectionFailure = (next: ConnectionFailure | undefined) => {
+    act(() => {
+      currentConnectionFailure = next
+      for (const fn of [...failureListeners]) fn()
+    })
+  }
+  return { view, renderSlot, bump, listeners, reconnect, setConnectionState, setConnectionFailure }
 }
 
 function openPanel() {
@@ -177,6 +195,30 @@ describe('SettingsRoot trigger', () => {
     mount({ wide: false, connectionState: 'disconnected' })
     expect(screen.queryByRole('button', { name: 'Disconnected, reconnect now' })).toBeNull()
   })
+
+  it('names the reason and keeps the carrier detail on the outage indicator', () => {
+    const mounted = mount({ connectionState: 'connecting' })
+    const indicator = screen.getByRole('button', { name: 'Reconnecting automatically, reconnect now' })
+    expect(indicator.textContent).not.toContain('Sign-in expired')
+
+    mounted.setConnectionFailure({
+      reason: 'auth',
+      detail: 'transport failure for /api/settings/describe: HTTP 401',
+    })
+    expect(indicator.textContent).toContain(en['connection.failure.auth'])
+    expect(indicator.textContent).toContain('HTTP 401')
+    expect(indicator.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
+
+    mounted.setConnectionFailure(undefined)
+    expect(indicator.textContent).not.toContain(en['connection.failure.auth'])
+  })
+
+  it('localizes the failure reason', () => {
+    const mounted = mount({ connectionState: 'connecting', dictionary: zh })
+    mounted.setConnectionFailure({ reason: 'unreachable', detail: 'upgrade refused' })
+    expect(screen.getByRole('button', { name: '连接中断，正在自动重试，点击立即重连' }).textContent)
+      .toContain(zh['connection.failure.unreachable'])
+  })
 })
 
 describe('SettingsPanel chrome seats', () => {
@@ -228,7 +270,9 @@ describe('SettingsPanel close paths', () => {
   it('closes via document-level Escape, restores trigger focus, and unhooks the listener', async () => {
     mount()
     const trigger = openPanel()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(screen.queryByRole('dialog')).toBeNull()
     await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
     // Ignored while closed (listener removed with the panel) and non-Escape
@@ -350,5 +394,92 @@ describe('SettingsPanel navigation', () => {
     expect(listeners.size).toBe(1)
     view.unmount()
     expect(listeners.size).toBe(0)
+  })
+})
+
+describe('SettingsPanel panes', () => {
+  const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+
+  /** Pin the width the panel reads when it decides between one pane and two. */
+  function setViewportWidth(width: number) {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true })
+  }
+
+  afterEach(() => {
+    if (originalInnerWidth !== undefined) Object.defineProperty(window, 'innerWidth', originalInnerWidth)
+  })
+
+  it('marks the section list until a row is chosen and the detail pane afterwards', () => {
+    mount()
+    openPanel()
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('detail')
+  })
+
+  it('names the chosen section in the detail header', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('dialog').querySelector('[data-detail-title]')?.textContent).toBe('Models')
+  })
+
+  it('returns to the list from the detail back control', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+    expect(screen.queryByTestId('section-models')).toBeNull()
+  })
+
+  it('localizes the back control', () => {
+    mount({ dictionary: zh })
+    fireEvent.click(screen.getByRole('button', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('button', { name: '返回' })).toBeTruthy()
+  })
+
+  it('steps back to the list on Escape in a handset viewport and closes on the next Escape', () => {
+    setViewportWidth(390)
+    mount()
+    const trigger = openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    // Both panes consume the key: stepping back, then closing.
+    const back = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, back)
+    expect(back.defaultPrevented).toBe(true)
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    const close = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, close)
+    expect(close.defaultPrevented).toBe(true)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('closes on Escape in a desktop viewport even with a section chosen', () => {
+    setViewportWidth(1024)
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('returns to the list when the chosen row unregisters', () => {
+    const { bump } = mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    bump([{ id: 'general', order: 0, label: 'General' }])
+
+    expect(screen.getByRole('dialog').getAttribute('data-pane')).toBe('list')
+    expect(screen.getByTestId('section-general')).toBeTruthy()
   })
 })

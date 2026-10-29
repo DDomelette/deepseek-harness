@@ -80,6 +80,12 @@
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
 
+    # Web notes panel, one row for both halves: the host half opens the material
+    # store, serves the notes settings section, and drives materials into dsh
+    # Sessions; the browser half is the panel itself.
+    - id: notes
+      name: '@deepseek-ai/dsh-notes'
+
     # Session-header "Open In..." split button over the host application
     # resolution (macOS/Windows/Linux; a host with no resolved application
     # renders no button). Two halves: the host routes and the browser surface.
@@ -151,13 +157,15 @@
     # ── layer 2: transport/service ──────────────────────────────────────────────
 
     # Plain route-registration carrier; host and port come from the app's
-    # webStartup provider, with these deployment fallbacks. The dist is served by
-    # the web-runtime row below through the fallback seat.
+    # webStartup provider, with these deployment fallbacks. Every interface is the
+    # default because a phone reaches this deployment over the LAN; pass
+    # `--host 127.0.0.1` for a loopback-only invocation. The dist is served by the
+    # web-runtime row below through the fallback seat.
     - id: webserver
       name: '@deepseek-ai/dsh-host-webserver'
       inject: [webStartup]
       config:
-        host: !!js ctx.webStartup.host ?? '127.0.0.1'
+        host: !!js ctx.webStartup.host ?? '0.0.0.0'
         port: !!js ctx.webStartup.port ?? 3080
         compression: gzip
         compressionLevel: 1
@@ -380,11 +388,11 @@
 # absent from a surface overlay would silently reappear the day someone reorders
 # the composition.
 
-# `shell-env` STAYS in the host plane: `apps/cli/src/web.ts` injects it to
-# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
-# the criterion for host-plane ownership — injection resolves before any session
-# exists, so there is no agent to key by. Behind a preset realm those variables
-# would never reach the model's shell at all.
+# `shell-env` STAYS in the host plane: `dsh-web-app` injects it to publish
+# `DSH_WEB_URL`, and a host row that injects a service is the criterion for
+# host-plane ownership — injection resolves before any session exists, so there
+# is no agent to key by. Behind a preset realm that variable would never reach
+# the model's shell at all.
 
 - id: tool-bash
   disabled: true

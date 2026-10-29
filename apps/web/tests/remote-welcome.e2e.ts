@@ -1,4 +1,4 @@
-// Trusted non-loopback Web access cannot call the loopback-only settings API;
+// A paired browser cannot call the local-operator-only settings API;
 // the notice therefore advances for this browser process and returns on reload.
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -11,6 +11,7 @@ import {
 import { ZH_BROWSER_LOCALE } from './support.ts'
 
 const MODE = webSnapshotMode()
+const REMOTE_HOST = 'remote.localhost'
 
 describe.skipIf(MODE === 'record')('web e2e: remote welcome notice', () => {
   let scaffold: WebScaffold
@@ -20,7 +21,7 @@ describe.skipIf(MODE === 'record')('web e2e: remote welcome notice', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({
-      remoteAuthority: 'remote.localhost',
+      remoteAuthority: REMOTE_HOST,
       welcomeNoticePending: true,
     })
     browser = await chromium.launch()
@@ -28,8 +29,17 @@ describe.skipIf(MODE === 'record')('web e2e: remote welcome notice', () => {
       viewport: { width: 1440, height: 960 },
       locale: ZH_BROWSER_LOCALE,
     })
+    const remoteUrl = new URL(scaffold.baseUrl)
+    remoteUrl.hostname = REMOTE_HOST
+    const device = await scaffold.ctx.connection.devices.register({ label: 'welcome notice browser' })
+    const cookie = scaffold.ctx.connection.devices.issueCookie({ headers: { host: remoteUrl.host } }, device.id)
+    if (cookie === undefined) throw new Error('remote welcome fixture did not receive its device cookie')
+    const [name, value] = cookie.split(';', 1)[0]!.split('=')
+    await page.context().addCookies([{
+      name: name!, value: value!, url: remoteUrl.origin, httpOnly: true, sameSite: 'Strict',
+    }])
     tripwire = watchConsole(page)
-    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await page.goto(remoteUrl.href, { waitUntil: 'load' })
     await page.waitForSelector('#root', { timeout: 30_000 })
   }, 120_000)
 

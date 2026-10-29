@@ -300,6 +300,41 @@ describe('QuestionComposer', () => {
     expect(answer).not.toHaveBeenCalled()
   })
 
+  it('omits the pager for a single question and pins the custom row outside the scroll region', () => {
+    const { carrier, answer } = wait([{
+      id: 'color', question: '选一个颜色',
+      options: [{ label: '蓝色' }, { label: '绿色' }],
+    }])
+    render(<QuestionComposer matched={carrier} {...kit} />)
+
+    // One question has nothing to page: no position text, no dead arrows.
+    expect(screen.queryByText('1 / 1')).toBeNull()
+    expect(screen.queryByLabelText(zh['nav.prev'])).toBeNull()
+    expect(screen.queryByLabelText(zh['nav.next'])).toBeNull()
+
+    // The custom-answer row is pinned below the scroll region, so a capped
+    // card can never scroll the custom entry out of reach.
+    const scrollRegion = screen.getByRole('radiogroup').closest('[data-question-scroll]')
+    expect(scrollRegion).toBeTruthy()
+    expect(scrollRegion?.contains(screen.getByPlaceholderText('输入你的答案'))).toBe(false)
+
+    fireEvent.click(screen.getByRole('radio', { name: '蓝色' }))
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
+    expect(answer).toHaveBeenCalledWith(answerBatch([{ id: 'color', selected: ['蓝色'] }]))
+  })
+
+  it('keeps the optionless answer field inside the scroll region', () => {
+    const { carrier } = wait([{ id: 'free', question: '还有什么补充？' }])
+    render(<QuestionComposer matched={carrier} {...kit} />)
+
+    // The block answer is the whole body of an optionless question and keeps
+    // scrolling with it; only the options variant's row is pinned.
+    const field = screen.getByPlaceholderText('输入你的答案')
+    const scrollRegion = field.closest('[data-question-scroll]')
+    expect(scrollRegion).toBeTruthy()
+    expect(scrollRegion?.contains(field)).toBe(true)
+  })
+
   it('answers over multiple lines: both fields grow with the draft and keep Shift+Enter a newline', () => {
     const { carrier, answer } = wait()
     render(<QuestionComposer matched={carrier} {...kit} />)

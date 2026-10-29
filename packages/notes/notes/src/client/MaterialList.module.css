@@ -1,0 +1,249 @@
+/*
+ * The list column: one draggable row per material, and the archived bucket
+ * folded under them. A row's tail controls open at the card's right end while
+ * the row is hovered or focused, the text yielding to them, and the drop line
+ * marks where a dragged row would land.
+ *
+ * The row itself is the card, so the tail controls open inside its boundary;
+ * the select button is its chromeless content region. The column flexes with
+ * the panel between 220px and 340px instead of holding a fixed width; below
+ * the panel's two-column band it is the only column.
+ */
+.list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: clamp(220px, 32%, 340px);
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  list-style: none;
+  border-right: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* Below the panel's two-column band the list is the whole pane. */
+@container notes (max-width: 559px) {
+  .list {
+    width: 100%;
+    border-right: none;
+  }
+}
+
+.row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.row:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* The open material's card. */
+.row[data-notes-open] {
+  background: var(--dsw-alias-interactive-bg-active);
+  border-color: var(--dsw-alias-border-l2);
+}
+
+/* The drop line sits on the row a dragged material would land on. */
+.row[data-notes-drop] {
+  box-shadow: inset 0 2px 0 0 var(--dsw-alias-brand-primary);
+}
+
+.rowButton {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/*
+ * The tail controls reserve nothing while the row is at rest: the wrapper is
+ * collapsed to zero width, and on hover or keyboard focus it opens to its
+ * content's width, so the title and preview yield to it and ellipsize instead
+ * of hiding under a backdrop. The card itself never changes size.
+ */
+.handles {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+  max-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: max-width var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.row:hover .handles,
+.row:focus-within .handles {
+  max-width: 220px;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handles {
+    transition: none;
+  }
+}
+
+.row:hover .handles,
+.row:focus-within .handles {
+  visibility: visible;
+}
+
+.handle:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--dsw-alias-label-tertiary);
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+.dot[data-notes-dot='analyzing'] {
+  background: var(--dsw-alias-state-business-primary);
+  animation: notesDot 1.2s ease-in-out infinite;
+}
+
+@keyframes notesDot {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot[data-notes-dot='analyzing'] {
+    animation: none;
+  }
+}
+
+.dot[data-notes-dot='analyzed'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dot[data-notes-dot='failed'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rowHead {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+/* The title takes whatever the chip leaves, and ellipsizes past it. */
+.rowTitle {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowAction {
+  flex: none;
+}
+
+/* The two-column band's narrowest columns clamp the list to 220px: the action
+   chip folds away there so the title keeps ~6 characters. One-column panes
+   give the list the whole width and keep the chip. */
+@container notes (min-width: 560px) and (max-width: 640px) {
+  .rowAction {
+    display: none;
+  }
+}
+
+.rowPreview {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rowSource {
+  flex: none;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.emptyLine {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.archivedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.archivedToggle {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.archivedToggle:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* An archived row stays dimmed until the reader takes it back. */
+.archivedRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.archivedRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  opacity: 1;
+}

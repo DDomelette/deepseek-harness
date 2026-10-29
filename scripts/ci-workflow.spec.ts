@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 
@@ -7,7 +8,56 @@ const root = resolve(import.meta.dirname, '..')
 const runnerPrivatePnpmDestination = /^\$\{\{ runner\.temp \}\}\/setup-pnpm-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}$/
 const nativeWindowsPnpmDestination = '${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}'
 
+function runnerExpression(value: unknown, fork: boolean, mode = '', author = 'maintainer'): unknown {
+  if (typeof value !== 'string' || !value.startsWith('${{')) return value
+  // These fixtures use canonical-case strings; Actions string coercion is not under test.
+  return runInNewContext(value.trim().slice(3, -2), {
+    vars: { DSH_CI_FAILOVER_LINUX: mode, DSH_CI_FAILOVER_WINDOWS: mode },
+    github: { event: { repository: { fork }, pull_request: { user: { login: author } } } },
+    fromJSON: JSON.parse,
+  }, { timeout: 1000 }) as unknown
+}
+
 describe('CI workflow', () => {
+  it.each([
+    'node-24', 'node-24-coverage', 'node-24-consumers',
+    'windows-build', 'windows-coverage', 'windows-native-tests', 'windows-observational',
+  ])('%s runs inside forks without access to upstream enterprise pools', (name) => {
+    const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), name)
+    const windows = name.startsWith('windows-')
+    const hosted = windows ? 'windows-2025' : 'ubuntu-24.04'
+    const enterprise = windows ? 'dsh-windows-2025-16core' : 'dsh-ubuntu-24-04-16core'
+    const selfHosted = windows ? ['self-hosted', 'dsh-win-ci', 'windows'] : ['self-hosted', 'linux', 'x64', 'vm-backup']
+    expect(runnerExpression(job['runs-on'], true)).toBe(hosted)
+    expect(runnerExpression(job['runs-on'], false)).toBe(enterprise)
+    for (const fork of [true, false]) {
+      expect(runnerExpression(job['runs-on'], fork, 'selfhosted')).toEqual(selfHosted)
+      expect(runnerExpression(job['runs-on'], fork, 'selfhosted', 'dependabot[bot]')).toBe(fork ? hosted : enterprise)
+    }
+  })
+
+  it('bounds fork worker budgets while keeping the upstream capacity settings', () => {
+    const workflow = loadWorkflow('.github/workflows/ci.yml')
+    for (const name of ['node-24-coverage', 'windows-coverage']) {
+      const env = workflowJob(workflow, name).env as Record<string, unknown>
+      for (const [key, forkBudget, upstreamBudget] of [
+        ['DSH_COVERAGE_MAX_WORKERS', '3', '6'],
+        ['DSH_COVERAGE_PARTITIONS', '2', '4'],
+        ['DSH_GATE_CONCURRENCY', '2', '3'],
+      ] as const) {
+        expect(runnerExpression(env[key], true)).toBe(forkBudget)
+        expect(runnerExpression(env[key], false)).toBe(upstreamBudget)
+      }
+    }
+    const coverageEnv = workflowJob(workflow, 'node-24-coverage').env as Record<string, unknown>
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, true)).toBe('90000')
+    expect(runnerExpression(coverageEnv.DSH_COVERAGE_TEST_TIMEOUT_MS, false)).toBe('')
+    const env = workflowJob(workflow, 'node-24-consumers').env as Record<string, unknown>
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, true)).toBe('4')
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, false)).toBe('32')
+    expect(runnerExpression(env.DSH_SNAPSHOT_MAX_CONCURRENCY, false, 'selfhosted')).toBe('12')
+  })
+
   it.each(['ci.yml', 'ci-master.yml', 'e2e.yml', 'release.yml', 'release-vendor.yml'])(
     '%s cancels superseded validation runs without crossing workflow or ref boundaries', (name) => {
       const workflow = loadWorkflow('.github/workflows/' + name)
@@ -214,7 +264,7 @@ describe('CI workflow', () => {
 
     // windows-coverage uses the lower 4-partition profile.
     expect(windowsCoverage.name).toBe('windows node 24 / coverage')
-    expect(windowsCoverage.env).toMatchObject({ DSH_COVERAGE_PARTITIONS: '4' })
+    expect(runnerExpression((windowsCoverage.env as Record<string, unknown>).DSH_COVERAGE_PARTITIONS, false)).toBe('4')
     const coverageSteps = windowsCoverage.steps as unknown[]
     const coverageCommands = coverageSteps.filter((step): step is Record<string, unknown> & { run: string } => (
       isRecord(step) && typeof step.run === 'string'
@@ -245,8 +295,7 @@ describe('CI workflow', () => {
     expect(windowsObservational.name).toBe('windows node 24 / observational')
     expect(windowsObservational['continue-on-error']).toBe(true)
 
-    // serial-windows: master-only standby, self-hosted, non-blocking, lives in ci-master.
-    expect(serialWindows.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/master'")
+    expect(serialWindows.if).toBe(false)
     expect(serialWindows['runs-on']).toEqual(['self-hosted', 'dsh-win-ci', 'windows'])
     expect(serialWindows.name).toBe('serial / windows (self-hosted standby)')
     // Its store must share the ReFS workspace volume for clone; the install
@@ -383,7 +432,7 @@ describe('CI workflow', () => {
     )
   })
 
-  it('cancels superseded master runs without changing the post-merge job inventory', () => {
+  it('cancels superseded master runs and keeps unavailable standby jobs disabled', () => {
     const workflow = loadWorkflow('.github/workflows/ci-master.yml')
     const prWorkflow = loadWorkflow('.github/workflows/ci.yml')
     if (!isRecord(workflow.jobs) || !isRecord(workflow.concurrency)) {
@@ -409,16 +458,13 @@ describe('CI workflow', () => {
     expect(Object.keys(workflow.on).sort()).toEqual(['push', 'workflow_dispatch'])
     expect(Object.keys(prWorkflow.on)).toEqual(['pull_request'])
 
-    // Drills share the parent run’s supersession policy.
     for (const name of ['serial-linux-selfhosted', 'serial-windows']) {
       const job = workflow.jobs[name]
       if (!isRecord(job)) throw new TypeError(`${name} must be defined`)
       expect(job.concurrency).toBeUndefined()
-      // Standby drills remain post-merge work, but share run cancellation.
-      expect(job.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/master'")
+      expect(job.if).toBe(false)
     }
 
-    // Pin the post-merge runtime, Wine, and standby inventory.
     const NOT_PUSH_REACHABLE = new Set([
       "github.event_name == 'workflow_dispatch' && inputs.suite == 'larger-runner-benchmark'",
       "github.event_name == 'workflow_dispatch' && inputs.suite == 'consolidated-runner-benchmark'",
@@ -433,7 +479,7 @@ describe('CI workflow', () => {
       })
       .map(([name]) => name)
       .sort()
-    expect(pushReachable).toEqual(['python-runtime', 'serial-linux-selfhosted', 'serial-windows', 'windows'])
+    expect(pushReachable).toEqual(['python-runtime', 'windows'])
 
     // Manual benchmarks retain their bounded fan-out.
     for (const name of ['larger-runner-benchmark', 'consolidated-runner-benchmark']) {

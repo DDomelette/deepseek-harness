@@ -31,6 +31,17 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* Handset (frame data-sidebar-fab): the panel drops the four insets and spans
+   the shared clearance-wide centered column — left edge aligned with the
+   input card and the transcript. */
+[data-sidebar-fab] .root {
+  width: calc(
+    100% -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-side-clearance)
+  );
+}
+
 .body {
   display: flex;
   flex-direction: column;

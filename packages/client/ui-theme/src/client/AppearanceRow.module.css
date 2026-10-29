@@ -55,3 +55,23 @@
   background: var(--dsw-alias-bg-module-platform);
   border-color: var(--dsw-static-neutral-bluish-400);
 }
+
+/* Handset single-pane: three wrapping 180px-basis cubes stack into a ~300px
+   tower, so the row becomes three compact equal segments that never wrap.
+   Selection look and aria-pressed semantics are untouched. The row renders
+   only inside the settings panel, so the panel's own breakpoint is the right
+   gate — in step with SETTINGS_PANE_BREAKPOINT. */
+@media (max-width: 767px) {
+  .cubeRow {
+    flex-wrap: nowrap;
+  }
+
+  .themeCube {
+    flex: 1 1 0;
+    gap: 2px;
+    padding: 10px 4px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 18px;
+  }
+}

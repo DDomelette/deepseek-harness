@@ -13,6 +13,12 @@
     - button "Agent 预设":
       - img
       - text: Agent 预设
+    - button "技能":
+      - img
+      - text: 技能
+    - button "已归档":
+      - img
+      - text: 已归档
   - button "打开配置文件"
   - button "关闭":
     - img

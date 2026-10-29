@@ -106,6 +106,28 @@
   opacity: 1;
 }
 
+/* Same composer-floor opt-out as ComposerAttachments.module.css: the badge
+   keeps its drawn 18px size, with a transparent hit zone for the touch
+   target. The inline retry text button restores its natural inline size —
+   a 44px minimum would overflow the 64px card. */
+@media (pointer: coarse) {
+  .card .remove {
+    min-width: 18px;
+    min-height: 18px;
+  }
+
+  .card .remove::after {
+    content: '';
+    position: absolute;
+    inset: -13px;
+  }
+
+  .card .retry {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
 @media (pointer: coarse) {
   .remove {
     opacity: 1;

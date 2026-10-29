@@ -41,6 +41,11 @@ export type AssistantBlock =
 export interface UserMessageNode {
   kind: 'user'
   seq: number
+  /**
+   * Stable identity carried from the `user/message` event. Absent when the
+   * surface was assembled without a durable user message.
+   */
+  messageId?: MessageId
   /** Unix epoch ms from the source session event. */
   time: number
   content: readonly ContentBlock[]

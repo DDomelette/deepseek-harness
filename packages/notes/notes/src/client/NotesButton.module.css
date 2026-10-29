@@ -1,0 +1,27 @@
+/*
+ * Sits in the conversation header's corner seat, level with the Session log
+ * control: the same 28px circle around a 15px glyph those controls use.
+ */
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 28px;
+  cursor: pointer;
+}
+
+.button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}

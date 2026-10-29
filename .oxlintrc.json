@@ -26,6 +26,7 @@
     "native/**", // The imported landlock-run subtree has its own gates; see native/README.md.
     "**/*.js",
     "**/*.mjs",
+    "packages/notes/notes/src/types.d.ts", // Compiled beside its source by the api/remotes client face (see .gitignore); not source.
     "**/*.config.ts", // Tool and app configs are outside the repository TypeScript programs.
     "packages/client/tsdown.client.ts" // Shared client build preset, also outside a TypeScript program.
   ],

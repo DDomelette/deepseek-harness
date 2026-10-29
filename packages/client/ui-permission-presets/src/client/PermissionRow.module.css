@@ -58,3 +58,19 @@
 .chevron {
   flex: none;
 }
+
+/* Handset single-pane: the side-by-side split squeezes the description into a
+   character-wide column beside the selector, so the text takes the full row
+   and the selector moves to its own line. The row renders only inside the
+   settings panel, so the panel's own breakpoint is the right gate — in step
+   with SETTINGS_PANE_BREAKPOINT. */
+@media (max-width: 767px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .rowText {
+    flex: 1 1 100%;
+    padding-right: 0;
+  }
+}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -10,6 +10,7 @@ import { apply, inject, NS } from '../src/client/index.ts'
 import { McpSettingsTab } from '../src/client/McpSettingsTab.tsx'
 import type { McpSettingsTabInjected } from '../src/client/McpSettingsTab.tsx'
 import { MCP_SERVERS_NS } from '../src/client/mcp-tab-controller.ts'
+import * as hostPlugin from '../src/index.ts'
 
 usePinnedBrowserLanguages('zh-CN')
 afterEach(cleanup)
@@ -21,6 +22,8 @@ type ListResult =
 
 async function bench() {
   const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  await ctx.plugin(hostPlugin).await()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)

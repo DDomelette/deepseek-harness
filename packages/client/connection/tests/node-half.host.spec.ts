@@ -3,14 +3,16 @@ import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { API_PATH, Config, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
+import { PairedDeviceId } from '../src/device-brand.ts'
+import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
-import { provideBrowserCredentials } from './browser-credentials.ts'
+import { provideBrowserCredentials, type RecordCredentials } from './browser-credentials.ts'
 
 /** Structural webServer fake recording both route registries. */
 function fakeHttpServer(
@@ -37,36 +39,45 @@ function fakeHttpServer(
 /** Bodyless GET carrying the given headers (enough for the trust fence + bridge). */
 function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session.list`): IncomingMessage {
   const request = Readable.from([]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'GET', headers })
+  Object.assign(request, { url, method: 'GET', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** JSON POST carrying a complete client-request envelope. */
 function fakePost(headers: Record<string, string>, url: string, body: unknown): IncomingMessage {
   const request = Readable.from([Buffer.from(JSON.stringify(body))]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers } })
+  Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers }, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** Raw POST for malformed-body and media-type boundary cases. */
 function fakeRawPost(headers: Record<string, string>, url: string, body: string): IncomingMessage {
   const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
-  Object.assign(request, { url, method: 'POST', headers })
+  Object.assign(request, { url, method: 'POST', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** Response recorder compatible with both the fence's short-circuit and the bridge. */
 function fakeResponse(): {
   response: ServerResponse
-  state: { status?: number; headers?: Record<string, string>; body?: unknown }
+  state: { status?: number; headers?: Record<string, string | string[]>; body?: unknown }
 } {
-  const state: { status?: number; headers?: Record<string, string>; body?: unknown } = {}
+  const state: { status?: number; headers?: Record<string, string | string[]>; body?: unknown } = {}
+  const staged: Record<string, string | string[]> = {}
   const chunks: Buffer[] = []
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
-    writeHead(value: number, headers?: Record<string, string>) {
+    setHeader(name: string, value: string) {
+      staged[name] = value
+      return this
+    },
+    // The bridge forwards a staged renewal alongside the route's own cookies,
+    // so the double answers the same read the real response does.
+    getHeader(name: string) { return staged[name] },
+    writeHead(value: number, headers?: Record<string, string | string[]>) {
       state.status = value
-      if (headers !== undefined) state.headers = headers
+      // node:http sends headers staged with setHeader unless writeHead names them.
+      state.headers = { ...staged, ...headers }
       return this
     },
     write(value: string | Uint8Array) { chunks.push(Buffer.from(value)); return true },
@@ -86,12 +97,13 @@ async function mounted(config?: ConnectionConfig): Promise<{
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
   connection: HostConnectionHandle
+  store: RecordCredentials
   dispose: () => Promise<void>
 }> {
   const ctx = new Context()
   const routes: WebRoute[] = []
   const upgrades: WebUpgradeRoute[] = []
-  provideBrowserCredentials(ctx)
+  const store = provideBrowserCredentials(ctx)
   ctx.provide('webServer', fakeHttpServer(routes, upgrades) as WebServer)
   const fiber = ctx.plugin({ inject: [...inject], apply }, config)
   await fiber.await()
@@ -100,6 +112,7 @@ async function mounted(config?: ConnectionConfig): Promise<{
     routes,
     upgrades,
     connection: ctx.get('connection') as HostConnectionHandle,
+    store,
     dispose: () => fiber.dispose(),
   }
 }
@@ -114,7 +127,33 @@ function browserCookie(connection: HostConnectionHandle, authority: string): str
   )
   const setCookie = exchanged.state.headers?.['set-cookie']
   if (setCookie === undefined) throw new Error('browser token exchange did not set a cookie')
-  return setCookie.split(';', 1)[0]!
+  return (Array.isArray(setCookie) ? setCookie[0]! : setCookie).split(';', 1)[0]!
+}
+
+/**
+ * One accepted Cookie header for an authority: the launch-token exchange on
+ * loopback, and a paired device's own cookie everywhere else — the process token
+ * is a loopback credential.
+ */
+async function authorityCookie(connection: HostConnectionHandle, authority: string): Promise<string> {
+  const hostname = new URL(`http://${authority}`).hostname
+  if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]') {
+    return browserCookie(connection, authority)
+  }
+  const device = await connection.devices.register({ label: 'test device' })
+  const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+  if (issued === undefined) throw new Error('device cookie issuance produced no cookie')
+  return issued.split(';', 1)[0]!
+}
+
+/** The paired-device entries the registry record currently holds. */
+function storedDevices(store: RecordCredentials): readonly Record<string, unknown>[] {
+  const record = store.keyed.get(String(PAIRED_DEVICES_RECORD_KEY))
+  if (record?.kind !== 'grant') return []
+  const payload: unknown = record.payload
+  if (typeof payload !== 'object' || payload === null) return []
+  const devices: unknown = Reflect.get(payload, 'devices')
+  return Array.isArray(devices) ? devices as readonly Record<string, unknown>[] : []
 }
 
 describe('connection node half', () => {
@@ -218,7 +257,7 @@ describe('connection node half', () => {
       expect([method, denied.state.status, denied.state.body]).toEqual([method, 401, 'unauthorized'])
     }
 
-    const cookie = browserCookie(connection, 'harness.example')
+    const cookie = await authorityCookie(connection, 'harness.example')
     for (const method of methods) {
       const allowed = fakeResponse()
       await routes[0]!.handler(
@@ -245,11 +284,11 @@ describe('connection node half', () => {
     }), loopback.response)
     expect(loopback.state.status).toBe(404)
     // An all-interfaces composition derives port-less LAN IP literals, which
-    // pass markerless curl on any port.
+    // pass markerless curl on any port; that authority authenticates devices.
     const lan = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: '192.168.1.5:3080',
-      cookie: browserCookie(connection, '192.168.1.5:3080'),
+      cookie: await authorityCookie(connection, '192.168.1.5:3080'),
     }), lan.response)
     expect(lan.state.status).toBe(404)
     // Declared public authority, same-origin browser shape.
@@ -258,10 +297,112 @@ describe('connection node half', () => {
       host: 'harness.example:3080',
       origin: 'http://harness.example:3080',
       'sec-fetch-site': 'same-origin',
-      cookie: browserCookie(connection, 'harness.example:3080'),
+      cookie: await authorityCookie(connection, 'harness.example:3080'),
     }), declared.response)
     expect(declared.state.status).toBe(404)
     await dispose()
+  })
+
+  it('records the credential a phone holds and renews it on the next /api request', async () => {
+    const { routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'test device' })
+      const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = issued?.split(';', 1)[0]
+      expect(cookie).toBeDefined()
+
+      // The window the phone was handed is what the registry records, so the
+      // Connect-phone panel can report a lapsed credential instead of a window.
+      await vi.waitFor(() => {
+        expect(storedDevices(store)).toEqual([expect.objectContaining({ credentialExpiresAt: device.expiresAt })])
+      })
+
+      // Extending the window reaches a phone that is already in the application
+      // on its next carrier call, not only on a later document load.
+      await connection.devices.setLifetime(device.id, 90)
+      const extended = (await connection.devices.list())[0]!.expiresAt
+      const renewed = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: cookie! }, `${API_PATH}/session.list`),
+        renewed.response,
+      )
+      const setCookie = renewed.state.headers?.['set-cookie']
+      // A repeated header travels as a list; one cookie arrives as one entry.
+      expect(setCookie).toEqual([expect.stringMatching(/; Max-Age=777\d{4};/u)])
+      const cookiePair = (Array.isArray(setCookie) ? setCookie[0]! : setCookie!).split(';', 1)[0]!
+      await vi.waitFor(() => {
+        expect(storedDevices(store)).toEqual([expect.objectContaining({ credentialExpiresAt: extended })])
+      })
+
+      // The aligned credential is not re-issued on every later call.
+      const aligned = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: cookiePair }, `${API_PATH}/session.list`),
+        aligned.response,
+      )
+      expect(aligned.state).toMatchObject({ status: 404 })
+      expect(aligned.state.headers?.['set-cookie']).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('records an authenticated request from a paired phone as that device in use', async () => {
+    const { routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      // A phone paired hours ago keeps using the application, so the pairing
+      // handshake cannot stay the only write behind the panel's last-used time.
+      const unused = Date.now() - 3 * 60 * 60 * 1000
+      store.setPairedDevices({ version: 1, devices: [{ ...device, lastSeenAt: unused }] })
+      expect((await connection.devices.list())[0]!.lastSeenAt).toBe(unused)
+
+      const issued = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = issued?.split(';', 1)[0]
+      expect(cookie).toBeDefined()
+
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie: cookie! }, `${API_PATH}/session.list`),
+        fakeResponse().response,
+      )
+      await vi.waitFor(async () => {
+        expect((await connection.devices.list())[0]!.lastSeenAt).toBeGreaterThan(unused)
+      })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('reports a last-seen write that failed instead of failing the request', async () => {
+    const { ctx, routes, connection, store, dispose } = await mounted({ trustedHosts: ['192.168.1.5'] })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    try {
+      const authority = '192.168.1.5:3080'
+      const device = await connection.devices.register({ label: 'phone' })
+      const cookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)!.split(';', 1)[0]!
+
+      // A record this build cannot interpret fails the write while the cached
+      // device set still authenticates the request.
+      store.setPairedDevices({ version: 99, devices: [] })
+      const answered = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: authority, cookie }, `${API_PATH}/session.list`),
+        answered.response,
+      )
+
+      await vi.waitFor(() => {
+        expect(warn).toHaveBeenCalledWith(
+          'connection: could not record the last-seen time of device "%s": %s',
+          device.id,
+          expect.stringContaining('unsupported format'),
+        )
+      })
+    } finally {
+      warn.mockRestore()
+      await dispose()
+    }
   })
 
   it('shares its configured trust and authentication policy with sibling routes', async () => {
@@ -273,9 +414,48 @@ describe('connection node half', () => {
     expect(connection.requestRejection(declared)).toBe(401)
     expect(connection.requestRejection(fakeRequest({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }))).toBeUndefined()
     await dispose()
+  })
+
+  it('applies the configured carrier cap to a dedicated RPC channel', async () => {
+    const { routes, connection, dispose } = await mounted({ maxRequestBodyBytes: 512 })
+    try {
+      const calls: unknown[] = []
+      connection.rpc.handle('/rpc', async (endpoint, payload) => {
+        calls.push({ endpoint, payload })
+        return { ok: true, value: null }
+      })
+      const route = routes.find(candidate => candidate.path === '/rpc')!
+      const cookie = await authorityCookie(connection, '127.0.0.1:3080')
+      const envelope = (padding: number): ClientRequest => ({
+        type: 'client-request',
+        rpcId: RpcId('rpc-cap'),
+        method: 'goals/create',
+        payload: { args: { pad: 'x'.repeat(padding) } },
+      })
+
+      // The cap a deployment configures is the one that bounds every buffered
+      // carrier of this activation, not only the shared /api route.
+      const over = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(4096)), over.response)
+      expect(over.state.status).toBe(413)
+      expect(calls).toEqual([])
+
+      const within = fakeResponse()
+      await route.handler(fakePost({
+        host: '127.0.0.1:3080',
+        cookie,
+      }, '/rpc/goals/create', envelope(16)), within.response)
+      expect(within.state.status).toBe(200)
+      expect(calls).toHaveLength(1)
+    } finally {
+      await dispose()
+    }
   })
 
   it('provides a disposable dedicated RPC channel', async () => {
@@ -404,7 +584,7 @@ describe('connection node half', () => {
     const declared = fakeResponse()
     await route.handler(fakePost({
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }, '/api/goals/create', request), declared.response)
     expect(declared.state.status).toBe(200)
     await removeAuthenticated()
@@ -426,7 +606,7 @@ describe('connection node half', () => {
     const route = routes.find(candidate => candidate.path === '/rpc')!
     const harnessHeaders = {
       host: 'harness.example',
-      cookie: browserCookie(connection, 'harness.example'),
+      cookie: await authorityCookie(connection, 'harness.example'),
     }
 
     const denied = fakeResponse()
@@ -546,7 +726,7 @@ describe('connection node half over a real HTTP server', () => {
       }
       expect(await call(port, 'settings/openSettingsDocument', 'other.example')).toBe(403)
 
-      const declaredCookie = browserCookie(connection, 'harness.example')
+      const declaredCookie = await authorityCookie(connection, 'harness.example')
       for (const method of methods) {
         expect([method, await call(port, method, 'harness.example', declaredCookie)]).toEqual([method, 404])
       }
@@ -561,5 +741,186 @@ describe('connection node half over a real HTTP server', () => {
       await close()
       await dispose()
     }
+  })
+})
+
+describe('connection device registry handle', () => {
+  it('registers a device and accepts its cookie without a restart, then bins, restores, and purges it', async () => {
+    const { connection, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(await connection.devices.list()).toEqual([device])
+
+      const setCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      expect(setCookie).toBeDefined()
+      const cookie = setCookie!.split(';', 1)[0]!
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBeUndefined()
+      // A device registered moments ago is inside the one-hour touch window.
+      expect(await connection.devices.touch(device.id)).toBe(false)
+
+      // Revocation bins the row: the cookie dies on the next request while the
+      // entry stays listed with its revocation time.
+      expect(await connection.devices.revoke(device.id)).toBe(true)
+      const [binned] = await connection.devices.list()
+      expect(binned).toMatchObject({ id: device.id, label: 'HUAWEI JAD-AL50' })
+      expect(binned?.revokedAt).toBeDefined()
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
+      expect(await connection.devices.revoke(device.id)).toBe(false)
+
+      // Deletion is bin-only; restore re-admits the same cookie.
+      expect(await connection.devices.purge(device.id)).toBe(true)
+      expect(await connection.devices.list()).toEqual([])
+      expect(await connection.devices.restore(device.id)).toBe(false)
+      expect(await connection.devices.purge(device.id)).toBe(false)
+
+      const reregistered = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      const revivedCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), reregistered.id)!
+        .split(';', 1)[0]!
+      expect(await connection.devices.purge(reregistered.id)).toBe(false)
+      expect(await connection.devices.revoke(reregistered.id)).toBe(true)
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie: revivedCookie }))).toBe(401)
+      expect(await connection.devices.restore(reregistered.id)).toBe(true)
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie: revivedCookie }))).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('mints no cookie for a request without a usable Host', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      expect(connection.devices.issueCookie(fakeRequest({}), PairedDeviceId('device-1'))).toBeUndefined()
+      expect(connection.devices.issueCookie({ headers: { host: 'bad host' } }, PairedDeviceId('device-1'))).toBeUndefined()
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('drops a device cookie when the credential record changes outside this service', async () => {
+    const { ctx, connection, store, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      const setCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)
+      const cookie = setCookie!.split(';', 1)[0]!
+      expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBeUndefined()
+
+      // Another writer — an operator editing the file, or a second process —
+      // clears the registry; the running Host honors that on the next request.
+      store.setPairedDevices({ version: 1, devices: [] })
+      ctx.emit('credentials/record-updated', PAIRED_DEVICES_RECORD_KEY)
+
+      await vi.waitFor(() => {
+        expect(connection.requestRejection(fakeRequest({ host: authority, cookie }))).toBe(401)
+      })
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('serves the unauthenticated shell only for a trusted LAN authority', async () => {
+    const { connection, dispose } = await mounted({ trustedHosts: ['192.168.0.122:3080'] })
+    try {
+      const trusted = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: '192.168.0.122:3080' }, '/'), trusted.response)).toBe('auth-required')
+      expect(trusted.state).toEqual({})
+      const untrusted = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: 'evil.example:3080' }, '/'), untrusted.response)).toBe('answered')
+      expect(untrusted.state.status).toBe(401)
+      expect(untrusted.state.headers?.['content-type']).toBe('text/plain; charset=utf-8')
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('requires a loopback peer and a launch cookie for operator requests', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      for (const host of ['127.0.0.1:3080', 'localhost:3080', '[::1]:3080']) {
+        const cookie = browserCookie(connection, host)
+        const local = fakeRequest({ host, cookie })
+        expect(connection.isLocalOperatorRequest(local)).toBe(true)
+        Object.assign(local.socket, { remoteAddress: '192.168.0.122' })
+        expect(connection.isLocalOperatorRequest(local)).toBe(false)
+        expect(connection.isLocalOperatorRequest(fakeRequest({ host }))).toBe(false)
+        const device = await connection.devices.register({ label: 'phone' })
+        const deviceCookie = connection.devices.issueCookie(fakeRequest({ host }), device.id)!.split(';', 1)[0]!
+        expect(connection.isLocalOperatorRequest(fakeRequest({ host, cookie: deviceCookie }))).toBe(false)
+      }
+      expect(connection.isLocalOperatorRequest(fakeRequest({ host: '192.168.0.126:3080' }))).toBe(false)
+      expect(connection.isLocalOperatorRequest(fakeRequest({}))).toBe(false)
+      expect(connection.isLocalOperatorRequest({ headers: { host: 'bad host' } })).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('gives a newly registered device the configured default window', async () => {
+    const fallback = await mounted()
+    try {
+      const device = await fallback.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(1)
+      expect(device.expiresAt).toBeGreaterThan(Date.now())
+    } finally {
+      await fallback.dispose()
+    }
+
+    const configured = await mounted({ deviceLifetimeDays: 60 })
+    try {
+      const device = await configured.connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(device.lifetimeDays).toBe(60)
+      const [listed] = await configured.connection.devices.list()
+      expect(listed).toEqual(device)
+    } finally {
+      await configured.dispose()
+    }
+  })
+
+  it('re-schedules one device window and mints its next cookie inside it', async () => {
+    const { connection, dispose } = await mounted()
+    const authority = '127.0.0.1:3080'
+    // Only the clock is frozen, so the two minted windows stay exact while the
+    // Context's own scheduling keeps running on real timers.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-13T12:00:00.000Z'))
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
+        .toContain('Max-Age=86400')
+
+      expect(await connection.devices.setLifetime(device.id, 30)).toBe(true)
+      const [listed] = await connection.devices.list()
+      expect(listed?.lifetimeDays).toBe(30)
+      expect(connection.devices.issueCookie(fakeRequest({ host: authority }), device.id))
+        .toContain('Max-Age=2592000')
+
+      expect(await connection.devices.setLifetime(PairedDeviceId('ghost'), 30)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+      await dispose()
+    }
+  })
+
+  it('renames a device and refreshes the listed rows', async () => {
+    const { connection, dispose } = await mounted()
+    try {
+      const device = await connection.devices.register({ label: 'HUAWEI JAD-AL50' })
+
+      expect(await connection.devices.rename(device.id, '书房的平板')).toBe(true)
+      const [listed] = await connection.devices.list()
+      expect(listed?.label).toBe('书房的平板')
+
+      expect(await connection.devices.rename(PairedDeviceId('ghost'), 'no such device')).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('resolves the one-day device lifetime default and refuses a window outside 1–365 days', () => {
+    expect(Config({}).deviceLifetimeDays).toBe(1)
+    expect(() => Config({ deviceLifetimeDays: 0 })).toThrow()
+    expect(() => Config({ deviceLifetimeDays: 366 })).toThrow()
+    expect(Config({ deviceLifetimeDays: 365 }).deviceLifetimeDays).toBe(365)
   })
 })

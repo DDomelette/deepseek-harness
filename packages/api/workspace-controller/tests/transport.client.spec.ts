@@ -204,6 +204,7 @@ function provideClientServices(ctx: Context, remote: WorkspaceRemote): void {
     isLoopback: true,
     generation: AVAILABLE_CONNECTION.generation,
     state: { getSnapshot: () => 'connected' as const, subscribe: () => () => {} },
+    failure: { getSnapshot: () => undefined, subscribe: () => () => {} },
     rpc: {
       call: () => Promise.reject(new Error('unexpected generic RPC call')),
     },
@@ -466,12 +467,18 @@ describe('WorkspaceController', () => {
       sessionIds: ['session'],
     })
     await expect(controller.archiveSession(sid('session'))).resolves.toBeUndefined()
+    await expect(controller.unarchiveSession(sid('session'))).resolves.toBeUndefined()
+    await expect(controller.refresh()).resolves.toBeUndefined()
     await expect(controller.delete(wid('one'))).resolves.toBeUndefined()
   })
 
   it('maps generated business failures to the command facade errors', async () => {
     const remote = new CommandWorkspaceRemote()
     const controller = new WorkspaceController(new Context(), new ClientWorkspaceModel(remote))
+    vi.spyOn(remote, 'unarchiveSession').mockResolvedValueOnce(remoteFailure(
+      new RemoteError('gateway/internal', 'storage failed', {}),
+    ))
+    await expect(controller.unarchiveSession(sid('session'))).rejects.toThrow('session restore failed')
     const missingWorkspace = new RemoteError('workspace/not-found', 'gone', { workspaceId: wid('missing') })
     const missingSession = new RemoteError('session/not-found', 'missing session', { sessionId: sid('session') })
 

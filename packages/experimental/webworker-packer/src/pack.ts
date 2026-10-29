@@ -284,7 +284,7 @@ interface SweepOutcome {
 /**
  * Keep only the JavaScript the worker can reach, transforming it on the way.
  *
- * Roots are the export faces of every materialized workspace and vendored
+ * Roots are the runtime export faces of every materialized workspace and vendored
  * package — the harness addresses them by constructed name at runtime (Loader
  * rows, typert faces, delegating providers such as `-auto` pickers), so the
  * sweep prunes files only inside third-party packages — plus the worker
@@ -384,12 +384,15 @@ function sweepImage(
     } catch {
       continue
     }
-    // Every non-wildcard face is a root; a face resolving onto a page asset is
+    // Every non-wildcard runtime face is a root; a face resolving onto a page asset is
     // kept untransformed below rather than excluded here.
     const subpaths = manifest.exports === undefined
       ? ['.']
       : Object.keys(manifest.exports).filter(key => key.startsWith('.') && !key.includes('*'))
     for (const subpath of subpaths) {
+      const target = manifest.exports?.[subpath]
+      if (typeof target === 'object' && target !== null
+        && Object.keys(target).length === 1 && Object.hasOwn(target, 'types')) continue
       queue.push({ specifier: subpath === '.' ? name : `${name}/${subpath.slice(2)}`, from: root, importer: `workspace face ${name}` })
     }
   }

@@ -190,6 +190,11 @@ describe('AddServerForm', () => {
     expect((await screen.findByText(en.saveFailed)).textContent).toBe(en.saveFailed)
     expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', false)
     expect(onDone).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: '' } })
+    expect(screen.getByRole('alert').textContent).toBe(en.missingCommand)
+    fireEvent.change(screen.getByLabelText(en.commandLabel), { target: { value: 'memorix' } })
+    expect(screen.getByRole('alert').textContent).toBe(en.saveFailed)
   })
 
   it('treats a rejecting save like a refused one', async () => {

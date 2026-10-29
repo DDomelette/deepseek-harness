@@ -173,6 +173,7 @@ export function apply(ctx: ClientContext): void {
     // nothing else in the row.
     const disposeExpand = ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({
       name: 'conversation.session.header.corner',
+      id: 'sidebar-right-expand',
       locale: NS,
       store,
     }, ExpandButton))

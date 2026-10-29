@@ -32,6 +32,75 @@ async function mount(root?: string) {
 }
 
 describe('explicit JSONL deletion', () => {
+  it('rejects new deletion requests after persistence shuts down', async () => {
+    const { ctx, persistence } = await mount()
+    await ctx.fiber.dispose()
+    await expect(persistence.delete(meta('after-shutdown', '/project').id)).rejects.toThrow('persistence is closing')
+  })
+
+  it('releases its writer claim when the selected generation disappears during lease acquisition', async () => {
+    const { root, persistence } = await mount()
+    const header = meta('removed-before-lease', '/project')
+    const writer = await persistence.create(header)
+    await writer.append(oneTurnLog())
+    await writer.close()
+    const source = generationLogPath(root, header.cwd, header.id, header.version, 'none')
+    const held = Promise.withResolvers<undefined>()
+    const proceed = Promise.withResolvers<undefined>()
+    const acquire = SessionWriteLease.acquire.bind(SessionWriteLease)
+    vi.spyOn(SessionWriteLease, 'acquire').mockImplementationOnce(async (...args) => {
+      const lease = await acquire(...args)
+      held.resolve(undefined)
+      await proceed.promise
+      return lease
+    })
+    const deletion = expect(persistence.delete(header.id)).rejects.toBeInstanceOf(SessionPersistenceNotFoundError)
+    try {
+      await held.promise
+      await rm(source)
+    } finally {
+      proceed.resolve(undefined)
+      await deletion
+    }
+    const replacement = await persistence.create(header)
+    await replacement.append(oneTurnLog())
+    await replacement.close()
+    expect(await persistence.stat(header.id)).toMatchObject({ header: { id: header.id } })
+  })
+
+  it('waits for an admitted deletion during shutdown while refusing another deletion', async () => {
+    const { ctx, persistence } = await mount()
+    const header = meta('shutdown-deletion', '/project')
+    const writer = await persistence.create(header)
+    await writer.append(oneTurnLog())
+    await writer.close()
+    const held = Promise.withResolvers<undefined>()
+    const proceed = Promise.withResolvers<undefined>()
+    const acquire = SessionWriteLease.acquire.bind(SessionWriteLease)
+    vi.spyOn(SessionWriteLease, 'acquire').mockImplementationOnce(async (...args) => {
+      const lease = await acquire(...args)
+      held.resolve(undefined)
+      await proceed.promise
+      return lease
+    })
+    const deletion = persistence.delete(header.id)
+    await held.promise
+    let released = false
+    let disposedBeforeRelease = false
+    const closing = ctx.fiber.dispose().then(() => { disposedBeforeRelease = !released })
+    try {
+      await vi.waitFor(async () => {
+        await expect(persistence.delete(header.id)).rejects.toThrow('persistence is closing')
+      })
+    } finally {
+      released = true
+      proceed.resolve(undefined)
+      await deletion
+      await closing
+    }
+    expect(disposedBeforeRelease).toBe(false)
+  })
+
   it('removes a historical session after read-only migration without publishing a successor', async () => {
     const { root, persistence } = await mount()
     const header = meta('historical-deletion', '/project')

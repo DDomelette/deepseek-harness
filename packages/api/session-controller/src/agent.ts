@@ -514,7 +514,6 @@ export class ApiSessionAgentController {
     }
     for (const handle of handles) {
       await handle.dispose()
-      if (this.handles.get(handle.agent.id) === handle) this.handles.delete(handle.agent.id)
     }
   }
 

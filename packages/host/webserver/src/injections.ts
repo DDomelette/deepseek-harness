@@ -82,8 +82,15 @@ function splice(html: string, at: number, markup: string): string {
  * applies the table asynchronously installs it ahead of the entry module and
  * settles it after the last row; the served form below creates and resolves
  * it in one statement, because every row is already in the document text.
+ *
+ * The deferred is built without `Promise.withResolvers` (Chrome 119, Safari
+ * 17.4): this markup is the earliest script in the document, running before the
+ * shell installs its browser floor, so it may not assume that API exists.
  */
-const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>'
+const READY_MARKUP = '<script>(globalThis.__DSH_BOOT_READY__ ??= (() => {'
+  + ' const held = {};'
+  + ' held.promise = new Promise((resolve, reject) => { held.resolve = resolve; held.reject = reject });'
+  + ' return held })()).resolve()</script>'
 
 /**
  * Render rows into an index.html body: head rows immediately after the

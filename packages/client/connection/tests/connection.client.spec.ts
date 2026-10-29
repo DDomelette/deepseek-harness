@@ -798,3 +798,94 @@ describe('connection lifecycle', () => {
     }
   })
 })
+
+describe('connection failure reporting', () => {
+  it('reports the failure of a generation that never became ready', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const source = new FakeGenerationSource()
+    source.suppressReady = true
+    const failures: string[] = []
+    const controller = new ConnectionController(source.source, {
+      onFailure: (error) => { failures.push(error.message) },
+    }, FAST)
+    controller.start()
+    try {
+      await vi.waitFor(() => { expect(source.activeCount).toBe(1) })
+      source.fail(new Error('carrier refused the upgrade'))
+      await vi.waitFor(() => { expect(failures).toEqual(['carrier refused the upgrade']) })
+    } finally {
+      controller.stop()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('reports nothing when a ready generation merely ends', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const source = new FakeGenerationSource()
+    const failures: string[] = []
+    const states: ConnectionState[] = []
+    const controller = new ConnectionController(source.source, {
+      onFailure: (error) => { failures.push(error.message) },
+      onStateChange: state => states.push(state),
+    }, FAST)
+    controller.start()
+    try {
+      await vi.waitFor(() => { expect(states).toEqual(['connected']) })
+      source.end()
+      await vi.waitFor(() => { expect(states).toEqual(['connected', 'connecting', 'connected']) })
+      expect(failures).toEqual([])
+    } finally {
+      controller.stop()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('reports nothing for the readiness deadline of a stopped loop', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const failures: string[] = []
+    const controller = new ConnectionController(
+      signal => new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => { resolve() }, { once: true })
+      }),
+      { onFailure: (error) => { failures.push(error.message) } },
+      FAST,
+    )
+    controller.start()
+    controller.stop()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(failures).toEqual([])
+    warnSpy.mockRestore()
+  })
+
+  it('reports nothing for this controller\'s own aborts', async () => {
+    let started = 0
+    const failures: string[] = []
+    const states: ConnectionState[] = []
+    const controller = new ConnectionController(
+      (signal) => {
+        started++
+        return new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => { resolve() }, { once: true })
+        })
+      },
+      {
+        onFailure: (error) => { failures.push(error.message) },
+        onStateChange: state => states.push(state),
+      },
+      { ...FAST, generationReadyTimeoutMs: 10_000 },
+    )
+    controller.start()
+    try {
+      await vi.waitFor(() => { expect(started).toBe(1) })
+      controller.reconnect()
+      await vi.waitFor(() => { expect(started).toBe(2) })
+      controller.setNetworkAvailable(false)
+      await vi.waitFor(() => { expect(states).toContain('disconnected') })
+      await new Promise(resolve => setTimeout(resolve, 20))
+      expect(started).toBe(2)
+      expect(failures).toEqual([])
+    } finally {
+      controller.stop()
+    }
+  })
+})

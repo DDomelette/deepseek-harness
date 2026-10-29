@@ -208,8 +208,13 @@ async function awaitTableLayout(target: Page): Promise<void> {
     if (element === null) return false
     const tracks = getComputedStyle(element).gridTemplateColumns.split(' ').map(Number.parseFloat)
     const root = element.querySelector<HTMLElement>('div[data-phase]')
-    // Mirrored from ui-layout's SIDEBAR_COLLAPSED; these tests use the Host compiler face.
-    return tracks[0] === 56 && tracks.at(-1) === 0
+    // Mirrored from ui-layout's SIDEBAR_COLLAPSED and SIDEBAR_OVERLAY; these
+    // tests use the Host compiler face. Below the overlay breakpoint the
+    // closed sidebar owns no track: the floating brand button replaced the
+    // rail. Reading the frame's own width keeps the expectation immune to the
+    // frame store's publish lag after a resize.
+    const expectedSidebar = element.getBoundingClientRect().width < 768 ? 0 : 56
+    return tracks[0] === expectedSidebar && tracks.at(-1) === 0
       && element.getAnimations().every(animation =>
         animation.playState === 'finished' || animation.playState === 'idle')
       && root !== null

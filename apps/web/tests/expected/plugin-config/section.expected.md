@@ -13,6 +13,12 @@
     - button "Agent 预设":
       - img
       - text: Agent 预设
+    - button "技能":
+      - img
+      - text: 技能
+    - button "已归档":
+      - img
+      - text: 已归档
   - button "打开配置文件"
   - button "关闭":
     - img
@@ -21,9 +27,14 @@
   - paragraph: 配置和查看本部署已安装的插件。
   - tablist "插件视图":
     - tab "插件配置" [selected]
+    - tab "MCP"
     - tab "插件列表"
   - tabpanel "插件配置":
     - list:
+      - listitem:
+        - 'button "展开设置: Usage 遥测"':
+          - text: Usage 遥测 把每次模型调用记录到本地 usage 文件。
+          - img
       - listitem:
         - 'button "展开设置: 终端"':
           - text: 终端 限制 agent 运行的每一条命令。

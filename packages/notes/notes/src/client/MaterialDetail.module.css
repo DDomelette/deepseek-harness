@@ -1,0 +1,304 @@
+/*
+ * One material's detail: a head with the title, the status, and the chrome
+ * (source disclosure, row-action menu), then the action template, the body,
+ * and the thread. It fills the pane's second column; the thread fills what the
+ * upper sections leave and scrolls on its own, so the ask card pins to the
+ * pane's bottom while the list keeps its place.
+ *
+ * The sheet paints elevated surfaces (the editor, the action template, and the
+ * ask card), so its scroll container rebinds the bar to the l2 pair. Type
+ * follows the theme ladder (`--dsw-font-*`, which pairs every size with its
+ * line height); the ladder has no 10px step.
+ */
+.detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The head: the material's title and state on the left, its chrome on the right. */
+.head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* The pane's head names the material the way its list row does. */
+.detailTitle {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  min-width: 0;
+  font: var(--dsw-font-s-strong-14);
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headStatus {
+  flex: none;
+}
+
+.headActions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+}
+
+.copiedNote {
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+[data-notes-source-toggle][aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* The source card: where the material came from and what its action will
+   submit, folded behind the head toggle. */
+.sourceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+}
+
+.sourceRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sourceTemplate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.sourceLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceView {
+  flex: none;
+}
+
+.locateHint {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The template card is one button: collapsed it shows the prompt's first
+   line, and a press anywhere on it toggles the full text. */
+.template {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--dsw-alias-bg-layer-2);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.template:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.template:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
+
+.templateText {
+  overflow: hidden;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+  white-space: pre-wrap;
+}
+
+.template[aria-expanded='false'] .templateText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.templateToggle {
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.body {
+  margin: 0;
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-secondary);
+  white-space: pre-wrap;
+}
+
+/* A submitted body is read-only record, so it sits on a hairline card. */
+.bodyCard {
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+}
+
+.editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 96px;
+  padding: 8px;
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+/* A draft's own lifecycle controls, under the body they act on. */
+.bodyFoot {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* The marker a submission that carried an image draws beside its text. */
+.rowImage {
+  margin-left: 6px;
+  padding: 0 4px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 4px;
+}
+
+.failure {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* The thread fills what the pane leaves: its rows start at the top and scroll
+   on their own, and the ask card pins to the bottom. */
+.threadSection {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.threadRows {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pending {
+  margin: 0;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Thread rows follow the conversation's convention: the reader's own rows
+   are bubbles, the model's rows are flat prose with a role label, so an
+   answer quoting the body never reads as part of it. */
+.user,
+.assistant {
+  margin: 0;
+  font: var(--dsw-font-xs-13);
+  white-space: pre-wrap;
+}
+
+.user {
+  padding: 10px 16px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-specific-bubble);
+  border-radius: 22px;
+}
+
+.assistant {
+  padding: 2px 0;
+  color: var(--dsw-alias-label-primary);
+}
+
+.rowRole {
+  display: block;
+  margin-bottom: 2px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The ask card echoes the conversation's composer: a soft-elevated capsule
+   card with the send control inside. */
+.ask {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 6px 6px 12px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--dsw-specific-input-major);
+  box-shadow: var(--dsw-elevation-soft);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
+}
+
+.question {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+}

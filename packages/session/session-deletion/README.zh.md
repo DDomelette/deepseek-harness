@@ -41,7 +41,7 @@ DeepSeek Harness 的递归会话删除编排插件。
 - 删除顺序为叶子优先，崩溃后不会留下悬空的父会话。
 - 已消失的成员标记为 `missing`，并且仍会执行 workspace 清理。
 - 每个成员状态迁移都会在下一步操作前持久化。
-- 针对活动计划成员的 `session/created` 会回滚 attach。
+- 同步 `session/created` 监听器会回滚活动计划成员或其新子会话的创建；不相关的会话仍可正常使用。
 
 <a id="errors"></a>
 ## 错误

@@ -64,9 +64,7 @@ export class SessionPinsService extends TypertRemoteService {
   }
 
   private requireState(): SessionPinsDomainState {
-    const state = this.global?.get()
-    if (state === undefined) throw new Error('session-pins domain is not open')
-    return state
+    return this.requireGlobal().get()
   }
 
   private requireGlobal(): DomainGlobal<SessionPinsDomainState> {
@@ -153,7 +151,8 @@ export class SessionPinsService extends TypertRemoteService {
       const ordered = this.assertOrderedIds(input.orderedIds)
       const current = this.requireState()
       const pinned = new Set(current.pinnedSessionIds)
-      if (ordered.length !== pinned.size || ordered.some(id => !pinned.has(id))) {
+      if (ordered.length !== pinned.size || ordered.some(id => !pinned.has(id))
+        || new Set(ordered).size !== ordered.length) {
         throw new SessionPinsInvalidError(ordered)
       }
       return this.commit({ ...current, flatOrder: ordered })

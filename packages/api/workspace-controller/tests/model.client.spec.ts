@@ -137,6 +137,39 @@ function baseline(
 }
 
 describe('ClientWorkspaceModel', () => {
+  it('refreshes the complete projection and preserves newer streamed updates', async () => {
+    const remote = new FakeWorkspaceRemote()
+    const model = modelFor(remote)
+    const list = vi.spyOn(remote, 'list')
+    list.mockResolvedValueOnce(remoteOk({ items: [workspace('fresh')], archivedSessionIds: [], archivedSessionAts: {} }))
+    await model.refresh()
+    expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['fresh'])
+
+    const pending = deferred<Awaited<ReturnType<WorkspaceRemote['list']>>>()
+    list.mockReturnValueOnce(pending.promise)
+    const refresh = model.refresh()
+    baseline(model, [workspace('streamed')])
+    pending.resolve(remoteOk({ items: [], archivedSessionIds: [], archivedSessionAts: {} }))
+    await refresh
+    expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['streamed'])
+    list.mockResolvedValueOnce(workspaceError(new RemoteError('gateway/internal', 'offline', {})))
+    await expect(model.refresh()).rejects.toThrow('offline')
+    expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['streamed'])
+  })
+
+  it('keeps archive membership on restore failure and updates a changed archive timestamp', async () => {
+    const remote = new FakeWorkspaceRemote()
+    const model = modelFor(remote)
+    model.replaceArchived([sid('s1')], { [sid('s1')]: '2026-09-19T00:00:00Z' })
+    vi.spyOn(remote, 'unarchiveSession').mockResolvedValueOnce(workspaceError(
+      new RemoteError('gateway/internal', 'storage failed', {}),
+    ))
+    await expect(model.unarchiveSession(sid('s1'))).resolves.toMatchObject({ ok: false })
+    expect(model.getSnapshot().archivedSessionIds).toEqual(['s1'])
+    model.replaceArchived([sid('s1')], { [sid('s1')]: '2026-09-20T00:00:00Z' })
+    expect(model.getSnapshot().archivedSessionAts).toEqual({ s1: '2026-09-20T00:00:00Z' })
+  })
+
   it('replaces reconnect state and applies ordered increments', () => {
     const model = modelFor()
     expect(model.getSnapshot()).toMatchObject({ phase: 'pending', state: 'loading' })

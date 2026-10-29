@@ -58,7 +58,7 @@ interface SessionLogConnection {
     register(route: {
       readonly path: string
       readonly methods: readonly ('GET' | 'HEAD')[]
-      readonly requestBody: 'buffered'
+      readonly requestBody: 'none'
       readonly fetch: (request: Request) => Promise<Response>
     }): () => Promise<void>
   }
@@ -85,7 +85,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   connectionOf(ctx).fetch.register({
     path: SESSION_LOG_EXPORT_PATH,
     methods: ['GET', 'HEAD'],
-    requestBody: 'buffered',
+    requestBody: 'none',
     fetch: async (request) => {
       const response = await sessionLogExportResponse(
         ctx,

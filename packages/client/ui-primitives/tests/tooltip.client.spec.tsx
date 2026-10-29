@@ -338,6 +338,43 @@ describe('Tooltip', () => {
     expect(callbackRef).toHaveBeenCalledWith(screen.getByText('anchor'))
   })
 
+  it('stays silent on touch pointers: a tap can never clear the bubble it raised', () => {
+    // (hover: none) and (pointer: coarse): tap synthesizes mouseenter and
+    // leaves the anchor focused, with no mouseleave or blur gesture to hide
+    // a shown bubble — so neither channel may raise one.
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false }) as MediaQueryList))
+    try {
+      render(
+        <Tooltip label="Rail">
+          <button type="button">anchor</button>
+        </Tooltip>,
+      )
+      const anchor = screen.getByText('anchor')
+      fireEvent.mouseEnter(anchor)
+      fireEvent.focus(anchor)
+      expect(screen.queryByRole('tooltip')).toBeNull()
+      // The anchor itself is untouched: its accessible name still reads.
+      expect(screen.getByRole('button', { name: 'anchor' })).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('shows on hover-capable fine pointers when the engine reports them', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true }) as MediaQueryList))
+    try {
+      render(
+        <Tooltip label="Rail">
+          <button type="button">anchor</button>
+        </Tooltip>,
+      )
+      fireEvent.mouseEnter(screen.getByText('anchor'))
+      expect(screen.getByRole('tooltip').textContent).toBe('Rail')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('drops an already-visible bubble when disabled flips mid-hover', () => {
     const { rerender } = render(
       <Tooltip label="Rail">

@@ -136,7 +136,15 @@ export interface SidebarRightTabInfo {
     /** Presentation selected by manual mode or viewport width; preserved while collapsed. */
     readonly fullscreen: boolean
   }
-  readonly panel: { readonly id: PaneId }
+  readonly panel: {
+    readonly id: PaneId
+    /**
+     * Whether this tab's pane floats above the conversation instead of docking
+     * into the column; a type that offers a presentation control reads this to
+     * know which way the control switches.
+     */
+    readonly floating: boolean
+  }
   readonly tab: TabRecord & {
     /** Docked bodies need an expanded sidebar and an active tab; expanded titles include inactive tabs. Floats stay visible. */
     readonly visible: boolean

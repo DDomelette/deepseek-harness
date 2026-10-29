@@ -23,7 +23,7 @@ kind: "package-reference"
 ## 使用本包
 
 
-`WorkspaceBaseline` 将有序工作区 `items` 与 `archivedSessionIds`、`archivedSessionAts` 配对。列表、基线、归档和取消归档响应携带相同的归档状态。未记录原始归档时刻的会话没有时间戳；一元响应不会覆盖更新的推送帧。
+`WorkspaceBaseline` 将有序工作区 `items` 与 `archivedSessionIds`、`archivedSessionAts` 配对。列表、基线、归档和取消归档响应携带相同的归档状态。归档变更返回已提交状态的副本，并传播存储失败；归档未知 Session 会报告 `session/not-found`。未记录原始归档时刻的会话没有时间戳；一元响应不会覆盖更新的推送帧。
 
 Host 控制器会串行执行正确性取决于当前注册表状态的变更，并为预期失败抛出带有稳定 `workspace/*` 或 `directory-picker/*` 错误码的 `RemoteError`。它的 `follow()` 流会同步订阅持久 Workspace 变更，先发出一份完整 baseline，再按顺序发出 `upsert`、`remove`、`order` 和 `archived` 增量。重连会以替换 baseline 开始新一代，因此消费方不依赖收到断线期间的每个增量。
 

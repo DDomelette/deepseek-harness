@@ -9,6 +9,8 @@ import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
+import { PAIRED_DEVICES_RECORD_KEY, recordCredentialExpiry } from './devices.ts'
+import type { PairedDeviceId } from './device-brand.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -16,6 +18,7 @@ export type {
   ConnectionFetchMethod,
   ConnectionFetchHandler,
   ConnectionFetchRoute,
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionRpcEndpointMatcher,
@@ -26,12 +29,15 @@ export type {
   ConnectionRequestBodyMode,
   ConnectionTrustRequest,
   ClientRequest,
+  HostConnectionDevices,
   HostConnectionHandle,
   HostConnectionFetch,
   HostConnectionRpc,
   RpcMessage,
   ServerResponse,
 } from './rpc.ts'
+export type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
+export { PairedDeviceId } from './device-brand.ts'
 export { RpcId, transportError } from './rpc.ts'
 export {
   clientRequestSchema,
@@ -83,7 +89,19 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
-  /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
+  /**
+   * Delivery window in days a newly registered device receives. Each paired
+   * device's own window is set in the Connect-phone panel and stored in the
+   * `client-connection/paired-devices` record; this value only decides what a
+   * device starts with. Integer 1–365; there is no never-expires option.
+   * Default: 1.
+   */
+  deviceLifetimeDays?: number
+  /**
+   * Maximum bytes buffered for one request body on any buffered carrier route of
+   * this activation: the shared `/api` route and every channel registered through
+   * `connection.rpc.handle`. Default: 300 MiB.
+   */
   maxRequestBodyBytes?: number
 }
 
@@ -91,6 +109,7 @@ export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
+  deviceLifetimeDays: z.natural().min(1).max(365).default(1),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
@@ -106,16 +125,44 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
+  const deviceLifetimeDays = config?.deviceLifetimeDays ?? 1
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
+  /**
+   * Record the expiry of every device cookie this activation hands out, so the
+   * Connect-phone panel reports the credential the phone holds. A failed write
+   * costs it one stale reading, so it is reported rather than failing a request.
+   */
+  const recordIssuedCookie = (deviceId: PairedDeviceId, expiresAt: number): void => {
+    void recordCredentialExpiry(ctx.credentials, deviceId, expiresAt).catch((error: unknown) => {
+      ctx.logger.warn(
+        'client-connection: could not record the credential expiry of device "%s": %s',
+        deviceId,
+        String(error),
+      )
+    })
+  }
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, deviceLifetimeDays, recordIssuedCookie),
+    maxRequestBodyBytes,
   )
+  // The credential record is the authority for device access, and it changes
+  // under this process too: the credentials owner reports every write, including
+  // an operator editing the file or another process revoking a device. Without
+  // this the running Host would keep honoring a cookie the record no longer lists.
+  ctx.effect(() => ctx.on('credentials/record-updated', (key) => {
+    if (key !== PAIRED_DEVICES_RECORD_KEY) return
+    void connection.refreshDevices().catch((error: unknown) => {
+      // A failed re-read keeps the previous device set; report it instead of
+      // turning one bad read into an unhandled rejection.
+      ctx.logger.warn('client-connection: could not re-read the paired-device record: %s', String(error))
+    })
+  }), 'client-connection: paired-device record changes')
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
@@ -132,6 +179,10 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
+        // An open phone calls this carrier continuously, so an extended window
+        // reaches its credential here rather than on some later document load,
+        // and this is also where its last use is recorded.
+        connection.noteDeviceRequest(req, res)
         await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }

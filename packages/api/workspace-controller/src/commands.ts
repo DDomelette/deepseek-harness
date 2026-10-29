@@ -150,17 +150,8 @@ export class WorkspaceCommands {
    * @param request - Session identity to archive.
    * @returns the complete resulting archive set.
    */
-  async archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
-    try {
-      await this.ctx.workspaceRegistry.archiveSession(request.sessionId)
-    } catch (error) {
-      if (!(error instanceof WorkspaceUnknownSessionError)) throw error
-      throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
-    }
-    return {
-      archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
-      archivedSessionAts: { ...this.ctx.workspaceRegistry.archivedSessionAts },
-    }
+  archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    return this.mutateArchive(request, 'archiveSession')
   }
 
   /**
@@ -168,9 +159,16 @@ export class WorkspaceCommands {
    * @param request - Session identity to restore.
    * @returns the complete resulting archive set.
    */
-  async unarchiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+  unarchiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    return this.mutateArchive(request, 'unarchiveSession')
+  }
+
+  private async mutateArchive(
+    request: WorkspaceArchiveSessionRequest,
+    operation: 'archiveSession' | 'unarchiveSession',
+  ): Promise<WorkspaceArchiveValue> {
     try {
-      await this.ctx.workspaceRegistry.unarchiveSession(request.sessionId)
+      await this.ctx.workspaceRegistry[operation](request.sessionId)
     } catch (error) {
       if (!(error instanceof WorkspaceUnknownSessionError)) throw error
       throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })

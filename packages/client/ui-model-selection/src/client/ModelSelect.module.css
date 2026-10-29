@@ -73,7 +73,8 @@
    the name), a 360px composer row leaves the 45cqw cap too little for a
    legible name, so the text yields to the Models glyph. Same anonymous
    container as PermissionSelect's 460px cut (InputBar .row); the full name
-   stays reachable through the trigger's title and aria-label. */
+   stays reachable through the trigger's title and aria-label — hover
+   affordances, so coarse pointers keep the text instead (see below). */
 @container (max-width: 360px) {
   .triggerIcon {
     display: block;
@@ -83,6 +84,51 @@
   .triggerEffort {
     display: none;
   }
+}
+
+/* Touch gets no hover to reveal the glyph-only trigger's title, so coarse
+   pointers keep the text: the name ellipsizes inside the 45cqw cap, which
+   still beats an anonymous icon. Placed after the container query so equal
+   specificity resolves here. */
+@media (pointer: coarse) {
+  .triggerIcon {
+    display: none;
+  }
+
+  .triggerLabel,
+  .triggerEffort {
+    display: block;
+  }
+}
+
+/* Handset docked composer (frame data-sidebar-fab + ui-conversation InputBar's
+   data-composer-variant='composer' — a user-directed override of the
+   coarse-pointer text rule above for this one band): the trigger collapses to
+   a bare Models glyph standing in for name, effort, and chevron — no
+   selector-fill circle, which reads as clutter at handset widths and steals
+   row width. The model name stays on the trigger's aria-label and title, and
+   on the menu rows. */
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger {
+  gap: 0;
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Bare icons draw one step larger than the circled glyph to keep their
+   visual weight without the fill. */
+[data-sidebar-fab] [data-composer-variant='composer'] .triggerIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+[data-sidebar-fab] [data-composer-variant='composer'] .triggerLabel,
+[data-sidebar-fab] [data-composer-variant='composer'] .triggerEffort,
+[data-sidebar-fab] [data-composer-variant='composer'] .chevron {
+  display: none;
 }
 
 .chevron {

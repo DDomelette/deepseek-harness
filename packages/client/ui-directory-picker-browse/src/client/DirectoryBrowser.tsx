@@ -1029,7 +1029,11 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                 confirmCreate()
               }
               if (event.key === 'Escape') {
+                // Two owners must not act on this Escape: stopPropagation
+                // keeps the outer browser Modal's document listener away, and
+                // preventDefault marks the key consumed for the frame drawer.
                 event.stopPropagation()
+                event.preventDefault()
                 if (!creatingFolder) setFolderDraft(null)
               }
             }}

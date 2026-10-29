@@ -43,8 +43,19 @@ export async function bridge(
     Object.entries(req.headers).filter(([, value]) => typeof value === 'string') as [string, string][],
   )
   const bodyMode = apiHandler.requestBodyMode({ method, url })
+  // Fetch forbids a body on GET and HEAD: a route that owns only those methods
+  // declares `none`, and a client that frames one anyway is refused here rather
+  // than reaching `new Request` as a TypeError before any handler runs.
+  if (bodyMode === 'none' && requestDeclaresBody(req)) {
+    res.writeHead(400, { connection: 'close' })
+    res.end()
+    req.destroy()
+    return
+  }
   let request: Request
-  if (bodyMode === 'buffered') {
+  if (bodyMode === 'none') {
+    request = new Request(url, { method, headers, signal: abort.signal })
+  } else if (bodyMode === 'buffered') {
     const declaredLength = req.headers['content-length']
     if (declaredLength !== undefined && Number(declaredLength) > maxRequestBodyBytes) {
       res.writeHead(413, { connection: 'close' })
@@ -82,18 +93,33 @@ export async function bridge(
   }
   const response = await apiHandler.fetch(request)
   const requestUnread = bodyMode === 'streaming' && !req.readableEnded
-  const responseHeaders = Object.fromEntries(response.headers.entries())
+  // `set-cookie` is the one response header that may repeat, and a renewal the
+  // request path staged before dispatch is a cookie the response must not
+  // replace: every value is forwarded, staged ones first and in order.
+  const responseHeaders: Record<string, string | string[]> = {}
+  const cookies: string[] = []
+  for (const [name, value] of response.headers) {
+    if (name === 'set-cookie') cookies.push(value)
+    else responseHeaders[name] = value
+  }
+  const staged = res.getHeader('set-cookie')
+  if (staged !== undefined) cookies.unshift(...Array.isArray(staged) ? staged.map(String) : [String(staged)])
+  if (cookies.length > 0) responseHeaders['set-cookie'] = cookies
   res.writeHead(response.status, requestUnread ? { ...responseHeaders, connection: 'close' } : responseHeaders)
   if (response.body === null) {
     res.end()
     if (requestUnread) req.destroy()
     return
   }
+  // A client that goes away mid-stream never drains again and has already emitted
+  // its single 'close', so every exit from the loop below reads the response state
+  // rather than waiting for another event — otherwise the loop parks and the body
+  // stream is never cancelled.
+  const writable = (): boolean => !res.destroyed
   for await (const chunk of response.body) {
+    if (!writable()) break
     // Backpressure: a false return means the socket buffer is full — wait for drain
-    // instead of buffering unboundedly (slow or suspended consumers). 'close' also
-    // resolves so a mid-wait disconnect can't park this loop forever; the close
-    // handler above aborts the handler stream, which then ends the iteration.
+    // instead of buffering unboundedly (slow or suspended consumers).
     if (!res.write(chunk)) {
       await new Promise<void>((resolve) => {
         const done = (): void => {
@@ -103,9 +129,26 @@ export async function bridge(
         }
         res.once('drain', done)
         res.once('close', done)
+        // The disconnect may have landed before these listeners existed: 'close'
+        // is one-shot, so re-read the state instead of waiting for a new event.
+        if (!writable()) done()
       })
+      if (!writable()) break
     }
   }
-  res.end()
+  if (writable()) res.end()
   if (requestUnread) req.destroy()
+}
+
+/**
+ * Whether the wire frame declares a request body on a method Fetch forbids one
+ * for. Node rejects a malformed `content-length` before a handler sees it, so
+ * the length here is either absent, a byte count, or a chunked stream.
+ * @param req - incoming node:http request.
+ * @returns true when the client framed a body.
+ */
+function requestDeclaresBody(req: IncomingMessage): boolean {
+  if (req.headers['transfer-encoding'] !== undefined) return true
+  const declaredLength = req.headers['content-length']
+  return declaredLength !== undefined && Number(declaredLength) > 0
 }

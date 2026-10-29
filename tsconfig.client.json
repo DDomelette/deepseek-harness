@@ -28,6 +28,7 @@
     "packages/*/*/tests/**/*.client.ts",
     // Client package outside packages/client with a local CSS module face.
     "packages/extensions/ui-cordis/src/css-modules.d.ts",
+    "packages/notes/notes/src/css-modules.d.ts",
     "packages/client/tsdown.client.ts",
     "scripts/client-build-environment.ts",
     "scripts/*.client.spec.ts",
@@ -102,6 +103,7 @@
     { "path": "./packages/client/ui-user-questions" },
     { "path": "./packages/client/ui-trajectory" },
     { "path": "./packages/session-query/session-log-export/tsconfig.client.json" },
+    { "path": "./packages/bundle/mob/tsconfig.client.json" },
     { "path": "./packages/client/ui-open-in-app" },
     { "path": "./packages/client/ui-theme" },
     { "path": "./packages/client/ui-settings" },
@@ -119,6 +121,7 @@
     { "path": "./packages/client/ui-pinned-sessions" },
     { "path": "./packages/client/ui-settings-archived" },
     { "path": "./packages/client/ui-settings-mcp" },
-    { "path": "./packages/client/ui-settings-skills" }
+    { "path": "./packages/client/ui-settings-skills" },
+    { "path": "./packages/notes/notes/tsconfig.client.json" }
   ]
 }

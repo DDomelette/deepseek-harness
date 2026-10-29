@@ -397,9 +397,9 @@ export interface LaunchOptions {
   /** SDK batch cadence for a scenario-owned collector; omitted to retain the SDK default. */
   telemetryScheduledDelayMillis?: number
   /**
-   * Browse through a trusted non-loopback hostname that the browser resolves
-   * to loopback (for example `*.localhost`). The test server stays bound to
-   * 127.0.0.1; a non-resolving authority fails before Host trust is exercised.
+   * Trust an additional browser hostname (for example `*.localhost`) for a
+   * scenario-owned paired device. Scaffold requests remain local-operator
+   * requests on 127.0.0.1; the scenario supplies the remote browser's cookie.
    */
   remoteAuthority?: string
   /** Reuse an existing harness home so a second Host can verify user settings across origins. */
@@ -430,7 +430,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     ? undefined
     : await Promise.all(options.replayChildFixtures.map(path => selectedSessionFixture(path)))
   const compareReplaySession = options.compareReplaySession ?? await ownsReplayFixture(replayFixture)
-  const browserHost = options.remoteAuthority ?? '127.0.0.1'
+  const browserHost = '127.0.0.1'
   if (mode === 'record') {
     // Both owning vitest configs (web unconditionally, snapshot in record
     // mode) load the repo-root .env before this file runs.

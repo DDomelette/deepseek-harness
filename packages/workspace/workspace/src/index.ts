@@ -149,11 +149,6 @@ export class WorkspaceRegistry extends Service {
    * @param title - Display title used only when a new record is created.
    * @returns the existing or newly durable workspace.
    */
-  // TODO: `title` lost its last production caller when the gateway's
-  // create-by-name branch was deleted
-  // (.agents/notes/archived/simplification/2026-07-31-one-route-to-add-a-workspace.md);
-  // drop the parameter with its @param clause and the `create(path, title?)`
-  // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
@@ -273,18 +268,7 @@ export class WorkspaceRegistry extends Service {
    * @param sessionId - session to unarchive.
    */
   unarchiveSession(sessionId: SessionId): Promise<void> {
-    return this.enqueueOperation(async () => {
-      const state = this.requireState()
-      if (!state.archivedSessionIds.includes(sessionId)) return
-      const archivedSessionAts = Object.fromEntries(
-        Object.entries(state.archivedSessionAts).filter(([id]) => id !== sessionId),
-      )
-      await this.setState({
-        ...state,
-        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
-        archivedSessionAts,
-      })
-    })
+    return this.enqueueOperation(() => this.removeArchiveMembership(sessionId))
   }
 
   /**
@@ -303,16 +287,21 @@ export class WorkspaceRegistry extends Service {
       this.headers.delete(sessionId)
       this.sessionPaths.delete(sessionId)
       this.invalidSessionPaths.delete(sessionId)
-      const state = this.requireState()
-      if (!state.archivedSessionIds.includes(sessionId)) return
-      const archivedSessionAts = Object.fromEntries(
-        Object.entries(state.archivedSessionAts).filter(([id]) => id !== sessionId),
-      )
-      await this.setState({
-        ...state,
-        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
-        archivedSessionAts,
-      })
+      await this.removeArchiveMembership(sessionId)
+    })
+  }
+
+  /** Remove archive membership within the caller's registry operation slot. */
+  private async removeArchiveMembership(sessionId: SessionId): Promise<void> {
+    const state = this.requireState()
+    if (!state.archivedSessionIds.includes(sessionId)) return
+    const archivedSessionAts = Object.fromEntries(
+      Object.entries(state.archivedSessionAts).filter(([id]) => id !== sessionId),
+    )
+    await this.setState({
+      ...state,
+      archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+      archivedSessionAts,
     })
   }
 

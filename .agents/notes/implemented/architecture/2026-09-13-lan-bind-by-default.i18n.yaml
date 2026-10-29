@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-lan-bind-by-default.md
+2026-09-13-lan-bind-by-default.md: d590bd85f8c44208a99330d48df84b20e5ced5bb
+2026-09-13-lan-bind-by-default.zh.md: 12a92979ea5602d0c752e221ba4994ae90790e3c

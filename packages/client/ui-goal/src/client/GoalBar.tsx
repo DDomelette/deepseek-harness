@@ -97,7 +97,10 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
             onChange={(e) => { setDraft(e.target.value) }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void handleEdit()
-              if (e.key === 'Escape') setEditing(false)
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                setEditing(false)
+              }
             }}
             autoFocus
           />

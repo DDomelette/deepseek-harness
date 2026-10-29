@@ -471,6 +471,46 @@ describe('fixture session face', () => {
 })
 
 describe('workspaces action face', () => {
+  it('restores one archived session and forwards refresh and restore replacements', async () => {
+    const runtime = await SlotTestRuntime.create()
+    try {
+      const ws = runtime.workspaces
+      await ws.update((draft) => {
+        draft.archivedSessionIds = ['s1' as SessionId, 's2' as SessionId]
+        draft.archivedSessionAts = { ['s1' as SessionId]: 'first', ['s2' as SessionId]: 'second' }
+      })
+      await ws.unarchiveSession('s1' as SessionId)
+      expect(ws.list.getSnapshot()).toMatchObject({ archivedSessionIds: ['s2'], archivedSessionAts: { s2: 'second' } })
+      await ws.refresh()
+      const restore = vi.fn(async () => {})
+      const refresh = vi.fn(async () => {})
+      ws.stub('unarchiveSession', restore)
+      ws.stub('refresh', refresh)
+      await ws.unarchiveSession('s2' as SessionId)
+      await ws.refresh()
+      expect(restore).toHaveBeenCalledWith('s2')
+      expect(refresh).toHaveBeenCalledOnce()
+      expect(ws.list.getSnapshot().archivedSessionIds).toEqual(['s2'])
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
+  it('deletes the selected session without removing other list entries', async () => {
+    const runtime = await SlotTestRuntime.create()
+    try {
+      await runtime.sessions.add({ id: 's1' })
+      await runtime.sessions.add({ id: 's2' })
+      await runtime.sessions.setCurrent('s1')
+      await expect(runtime.sessions.deleteSession('s2' as SessionId)).resolves.toEqual(['s2'])
+      expect(runtime.sessions.list.getSnapshot()).toMatchObject({ ids: ['s1'], current: 's1' })
+      await runtime.sessions.deleteSession('s1' as SessionId)
+      expect(runtime.sessions.list.getSnapshot()).toMatchObject({ ids: [], byId: {}, current: undefined })
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
   it('records every IWorkspaces verb with inert defaults and honors stubs', async () => {
     const runtime = await SlotTestRuntime.create()
     const ws = runtime.workspaces

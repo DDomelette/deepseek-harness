@@ -1,11 +1,16 @@
 /**
  * @deepseek-ai/dsh-host-frontend-static — SPA dist server over the webserver
  * fallback seat: serves the built frontend directory with explicit index
- * entry points. A readable index renders at the dist root and configured index
- * path; missing paths return 404, traversal outside the dist root is 403,
- * unknown extensions ship as octet-stream, and non-GET/HEAD is 405. Every
+ * entry points. A readable index renders at the dist root and at every path that
+ * resolves to the index file — the configured index path, and a case-only
+ * difference from it on a case-insensitive volume; missing paths return 404,
+ * traversal outside the dist root is 403, unknown extensions ship as
+ * octet-stream, and non-GET/HEAD is 405. Every
  * index response first passes Connection's browser authentication, then the
- * webserver's index render (structured injection rows, then raw taps).
+ * webserver's index render (structured injection rows, then raw taps); a client
+ * refused on a non-loopback authority receives that shell as a 401 carrying the
+ * auth-required boot fact, so a phone that must pair is told so instead of
+ * reading a dead end.
  * Non-index assets stay public. The dist location is workspace knowledge of
  * the composing application, so `distIndex` is typically supplied through a
  * `!!js` expression, never hardcoded by a deployment.
@@ -13,15 +18,36 @@
  */
 
 import type { ServerResponse } from 'node:http'
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type { ConnectionIndexAccess } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 
 /** Stable Cordis plugin name. */
 export const name = 'frontend-static'
+
+/** Service name of the shell renderer other Host routes ask for index.html. */
+export const FRONTEND_SERVICE = 'frontend'
+
+/**
+ * The application shell as `/` renders it, for a Host route that serves the
+ * application itself — a page outside the frontend fallback seat still needs
+ * the same injections and site-root base.
+ */
+export interface FrontendService {
+  /**
+   * Render the shell from this deployment's dist.
+   * @returns index.html with the structured injections, the raw taps, and the
+   *   site-root base, or undefined when the dist has no readable index.html
+   *   (the dist is unbuilt), which each caller answers where it owns the
+   *   response.
+   */
+  renderIndex(): Promise<string | undefined>
+}
 
 /** Services required before the authenticated fallback seat can be claimed. */
 export const inject = ['webServer', 'connection']
@@ -37,15 +63,28 @@ export const Config: z<Config> = z.object({
 })
 
 const HTML_MIME = 'text/html; charset=utf-8'
+const TEXT_MIME = 'text/plain; charset=utf-8'
+
+/**
+ * Boot fact marking a shell that was served to a client holding no accepted
+ * session. `@deepseek-ai/dsh-mob`'s browser half reads it and renders the
+ * pairing instructions; Connection's `authorizeIndex` decides the verdict.
+ */
+const AUTH_REQUIRED_FACT = '__DSH_AUTH_REQUIRED__'
 
 const MIME: Record<string, string> = {
   '.html': HTML_MIME,
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
   '.json': 'application/json',
   '.map': 'application/json',
   '.webmanifest': 'application/manifest+json',
+  // The shell bundles its icon fonts, so the dist carries these three.
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
   // The packed VFS image. Served as its own bytes, never as a Content-Encoding:
   // the worker inflates the body itself, and a transport-level encoding would
   // leave it inflating an already-decoded archive.
@@ -59,19 +98,68 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
 ])
 
 /**
+ * Insert the auth-required fact ahead of every document script.
+ * @param html - rendered shell.
+ * @returns the shell carrying the fact, or the fact ahead of a headless fragment.
+ */
+function markAuthRequired(html: string): string {
+  const markup = `<script>globalThis.${AUTH_REQUIRED_FACT} = true</script>`
+  const open = /<head(?:\s[^>]*)?>/i.exec(html)
+  if (open === null) return `${markup}${html}`
+  const at = open.index + open[0].length
+  return `${html.slice(0, at)}${markup}${html.slice(at)}`
+}
+
+/**
+ * Whether a resolved request path names the index entry itself. Path text alone
+ * cannot decide: on a case-insensitive volume (NTFS, APFS) `/INDEX.html` names
+ * the same file as `/index.html` while comparing unequal, and treating it as an
+ * asset would serve the shell without Connection's authentication. Resolving
+ * both sides also covers a symlink pointing at the index; a path that cannot be
+ * resolved is not the entry, and the caller's read reports the same 404 either
+ * way.
+ * @param target - resolved absolute request path under the dist root.
+ * @param distRoot - the dist directory the path was resolved under.
+ * @param distIndex - configured absolute path of the index file.
+ * @returns true when the request names the index entry itself.
+ */
+function isIndexEntry(target: string, distRoot: string, distIndex: string): boolean {
+  if (target === distRoot || target === distIndex) return true
+  try {
+    return realpathSync.native(target) === realpathSync.native(distIndex)
+  } catch {
+    // The two resolutions are the only statements here; an absent target or an
+    // unbuilt dist is the caller's static miss, never an index response.
+    return false
+  }
+}
+
+/**
+ * Answer a request for the shell that this dist cannot render. The readiness
+ * line already printed a URL, so the missing step is named instead of a bare
+ * 404 — the one 404 an operator can act on.
+ * @param res - the node:http response to write.
+ */
+function sendIndexMiss(res: ServerResponse): void {
+  res.writeHead(404, { 'content-type': TEXT_MIME })
+  res.end('the frontend dist has no index.html; run `pnpm run build` in the checkout, then reload\n')
+}
+
+/**
  * Serve one GET/HEAD static request from the dist root.
  * @param pathname - decoded URL pathname of the request.
  * @param res - the node:http response to write.
  * @param distRoot - absolute dist root directory (resolved by the caller).
  * @param distIndex - absolute path of index.html inside distRoot.
- * @param authorizeIndex - authenticates an index response before its bytes are read.
+ * @param authorizeIndex - Connection's verdict for an index response, before its bytes are read.
  * @param renderIndex - produces the index.html body (structured injection
- * rendering) for the dist root and configured index path.
+ *   rendering) for the dist root and configured index path, or undefined when
+ *   the dist has no index.html.
  */
 export async function serveStatic(
   pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
-  authorizeIndex: () => boolean,
-  renderIndex: () => Promise<string>,
+  authorizeIndex: () => ConnectionIndexAccess,
+  renderIndex: () => Promise<string | undefined>,
 ): Promise<void> {
   const target = resolve(normalize(join(distRoot, pathname)))
   // Traversal rejection: the target must be distRoot itself (`/`) or stay under
@@ -84,24 +172,38 @@ export async function serveStatic(
   }
   let body: string | Buffer
   let type: string
+  let status = 200
+  let headers: Record<string, string> = {}
   try {
-    if (target === distRoot || target === distIndex) {
-      if (!authorizeIndex()) return
-      body = await renderIndex()
+    if (isIndexEntry(target, distRoot, distIndex)) {
+      const access = authorizeIndex()
+      if (access === 'answered') return
+      const rendered = await renderIndex()
+      if (rendered === undefined) {
+        sendIndexMiss(res)
+        return
+      }
+      body = rendered
+      if (access === 'auth-required') {
+        body = markAuthRequired(body)
+        status = 401
+        headers = { 'cache-control': 'no-store' }
+      }
       type = HTML_MIME
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
     }
   } catch (error) {
-    // Only absent or non-file targets are 404; other filesystem failures reach
-    // the webserver's request-failure handling.
+    // Only an absent or non-file asset target is 404 here: an index response
+    // answered above, and other filesystem failures reach the webserver's
+    // request-failure handling.
     if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
     res.writeHead(404)
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  res.writeHead(status, { 'content-type': type, ...headers })
   res.end(body)
 }
 
@@ -117,15 +219,26 @@ export function apply(ctx: Context, config: Config): void {
   // static directory; served pages also answer deep SPA-fallback paths, where
   // relative asset URLs would resolve under the request directory, so the
   // served form anchors them at the site root ahead of every URL-bearing tag.
-  const renderIndex = async (): Promise<string> => {
-    const body = ctx.webServer.renderIndex(await readFile(distIndex, 'utf8'))
+  const renderIndex = async (): Promise<string | undefined> => {
+    let raw: string
+    try {
+      raw = await readFile(distIndex, 'utf8')
+    } catch (error) {
+      // An absent index is the unbuilt dist, which every caller answers in its
+      // own response; any other filesystem failure still reaches the caller.
+      if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
+      return undefined
+    }
+    const body = ctx.webServer.renderIndex(raw)
     return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="/">`)
   }
+  ctx.provide(FRONTEND_SERVICE, { renderIndex })
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
     // Non-GET/HEAD without a matching named route is 405 (fallback-only
-    // semantics: named routes own their method handling).
+    // semantics: named routes own their method handling), and the answer names
+    // the methods this seat does answer.
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405)
+      res.writeHead(405, { allow: 'GET, HEAD' })
       res.end()
       return
     }

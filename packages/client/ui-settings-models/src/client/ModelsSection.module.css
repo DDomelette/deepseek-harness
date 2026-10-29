@@ -592,6 +592,13 @@ select.input {
   background-size: 12px 12px;
 }
 
+/* Coarse pointers (touch): WCAG 2.5.5 target size. */
+@media (pointer: coarse) {
+  select.input {
+    min-height: 44px;
+  }
+}
+
 .error {
   margin: 0;
   font-size: 12px;

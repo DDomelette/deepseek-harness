@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
@@ -17,13 +17,31 @@ it('ships install metadata with the built web application', async () => {
     start_url: '/',
     scope: '/',
     display: 'fullscreen',
+    background_color: '#151517',
+    theme_color: '#151517',
     icons: [{
+      src: '/icon-192.png',
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'any',
+    }, {
+      src: '/icon-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'any',
+    }, {
       src: '/favicon.svg',
       sizes: 'any',
       type: 'image/svg+xml',
       purpose: 'any',
     }],
   })
+
+  // A manifest that names an icon the build does not serve produces an
+  // uninstallable application, so every source is checked in the shipped tree.
+  for (const icon of (manifest as { icons: { src: string }[] }).icons) {
+    await expect(stat(join(DIST_ROOT, icon.src))).resolves.toBeDefined()
+  }
 })
 
 it('ships a favicon that switches to a light mark under dark color scheme', async () => {

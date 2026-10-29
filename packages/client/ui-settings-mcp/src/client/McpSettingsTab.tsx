@@ -169,12 +169,14 @@ export function McpSettingsTab({
         />
       ) : null}
       {!adding && state.status === 'loading' ? <p className={css.status}>{t('loading')}</p> : null}
+      {/* jscpd:ignore-start -- Settings plugins own their failure visibility, retry lifecycle, and styling. */}
       {!adding && state.status === 'error' ? (
         <div className={css.failure}>
           <p role="alert">{t('error')}</p>
           <button type="button" onClick={retry}>{t('retry')}</button>
         </div>
       ) : null}
+      {/* jscpd:ignore-end */}
       {!adding && state.status === 'ready' ? (
         <div className={css.catalog}>
           <div className={css.toolbar}>

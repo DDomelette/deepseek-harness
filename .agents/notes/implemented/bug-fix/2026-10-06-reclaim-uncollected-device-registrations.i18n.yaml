@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-06-reclaim-uncollected-device-registrations.md
+2026-10-06-reclaim-uncollected-device-registrations.md: 33dac46b6e7b81b8ff6950c264e0f5ef93662a7a
+2026-10-06-reclaim-uncollected-device-registrations.zh.md: e51d65cc053064828e96f2c06a45dccded02b071

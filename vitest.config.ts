@@ -5,7 +5,15 @@ import { resolvePwshPath } from './packages/shell/pwsh-local/src/resolve.ts'
 import { defineConfig } from 'vitest/config'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from './scripts/coverage-exempt.ts'
-import { COVERAGE_PARTITION_MODE_ENV } from './scripts/coverage-partitions.ts'
+import { COVERAGE_PARTITION_MODE_ENV, COVERAGE_TEST_TIMEOUT_ENV, coverageTestTimeout } from './scripts/coverage-partitions.ts'
+
+// Inline projects do not inherit Vitest's CLI hook and expect.poll timeouts.
+const coverageTimeout = coverageTestTimeout(process.env[COVERAGE_TEST_TIMEOUT_ENV])
+const coverageTiming = coverageTimeout === undefined ? {} : {
+  testTimeout: coverageTimeout,
+  hookTimeout: coverageTimeout,
+  expect: { poll: { timeout: coverageTimeout } },
+}
 
 // Prints exact `path:line:col` records for every uncovered statement, branch
 // path, and function when a file misses the per-file 100% gate — the built-in
@@ -158,6 +166,7 @@ const processBoundTests = [
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
   test: {
+    ...coverageTiming,
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     include: testIncludes,
@@ -168,6 +177,7 @@ export default defineConfig({
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
         test: {
+          ...coverageTiming,
           name: 'thread-safe',
           execArgv: vitestExecArgv,
           // Node 24 has aborted in its CJS lexer (v8::ToLocalChecked Empty
@@ -186,6 +196,7 @@ export default defineConfig({
       {
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
         test: {
+          ...coverageTiming,
           name: 'process-bound',
           execArgv: vitestExecArgv,
           pool: 'forks',

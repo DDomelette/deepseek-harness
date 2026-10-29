@@ -32,7 +32,7 @@ Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin 
 - `groupOrder` — optional manual order overrides keyed by workspace id or `''` for ungrouped.
 - `flatOrder` — optional manual order override for the flat view.
 
-A reorder that names an id not currently pinned, duplicates an id, or (for flat) omits a pinned id rejects with `session-pins-invalid` before any write.
+A reorder that names an id not currently pinned, duplicates an id, or (for flat) omits a pinned id rejects with `session-pins-invalid` before any write. Rejected requests preserve the pin set and both saved orders.
 
 <a id="model-experience"></a>
 ## Model Experience

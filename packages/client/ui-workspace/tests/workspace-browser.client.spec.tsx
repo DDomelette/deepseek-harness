@@ -700,6 +700,14 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(document.body)
     expect(search.getAttribute('aria-expanded')).toBe('true')
     expect(input.value).toBe('kept')
+
+    // Escape inside the field collapses it and consumes the key, so a surface
+    // below (the frame drawer) leaves the press alone.
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(input, escape)
+    expect(escape.defaultPrevented).toBe(true)
+    expect(search.getAttribute('aria-expanded')).toBe('false')
+    expect(input.value).toBe('')
   })
 
   it('opens a Host content hit, exits search, and reveals its hidden grouped row', async () => {

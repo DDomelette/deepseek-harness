@@ -23,7 +23,7 @@ English | [中文](README.zh.md)
 ## Use this package
 
 
-`WorkspaceBaseline` pairs ordered Workspace `items` with `archivedSessionIds` and `archivedSessionAts`. List, baseline, archive and unarchive responses carry the same archive state. Timestamps are absent for archives whose original instant was not recorded; unary echoes cannot overwrite a newer streamed frame.
+`WorkspaceBaseline` pairs ordered Workspace `items` with `archivedSessionIds` and `archivedSessionAts`. List, baseline, archive and unarchive responses carry the same archive state. Archive mutations return copies of committed state and propagate storage failures; archiving an unknown Session reports `session/not-found`. Timestamps are absent for archives whose original instant was not recorded; unary echoes cannot overwrite a newer streamed frame.
 
 The Host controller serializes mutations whose correctness depends on current registry state and throws `RemoteError` with a stable `workspace/*` or `directory-picker/*` code for expected failures. Its `follow()` stream synchronously attaches to durable Workspace changes, emits one complete baseline first, then emits ordered `upsert`, `remove`, `order`, and `archived` increments. A reconnect starts another generation with a replacement baseline, so consumers do not depend on receiving every increment while disconnected.
 

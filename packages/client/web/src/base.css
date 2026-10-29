@@ -5,7 +5,22 @@ html,
 body,
 #root {
   height: 100%;
+  /* Mobile browsers: the dynamic viewport tracks the URL bar collapsing. */
+  height: 100dvh;
   margin: 0;
+}
+
+/* `viewport-fit=cover` (apps/web/index.html) hands the page the notch and
+   status-bar bands, so the mount root keeps its content inside the safe area:
+   the top inset is zero in a browser tab and the status-bar height in an
+   installed PWA, and the inline insets cover a landscape notch. Border-box keeps
+   the padded root at the dynamic viewport height. The bottom inset belongs to
+   the composer seat that meets the home indicator. */
+#root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
 }
 
 body {

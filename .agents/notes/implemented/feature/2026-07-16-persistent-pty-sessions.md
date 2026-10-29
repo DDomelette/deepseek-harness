@@ -84,6 +84,10 @@ Once a send settles under any tier, `TerminalSendOperation.append` stops accepti
 
 `node-pty` data notifications feed one terminal parser. Parser carry state handles control sequences and a trailing carriage return split across callbacks, so a divided CRLF produces one newline rather than a pagination-changing blank line. The implementation normalizes line-oriented output, but it does not promise correct interaction with a full-screen application.
 
+Empty observation sends preserve prompt evidence because Linux stdin-wait detection can settle before the printable prompt tail arrives. Clearing the preceding marker on a follow-up observation would prevent startup from recognizing the completed prompt even though the shell received no new input.
+
+Pwsh waits for initial shell input readiness before submitting setup. On POSIX, an early carriage return can pass through `ICRNL` and reach PSReadLine as Ctrl+Enter, leaving setup in its edit buffer. Initial readiness and controlled-prompt verification share one absolute deadline.
+
 ### Model-visible output and durability
 
 The existing durable `tool/call` and `tool/result` events are the source of truth for text sent by the model and rendered output returned to it. `terminal_open` returns its MOTD through the logged tool result; foreground `send`/`read`/`list`/`signal`/`close` results are logged the same way. The PTY packages do not duplicate raw byte streams into custom session events.

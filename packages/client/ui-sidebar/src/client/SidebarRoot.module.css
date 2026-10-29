@@ -29,6 +29,37 @@
   padding: 18px 10px 6px;
 }
 
+/* Floating brand button (owner prop fab, below the layout's 768px overlay
+   breakpoint): replaces the rail wholesale — the component returns it without
+   the .root column, fixed to the frame's top-left corner so the zero-width
+   sidebar track and its overflow clip never reach it. It sits at the scrim's
+   z-index (12); opening the drawer unmounts it, so it never meets the drawer
+   (13). 36px circle, 24px mark, 18px top / 10px left offsets. */
+.fab {
+  position: fixed;
+  top: 18px;
+  left: 10px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  cursor: pointer;
+}
+
+.fabMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Scrollbars in the column are a pointer affordance: the shell adds this
    class whenever the pointer is not inside (SidebarRoot.tsx owns the linger),
    and rebinding ui-theme's indirection pair to `transparent` takes the thumb

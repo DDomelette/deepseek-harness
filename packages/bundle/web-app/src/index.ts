@@ -24,6 +24,7 @@ import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import { launchedThroughSsh, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@deepseek-ai/dsh-cmdline'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-shell-env'
 
@@ -32,7 +33,6 @@ export const name = 'web-app'
 
 /** This dsh installation's root, from either this package's source or built entry. */
 const SOURCE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
-const ANNOUNCED_ROOTS = new WeakSet<Context>()
 
 /** Runtime service that releases Web rows after bind-dependent values resolve. */
 const WEB_RUNTIME_SERVICE = 'webRuntime'
@@ -113,21 +113,64 @@ try {
 `
 
 /**
+ * Interface-name heuristic for virtual or tunnel adapters (VMware/VirtualBox
+ * host-only nets, WSL/Hyper-V, Docker bridges — `docker*`, `br-*`, and the
+ * `bridge100` a Docker Desktop install creates on macOS — TUN/TAP VPNs,
+ * Clash-style TUN stacks, WireGuard, Tailscale, ZeroTier). Their addresses are
+ * reachable from this machine but usually NOT from a phone on the LAN, so they
+ * sort after physical adapters. Case-insensitive; `^br-`, `^bridge<digits>`, and
+ * `^wg` anchor the Docker and WireGuard naming conventions.
+ */
+const VIRTUAL_INTERFACE = new RegExp([
+  'vmware', 'vmnet', 'vethernet', 'virtualbox', 'vbox', 'hyper-v', 'wsl', 'docker', 'veth',
+  '^br-', '^bridge\\d', 'tun', 'tap', 'clash', 'vpn', 'wireguard', '^wg', 'tailscale', 'zerotier',
+].join('|'), 'i')
+
+/**
+ * Whether the address can never be a LAN authority a phone reaches: the RFC 2544
+ * benchmarking range (198.18.0.0/15) that Clash-style fake-ip TUN stacks assign,
+ * and the link-local range (169.254.0.0/16) an interface keeps when DHCP failed.
+ * Both are excluded from BOTH the display addresses and the fence authorities.
+ */
+function isUnusableLanAddress(address: string): boolean {
+  const [first, second] = address.split('.').map(Number)
+  if (first === 198) return second === 18 || second === 19
+  return first === 169 && second === 254
+}
+
+/**
  * Resolve one LAN-trust snapshot from the active server bind.
  *
  * Derived entries are port-less IP literals: DNS rebinding needs an
  * attacker-controlled name, while an IP-literal Host is safe on any port and
  * an OS-assigned port is unknowable before bind.
+ *
+ * Derivation rules for an all-interfaces bind: every non-internal IPv4 literal
+ * EXCEPT the unusable ranges above; then a stable sort that places physical
+ * adapters before virtual/tunnel ones (matched by interface name, see
+ * VIRTUAL_INTERFACE), so `lanAddresses[0]` — the address the readiness line and
+ * the phone-join QR use — is the LAN address a phone can actually reach; the
+ * readiness line prints the remaining candidates, because a wrong first pick is
+ * otherwise invisible. Virtual addresses stay in the result: a host whose only
+ * non-loopback path is virtual (a Tailscale-only deployment) still derives a
+ * usable URL.
  * @param bindHost - the active webserver bind host.
  * @param extra - explicit `--trusted-host` values, in argument order.
  * @returns the LAN display addresses and invocation-derived fence authorities.
  */
 export function resolveLanTrust(bindHost: string, extra: readonly string[]): WebRuntimeValues {
-  const lanAddresses = bindHost === ALL_INTERFACES_HOST
-    ? Object.values(networkInterfaces()).flat()
-      .filter((iface): iface is NonNullable<typeof iface> => iface !== undefined && iface.family === 'IPv4' && !iface.internal)
-      .map(iface => iface.address)
-    : []
+  if (bindHost !== ALL_INTERFACES_HOST) return { lanAddresses: [], trustedHosts: [...extra] }
+  const derived: { address: string; virtual: boolean }[] = []
+  for (const [name, addresses] of Object.entries(networkInterfaces())) {
+    for (const iface of addresses ?? []) {
+      if (iface.family !== 'IPv4' || iface.internal) continue
+      if (isUnusableLanAddress(iface.address)) continue
+      derived.push({ address: iface.address, virtual: VIRTUAL_INTERFACE.test(name) })
+    }
+  }
+  // Array.prototype.sort is stable: enumeration order is kept within each group.
+  derived.sort((left, right) => Number(left.virtual) - Number(right.virtual))
+  const lanAddresses = derived.map(entry => entry.address)
   return { lanAddresses, trustedHosts: [...lanAddresses, ...extra] }
 }
 
@@ -224,6 +267,9 @@ export const internals: {
  */
 export function apply(ctx: Context, config: Config): void {
   const runtime = resolveLanTrust(ctx.webServer.host, config.trustedHosts)
+  if (ctx.webServer.host === ALL_INTERFACES_HOST) {
+    console.error('dsh web: WARNING: serving on all network interfaces over plain HTTP; anyone on this network who obtains the session cookie gains full control — use only on a trusted network; allow only the paired phone through the firewall, or pass --host 127.0.0.1 to serve this machine only')
+  }
   // The loopback URL belongs to this host. Under SSH, the operator reaches it
   // through a local forwarding address that this process cannot derive.
   const handoffBrowser = config.openBrowser && !launchedThroughSsh(launchEnvironmentOf(ctx))
@@ -250,25 +296,39 @@ export function apply(ctx: Context, config: Config): void {
     })
   }
   if (config.printUrl || handoffBrowser) {
+    // One announcement per activation: a Connection reload inside this
+    // activation re-enters the callback for the same server, while a live patch
+    // that reloads this row binds a new server and must print its URL again.
+    let announced = false
     ctx.inject(['connection'], (connectionCtx) => {
       // The URL line and browser handoff are readiness signals: supervisors RPC
       // as soon as they observe the line, while a browser requests the page as
       // soon as it opens. Neither may run while sibling rows such as the /api
-      // route owner are still mounting. Await Loader settlement first; a
-      // hand-built tree without a Loader is already the complete tree.
+      // route owner are still mounting, and a row that can never activate settles
+      // the Loader without failing it — the boot's activation audit is what
+      // rejects that tree — so the launcher's committed startup gates the
+      // announcement whenever it is available.
       const announceReady = (): void => {
-        if (ANNOUNCED_ROOTS.has(connectionCtx.root)) return
+        if (announced) return
         const webUrl = localWebUrl(connectionCtx)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
-        // Reuse the exact LAN snapshot provided to the /api trust fence.
-        const lanCandidate = runtime.lanAddresses[0]
+        // Reuse the exact LAN snapshot provided to the /api trust fence. The LAN
+        // line stays token-free: the process launch token is the computer's own
+        // credential and is exchanged on loopback only, so a phone reaches this
+        // deployment by pairing, never by opening a printed URL.
         const port = connectionCtx.webServer.port
-        const lanUrl = lanCandidate === undefined
-          ? undefined
-          : connectionCtx.connection.authenticatedUrl(`http://${lanCandidate}:${String(port)}`)
-        ANNOUNCED_ROOTS.add(connectionCtx.root)
+        const lanUrls = runtime.lanAddresses
+          .map(address => `http://${address}:${String(port)}/`)
+        const [lanUrl] = lanUrls
+        announced = true
         if (config.printUrl) {
           console.log(`dsh web: ${authenticatedUrl}${lanUrl === undefined ? '' : ` (LAN: ${lanUrl})`}`)
+          // The phone-join QR encodes the first candidate only, and the
+          // derivation is a name heuristic; the rest stay visible so an
+          // unreachable pick is one copy-and-swap away instead of silent.
+          if (lanUrls.length > 1) {
+            console.log(`dsh web: other LAN addresses: ${lanUrls.slice(1).join(' ')}`)
+          }
         }
         if (handoffBrowser) {
           console.log('dsh web: opening the default browser; pass --no-open to disable')
@@ -278,9 +338,20 @@ export function apply(ctx: Context, config: Config): void {
           })
         }
       }
-      // This row's own activation can precede a sibling failure. The app owns
-      // readiness by waiting for its Loader tree, or announces at once in a
-      // hand-built tree without Loader.
+      // This row's own activation can precede a sibling failure, and the app owns
+      // readiness: when the launcher provides its startup signal, announce only
+      // once that commits. A row that can never activate still settles the Loader
+      // and is rejected only by the boot's own activation audit, so a URL line
+      // published on the settle advertises a tree that is about to abort — and
+      // supervisors act on that line. A composition without the signal (a
+      // hand-built tree) falls back to the Loader path below.
+      const appReady = connectionCtx.get('appReady')
+      if (appReady !== undefined) {
+        connectionCtx.effect(() => appReady.onReady(announceReady), 'web-app: readiness announcement')
+        return
+      }
+      // A tree without that signal announces on its Loader settle, or at once
+      // when a hand-built tree carries no Loader at all.
       const settled = connectionCtx.get('loader')?.await()
       if (settled === undefined) announceReady()
       else {

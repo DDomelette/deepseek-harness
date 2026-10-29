@@ -7,8 +7,9 @@
  * no width, and the transcript's scrollbar stays at the column's edge. The
  * corner seat is its own, past the utilities' edge, so the button never joins
  * the utilities row; while the panel is shown this renders nothing, and the
- * seat collapses with it. It shares the panel's per-session store, which the
- * slot runtime allows because both seats are session-scoped.
+ * corner then holds only what else was registered there. It shares the panel's
+ * per-session store, which the slot runtime allows because both seats are
+ * session-scoped.
  *
  * The glyph is the left sidebar's collapse icon mirrored: the same affordance,
  * on the other edge.

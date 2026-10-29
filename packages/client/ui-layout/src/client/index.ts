@@ -55,8 +55,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * the seats it declares disappear with it. To add something to the
      * sidebar, register into one of those inner seats instead.
      *
-     * The occupant receives the frame's live column state (collapsed, width)
-     * and is expected to render the compact control rail while collapsed.
+     * The occupant receives the frame's live column state (collapsed, width,
+     * fab) and is expected to render the compact control rail while collapsed —
+     * below the overlay breakpoint (fab) the floating brand button takes the
+     * rail's place as the drawer trigger.
      */
     'sidebar': { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
@@ -100,10 +102,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Sidebar owner share: live column state from the frame's concession solve. */
 export interface SidebarOwnerProps {
-  /** True when the sidebar is closed (the column renders the compact control rail). */
+  /** True when the sidebar is closed (the column renders its compact affordance). */
   collapsed: boolean
-  /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
+  /**
+   * Rendered column width in px (SIDEBAR_COLLAPSED when collapsed; 0 below the
+   * overlay breakpoint, where the closed sidebar owns no track).
+   */
   width: number
+  /**
+   * True below the overlay breakpoint: the collapsed rail leaves the grid and
+   * the occupant renders a floating brand button in its place as the drawer
+   * trigger.
+   */
+  fab: boolean
 }
 
 /** Right column owner share: resolved normal geometry and opening eligibility. */

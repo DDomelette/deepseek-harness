@@ -8,7 +8,7 @@ This page is the developer reference: how to write an address, how to register a
 
 ## Addresses
 
-A resource address is a `dsh-resource://<type>/…` URL. The host names the protocol and must be a key of `ResourceProtocolMap`; the path is the protocol's own, and its owner percent-encodes each segment. A protocol that needs a scope puts it in the path: the `file` protocol's addresses read `dsh-resource://file/session/<sessionId>/<path>`, where path is workspace-relative or absolute with its leading slashes preserved, built with `fileAddressFor(sessionId, cwd, path)` and read back with `parseFileAddress(address)` from [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.md). The model itself reads only the scheme and the host: `protocolOf(address)` returns the lower-cased host of a `dsh-resource://` URL and `undefined` for anything else. Addresses under any other scheme — the Sidebar's `sidebar://guide` — name no resource and read as `none`.
+A resource address is a `dsh-resource://<type>/…` URL. The authority names the protocol and must be a key of `ResourceProtocolMap`; the path is the protocol's own, and its owner percent-encodes each segment. A protocol that needs a scope puts it in the path: the `file` protocol's addresses read `dsh-resource://file/session/<sessionId>/<path>`, where path is workspace-relative or absolute with its leading slashes preserved, built with `fileAddressFor(sessionId, cwd, path)` and read back with `parseFileAddress(address)` from [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.md). The model itself reads only the scheme and the authority: `protocolOf(address)` returns the lower-cased authority of a `dsh-resource://` address — the text between `://` and the first `/`, `?`, or `#` — and `undefined` for anything else. It reads that text itself rather than asking `new URL`, whose answer for a non-special scheme differs between engines ([engine variance](../../.agents/notes/implemented/bug-fix/2026-10-09-resource-address-authority.md)). Addresses under any other scheme — the Sidebar's `sidebar://guide` — name no resource and read as `none`.
 
 | Address | Protocol key | Reads as |
 |---|---|---|
@@ -39,7 +39,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.resources.register<'note'>({
     protocol: 'note',
     async *open(address, { signal }): AsyncIterable<RemoteResult<NoteView>> {
-      const id = new URL(address).pathname.slice(1)
+      const id = address.slice('dsh-resource://note/'.length)
       yield await ctx.remote.notes.read(id, signal)
       for await (const change of ctx.remote.notes.follow(id, signal)) yield change
     },

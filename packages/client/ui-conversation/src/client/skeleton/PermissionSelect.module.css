@@ -71,6 +71,44 @@
   }
 }
 
+/* Touch gets no hover to reveal a collapsed trigger's title, so coarse
+   pointers keep the label: it ellipsizes inside the existing caps, and the
+   row wraps before the send button is ever at risk. Placed after the
+   container query so equal specificity resolves here. */
+@media (pointer: coarse) {
+  .trigger:has(.triggerIcon) .triggerLabel {
+    display: block;
+  }
+}
+
+/* Handset docked composer (frame data-sidebar-fab + the InputBar root's
+   data-composer-variant='composer' — user-directed override of the coarse-
+   pointer label rule above for this one band): the trigger collapses to a
+   bare icon — no selector-fill circle, which reads as clutter at handset
+   widths and steals row width. A glyph-less host mode keeps its label — the
+   icon is its only identifier otherwise. The permission name stays on the
+   trigger's aria-label and the menu rows. */
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) {
+  gap: 0;
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Bare icons draw one step larger than the circled glyph to keep their
+   visual weight without the fill. */
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) .triggerIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) .triggerLabel,
+[data-sidebar-fab] [data-composer-variant='composer'] .trigger:has(.triggerIcon) .chevron {
+  display: none;
+}
+
 .chevronOpen {
   transform: rotate(180deg);
 }

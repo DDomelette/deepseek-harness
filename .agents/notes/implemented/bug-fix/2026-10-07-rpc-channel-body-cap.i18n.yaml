@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-07-rpc-channel-body-cap.md
+2026-10-07-rpc-channel-body-cap.md: b213a2becab5ad8c10cd4104a37806710eca45cb
+2026-10-07-rpc-channel-body-cap.zh.md: 80d3624d25f6602db5da1f1e2313c04fb8b57b18

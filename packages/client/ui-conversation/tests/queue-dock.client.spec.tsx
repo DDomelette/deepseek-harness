@@ -472,7 +472,9 @@ describe('QueueDock', () => {
     expect(getByText('before')).toBeTruthy()
 
     fireEvent.click(getByLabelText('编辑排队消息'))
-    fireEvent.keyDown(getByLabelText('编辑排队消息'), { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(getByLabelText('编辑排队消息'), escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(getByText('before')).toBeTruthy()
     expect(updateQueue).not.toHaveBeenCalled()
   })

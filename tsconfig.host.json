@@ -9,6 +9,7 @@
   },
   "include": [
     "apps/web/tests/scaffold.ts",
+    "apps/web/tests/notes-refresh.e2e.ts",
     "apps/web/tests/archived-sessions-settings.e2e.ts",
     "apps/web/tests/skills-settings.e2e.ts",
     "apps/web/tests/mcp-config.e2e.ts",
@@ -21,6 +22,7 @@
     "apps/web/tests/support.ts",
     "apps/web/tests/scaffold-hermetic.e2e.ts",
     "apps/web/tests/startup-rpc-budget.e2e.ts",
+    "apps/web/tests/legacy-engine.e2e.ts",
     "apps/web/tests/minimal-preset.snapshot.ts",
     "apps/web/tests/message-feedback-protocol.snapshot.ts",
     "apps/web/tests/preset-migration.snapshot.ts",
@@ -38,6 +40,7 @@
     "apps/web/tests/document-preview.e2e.ts",
     "apps/web/tests/plugin-config.e2e.ts",
     "apps/web/tests/settings-chrome.e2e.ts",
+    "apps/web/tests/settings-mobile.e2e.ts",
     "apps/web/tests/models-settings.e2e.ts",
     "apps/web/tests/models-settings-recovery.e2e.ts",
     "apps/web/tests/onboarding-deepseek-config.e2e.ts",
@@ -53,6 +56,7 @@
     "apps/web/tests/stats-paged-history.e2e.ts",
     "apps/web/tests/sidebar-scrollbar.e2e.ts",
     "apps/web/tests/rail-search-expand.e2e.ts",
+    "apps/web/tests/mobile-drawer.e2e.ts",
     "apps/web/tests/conversation-column-overflow.e2e.ts",
     "apps/web/tests/ptc-round.e2e.ts",
     "apps/web/tests/present.e2e.ts",
@@ -299,6 +303,7 @@
     { "path": "./packages/bundle/acp-app" },
     { "path": "./packages/bundle/base" },
     { "path": "./packages/bundle/headless" },
+    { "path": "./packages/bundle/mob/tsconfig.host.json" },
     { "path": "./packages/bundle/sdk-app" },
     { "path": "./packages/bundle/sdk-minimal" },
     { "path": "./packages/bundle/web-app" },
@@ -369,6 +374,7 @@
     { "path": "./packages/session/session-pins" },
     { "path": "./packages/skill/skill-settings" },
     { "path": "./packages/telemetry/usage-exporter" },
-    { "path": "./packages/telemetry/usage-telemetry" }
+    { "path": "./packages/telemetry/usage-telemetry" },
+    { "path": "./packages/notes/notes/tsconfig.host.json" }
   ]
 }

@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-22-notes-list-fill-and-prompt-fold.md
+2026-09-22-notes-list-fill-and-prompt-fold.md: ecfacfc5ebc2c428d7f8729318d1b6c5f102c7fc
+2026-09-22-notes-list-fill-and-prompt-fold.zh.md: 2e4198145ecc9dd08bcb7631cfd7c06ce381535d

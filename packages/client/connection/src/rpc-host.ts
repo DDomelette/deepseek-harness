@@ -11,12 +11,16 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
+import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
+import { requestAuthority } from './request-authority.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
+  ConnectionIndexAccess,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionFetchRoute,
   ConnectionFetchHandler,
+  HostConnectionDevices,
   HostConnectionFetch,
   ConnectionRpcEndpointMatcher,
   ConnectionRpcFailure,
@@ -63,16 +67,71 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /**
    * Provide the Host half over the active HTTP server.
-   * @param ctx - owning Connection plugin context.
+   * @param ctx - owning Connection plugin context, which also carries the credential provider.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
+   * @param maxRequestBodyBytes - carrier cap every buffered route of this
+   *   activation buffers under, `/api` and registered channels alike.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly maxRequestBodyBytes: number,
   ) {
     super(ctx, 'connection')
+  }
+
+  /** Paired-device registry; each mutation refreshes the cookie check in place. */
+  get devices(): HostConnectionDevices {
+    const credentials = this.ctx.credentials
+    return {
+      list: () => listDevices(credentials),
+      register: async (request) => {
+        const device = await registerDevice(credentials, request, this.browserAuth.deviceLifetimeDays)
+        await this.browserAuth.refreshPairedDevices()
+        return device
+      },
+      revoke: async (deviceId) => {
+        const binned = await revokeDevice(credentials, deviceId)
+        if (binned) await this.browserAuth.refreshPairedDevices()
+        return binned
+      },
+      restore: async (deviceId) => {
+        const restored = await restoreDevice(credentials, deviceId)
+        if (restored) await this.browserAuth.refreshPairedDevices()
+        return restored
+      },
+      purge: async (deviceId) => {
+        const removed = await purgeDevice(credentials, deviceId)
+        if (removed) await this.browserAuth.refreshPairedDevices()
+        return removed
+      },
+      rename: async (deviceId, label) => {
+        const renamed = await renameDevice(credentials, deviceId, label)
+        if (renamed) await this.browserAuth.refreshPairedDevices()
+        return renamed
+      },
+      setLifetime: async (deviceId, days) => {
+        const updated = await setDeviceLifetime(credentials, deviceId, days)
+        if (updated) await this.browserAuth.refreshPairedDevices()
+        return updated
+      },
+      touch: deviceId => touchDevice(credentials, deviceId),
+      issueCookie: (request, deviceId) => {
+        const authority = requestAuthority(request.headers)
+        return authority === undefined ? undefined : this.browserAuth.issueDeviceCookie(authority, deviceId)
+      },
+    }
+  }
+
+  /**
+   * Re-read the paired-device registry, for a credential record that changed
+   * outside this service's own mutations.
+   * @returns nothing; the refreshed set is installed before it resolves.
+   */
+  async refreshDevices(): Promise<void> {
+    await this.browserAuth.refreshPairedDevices()
   }
 
   /** Generic channel registry scoped to the Context reading this service. */
@@ -99,14 +158,50 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return this.browserAuth.isAuthenticated(request) ? undefined : 401
   }
 
-  /** Authenticate an index request through the process-token exchange or cookie. */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
-    return this.browserAuth.authorizeIndex(request, response)
+  /**
+   * Authenticate an index request through the process-token exchange or cookie.
+   * The Host/Origin fence keeps the application shell away from an authority
+   * this Host does not trust, so only a trusted client without a session is
+   * told how to pair.
+   */
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
+    const access = this.browserAuth.authorizeIndex(request, response)
+    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts)) return access
+    this.browserAuth.refuseIndexInText(request, response)
+    return 'answered'
   }
 
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
+  }
+
+  /**
+   * Note one authenticated request from a paired device: stage the aligned
+   * cookie when its credential lags the registry window, so an extension the
+   * operator makes reaches a phone holding the application open, and record the
+   * device's last use — the pairing handshake is not the only moment a device is
+   * visibly in use. Every authenticated request may carry either, and the
+   * registry throttles the write, so a busy phone costs at most one credential
+   * write an hour.
+   * @param request - headers and TCP peer of an authenticated request.
+   * @param response - response that will carry any replacement cookie.
+   * @returns nothing; a fully aligned request and a launch-token request receive
+   *   nothing, and a failed last-seen write is reported rather than thrown.
+   */
+  noteDeviceRequest(request: ConnectionTrustRequest, response: ConnectionIndexResponse): void {
+    const renewed = this.browserAuth.renewedDeviceCookie(request)
+    if (renewed !== undefined) response.setHeader('set-cookie', renewed)
+    const deviceId = this.browserAuth.deviceIdOf(request)
+    if (deviceId === undefined) return
+    void this.devices.touch(deviceId).catch((error: unknown) => {
+      this.ctx.logger.warn('connection: could not record the last-seen time of device "%s": %s', deviceId, String(error))
+    })
+  }
+
+  /** Whether the local operator's launch-token cookie authorizes device management. */
+  isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
+    return this.browserAuth.isLocalOperator(request)
   }
 
   /**
@@ -162,6 +257,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
   ): () => Promise<void> {
     assertChannel(channel)
     const fetchHandler = rpcFetchHandler(channel, handler)
+    // Read the cap once, at registration: the request handler must not depend on
+    // a Context-resolved `this` for a limit the activation already fixed.
+    const maxRequestBodyBytes = this.maxRequestBodyBytes
     const route: WebRoute = {
       kind: 'prefix',
       path: channel,
@@ -172,7 +270,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
-        await bridge(req, res, fetchHandler)
+        this.noteDeviceRequest(req, res)
+        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
       },
     }
     return owner.effect(
@@ -299,5 +398,14 @@ function assertFetchRoute(route: ConnectionFetchRoute): void {
   const methods = new Set(route.methods)
   if (methods.size !== route.methods.length) {
     throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} repeats a method`)
+  }
+  // Fetch forbids a body on GET and HEAD, so a route's declared mode must agree
+  // with the methods it owns: the bridge can attach a body only for the others.
+  const bodyCarrier = route.methods.find(method => method !== 'GET' && method !== 'HEAD')
+  if (bodyCarrier === undefined && route.requestBody !== 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns only GET and HEAD and must declare requestBody 'none'`)
+  }
+  if (bodyCarrier !== undefined && route.requestBody === 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns ${bodyCarrier} and cannot declare requestBody 'none'`)
   }
 }

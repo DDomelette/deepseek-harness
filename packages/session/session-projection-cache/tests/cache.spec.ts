@@ -188,37 +188,57 @@ afterEach(async () => {
 
 describe('SessionProjectionCache write policy', () => {
   it('writes a durable checkpoint at turn/end (mandatory point)', async () => {
-    const { ctx, root } = await harness()
+    const { ctx, root, cache } = await harness()
     const session = ctx.sessions.create(SessionId('turn-end'))
     mark(session, ['a'])
     // Creation already wrote the init cut; the mark is throttled, so the
-    // stored row is still the creation-time cut (no marks folded).
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1)
-    }, { timeout: 5_000 })
+    // durable row is still the creation-time cut (no marks folded).
+    await cache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1)
     const end = endTurn(session)
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks'])
-        .toEqual({ ver: 1, seq: end.seq, val: { marks: ['a'] } })
-    }, { timeout: 5_000 })
+    await cache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks'])
+      .toEqual({ ver: 1, seq: end.seq, val: { marks: ['a'] } })
   })
 
   it('writes a checkpoint at session creation, capturing the seed-derived cut', async () => {
-    const { ctx, root } = await harness()
+    const { ctx, root, cache } = await harness()
     // A forked child seeded with its ancestor's title-like event: no
     // conversation follows, yet the creation write must capture the fold so
     // a crash or a live-held fork still lists the derived value.
     const session = ctx.sessions.create(SessionId('seeded'), {
       seed: [{ type: 'cache-test/mark', seq: 0, time: 1, data: { marks: ['seed'] } }] as SessionEvent[],
     })
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val)
-        .toEqual({ marks: ['seed'] })
-    }, { timeout: 5_000 })
+    await cache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val)
+      .toEqual({ marks: ['seed'] })
+  })
+
+  it('settled awaits a checkpoint in flight and returns immediately once the session is quiet', async () => {
+    const { ctx, cache } = await harness()
+    const session = ctx.sessions.create(SessionId('settled-wait'))
+    const releases: Array<() => void> = []
+    const write = vi.spyOn(cache, 'write').mockImplementation(() => new Promise<void>((resolve) => {
+      releases.push(resolve)
+    }))
+    endTurn(session)
+    expect(releases).toHaveLength(1)
+    let drained = false
+    const settled = cache.settled(session.id).then(() => { drained = true })
+    // The gated checkpoint is the only thing that can resolve the barrier, so
+    // still-pending here means settled() really waits on durability.
+    await Promise.resolve()
+    expect(drained).toBe(false)
+    releases[0]?.()
+    await settled
+    expect(drained).toBe(true)
+    expect(write).toHaveBeenCalledOnce()
+    // Nothing in flight: the next call resolves without waiting on anything.
+    await cache.settled(session.id)
   })
 
   it('writes at session disposal (detach, the live-to-cold moment)', async () => {
-    const { ctx, root } = await harness()
+    const { ctx, root, cache } = await harness()
     // Sessions dispose with their owning fiber: create in a child plugin.
     let session: Session | undefined
     const owner = await ctx.plugin(Object.assign((inner: Context) => {
@@ -228,24 +248,21 @@ describe('SessionProjectionCache write policy', () => {
     mark(session, ['live'])
     await owner.dispose()
     const detached = session
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, detached.id))?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
-    }, { timeout: 5_000 })
+    await cache.settled(detached.id)
+    expect((await storedRows(root, detached.id))?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
   })
 
   it('flushes when the in-turn event count reaches the configured threshold', async () => {
-    const { ctx, root } = await harness({ config: { writeEveryEvents: 3, writeIntervalMs: 60_000 } })
+    const { ctx, root, cache } = await harness({ config: { writeEveryEvents: 3, writeIntervalMs: 60_000 } })
     const session = ctx.sessions.create(SessionId('count'))
     mark(session, ['1'])
     mark(session, ['2'])
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks'])
-        .toEqual({ ver: 1, seq: -1, val: null }) // still the creation cut
-    }, { timeout: 5_000 })
+    await cache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks'])
+      .toEqual({ ver: 1, seq: -1, val: null }) // still the creation cut
     mark(session, ['3'])
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
-    }, { timeout: 5_000 })
+    await cache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
   })
 
   it('flushes on the configured interval when the count threshold is not reached', async () => {
@@ -314,22 +331,19 @@ describe('SessionProjectionCache write policy', () => {
     const session = ctx.sessions.create(SessionId('fail-soft'))
     mark(session, ['x'])
     endTurn(session)
-    // The failed creation/turn-end writes are fire-and-forget: wait for the
-    // warn (the write actually failed), then assert no row landed — the
-    // property under test is that a failed write leaves no partial row.
-    await vi.waitFor(() => {
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('turn/end write for "fail-soft" failed'))
-    }, { timeout: 5_000 })
-    await vi.waitFor(async () => {
-      expect(await storedRows(root, session.id)).toBeUndefined()
-    }, { timeout: 5_000 })
+    // The failed creation/turn-end writes are fire-and-forget: settled() is
+    // their completion point, so by here the warning is logged and the medium
+    // is untouched — the property under test is that a failed write leaves no
+    // partial row behind.
+    await ctx.sessionProjectionCache.settled(session.id)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('turn/end write for "fail-soft" failed'))
+    expect(await storedRows(root, session.id)).toBeUndefined()
     // Self-heal: once the blocker clears, the next mandatory point writes.
     await rm(recordPath(root, session.id), { recursive: true })
     mark(session, ['y'])
     endTurn(session)
-    await vi.waitFor(async () => {
-      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
-    }, { timeout: 5_000 })
+    await ctx.sessionProjectionCache.settled(session.id)
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
   })
 })
 
@@ -665,14 +679,6 @@ describe('SessionProjectionCache cold-read seeding', () => {
     })
     const { cache, ctx } = await harness({ root })
     const apply = vi.fn((_state: number, _event: SessionEvent) => 1)
-    const whenWritten = (id: SessionId): Promise<void> => new Promise((resolve) => {
-      const dispose = ctx.on('domain/changed', (change) => {
-        if (change.domain !== projectionCacheDomainSpec.name
-          || change.table !== 'sessions' || change.key !== id || change.operation !== 'put') return
-        dispose()
-        resolve()
-      })
-    })
     ctx.sessionProjections.register({
       key: 'cache-test/count',
       stateSchema: z.number().int().nonnegative(),
@@ -684,24 +690,22 @@ describe('SessionProjectionCache cold-read seeding', () => {
     const events = Array.from({ length: 5 }, (_, seq) => ({
       type: 'cache-test/mark', seq: SessionSeq(seq), time: seq, data: { marks: [`m${seq}`] },
     })) as SessionEvent[]
-    const refreshed = whenWritten(meta.id)
     const snapshot = cache.coldSnapshot(meta, SessionLogOffset(0), events)
     // The full log was traversed, but the fold applied only seqs 3 and 4.
     expect(apply).toHaveBeenCalledTimes(2)
     expect(apply.mock.calls.map(call => call[1].seq)).toEqual([3, 4])
     expect(snapshot.asOfSeq).toBe(4)
     // Host-only unit: folded but not served; the refreshed row is written
-    // back (fail-soft, fire-and-forget) once the write lands.
+    // back (fail-soft, fire-and-forget) once the write-back completes.
     expect(Object.keys(snapshot.values)).not.toContain('cache-test/count')
-    await refreshed
+    await cache.settled(meta.id)
     expect((await storedRows(root, meta.id))?.['cache-test/count']?.seq).toBe(4)
     // No cached row yet: the first cold read folds from init over the full
     // log and creates the cache row (the `?? {}` seed path).
     const fresh = headerOf(SessionId('cold-fresh'), 10)
-    const created = whenWritten(fresh.id)
     cache.coldSnapshot(fresh, SessionLogOffset(0), events)
     expect(apply).toHaveBeenCalledTimes(7) // 2 tail + 5 full
-    await created
+    await cache.settled(fresh.id)
     expect((await storedRows(root, fresh.id))?.['cache-test/count']?.seq).toBe(4)
   })
 
@@ -723,10 +727,9 @@ describe('SessionProjectionCache cold-read seeding', () => {
     const meta = headerOf(SessionId('cold-fail'))
     await mkdir(recordPath(root, meta.id), { recursive: true })
     expect(ctx.sessionProjectionCache.coldSnapshot(meta, SessionLogOffset(0), [])).toBeDefined()
-    // The failed write-back is fire-and-forget: poll for the warn instead of
-    // assuming a fixed settle window (slow runners exceed it).
-    await vi.waitFor(() => {
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "cold-fail" failed'))
-    }, { timeout: 5_000 })
+    // The failed write-back is fire-and-forget: settled() is its completion
+    // point, so the warning is already logged when the barrier resolves.
+    await ctx.sessionProjectionCache.settled(meta.id)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "cold-fail" failed'))
   })
 })

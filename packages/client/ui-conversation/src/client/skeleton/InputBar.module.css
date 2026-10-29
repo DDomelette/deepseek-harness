@@ -255,6 +255,22 @@
   container-type: inline-size;
 }
 
+/* Handset (frame data-sidebar-fab, scoped to the docked composer — the hero
+   card keeps the wrap): the permission and model triggers are 28px icons there
+   (PermissionSelect.module.css, ui-model-selection ModelSelect.module.css), so
+   attach + permission + model + send hold one line. The groups must not
+   shrink: a coarse pointer's 44px minimums already consume the width budget,
+   and a shrunken group lets its unshrunk content overflow into the next group
+   (the permission trigger once overlapped the model chip this way). */
+[data-sidebar-fab] .root[data-composer-variant='composer'] .row {
+  flex-wrap: nowrap;
+}
+
+[data-sidebar-fab] .root[data-composer-variant='composer'] .tools,
+[data-sidebar-fab] .root[data-composer-variant='composer'] .modes {
+  flex: none;
+}
+
 .tools,
 .modes,
 .trailing {
@@ -383,4 +399,23 @@
   color: inherit;
   font-size: 12px;
   cursor: pointer;
+}
+
+/* Touch targets: 44px floor on coarse pointers (WCAG 2.5.5). Slot content
+   renders inside .card too; the attachment rail's badge-style buttons opt
+   out in ui-attachment and keep their drawn sizes with transparent hit
+   zones. */
+@media (pointer: coarse) {
+  .root button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Handset docked composer: the row's controls keep their drawn sizes (28px
+   icon triggers, 34px send) — the coarse floor above would inflate six
+   controls past the narrow card's width and push the send action out of it. */
+[data-sidebar-fab] .root[data-composer-variant='composer'] .row button {
+  min-height: 28px;
+  min-width: 28px;
 }

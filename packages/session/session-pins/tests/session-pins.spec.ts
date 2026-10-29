@@ -70,4 +70,47 @@ describe('session pins service', () => {
       SessionId('s1'), SessionId('s2'), SessionId('s3'),
     ])
   })
+
+  it('prunes an unpinned session from both orders while retaining other groups', async () => {
+    const { ctx: loaded } = await boot()
+    await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true })
+    await loaded.sessionPins.setPinned({ sessionId: 's2', pinned: true })
+    await loaded.sessionPins.reorderGroup({ groupKey: 'shared', orderedIds: ['s1', 's2'] })
+    await loaded.sessionPins.reorderGroup({ groupKey: 'single', orderedIds: ['s1'] })
+    await loaded.sessionPins.reorderFlat({ orderedIds: ['s2', 's1'] })
+    await loaded.sessionPins.setPinned({ sessionId: 's3', pinned: true })
+    expect(await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: false })).toEqual({
+      pinnedSessionIds: ['s2', 's3'], groupOrder: { shared: ['s2'] }, flatOrder: ['s2'],
+    })
+  })
+
+  it('rejects incomplete, unknown, and repeated flat order entries without losing pins', async () => {
+    const { ctx: loaded } = await boot()
+    await loaded.sessionPins.setPinned({ sessionId: 's1', pinned: true })
+    await loaded.sessionPins.setPinned({ sessionId: 's2', pinned: true })
+    for (const orderedIds of [['s1'], ['s1', 'unknown'], ['s1', 's1']]) {
+      await expect(loaded.sessionPins.reorderFlat({ orderedIds })).rejects.toBeInstanceOf(SessionPinsInvalidError)
+    }
+    await expect(loaded.sessionPins.reorderGroup({ groupKey: '', orderedIds: ['s1', 's1'] }))
+      .rejects.toBeInstanceOf(SessionPinsInvalidError)
+    expect(loaded.sessionPins.list()).toEqual({ pinnedSessionIds: ['s1', 's2'], groupOrder: {}, flatOrder: [] })
+  })
+
+  it('bounds Remote ids, group keys, and order lists before writing', async () => {
+    const { ctx: loaded } = await boot()
+    for (const sessionId of [' ', 'x'.repeat(257)]) {
+      await expect(loaded.sessionPins.setPinned({ sessionId, pinned: true })).rejects.toBeInstanceOf(SessionPinsInvalidError)
+    }
+    await expect(loaded.sessionPins.reorderGroup({ groupKey: 'x'.repeat(257), orderedIds: [] }))
+      .rejects.toBeInstanceOf(SessionPinsInvalidError)
+    await expect(loaded.sessionPins.reorderFlat({ orderedIds: Array.from({ length: 10_001 }, () => 's') }))
+      .rejects.toBeInstanceOf(SessionPinsInvalidError)
+    expect(loaded.sessionPins.list().pinnedSessionIds).toEqual([])
+  })
+
+  it('refuses reads before the storage domain is available', () => {
+    ctx = new Context()
+    const pins = new SessionPinsService(ctx)
+    expect(() => pins.list()).toThrow('session-pins domain is not open')
+  })
 })

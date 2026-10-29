@@ -37,7 +37,7 @@ web GUI 让操作者通过 OS 选择器或应用内浏览器选择工作区目�
 
 ### 行携带什么
 
-`DirectoryEntry` 行暴露绝对 `path` 与宿主判定的 `hidden` 标志（POSIX 上为点前缀约定），展示策略留在客户端；客户端绝不自行拼接路径段。`DirectoryListing.crumbs` 是从文件系统根到被列举目录的祖先链——每个 crumb 都是跳转目标，根 crumb 以完整路径标注。
+`DirectoryEntry` 行暴露绝对 `path` 与宿主判定的 `hidden` 标志（POSIX 上为点前缀约定），展示策略留在客户端；客户端绝不自行拼接路径段。`DirectoryListing.crumbs` 是从文件系统根到被列举目录的祖先链——每个 crumb 都是跳转目标，根 crumb 以完整路径标注。若某平台的根只是多个卷之一，该链会在被列举路径自己的卷上结束，因此这种后端用 `drives` 报告全部卷：Windows 后端列出已挂载的盘符，浏览器得以从盘符根跳到其他盘符。
 
 -----
 

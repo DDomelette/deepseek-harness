@@ -1708,7 +1708,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   {
     key: 'sessionProjectionCache',
     summary: 'The persisted projection cache service.',
-    description: 'The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write.',
+    description: 'The persisted projection cache service. Opens the `session_projcache` domain at init, checkpoints live sessions on a throttled write-behind (count/interval triggers from Config) plus three mandatory points — session creation, `turn/end`, and session disposal (the live-to-cold moment) — and serves the cached rows for a session header. Every durable write is fail-soft: failures log a warning and the cache self-heals on the next write, and settled is the completion point those fire-and-forget writes report through.',
     methods: [
       {
         signature: 'cachedSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, keys?: readonly Extract<keyof SessionProjectionMap, string>[], ): ProjectionSnapshot | undefined',
@@ -1733,6 +1733,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Durably checkpoint one live session NOW (all mandatory points call this; tests and carriers may too). The registry cut is snapshotted at this boundary (states are live references), then the session\'s record is replaced on the domain\'s write chain. NOT fail-soft — callers on the fail-soft paths contain it.',
         parameters: [{ name: 'session', description: 'the live session to checkpoint.' }],
         returns: 'resolution after durability and event emission.',
+      },
+      {
+        signature: 'async settled(id: SessionId): Promise<void>',
+        description: 'Resolve once every durable checkpoint this service has already started for `id` has settled, successful or failed. Every trigger — a mandatory point, a throttle, or a cold-read write-back — is fail-soft and fire-and-forget, so this is the completion point a caller awaits instead of polling the medium; a checkpoint that failed is already logged as a warning when the barrier resolves. A dirty session whose trigger has not fired is NOT awaited: mandatory points start their write synchronously, and only a started write has a durability moment to report.',
+        parameters: [{ name: 'id', description: 'the session whose already-started checkpoints are awaited.' }],
+        returns: 'resolution after those checkpoints settled, immediately when none is in flight.',
       },
       {
         signature: 'coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot',
@@ -3462,6 +3468,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'notes/material-settled',
+    mode: 'emit',
+    signature: '\'notes/material-settled\'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void',
+    summary: 'One or more materials left `analyzing` because the turn that carried them closed.',
+    description: 'One or more materials left `analyzing` because the turn that carried them closed. The Host settles them on its own clock, so a browser that is still showing the material has no call to learn it from; this event is the answer\'s arrival, and a reader follows it by reading the material and its thread again. Emitted once per conversation per settled turn, after every settlement of that turn was written.',
+    parameters: [{ name: 'noteId', description: 'the conversation whose materials settled.' }, { name: 'materialIds', description: 'the materials this turn settled, in settle order.' }],
+  },
+  {
     name: 'session-telemetry/record',
     mode: 'waterfall',
     signature: '\'session-telemetry/record\'(record: SessionTelemetryRecord, next: () => SessionTelemetryRecord): SessionTelemetryRecord',
@@ -4211,7 +4225,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryListing',
-    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
+    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n    drives?: readonly DirectoryEntry[];\n}',
   },
   {
     name: 'DirectoryPickerBrowseCapability',
@@ -4730,6 +4744,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
   },
   {
+    name: 'MaterialId',
+    declaration: 'export type MaterialId = Branded<\'material-id\'>;',
+  },
+  {
     name: 'Message',
     declaration: 'export interface Message {\n    readonly id: MessageId;\n    readonly role: \'system\' | \'user\' | \'assistant\';\n    readonly content: ContentBlock[];\n    readonly source: MessageSource;\n}',
   },
@@ -4856,6 +4874,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelReasoningEffort',
     declaration: 'export interface ModelReasoningEffort {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n}',
+  },
+  {
+    name: 'NoteSessionId',
+    declaration: 'export type NoteSessionId = Branded<\'note-session-id\'>;',
   },
   {
     name: 'ObjectJsonSchema',

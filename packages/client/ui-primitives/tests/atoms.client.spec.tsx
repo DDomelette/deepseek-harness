@@ -83,7 +83,9 @@ describe('Menu', () => {
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Beta' }))
     expect(onSelect).not.toHaveBeenCalled()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(onClose).toHaveBeenCalledTimes(1)
     fireEvent.pointerDown(document.body)
     expect(onClose).toHaveBeenCalledTimes(2)
@@ -425,7 +427,7 @@ describe('Modal', () => {
       <Modal open={false} onClose={onClose} title="Create new workspace" closeLabel="Close">body</Modal>)
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(
-      <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" footer={<button type="button">Create</button>}>
+      <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" bodyClassName="scrolling-body" footer={<button type="button">Create</button>}>
         <input aria-label="name" />
       </Modal>)
     const dialog = screen.getByRole('dialog', { name: 'Create new workspace' })
@@ -436,9 +438,14 @@ describe('Modal', () => {
     expect(screen.getByRole('button', { name: 'Configure later' })).toBeDefined()
     expect(screen.getByText('Name it.')).toBeDefined()
     expect(screen.getByText('Name it.').parentElement?.className).toContain('scrolling-content')
+    // A named body class lands on the body itself, so a caller can pin the
+    // header while only the body scrolls.
+    expect(screen.getByLabelText('name').parentElement?.className).toContain('scrolling-body')
     fireEvent.keyDown(document, { key: 'a' })
     expect(onClose).not.toHaveBeenCalled()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    fireEvent(document, escape)
+    expect(escape.defaultPrevented).toBe(true)
     expect(onClose).toHaveBeenCalledTimes(1)
     // Mask is the presentation sibling behind the dialog.
     const mask = document.querySelector('[aria-hidden="true"]') as HTMLElement
@@ -490,5 +497,38 @@ describe('ConnectionIndicator', () => {
     rerender(<ConnectionIndicator state="recovered" {...labels} />)
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
+  })
+
+  it('carries the failure reason and the verbatim detail of a failed attempt', () => {
+    const labels = {
+      disconnectedLabel: 'Disconnected',
+      reconnectLabel: 'Reconnect',
+      connectingLabel: 'Connecting',
+      recoveredLabel: 'Connected',
+      reconnectActionLabel: 'Disconnected, reconnect now',
+      restartActionLabel: 'Connecting, restart now',
+      onReconnect: () => {},
+    }
+    const { rerender } = render(
+      <ConnectionIndicator state="connecting" {...labels} failureLabel="Sign-in expired; scan again" />,
+    )
+    const indicator = screen.getByRole('button', { name: 'Connecting, restart now' })
+    expect(indicator.textContent).toContain('Sign-in expired; scan again')
+    expect(indicator.hasAttribute('title')).toBe(false)
+
+    rerender(
+      <ConnectionIndicator
+        state="connecting"
+        {...labels}
+        failureLabel="Sign-in expired; scan again"
+        failureDetail="transport failure for /api/settings/describe: HTTP 401"
+      />,
+    )
+    expect(indicator.textContent).toContain('HTTP 401')
+    expect(indicator.getAttribute('title')).toBe('transport failure for /api/settings/describe: HTTP 401')
+
+    // A recovered generation shows no failure text even while the reason is still supplied.
+    rerender(<ConnectionIndicator state="recovered" {...labels} failureLabel="Sign-in expired; scan again" />)
+    expect(screen.getByRole('status', { name: 'Connected' }).textContent).not.toContain('Sign-in expired')
   })
 })

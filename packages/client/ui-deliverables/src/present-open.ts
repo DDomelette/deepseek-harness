@@ -16,7 +16,7 @@ import { isPresentedData, isPresentedFile, PRESENT_OPEN_PATH, PRESENT_HOST_PATH,
  */
 export function registerPresentOpen(ctx: Context): void {
   ctx.connection.fetch.register({
-    path: PRESENT_HOST_PATH, methods: ['GET'], requestBody: 'buffered',
+    path: PRESENT_HOST_PATH, methods: ['GET'], requestBody: 'none',
     fetch: () => Promise.resolve(Response.json(ctx.sessionController.workspaceDesktop() satisfies PresentedHost,
       { headers: { 'cache-control': 'no-store' } })),
   })
