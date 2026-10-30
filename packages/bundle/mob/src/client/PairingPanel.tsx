@@ -3,14 +3,13 @@
  * phone's code and QR with the time left, decides the requests waiting for an
  * answer, and lists the devices already approved. Revoking moves a device to
  * the recycle bin, where it stays restorable until the operator purges it.
- * Every operation goes through the `/pair*` routes, so this page must be the
- * computer itself.
+ * Every operation goes through the operator-authenticated `/pair*` routes.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode/lib/browser.js'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutlineMedium, IconEditOutlineMedium, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineMedium, IconEditOutlineMedium, Menu, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './PairingPanel.module.css'
 import {
   createPairingApi, deviceLabelFrom, pairingUrlOf,
@@ -36,12 +35,10 @@ const CUSTOM_LIFETIME_ID = 'custom'
 /** Longest device label the rename input accepts, matching the route's bound. */
 const MAX_LABEL_LENGTH = 64
 
-/** Injected face: the LAN join URL, whether this page may decide, and the routes' client half. */
+/** Injected face: the LAN join URL and the operator-authenticated routes' client half. */
 export interface PairingPanelInjected {
   /** This Host's LAN origin, from the `mob.joinUrl` Remote method; the pairing link is built on it. */
   joinUrl: () => Promise<RemoteResult<string>>
-  /** Whether this page is the loopback surface the routes accept a decision from. */
-  canDecide: boolean
   /** The pairing routes' client half. */
   api?: PairingApi | undefined
 }
@@ -63,9 +60,17 @@ const NOTICE_KEY = {
   expired: 'panel.expired',
   failed: 'panel.failed',
   lan: 'dialog.unavailable',
+  forbidden: 'panel.operatorOnly',
 } as const satisfies Record<string, MobileSettingsKey>
 
 type Notice = keyof typeof NOTICE_KEY
+
+/** The device read also establishes whether this browser holds an operator credential. */
+type DeviceRead =
+  | { readonly status: 'pending' }
+  | { readonly status: 'forbidden' }
+  | { readonly status: 'failed' }
+  | { readonly status: 'ready'; readonly devices: readonly PairedDeviceView[] }
 
 /** Absolute `MM-DD HH:mm` stamp; the panel shows when a device was added and used. */
 function formatStamp(milliseconds: number): string {
@@ -79,11 +84,14 @@ function formatStamp(milliseconds: number): string {
  * @param props - the settings dictionary and the injected pairing face.
  * @returns the panel element tree.
  */
-export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }: PairingPanelProps) {
+export function PairingPanel({ t, joinUrl, api: providedApi }: PairingPanelProps) {
+  const api = useMemo(() => providedApi ?? createPairingApi(), [providedApi])
   const [session, setSession] = useState<OpenSession | undefined>(undefined)
   const [requests, setRequests] = useState<readonly PendingPairingView[]>([])
   const [labels, setLabels] = useState<Readonly<Record<string, string>>>({})
-  const [devices, setDevices] = useState<readonly PairedDeviceView[]>([])
+  const [deviceRead, setDeviceRead] = useState<DeviceRead>({ status: 'pending' })
+  const [readAttempt, setReadAttempt] = useState(0)
+  const canDecide = deviceRead.status === 'ready'
   const [notice, setNotice] = useState<Notice | undefined>(undefined)
   const [now, setNow] = useState(() => Date.now())
   const [customDays, setCustomDays] = useState<Readonly<Record<string, string>>>({})
@@ -147,14 +155,16 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   }, [copied])
 
   useEffect(() => {
-    if (!canDecide) return
     let cancelled = false
+    setDeviceRead({ status: 'pending' })
     void api.devices().then((answer) => {
-      if (cancelled || !answer.ok) return
-      setDevices(answer.value)
+      if (cancelled) return
+      setDeviceRead(answer.ok
+        ? { status: 'ready', devices: answer.value }
+        : { status: answer.reason === 'forbidden' ? 'forbidden' : 'failed' })
     })
     return () => { cancelled = true }
-  }, [api, canDecide])
+  }, [api, readAttempt])
 
   useEffect(() => {
     if (!canDecide) return
@@ -165,20 +175,27 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
     return () => { clearInterval(timer) }
   }, [canDecide, readRequests])
 
-  if (!canDecide) return <p className={css.status}>{t('panel.lanOnly')}</p>
+  if (deviceRead.status === 'pending') return <div className={css.queryState} aria-busy="true"><StateDot state="ongoing" /></div>
+  if (deviceRead.status === 'forbidden') return <p className={css.status}>{t('panel.operatorOnly')}</p>
+  if (deviceRead.status === 'failed') return (
+    <div className={css.queryState}>
+      <p className={css.notice}>{t('panel.loadFailed')}</p>
+      <button type="button" className={css.primary} onClick={() => {
+        setDeviceRead({ status: 'pending' })
+        setReadAttempt(current => current + 1)
+      }}>{t('panel.retry')}</button>
+    </div>
+  )
 
   const open = async (): Promise<void> => {
-    const answer = await api.open()
-    if (!answer.ok) {
-      setNotice(answer.reason === 'forbidden' ? 'lan' : 'failed')
-      return
-    }
     const joined = await joinUrl()
     if (!joined.ok) {
-      // The 'lan' notice tells the operator to reach this deployment over the
-      // network; a deployment that declared no advertised origin cannot be
-      // reached that way until it names one.
       setNotice(joined.error.code === 'mob/no-advertised-origin' ? 'lan' : 'failed')
+      return
+    }
+    const answer = await api.open()
+    if (!answer.ok) {
+      setNotice(answer.reason === 'forbidden' ? 'forbidden' : 'failed')
       return
     }
     const url = pairingUrlOf(joined.value, answer.value.code)
@@ -203,7 +220,7 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
   /** Re-read the device list after a mutation, keeping the current list when the read fails. */
   const reloadDevices = async (): Promise<void> => {
     const listed = await api.devices()
-    if (listed.ok) setDevices(listed.value)
+    if (listed.ok) setDeviceRead({ status: 'ready', devices: listed.value })
   }
 
   const decide = async (request: PendingPairingView, allowed: boolean): Promise<void> => {
@@ -298,8 +315,8 @@ export function PairingPanel({ t, joinUrl, canDecide, api = createPairingApi() }
     await mutateDevice(() => api.purge(deviceId))
   }
 
-  const active = devices.filter(device => device.revokedAt === undefined)
-  const binned = devices.filter((device): device is PairedDeviceView & { readonly revokedAt: number } =>
+  const active = deviceRead.devices.filter(device => device.revokedAt === undefined)
+  const binned = deviceRead.devices.filter((device): device is PairedDeviceView & { readonly revokedAt: number } =>
     device.revokedAt !== undefined)
   const sessionTotal = session === undefined ? 1 : Math.max(1, session.expiresAt - session.openedAt)
 

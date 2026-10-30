@@ -8,6 +8,7 @@
     "rewriteRelativeImportExtensions": false
   },
   "include": [
+    "apps/web/tests/phone-pairing.e2e.ts",
     "packages/experimental/inspector/scripts/**/*.ts",
     "apps/web/tests/default-product-isolation.e2e.ts",
     "apps/web/tests/draft-initialization.e2e.ts",

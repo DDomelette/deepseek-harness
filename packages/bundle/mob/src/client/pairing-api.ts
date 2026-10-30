@@ -1,6 +1,6 @@
 /**
  * The desktop half of the pairing handshake. It speaks the same `/pair*` routes
- * the phone uses, so the loopback-plus-session rule that guards a decision has
+ * the phone uses, so the operator-credential rule that guards a decision has
  * exactly one enforcement point.
  */
 
@@ -179,7 +179,7 @@ export function deviceLabelFrom(userAgent: string | undefined): string | undefin
 
 /**
  * Compose the token-free URL a phone opens to claim a code.
- * @param joinUrl - this Host's LAN join URL, which carries the process token.
+ * @param joinUrl - this Host's token-free phone join URL.
  * @param code - the code to claim.
  * @returns the `/pair` URL on the same origin, with no process token.
  */

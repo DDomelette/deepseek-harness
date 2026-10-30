@@ -21,22 +21,23 @@ export class MobJoinController extends TypertRemoteService {
   /**
    * Compose the origin the settings panel builds a pairing link on, from the
    * deployment's own advertisement: its `--public-url` when set, otherwise its
-   * first declared `--trusted-host`. The value carries no process token: a
+   * first declared `--trusted-host`, or its concrete non-loopback bind.
+   * The value carries no process token: a
    * phone joins that deployment by claiming a pairing code.
    * @returns the pairing origin.
    * @throws RemoteError `mob/no-advertised-origin` when the deployment declared
-   * neither an advertised URL nor a trusted host.
+   * no advertised URL, trusted host, or URL-compatible non-loopback bind.
    */
   @Remote
   joinUrl(): string {
     // webStartup carries no Context merge; the inject declaration above
     // guarantees web-app provided it before this service activates.
     const startup = this.ctx.get('webStartup') as WebStartupValues
-    const url = resolveJoinUrl(startup.publicUrl, startup.trustedHosts, this.ctx.webServer.port)
+    const url = resolveJoinUrl(startup.publicUrl, startup.trustedHosts, this.ctx.webServer)
     if (url === undefined) {
       throw new RemoteError(
         'mob/no-advertised-origin',
-        'the deployment declares no --public-url and no --trusted-host, so no phone-reachable origin exists',
+        'no phone address is configured; use --host with a concrete LAN IP, or --public-url for a proxy',
         {},
       )
     }

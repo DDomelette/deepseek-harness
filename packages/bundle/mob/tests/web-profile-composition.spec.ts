@@ -1,8 +1,8 @@
 /**
  * The phone-access layer over a real Loader tree: the row mounts the `mob`
  * Remote namespace, and its `joinUrl` reads the fence snapshot through the
- * injected services — LAN address, loopback-only bind, and an all-interfaces
- * bind that derived no reachable address.
+ * injected services — declared authority, loopback-only bind, and a concrete
+ * non-loopback listener.
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -49,6 +49,7 @@ async function bootTree(facts: BenchFacts): Promise<Context> {
 export const apply = ctx => ctx.provide('webServer', {
   host: ${JSON.stringify(facts.host)},
   port: 4567,
+  protocol: 'http:',
   register(route) {
     globalThis.__dshMobRoutes.push(route.path)
     return () => { globalThis.__dshMobRoutes.splice(globalThis.__dshMobRoutes.indexOf(route.path), 1) }
@@ -132,7 +133,7 @@ function failureOf(ctx: Context): unknown {
 
 describe('mob join namespace over a Loader tree', () => {
   it('returns the token-free origin from the declared trusted host', async () => {
-    const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: ['192.168.1.5'] })
+    const ctx = await bootTree({ host: '192.168.1.5', lanAddresses: ['192.168.1.5'] })
     expect(joinController(ctx).joinUrl()).toBe(LAN_URL)
   })
 
@@ -141,9 +142,9 @@ describe('mob join namespace over a Loader tree', () => {
     expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-advertised-origin', details: {} })
   })
 
-  it('classifies an all-interfaces bind with no declared origin the same way', async () => {
-    const ctx = await bootTree({ host: '0.0.0.0', lanAddresses: [] })
-    expect(remoteErrorOf(failureOf(ctx))).toMatchObject({ code: 'mob/no-advertised-origin', details: {} })
+  it('uses the concrete bind without requiring a duplicate trusted-host declaration', async () => {
+    const ctx = await bootTree({ host: '192.168.1.5', lanAddresses: [] })
+    expect(joinController(ctx).joinUrl()).toBe(LAN_URL)
   })
 
   it('registers every pairing route through the real Loader tree', async () => {

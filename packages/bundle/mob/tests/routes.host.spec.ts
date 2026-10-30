@@ -1,6 +1,6 @@
 /**
  * The `/pair*` routes: the phone's two cookie-less steps, the computer's
- * loopback-only decisions, and the device cookie an approval hands out.
+ * operator-only decisions, and the device cookie an approval hands out.
  */
 
 import { EventEmitter } from 'node:events'
@@ -29,8 +29,8 @@ afterEach(async () => {
 interface ConnectionOptions {
   /** Status the fence/auth seam returns; undefined means the request is accepted. */
   readonly rejection?: 401 | 403
-  /** Whether the request arrived on a loopback authority. */
-  readonly loopback?: boolean
+  /** Whether Connection accepts an operator credential on this request. */
+  readonly operator?: boolean
   /** Whether device-cookie issuance reports an unusable request authority. */
   readonly noCookie?: boolean
   /** Whether this Host serves an application shell at all. */
@@ -96,7 +96,7 @@ function bench(options: ConnectionOptions = {}): Bench {
   } as unknown as WebServer)
   ctx.provide('connection', {
     requestRejection: () => options.rejection,
-    isLocalOperatorRequest: () => options.loopback ?? true,
+    isLocalOperatorRequest: () => options.operator ?? true,
     devices: {
       list: async () => registered.map((request, index) => {
         const id = idAt(index)
@@ -488,17 +488,17 @@ describe('pairing routes', () => {
     )
   })
 
-  it('keeps session, request, device, and revoke routes on loopback with a session cookie', async () => {
+  it('keeps session, request, device, and revoke routes restricted to authenticated operators', async () => {
     const subject = bench()
     expect((await subject.call(PAIR_PATHS.session, { method: 'POST', cookie: 'dsh-auth-test=session' })).status).toBe(200)
 
     const remote = bench({ rejection: 401 })
     expect((await remote.call(PAIR_PATHS.session, { method: 'POST' })).status).toBe(401)
 
-    const authenticatedButLan = bench({ loopback: false })
-    expect((await authenticatedButLan.call(PAIR_PATHS.session, { method: 'POST' })).status).toBe(403)
-    expect((await authenticatedButLan.call(PAIR_PATHS.requests)).status).toBe(403)
-    expect((await authenticatedButLan.call(PAIR_PATHS.devices)).status).toBe(403)
+    const pairedDevice = bench({ operator: false })
+    expect((await pairedDevice.call(PAIR_PATHS.session, { method: 'POST' })).status).toBe(403)
+    expect((await pairedDevice.call(PAIR_PATHS.requests)).status).toBe(403)
+    expect((await pairedDevice.call(PAIR_PATHS.devices)).status).toBe(403)
   })
 
   it('opens a session the computer can list and approve under an edited label', async () => {
@@ -612,7 +612,7 @@ describe('pairing routes', () => {
     expect((await subject.call(PAIR_PATHS.label, { method: 'POST', cookie: 'dsh-auth-test=session' })).status).toBe(400)
     const remote = bench({ rejection: 401 })
     expect((await remote.call(PAIR_PATHS.label, { method: 'POST' })).status).toBe(401)
-    const lan = bench({ loopback: false })
+    const lan = bench({ operator: false })
     expect((await lan.call(PAIR_PATHS.label, {
       method: 'POST',
       body: { deviceId: 'device-1', label: 'phone' },
@@ -676,7 +676,7 @@ describe('pairing routes', () => {
     expect((await subject.call(PAIR_PATHS.devices, { method: 'POST' })).status).toBe(405)
     expect((await subject.call(PAIR_PATHS.revoke, { method: 'POST' })).status).toBe(400)
 
-    const lan = bench({ loopback: false })
+    const lan = bench({ operator: false })
     expect((await lan.call(PAIR_PATHS.approve, {
       method: 'POST',
       body: { code: 'ZZZZZZZZ', label: 'phone', allowed: true },
@@ -688,7 +688,7 @@ describe('pairing routes', () => {
     }
   })
 
-  it('re-schedules one device under the loopback-and-session guard within 1–365 days', async () => {
+  it('re-schedules one device under the operator credential guard within 1–365 days', async () => {
     const subject = bench()
     const { code } = subject.pairing.openSession()
     await approve(subject, code)
@@ -743,7 +743,7 @@ describe('pairing routes', () => {
     expect((await subject.call(PAIR_PATHS.lifetime, { method: 'GET' })).status).toBe(405)
     const remote = bench({ rejection: 401 })
     expect((await remote.call(PAIR_PATHS.lifetime, { method: 'POST' })).status).toBe(401)
-    const lan = bench({ loopback: false })
+    const lan = bench({ operator: false })
     expect((await lan.call(PAIR_PATHS.lifetime, {
       method: 'POST',
       body: { deviceId: 'device-1', days: 7 },

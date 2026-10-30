@@ -1,0 +1,12 @@
+- dialog "连接手机":
+  - heading "连接手机" [level=2]
+  - button "关闭"
+  - paragraph: 用手机扫码，在同一网络中打开 dsh。
+  - button "生成配对码"
+  - alert: 尚未配置手机访问地址。请用 dsh web --host <局域网 IP> 重新启动；使用代理时请配置 --public-url
+  - heading "待确认的请求" [level=3]
+  - paragraph: 暂无待确认的请求。
+  - heading "已配对的设备" [level=3]
+  - paragraph: 不再使用、或在不受信任的网络上用过的设备请吊销；吊销后设备进入回收站，可以恢复或彻底删除。
+  - paragraph: 延长后，手机下一次请求时即续期；已经失效的凭证必须重新配对。
+  - paragraph: 还没有已配对的设备。

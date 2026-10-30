@@ -6,25 +6,26 @@ English | [中文](2026-09-12-phone-access-in-the-web-profile.zh.md)
 
 ## Problem
 
-Phone access to the Web GUI first shipped as its own `dsh mob` profile: a bundle patch rebound the webserver to all interfaces — outside the `--allow-lan` acknowledgement that guards the CLI path — and a terminal announcer printed the token-bearing join URL as a QR code. That made one capability into two entry points with different security postures, two sets of documentation, and a rebind that no flag gate could see.
+Phone access needs the same listener, browser authentication, and Host/Origin checks as the Web GUI. A separate phone launcher or a browser-hostname permission check can disagree with those owners: an operator authenticated on a LAN authority must be able to approve a phone, while a paired phone must not manage devices.
 
 ## Decision
 
-The phone-access layer rides the `web` profile. `PROFILE_TEMPLATES.web.bundles` composes `@deepseek-ai/dsh-mob` after `@deepseek-ai/dsh-web-app`; no `mob` profile exists and the CLI has no `mob` alias. Serving on the LAN is `dsh web --host 0.0.0.0 --allow-lan` and nothing else, so the acknowledgement, the plain-HTTP warning, and the readiness line all belong to one path.
+The shipped `web` profile composes `@deepseek-ai/dsh-mob` after `@deepseek-ai/dsh-web-app`. Its insert-only patch registers the settings entry, the `mob` Remote namespace, and the pairing routes; it changes no listener or authentication policy. The [concrete bind decision](2026-09-19-concrete-web-bind-address.md) owns the loopback default and the explicit interface selection.
 
-What the layer contributes is unchanged in kind but narrower in scope: the `web`-profile settings entry `Settings → General → Connect phone` and the `mob` Remote namespace behind it (`mob.joinUrl`), which compose the LAN origin, and the pairing link the panel renders on it, from the fence snapshot. Registering it is the plugin's whole job: `packages/bundle/mob/cordis.patch.yml` inserts its row and patches nothing, and the host half writes no terminal output. The terminal QR path and its `qrcode-terminal` dependency are gone, and the settings entry is the only join surface.
+The token-free join root prefers `--public-url`, then the first `--trusted-host` with its explicit port or the listener's port, then the concrete non-loopback bind address. The listener supplies the transport. A loopback or zoned non-loopback listener without an advertised authority reports `mob/no-advertised-origin`; the settings notice names `dsh web --host <LAN-IP>` and `--public-url`. No interface discovery extends trust.
 
-The bundle keeps its `@deepseek-ai/dsh-mob` package name; the plugin name is `mob-join`, which states what it does now.
+The pairing panel reads the operator-only device list before exposing controls or polling requests. Success grants the management view; a forbidden result explains the required launcher credential, and a transient read failure offers Retry. The browser's hostname grants no permission. Connection authenticates every management route, so a declared LAN authority carrying the launch-token cookie can manage pairing and a paired-device cookie cannot.
+
+The panel resolves the join root before creating a short code. A missing address creates no unusable pairing session. Device refresh failures retain the displayed list.
 
 ## Alternatives considered
 
-- **Keep `dsh mob` as a thin alias for `dsh web --allow-lan`.** Rejected: the capability never shipped in a release, so no installed base needs the alias, and an alias is a second entry point that must stay semantically identical, documented, and tested forever. The two-line shell function that a developer wants during debugging belongs in that developer's shell profile, not in the CLI.
-- **Keep the terminal QR behind an opt-in flag.** Rejected: the phone joins by scanning a code rendered in the Settings entry, and the terminal path would keep a QR dependency, its own TTY gating, and tests alive for a surface nobody uses.
-- **Make the all-interfaces bind the default for `dsh web`.** Rejected: the LAN session is a bearer cookie over plaintext HTTP on a host that can execute commands, so defaulting it would turn that exposure into every user's starting state. `--allow-lan` stays the explicit acknowledgement, and a settings-level standing consent is deferred. This deployment later adopted the default bind anyway: [every interface is the default bind](2026-09-13-lan-bind-by-default.md).
+- **A separate phone profile or launcher alias.** Rejected: it duplicates startup and security decisions. Phone access belongs to the Web profile.
+- **Default wildcard binding or inferred LAN trust.** Rejected: the operator names the concrete interface to expose; the phone plugin must not broaden that choice.
+- **A client hostname gate or another permission service.** Rejected: the existing authenticated management route already owns the decision and distinguishes operator cookies from device cookies.
 
 ## Consequences
 
-- An untouched installation-owned `web` tuple (`dsh-base` + `dsh-web-app`) is upgraded to the shipped template on the next profile load, so existing checkouts gain the layer without hand-editing; a profile whose bundle list differs in any other way is user-owned and stays untouched.
-- A `$DSH_HOME/profiles/mob` directory created by an earlier `dsh mob` run is user-owned: no shipped template claims the name, and `dsh --profile mob` keeps booting that directory until the operator deletes it.
-- The Settings entry reports `mob/loopback-only` on a loopback deployment and `mob/no-lan-address` when an all-interfaces bind derived no reachable address, which are the two corrections an operator can act on.
-- Terminal output for the join URL is gone; the loopback URL line carrying the launch token, the token-free LAN URL line, and the plain-HTTP warning remain `dsh-web-app`'s readiness output.
+The operator starts `dsh web --host <LAN-IP>`, opens the authenticated URL printed by the launcher, and approves the phone in Settings → General → Connect phone. Ordinary `dsh web` remains local by default. A proxy can advertise its root through `--public-url` and declare its authority through `--trusted-host`.
+
+Package tests cover URL composition, permission reads, failure recovery, and Loader disposal. The browser scenario exercises a non-loopback authority with separate operator and phone contexts and records the permission and missing-address notices beside its owning test.
