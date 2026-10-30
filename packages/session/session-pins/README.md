@@ -23,7 +23,7 @@ Pinned-sessions persistence and Remote API for the DeepSeek Harness. The plugin 
 <a id="service-api"></a>
 ## Service API
 
-`ctx.sessionPins` exposes `list()`, `setPinned({ sessionId, pinned })`, `reorderGroup({ groupKey, orderedIds })`, and `reorderFlat({ orderedIds })`. Every mutation writes the domain global first and returns the complete `SessionPinsSnapshot` after durability. `ready` reports whether the domain is open: a consumer that projects this service from `ctx.get('sessionPins')` reads it first, because `list()` throws until initialization completes.
+`ctx.sessionPins` exposes `list()`, `setPinned({ sessionId, pinned })`, `reorderGroup({ groupKey, orderedIds })`, and `reorderFlat({ orderedIds })`. Every mutation writes the domain global first and returns the complete `SessionPinsSnapshot` after durability. Disposal waits for a pending domain open and closes the returned handle before releasing the domain name; a cancelled initialization registers no flag provider. `ready` reports whether the domain is open: a consumer that projects this service from `ctx.get('sessionPins')` reads it first, because `list()` throws until initialization completes.
 
 <a id="durable-shape"></a>
 ## Durable shape

@@ -23,7 +23,7 @@ DeepSeek Harness 的会话置顶持久化与 Remote API。插件拥有一个 `se
 <a id="service-api"></a>
 ## 服务 API
 
-`ctx.sessionPins` 暴露 `list()`、`setPinned({ sessionId, pinned })`、`reorderGroup({ groupKey, orderedIds })` 和 `reorderFlat({ orderedIds })`。每次变更先写 domain global，落盘后返回完整的 `SessionPinsSnapshot`。`ready` 表示 domain 是否已打开：从 `ctx.get('sessionPins')` 投影本服务的消费方要先读它，因为初始化完成前 `list()` 会抛错。
+`ctx.sessionPins` 暴露 `list()`、`setPinned({ sessionId, pinned })`、`reorderGroup({ groupKey, orderedIds })` 和 `reorderFlat({ orderedIds })`。每次变更先写 domain global，落盘后返回完整的 `SessionPinsSnapshot`。卸载会等待进行中的 domain 打开操作，并在释放域名之前关闭返回的句柄；取消的初始化不会注册标记 provider。`ready` 表示 domain 是否已打开：从 `ctx.get('sessionPins')` 投影本服务的消费方要先读它，因为初始化完成前 `list()` 会抛错。
 
 <a id="durable-shape"></a>
 ## 持久化形态

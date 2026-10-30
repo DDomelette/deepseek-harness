@@ -21,65 +21,68 @@ export async function runExporter(ctx: Context, config: Config): Promise<void> {
   const root = config.telemetryRoot ?? join(resolveDshHome(), 'telemetry')
   const rootId = rootIdFor(root)
   const cursor = new CursorStore(config.cursorPath ?? dshHomePath('storages', 'usage-exporter.json'))
-  await cursor.load()
-  const sender = new BatchSender({
-    endpoint: config.endpoint,
-    token: config.token,
-    sourceId,
-    rootId,
-    requestTimeoutMs: config.requestTimeoutMs,
-  })
-  const reader = new UsageTailReader({
-    root, sourceId, cursorStore: cursor, startFrom: config.startFrom,
-    maxBatchBytes: config.maxBatchBytes, maxBatchRows: config.maxBatchRows,
-    logMalformed: (file, message) => { ctx.logger.warn(`usage-exporter: skipped malformed row in ${file}: ${message}`) },
-  })
+  await ctx.effect(async function* () {
+    await cursor.load()
+    if (ctx.fiber.uid === null) return
+    const sender = new BatchSender({
+      endpoint: config.endpoint,
+      token: config.token,
+      sourceId,
+      rootId,
+      requestTimeoutMs: config.requestTimeoutMs,
+    })
+    const reader = new UsageTailReader({
+      root, sourceId, cursorStore: cursor, startFrom: config.startFrom,
+      maxBatchBytes: config.maxBatchBytes, maxBatchRows: config.maxBatchRows,
+      logMalformed: (file, message) => { ctx.logger.warn(`usage-exporter: skipped malformed row in ${file}: ${message}`) },
+    })
 
-  let inFlight: Promise<void> | undefined
-  const tick = (): void => {
-    if (inFlight !== undefined) return
-    inFlight = (async () => {
-      const batch = await reader.nextBatch()
-      if (batch === undefined) return
-      for (let attempt = 1; attempt <= config.maxAttempts; attempt += 1) {
-        const outcome = await sender.send(batch.rows, batch.batchId)
-        if (outcome.kind === 'accepted' || outcome.kind === 'duplicate') break
-        if (outcome.kind === 'permanent') {
-          ctx.logger.warn(`usage-exporter: dropping batch ${batch.batchId}: ${outcome.status} ${outcome.message}`)
-          break
+    let inFlight: Promise<void> | undefined
+    const tick = (): void => {
+      if (inFlight !== undefined) return
+      inFlight = (async () => {
+        const batch = await reader.nextBatch()
+        if (batch === undefined) return
+        for (let attempt = 1; attempt <= config.maxAttempts; attempt += 1) {
+          const outcome = await sender.send(batch.rows, batch.batchId)
+          if (outcome.kind === 'accepted' || outcome.kind === 'duplicate') break
+          if (outcome.kind === 'permanent') {
+            ctx.logger.warn(`usage-exporter: dropping batch ${batch.batchId}: ${outcome.status} ${outcome.message}`)
+            break
+          }
+          if (attempt < config.maxAttempts) {
+            const delay = Math.min(config.baseRetryMs * 2 ** (attempt - 1), config.maxRetryMs)
+            await new Promise(resolve => setTimeout(resolve, delay))
+          } else {
+            ctx.logger.warn(`usage-exporter: abandoning batch ${batch.batchId} after ${config.maxAttempts} attempts; local file remains for backfill`)
+          }
         }
-        if (attempt < config.maxAttempts) {
-          const delay = Math.min(config.baseRetryMs * 2 ** (attempt - 1), config.maxRetryMs)
-          await new Promise(resolve => setTimeout(resolve, delay))
-        } else {
-          ctx.logger.warn(`usage-exporter: abandoning batch ${batch.batchId} after ${config.maxAttempts} attempts; local file remains for backfill`)
-        }
-      }
-      cursor.set(batch.file, { offset: batch.endOffset })
-      await cursor.save()
-    })().catch((error: unknown) => {
-      ctx.logger.warn(`usage-exporter: poll failed: ${String(error)}`)
-    }).finally(() => { inFlight = undefined })
-  }
+        cursor.set(batch.file, { offset: batch.endOffset })
+        await cursor.save()
+      })().catch((error: unknown) => {
+        ctx.logger.warn(`usage-exporter: poll failed: ${String(error)}`)
+      }).finally(() => { inFlight = undefined })
+    }
 
-  const timer = setInterval(() => { tick() }, config.pollIntervalMs)
-  timer.unref()
-  let heartbeatInFlight: Promise<void> | undefined
-  const heartbeat = setInterval(() => {
-    if (heartbeatInFlight !== undefined) return
-    heartbeatInFlight = sender.sendHeartbeat().then((outcome) => {
-      if (outcome.kind === 'retryable' || outcome.kind === 'permanent') {
-        ctx.logger.warn(`usage-exporter: heartbeat failed: ${outcome.message}`)
-      }
-    }).finally(() => { heartbeatInFlight = undefined })
-  }, config.heartbeatIntervalMs)
-  heartbeat.unref()
-  ctx.effect(() => async () => {
-    clearInterval(timer)
-    clearInterval(heartbeat)
-    await Promise.all([inFlight, heartbeatInFlight])
+    const timer = setInterval(() => { tick() }, config.pollIntervalMs)
+    timer.unref()
+    let heartbeatInFlight: Promise<void> | undefined
+    const heartbeat = setInterval(() => {
+      if (heartbeatInFlight !== undefined) return
+      heartbeatInFlight = sender.sendHeartbeat().then((outcome) => {
+        if (outcome.kind === 'retryable' || outcome.kind === 'permanent') {
+          ctx.logger.warn(`usage-exporter: heartbeat failed: ${outcome.message}`)
+        }
+      }).finally(() => { heartbeatInFlight = undefined })
+    }, config.heartbeatIntervalMs)
+    heartbeat.unref()
+    yield async () => {
+      clearInterval(timer)
+      clearInterval(heartbeat)
+      await Promise.all([inFlight, heartbeatInFlight])
+    }
+    tick()
   }, 'usage-exporter: timers and in-flight requests')
-  tick()
 }
 
 /**

@@ -35,7 +35,7 @@ Enable the row in a profile patch and supply an endpoint:
 
 The plugin tails `$DSH_HOME/telemetry/usage-YYYY-MM-DD.jsonl` with an offset cursor under `$DSH_HOME/storages/usage-exporter.json`. Batches have deterministic `batchId` values, retry with the same id, and advance the cursor only after an acknowledged, duplicate, permanently rejected, or abandoned outcome.
 
-The cursor counts consumed file bytes, including only newline bytes that exist. A complete final row without a newline can be exported; row and byte limits leave later rows for the next batch. File-read failures are logged and retried on later polls. Heartbeat failures are logged from the endpoint's classified response. Unloading stops both timers and waits for in-flight batches and heartbeats to settle under the configured retry and request-timeout limits.
+The cursor counts consumed file bytes, including only newline bytes that exist. A complete final row without a newline can be exported; row and byte limits leave later rows for the next batch. File-read failures are logged and retried on later polls. Heartbeat failures are logged from the endpoint's classified response. Unloading stops both timers and waits for in-flight batches and heartbeats to settle under the configured retry and request-timeout limits. If unloading starts while the cursor is loading, initialization settles without starting either timer or sending a request.
 
 <a id="model-experience"></a>
 ## Model Experience

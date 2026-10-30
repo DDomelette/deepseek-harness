@@ -14,7 +14,7 @@ MCP 服务器此前只能以声明式方式配置：在 `cordis.yml` 中每台�
 
 ### 两个来源，一份名单
 
-新增 Host 包 `@deepseek-ai/dsh-mcp-manager`（`packages/mcp/mcp-manager`）与客户端包 `@deepseek-ai/dsh-client-ui-settings-mcp`（`packages/client/ui-settings-mcp`）。Web「插件」分区新增 MCP 标签页（order 5，位于「插件配置」与「插件列表」之间）。名单合并两个来源：
+新增 Host 包 `@deepseek-ai/dsh-mcp-manager`（`packages/mcp/mcp-manager`）与客户端包 `@deepseek-ai/dsh-client-ui-settings-mcp`（`packages/client/ui-settings-mcp`）。浏览器插件贡献 MCP 设置分区（order 35）。名单合并两个来源：
 
 - 来自 `mcp-servers` settings 命名空间的设置托管服务器，其 schema 镜像 `dsh-mcp-client` Config 并增加 `enabled` 开关，以 `serverName` 为键——可在标签页内编辑；
 - 从 `ctx.loader.entries()` 中投影出的声明式行，模块名为 `@deepseek-ai/dsh-mcp-client`，只读展示（徽标「由配置文件管理」，开关与齿轮禁用）。
@@ -39,7 +39,7 @@ settings seam 交出的解析分节是深度冻结的。Schemastery 的 object/d
 
 ### 状态上报
 
-gateway 只上报挂载生命周期（connecting → ready/failed），不上报存活状态：`failOnStartupError: false` 时不可达的服务器仍会激活，`dsh-mcp-client` 在内部重连，因此 `ready` 表示激活已结算，而非服务器应答成功。标签页的状态点文案相应为「运行中／启动失败」。名单与生命周期发生转换后，管理器会广播不带载荷的 `mcp-servers/change` 失效通知；已打开的标签页重新读取，并用请求代际守卫阻止旧响应替换较新的快照。
+gateway 只上报挂载生命周期（connecting → ready/failed），不上报存活状态：`failOnStartupError: false` 时不可达的服务器仍会激活，`dsh-mcp-client` 在内部重连，因此 `ready` 表示激活已结算，而非服务器应答成功。标签页的状态点文案相应为「运行中／启动失败」。名单与生命周期发生转换后，管理器会广播不带载荷的 `mcp-servers/change` 失效通知；插件拥有的控制器在首次加载后重新取快照，并拒绝旧响应。渲染器通过注入的 `hooks` 分区绑定其可观测快照；组件不拥有外部订阅。卸载会移除失效通知来源，并阻止进行中的读取发布结果。
 
 ## Alternatives considered
 

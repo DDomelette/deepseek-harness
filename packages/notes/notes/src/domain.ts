@@ -158,7 +158,7 @@ export const notesDomainSpec = defineDomain({
 })
 
 /**
- * Open the notes domain and bind its lifetime to the caller's effect.
+ * Open the notes domain inside the caller's effect, including pending setup.
  *
  * The facility enforces one open per domain name, so exactly one owner calls
  * this: {@link NotesStore} opens it and hands the tables to every other
@@ -167,7 +167,10 @@ export const notesDomainSpec = defineDomain({
  * @returns the opened domain handle.
  */
 export async function openNotesDomain(ctx: Context): Promise<Domain<typeof notesDomainSpec>> {
-  const domain = await ctx.storageDomain.open(notesDomainSpec)
-  ctx.effect(() => () => domain.close(), 'notes: domain close')
+  let domain!: Domain<typeof notesDomainSpec>
+  await ctx.effect(async () => {
+    domain = await ctx.storageDomain.open(notesDomainSpec)
+    return () => domain.close()
+  }, 'notes: domain close')
   return domain
 }

@@ -6,6 +6,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 // Type-only: the wire types plus the ctx.remote Context merge carrying the
 // generated `mcpServers` namespace face.
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
@@ -61,11 +62,18 @@ const ROSTER_FIELD = 'servers'
 /** The generated `mcpServers` Remote namespace face, narrowed from ctx.remote. */
 type McpServersRemote = Context['remote']['mcpServers']
 
-/** Settings and Remote methods owned by the controller, excluding Host invalidation wiring. */
-export type McpTabControllerFace = Omit<McpSettingsTabInjected, 'subscribeRoster'>
+/** Latest roster read, shared across mounts of the settings section. */
+export type McpRosterState =
+  | { readonly status: 'idle' | 'loading' | 'error' }
+  | { readonly status: 'ready'; readonly snapshot: McpServerSnapshot }
 
 /** Bridges the `mcp-servers` scope and the mcpServers Remote onto the tab's injected face. */
 export class McpTabController {
+  /** Stable observable bound to `useRoster` by the slot renderer. */
+  readonly store: SnapshotStore<McpRosterState> = createSnapshotStore({ status: 'idle' })
+
+  private generation: number | undefined = 0
+
   /**
    * @param scope - the bound settings scope of the `mcp-servers` namespace.
    * @param remote - the generated `mcpServers` Remote namespace face.
@@ -79,9 +87,10 @@ export class McpTabController {
    * Build the face the tab's slot registration injects.
    * @returns roster reads plus enablement writes.
    */
-  face(): McpTabControllerFace {
+  face(): McpSettingsTabInjected {
     return {
-      list: () => this.list(),
+      hooks: { roster: this.store },
+      load: showLoading => this.load(showLoading),
       setEnabled: (serverName, enabled) => this.setEnabled(serverName, enabled),
       addServer: draft => this.addServer(draft),
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- the client face types the snapshot value as optional
@@ -89,6 +98,28 @@ export class McpTabController {
       updateServer: (serverName, patch) => this.updateServer(serverName, patch),
       removeServer: serverName => this.removeServer(serverName),
     }
+  }
+
+  /**
+   * Refresh the roster; only the latest read may publish after settlement.
+   * @param showLoading - Replace the current view with its initial loading state.
+   * @returns Settlement of the read, with failures recorded as a retryable state.
+   */
+  async load(showLoading = false): Promise<void> {
+    if (this.generation === undefined) return
+    const generation = ++this.generation
+    if (showLoading || this.store.getSnapshot().status === 'idle') this.store.set({ status: 'loading' })
+    try {
+      const snapshot = await this.list()
+      if (generation === this.generation) this.store.set({ status: 'ready', snapshot })
+    } catch (_rosterReadFailure) {
+      if (generation === this.generation) this.store.set({ status: 'error' })
+    }
+  }
+
+  /** Prevent pending reads and retained callbacks from publishing after plugin disposal. */
+  dispose(): void {
+    this.generation = undefined
   }
 
   private async list(): Promise<McpServerSnapshot> {

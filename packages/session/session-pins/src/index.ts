@@ -1,5 +1,5 @@
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { DomainGlobal } from '@deepseek-ai/dsh-storage-domain'
+import type { Domain, DomainGlobal } from '@deepseek-ai/dsh-storage-domain'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-flags'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
@@ -54,7 +54,7 @@ const snapshotOf = (state: SessionPinsDomainState): SessionPinsSnapshot => ({
 export class SessionPinsService extends TypertRemoteService {
   static inject = ['storageDomain', 'sessionFlags']
 
-  private global?: DomainGlobal<SessionPinsDomainState>
+  private global: DomainGlobal<SessionPinsDomainState> | undefined
   private operationTail: Promise<void> = Promise.resolve()
 
   constructor(ctx: Context) {
@@ -68,8 +68,15 @@ export class SessionPinsService extends TypertRemoteService {
   }
 
   protected async [Service.init](): Promise<void> {
-    const domain = await this.ctx.storageDomain.open(sessionPinsDomainSpec)
-    this.ctx.effect(() => () => domain.close(), 'session-pins.domainClose')
+    let domain!: Domain<typeof sessionPinsDomainSpec>
+    await this.ctx.effect(async () => {
+      domain = await this.ctx.storageDomain.open(sessionPinsDomainSpec)
+      return () => {
+        this.global = undefined
+        return domain.close()
+      }
+    }, 'session-pins.domainClose')
+    if (this.ctx.fiber.uid === null) return
     this.global = domain.global
     this.ctx.effect(() => this.ctx.sessionFlags.registerProvider({
       id: 'session-pins',

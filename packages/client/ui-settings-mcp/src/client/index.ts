@@ -36,16 +36,19 @@ export function apply(ctx: ClientContext): void {
     ctx.remote.mcpServers,
   )
   const face = controller.face()
-  const injected = (): McpSettingsTabInjected => ({
-    ...face,
-    subscribeRoster: (listener) => {
-      const disposers = [
-        ctx.remote.$on('mcp-servers/change', listener),
-        ctx.on('connection/reset', listener),
-      ]
-      return () => { for (const dispose of disposers) dispose() }
-    },
-  })
+  ctx.effect(() => {
+    const refreshIfLoaded = (): void => {
+      if (controller.store.getSnapshot().status !== 'idle') void controller.load()
+    }
+    const disposers = [
+      ctx.remote.$on('mcp-servers/change', refreshIfLoaded),
+      ctx.on('connection/reset', refreshIfLoaded),
+    ]
+    return () => {
+      controller.dispose()
+      for (const dispose of disposers) dispose()
+    }
+  }, 'ui-settings-mcp: roster invalidations')
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
@@ -53,6 +56,6 @@ export function apply(ctx: ClientContext): void {
     order: 35,
     label: () => t('tab'),
     locale: NS,
-    inject: injected,
+    inject: (): McpSettingsTabInjected => face,
   }, McpSettingsTab))
 }

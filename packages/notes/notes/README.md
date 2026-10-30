@@ -25,7 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Use this package when a Web deployment should keep session material as notes that the configured model answers one by one. Mount it in a composition that already provides the storage hub's domain facility; the plugin opens its own `notes` domain and needs no additional storage row.
+Use this package when a Web deployment should keep session material as notes that the configured model answers one by one. Mount it in a composition that already provides the storage hub's domain facility; the plugin opens its own `notes` domain and needs no additional storage row. Unloading waits for a pending domain open and closes the returned handle, so the plugin can reopen the domain on reload.
 
 ### Composition
 

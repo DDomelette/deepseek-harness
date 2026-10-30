@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-30-plugin-initialization-disposal.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-30-plugin-initialization-disposal.md
+/agent-note-own-plugin-resources-before-asynchronous-initialization:
+  en: b364bffef7eaa661
+  zh: a538a7dddbe2441f
+/agent-note-own-plugin-resources-before-asynchronous-initialization/problem:
+  en: eb9b651ff8c1310c
+  zh: 9128619f298713cf
+/agent-note-own-plugin-resources-before-asynchronous-initialization/decision:
+  en: e9fbdc8900879105
+  zh: 6554e73cb3a5960e
+/agent-note-own-plugin-resources-before-asynchronous-initialization/alternatives-considered:
+  en: 9e4c3ec05b1ee75a
+  zh: e578c36e9465ee19
+/agent-note-own-plugin-resources-before-asynchronous-initialization/consequences:
+  en: fa38fb265856ab38
+  zh: d92efc04419d329c
