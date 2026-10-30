@@ -70,7 +70,8 @@ describe('ui-settings-mcp browser plugin', () => {
   it('registers a localized section without reading the Remote eagerly', async () => {
     const b = await bench()
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    await fiber.await()
 
     const entry = b.slots.entries('settings.section')[0]!
     expect(entry.component).toBe(McpSettingsTab)
@@ -79,26 +80,33 @@ describe('ui-settings-mcp browser plugin', () => {
     expect(resolveSlotLabel(entry.options.label)).toBe('MCP')
     expect(b.get).toHaveBeenCalledWith(MCP_SERVERS_NS)
     expect(b.list).not.toHaveBeenCalled()
+    b.remote.emit('mcp-servers/change', [])
+    b.ctx.emit('connection/reset')
+    expect(b.list).not.toHaveBeenCalled()
 
     const injected = (entry.inject as unknown as () => McpSettingsTabInjected)()
-    await expect(injected.list()).resolves.toEqual(EMPTY)
+    await injected.load()
+    expect(injected.hooks.roster.getSnapshot()).toEqual({ status: 'ready', snapshot: EMPTY })
     expect(b.list).toHaveBeenCalledOnce()
     b.list.mockResolvedValueOnce({ ok: false, error: { code: 'REMOTE_ERROR', message: 'unavailable' } })
-    await expect(injected.list()).rejects.toThrow('mcpServers.list failed: REMOTE_ERROR: unavailable')
+    await injected.load()
+    expect(injected.hooks.roster.getSnapshot()).toEqual({ status: 'error' })
 
-    const listener = vi.fn()
-    const disposeSubscription = injected.subscribeRoster(listener)
     b.remote.emit('mcp-servers/change', [])
     b.ctx.emit('connection/reset')
-    expect(listener).toHaveBeenCalledTimes(2)
-    disposeSubscription()
-    b.remote.emit('mcp-servers/change', [])
-    b.ctx.emit('connection/reset')
-    expect(listener).toHaveBeenCalledTimes(2)
+    await vi.waitFor(() => {
+      expect(injected.hooks.roster.getSnapshot()).toEqual({ status: 'ready', snapshot: EMPTY })
+    })
+    expect(b.list).toHaveBeenCalledTimes(4)
 
     await injected.setEnabled('filesystem', false)
     expect(b.set).not.toHaveBeenCalled()
     expect(b.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['servers', 'filesystem', 'enabled'], value: false }])
+    await fiber.dispose()
+    b.remote.emit('mcp-servers/change', [])
+    b.ctx.emit('connection/reset')
+    await injected.load()
+    expect(b.list).toHaveBeenCalledTimes(4)
     await b.ctx.fiber.dispose()
   })
 

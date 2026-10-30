@@ -5,30 +5,33 @@
  * mount is not a proven live connection.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
-  McpServerListEntry, McpServerSnapshot, McpServerStatus,
+  McpServerListEntry, McpServerStatus,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
   Button, IconPlusOutlineMedium, IconSearchOutlineMedium, IconSettingsOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { AddServerForm, type NewServerDraft } from './AddServerForm.tsx'
 import { EditServerForm, type ServerPatch } from './EditServerForm.tsx'
-import type { McpServerSettingsEntry } from './mcp-tab-controller.ts'
+import type { McpRosterState, McpServerSettingsEntry } from './mcp-tab-controller.ts'
 import type { McpLocaleKey } from './locales.ts'
 import css from './McpSettingsTab.module.css'
 
 /** Registration-side face the MCP tab's slot entry injects. */
 export interface McpSettingsTabInjected {
-  /** Read a current Host roster snapshot (settings-managed and declarative rows). */
-  list: () => Promise<McpServerSnapshot>
+  hooks: {
+    /** Latest roster read, bound by the renderer as `useRoster`. */
+    roster: SnapshotStore<McpRosterState>
+  }
   /**
-   * Subscribe to Host roster invalidations and connection resets.
-   * @param listener - callback that refetches the point-in-time roster.
-   * @returns disposer for both invalidation sources.
+   * Read a current Host roster, containing settings-managed and declarative rows.
+   * @param showLoading - Show initial loading feedback while retrying.
+   * @returns Settlement of the read and publication of its result.
    */
-  subscribeRoster: (listener: () => void) => () => void
+  load: (showLoading?: boolean) => Promise<void>
   /**
    * Write one settings-managed row's enablement through the settings scope.
    * @param serverName - the row's server name.
@@ -66,14 +69,9 @@ export interface McpSettingsTabInjected {
 
 /** Full component props assembled by the Settings slot renderer. */
 export type McpSettingsTabProps =
-  PropsRuntime<'settings.plugins.tab'>
+  PropsRuntime<'settings.section'>
   & PropsLocale<'settings.mcp'>
   & InjectFace<McpSettingsTabInjected>
-
-type ViewState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error' }
-  | { readonly status: 'ready'; readonly snapshot: McpServerSnapshot }
 
 /** Locale key of each mount-lifecycle status. */
 const STATUS_KEYS = {
@@ -90,41 +88,26 @@ function matches(entry: McpServerListEntry, normalizedQuery: string): boolean {
 
 /** Render the MCP server roster with search, per-row switches, and the add entry. */
 export function McpSettingsTab({
-  list, subscribeRoster, setEnabled, addServer, readEntry, updateServer, removeServer, t,
+  useRoster, load, setEnabled, addServer, readEntry, updateServer, removeServer, t,
 }: McpSettingsTabProps): ReactNode {
   const [adding, setAdding] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editing, setEditing] = useState<{
+    serverName: string
+    entry: McpServerSettingsEntry | undefined
+  } | null>(null)
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<string | null>(null)
-  const [state, setState] = useState<ViewState>({ status: 'loading' })
-  const generation = useRef(0)
+  const state = useRoster(snapshot => snapshot)
   const active = useRef(true)
 
-  const refresh = useCallback(async (showLoading = false): Promise<void> => {
-    if (!active.current) return
-    const current = ++generation.current
-    if (showLoading) setState({ status: 'loading' })
-    try {
-      const snapshot = await Promise.resolve().then(() => list())
-      if (current === generation.current) setState({ status: 'ready', snapshot })
-    } catch (_rosterReadFailure) {
-      if (current === generation.current) setState({ status: 'error' })
-    }
-  }, [list])
+  useEffect(() => {
+    if (state.status === 'idle') void load()
+  }, [load, state.status])
 
   useEffect(() => {
-    void refresh(true)
-  }, [refresh])
-
-  useEffect(() => () => {
-    active.current = false
-    generation.current += 1
+    active.current = true
+    return () => { active.current = false }
   }, [])
-
-  useEffect(
-    () => subscribeRoster(() => { void refresh() }),
-    [refresh, subscribeRoster],
-  )
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const filteredEntries = useMemo(
@@ -135,7 +118,7 @@ export function McpSettingsTab({
   )
 
   const retry = (): void => {
-    void refresh(true)
+    void load(true)
   }
 
   // Flip a row, then re-read the roster either way: the Host answers the new
@@ -150,7 +133,7 @@ export function McpSettingsTab({
       write = Promise.resolve()
     }
     void write
-      .then(() => refresh(), () => refresh())
+      .then(() => load(), () => load())
       .then(() => { if (active.current) setPending(null) })
   }
 
@@ -163,7 +146,7 @@ export function McpSettingsTab({
           t={t}
           onDone={() => {
             setAdding(false)
-            void refresh()
+            void load()
           }}
           onCancel={() => { setAdding(false) }}
         />
@@ -214,8 +197,8 @@ export function McpSettingsTab({
                 const declarative = row.source === 'declarative'
                 const status = row.status
                 const statusLabel = status === null ? null : t(STATUS_KEYS[status])
-                const isEditing = editing === row.serverName
-                const current = isEditing ? readEntry(row.serverName) : undefined
+                const isEditing = editing?.serverName === row.serverName
+                const current = isEditing ? editing.entry : undefined
                 return (
                   <li className={css.card} key={row.serverName} data-server-name={row.serverName}>
                     <div className={css.cardContent}>
@@ -249,7 +232,7 @@ export function McpSettingsTab({
                           aria-label={t('settings')}
                           disabled={declarative}
                           {...(declarative ? { title: t('declarativeTag') } : {})}
-                          onClick={() => { setEditing(row.serverName) }}
+                          onClick={() => { setEditing({ serverName: row.serverName, entry: readEntry(row.serverName) }) }}
                         >
                           <IconSettingsOutlineMedium aria-hidden="true" />
                         </button>
@@ -276,7 +259,7 @@ export function McpSettingsTab({
                           t={t}
                           onDone={() => {
                             setEditing(null)
-                            void refresh()
+                            void load()
                           }}
                           onCancel={() => { setEditing(null) }}
                         />

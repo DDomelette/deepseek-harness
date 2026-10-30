@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { McpServerSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import { McpSettingsTab } from '../src/client/McpSettingsTab.tsx'
 import type {
@@ -22,8 +23,17 @@ function valueOf(el: HTMLElement): string {
   return (el as HTMLInputElement | HTMLTextAreaElement).value
 }
 
-function props(injected: McpSettingsTabInjected): McpSettingsTabProps {
-  return { t, ...injected } as McpSettingsTabProps
+type TabInputs = Omit<McpSettingsTabInjected, 'hooks' | 'load'> & {
+  list: () => Promise<McpServerSnapshot>
+}
+
+function props({ list, ...callbacks }: TabInputs): McpSettingsTabProps {
+  const controller = new McpTabController({} as ConfigForm<McpServersSettings>, {
+    list: async () => ({ ok: true as const, value: await list() }),
+  })
+  onTestFinished(() => { controller.dispose() })
+  const face = controller.face()
+  return { t, ...callbacks, load: face.load, useRoster: bindSnapshotSelector(face.hooks.roster) } as McpSettingsTabProps
 }
 
 const SNAPSHOT: McpServerSnapshot = {
@@ -37,10 +47,9 @@ const SNAPSHOT: McpServerSnapshot = {
   ],
 }
 
-function injected(overrides: Partial<McpSettingsTabInjected> = {}): McpSettingsTabInjected {
+function injected(overrides: Partial<TabInputs> = {}): TabInputs {
   return {
     list: async () => SNAPSHOT,
-    subscribeRoster: () => () => {},
     setEnabled: async () => {},
     addServer: async () => null,
     readEntry: () => undefined,
@@ -51,83 +60,6 @@ function injected(overrides: Partial<McpSettingsTabInjected> = {}): McpSettingsT
 }
 
 describe('McpSettingsTab', () => {
-  it('refreshes an open roster after a pushed lifecycle invalidation', async () => {
-    let invalidate = (): void => {}
-    const connecting: McpServerSnapshot = {
-      entries: [{ serverName: 'filesystem', transport: 'stdio', source: 'settings', enabled: true, status: 'connecting' }],
-    }
-    const ready: McpServerSnapshot = {
-      entries: [{ serverName: 'filesystem', transport: 'stdio', source: 'settings', enabled: true, status: 'ready' }],
-    }
-    const list = vi.fn<McpSettingsTabInjected['list']>()
-      .mockResolvedValueOnce(connecting)
-      .mockResolvedValueOnce(ready)
-    const subscribeRoster = (listener: () => void): (() => void) => {
-      invalidate = listener
-      return () => {}
-    }
-    render(<McpSettingsTab {...props(injected({ list, subscribeRoster }))} />)
-
-    expect(await screen.findByRole('img', { name: en.connecting })).toBeTruthy()
-    act(() => { invalidate() })
-    expect(await screen.findByRole('img', { name: en.ready })).toBeTruthy()
-    expect(list).toHaveBeenCalledTimes(2)
-  })
-
-  it('does not let an older pushed refresh overwrite a newer write refresh', async () => {
-    let invalidate = (): void => {}
-    const stale = Promise.withResolvers<McpServerSnapshot>()
-    const fresh = Promise.withResolvers<McpServerSnapshot>()
-    const flipped: McpServerSnapshot = {
-      entries: SNAPSHOT.entries.map(entry => entry.serverName === 'filesystem'
-        ? { ...entry, enabled: false, status: null }
-        : entry),
-    }
-    const list = vi.fn<McpSettingsTabInjected['list']>()
-      .mockResolvedValueOnce(SNAPSHOT)
-      .mockReturnValueOnce(stale.promise)
-      .mockReturnValueOnce(fresh.promise)
-    const write = Promise.withResolvers<undefined>()
-    render(<McpSettingsTab {...props(injected({
-      list,
-      setEnabled: () => write.promise,
-      subscribeRoster: (listener) => {
-        invalidate = listener
-        return () => {}
-      },
-    }))} />)
-
-    fireEvent.click(await screen.findByRole('switch', { name: 'filesystem' }))
-    act(() => { invalidate() })
-    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
-    await act(async () => { write.resolve(undefined) })
-    await waitFor(() => { expect(list).toHaveBeenCalledTimes(3) })
-    await act(async () => { fresh.resolve(flipped) })
-    expect(screen.getByRole('switch', { name: 'filesystem' }).getAttribute('aria-checked')).toBe('false')
-
-    await act(async () => { stale.resolve(SNAPSHOT) })
-    expect(screen.getByRole('switch', { name: 'filesystem' }).getAttribute('aria-checked')).toBe('false')
-  })
-
-  it('unsubscribes and ignores a retained invalidation callback after unmount', async () => {
-    let invalidate = (): void => {}
-    const dispose = vi.fn()
-    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
-    const view = render(<McpSettingsTab {...props(injected({
-      list,
-      subscribeRoster: (listener) => {
-        invalidate = listener
-        return dispose
-      },
-    }))} />)
-    await screen.findByRole('switch', { name: 'filesystem' })
-
-    view.unmount()
-    expect(dispose).toHaveBeenCalledOnce()
-    act(() => { invalidate() })
-    expect(list).toHaveBeenCalledOnce()
-  })
-
   it('renders settings rows with lifecycle status and declarative rows read-only', async () => {
     const deferred = Promise.withResolvers<McpServerSnapshot>()
     const list = vi.fn(() => deferred.promise)
@@ -188,7 +120,7 @@ describe('McpSettingsTab', () => {
         ? { ...entry, enabled: false, status: null }
         : entry),
     }
-    const list = vi.fn<McpSettingsTabInjected['list']>()
+    const list = vi.fn<TabInputs['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockResolvedValueOnce(flipped)
     const write: PromiseWithResolvers<void> = Promise.withResolvers()
@@ -210,7 +142,7 @@ describe('McpSettingsTab', () => {
   })
 
   it('re-reads the roster even when the write rejects, and reports a failed refresh', async () => {
-    const list = vi.fn<McpSettingsTabInjected['list']>()
+    const list = vi.fn<TabInputs['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockResolvedValueOnce(SNAPSHOT)
     const rejected = vi.fn<McpSettingsTabInjected['setEnabled']>().mockRejectedValue(new Error('write refused'))
@@ -220,7 +152,7 @@ describe('McpSettingsTab', () => {
     expect(screen.queryByRole('alert')).toBeNull()
     view.unmount()
 
-    const failingRefresh = vi.fn<McpSettingsTabInjected['list']>()
+    const failingRefresh = vi.fn<TabInputs['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockRejectedValueOnce(new Error('transport down'))
     render(<McpSettingsTab {...props(injected({ list: failingRefresh }))} />)
@@ -229,7 +161,7 @@ describe('McpSettingsTab', () => {
   })
 
   it('contains a synchronous enablement failure and does not publish after unmount', async () => {
-    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
+    const list = vi.fn<TabInputs['list']>().mockResolvedValue(SNAPSHOT)
     const synchronousFailure = vi.fn(() => { throw new Error('write refused') }) as McpSettingsTabInjected['setEnabled']
     const failed = render(<McpSettingsTab {...props(injected({ list, setEnabled: synchronousFailure }))} />)
     fireEvent.click(await screen.findByRole('switch', { name: 'filesystem' }))
@@ -259,7 +191,7 @@ describe('McpSettingsTab', () => {
   })
 
   it('re-reads the roster after an accepted add from a non-empty roster', async () => {
-    const list = vi.fn<McpSettingsTabInjected['list']>()
+    const list = vi.fn<TabInputs['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockResolvedValueOnce(SNAPSHOT)
     const addServer = vi.fn<McpSettingsTabInjected['addServer']>().mockResolvedValue(null)
@@ -303,7 +235,7 @@ describe('McpSettingsTab', () => {
     const entry: McpServerSettingsEntry = {
       enabled: true, transport: 'stdio', command: 'memorix', args: ['serve'], cwd: '/tmp', toolCallTimeoutMs: 60_000,
     }
-    const list = vi.fn<McpSettingsTabInjected['list']>().mockResolvedValue(SNAPSHOT)
+    const list = vi.fn<TabInputs['list']>().mockResolvedValue(SNAPSHOT)
     const updateServer = vi.fn<McpSettingsTabInjected['updateServer']>().mockResolvedValue(null)
     render(<McpSettingsTab {...props(injected({ list, updateServer, readEntry: () => entry }))} />)
 
@@ -324,7 +256,7 @@ describe('McpSettingsTab', () => {
     const withoutFilesystem: McpServerSnapshot = {
       entries: SNAPSHOT.entries.filter(row => row.serverName !== 'filesystem'),
     }
-    const list = vi.fn<McpSettingsTabInjected['list']>()
+    const list = vi.fn<TabInputs['list']>()
       .mockResolvedValueOnce(SNAPSHOT)
       .mockResolvedValueOnce(withoutFilesystem)
     const removeServer = vi.fn<McpSettingsTabInjected['removeServer']>().mockResolvedValue(null)
@@ -341,7 +273,7 @@ describe('McpSettingsTab', () => {
   })
 
   it('shows a generic failure and retries into the roster', async () => {
-    const list = vi.fn<McpSettingsTabInjected['list']>()
+    const list = vi.fn<TabInputs['list']>()
       .mockRejectedValueOnce(new Error('private transport detail'))
       .mockResolvedValueOnce(SNAPSHOT)
     render(<McpSettingsTab {...props(injected({ list }))} />)
@@ -354,7 +286,7 @@ describe('McpSettingsTab', () => {
   })
 
   it('contains a synchronous Remote failure and ignores a result after unmount', async () => {
-    const syncFailure = vi.fn(() => { throw new Error('remote unavailable') }) as McpSettingsTabInjected['list']
+    const syncFailure = vi.fn(() => { throw new Error('remote unavailable') }) as TabInputs['list']
     const failed = render(<McpSettingsTab {...props(injected({ list: syncFailure }))} />)
     expect((await screen.findByRole('alert')).textContent).toBe(en.error)
     failed.unmount()
@@ -404,8 +336,10 @@ describe('McpTabController', () => {
     }
     const controller = new McpTabController(scope, remote)
     const face = controller.face()
-    await expect(face.list()).resolves.toBe(SNAPSHOT)
-    await expect(face.list()).rejects.toThrow('mcpServers.list failed: REMOTE_ERROR: unavailable')
+    await face.load()
+    expect(face.hooks.roster.getSnapshot()).toEqual({ status: 'ready', snapshot: SNAPSHOT })
+    await face.load()
+    expect(face.hooks.roster.getSnapshot()).toEqual({ status: 'error' })
   })
 
   it('writes only the enablement leaf through a deep path op', async () => {

@@ -14,7 +14,7 @@ MCP servers were configured declaratively only: one `@deepseek-ai/dsh-mcp-client
 
 ### Two sources, one roster
 
-A new Host package `@deepseek-ai/dsh-mcp-manager` (`packages/mcp/mcp-manager`) and a new client package `@deepseek-ai/dsh-client-ui-settings-mcp` (`packages/client/ui-settings-mcp`). The Web Plugins section gains an MCP tab (order 5, between 插件配置 and 插件列表). The roster merges two sources:
+A new Host package `@deepseek-ai/dsh-mcp-manager` (`packages/mcp/mcp-manager`) and a new client package `@deepseek-ai/dsh-client-ui-settings-mcp` (`packages/client/ui-settings-mcp`). The browser plugin contributes an MCP settings section (order 35). The roster merges two sources:
 
 - settings-managed servers from the `mcp-servers` settings namespace, whose schema mirrors the `dsh-mcp-client` Config plus an `enabled` flag, keyed by `serverName` — editable in the tab;
 - declarative rows projected from `ctx.loader.entries()` where the module is `@deepseek-ai/dsh-mcp-client`, shown read-only (badge 由配置文件管理, switch and gear disabled).
@@ -39,7 +39,7 @@ The settings seam hands out deep-frozen resolved sections. Schemastery's object/
 
 ### Status reporting
 
-The gateway reports mount lifecycle only (connecting → ready/failed), not liveness: with `failOnStartupError: false` an unreachable server still activates and `dsh-mcp-client` reconnects internally, so `ready` means activation settled, not that the server answered. The tab's status dot labels read 运行中/启动失败 accordingly. The manager broadcasts a payload-free `mcp-servers/change` invalidation after roster and lifecycle transitions; an open tab refetches and uses a request generation guard so an older response cannot replace a newer snapshot.
+The gateway reports mount lifecycle only (connecting → ready/failed), not liveness: with `failOnStartupError: false` an unreachable server still activates and `dsh-mcp-client` reconnects internally, so `ready` means activation settled, not that the server answered. The tab's status dot labels read 运行中/启动失败 accordingly. The manager broadcasts a payload-free `mcp-servers/change` invalidation after roster and lifecycle transitions; the plugin-owned controller refetches after the first load and rejects older responses. The renderer binds its observable snapshot through the injected `hooks` compartment; components own no external subscriptions. Disposal detaches invalidation sources and prevents pending reads from publishing.
 
 ## Alternatives considered
 
