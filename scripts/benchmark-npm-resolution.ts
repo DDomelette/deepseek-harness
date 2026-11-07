@@ -413,6 +413,27 @@ async function runNpm(
 }
 
 /**
+ * Remove the temporary directory one npm invocation ran in.
+ *
+ * Removal is reported rather than thrown because this runs while the caller's
+ * own error is propagating: a throw here would replace a resolution failure
+ * with a cleanup failure. Windows refuses to remove a directory a live process
+ * holds as its current directory, which is exactly the state a killed npm
+ * child can leave behind.
+ *
+ * @param consumer - Working directory created for one npm invocation.
+ * @returns The unreleased path and its failure, or `undefined` once it is gone.
+ */
+export function removeConsumerDirectory(consumer: string): string | undefined {
+  try {
+    rmSync(consumer, { recursive: true, force: true })
+    return undefined
+  } catch (error) {
+    return `${consumer}: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+/**
  * Ask npm to compute an install layout without downloading package archives.
  * @param index - Package metadata exposed through the local registry.
  * @param dependencies - Root dependencies whose install layout npm computes.
@@ -482,7 +503,10 @@ export async function resolveNpmPackageLock(
   } finally {
     server.closeAllConnections()
     await close(server)
-    rmSync(consumer, { recursive: true, force: true })
+    const unreleased = removeConsumerDirectory(consumer)
+    if (unreleased !== undefined) {
+      console.error(`npm resolution: temporary directory not removed: ${unreleased}`)
+    }
   }
 }
 
