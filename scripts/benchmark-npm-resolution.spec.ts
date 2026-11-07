@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   benchmarkNpmResolution,
   buildRegistryIndex,
+  npmInvocation,
   parseBenchmarkOptions,
   publishWorkspaceRange,
   removeConsumerDirectory,
@@ -58,6 +59,18 @@ describe('npm resolution benchmark', () => {
     ])).toEqual({ runs: 3, timeoutMs: 45_000, maxMs: 20_000, ref: 'master' })
     expect(parseBenchmarkOptions(['--', '--runs', '2'])).toEqual({ runs: 2, timeoutMs: 300_000 })
     expect(() => parseBenchmarkOptions(['--runs', '0'])).toThrow('--runs must be a positive integer')
+  })
+
+  it('starts npm as the child it terminates instead of through a shell wrapper', () => {
+    const invocation = npmInvocation(['--version'])
+
+    expect(invocation.args.at(-1)).toBe('--version')
+    if (process.platform === 'win32') {
+      expect(invocation.command).toBe(process.execPath)
+      expect(invocation.args[0]?.replace(/\\/g, '/')).toMatch(/\/node_modules\/npm\/bin\/npm-cli\.js$/)
+    } else {
+      expect(invocation.command).toBe('npm')
+    }
   })
 
   it('projects workspace protocols to published ranges', () => {
