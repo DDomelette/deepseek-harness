@@ -200,12 +200,14 @@
     # by the web-runtime row below through the fallback seat. Routing and
     # browser-facing asset paths do not depend on the advertised URL, which the
     # web-runtime row owns; Connection reads trust authorities from webStartup.
-    # This row rejects wildcard binds.
+    # A launch that named no --host binds the address saved in Settings →
+    # Connect phone (`webStartup.bind`), which defaults to loopback. This row
+    # rejects wildcard binds.
     - id: webserver
       name: '@deepseek-ai/dsh-host-webserver'
       inject: [webStartup]
       config:
-        host: !!js ctx.webStartup.host ?? '127.0.0.1'
+        host: !!js ctx.webStartup.host ?? ctx.webStartup.bind.host
         port: !!js ctx.webStartup.port ?? 3080
         tls: !!js ctx.webStartup.tls
         compression: gzip

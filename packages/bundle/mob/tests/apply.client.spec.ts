@@ -1,4 +1,4 @@
-/** Connect-phone row registration: slot entry, locale dictionaries, injected joinUrl read, disposal. */
+/** Connect-phone settings page registration: slot entry, dictionaries, injected face, disposal. */
 
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -6,14 +6,14 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '../src/client/index.ts'
-import { ConnectPhoneRow } from '../src/client/ConnectPhoneRow.tsx'
-import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import { MobileSection, type MobileSectionInjected } from '../src/client/MobileSection.tsx'
 import { AuthRequiredScreen, type AuthRequiredScreenInjected } from '../src/client/AuthRequiredScreen.tsx'
 import { PairScreen, type PairScreenInjected } from '../src/client/PairScreen.tsx'
+import type { MobileBindSettings } from '../src/client/bind-settings.ts'
 
 /** The children the shell declares for this suite's registrations. */
 const SHELL_CHILDREN = {
-  'settings.general.item': { kind: 'list', scope: 'root' },
+  'settings.section': { kind: 'list', scope: 'root' },
   'shell.overlay': { kind: 'list', scope: 'root' },
 } as const
 
@@ -30,7 +30,26 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-async function bench() {
+/** One settings form stub: a settled `web-startup` section and its write queue. */
+function bindForm(value: MobileBindSettings = { bindMode: 'loopback', bindHost: '' }) {
+  return {
+    getSnapshot: () => ({
+      status: 'ready' as const,
+      value,
+      base: undefined,
+      user: undefined,
+      revision: 1,
+      writable: true,
+      mode: 'host' as const,
+    }),
+    subscribe: () => () => {},
+    mutate: vi.fn(async () => true),
+    set: vi.fn(async () => true),
+    unset: vi.fn(async () => true),
+  }
+}
+
+async function bench(value?: MobileBindSettings) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
@@ -38,46 +57,70 @@ async function bench() {
   ctx.provide('locale', locale)
   const connectionFailure = { getSnapshot: () => undefined, subscribe: () => () => {} }
   ctx.provide('connection', { isLoopback: true, failure: connectionFailure } as never)
+  const form = bindForm(value)
+  const get = vi.fn(() => form)
+  ctx.provide('configForms', { get } as never)
   const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/' }))
   new TestRemote(ctx, { mob: { joinUrl } })
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl, connectionFailure }
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl, connectionFailure, form, get }
 }
 
 describe('dsh-mob client apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob', 'configForms'])
   })
 
-  it('registers the Connect-phone row into the General item slot', async () => {
+  it('registers the Connect-phone page as a settings section', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.general.item')[0]!
-    expect(entry.component).toBe(ConnectPhoneRow)
-    expect(entry.options).toMatchObject({ id: 'connect-phone', order: 30 })
+    const entry = b.slots.entries('settings.section')[0]!
+    expect(entry.component).toBe(MobileSection)
+    expect(entry.options).toMatchObject({ id: 'mobile', order: 12 })
+    expect(typeof entry.options.label).toBe('function')
+    expect((entry.options.label as () => string)()).toBe('连接手机')
   })
 
   it('registers into a declaration that arrives after apply, and leaves on disposal', async () => {
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries('settings.general.item')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
 
     declare(b.slots)
-    await vi.waitFor(() => { expect(b.slots.entries('settings.general.item')).toHaveLength(1) })
+    await vi.waitFor(() => { expect(b.slots.entries('settings.section')).toHaveLength(1) })
 
     await fiber.dispose()
-    expect(b.slots.entries('settings.general.item')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
   })
 
-  it('reads the join URL through the mob Remote namespace', async () => {
+  it('reads the join URL through the mob Remote namespace and binds the saved policy', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.general.item')[0]!
-    const injected = entry.inject as unknown as () => ConnectPhoneRowInjected
+    const entry = b.slots.entries('settings.section')[0]!
+    const injected = entry.inject as unknown as () => MobileSectionInjected
     await expect(injected().joinUrl()).resolves.toEqual({ ok: true, value: 'http://192.168.1.5:3080/' })
     expect(b.joinUrl).toHaveBeenCalledOnce()
+    expect(b.get).toHaveBeenCalledWith('web-startup')
+    expect(injected().hooks.bind).toBe(b.form)
+
+    await expect(injected().saveBind({ bindMode: 'fixed', bindHost: '192.168.1.5' })).resolves.toBe(true)
+    expect(b.form.mutate).toHaveBeenCalledWith([
+      { op: 'set', path: ['bindMode'], value: 'fixed' },
+      { op: 'set', path: ['bindHost'], value: '192.168.1.5' },
+    ])
+  })
+
+  it('reports a refused save as a failed write rather than a crash', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const injected = (b.slots.entries('settings.section')[0]!.inject as unknown as () => MobileSectionInjected)()
+    b.form.mutate.mockRejectedValueOnce(new Error('transport closed'))
+    await expect(injected.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toBe(false)
+    b.form.mutate.mockResolvedValueOnce(false)
+    await expect(injected.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toBe(false)
   })
 
   it('registers the pairing screen only when the page carries the pairing boot fact', async () => {

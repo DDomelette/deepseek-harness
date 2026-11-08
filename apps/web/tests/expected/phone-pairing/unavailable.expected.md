@@ -1,9 +1,6 @@
-- dialog "连接手机":
-  - heading "连接手机" [level=2]
-  - button "关闭"
-  - paragraph: 用手机扫码，在同一网络中打开 dsh。
+- region "配对":
   - button "生成配对码"
-  - alert: 尚未配置手机访问地址。请用 dsh web --host <局域网 IP> 重新启动；使用代理时请配置 --public-url
+  - alert: 当前只监听本机，手机无法连接。到「访问地址」选择局域网地址并重启 dsh web；使用代理时配置 --public-url。
   - heading "待确认的请求" [level=3]
   - paragraph: 暂无待确认的请求。
   - heading "已配对的设备" [level=3]

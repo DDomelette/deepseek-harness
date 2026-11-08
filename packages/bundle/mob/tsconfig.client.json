@@ -7,10 +7,11 @@
   },
   "files": [
     "src/client/AuthRequiredScreen.tsx",
-    "src/client/ConnectPhoneRow.tsx",
+    "src/client/MobileSection.tsx",
     "src/client/PairScreen.tsx",
     "src/client/PairingPanel.tsx",
     "src/client/index.ts",
+    "src/client/bind-settings.ts",
     "src/client/locales.ts",
     "src/client/pair-locales.ts",
     "src/client/pairing-api.ts",

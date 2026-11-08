@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-发行版的 `web` profile 在 `@deepseek-ai/dsh-web-app` 之后组合 `@deepseek-ai/dsh-mob`。其只做插入的 patch 注册设置入口、`mob` Remote 命名空间和配对路由，不改变监听或认证策略。[具体绑定地址决策](2026-09-19-concrete-web-bind-address.zh.md) 负责默认回环监听和显式接口选择。
+发行版的 `web` profile 在 `@deepseek-ai/dsh-web-app` 之后组合 `@deepseek-ai/dsh-mob`。其只做插入的 patch 注册设置页、`mob` Remote 命名空间和配对路由，不改变监听或认证策略。[具体绑定地址决策](2026-09-19-concrete-web-bind-address.zh.md) 负责默认回环监听和显式接口选择。
 
 不带令牌的加入根 URL 依次优先使用 `--public-url`、第一个 `--trusted-host`（使用其显式端口，否则使用监听端口），以及具体的非回环绑定地址。传输协议来自监听器。回环监听器或带区域标识的非回环监听器在未声明外部主体时报告 `mob/no-advertised-origin`；设置提示给出 `dsh web --host <LAN-IP>` 和 `--public-url`。接口探测不会扩展信任。
 
@@ -26,6 +26,6 @@ Status: implemented
 
 ## 后果
 
-操作者启动 `dsh web --host <LAN-IP>`，打开启动器打印的认证 URL，再在 设置 → 通用设置 → 连接手机 中批准手机。普通 `dsh web` 仍默认仅本机访问。代理可通过 `--public-url` 声明根 URL，并通过 `--trusted-host` 声明其主体。
+操作者启动 `dsh web --host <LAN-IP>`，打开启动器打印的认证 URL，再在 设置 → 连接手机 中批准手机。普通 `dsh web` 仍默认仅本机访问。代理可通过 `--public-url` 声明根 URL，并通过 `--trusted-host` 声明其主体。
 
 包测试覆盖 URL 拼接、权限读取、失败恢复及 Loader 卸载。浏览器场景使用非回环主体和独立的操作者、手机上下文，并在测试所属目录记录权限提示与缺少地址的提示。

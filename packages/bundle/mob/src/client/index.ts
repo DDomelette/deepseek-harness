@@ -1,6 +1,6 @@
 /**
- * dsh-mob browser half: the Connect-phone row in General settings, opening a
- * QR dialog over the `mob` Remote namespace, the pairing screen the `/pair`
+ * dsh-mob browser half: the Connect-phone settings page over the `mob` Remote
+ * namespace and the Host's saved bind policy, the pairing screen the `/pair`
  * shell shows on a phone that has no session yet, and the session-required
  * screen for a phone the Host served without accepting a session.
  *
@@ -16,13 +16,14 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the frame's slot declarations (shell.overlay).
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-// Type-only: pulls the settings slot declarations (settings.general.item).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the settings slot declarations (settings.section) and the shared form face.
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: the mob failure vocabulary (`mob/no-advertised-origin`), shared with the Host throw site.
 import type {} from '../types.ts'
-import { ConnectPhoneRow, type ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
+import { MobileSection, type MobileSectionInjected } from './MobileSection.tsx'
+import { WEB_STARTUP_NAMESPACE, type MobileBindSettings } from './bind-settings.ts'
 import { PairScreen, pairingBootFact, readPairingState, type PairScreenInjected } from './PairScreen.tsx'
 import {
   AuthRequiredScreen, authRequiredBootFact, type AuthRequiredScreenInjected,
@@ -31,7 +32,8 @@ import { createPairingApi } from './pairing-api.ts'
 import { en, zh, type MobileSettingsKey } from './locales.ts'
 import { en as pairEn, zh as pairZh, type PairScreenKey } from './pair-locales.ts'
 
-export type { ConnectPhoneRowComponentProps, ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
+export type { MobileSectionInjected, MobileSectionProps } from './MobileSection.tsx'
+export type { MobileBindMode, MobileBindSettings } from './bind-settings.ts'
 export type { AuthRequiredScreenInjected, AuthRequiredScreenProps } from './AuthRequiredScreen.tsx'
 export type { MobileSettingsKey } from './locales.ts'
 export type { PairScreenInjected, PairScreenProps, PairingStateView } from './PairScreen.tsx'
@@ -41,7 +43,7 @@ export type {
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** Connect-phone row and QR dialog copy. */
+    /** Connect-phone page, address block, and pairing panel copy. */
     'settings.mobile': MobileSettingsKey
     /** Phone pairing screen and session-required screen copy. */
     'pair.mobile': PairScreenKey
@@ -55,11 +57,30 @@ const NS = 'settings.mobile'
 const PAIR_NS = 'pair.mobile'
 
 /** Required services (cordis fiber inject). */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob', 'configForms']
 
 /**
- * Register the dictionaries, the Connect-phone row once the General section's
- * item slot is declared, and whichever phone screen this page's boot facts call
+ * Persist one bind policy through the Host configuration mirror.
+ * @param form - the `web-startup` entry's client form.
+ * @param settings - the mode and address the operator chose.
+ * @returns whether the Host accepted the write; a rejected or dropped request
+ *   is a failed save the page reports, not a crash.
+ */
+async function persistBind(form: ConfigForm<MobileBindSettings>, settings: MobileBindSettings): Promise<boolean> {
+  try {
+    return await form.mutate([
+      { op: 'set', path: ['bindMode'], value: settings.bindMode },
+      { op: 'set', path: ['bindHost'], value: settings.bindHost },
+    ])
+  } catch (_transport) {
+    // A transport failure is the same answer as a refusal: the page reports it.
+    return false
+  }
+}
+
+/**
+ * Register the dictionaries, the Connect-phone settings section once the shell
+ * declares its seat, and whichever phone screen this page's boot facts call
  * for: the pairing screen on `/pair`, the session-required screen on a shell
  * the Host served without accepting a session.
  * @param ctx - the browser plugin context.
@@ -68,18 +89,23 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-mob: connect-phone dictionaries')
   ctx.effect(() => ctx.locale.register(PAIR_NS, { zh: pairZh, en: pairEn }), 'dsh-mob: pairing dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
+  const t = ctx.locale.bind(NS)
   const api = createPairingApi()
-  const injected = (): ConnectPhoneRowInjected => ({
+  const bind = ctx.configForms.get<MobileBindSettings>(WEB_STARTUP_NAMESPACE)
+  const injected = (): MobileSectionInjected => ({
     joinUrl: () => ctx.remote.mob.joinUrl(),
     api,
+    hooks: { bind },
+    saveBind: settings => persistBind(bind, settings),
   })
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'connect-phone',
-    order: 30,
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'mobile',
+    order: 12,
+    label: () => t('connectPhone'),
     locale: NS,
     inject: injected,
-  }, ConnectPhoneRow))
+  }, MobileSection))
 
   const paired = pairingBootFact()
   if (paired !== undefined) {

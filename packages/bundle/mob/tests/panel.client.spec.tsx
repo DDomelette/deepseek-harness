@@ -15,7 +15,7 @@ vi.mock('qrcode/lib/browser.js', () => ({
 }))
 
 import { PairingPanel } from '../src/client/PairingPanel.tsx'
-import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
   PairedDeviceView, PairingApi, PairingResult, PairingSessionView, PendingPairingView,
 } from '../src/client/pairing-api.ts'
@@ -106,13 +106,15 @@ function fakeApi(script: Script = {}): FakeApi {
   }
 }
 
-const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
-const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): ConnectPhoneRowInjected['joinUrl'] =>
+type JoinUrlRead = () => Promise<RemoteResult<string>>
+
+const okJoin: JoinUrlRead = async () => ({ ok: true, value: JOIN_URL })
+const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): JoinUrlRead =>
   async () => ({ ok: false, error: new RemoteError(code, 'refused', {}) })
 
 async function mount(options: {
   api?: FakeApi
-  joinUrl?: ConnectPhoneRowInjected['joinUrl']
+  joinUrl?: JoinUrlRead
 } = {}): Promise<FakeApi> {
   const subject = options.api ?? fakeApi()
   await act(async () => { render(<PairingPanel
