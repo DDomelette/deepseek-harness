@@ -10,11 +10,11 @@ The phone-join surface was a single row inside Settings → General: it opened a
 
 ## Decision
 
-The bundle now registers a `settings.section` (id `mobile`, order 12, label 连接手机) instead of the General row. The page holds the existing pairing panel and, above it, an address block that edits `dsh-web-app`'s `web-startup` Config through the shared settings mirror (`ctx.configForms`, namespace `web-startup`): `bindMode` is `loopback`, `auto`, or `fixed`, and `bindHost` is the fixed address. The entry keeps its generated configuration form as a second editor of the same fields; the page is the surface that explains what the change applies to.
+The bundle now registers a `settings.section` (id `mobile`, order 12, label 连接手机) instead of the General row. The page holds the existing pairing panel and, above it, an address block that edits `dsh-web-app`'s `web-startup` Config through an operator-gated `/pair/bind` route: `bindMode` is `loopback`, `auto`, or `fixed`, and `bindHost` is the fixed address. The route is the policy's write path: the settings RPC exposes the same fields, but its writes carry no operator gate, so a policy that changes a deployment-wide listener cannot ride it.
 
 `web-startup` resolves the fallback bind address when the invocation names no `--host`: `loopback` keeps `127.0.0.1`, `fixed` binds the trimmed `bindHost` (a blank address fails the launch rather than silently falling back), and `auto` takes the address of the interface the operating system routes through — probed with a UDP `connect`, which sends no packet — falling back to the saved `bindHost`, then the first non-internal IPv4, then loopback. The resolved value rides `webStartup.bind`, and the webserver row binds `ctx.webStartup.host ?? ctx.webStartup.bind.host`; `--host` keeps precedence for the invocation that names it.
 
-A saved change applies on the next launch, because the listener binds before any page loads. Settings writes remain loopback-only (`ui-settings` keeps a non-loopback page process-local), so the block keeps the address facts and the reason there, and renders no controls instead of disappearing.
+A saved change applies on the next launch, because the listener binds before any page loads. A paired phone therefore sees the address facts and the operator-only reason, never the controls, while the operator keeps them on whichever page they opened — the LAN one included.
 
 ## Alternatives considered
 
@@ -28,7 +28,7 @@ A saved change applies on the next launch, because the listener binds before any
 - Settings → Connect phone is the join surface: the address block states the page's own host, whether a phone can reach the deployment, the saved mode, and the restart requirement; the pairing panel below it is unchanged.
 - `--host` still overrides for one invocation; the saved policy governs the launches that name none, and `loopback` remains the shipped default.
 - Auto mode binds what the default route uses. A machine whose route changes between launches may bind a different address; the page reports the actual result after the restart.
-- Only a loopback page edits the policy. After binding a LAN address, an operator changes it with `--host` or the profile file; the page says so rather than leaving the controls silently absent.
+- The operator edits the policy from whichever page they opened, the LAN address included; `--host` still overrides it for a single launch, and a paired phone can neither read nor change it.
 - The phone's own view of the page holds no address block, because its settings mirror is process-local.
 
 ## Testing

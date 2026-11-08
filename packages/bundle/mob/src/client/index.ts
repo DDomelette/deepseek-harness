@@ -16,14 +16,13 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the frame's slot declarations (shell.overlay).
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-// Type-only: pulls the settings slot declarations (settings.section) and the shared form face.
-import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the settings slot declarations (settings.section).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: the mob failure vocabulary (`mob/no-advertised-origin`), shared with the Host throw site.
 import type {} from '../types.ts'
 import { MobileSection, type MobileSectionInjected } from './MobileSection.tsx'
-import { WEB_STARTUP_NAMESPACE, type MobileBindSettings } from './bind-settings.ts'
 import { PairScreen, pairingBootFact, readPairingState, type PairScreenInjected } from './PairScreen.tsx'
 import {
   AuthRequiredScreen, authRequiredBootFact, type AuthRequiredScreenInjected,
@@ -57,26 +56,7 @@ const NS = 'settings.mobile'
 const PAIR_NS = 'pair.mobile'
 
 /** Required services (cordis fiber inject). */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob', 'configForms']
-
-/**
- * Persist one bind policy through the Host configuration mirror.
- * @param form - the `web-startup` entry's client form.
- * @param settings - the mode and address the operator chose.
- * @returns whether the Host accepted the write; a rejected or dropped request
- *   is a failed save the page reports, not a crash.
- */
-async function persistBind(form: ConfigForm<MobileBindSettings>, settings: MobileBindSettings): Promise<boolean> {
-  try {
-    return await form.mutate([
-      { op: 'set', path: ['bindMode'], value: settings.bindMode },
-      { op: 'set', path: ['bindHost'], value: settings.bindHost },
-    ])
-  } catch (_transport) {
-    // A transport failure is the same answer as a refusal: the page reports it.
-    return false
-  }
-}
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob']
 
 /**
  * Register the dictionaries, the Connect-phone settings section once the shell
@@ -91,12 +71,9 @@ export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle
   const t = ctx.locale.bind(NS)
   const api = createPairingApi()
-  const bind = ctx.configForms.get<MobileBindSettings>(WEB_STARTUP_NAMESPACE)
   const injected = (): MobileSectionInjected => ({
     joinUrl: () => ctx.remote.mob.joinUrl(),
     api,
-    hooks: { bind },
-    saveBind: settings => persistBind(bind, settings),
   })
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

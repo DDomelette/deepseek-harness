@@ -1,20 +1,18 @@
 /**
- * The Connect-phone settings page: the pairing controls that used to sit in a
- * General-settings dialog, plus the persistent bind address the listener uses
- * on the next launch. The address block writes the Host's `web-startup`
- * namespace, so a saved choice survives restarts; a phone that cannot manage
- * pairing sees the same panel without that block's write path succeeding.
+ * The Connect-phone settings page: the pairing controls, plus the bind policy
+ * the listener uses on the next launch. The policy rides the operator-gated
+ * `/pair/bind` route rather than the settings RPC, so a paired phone can read
+ * neither the deployment's address nor the write, and the operator can change
+ * it from whichever address they actually opened — including the LAN one.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { PairingPanel } from './PairingPanel.tsx'
 import type { MobileBindMode, MobileBindSettings } from './bind-settings.ts'
-import type { PairingApi } from './pairing-api.ts'
+import { createPairingApi, type PairingApi } from './pairing-api.ts'
 import css from './MobileSection.module.css'
 
 /** The three policies the page offers, in display order. */
@@ -24,18 +22,8 @@ const BIND_MODES: readonly MobileBindMode[] = ['loopback', 'auto', 'fixed']
 export interface MobileSectionInjected {
   /** This Host's phone origin, from the `mob.joinUrl` Remote method. */
   joinUrl: () => Promise<RemoteResult<string>>
-  /** The pairing routes' client half. */
+  /** The pairing routes' client half; it also carries the saved bind policy. */
   api?: PairingApi | undefined
-  hooks: {
-    /** Accepted bind policy, bound by the renderer as `useBind`. */
-    bind: ObservableSnapshot<ConfigFormSnapshot<MobileBindSettings>>
-  }
-  /**
-   * Persist one bind policy atomically.
-   * @param settings - the mode and address the operator chose.
-   * @returns whether the Host accepted the write.
-   */
-  saveBind: (settings: MobileBindSettings) => Promise<boolean>
 }
 
 /** Full component props: the slot's runtime share, this page's copy, and the injected face. */
@@ -50,16 +38,26 @@ type Reach =
   | { readonly status: 'reachable'; readonly url: string }
   | { readonly status: 'local' }
 
+/** The saved policy, as far as this page can tell. */
+type PolicyRead =
+  | { readonly status: 'loading' }
+  | { readonly status: 'ready'; readonly value: MobileBindSettings }
+  /** The caller is not the operator, or the deployment saves no policy. */
+  | { readonly status: 'readOnly' }
+  | { readonly status: 'failed' }
+
 /**
  * Render the Connect-phone settings page.
  * @param props - the runtime share, page copy, and injected pairing face.
  * @returns the page element tree.
  */
-export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSectionProps): ReactNode {
-  const bind = useBind(snapshot => snapshot)
+export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionProps): ReactNode {
+  const api = useMemo(() => providedApi ?? createPairingApi(), [providedApi])
+  const [policy, setPolicy] = useState<PolicyRead>({ status: 'loading' })
   const [draft, setDraft] = useState<MobileBindSettings | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<'saved' | 'failed' | undefined>(undefined)
+  const [attempt, setAttempt] = useState(0)
   const [reach, setReach] = useState<Reach>({ status: 'pending' })
   // One read per mount: the answer changes only with a restart, and the injected
   // callback's identity follows the registration, so an effect keyed on it
@@ -75,7 +73,17 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
     return () => { cancelled = true }
   }, [lookup])
 
-  const saved = bind.value
+  useEffect(() => {
+    let cancelled = false
+    void api.bind().then((answer) => {
+      if (cancelled) return
+      if (answer.ok) setPolicy({ status: 'ready', value: answer.value })
+      else setPolicy(answer.reason === 'forbidden' || answer.reason === 'gone' ? { status: 'readOnly' } : { status: 'failed' })
+    })
+    return () => { cancelled = true }
+  }, [api, attempt])
+
+  const saved = policy.status === 'ready' ? policy.value : undefined
   const current = draft ?? saved
   const fixedMissingAddress = current?.bindMode === 'fixed' && current.bindHost.trim() === ''
 
@@ -94,10 +102,13 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
   const save = async (): Promise<void> => {
     if (current === undefined || busy) return
     setBusy(true)
-    const accepted = await saveBind({ bindMode: current.bindMode, bindHost: current.bindHost.trim() })
+    const answer = await api.saveBind({ bindMode: current.bindMode, bindHost: current.bindHost.trim() })
     setBusy(false)
-    setNotice(accepted ? 'saved' : 'failed')
-    if (accepted) setDraft(undefined)
+    setNotice(answer.ok ? 'saved' : 'failed')
+    if (answer.ok) {
+      setPolicy({ status: 'ready', value: answer.value })
+      setDraft(undefined)
+    }
   }
 
   return (
@@ -126,7 +137,7 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
                 <select
                   className={css.select}
                   value={current.bindMode}
-                  disabled={busy || !bind.writable}
+                  disabled={busy}
                   onChange={(event) => { choose(event.currentTarget.value as MobileBindMode) }}
                 >
                   {BIND_MODES.map(mode => (
@@ -143,7 +154,7 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
                   placeholder={t('access.hostPlaceholder')}
                   inputMode="decimal"
                   spellCheck={false}
-                  disabled={busy || !bind.writable || current.bindMode === 'loopback'}
+                  disabled={busy || current.bindMode === 'loopback'}
                   onChange={(event) => { editHost(event.currentTarget.value) }}
                 />
               </label>
@@ -155,7 +166,7 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
                 <button
                   type="button"
                   className={css.primary}
-                  disabled={busy || !bind.writable || fixedMissingAddress}
+                  disabled={busy || fixedMissingAddress}
                   onClick={() => { void save() }}
                 >
                   {t('access.save')}
@@ -168,7 +179,21 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
               </div>
             </>
           )
-          : <p className={css.hint}>{t('access.readOnly')}</p>}
+          : (
+            <>
+              <p className={css.hint}>
+                {policy.status === 'failed' ? t('panel.loadFailed') : t('access.readOnly')}
+              </p>
+              {policy.status === 'failed' && (
+                <div className={css.actions}>
+                  <button type="button" className={css.primary} onClick={() => {
+                    setPolicy({ status: 'loading' })
+                    setAttempt(current => current + 1)
+                  }}>{t('panel.retry')}</button>
+                </div>
+              )}
+            </>
+          )}
       </section>
 
       <section className={css.block} aria-label={t('panel.heading')}>

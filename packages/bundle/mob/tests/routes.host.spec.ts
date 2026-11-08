@@ -58,6 +58,8 @@ interface Bench {
   readonly restored: string[]
   readonly purged: string[]
   readonly touched: string[]
+  /** Settings writes the bind route performed. */
+  readonly bindWrites: { readonly ns: string; readonly patch: Record<string, unknown> }[]
   /** Per-device windows the route tests set through `/pair/devices/lifetime`. */
   readonly windows: ReadonlyMap<string, { readonly lifetimeDays: number; readonly expiresAt: number }>
   /** Serve one route call and decode the recorded response. */
@@ -76,7 +78,17 @@ interface Bench {
   }): Promise<{ status: number; headers: Record<string, string>; body: string }>
 }
 
-function bench(options: ConnectionOptions = {}): Bench {
+/** The settings provider fixture the bind route reads and writes. */
+interface SettingsFixture {
+  /** Values the fixture reports for the startup entry; absent means the entry is not composed. */
+  readonly policy?: { readonly bindMode: string; readonly bindHost: string }
+  /** Whether the composition carries no settings provider at all. */
+  readonly absent?: boolean
+  /** Whether the write rejects. */
+  readonly writeFails?: boolean
+}
+
+function bench(options: ConnectionOptions = {}, settings: SettingsFixture = {}): Bench {
   const ctx = new Context()
   contexts.push(ctx)
   const routes = new Map<string, WebRoute>()
@@ -158,6 +170,27 @@ function bench(options: ConnectionOptions = {}): Bench {
   } as never)
 
   const pairing = new PairingSessions()
+  const bindWrites: { ns: string; patch: Record<string, unknown> }[] = []
+  if (settings.absent !== true) {
+    // The fixture remembers the write so the route's confirming read reflects it,
+    // exactly as the settings provider does.
+    let current = settings.policy
+    ctx.provide('settings', {
+      describe: () => current === undefined ? [] : [{
+        ns: 'web-startup',
+        autoGenerate: false,
+        schema: {},
+        value: current,
+        revision: 1,
+        applies: 'live',
+      }],
+      update: async (ns: string, patch: Record<string, unknown>) => {
+        if (settings.writeFails === true) throw new Error('settings write failed')
+        bindWrites.push({ ns, patch })
+        current = { bindMode: String(patch.bindMode), bindHost: String(patch.bindHost) }
+      },
+    } as never)
+  }
   if (options.noShell !== true) {
     ctx.provide('frontend', {
       renderIndex: async () => options.unbuiltShell === true ? undefined : SHELL,
@@ -174,6 +207,7 @@ function bench(options: ConnectionOptions = {}): Bench {
     restored,
     purged,
     touched,
+    bindWrites,
     windows,
     async call(path, init = {}) {
       const route = routes.get(path)
@@ -748,5 +782,76 @@ describe('pairing routes', () => {
       method: 'POST',
       body: { deviceId: 'device-1', days: 7 },
     })).status).toBe(403)
+  })
+
+  it('serves the saved bind policy to the operator and saves a validated change', async () => {
+    const subject = bench({}, { policy: { bindMode: 'loopback', bindHost: '' } })
+    const read = await subject.call(PAIR_PATHS.bind, { cookie: 'dsh-auth-test=session' })
+    expect(read.status).toBe(200)
+    expect(JSON.parse(read.body)).toEqual({ bindMode: 'loopback', bindHost: '' })
+
+    const saved = await subject.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { bindMode: 'fixed', bindHost: ' 192.168.1.5 ' },
+    })
+    expect(saved.status).toBe(200)
+    expect(JSON.parse(saved.body)).toEqual({ bindMode: 'fixed', bindHost: '192.168.1.5' })
+    // The write goes through the settings provider, under the startup entry's
+    // namespace, so the listener reads it back on the next launch.
+    expect(subject.bindWrites).toEqual([
+      { ns: 'web-startup', patch: { bindMode: 'fixed', bindHost: '192.168.1.5' } },
+    ])
+
+    for (const body of [
+      { bindMode: 'wildcard', bindHost: '' },
+      { bindMode: 'auto' },
+      { bindHost: '192.168.1.5' },
+      { bindMode: 'fixed', bindHost: '   ' },
+      { bindMode: 'auto', bindHost: 'x'.repeat(65) },
+    ]) {
+      expect((await subject.call(PAIR_PATHS.bind, {
+        method: 'POST',
+        cookie: 'dsh-auth-test=session',
+        body,
+      })).status).toBe(400)
+    }
+    expect((await subject.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      rawBody: '[1,2]',
+    })).status).toBe(400)
+    expect(subject.bindWrites).toHaveLength(1)
+
+    expect((await subject.call(PAIR_PATHS.bind, { method: 'PUT' })).status).toBe(405)
+  })
+
+  it('keeps the bind policy away from paired phones and explains a deployment that saves none', async () => {
+    const lan = bench({ operator: false }, { policy: { bindMode: 'auto', bindHost: '' } })
+    expect((await lan.call(PAIR_PATHS.bind)).status).toBe(403)
+    expect((await lan.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      body: { bindMode: 'loopback', bindHost: '' },
+    })).status).toBe(403)
+    expect(lan.bindWrites).toEqual([])
+
+    const unauthenticated = bench({ rejection: 401 }, { policy: { bindMode: 'auto', bindHost: '' } })
+    expect((await unauthenticated.call(PAIR_PATHS.bind)).status).toBe(401)
+
+    const noPolicy = bench({}, {})
+    expect((await noPolicy.call(PAIR_PATHS.bind)).status).toBe(404)
+
+    const noProvider = bench({}, { absent: true })
+    expect((await noProvider.call(PAIR_PATHS.bind)).status).toBe(503)
+    expect((await noProvider.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      body: { bindMode: 'auto', bindHost: '' },
+    })).status).toBe(503)
+
+    const failing = bench({}, { policy: { bindMode: 'loopback', bindHost: '' }, writeFails: true })
+    expect((await failing.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      body: { bindMode: 'auto', bindHost: '' },
+    })).status).toBe(500)
   })
 })

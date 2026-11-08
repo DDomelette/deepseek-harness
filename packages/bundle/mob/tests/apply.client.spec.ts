@@ -9,7 +9,6 @@ import { apply, inject } from '../src/client/index.ts'
 import { MobileSection, type MobileSectionInjected } from '../src/client/MobileSection.tsx'
 import { AuthRequiredScreen, type AuthRequiredScreenInjected } from '../src/client/AuthRequiredScreen.tsx'
 import { PairScreen, type PairScreenInjected } from '../src/client/PairScreen.tsx'
-import type { MobileBindSettings } from '../src/client/bind-settings.ts'
 
 /** The children the shell declares for this suite's registrations. */
 const SHELL_CHILDREN = {
@@ -30,26 +29,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** One settings form stub: a settled `web-startup` section and its write queue. */
-function bindForm(value: MobileBindSettings = { bindMode: 'loopback', bindHost: '' }) {
-  return {
-    getSnapshot: () => ({
-      status: 'ready' as const,
-      value,
-      base: undefined,
-      user: undefined,
-      revision: 1,
-      writable: true,
-      mode: 'host' as const,
-    }),
-    subscribe: () => () => {},
-    mutate: vi.fn(async () => true),
-    set: vi.fn(async () => true),
-    unset: vi.fn(async () => true),
-  }
-}
-
-async function bench(value?: MobileBindSettings) {
+async function bench() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
@@ -57,17 +37,14 @@ async function bench(value?: MobileBindSettings) {
   ctx.provide('locale', locale)
   const connectionFailure = { getSnapshot: () => undefined, subscribe: () => () => {} }
   ctx.provide('connection', { isLoopback: true, failure: connectionFailure } as never)
-  const form = bindForm(value)
-  const get = vi.fn(() => form)
-  ctx.provide('configForms', { get } as never)
   const joinUrl = vi.fn(async () => ({ ok: true as const, value: 'http://192.168.1.5:3080/' }))
   new TestRemote(ctx, { mob: { joinUrl } })
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl, connectionFailure, form, get }
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, joinUrl, connectionFailure }
 }
 
 describe('dsh-mob client apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob', 'configForms'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob'])
   })
 
   it('registers the Connect-phone page as a settings section', async () => {
@@ -94,7 +71,7 @@ describe('dsh-mob client apply', () => {
     expect(b.slots.entries('settings.section')).toHaveLength(0)
   })
 
-  it('reads the join URL through the mob Remote namespace and binds the saved policy', async () => {
+  it('reads the join URL through the mob Remote namespace and shares one pairing client', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
@@ -102,25 +79,10 @@ describe('dsh-mob client apply', () => {
     const injected = entry.inject as unknown as () => MobileSectionInjected
     await expect(injected().joinUrl()).resolves.toEqual({ ok: true, value: 'http://192.168.1.5:3080/' })
     expect(b.joinUrl).toHaveBeenCalledOnce()
-    expect(b.get).toHaveBeenCalledWith('web-startup')
-    expect(injected().hooks.bind).toBe(b.form)
-
-    await expect(injected().saveBind({ bindMode: 'fixed', bindHost: '192.168.1.5' })).resolves.toBe(true)
-    expect(b.form.mutate).toHaveBeenCalledWith([
-      { op: 'set', path: ['bindMode'], value: 'fixed' },
-      { op: 'set', path: ['bindHost'], value: '192.168.1.5' },
-    ])
-  })
-
-  it('reports a refused save as a failed write rather than a crash', async () => {
-    const b = await bench()
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const injected = (b.slots.entries('settings.section')[0]!.inject as unknown as () => MobileSectionInjected)()
-    b.form.mutate.mockRejectedValueOnce(new Error('transport closed'))
-    await expect(injected.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toBe(false)
-    b.form.mutate.mockResolvedValueOnce(false)
-    await expect(injected.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toBe(false)
+    // The page and its pairing panel speak the same client, so one operator
+    // check and one route table serve both.
+    expect(typeof injected().api?.bind).toBe('function')
+    expect(typeof injected().api?.saveBind).toBe('function')
   })
 
   it('registers the pairing screen only when the page carries the pairing boot fact', async () => {

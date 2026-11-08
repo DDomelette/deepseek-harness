@@ -1,23 +1,17 @@
 /**
- * The persistent bind policy this page edits: the `dsh-web-app` startup entry's
- * Config namespace and the two fields the page writes. The values mirror the
- * Host schema's `bindMode`/`bindHost`; this page is the only editor, because
- * their consumer (the listener) runs before any page can load.
+ * The bind policy this page reads and writes. The values mirror the
+ * `dsh-web-app` startup entry's `bindMode`/`bindHost`; the operator-gated
+ * `/pair/bind` route carries them, because their consumer (the listener) runs
+ * before any page can load and only the operator may choose one.
  */
-
-/**
- * Settings namespace of the Host entry that carries the policy.
- * It is the Loader entry id of `@deepseek-ai/dsh-web-app/startup`.
- */
-export const WEB_STARTUP_NAMESPACE = 'web-startup'
 
 /** How a launch without `--host` picks its bind address. */
 export type MobileBindMode = 'loopback' | 'auto' | 'fixed'
 
-/** The two fields this page reads and writes. */
+/** The two fields the page reads and writes. */
 export interface MobileBindSettings {
   /** Policy in force for the next launch. */
   bindMode: MobileBindMode
-  /** Concrete address `fixed` binds; ignored by the other modes. */
+  /** Concrete address `fixed` binds, and the fallback `auto` uses when detection finds nothing. */
   bindHost: string
 }

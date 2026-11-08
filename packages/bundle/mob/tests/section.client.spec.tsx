@@ -2,8 +2,8 @@
 /**
  * MobileSection: the Connect-phone settings page. It states the address this
  * page runs on and whether a phone can reach the deployment, edits the saved
- * bind policy, and hands every pairing operation to the same panel the row
- * used to open in a dialog.
+ * bind policy through the operator-gated `/pair/bind` route, and hands every
+ * pairing operation to the pairing panel.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -18,10 +18,9 @@ vi.mock('qrcode/lib/browser.js', () => ({
   default: { toDataURL: vi.fn(async () => 'data:image/png;base64,TESTQR') },
 }))
 
-import { MobileSection } from '../src/client/MobileSection.tsx'
-import type { MobileSectionInjected } from '../src/client/MobileSection.tsx'
+import { MobileSection, type MobileSectionInjected } from '../src/client/MobileSection.tsx'
 import type { MobileBindSettings } from '../src/client/bind-settings.ts'
-import type { PairingApi } from '../src/client/pairing-api.ts'
+import type { PairingApi, PairingResult } from '../src/client/pairing-api.ts'
 import { zh, type MobileSettingsKey } from '../src/client/locales.ts'
 
 const JOIN_URL = 'http://192.168.1.5:3080/'
@@ -36,37 +35,34 @@ const t: TranslateNS<'settings.mobile'> = (key, params): string => {
 
 const unused = (): never => { throw new Error('unused by MobileSection') }
 
-/** The selector hook the renderer binds for the injected `bind` snapshot. */
-function bindHook<T>(snapshot: T): <S>(selector: (value: T) => S) => S {
-  return <S,>(selector: (value: T) => S): S => selector(snapshot)
-}
-
-const api: PairingApi = {
-  open: async () => ({ ok: true, value: { code: 'ABCD2345', expiresAt: Date.now() + 120_000 } }),
-  requests: async () => ({ ok: true, value: [] }),
-  decide: async () => ({ ok: true, value: undefined }),
-  devices: async () => ({ ok: true, value: [] }),
-  revoke: async () => ({ ok: true, value: undefined }),
-  restore: async () => ({ ok: true, value: undefined }),
-  purge: async () => ({ ok: true, value: undefined }),
-  setLifetime: async () => ({ ok: true, value: undefined }),
-  rename: async () => ({ ok: true, value: undefined }),
-}
-
-/** Render the page with the saved policy the bench supplies. */
-function mount(saved: MobileBindSettings = { bindMode: 'loopback', bindHost: '' }, face: Partial<MobileSectionInjected> = {}): {
-  saveBind: ReturnType<typeof vi.fn>
-} {
-  const saveBind = vi.fn(async () => true)
-  const snapshot = {
-    status: 'ready' as const,
-    value: saved,
-    base: undefined,
-    user: undefined,
-    revision: 1,
-    writable: true,
-    mode: 'host' as const,
+/** The pairing routes with a settled device list, plus one scripted bind answer. */
+function apiWith(
+  bind: PairingResult<MobileBindSettings>,
+  overrides: Partial<PairingApi> = {},
+): PairingApi {
+  return {
+    open: async () => ({ ok: true, value: { code: 'ABCD2345', expiresAt: Date.now() + 120_000 } }),
+    requests: async () => ({ ok: true, value: [] }),
+    decide: async () => ({ ok: true, value: undefined }),
+    devices: async () => ({ ok: true, value: [] }),
+    revoke: async () => ({ ok: true, value: undefined }),
+    restore: async () => ({ ok: true, value: undefined }),
+    purge: async () => ({ ok: true, value: undefined }),
+    setLifetime: async () => ({ ok: true, value: undefined }),
+    rename: async () => ({ ok: true, value: undefined }),
+    bind: async () => bind,
+    saveBind: async policy => ({ ok: true, value: policy }),
+    ...overrides,
   }
+}
+
+/** Render the page with one scripted bind answer. */
+function mount(
+  bind: PairingResult<MobileBindSettings> = { ok: true, value: { bindMode: 'loopback', bindHost: '' } },
+  face: Partial<MobileSectionInjected> = {},
+  overrides: Partial<PairingApi> = {},
+): { api: PairingApi } {
+  const api = apiWith(bind, overrides)
   render(<MobileSection
     close={() => {}}
     usePanelInfo={unused as never}
@@ -75,14 +71,12 @@ function mount(saved: MobileBindSettings = { bindMode: 'loopback', bindHost: '' 
     useSessionRetainInfo={unused as never}
     useSessions={unused as never}
     useWorkspaces={unused as never}
-    useBind={bindHook(snapshot)}
     t={t}
     joinUrl={async () => ({ ok: true, value: JOIN_URL })}
     api={api}
-    saveBind={saveBind}
     {...face}
   />)
-  return { saveBind }
+  return { api }
 }
 
 afterEach(cleanup)
@@ -97,21 +91,71 @@ describe('MobileSection', () => {
 
     // The address field stays on the page in every mode; loopback mode is the
     // one mode that does not read it, so it is shown disabled rather than gone.
-    const address = screen.getByLabelText('IP 地址')
-    expect(address).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', true)
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'auto' } })
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
-    expect(screen.getByRole('button', { name: '生成配对码' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
   })
 
   it('saves the address typed in automatic mode as its fallback', async () => {
-    const { saveBind } = mount()
-    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'auto' } })
-    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '192.168.1.9' } })
+    const { api } = mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } })
+    const saveBind = vi.spyOn(api, 'saveBind')
+    await screen.findByLabelText('绑定方式')
+    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: ' 192.168.1.9 ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => { expect(saveBind).toHaveBeenCalledWith({ bindMode: 'auto', bindHost: '192.168.1.9' }) })
+    expect(await screen.findByText(zh['access.saved'])).toBeTruthy()
+  })
+
+  it('saves a fixed address and requires one before saving', async () => {
+    const { api } = mount()
+    const saveBind = vi.spyOn(api, 'saveBind')
+    await screen.findByLabelText('绑定方式')
+    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
+    expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
+
+    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '192.168.1.5' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => { expect(saveBind).toHaveBeenCalledWith({ bindMode: 'fixed', bindHost: '192.168.1.5' }) })
+    expect(await screen.findByText(zh['access.saved'])).toBeTruthy()
+  })
+
+  it('reports a refused save and keeps the edit', async () => {
+    mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } }, {}, {
+      saveBind: async () => ({ ok: false, reason: 'failed' }),
+    })
+    await screen.findByLabelText('绑定方式')
+    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
+    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '10.0.0.7' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(await screen.findByText(zh['access.failed'])).toBeTruthy()
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('value', '10.0.0.7')
+  })
+
+  it('keeps the address block visible but read-only for a paired phone', async () => {
+    mount({ ok: false, reason: 'forbidden' })
+    // A phone still learns which address it is on and why it cannot change the
+    // deployment-wide policy from there; the controls simply are not offered.
+    expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
+    expect(screen.getByText(globalThis.location.host)).toBeTruthy()
+    expect(await screen.findByText(zh['access.readOnly'])).toBeTruthy()
+    expect(screen.queryByLabelText('绑定方式')).toBeNull()
+    expect(screen.queryByLabelText('IP 地址')).toBeNull()
+    expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
+  })
+
+  it('offers a retry when the policy read fails for a transient reason', async () => {
+    const bind = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, reason: 'failed' as const })
+      .mockResolvedValue({ ok: true as const, value: { bindMode: 'auto' as const, bindHost: '' } })
+    mount(undefined, {}, { bind })
+    expect(await screen.findByText(zh['panel.loadFailed'])).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await waitFor(() => { expect(screen.getByLabelText('绑定方式')).toBeTruthy() })
+    expect(bind).toHaveBeenCalledTimes(2)
   })
 
   it('creates a pairing code for the phone', async () => {
@@ -121,7 +165,7 @@ describe('MobileSection', () => {
     expect(screen.getByRole('img')).toBeTruthy()
   })
 
-  it('says a phone cannot connect when the Host refuses the join URL, and points at the address block', async () => {
+  it('says a phone cannot connect when the Host refuses the join URL', async () => {
     mount(undefined, {
       joinUrl: async () => ({
         ok: false as const,
@@ -129,80 +173,19 @@ describe('MobileSection', () => {
       }),
     })
     expect(await screen.findByText(zh['access.unreachable'])).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: '生成配对码' }))
+    fireEvent.click(await screen.findByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByText(zh['dialog.unavailable'])).toBeTruthy() })
-  })
-
-  it('saves a fixed address through the injected write path', async () => {
-    const { saveBind } = mount()
-    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
-    const field = screen.getByLabelText('IP 地址')
-    expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
-
-    fireEvent.change(field, { target: { value: ' 192.168.1.5 ' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    await waitFor(() => { expect(saveBind).toHaveBeenCalledWith({ bindMode: 'fixed', bindHost: '192.168.1.5' }) })
-    expect(await screen.findByText(zh['access.saved'])).toBeTruthy()
-  })
-
-  it('reports a refused save and keeps the edit', async () => {
-    const saveBind = vi.fn(async () => false)
-    mount({ bindMode: 'auto', bindHost: '' }, { saveBind })
-    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
-    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '10.0.0.7' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    expect(await screen.findByText(zh['access.failed'])).toBeTruthy()
-    expect(screen.getByLabelText('IP 地址')).toHaveProperty('value', '10.0.0.7')
-  })
-
-  it('keeps the address block visible but read-only when the Host exposes no bind policy', async () => {
-    const snapshot = {
-      status: 'unavailable' as const,
-      value: undefined,
-      base: undefined,
-      user: undefined,
-      revision: undefined,
-      writable: false,
-      mode: 'host' as const,
-    }
-    render(<MobileSection
-      close={() => {}}
-      usePanelInfo={unused as never}
-      useResource={unused as never}
-      useSessionStatus={unused as never}
-      useSessionRetainInfo={unused as never}
-      useSessions={unused as never}
-      useWorkspaces={unused as never}
-      useBind={bindHook(snapshot)}
-      t={t}
-      joinUrl={async () => ({ ok: true, value: JOIN_URL })}
-      api={api}
-      saveBind={async () => true}
-    />)
-    // The block stays: a remote page still needs to know which address it is on
-    // and why it cannot change the policy from there.
-    expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
-    expect(screen.getByText(globalThis.location.host)).toBeTruthy()
-    expect(screen.getByText(zh['access.readOnly'])).toBeTruthy()
-    expect(screen.queryByLabelText('绑定方式')).toBeNull()
-    expect(screen.queryByLabelText('IP 地址')).toBeNull()
-    expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
   })
 
   it('keeps the code and QR when an inline rename cancels on Escape', async () => {
     const rename = vi.fn(async () => ({ ok: true as const, value: undefined }))
     const now = Date.now()
-    mount(undefined, {
-      api: {
-        ...api,
-        devices: async () => ({ ok: true, value: [
-          { id: 'device-1', label: '客厅的手机', registeredAt: now, lastSeenAt: now },
-        ] }),
-        rename,
-      },
+    mount(undefined, {}, {
+      devices: async () => ({
+        ok: true,
+        value: [{ id: 'device-1', label: '客厅的手机', registeredAt: now, lastSeenAt: now }],
+      }),
+      rename,
     })
     fireEvent.click(await screen.findByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByText('客厅的手机')).toBeTruthy() })

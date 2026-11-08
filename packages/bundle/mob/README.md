@@ -67,7 +67,7 @@ The bundle is one insert-only patch plus one dual-face plugin. The patch adds th
 
 The join root prefers the deployment’s `--public-url`, then its first `--trusted-host`, then its concrete non-loopback listener. A trusted authority retains its explicit port; otherwise it uses the bound port. The listener supplies HTTP or HTTPS, and IPv6 literals are bracketed. A loopback or zoned non-loopback bind without an advertised authority fails with `mob/no-advertised-origin`. The value carries no process token.
 
-The page's address block writes the `dsh-web-app` startup entry's `bindMode`/`bindHost` Config through the settings mirror: `This machine only` keeps `127.0.0.1`, `Automatic (LAN)` resolves the default-route interface at startup, and a `Fixed IP` binds the address typed there. `dsh-web-app` owns that resolution and its fallback; this layer only edits the policy and reports whether the origin the Host advertises is reachable from a phone.
+The page's address block writes the `dsh-web-app` startup entry's `bindMode`/`bindHost` Config through the operator-gated `/pair/bind` route: `This machine only` keeps `127.0.0.1`, `Automatic (LAN)` resolves the default-route interface at startup, and a `Fixed IP` binds the address typed there. `dsh-web-app` owns that resolution and its fallback; this layer only edits the policy and reports whether the origin the Host advertises is reachable from a phone.
 
 ### Source map
 
@@ -138,7 +138,7 @@ These limits tell you what to expect on untrusted networks or unusual terminals.
 - **iOS home-screen apps get no background WebSocket** — iOS suspends the app while it is in the background, so returning to the foreground recovers the stream through the existing Connection generation reconnect and the Remote journal stream's resume cursor.
 - **The address is configured, not discovered** — the join root uses `--public-url`, a trusted authority, or the concrete non-loopback bind. No adapter scan extends trust; *Automatic (LAN)* binds the default-route interface the operating system reports, not an address the page found.
 - **A saved bind mode applies on the next launch** — the listener binds before any page loads, so the page saves the policy and states that `dsh web` must restart.
-- **Only a loopback page can edit the bind mode** — settings persistence is loopback-only (`ctx.configForms` keeps a non-loopback page process-local), so after binding a LAN address the page keeps the address facts and the explanation but no controls: change the policy with `--host` or the profile file, then restart.
+- **A paired phone can neither read nor change the bind policy** — the route carries the same operator rule as every other decision, so a phone sees the address facts only; the operator may change the policy from whichever page they opened, including the LAN one.
 - **A wildcard bind is refused** — `dsh web` rejects `--host 0.0.0.0` and `--host ::`; name one interface address instead.
 - **A deployment with no declared origin serves no join URL** — the Connect-phone page fails with `mob/no-advertised-origin` and names the modes that supply one; the `dsh-web-app` readiness line stays the only printed URL.
 

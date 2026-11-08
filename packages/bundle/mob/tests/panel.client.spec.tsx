@@ -100,8 +100,13 @@ function fakeApi(script: Script = {}): FakeApi {
   const purge = vi.fn(async (): Promise<PairingResult<void>> => script.purge ?? { ok: true, value: undefined })
   const rename = vi.fn(async (): Promise<PairingResult<void>> => script.rename ?? { ok: true, value: undefined })
   const setLifetime = vi.fn(async (): Promise<PairingResult<void>> => script.setLifetime ?? { ok: true, value: undefined })
+  // The panel never opens the bind policy; the page owns it.
+  const bind = vi.fn(async (): Promise<PairingResult<{ bindMode: 'loopback'; bindHost: string }>> =>
+    ({ ok: true, value: { bindMode: 'loopback', bindHost: '' } }))
+  const saveBind = vi.fn(async (policy: { bindMode: 'loopback'; bindHost: string }) =>
+    ({ ok: true as const, value: policy }))
   return {
-    api: { open, requests, decide, devices, revoke, restore, purge, rename, setLifetime },
+    api: { open, requests, decide, devices, revoke, restore, purge, rename, setLifetime, bind, saveBind },
     open, requests, decide, devices, revoke, restore, purge, rename, setLifetime,
   }
 }

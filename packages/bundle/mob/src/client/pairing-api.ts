@@ -1,8 +1,11 @@
 /**
  * The desktop half of the pairing handshake. It speaks the same `/pair*` routes
  * the phone uses, so the operator-credential rule that guards a decision has
- * exactly one enforcement point.
+ * exactly one enforcement point — and the saved bind policy rides that same
+ * rule, because it is a deployment-wide decision rather than a per-page one.
  */
+
+import type { MobileBindMode, MobileBindSettings } from './bind-settings.ts'
 
 /** One request still waiting for a decision. */
 export interface PendingPairingView {
@@ -79,6 +82,10 @@ export interface PairingApi {
   rename(deviceId: string, label: string): Promise<PairingResult<void>>
   /** Set one device's delivery window, in days. */
   setLifetime(deviceId: string, days: number): Promise<PairingResult<void>>
+  /** Read the saved bind policy; refused for a paired phone. */
+  bind(): Promise<PairingResult<MobileBindSettings>>
+  /** Persist the bind policy; the next launch binds it. */
+  saveBind(policy: MobileBindSettings): Promise<PairingResult<MobileBindSettings>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -142,8 +149,21 @@ function pendingOf(value: unknown): PendingPairingView | undefined {
   return { code, openedAt, expiresAt, userAgent }
 }
 
-function deviceOf(value: unknown): PairedDeviceView | undefined {
+/**
+ * Read one bind-policy answer.
+ * @param value - untrusted response body.
+ * @returns the policy, or undefined when a field is absent or outside the accepted set.
+ */
+function bindOf(value: unknown): MobileBindSettings | undefined {
   if (!isRecord(value)) return undefined
+  const mode = value.bindMode
+  if (mode !== 'loopback' && mode !== 'auto' && mode !== 'fixed') return undefined
+  const bindMode: MobileBindMode = mode
+  const bindHost = stringField(value, 'bindHost')
+  return bindHost === undefined ? undefined : { bindMode, bindHost }
+}
+
+function deviceOf(value: unknown): PairedDeviceView | undefined {  if (!isRecord(value)) return undefined
   const id = stringField(value, 'id')
   const label = stringField(value, 'label')
   const registeredAt = numberField(value, 'registeredAt')
@@ -258,6 +278,18 @@ export function createPairingApi(): PairingApi {
     },
     async setLifetime(deviceId, days) {
       return postDeviceAction('/pair/devices/lifetime', { deviceId, days })
+    },
+    async bind() {
+      const answer = await call('/pair/bind')
+      if (!answer.ok) return answer
+      const policy = bindOf(answer.value)
+      return policy === undefined ? { ok: false, reason: 'failed' } : { ok: true, value: policy }
+    },
+    async saveBind(policy) {
+      const answer = await call('/pair/bind', { method: 'POST', body: policy })
+      if (!answer.ok) return answer
+      const saved = bindOf(answer.value)
+      return saved === undefined ? { ok: false, reason: 'failed' } : { ok: true, value: saved }
     },
   }
 }

@@ -14,6 +14,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { PairedDevice, PairedDeviceId } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { FrontendService } from '@deepseek-ai/dsh-host-frontend-static'
+import type { SettingsForms } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { isPairingCode, PairingSessions } from './pairing.ts'
 import type {} from './pairing.ts'
 import type { ArpLookup } from './mac.ts'
@@ -26,6 +28,12 @@ const FRONTEND_SERVICE = 'frontend'
 const CODE_QUERY = 'c'
 /** Largest accepted decision body; these routes carry only identifiers and a label. */
 const PAIR_BODY_LIMIT_BYTES = 8 * 1024
+/** Settings namespace of the web app's startup entry, whose Config carries the bind policy. */
+const STARTUP_NAMESPACE = 'web-startup'
+/** Bind modes the startup entry accepts. */
+const BIND_MODES: readonly string[] = ['loopback', 'auto', 'fixed']
+/** Longest accepted bind address, matching the startup entry's string field. */
+const MAX_BIND_HOST_LENGTH = 64
 /** Legal per-device lifetime in days, matching the Connection config schema. */
 const MIN_DEVICE_LIFETIME_DAYS = 1
 const MAX_DEVICE_LIFETIME_DAYS = 365
@@ -47,7 +55,38 @@ export const PAIR_PATHS = {
   revoke: '/pair/revoke',
   restore: '/pair/devices/restore',
   purge: '/pair/devices/purge',
+  bind: '/pair/bind',
 } as const
+
+/** The bind policy the settings page reads and writes. */
+interface BindPolicy {
+  readonly bindMode: string
+  readonly bindHost: string
+}
+
+/**
+ * Narrow an untrusted value to a bind policy.
+ * @param value - a request body or one settings descriptor's value.
+ * @returns the policy, or undefined when a field is absent or outside the accepted set.
+ */
+function bindPolicyOf(value: unknown): BindPolicy | undefined {
+  if (!isRecord(value)) return undefined
+  const { bindMode, bindHost } = value
+  if (typeof bindMode !== 'string' || !BIND_MODES.includes(bindMode)) return undefined
+  if (typeof bindHost !== 'string' || bindHost.length > MAX_BIND_HOST_LENGTH) return undefined
+  return { bindMode, bindHost: bindHost.trim() }
+}
+
+/**
+ * Read the saved bind policy from the startup entry's live Config.
+ * @param settings - the composed settings provider.
+ * @returns the policy, or undefined when this composition carries no such entry.
+ */
+function savedBindPolicy(settings: SettingsForms): BindPolicy | undefined {
+  const descriptor = settings.describe({ redactSecrets: true })
+    .find(candidate => String(candidate.ns) === STARTUP_NAMESPACE)
+  return descriptor === undefined ? undefined : bindPolicyOf(descriptor.value)
+}
 
 interface JsonHeaders {
   readonly [name: string]: string
@@ -159,7 +198,7 @@ async function pairingShell(ctx: Context, code: string): Promise<string | undefi
 }
 
 /**
- * Register the eleven pairing routes on the Host web server.
+ * Register the twelve pairing routes on the Host web server.
  * @param ctx - plugin context carrying `webServer` and the Connection service.
  * @param pairing - the process's pairing sessions.
  * @param lookup - ARP reader resolving an approved phone's MAC; tests inject
@@ -424,6 +463,54 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         // Wire boundary: the body carries the id as JSON text, and this is where
         // the validated string earns the registry's brand.
         sendJson(res, 200, { ok: await ctx.connection.devices.rename(deviceId as PairedDeviceId, label.trim()) })
+      },
+    }),
+    ctx.webServer.register({
+      kind: 'exact',
+      path: PAIR_PATHS.bind,
+      handler: async (req, res) => {
+        if (req.method !== 'GET' && req.method !== 'POST') {
+          sendMethodNotAllowed(res, 'GET, POST')
+          return
+        }
+        // The bind policy is a deployment-wide decision, so it carries the same
+        // operator rule as every other decision route: a paired phone cannot
+        // read or change it, even though the settings RPC would accept the
+        // write from any authenticated caller.
+        if (refused(req, res, ctx, 'operator')) return
+        const settings = ctx.get('settings')
+        if (settings === undefined) {
+          sendJson(res, 503, { error: 'this Host composes no settings provider' })
+          return
+        }
+        if (req.method === 'GET') {
+          const policy = savedBindPolicy(settings)
+          if (policy === undefined) {
+            sendJson(res, 404, { error: 'this deployment saves no bind policy' })
+            return
+          }
+          sendJson(res, 200, policy)
+          return
+        }
+        const policy = bindPolicyOf(await readJsonBody(req))
+        if (policy === undefined) {
+          sendJson(res, 400, { error: 'expected bindMode loopback|auto|fixed and a bind address of at most 64 characters' })
+          return
+        }
+        if (policy.bindMode === 'fixed' && policy.bindHost === '') {
+          sendJson(res, 400, { error: 'a fixed bind mode needs an address' })
+          return
+        }
+        try {
+          await settings.update(STARTUP_NAMESPACE, { bindMode: policy.bindMode, bindHost: policy.bindHost })
+        } catch (error) {
+          // The settings write is the only statement that can fail here; the
+          // page keeps the operator's draft and reports the failure.
+          ctx.logger.warn('mob: could not save the bind policy: %s', String(error))
+          sendJson(res, 500, { error: 'bind policy was not saved' })
+          return
+        }
+        sendJson(res, 200, savedBindPolicy(settings) ?? policy)
       },
     }),
     deviceAction(PAIR_PATHS.revoke, (devices, deviceId) => devices.revoke(deviceId)),
