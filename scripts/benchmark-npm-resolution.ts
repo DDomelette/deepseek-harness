@@ -1,10 +1,10 @@
 /** Benchmark npm's dependency-tree resolution against an all-local registry. */
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process'
-import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { parseArgs } from 'node:util'
 
@@ -269,8 +269,32 @@ function close(server: Server): Promise<void> {
   })
 }
 
-function npmExecutable(): string {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm'
+/** How one npm command line is started on this platform. */
+export interface NpmInvocation {
+  readonly command: string
+  readonly args: readonly string[]
+}
+
+/**
+ * Build the npm command line this module runs and terminates.
+ *
+ * Windows starts npm's JavaScript entry directly under the running Node.
+ * `npm.cmd` would make cmd.exe the child this module tracks, so terminating a
+ * timed-out run would kill the wrapper and leave the npm process it started
+ * behind — still holding the consumer directory as its current directory, which
+ * Windows then refuses to remove.
+ *
+ * @param args - Arguments forwarded to npm.
+ * @returns The executable and the arguments to start it with.
+ * @throws Error when the running Node has no npm beside it.
+ */
+export function npmInvocation(args: readonly string[]): NpmInvocation {
+  if (process.platform !== 'win32') return { command: 'npm', args: [...args] }
+  const entry = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  if (!existsSync(entry)) {
+    throw new Error(`cannot locate npm's JavaScript entry at ${entry}; this gate starts npm under the Node that runs it`)
+  }
+  return { command: process.execPath, args: [entry, ...args] }
 }
 
 function delay(ms: number): Promise<void> {
@@ -321,7 +345,6 @@ export async function runCommandWithTimeout(
     cwd: options.cwd,
     detached: process.platform !== 'win32',
     env: options.env,
-    shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
@@ -383,7 +406,7 @@ async function runNpm(
   writeFileSync(globalNpmrc, '')
   const inheritedEnvironment = Object.fromEntries(Object.entries(process.env)
     .filter(([name]) => !name.toLowerCase().startsWith('npm_config_')))
-  const result = await runCommandWithTimeout(npmExecutable(), [
+  const invocation = npmInvocation([
     'install',
     '--package-lock-only',
     '--ignore-scripts',
@@ -394,7 +417,8 @@ async function runNpm(
     '--install-strategy=hoisted',
     '--legacy-peer-deps=false',
     `--registry=${registry}`,
-  ], {
+  ])
+  const result = await runCommandWithTimeout(invocation.command, invocation.args, {
     cwd,
     env: {
       ...inheritedEnvironment,
@@ -413,16 +437,39 @@ async function runNpm(
 }
 
 /**
+ * Remove the temporary directory one npm invocation ran in.
+ *
+ * Removal is reported rather than thrown because this runs while the caller's
+ * own error is propagating: a throw here would replace a resolution failure
+ * with a cleanup failure. Windows refuses to remove a directory a live process
+ * holds as its current directory, which is exactly the state a killed npm
+ * child can leave behind.
+ *
+ * @param consumer - Working directory created for one npm invocation.
+ * @returns The unreleased path and its failure, or `undefined` once it is gone.
+ */
+export function removeConsumerDirectory(consumer: string): string | undefined {
+  try {
+    rmSync(consumer, { recursive: true, force: true })
+    return undefined
+  } catch (error) {
+    return `${consumer}: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+/**
  * Ask npm to compute an install layout without downloading package archives.
  * @param index - Package metadata exposed through the local registry.
  * @param dependencies - Root dependencies whose install layout npm computes.
  * @param timeoutMs - Hard wall-clock limit for the npm child process.
+ * @param timeoutSubject - What the limit guards, named in the timeout diagnostic.
  * @returns The package lock plus timing and registry-request observations.
  */
 export async function resolveNpmPackageLock(
   index: RegistryIndex,
   dependencies: Readonly<Record<string, string>>,
   timeoutMs: number,
+  timeoutSubject = 'npm resolution',
 ): Promise<NpmPackageLockResolution> {
   let registryRequests = 0
   let archiveRequests = 0
@@ -471,7 +518,7 @@ export async function resolveNpmPackageLock(
       dependencies,
     }, null, 2)}\n`)
     const result = await runNpm(consumer, registry, timeoutMs)
-    if (result.timedOut) throw new Error(`npm resolution exceeded ${String(timeoutMs)} ms`)
+    if (result.timedOut) throw new Error(`${timeoutSubject} exceeded ${String(timeoutMs)} ms`)
     return {
       durationMs: result.durationMs,
       registryRequests,
@@ -482,7 +529,10 @@ export async function resolveNpmPackageLock(
   } finally {
     server.closeAllConnections()
     await close(server)
-    rmSync(consumer, { recursive: true, force: true })
+    const unreleased = removeConsumerDirectory(consumer)
+    if (unreleased !== undefined) {
+      console.error(`npm resolution: temporary directory not removed: ${unreleased}`)
+    }
   }
 }
 
@@ -515,7 +565,8 @@ async function main(): Promise<void> {
   const targetVersions = index.get(TARGET_PACKAGE)
   if (targetVersions === undefined) throw new Error(`local registry contains no ${TARGET_PACKAGE}`)
   const targetVersion = latestVersion(targetVersions)
-  const npmVersion = execFileSync(npmExecutable(), ['--version'], { encoding: 'utf8' }).trim()
+  const version = npmInvocation(['--version'])
+  const npmVersion = execFileSync(version.command, version.args, { encoding: 'utf8' }).trim()
   console.log(
     `benchmark-npm-resolution: npm ${npmVersion}, ${options.ref === undefined ? 'working tree' : options.ref}, `
     + `${String(index.size)} package name(s), setup ${(performance.now() - started).toFixed(0)} ms.`,
