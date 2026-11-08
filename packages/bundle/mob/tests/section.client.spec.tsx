@@ -88,13 +88,30 @@ function mount(saved: MobileBindSettings = { bindMode: 'loopback', bindHost: '' 
 afterEach(cleanup)
 
 describe('MobileSection', () => {
-  it('states this page’s address and the phone-reachable origin', async () => {
+  it('states this page’s address, the phone-reachable origin, and the address field in every mode', async () => {
     mount()
     expect(screen.getByRole('heading', { name: '连接手机' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
     expect(screen.getByText(globalThis.location.host)).toBeTruthy()
     expect(await screen.findByText(`手机可打开 ${JOIN_URL}`)).toBeTruthy()
+
+    // The address field stays on the page in every mode; loopback mode is the
+    // one mode that does not read it, so it is shown disabled rather than gone.
+    const address = screen.getByLabelText('IP 地址')
+    expect(address).toHaveProperty('disabled', true)
+    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'auto' } })
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
+    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
     expect(screen.getByRole('button', { name: '生成配对码' })).toBeTruthy()
+  })
+
+  it('saves the address typed in automatic mode as its fallback', async () => {
+    const { saveBind } = mount()
+    fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'auto' } })
+    fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '192.168.1.9' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => { expect(saveBind).toHaveBeenCalledWith({ bindMode: 'auto', bindHost: '192.168.1.9' }) })
   })
 
   it('creates a pairing code for the phone', async () => {
@@ -121,7 +138,7 @@ describe('MobileSection', () => {
     const { saveBind } = mount()
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     const field = screen.getByLabelText('IP 地址')
-    expect(screen.getByRole('button', { name: '保存' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
 
     fireEvent.change(field, { target: { value: ' 192.168.1.5 ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -138,10 +155,10 @@ describe('MobileSection', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(await screen.findByText(zh['access.failed'])).toBeTruthy()
-    expect(screen.getByLabelText('IP 地址').value).toBe('10.0.0.7')
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('value', '10.0.0.7')
   })
 
-  it('hides the address block when the Host exposes no bind policy', async () => {
+  it('keeps the address block visible but read-only when the Host exposes no bind policy', async () => {
     const snapshot = {
       status: 'unavailable' as const,
       value: undefined,
@@ -165,8 +182,13 @@ describe('MobileSection', () => {
       api={api}
       saveBind={async () => true}
     />)
-    expect(screen.queryByText('访问地址')).toBeNull()
+    // The block stays: a remote page still needs to know which address it is on
+    // and why it cannot change the policy from there.
+    expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
+    expect(screen.getByText(globalThis.location.host)).toBeTruthy()
     expect(screen.getByText(zh['access.readOnly'])).toBeTruthy()
+    expect(screen.queryByLabelText('绑定方式')).toBeNull()
+    expect(screen.queryByLabelText('IP 地址')).toBeNull()
     expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
   })
 

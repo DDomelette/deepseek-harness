@@ -48,10 +48,11 @@ export interface Config {
   /**
    * How a launch without `--host` chooses its address. `loopback` keeps the
    * server on this machine, `fixed` uses {@link Config.bindHost}, and `auto`
-   * takes the address of the interface the default route uses.
+   * takes the address of the interface the default route uses, falling back to
+   * {@link Config.bindHost} and then to this machine.
    */
   bindMode: Volatile<BindMode>
-  /** Concrete local address `fixed` binds; the other modes ignore it. */
+  /** Concrete local address `fixed` binds; `auto` uses it when detection finds nothing, and `loopback` ignores it. */
   bindHost: Volatile<string>
 }
 
@@ -155,7 +156,9 @@ export async function detectLanAddress(): Promise<string | undefined> {
  * Compose the fallback bind address from the saved policy.
  * @param config - the deployment's bind policy.
  * @param detect - address discovery for `auto`; tests substitute it.
- * @returns the mode in force and the address it resolves to.
+ * @returns the mode in force and the address it resolves to. `auto` prefers
+ *   the detected interface address and falls back to `bindHost`, which keeps
+ *   the page's address field meaningful in that mode.
  * @throws when `fixed` names no address, so a saved edit cannot silently fall
  *   back to loopback while the page shows an address.
  */
@@ -172,7 +175,10 @@ export async function resolveBind(
     }
     return { mode, host }
   }
-  return { mode: 'auto', host: await detect() ?? LOOPBACK_HOST }
+  const detected = await detect()
+  if (detected !== undefined) return { mode, host: detected }
+  const saved = config.bindHost.trim()
+  return { mode, host: saved === '' ? LOOPBACK_HOST : saved }
 }
 
 /**

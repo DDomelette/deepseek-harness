@@ -4,6 +4,7 @@
  * fallback bind policy decides the address a launch without `--host` uses.
  */
 
+import type { Socket } from 'node:dgram'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -260,11 +261,16 @@ describe('fallback bind policy', () => {
     )
   })
 
-  it('uses the detected interface address, falling back to loopback without one', async () => {
+  it('prefers detection in automatic mode and falls back to the saved address, then loopback', async () => {
     const detector = vi.fn(async () => '192.168.1.9')
-    await expect(resolveBind({ bindMode: 'auto', bindHost: '' }, detector)).resolves.toEqual({
+    await expect(resolveBind({ bindMode: 'auto', bindHost: '10.0.0.7' }, detector)).resolves.toEqual({
       mode: 'auto',
       host: '192.168.1.9',
+    })
+    expect(detector).toHaveBeenCalledOnce()
+    await expect(resolveBind({ bindMode: 'auto', bindHost: ' 10.0.0.7 ' }, async () => undefined)).resolves.toEqual({
+      mode: 'auto',
+      host: '10.0.0.7',
     })
     await expect(resolveBind({ bindMode: 'auto', bindHost: '' }, async () => undefined)).resolves.toEqual({
       mode: 'auto',
@@ -273,8 +279,8 @@ describe('fallback bind policy', () => {
   })
 })
 
-/** One scripted UDP socket for the route probe. */
-function scriptedSocket(behavior: { address?: string | Error; fail?: boolean }) {
+/** One scripted UDP socket for the route probe; only the members detection reads exist. */
+function scriptedSocket(behavior: { address?: string | Error; fail?: boolean }): Socket {
   const listeners = new Map<string, () => void>()
   const socket = {
     once: (event: string, listener: () => void) => {
@@ -293,17 +299,17 @@ function scriptedSocket(behavior: { address?: string | Error; fail?: boolean }) 
     },
     close: vi.fn(),
   }
-  return socket
+  return socket as unknown as Socket
 }
 
 describe('interface detection', () => {
   it('takes the address the default route would use', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ address: '192.168.1.5' }) as never)
+    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ address: '192.168.1.5' }))
     await expect(detectLanAddress()).resolves.toBe('192.168.1.5')
   })
 
   it('falls back to the first usable interface when the route probe fails', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }) as never)
+    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }))
     vi.mocked(os.networkInterfaces).mockReturnValue({
       lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
       link: [{ address: '169.254.10.2', family: 'IPv4', internal: false }],
@@ -323,7 +329,7 @@ describe('interface detection', () => {
   })
 
   it('ignores empty interface entries', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }) as never)
+    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }))
     vi.mocked(os.networkInterfaces).mockReturnValue({ ghost: undefined })
     await expect(detectLanAddress()).resolves.toBeUndefined()
   })

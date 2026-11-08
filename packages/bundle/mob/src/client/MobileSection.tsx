@@ -105,71 +105,71 @@ export function MobileSection({ useBind, joinUrl, api, saveBind, t }: MobileSect
       <h2 className={css.title}>{t('dialog.title')}</h2>
       <p className={css.intro}>{t('dialog.description')}</p>
 
-      {saved === undefined && <p className={css.hint}>{t('access.readOnly')}</p>}
+      <section className={css.block}>
+        <h3 className={css.heading}>{t('access.title')}</h3>
+        <dl className={css.facts}>
+          <dt className={css.factLabel}>{t('access.current')}</dt>
+          <dd className={css.factValue}>
+            <code className={css.address}>{globalThis.location.host}</code>
+          </dd>
+          <dt className={css.factLabel}>{t('access.phone')}</dt>
+          <dd className={css.factValue}>
+            {reach.status === 'reachable' ? t('access.reachable', { url: reach.url }) : t('access.unreachable')}
+          </dd>
+        </dl>
 
-      {saved !== undefined && current !== undefined && (
-        <section className={css.block}>
-          <h3 className={css.heading}>{t('access.title')}</h3>
-          <dl className={css.facts}>
-            <dt className={css.factLabel}>{t('access.current')}</dt>
-            <dd className={css.factValue}>
-              <code className={css.address}>{globalThis.location.host}</code>
-            </dd>
-            <dt className={css.factLabel}>{t('access.phone')}</dt>
-            <dd className={css.factValue}>
-              {reach.status === 'reachable' ? t('access.reachable', { url: reach.url }) : t('access.unreachable')}
-            </dd>
-          </dl>
+        {saved !== undefined && current !== undefined
+          ? (
+            <>
+              <label className={css.field}>
+                {t('access.mode')}
+                <select
+                  className={css.select}
+                  value={current.bindMode}
+                  disabled={busy || !bind.writable}
+                  onChange={(event) => { choose(event.currentTarget.value as MobileBindMode) }}
+                >
+                  {BIND_MODES.map(mode => (
+                    <option key={mode} value={mode}>{t(`access.mode.${mode}`)}</option>
+                  ))}
+                </select>
+              </label>
 
-          <label className={css.field}>
-            {t('access.mode')}
-            <select
-              className={css.select}
-              value={current.bindMode}
-              disabled={busy || !bind.writable}
-              onChange={(event) => { choose(event.currentTarget.value as MobileBindMode) }}
-            >
-              {BIND_MODES.map(mode => (
-                <option key={mode} value={mode}>{t(`access.mode.${mode}`)}</option>
-              ))}
-            </select>
-          </label>
+              <label className={css.field}>
+                {t('access.host')}
+                <input
+                  className={css.input}
+                  value={current.bindHost}
+                  placeholder={t('access.hostPlaceholder')}
+                  inputMode="decimal"
+                  spellCheck={false}
+                  disabled={busy || !bind.writable || current.bindMode === 'loopback'}
+                  onChange={(event) => { editHost(event.currentTarget.value) }}
+                />
+              </label>
 
-          {current.bindMode === 'fixed' && (
-            <label className={css.field}>
-              {t('access.host')}
-              <input
-                className={css.input}
-                value={current.bindHost}
-                placeholder={t('access.hostPlaceholder')}
-                inputMode="decimal"
-                spellCheck={false}
-                disabled={busy || !bind.writable}
-                onChange={(event) => { editHost(event.currentTarget.value) }}
-              />
-            </label>
-          )}
+              <p className={css.hint}>{t(`access.modeHint.${current.bindMode}`)}</p>
+              <p className={css.hint}>{t('access.restart')}</p>
 
-          <p className={css.hint}>{t(`access.modeHint.${current.bindMode}`)}</p>
-          <p className={css.hint}>{t('access.restart')}</p>
-
-          <div className={css.actions}>
-            <button
-              type="button"
-              className={css.primary}
-              disabled={busy || !bind.writable || fixedMissingAddress}
-              onClick={() => { void save() }}
-            >
-              {t('access.save')}
-            </button>
-            {notice !== undefined && (
-              <p className={notice === 'saved' ? css.saved : css.failed} role="status">
-                {t(notice === 'saved' ? 'access.saved' : 'access.failed')}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+              <div className={css.actions}>
+                <button
+                  type="button"
+                  className={css.primary}
+                  disabled={busy || !bind.writable || fixedMissingAddress}
+                  onClick={() => { void save() }}
+                >
+                  {t('access.save')}
+                </button>
+                {notice !== undefined && (
+                  <p className={notice === 'saved' ? css.saved : css.failed} role="status">
+                    {t(notice === 'saved' ? 'access.saved' : 'access.failed')}
+                  </p>
+                )}
+              </div>
+            </>
+          )
+          : <p className={css.hint}>{t('access.readOnly')}</p>}
+      </section>
 
       <section className={css.block} aria-label={t('panel.heading')}>
         <PairingPanel t={t} joinUrl={joinUrl} api={api} />

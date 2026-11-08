@@ -60,7 +60,7 @@ dsh --profile web --no-open --port 8080
 <a id="public-deployments"></a>
 ### 监听、信任与公开部署
 
-默认情况下 GUI 只监听 loopback，只接受本机的连接。只有 `--host` 会为本次调用改变监听器：它接受一个具体的本机 IPv4 或 IPv6 地址，不接受通配地址。未指定 `--host` 的启动会绑定 `web-startup` 项 `bindMode`/`bindHost` 配置里保存的地址——设置 → 连接手机是它唯一的编辑入口——其中 `loopback`（默认）保持 `127.0.0.1`，`fixed` 绑定操作者填写的地址，`auto` 绑定默认路由网卡的地址，没有可用网卡时回落到 loopback。保存的策略在下一次启动生效，且只有回环页面才能编辑它，因为其他页面的设置写入只保留在进程内。未启用 TLS 的非 loopback 监听器提供明文 HTTP，并在启动时警告，即使前置 HTTPS 的 `--public-url` 也不例外。Host/Origin 栅栏接受绑定 IP 本身；其他非 loopback authority 需要 `--trusted-host`，因此远端浏览器要么经由剥离前缀的代理访问 GUI，要么通过以可信主机名呈现的端口转发客户端访问。启动 token 交换与签名会话 cookie 认证每个 API 方法与 WebSocket 流。
+默认情况下 GUI 只监听 loopback，只接受本机的连接。只有 `--host` 会为本次调用改变监听器：它接受一个具体的本机 IPv4 或 IPv6 地址，不接受通配地址。未指定 `--host` 的启动会绑定 `web-startup` 项 `bindMode`/`bindHost` 配置里保存的地址——设置 → 连接手机是它唯一的编辑入口——其中 `loopback`（默认）保持 `127.0.0.1`，`fixed` 绑定操作者填写的地址，`auto` 绑定默认路由网卡的地址，探测不到时回落到保存的 `bindHost`，再回落到 loopback。保存的策略在下一次启动生效，且只有回环页面才能编辑它，因为其他页面的设置写入只保留在进程内。未启用 TLS 的非 loopback 监听器提供明文 HTTP，并在启动时警告，即使前置 HTTPS 的 `--public-url` 也不例外。Host/Origin 栅栏接受绑定 IP 本身；其他非 loopback authority 需要 `--trusted-host`，因此远端浏览器要么经由剥离前缀的代理访问 GUI，要么通过以可信主机名呈现的端口转发客户端访问。启动 token 交换与签名会话 cookie 认证每个 API 方法与 WebSocket 流。
 
 同时传入 `--tls-cert` 与 `--tls-key`，监听器便以 HTTPS 而非明文 HTTP 提供服务。两者各指定一个相对进程工作目录解析的文件：证书文件包含完整证书链，密钥文件为不带口令的 PEM 私钥。它们属于同一个设置——只提供一个会报用法错误，两个都不提供则保持明文 HTTP 默认值。文件缺失、不可读、为空，或不是有效的证书与密钥对时启动失败；绝不回退到 HTTP。监听器运行期间不会重新读取这些材料，因此更换证书需要重新加载监听器或重启进程。DSH 不签发、不续期也不监视任何证书：没有 ACME 客户端、没有自签名兜底，也没有重定向监听器。浏览器使用自己的信任库与主机名匹配，因此浏览器不信任的证书，或其 subject alternative name 未覆盖你所访问 authority 的证书，会在页面加载前失败。默认端口仍为 3080，且 `--tls-cert`/`--tls-key` 不跟随 `--public-url`：监听器的证书覆盖浏览器实际访问的 authority。TLS 不改变授权模型：Connection 仍认证每个请求并仍校验 Host/Origin，且只要接收请求的监听器提供 HTTPS，它所签发的会话 cookie 就带 `Secure`。
 

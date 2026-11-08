@@ -12,9 +12,9 @@ Status: implemented
 
 本组合包改为注册一个 `settings.section`（id 为 `mobile`，order 12，标签「连接手机」），不再使用通用设置行。页面保留既有配对面板，并在其上方加入「访问地址」区块，通过共享的设置镜像（`ctx.configForms`，命名空间 `web-startup`）编辑 `dsh-web-app` 的 `web-startup` 配置：`bindMode` 取 `loopback`、`auto` 或 `fixed`，`bindHost` 为固定地址。该配置项自动生成的配置表单仍是同一组字段的第二个编辑入口；页面负责说明改动何时生效。
 
-当调用未指定 `--host` 时，由 `web-startup` 解析回退绑定地址：`loopback` 保持 `127.0.0.1`，`fixed` 绑定去掉首尾空白的 `bindHost`（地址为空会让启动失败，而不是静默回落），`auto` 取操作系统路由所用网卡的地址——用 UDP `connect` 探测，不发送任何数据包——探测不到时回落到第一个非内部 IPv4，再回落到回环。解析结果随 `webStartup.bind` 发布，webserver 行绑定 `ctx.webStartup.host ?? ctx.webStartup.bind.host`；对指定了 `--host` 的那次调用，旗标仍然优先。
+当调用未指定 `--host` 时，由 `web-startup` 解析回退绑定地址：`loopback` 保持 `127.0.0.1`，`fixed` 绑定去掉首尾空白的 `bindHost`（地址为空会让启动失败，而不是静默回落），`auto` 取操作系统路由所用网卡的地址——用 UDP `connect` 探测，不发送任何数据包——探测不到时回落到保存的 `bindHost`，再回落到第一个非内部 IPv4，最后回落到回环。解析结果随 `webStartup.bind` 发布，webserver 行绑定 `ctx.webStartup.host ?? ctx.webStartup.bind.host`；对指定了 `--host` 的那次调用，旗标仍然优先。
 
-保存的改动在下次启动生效，因为监听器在任何页面加载之前就已绑定。设置写入仍仅限回环页面（`ui-settings` 让非回环页面的表单保持进程内），因此在这些页面上该区块只渲染只读说明，而不渲染控件。
+保存的改动在下次启动生效，因为监听器在任何页面加载之前就已绑定。设置写入仍仅限回环页面（`ui-settings` 让非回环页面的表单保持进程内），因此在这些页面上该区块保留地址信息与原因说明，只是不渲染控件，而不是整块消失。
 
 ## 备选方案
 
