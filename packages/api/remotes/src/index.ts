@@ -12,6 +12,8 @@ import type {
 import { Deque } from '@deepseek-ai/dsh-deque'
 import { carrierKeyOf } from '@deepseek-ai/dsh-scope'
 import { isJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
+// Type-only: pulls the `connection` Context merge and its operator reservation API.
+import type {} from '@deepseek-ai/dsh-client-connection'
 import { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 
 // The owner packages' client-safe `./types` exports carry the cordis `Events`
@@ -36,12 +38,35 @@ export type { ApiRemoteForwardedEvent } from './types.ts'
 /** Required Host service: the Gateway owns the physical Remote stream mux. */
 export const inject = ['typertGateway']
 
+/**
+ * Remote endpoints that administer the Host instead of using it. Connection
+ * owns who counts as the operator; the settings controller cannot see the
+ * caller, so the list lives with the assembly that publishes the Remote
+ * surface. A paired device authenticates the use of the agent, never the
+ * administration of the Host: these endpoints refuse every Peer but the
+ * operator's own, even though the transport admits the device.
+ */
+const OPERATOR_ONLY_ENDPOINTS = [
+  'settings/update',
+  'settings/replace',
+  'settings/mutate',
+  'settings/openSettingsDocument',
+] as const
+
 /** Host plugin body registering this application's selected Cordis event source. */
 export function apply(ctx: Context): void {
   ctx.effect(
     () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), { home: homedir() }),
     'api-remotes: forwarded Cordis event source',
   )
+  ctx.inject(['connection'], (connectionCtx) => {
+    connectionCtx.effect(() => {
+      const disposers = OPERATOR_ONLY_ENDPOINTS.map(endpoint => connectionCtx.connection.reserveOperatorOnly(endpoint))
+      return () => {
+        for (const dispose of disposers) dispose()
+      }
+    }, 'api-remotes: operator-only Remote endpoints')
+  })
 }
 
 /** Create the sole queue and listener set consumed by the registered Gateway. */

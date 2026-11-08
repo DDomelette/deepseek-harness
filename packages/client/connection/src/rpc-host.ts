@@ -72,6 +72,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
   private readonly operatorPeer: ConnectionPeer
   /** One Peer per paired device that has been admitted; a device keeps its own scope. */
   private readonly devicePeers = new Map<PairedDeviceId, ConnectionPeer>()
+  /** Shared-channel endpoints only the operator's Peer may invoke. */
+  private readonly operatorOnlyEndpoints = new Set<string>()
 
   /**
    * Provide the Host half over the active HTTP server.
@@ -301,9 +303,40 @@ export class HostConnectionService extends Service implements HostConnectionHand
     })
   }
 
-  /** Whether the local operator's launch-token cookie authorizes device management. */
+  /**
+   * Whether the local operator's launch-token cookie authorizes device management.
+   * @param request - HTTP headers and the peer the server observed.
+   * @returns true for the operator credential on a loopback or declared authority.
+   */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
     return this.browserAuth.isLocalOperator(request, this.redeemsToken)
+  }
+
+  /**
+   * Reserve one shared-channel endpoint to the operator's Peer.
+   * @param endpoint - exact endpoint text after the channel, e.g. `settings/mutate`.
+   * @returns disposer releasing the reservation.
+   */
+  reserveOperatorOnly(endpoint: string): () => void {
+    if (endpoint === '' || endpoint.includes('?')) {
+      throw new Error(`connection: reserved endpoint ${JSON.stringify(endpoint)} is not a shared-channel endpoint`)
+    }
+    this.operatorOnlyEndpoints.add(endpoint)
+    return () => {
+      this.operatorOnlyEndpoints.delete(endpoint)
+    }
+  }
+
+  /**
+   * Whether an admitted Peer may invoke one shared-channel endpoint. A paired
+   * device authenticates the use of the agent, never the administration of the
+   * Host, so a reserved endpoint refuses every Peer but the operator's.
+   * @param peer - Peer the request was admitted as.
+   * @param endpoint - endpoint text after the channel.
+   * @returns true when the endpoint is unreserved or the caller is the operator.
+   */
+  private allowsEndpoint(peer: PeerScope, endpoint: string): boolean {
+    return peer === this.operatorPeer || !this.operatorOnlyEndpoints.has(endpoint)
   }
 
   /**
@@ -329,6 +362,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
         const interceptor = this.interceptors.get(channel)
         if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
           return Promise.resolve(new Response('not found', { status: 404 }))
+        }
+        if (!this.allowsEndpoint(peer, endpoint)) {
+          return Promise.resolve(new Response('forbidden', { status: 403 }))
         }
         return rpcFetchHandler(channel, interceptor.handler, peer).fetch(request)
       },

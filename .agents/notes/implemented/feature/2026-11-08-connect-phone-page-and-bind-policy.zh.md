@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-本组合包改为注册一个 `settings.section`（id 为 `mobile`，order 12，标签「连接手机」），不再使用通用设置行。页面保留既有配对面板，并在其上方加入「访问地址」区块，通过经操作者认证的 `/pair/bind` 路由编辑 `dsh-web-app` 的 `web-startup` 配置：`bindMode` 取 `loopback`、`auto` 或 `fixed`，`bindHost` 为固定地址。该路由就是这条策略的写入路径：设置 RPC 暴露同样的字段，但它的写入没有操作者校验，一条会改变整个部署监听地址的策略不能走它。
+本组合包改为注册一个 `settings.section`（id 为 `mobile`，order 12，标签「连接手机」），不再使用通用设置行。页面保留既有配对面板，并在其上方加入「访问地址」区块，通过经操作者认证的 `/pair/bind` 路由编辑 `dsh-web-app` 的 `web-startup` 配置：`bindMode` 取 `loopback`、`auto` 或 `fixed`，`bindHost` 为固定地址。该路由就是这条策略的写入路径：Remote 装配同样把设置 RPC 的写入保留给操作者，而本页保留自己的、仅操作者可达的端点，因此在任何设置表单挂载之前就能读取并保存这条策略。
 
 当调用未指定 `--host` 时，由 `web-startup` 解析回退绑定地址：`loopback` 保持 `127.0.0.1`，`fixed` 绑定去掉首尾空白的 `bindHost`（地址为空会让启动失败，而不是静默回落），`auto` 取操作系统路由所用网卡的地址——用 UDP `connect` 探测，不发送任何数据包——探测不到时回落到保存的 `bindHost`，再回落到第一个非内部 IPv4，最后回落到回环。解析结果随 `webStartup.bind` 发布，webserver 行绑定 `ctx.webStartup.host ?? ctx.webStartup.bind.host`；对指定了 `--host` 的那次调用，旗标仍然优先。
 

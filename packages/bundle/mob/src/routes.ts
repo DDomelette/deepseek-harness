@@ -475,8 +475,9 @@ export function registerPairingRoutes(ctx: Context, pairing: PairingSessions, lo
         }
         // The bind policy is a deployment-wide decision, so it carries the same
         // operator rule as every other decision route: a paired phone cannot
-        // read or change it, even though the settings RPC would accept the
-        // write from any authenticated caller.
+        // read or change it. The settings RPC reserves its own writes for the
+        // same reason; this route is the page's API and states the restart
+        // contract beside the controls.
         if (refused(req, res, ctx, 'operator')) return
         const settings = ctx.get('settings')
         if (settings === undefined) {

@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for 2026-11-09-operator-only-remote-administration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-11-09-operator-only-remote-administration.md
+/agent-note-remote-administration-stays-with-the-operator:
+  en: 7c5f7cd4f2af12fc
+  zh: cc780a7af35a9cb1
+/agent-note-remote-administration-stays-with-the-operator/problem:
+  en: b8265b79d77b9d50
+  zh: a59cdca643a34448
+/agent-note-remote-administration-stays-with-the-operator/decision:
+  en: 5bb460e37a7d8a6c
+  zh: 7be129d042b36561
+/agent-note-remote-administration-stays-with-the-operator/alternatives-considered:
+  en: 559074b23d35f80a
+  zh: 469b0418982d39b5
+/agent-note-remote-administration-stays-with-the-operator/consequences:
+  en: bb72fc2f9ba17f48
+  zh: 49f894c994e1c4ea
+/agent-note-remote-administration-stays-with-the-operator/testing:
+  en: a504d17f701bb1d8
+  zh: bffc328200b163f0
+/agent-note-remote-administration-stays-with-the-operator/related:
+  en: 706e686b667f76c7
+  zh: 8969508c919c8115
