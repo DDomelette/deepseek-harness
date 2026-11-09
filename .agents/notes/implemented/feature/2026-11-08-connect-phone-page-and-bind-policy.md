@@ -28,7 +28,7 @@ A saved change applies on the next launch, because the listener binds before any
 - Settings → Connect phone is the join surface: the address block states the page's own host, whether a phone can reach the deployment, the saved mode, and the restart requirement; the pairing panel below it is unchanged.
 - `--host` still overrides for one invocation; the saved policy governs the launches that name none, and `loopback` remains the shipped default.
 - Auto mode binds what the default route uses. A machine whose route changes between launches may bind a different address; the page reports the actual result after the restart.
-- The operator edits the policy from whichever page they opened, the LAN address included; `--host` still overrides it for a single launch, and a paired phone can neither read nor change it.
+- The operator edits the policy from whichever page they opened, the LAN address included; `--host` still overrides it for a single launch, and a paired phone can neither read nor change it.`n- A different bound address or port pairs every phone again: the device cookie is named and signed for its authority, so the page warns that the change invalidates existing pairings.
 - The phone's own view of the page holds no address block, because its settings mirror is process-local.
 
 ## Testing

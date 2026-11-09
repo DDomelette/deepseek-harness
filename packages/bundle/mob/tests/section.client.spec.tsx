@@ -96,6 +96,8 @@ describe('MobileSection', () => {
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
+    // A new address or port strands the paired cookies, so the page says so.
+    expect(screen.getByText(zh['access.rebind'])).toBeTruthy()
     expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
   })
 

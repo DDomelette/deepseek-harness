@@ -161,6 +161,10 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
 
               <p className={css.hint}>{t(`access.modeHint.${current.bindMode}`)}</p>
               <p className={css.hint}>{t('access.restart')}</p>
+              {/* A paired cookie names its authority, so a new address or port
+                  strands it; saying so keeps the operator from pairing again
+                  without knowing why. */}
+              <p className={css.warning}>{t('access.rebind')}</p>
 
               <div className={css.actions}>
                 <button

@@ -147,3 +147,10 @@
 .failed {
   color: var(--dsw-alias-state-error-primary);
 }
+
+.warning {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-warn-label);
+}
