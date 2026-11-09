@@ -61,10 +61,10 @@ export class RecordCredentials {
 /**
  * Provide the record operations Connection needs during authentication setup.
  * @param ctx - test context receiving the credentials service.
+ * @param store - optional store shared with the calling fixture.
  * @returns the mutable store behind it, for tests that change records directly.
  */
-export function provideBrowserCredentials(ctx: Context): RecordCredentials {
-  const store = new RecordCredentials()
+export function provideBrowserCredentials(ctx: Context, store = new RecordCredentials()): RecordCredentials {
   ctx.provide('credentials', store as unknown as CredentialProvider)
   return store
 }

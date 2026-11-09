@@ -241,7 +241,7 @@ class Hmr extends Service {
 
     const partialReload = this.ctx.debounce(() => this.partialReload(), this.config.debounce)
 
-    const onChange = (kind: 'add' | 'change' | 'unlink', path: string) => {
+    const onChange = async (kind: 'add' | 'change' | 'unlink', path: string) => {
       this.ctx.logger.debug('%s detected at %C', kind, path)
       const filename = resolve(watchBaseDir, path)
       const configuredFilename = resolve(this.baseDir, path)
@@ -265,6 +265,14 @@ class Hmr extends Service {
       if (loader.internal!.loadCache.has(url)) {
         this.stashed.add(url)
         return partialReload()
+      }
+
+      for (const entry of loader.entries()) {
+        const include = entry.subtree as Include | undefined
+        if (include?.filename !== filename && include?.filename !== configuredFilename) continue
+        // A rejected refresh reports unsaved runtime changes; Include keeps its running tree.
+        try { await include.refresh() } catch (error) { this.ctx.logger.warn(error) }
+        return
       }
 
       this.ctx.emit('hmr/change', url)
@@ -502,7 +510,7 @@ class Hmr extends Service {
     const reload = (plugin: any, runtime: Plugin.Runtime) => {
       if (!runtime) return
       for (const oldFiber of runtime.fibers) {
-        const fiber = oldFiber.parent.registry.plugin(plugin, oldFiber._config, this.getOuterStack)
+        const fiber = oldFiber.parent.registry.plugin(plugin, oldFiber.rawConfig, this.getOuterStack)
         fiber.entry = oldFiber.entry
         if (fiber.entry) fiber.entry.fiber = fiber
       }

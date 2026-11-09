@@ -24,22 +24,32 @@ const DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependen
  * edges of its peer target (`canPlacePeers` calls `checkCanPlaceNoCurrent`,
  * which walks `depValid` over that target's edges), so resolution time grows
  * with this product and not with the package count alone. Measured on an idle
- * M-series host: 277 package(s) x 2524 internal edge(s) = 699,148 unit(s) cost
- * 180.7 s of npm time out of 185.1 s end to end. The budget adds 25% headroom
+ * M5 Pro with Node 24.17.0 and npm 11.13.0: 320 package(s) x 2836 internal
+ * edge(s) = 907,520 unit(s) cost 71.03–97.73 s of npm time; the 315-package,
+ * 2782-edge graph took 75.27 s on the same host. The budget adds 25% headroom
  * for ordinary product growth, so a graph that grows here fails with its own
  * measured counts instead of failing on whichever runner happens to be slow.
  * Raising it requires re-measuring the resolution and recording the new counts.
  */
-export const MAX_RESOLUTION_WORK_UNITS = 875_000
+export const MAX_RESOLUTION_WORK_UNITS = 1_134_400
+
+/**
+ * Measured npm seconds per resolution work unit on the reference host: 180.66 s
+ * for 699,148 units. This conservative hang-guard calibration also covers the
+ * current 907,520-unit graph measured at 71.03–97.73 s on an M5 Pro.
+ */
+const SECONDS_PER_WORK_UNIT = 2.6e-4
 
 /**
  * Wall-clock guard for the npm child process. This is a hang guard, not the
  * gate's growth criterion: {@link MAX_RESOLUTION_WORK_UNITS} decides whether the
- * graph is too large to verify. A budgeted graph costs about 226 s at the
- * measured 2.6e-4 s per work unit, and the guard allows four times that, so a
- * slower runner can never decide this gate's outcome.
+ * graph is too large to verify, and a runner up to four times slower than the
+ * measured host cannot decide this gate's outcome. Derived from the budget so a
+ * raised budget cannot silently shrink the guard's headroom.
  */
-const NPM_HANG_GUARD_MS = 900_000
+const NPM_HANG_GUARD_MS = Math.round(
+  4 * MAX_RESOLUTION_WORK_UNITS * SECONDS_PER_WORK_UNIT * 1000,
+)
 
 /** Synthetic incompatible versions used to expose cross-release placement errors. */
 export const SYNTHETIC_DSH_VERSIONS = ['0.1.0', '0.2.0'] as const

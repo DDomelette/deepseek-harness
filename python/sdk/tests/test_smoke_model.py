@@ -241,7 +241,7 @@ def test_advanced_snapshot_normalizes_catalog_child_creation_time() -> None:
     ) == {"type": "fixture/event", "data": {"childCreatedAt": 1788246207176}}
 
 
-def test_snapshot_comparison_preserves_opaque_generation_provenance() -> None:
+def test_snapshot_comparison_preserves_opaque_generation_qualifiers() -> None:
     normalize = SMOKE["normalize_session_format_comparison"]
     expected = {
         "header": {"type": "session", "version": 0, "otherVersion": 7},
@@ -553,65 +553,24 @@ def test_snapshot_replaces_only_the_owned_native_and_json_escaped_directory() ->
     )
 
 
-def test_tool_message_identity_is_volatile_but_call_identity_and_content_are_preserved() -> None:
-    event = {"type": "tool/result", "data": {"message": {
-        "role": "tool", "id": "generated-message", "source": {"kind": "tool", "callId": "model-call"},
-        "toolCallId": "model-call",
-        "content": [{"type": "text", "text": "actual tool output"}],
-    }}}
-    result = SMOKE["normalize_snapshot_value"](event, [])
-    assert result["data"]["message"] == {
-        **event["data"]["message"], "id": "{{messageId}}",
+@pytest.mark.parametrize("answer", ["", "File created.", "PYTHON_SDK_LIVE_OK but the operation failed"])
+def test_live_turn_rejects_missing_standalone_acknowledgement(answer: str) -> None:
+    with pytest.raises(AssertionError, match="turn returned"):
+        SMOKE["assert_live_turn"]("create", live_result(final_response=answer))
+
+
+def test_job_snapshot_normalization_preserves_pairing_and_uncertainty():
+    normalize = SMOKE["normalize_snapshot_value"]
+    replacements = []
+    first = {"type": "job/registered", "data": {"jobId": "job-a", "startedAt": 10}}
+    last = {"type": "job/settled", "data": {"jobId": "job-a", "startedAt": 10,
+                                          "finishedAt": 20, "producerReported": False}}
+    other = {"type": "job/registered", "data": {"jobId": "job-b", "startedAt": 30}}
+    a, b, c = normalize([first, last, other], replacements)
+    assert a["data"] == {"jobId": "{{id:1}}", "startedAt": 0}
+    assert b["data"] == {"jobId": "{{id:1}}", "startedAt": 0, "finishedAt": 0, "producerReported": False}
+    assert c["data"]["jobId"] == "{{id:2}}"
+    assert normalize([a, b, c], []) == [a, b, c]
+    assert normalize({"type": "tool/result", "data": {"startedAt": 100, "finishedAt": 200}}, []) == {
+        "type": "tool/result", "data": {"startedAt": 100, "finishedAt": 200},
     }
-    assert event["data"]["message"]["id"] == "generated-message"
-    assert SMOKE["normalize_snapshot_value"]({"id": "business-id", "role": "record"}, []) == {
-        "id": "business-id", "role": "record",
-    }
-    assert SMOKE["normalize_snapshot_value"]({"id": "business-tool-id", "role": "tool"}, []) == {
-        "id": "business-tool-id", "role": "tool",
-    }
-
-
-def test_ptc_uses_the_latest_sdk_and_rejects_extra_direct_tools() -> None:
-    body = {
-        "tools": [{"name": "run_code"}],
-        "system": "interface ToolArgsMap {\n  removed_tool: {};\n}",
-        "messages": [{"role": "system", "content": [{
-            "type": "text", "text": "interface ToolArgsMap {\n  current_tool: {};\n}",
-        }]}],
-    }
-    assert SMOKE["ptc_capability_names"](body) == {"current_tool"}
-    with pytest.raises(AssertionError, match="did not declare removed_tool"):
-        SMOKE["assert_ptc_capability"](body, "removed_tool")
-    body["tools"].append({"name": "current_tool"})
-    with pytest.raises(AssertionError, match="unexpected direct tools"):
-        SMOKE["ptc_capability_names"](body)
-
-
-def test_worker_error_containing_the_expected_digits_is_not_a_success() -> None:
-    body = {"messages": [
-        {"role": "assistant", "content": [{
-            "type": "tool_use", "id": "call-code-worker", "name": "run_code", "input": {},
-        }]},
-        {"role": "user", "content": [{
-            "type": "tool_result", "tool_use_id": "call-code-worker",
-            "content": [{"type": "text", "text": 'Error: profile "134217728" does not exist'}],
-        }]},
-    ]}
-    with pytest.raises(AssertionError, match="worker returned no expected value"):
-        SMOKE["completion_chunks"](body)
-    body["messages"][1]["content"][0]["content"][0]["text"] = "42"
-    events = SMOKE["completion_chunks"](body)
-    assert any(event.get("delta", {}).get("text") == SMOKE["CODE_WORKER_TEXT"] for event in events)
-
-
-@pytest.mark.parametrize("in_history", [False, True])
-def test_external_plugin_marker_is_required_in_the_messages_system_prompt(in_history: bool) -> None:
-    body = {"messages": [{"role": "user", "content": [{"type": "text", "text": SMOKE["PROFILE_PLUGIN_PROMPT"]}]}]}
-    with pytest.raises(AssertionError, match="contributed no model-visible marker"):
-        SMOKE["completion_chunks"](body)
-    if in_history:
-        body["messages"].insert(0, {"role": "system", "content": [{"type": "text", "text": SMOKE["PROFILE_PLUGIN_MARKER"]}]})
-    else:
-        body["system"] = SMOKE["PROFILE_PLUGIN_MARKER"]
-    assert any(event.get("delta", {}).get("text") == SMOKE["PROFILE_PLUGIN_TEXT"] for event in SMOKE["completion_chunks"](body))

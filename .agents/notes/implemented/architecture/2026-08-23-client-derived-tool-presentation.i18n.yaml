@@ -6,17 +6,17 @@
   en: de8d02e979715600
   zh: 1db4d0364c30a7e3
 /agent-note-client-derived-presentation-from-raw-session-tool-events/problem:
-  en: b723ec9a7f027bb7
-  zh: f20c3f9986aff854
+  en: 9f34c53e647c69ca
+  zh: 551776c7cc9618b5
 /agent-note-client-derived-presentation-from-raw-session-tool-events/decision:
-  en: 71f192660aceefe3
-  zh: f795d10ab8c0a269
+  en: 5fcc5a3de9f757cd
+  zh: a693cefdb82784ee
 /agent-note-client-derived-presentation-from-raw-session-tool-events/decision/goals-and-non-goals:
-  en: 81e69523060b08ff
-  zh: 618c9de194ba6e89
+  en: 40aceb58d71303b5
+  zh: 6954e41ae2fd1efd
 /agent-note-client-derived-presentation-from-raw-session-tool-events/terminology:
-  en: 836a596324e79861
-  zh: 66bb4f6f638ac62c
+  en: 021106dd41176715
+  zh: 131caff7bd37251b
 /agent-note-client-derived-presentation-from-raw-session-tool-events/architecture-and-ownership:
   en: 5cc496057205b298
   zh: 160158394dfa2df3
@@ -27,8 +27,8 @@
   en: 36345a3eb5801cdf
   zh: 498fd14beaaadd9c
 /agent-note-client-derived-presentation-from-raw-session-tool-events/architecture-and-ownership/client-data-and-presentation:
-  en: 3371e0d58c6c0ca7
-  zh: 1312b4b486924f49
+  en: 72e14ba086d89e90
+  zh: a451a63c3ab9e5d8
 /agent-note-client-derived-presentation-from-raw-session-tool-events/architecture-and-ownership/production-consumer-audit:
   en: 5351e75c1e417359
   zh: b14b28c44f723de5
@@ -51,17 +51,17 @@
   en: 51f99cfca9c4c808
   zh: ce95bab241d306f7
 /agent-note-client-derived-presentation-from-raw-session-tool-events/host-design:
-  en: 16fd2b3e545ede21
-  zh: 4d28f52132495441
+  en: d5e5d1376dc42558
+  zh: c2f302b2a5d1de39
 /agent-note-client-derived-presentation-from-raw-session-tool-events/host-design/performance-constraints:
   en: 102b14e3eb9367ff
   zh: d391099dbc41db24
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-session-and-conversation:
   en: 46a772ac51da43a2
   zh: 8709a7e3e6a872f1
-/agent-note-client-derived-presentation-from-raw-session-tool-events/client-session-and-conversation/root-and-code-dispatch-subcalls:
-  en: 59966ef1aed5953c
-  zh: 82216decf22c4c24
+/agent-note-client-derived-presentation-from-raw-session-tool-events/client-session-and-conversation/root-and-ptc-dispatch-subcalls:
+  en: 2c8ff511a5527a72
+  zh: 3eeddc9686ff1709
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-session-and-conversation/missing-call-head:
   en: b9efc339173e546e
   zh: c7639861b3b96e83
@@ -72,23 +72,23 @@
   en: f40f0a8ee8c055c0
   zh: 6957b7372956113c
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/generic-tool-row:
-  en: 20ff82b092325c5c
-  zh: 1afd5441a9816117
+  en: d336c77d1b09f349
+  zh: 6e613f9c9108058f
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/terminal-card:
-  en: 8f0d85f3e6e60d23
-  zh: 559029944e11ded1
+  en: 492669c2134169b2
+  zh: 0247a38df2dd8a83
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/diff-card:
-  en: 05881b79e93fbd9d
-  zh: 5817a631266a2337
+  en: ea384415c94f82da
+  zh: 5f146c6cb534e1db
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/read-card:
-  en: 011d2dc6692c4eff
-  zh: 6e2982ab424a3305
+  en: 0fd9413ae837a36d
+  zh: 0e421eb162021983
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/search-card:
-  en: 60e8b53c8e735bc6
-  zh: 57991b449b93bc6e
+  en: 5a655646431ad75b
+  zh: 67cafcbead983495
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/web-card:
-  en: 5bece7f74ff41587
-  zh: 5c5feecda4b960a8
+  en: bc6415353d231ae0
+  zh: a4614630b60d1dc1
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-card-model-design/renderers-already-using-raw-blocks:
   en: b8fc7a1a4dbdd45e
   zh: ea97490599b29481
@@ -96,11 +96,11 @@
   en: f1769a479af834d4
   zh: 083397eeed5263b8
 /agent-note-client-derived-presentation-from-raw-session-tool-events/fixtures-and-test-data:
-  en: 077fe1a250393ac1
-  zh: 4c2267e8d939946d
+  en: e5b42aa311079bd7
+  zh: ec4cf97037ece7e0
 /agent-note-client-derived-presentation-from-raw-session-tool-events/presentation-equivalence-matrix:
-  en: 9308e330275d053d
-  zh: e143585487cc7b8a
+  en: 7974f20a6ac687ac
+  zh: cb4c350325a6da67
 /agent-note-client-derived-presentation-from-raw-session-tool-events/client-extension-contract:
   en: 96619dfd5ef299cf
   zh: 253df98eb42ad75e
@@ -120,8 +120,8 @@
   en: 57d3babfb1ce3429
   zh: 80284ebf7ad31446
 /agent-note-client-derived-presentation-from-raw-session-tool-events/shipped-scope/ui-conversation-chat-and-trajectory:
-  en: cfa4d2b7197e2311
-  zh: 192f8d94722f0bec
+  en: dafc7a3c08c1823a
+  zh: 426ef3358597c64a
 /agent-note-client-derived-presentation-from-raw-session-tool-events/shipped-scope/ui-tool-and-deliverables:
   en: 9e090419d542afe8
   zh: 8e1b743d750bd402
@@ -135,8 +135,8 @@
   en: 0150b57068fef08a
   zh: 5fe2e638b0fd1aa8
 /agent-note-client-derived-presentation-from-raw-session-tool-events/verification-matrix/client-conversation:
-  en: 4382375b5a57bf1e
-  zh: a8b0e7e138eed1e3
+  en: b04bf4f1c89917b5
+  zh: 8757c90691c48712
 /agent-note-client-derived-presentation-from-raw-session-tool-events/verification-matrix/client-card-model:
   en: 7d57f2e54d287fce
   zh: 6b96d4fa8e4a6b0f
@@ -150,11 +150,11 @@
   en: d25ffb1f8f60e04c
   zh: 3a105c9669a9b978
 /agent-note-client-derived-presentation-from-raw-session-tool-events/verification-commands:
-  en: fed3bdcccadd482e
-  zh: e796f764593d39f5
+  en: f562776ceda2ac53
+  zh: 24c833727dc5c260
 /agent-note-client-derived-presentation-from-raw-session-tool-events/shipped-invariants:
-  en: f2ddc4892d5b21b3
-  zh: 0958466ac05f59b6
+  en: 3377510eb7639807
+  zh: 1d7cdf2a67cf9bde
 /agent-note-client-derived-presentation-from-raw-session-tool-events/alternatives-considered:
   en: 6119e2aff3b6be5a
   zh: 6119e2aff3b6be5a
@@ -183,8 +183,8 @@
   en: bc8905288acaa820
   zh: ff551936bd5ea93f
 /agent-note-client-derived-presentation-from-raw-session-tool-events/alternatives-considered/allow-presentation-enhancements:
-  en: 7620ad5b535ef716
-  zh: 7104d2432f381a5d
+  en: 5ed1954f7399ed95
+  zh: 82ea5a8fd5a66967
 /agent-note-client-derived-presentation-from-raw-session-tool-events/alternatives-considered/accept-temporary-generic-degradation:
   en: 1a8fd108d32bd199
   zh: 5cd1c7adf3fe824d
@@ -222,8 +222,8 @@
   en: d7e581086940fafa
   zh: d452320fee6ef875
 /agent-note-client-derived-presentation-from-raw-session-tool-events/relationship-to-existing-decisions:
-  en: f7501cfad1c94062
-  zh: 2574582ee86c3c4a
+  en: ecd63b5a47a1ec5e
+  zh: c98c8a27a261419a
 /agent-note-client-derived-presentation-from-raw-session-tool-events/deferred:
-  en: 779195a8e12f7087
-  zh: c2e91288026d100e
+  en: a60c9007c9d26dfd
+  zh: 225b1f7544bca324

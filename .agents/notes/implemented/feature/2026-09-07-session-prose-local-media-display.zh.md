@@ -10,7 +10,7 @@ Assistant 正文可能通过文件系统路径引用图片，但浏览器无法�
 
 ## Decision
 
-Session 正文中的本地媒体路径通过同源文件路由渲染。本记录拥有渲染器词表及其归属；[鉴权文件系统读取](2026-09-08-file-display-through-filesystem.zh.md)拥有当前文件服务策略，并取代下文的工作区与媒体限制。
+Session 正文中的本地媒体路径通过同源文件路由渲染。本记录拥有渲染器词表及其归属；[鉴权文件系统读取](../../archived/feature/2026-09-08-file-display-through-filesystem.md)拥有当前文件服务策略，并取代下文的工作区与媒体限制。
 
 `ui-primitives` 拥有 `MarkdownText` 上的 `MarkdownPathImages` 词表。与 `fileMentions` 一样，它只在消息稳定后生效，使冻结的流式块无法缓存词表处理函数。稳定渲染过程重写远程 URL 白名单之外的图片目标，并只输出绝对 `http(s)`、`blob` 或 `data` 结果。没有词表时，本地目标保留静态 alt 文本。加载失败会把图片替换为作者提供的 alt 文本；alt 为空时显示原始目标路径；不同来源仍可重新加载。
 

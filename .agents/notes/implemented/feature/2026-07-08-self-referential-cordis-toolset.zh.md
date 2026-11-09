@@ -32,7 +32,7 @@ vm 隔离了意外的全局污染，上下文门面隐藏了框架内部细节�
 
 沙箱全局变量刻意精简：一个带标签的直写 `console`（在宿主 stdout/stderr 上输出 `[cordis:<id>] …`，这样在挂载调用之后很久才触发的监听器输出仍能落到用户可见的地方）、`harness.defineTool`／`harness.registerTool` 注册对、新 vm 上下文缺少的编码原语（`btoa`／`atob` 作为基于 `Buffer` 的宿主闭包——这是一个明确允许的例外，`Buffer` 本身从不暴露——加上 `TextEncoder`／`TextDecoder`），以及对未暴露的 Node API 设置的可调用陷阱（`require`、`setTimeout`／`setInterval`／`setImmediate`／`clearTimeout`／`clearInterval`、`fetch`），这些陷阱会抛出一条重定向消息指明 cordis 替代方案。只有函数形态的全局变量才设陷阱；`process` 和 `Buffer` 保持 `undefined`，这样 `typeof` 特性探测仍然无害，而不会触发会抛出异常的访问器。
 
-挂载代码通过三道控制跨越 vm 边界。双 realm `instanceof` 同时识别宿主和 vm 对象。`harness.defineTool` 在宿主 realm 中重建输出 schema／投影器，将工具体返回值快照为宿主自有的 JSON，并让注册表在观测前强制执行[规范工具输出约定](../architecture/2026-07-20-canonical-tool-output-contract.zh.md)。挂载的插件接收的是一个白名单上下文门面，而非原始或透传的 `Context`；框架内部机制和以上下文为值的返回会被拒绝。服务读取需要声明 `inject`，保留 Cordis 的激活与卸载语义。`ctx.tools.get` 仅暴露 schema 视图，因此挂载代码无法绕过 `ToolRuntime.execute` 直接调用定义。
+挂载代码通过三道控制跨越 vm 边界。双 realm `instanceof` 同时识别宿主和 vm 对象。`harness.defineTool` 在宿主 realm 中重建输出 schema／投影器，将工具体返回值快照为宿主自有的 JSON，并让注册表在观测前强制执行[规范工具输出约定](../../archived/architecture/2026-07-20-canonical-tool-output-contract.md)。挂载的插件接收的是一个白名单上下文门面，而非原始或透传的 `Context`；框架内部机制和以上下文为值的返回会被拒绝。服务读取需要声明 `inject`，保留 Cordis 的激活与卸载语义。`ctx.tools.get` 仅暴露 schema 视图，因此挂载代码无法绕过 `ToolRuntime.execute` 直接调用定义。
 
 边界将无歧义的 JSON Schema 形式规范化为 `ParameterSchemaSpec`，同时保留 `integer`、原始对象开放性和 required 数组。直接使用 DSL 的对象节点必须声明 `additionalProperties`；无效词汇会报错并给出可接受的替代方案。解析错误、TypeScript 错误、缺少 return、Node API 误用和重复工具名等错误信息包含相关源码行或纠正性约定，不叙述实现内部细节。
 

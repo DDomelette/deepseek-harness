@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-jobs",
   "description": "Background job registry (ctx.jobs) for the DeepSeek Harness — shared ids, owner isolation, polling, cancellation, and completion listeners for long-running tool work",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -26,8 +26,8 @@
       "types": "./lib/types/view.d.ts",
       "default": "./lib/types/view.js"
     },
-    "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./src/*": "./src/*"
   },
   "files": [
     "lib/index.js",

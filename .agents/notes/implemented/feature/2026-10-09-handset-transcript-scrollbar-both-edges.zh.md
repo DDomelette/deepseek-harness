@@ -27,4 +27,4 @@ Status: implemented
 ## Related
 
 - [手机端真机修复](../bug-fix/2026-10-08-handset-device-layout-fixes.zh.md)——本条部分逆转的隐藏决策。
-- [手机端 Session 头部：两行标题布局](../feature/2026-10-09-handset-session-header-two-rows.zh.md)——同一轮迭代中的同类手机区间改动。
+- [手机端 Session 头部：两行标题布局](2026-10-09-handset-session-header-two-rows.zh.md)——同一轮迭代中的同类手机区间改动。

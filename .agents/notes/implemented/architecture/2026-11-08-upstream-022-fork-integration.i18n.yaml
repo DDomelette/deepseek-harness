@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-11-08-upstream-022-fork-integration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-11-08-upstream-022-fork-integration.md
+/agent-note-upstream-0-2-2-integration-with-fork-owned-features:
+  en: ed1fba8da346889e
+  zh: d2d46c69765bf3f9
+/agent-note-upstream-0-2-2-integration-with-fork-owned-features/problem:
+  en: aae9f0b6255c7d64
+  zh: 40be155984e7e594
+/agent-note-upstream-0-2-2-integration-with-fork-owned-features/decision:
+  en: 65f1c3243cd7fb2b
+  zh: 06b0e747043fa50c
+/agent-note-upstream-0-2-2-integration-with-fork-owned-features/alternatives-considered:
+  en: 231d3fa22ca041b0
+  zh: 1ab56cff4dde60f3
+/agent-note-upstream-0-2-2-integration-with-fork-owned-features/consequences:
+  en: 484cf9879a04f9ce
+  zh: 0917a34e8c39ae01

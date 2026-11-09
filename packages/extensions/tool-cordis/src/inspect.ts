@@ -38,6 +38,7 @@ function liveImpls(ctx: Context): { name: string; fiber: Fiber }[] {
   return Object.getOwnPropertySymbols(store)
     .map(key => store[key])
     .filter((impl): impl is NonNullable<typeof impl> => impl !== undefined)
+    .map(impl => ({ name: impl.name, fiber: impl.ctx.fiber }))
 }
 
 /**

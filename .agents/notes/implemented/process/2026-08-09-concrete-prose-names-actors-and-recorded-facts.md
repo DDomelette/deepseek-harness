@@ -22,7 +22,7 @@ Exact code identifiers, public APIs, durable fields, protocol members, type name
 
 Before using `contract`, `boundary`, or `shape`, writers check whether the sentence means a more specific rule, operation, data structure, field set, validation point, timing point, API, type, or failure condition. `Contract` remains correct for preconditions, postconditions, invariants, compatibility promises, and other obligations that callers, callees, implementers, providers, producers, or consumers rely on. `Boundary` remains correct for a literal security, trust, wire, process, serialization, transaction, or lifecycle division. `Shape` remains correct when the structural form itself is the subject and no narrower term such as fields, schema, type, union variant, file layout, or export form states the fact. Code and API names containing these words remain unchanged unless a separate coordinated rename is required.
 
-This decision complements the [documentation tiers and budgets](2026-07-04-doc-tiers-and-budgets.md) decision, which continues to own placement, document form, and word budgets.
+This decision complements the [documentation tiers and budgets](../../archived/process/2026-07-04-doc-tiers-and-budgets.md) decision, which continues to own placement, document form, and word budgets.
 
 ## Alternatives considered
 

@@ -6,6 +6,8 @@ import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-cred
 import { PairedDeviceId } from './device-brand.ts'
 import { listDevices } from './devices.ts'
 import type { PairedDevice } from './device-types.ts'
+import type { PeerId } from '@deepseek-ai/dsh-typert-protocol'
+import { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import { header, isLoopbackPeer, requestAuthority, requestHostname } from './request-authority.ts'
 import type {
@@ -51,6 +53,16 @@ interface DeviceCookiePayload {
 
 /** Signed payload of either cookie form this Host issues. */
 type BrowserCookiePayload = LaunchCookiePayload | DeviceCookiePayload
+
+/** API carrier cookies use a distinct version from existing paired-device cookies. */
+const API_COOKIE_PAYLOAD_VERSION = 3
+
+interface ApiCookiePayload extends Omit<LaunchCookiePayload, 'version'> {
+  readonly version: typeof API_COOKIE_PAYLOAD_VERSION
+  readonly id: PeerId
+}
+
+type CookiePayload = BrowserCookiePayload | ApiCookiePayload
 
 /** Index one device list by the id its cookie carries. */
 function devicesById(devices: readonly PairedDevice[]): ReadonlyMap<PairedDeviceId, PairedDevice> {
@@ -139,16 +151,15 @@ function signature(secret: Buffer, body: string): Buffer {
   return createHmac('sha256', secret).update(body).digest()
 }
 
-function encodeCookie(payload: BrowserCookiePayload, secret: Buffer): string {
+function encodeCookie(payload: CookiePayload, secret: Buffer): string {
   const body = encodeBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'))
-  const envelope = payload.version === DEVICE_COOKIE_PAYLOAD_VERSION ? 'v2' : 'v1'
-  return `${envelope}.${body}.${encodeBase64Url(signature(secret, body))}`
+  return `v${payload.version}.${body}.${encodeBase64Url(signature(secret, body))}`
 }
 
-function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | undefined {
+function decodeCookie(value: string, secret: Buffer): CookiePayload | undefined {
   const parts = value.split('.')
   const [envelope, body, encodedSignature] = parts
-  const version = envelope === 'v1' ? COOKIE_PAYLOAD_VERSION : envelope === 'v2' ? DEVICE_COOKIE_PAYLOAD_VERSION : undefined
+  const version = envelope === 'v1' ? COOKIE_PAYLOAD_VERSION : envelope === 'v2' ? DEVICE_COOKIE_PAYLOAD_VERSION : envelope === 'v3' ? API_COOKIE_PAYLOAD_VERSION : undefined
   if (parts.length !== 3 || version === undefined || body === undefined || encodedSignature === undefined) {
     return undefined
   }
@@ -173,6 +184,10 @@ function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | und
   const authority = decoded.authority
   const issuedAt = decoded.issuedAt as number
   const expiresAt = decoded.expiresAt as number
+  if (version === API_COOKIE_PAYLOAD_VERSION) {
+    if (typeof decoded.id !== 'string' || decoded.id === '') return undefined
+    return { version: API_COOKIE_PAYLOAD_VERSION, authority, id: decoded.id as PeerId, issuedAt, expiresAt }
+  }
   if (version === DEVICE_COOKIE_PAYLOAD_VERSION) {
     if (typeof decoded.deviceId !== 'string' || decoded.deviceId === '') return undefined
     return {
@@ -203,6 +218,21 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
     throw new Error('client-connection: browser-session credential record was not created')
   }
   return secret
+}
+
+
+
+
+/** Protocol-scoped cookie audience; HTTP retains its existing authority-only spelling. */
+function requestAudience(headers: ConnectionTrustRequest['headers'], secure: boolean): string | undefined {
+  const host = header(headers, 'host')
+  if (host === undefined) return undefined
+  try {
+    const url = new URL(`${secure ? 'https:' : 'http:'}//${host}`)
+    return secure ? url.origin : url.host
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -335,7 +365,7 @@ export class BrowserAuth {
   }
 
   /** The decoded payload of the authority-bound cookie this request carries, when it has one. */
-  private cookiePayload(request: ConnectionTrustRequest): BrowserCookiePayload | undefined {
+  private cookiePayload(request: ConnectionTrustRequest): CookiePayload | undefined {
     const authority = requestAuthority(request.headers)
     const rawCookie = header(request.headers, 'cookie')
     if (authority === undefined || rawCookie === undefined) return undefined
@@ -542,10 +572,11 @@ export class BrowserAuth {
 
   /** Whether a cookie already matched to the parsed request authority is still inside its lifetime. */
   private accepts(
-    payload: BrowserCookiePayload,
+    payload: CookiePayload,
     request: ConnectionTrustRequest,
     redeemsToken: (authority: string, hostname: string) => boolean = undeclaredAuthority,
   ): boolean {
+    if (payload.version === API_COOKIE_PAYLOAD_VERSION) return false
     const now = Date.now()
     if (!(payload.issuedAt <= now
       && payload.expiresAt > now
@@ -568,5 +599,75 @@ export class BrowserAuth {
     res.end(req.method === 'HEAD'
       ? undefined
       : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
+  }
+
+  /**
+   * Exchange the launch token for an independent API operator; omitted interactions default to none.
+   * @param req - trusted GET request on /connect with at most one interactions declaration.
+   * @param res - response owned to completion, redirecting to the API mux on success.
+   * @param secure - whether the receiving listener serves TLS.
+   * @param publish - synchronously create the operator before exposing its signed credential.
+   */
+  authorizeConnect(
+    req: ConnectionIndexRequest,
+    res: ConnectionIndexResponse,
+    secure: boolean,
+    publish: (interactions: ConnectionInteractions) => PeerId,
+  ): void {
+    const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+    const declarations = url.searchParams.getAll('interactions')
+    const interactions = declarations[0] ?? 'none'
+    if (declarations.length > 1 || (interactions !== 'answer' && interactions !== 'none')) {
+      res.writeHead(400, { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8' })
+      res.end('interactions must be declared once as answer or none\n')
+      return
+    }
+    const tokens = url.searchParams.getAll(TOKEN_QUERY)
+    const authority = requestAudience(req.headers, secure)
+    if (req.method !== 'GET' || url.pathname !== CONNECT_PATH || tokens.length !== 1
+      || authority === undefined || !tokenMatches(tokens.join(''), this.launchToken)) {
+      this.writeUnauthorized(req, res)
+      return
+    }
+    const issuedAt = Date.now()
+    const expiresAt = issuedAt + this.maxAgeMilliseconds
+    const id = publish(interactions)
+    const value = encodeCookie({ version: API_COOKIE_PAYLOAD_VERSION, authority, id, issuedAt, expiresAt }, this.secret)
+    res.writeHead(302, {
+      'cache-control': 'no-store',
+      'location': './api/remote.mux',
+      'referrer-policy': 'no-referrer',
+      'set-cookie': sessionCookie(
+        cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
+      ),
+    })
+    res.end()
+  }
+
+
+  /**
+   * Verify an API credential without creating or reviving its operator.
+   * @param request - request headers carrying Host and Cookie.
+   * @param secure - whether the receiving listener uses TLS.
+   * @returns the signed operator id, or undefined for invalid, expired, or browser cookies.
+   */
+  authenticateApi(request: ConnectionTrustRequest, secure = false): PeerId | undefined {
+    const payload = this.authenticate(request, secure)
+    return payload?.version === API_COOKIE_PAYLOAD_VERSION ? payload.id : undefined
+  }
+
+
+  private authenticate(request: ConnectionTrustRequest, secure: boolean): CookiePayload | undefined {
+    const authority = requestAudience(request.headers, secure)
+    const rawCookie = header(request.headers, 'cookie')
+    if (authority === undefined || rawCookie === undefined) return undefined
+    const value = cookieValue(rawCookie, cookieName(authority))
+    if (value === undefined) return undefined
+    const payload = decodeCookie(value, this.secret)
+    if (payload === undefined || payload.authority !== authority) return undefined
+    const now = Date.now()
+    if (payload.issuedAt > now || payload.expiresAt <= now || payload.expiresAt <= payload.issuedAt
+      || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) return undefined
+    return payload
   }
 }

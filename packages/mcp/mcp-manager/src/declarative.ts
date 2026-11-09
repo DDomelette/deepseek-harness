@@ -52,7 +52,7 @@ const FIBER_PHASE = {
  */
 export function declarativeMcpServers(ctx: Context): DeclarativeMcpServer[] {
   const result: DeclarativeMcpServer[] = []
-  for (const entry of ctx.loader.entries()) {
+  for (const entry of ctx.get('loader')?.entries() ?? []) {
     if (entry.options.group) continue
     if (entry.options.name !== MCP_CLIENT_MODULE) continue
     const config = entry.options.config as { serverName?: unknown; transport?: unknown } | undefined

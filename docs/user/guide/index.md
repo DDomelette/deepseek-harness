@@ -8,7 +8,7 @@ Start the Web UI through the [root README](../../../README.md#run); the command 
 
 Open **Settings → Models**, enter a [DeepSeek API key](https://platform.deepseek.com/), and save it. The model route becomes usable immediately without restarting the server.
 
-The [model configuration guide](./providers.md) covers other providers and custom OpenAI-compatible endpoints.
+The [model configuration guide](providers.md) covers other providers and custom OpenAI-compatible endpoints.
 
 ## Choose a workspace
 
@@ -24,7 +24,8 @@ The agent can read and edit workspace files, run commands, delegate work, and ma
 
 ## Continue
 
-- [Configure models](./providers.md)
-- [Use the Python SDK](./python-sdk.md)
+- [Configure models](providers.md)
+- [Use the Python SDK](python-sdk.md)
+- [Publish the Web UI behind a reverse proxy](public-deployments.md)
 - [Use other CLI modes](../../../apps/cli/README.md)
 - [Develop a plugin](../develop/basic/index.md)

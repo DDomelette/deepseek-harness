@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-上游对齐合并（`511389989c`）为客户端外壳采纳了上游 master，只回补了 fork 手机端频段的一部分：`SIDEBAR_OVERLAY`、`data-sidebar-fab` 框架标记、侧边栏 slot 的 `fab` 悬浮品牌按钮、以及 keyed 在该标记上的消费方样式表都保住了，抽屉呈现没有。上游重写后的 `AppFrame` 不带抽屉，于是 fork 的 `data-drawer` 列、遮罩、滑入滑出、边缘滑动手势和 Escape 处理随之丢失，而合并留下了 768px 以下 `cols.sidebar = 0` 的开关，却没有对应的可见展开态。
+上游对齐合并为客户端外壳采纳了上游 master，只回补了 fork 手机端频段的一部分：`SIDEBAR_OVERLAY`、`data-sidebar-fab` 框架标记、侧边栏 slot 的 `fab` 悬浮品牌按钮、以及 keyed 在该标记上的消费方样式表都保住了，抽屉呈现没有。上游重写后的 `AppFrame` 不带抽屉，于是 fork 的 `data-drawer` 列、遮罩、滑入滑出、边缘滑动手势和 Escape 处理随之丢失，而合并留下了 768px 以下 `cols.sidebar = 0` 的开关，却没有对应的可见展开态。
 
 后果是单程陷阱。768px 以下悬浮品牌按钮是侧边栏唯一的打开入口；点按它置位 `narrowExpanded` 并卸载按钮，而展开的侧边栏渲染进零宽网格列后被裁成空白。没有遮罩、没有 Escape 属主、没有 rail 内的 toggle，x=0 处还留了一条多余的拖拽手柄。在合并后的树上已复现：点按后框架网格计算为 `0px + 中栏 + 0px`，侧边栏元素量得 0×0。桌面宽度不受影响，所以该回归穿过了合并自带的检查。
 

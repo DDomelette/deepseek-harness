@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/test-support/remote-mock/README.md
 /:
-  en: 8202adb378dcf4d4
-  zh: 04381896ada8d8f8
+  en: 5807aeb1022af801
+  zh: 1b8715d41b159629
 /deepseek-ai-dsh-remote-mock:
   en: c3f8bf28950c870f
   zh: 6348be0d6f910cce

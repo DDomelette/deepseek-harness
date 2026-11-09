@@ -1,12 +1,12 @@
-# Background Task Runtime
+# Background Job Runtime
 
 English | [中文](jobs.zh.md)
 
-Types shared by long-running producers, `ctx.jobs`, and job controls. The [runtime Agent Note](../../.agents/notes/implemented/architecture/2026-06-20-generic-long-running-tool-runtime.md) owns the design; this page records the exact fields and variants from [`packages/jobs/jobs/src/types.ts`](../../packages/jobs/jobs/src/types.ts).
+Types shared by long-running producers, `ctx.jobs`, and job controls. The [seam consolidation Agent Note](../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) owns the current design and the [runtime reference](../../packages/jobs/jobs/README.md) its origin; this page records the exact fields and variants from [`packages/jobs/jobs/src/types.ts`](../../packages/jobs/jobs/src/types.ts) and the client-safe [`view.ts`](../../packages/jobs/jobs/src/view.ts) leaf.
 
 ## Ids and status
 
-`JobId` is a [branded id](core.md#branded-ids) generated as `<kind>-N`. Access control relies on owner authorization, not id secrecy. `JobKind` derives from a merge-extensible map; the registry treats kinds as opaque id namespaces.
+`JobId` is a [branded id](core.md#branded-ids) generated as `<kind>-<short-uuid>` with 16 lowercase UUID hex characters after the kind. Access control relies on owner authorization, not id secrecy. `JobKind` derives from a merge-extensible map; the registry treats kinds as opaque id namespaces.
 
 ```ts type-equiv
 /**
@@ -18,11 +18,65 @@ interface JobKindMap {
 }
 ```
 
-`JobStatus` is `'running' | 'stopping' | 'completed' | 'killed' | 'failed'`; producer-specific facts belong in `JobView.detail`.
+`JobStatus` is `'running' | 'stopping' | 'completed' | 'killed' | 'failed'`; producer-specific facts belong in `JobView.progress` while the job runs and in `JobView.detail` once it settled.
+
+<a id="session-lifecycle-records"></a>
+
+## Session lifecycle records
+
+Owned jobs publish `job/registered` and `job/settled` in their original owner Session. The globally unique `jobId` pairs those records and controls the live job. The SDK forwards these log-only records through `session.event`, independently of output reads. Timestamps describe registry commits, not CPU time or exact OS process boundaries; a missing settlement remains incomplete. `producerReported` means the producer fulfilled `done` with a terminal outcome; it is false for forced teardown or rejection and does not independently certify resource release.
+
+`job/settled` may follow `turn/end`. An SDK run result covers only its own observation window; consumers needing later settlements retain a Session subscription or read persisted history. Turn completion does not imply that every owned job stopped.
+
+Application teardown can stop Session event routing or close its writer before an owned job's final settlement reaches storage. This includes normal one-shot completion and signal shutdown, as well as hard process loss. A missing `job/settled` remains incomplete even if the live registry reported termination; consumers must not invent a finish timestamp.
+
+```ts type-equiv
+/** Durable identity and registration time of one owned job execution. */
+interface JobRegisteredData {
+  /** Unique execution id accepted by job controls and retained in Session history. */
+  readonly jobId: JobId
+  /** Original owner; copied history does not transfer execution ownership. */
+  readonly owner: SessionId
+  /** Producer kind. */
+  readonly kind: string
+  /** Producer-supplied label. */
+  readonly label: string
+  /** Unix epoch milliseconds when registration committed. */
+  readonly startedAt: number
+  /** Creating tool invocation, when the producer was called through a tool. */
+  readonly toolCall?: JobToolCall
+}
+```
+
+```ts type-equiv
+/** Registry settlement, including whether the producer reported a terminal outcome. */
+interface JobSettledData extends JobRegisteredData {
+  /** Unix epoch milliseconds when the registry committed the terminal record. */
+  readonly finishedAt: number
+  /** Recorded terminal outcome. */
+  readonly status: JobOutcome['status']
+  /** Source of the termination request, or producer completion. */
+  readonly cause: JobSettleCause
+  /** True when done fulfilled; false for rejection or forced failure. Does not certify resource release. */
+  readonly producerReported: boolean
+  /** Terminal reason, including a recorded kill reason when applicable. */
+  readonly detail?: string
+}
+```
 
 ## Producer contract
 
-`JobSpec` declares identity and a starter. The runtime finishes preflight before calling `run()` and commits without a later failable step. Producers own execution resources; the runtime owns identity, access, and lifecycle state.
+A `JobSpec` declares identity, the owning session, optional pull `output` sources, and a starter. The runtime finishes preflight before calling `run()` with the job's `JobHandle` and commits without a later failable step. Producers own execution resources; the runtime owns identity, access, lifecycle state, and the output ring.
+
+```ts type-equiv
+/** Tool dispatch that created a job; nested calls retain their root invocation. */
+interface JobToolCall {
+  /** Exact invocation, including a PTC sub-call when applicable. */
+  readonly callId: SessionEventMap['tool/call']['callId']
+  /** Root model-requested invocation owning this execution. */
+  readonly rootCallId: SessionEventMap['tool/call']['callId']
+}
+```
 
 ```ts type-equiv
 /**
@@ -43,6 +97,8 @@ interface JobSpec {
    * caller until service disposal.
    */
   owner?: SessionId
+  /** Creating tool invocation, retained in the durable lifecycle records. */
+  toolCall?: JobToolCall
   /**
    * Optional UTF-8 byte cap for each complete model-facing completion notice or
    * output read, including controller status metadata. Independent of ring
@@ -66,7 +122,35 @@ interface JobSpec {
 }
 ```
 
-`JobHooks.done` resolves after the producer releases its resources, not merely when work finishes. Optional `readOutput` distinguishes consuming stream jobs from final-output-only jobs.
+```ts type-equiv
+/**
+ * Producer face of one registered job, handed to {@link JobSpec.run} and
+ * valid for the job's whole life. All methods are synchronous. Writes staged
+ * inside the starter call are retained and become visible with the
+ * registration commit; after settlement — the producer's own outcome, a kill,
+ * or a registry-forced teardown end — writes log and drop instead of
+ * throwing, so a producer's trailing flush cannot break its own teardown path.
+ */
+interface JobHandle {
+  /** The registry-issued id (`<kind>-<short-uuid>`). */
+  readonly id: JobId
+  /**
+   * Append one chunk to the output ring. Offsets advance by the chunk's UTF-8
+   * byte length; an empty chunk is dropped without waking observers.
+   * @param text - the chunk text, exactly as produced.
+   * @param options - stream label and gap marker.
+   */
+  append(text: string, options?: JobAppendOptions): void
+  /**
+   * Replace the live progress line (`3/10`, the current phase). Settlement
+   * clears it; the terminal reason travels in {@link JobOutcome.detail}.
+   * @param line - the new progress line.
+   */
+  updateProgress(line: string): void
+}
+```
+
+`JobHooks.done` resolves after the producer releases its resources, not merely when work finishes. A job whose result is a value rather than a stream — a workflow's rendered result — returns it as `JobOutcome.result`; the model's first read after settlement carries it once.
 
 ```ts type-equiv
 /** Hooks through which the runtime controls and observes producer work. */
@@ -106,9 +190,83 @@ interface JobOutcome {
 }
 ```
 
+A pull source hands the registry a non-consuming offset reader — the subprocess `readFrom` family. The registry pumps every source at its own cadence (`pumpPollMs` on `dsh-jobs-local`) and drains it once more before settlement closes the ring, so producers fold nothing into `done`.
+
+```ts type-equiv
+/**
+ * A pull source the registry pumps into the job's output ring — the subprocess
+ * `readFrom` family. The registry owns the cadence and drains every source one
+ * last time before settlement closes the ring, so a producer folds nothing
+ * into its `done`.
+ */
+interface JobOutputSource {
+  /** Stream label attached to every chunk this source yields. */
+  channel?: JobChannel
+  /**
+   * Read everything captured since `fromByte` without consuming it.
+   * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 first).
+   * @returns the delta text, the next offset, the lossy flag, and the spill path the source currently keeps.
+   */
+  read(fromByte: number): JobSourceRead
+}
+```
+
+```ts type-equiv
+/** One incremental read from a {@link JobOutputSource}. */
+interface JobSourceRead {
+  /** Text captured since the requested offset (the whole retained tail when lossy). */
+  text: string
+  /** Whole-stream offset to resume from on the next read. */
+  nextOffset: number
+  /** True when the requested offset slid out of the source's retained window. */
+  lossy: boolean
+  /**
+   * Host path of a file holding the complete stream, when the source
+   * currently keeps an intact one. Reported on every read, so the registry
+   * tracks it as source metadata: a later read without it withdraws the file.
+   */
+  spillPath?: string
+}
+```
+
+## The output ring
+
+Every job owns one bounded ring. Pull sources are pumped into it and `JobHandle.append` pushes land whole; the model consumes the ring through a registry-kept cursor (`JobRegistry.read`), any number of observers read it at absolute byte offsets (`JobRegistry.readAt`), and neither disturbs the other. `JobChannel` labels `stdout`, `stderr`, and `log`; `log` is producer narration that reaches observers only, never the model's consuming read. Settlement ends the stream and trims retention to the settled cap — the ring has no separate lifecycle. The spill file a pull source keeps is job metadata (`JobView.output.spillPaths`, refreshed by every pump read), not per-chunk metadata, so the model's dropped-output notice names it after the ring evicted the bytes and even after the gap chunk itself is gone. Browsers reach the roster and the ring through `job.list` and `job.follow`, the Remote streams of [`dsh-api-job-controller`](../../packages/api/job-controller/README.md), whose frames are listed under its Cordis API section below.
+
+```ts type-equiv
+/** One chunk of a job's output ring: absolute offset, text, channel, and loss marker. */
+interface JobChunk {
+  /** Absolute offset of the chunk's first byte; offsets never move once assigned. */
+  readonly at: number
+  /** Chunk text exactly as appended (possibly tail-trimmed by retention). */
+  readonly text: string
+  /** Stream label, when the producer supplied one. */
+  readonly channel?: JobChannel
+  /** Bytes immediately before this chunk were lost, at the producer or to retention. */
+  readonly gapBefore?: true
+}
+```
+
+```ts type-equiv
+/** Result of one non-consuming {@link JobRegistry.readAt}. */
+interface JobOutputRead {
+  /** Retained chunks overlapping `[from, total)`, in offset order. */
+  chunks: readonly JobChunk[]
+  /**
+   * Offset to resume from — the ring's current `total`. Always a chunk
+   * boundary: appends land whole and trimming only advances chunk starts, and
+   * consumers concatenate `chunks` under that assumption, so a provider
+   * serving partial chunks would silently duplicate text.
+   */
+  next: number
+  /** True when `from` fell below the oldest retained byte, so bytes are missing before `chunks`. */
+  lossy: boolean
+}
+```
+
 ## Consumer views
 
-Snapshots are fresh read-only projections. `ownerSession` carries the shared `SessionId` used for authorization; completion listeners separately receive the exact owner object used for lifecycle cleanup. `reported` suppresses a completion notice after another reporter has delivered or committed to deliver the terminal state, including the teardown cancel that drains an owner or the service.
+`JobView` is the one projection every reader consumes: the model tools, the browser roster, and the observation stream. `owner` carries the session id that fences access; the registry resolves the live `Agent` behind it for lifecycle cleanup and never hands the object out. `progress` is the producer's live line and is cleared at settlement; `detail` is the terminal reason, with a recorded kill reason merged in.
 
 ```ts type-equiv
 /**
@@ -117,7 +275,7 @@ Snapshots are fresh read-only projections. `ownerSession` carries the shared `Se
  * stream all consume this one shape.
  */
 interface JobView {
-  /** The registry-issued id (`<kind>-N`). */
+  /** The registry-issued id (`<kind>-<short-uuid>`). */
   readonly id: JobId
   /**
    * The producer kind the job was registered with: a Host-registered
@@ -154,6 +312,8 @@ interface JobView {
 }
 ```
 
+`JobRegistry.list`, `get`, `read`, `readAt`, `kill`, and `wait` each accept the caller’s `SessionId`; omitting it permits only unowned jobs, while a session may also access its own jobs.
+
 ```ts type-equiv
 /** Output and post-read state returned by the consuming {@link JobRegistry.read}. */
 interface JobRead {
@@ -168,9 +328,62 @@ interface JobRead {
 }
 ```
 
+## Events
+
+The registry announces every commit through one filtered stream. Lifecycle events carry the projection after the commit they announce; `settled` names its cause so a completion reporter can skip a teardown; `output` carries only the id and the new total, so observers read from their own cursor and the registry never pushes payloads.
+
+```ts type-equiv
+/**
+ * One lifecycle or output event. Lifecycle events carry the job's projection
+ * after the commit they announce; `output` carries only the id and the new
+ * total, so an observer schedules a {@link JobRegistry.readAt} from its own
+ * cursor and the registry never pushes payloads.
+ */
+type JobEvent =
+  | {
+    /** Registration commit, progress line change, stopping transition, or removal from the visible set. */
+    readonly type: 'registered' | 'progress' | 'stopping' | 'removed'
+    readonly job: JobView
+  }
+  | {
+    readonly type: 'settled'
+    readonly job: JobView
+    readonly cause: JobSettleCause
+    /**
+     * Whether this settlement released a live {@link JobRegistry.wait}. That
+     * waiter's caller receives the terminal projection as its own result, so
+     * a completion reporter treats an awaited settlement as already delivered
+     * and reports only the unawaited ones. A wait that timed out or was
+     * aborted before the settlement does not count.
+     */
+    readonly awaited: boolean
+  }
+  | {
+    readonly type: 'output'
+    readonly id: JobId
+    /** Owning session, absent for an unowned job. */
+    readonly owner?: SessionId
+    /** The ring's total after the append (or at settlement, which ends the stream). */
+    readonly total: number
+  }
+```
+
+```ts type-equiv
+/**
+ * Who a subscription hears about. `{ owner }` delivers that session's jobs
+ * plus every unowned job (the set that session can see). `{ owners: 'scope' }`
+ * delivers the owners composed under the subscribing context — one registry
+ * serves every composition in the process, and a mount under one preset must
+ * not hear another preset's agents. `{ owners: 'all' }` delivers everything.
+ */
+type JobEventFilter =
+  | { readonly owner: SessionId }
+  | { readonly owners: 'all' | 'scope' }
+```
+
 ## Service behavior
 
-The abstract [`JobRegistry`](../../packages/jobs/jobs/src/index.ts) Service Definition specifies atomic `start`, caller-scoped `get` and `list`, `read`, `kill`, bounded `wait`, failure-isolated `onJobDone` and `onJobsChanged` listeners, and `attachController`; [`LocalJobRegistry`](../../packages/jobs/jobs-local/src/index.ts) is the process-local Service Provider. Authorization compares owner sessions; owner cleanup and admission use the exact registered `Agent` instance. The local provider's positive-safe-integer `maxConcurrentJobsPerOwner` config defaults to `10` and counts `running` plus `stopping` records per exact owner, with one shared bucket for unowned jobs; terminal producer settlement releases capacity. See [`dsh-jobs`](../../packages/jobs/jobs/README.md) for the Service Definition contract, [`dsh-jobs-local`](../../packages/jobs/jobs-local/README.md) for the registry lifecycle and admission policy, and [`dsh-tool-jobs`](../../packages/jobs/tool-jobs/README.md) for the model-facing Consumer.
+The abstract [`JobRegistry`](../../packages/jobs/jobs/src/index.ts) Service Definition specifies atomic `start`, caller-scoped `list`, `get`, consuming `read`, non-consuming `readAt`, `kill`, and bounded `wait`, the filtered `events` stream, and `attachController`; [`LocalJobRegistry`](../../packages/jobs/jobs-local/src/index.ts) is the process-local Service Provider. Authorization compares owner sessions; owner cleanup and admission use the live `Agent` registered under the owner session when the job starts. The local provider's positive-safe-integer `maxConcurrentJobsPerOwner` config defaults to `10` and counts `running` plus `stopping` records per exact owner, with one shared bucket for unowned jobs; terminal producer settlement releases capacity; `retainBytes` (default 262144) and `settledRetainBytes` (default 16384) bound each ring's live and settled retention, and `pumpPollMs` (default 150) is the pull cadence. See [`dsh-jobs`](../../packages/jobs/jobs/README.md) for the Service Definition contract, [`dsh-jobs-local`](../../packages/jobs/jobs-local/README.md) for the registry lifecycle and admission policy, and [`dsh-tool-jobs`](../../packages/jobs/tool-jobs/README.md) for the model-facing Consumer.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -248,7 +461,7 @@ Implementations must honor these semantics:
  * rejection leaves no job id or execution resource. A throwing starter
  * leaves nothing registered; after it returns, registration cannot fail.
  * @param spec - job identity, owner, output sources, and synchronous starter.
- * @returns the registry-issued `<kind>-N` id.
+ * @returns the registry-issued `<kind>-<short-uuid>` id.
  */
 abstract start(spec: JobSpec): JobId
 

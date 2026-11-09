@@ -6,7 +6,7 @@ English | [中文](2026-09-11-posix-ssh-runtime.zh.md)
 
 ## Problem
 
-Remote coding requires file tools, Bash, terminals, language servers and Node programs to see one filesystem and process world. The [portable-consumer decision](2026-07-28-portable-execution-world-consumers.md) provides those interfaces, and SSH carries them to a POSIX host through authenticated byte channels.
+Remote coding requires file tools, Bash, terminals, language servers and Node programs to see one filesystem and process world. The [portable-consumer decision](2026-07-28-portable-execution-world-consumers.md) provides those interfaces. The [E2B retirement](../simplification/2026-09-11-remove-e2b-providers.md) preserves their asynchronous semantics while removing an integration whose standard-stream SDK needs a separate transport project to carry bidirectional PTC control traffic.
 
 SSH supplies authenticated byte channels and per-channel flow control, but an ordinary exec request does not map arbitrary child descriptors. Treating SSH as a replacement for a process owner would leave control-stream bridging, launch publication, EOF, cancellation and disconnected cleanup without an implementation.
 

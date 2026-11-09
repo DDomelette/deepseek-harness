@@ -138,23 +138,12 @@ if (!BOOTSTRAP) {
   rmSync(join(recordDir, 'rec-pin', 'session.v3.jsonl'))
   writeFileSync(join(recordDir, 'rec-child', 'session.2.v3.jsonl'), retiredChildFixture)
 }
-const linkedDir = mkdtempSync(join(tmpdir(), 'acp-snap-linked-suite-'))
-cpSync(REPLAY_DIR, linkedDir, { recursive: true })
-for (const [file, target] of [
-  ['system-prompt.expected.md', './system-prompt.contents.md'],
-  ['tool-schemas.expected.json', '../pin-turn/tool-schemas.contents.json'],
-] as const) {
-  const pin = join(linkedDir, 'pin-turn')
-  writeFileSync(join(pin, target), readFileSync(join(pin, file), 'utf8'))
-  writeFileSync(join(pin, file), target)
-}
 const refreshDir = mkdtempSync(join(tmpdir(), 'acp-snap-refresh-suite-'))
 cpSync(REPLAY_DIR, refreshDir, { recursive: true })
 staleRefreshFixtures(refreshDir)
 afterAll(async () => {
   if (!BOOTSTRAP) await rm(recordDir, { recursive: true, force: true })
   await rm(refreshDir, { recursive: true, force: true })
-  await rm(linkedDir, { recursive: true, force: true })
 })
 
 function staleRefreshFixtures(dir: string): void {
@@ -183,10 +172,6 @@ function staleRefreshFixtures(dir: string): void {
 
 describe('defineAcpSnapshotSuite: replay mode', () => {
   defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: REPLAY_DIR, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
-})
-
-describe('defineAcpSnapshotSuite: materialized sidecars', () => {
-  defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: linkedDir, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
 })
 
 // The record suite's tests run in registration order: rec-pin re-records the
@@ -797,7 +782,7 @@ describe('systemPromptPrecedesRequests', () => {
 })
 
 describe('normalizedToolSchemas', () => {
-  it('extracts normalized schema arrays and omits absent or non-array fields', () => {
+  it('extracts normalized schema arrays, preserves empty headers, and omits invalid fields', () => {
     const log = [
       '{"type":"session","id":"a","createdAt":5,"cwd":"/w"}',
       '{"type":"request/header","seq":0,"time":9,"data":{"header":{"tools":[{"name":"read","description":"work in /w"}]}}}',
@@ -809,6 +794,7 @@ describe('normalizedToolSchemas', () => {
     ].join('\n')
     expect(normalizedToolSchemas(log, { sessionIds: [], cwd: '/w' })).toEqual([
       [{ name: 'read', description: 'work in {{cwd}}' }],
+      [],
     ])
   })
 })
@@ -906,6 +892,12 @@ describe('tool-schema snapshots', () => {
   it('restores initial schemas into the pinned header token', () => {
     expect(restorePinnedToolSchemas({ system: '{{system}}', tools: '{{tools}}' }, snapshot.initial))
       .toEqual({ system: '{{system}}', tools: snapshot.initial })
+  })
+
+  it('preserves absent tools only for an empty sidecar', () => {
+    const header = { config: { model: 'test' } }
+    expect(restorePinnedToolSchemas(header, [])).toBe(header)
+    expect(() => restorePinnedToolSchemas(header, snapshot.initial)).toThrow(/must equal/)
   })
 
   it('restores ordered tool names only when they match the sidecar', () => {
@@ -1374,6 +1366,23 @@ describe('stabilizeRefreshLog', () => {
       '{"type":"hook/result","seq":4,"time":13,"data":{"decision":"allow","durationMs":5}}',
       '',
     ].join('\n'))
+  })
+
+  it('keeps job identities consistent across registration, tool text, and later calls during refresh', () => {
+    const log = (jobIds: string[], guidance: string): string => [
+      { type: 'session', id: 'same', createdAt: 1, cwd: '/same' },
+      { type: 'user/message', data: { content: [{ type: 'text', text: guidance }] } },
+      ...jobIds.flatMap(jobId => [
+        { type: 'job/registered', data: { jobId, startedAt: 1 } },
+        { type: 'tool/result', data: { text: `started background job ${jobId}` } },
+        { type: 'tool/call', data: { name: 'job_output', arguments: JSON.stringify({ job_id: jobId }) } },
+        { type: 'job/settled', data: { jobId, startedAt: 1, finishedAt: 2 } },
+      ]),
+    ].map(record => JSON.stringify(record)).join('\n') + '\n'
+    const fresh = log(['bash-1111111111111111', 'bash-2222222222222222'], 'new guidance')
+    const existing = log(['{{id:1}}', '{{id:2}}'], 'old guidance')
+
+    expect(stabilize(fresh, existing)).toBe(log(['{{id:1}}', '{{id:2}}'], 'new guidance'))
   })
 
   it('preserves normalized volatile fields while accepting fresh semantic fields', () => {

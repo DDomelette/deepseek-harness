@@ -1,6 +1,6 @@
 ---
 description: "Endpoint-named mock for Typert Remote traffic: a table of unary answers and stream scripts, live stream control, a log, and the Connection carrier face, for test authors booting a real browser client without a Host."
-kind: "package-reference"
+kind: "package-library"
 ---
 
 # @deepseek-ai/dsh-remote-mock

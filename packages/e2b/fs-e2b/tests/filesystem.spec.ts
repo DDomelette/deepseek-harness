@@ -11,6 +11,7 @@ import {
 import type E2BRuntime from '@deepseek-ai/dsh-e2b'
 import { FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import E2BFileSystem from '@deepseek-ai/dsh-fs-e2b'
+import type { PatchHunk } from '@deepseek-ai/dsh-fs-patch'
 import { describe, expect, it, vi } from 'vitest'
 
 interface RemoteNode {
@@ -49,6 +50,8 @@ class FakeRemote {
   nextReadError: unknown
   nextRenameError: unknown
   nextRemoveError: unknown
+  readonly removeFailures = new Map<string, unknown>()
+  beforeRename: ((from: string, to: string) => Promise<void>) | undefined
   canonicalOutput: string | undefined
   abortAfterRename: AbortController | undefined
   competitorBeforeLink:
@@ -211,6 +214,7 @@ class FakeRemote {
           this.nextRenameError = undefined
           throw error
         }
+        await this.beforeRename?.(from, to)
         const node = this.required(from)
         this.nodes.delete(from)
         this.nodes.set(to, node)
@@ -221,6 +225,7 @@ class FakeRemote {
       },
       remove: async (path: string): Promise<void> => {
         this.removals.push(path)
+        if (this.removeFailures.has(path)) throw this.removeFailures.get(path)
         if (this.nextRemoveError !== undefined) {
           const error = this.nextRemoveError
           this.nextRemoveError = undefined
@@ -300,18 +305,20 @@ class FakeRemote {
         return { exitCode: 0, stdout: '', stderr: '' }
       },
     },
-  } as unknown as Sandbox
+  } as Sandbox
 }
 
-async function setup(remote = new FakeRemote()): Promise<{ ctx: Context; fs: E2BFileSystem; remote: FakeRemote }> {
+async function setup(
+  remote = new FakeRemote(), config?: { diffBasisMaxBytes: number },
+): Promise<{ ctx: Context; fs: E2BFileSystem; remote: FakeRemote }> {
   const ctx = new Context()
   const runtime = {
     cwd: '/workspace',
     runtimeRoot: '/workspace/.dsh-e2b',
     getSandbox: async () => remote.sandbox,
-  } as unknown as E2BRuntime
+  } as E2BRuntime
   ctx.provide('e2b', runtime)
-  await ctx.plugin(E2BFileSystem)
+  await ctx.plugin(E2BFileSystem, config)
   return { ctx, fs: ctx.fs as E2BFileSystem, remote }
 }
 
@@ -847,5 +854,100 @@ describe('E2B filesystem adapter integration edges', () => {
     })
     expect(remote.commands.slice(commandsBefore)).toHaveLength(2)
     expect(getInfo).toHaveBeenCalledTimes(3)
+  })
+})
+
+const replacementHunks: readonly PatchHunk[] = [{ lineNumber: 1, oldLines: ['old'], newLines: ['new'], isEndOfFile: false }]
+
+describe('E2BFileSystem patch, delete, and move', () => {
+  it('patches under the version guard and preserves stored CRLF line endings', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/source.txt', 'old\r\nlast\r\n')
+    const { ctx, fs } = await setup(remote)
+    try {
+      const target = await fs.resolve('source.txt')
+      const version = (await fs.stat(target))?.version
+      if (version === undefined) throw new Error('fixture source missing')
+      await expect(fs.patchText(target, replacementHunks, { version })).resolves.toMatchObject({ before: 'old\nlast\n', after: 'new\nlast\n' })
+      expect(await fs.readText(target)).toBe('new\r\nlast\r\n')
+      await expectCode(fs.patchText(target, replacementHunks, { version }), 'FS_STALE_VERSION')
+      await expectCode(fs.patchText(target, replacementHunks), 'FS_PATCH_MISMATCH')
+      expect(await fs.readText(target)).toBe('new\r\nlast\r\n')
+    } finally { await ctx.fiber.dispose() }
+  })
+
+  it('deletes regular files and bounds the returned text basis', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/small.txt', 'a\r\n')
+    remote.file('/workspace/large.txt', '1234')
+    const { ctx, fs } = await setup(remote, { diffBasisMaxBytes: 4 })
+    try {
+      const small = await fs.resolve('small.txt')
+      const large = await fs.resolve('large.txt')
+      await expect(fs.deleteFile(small)).resolves.toEqual({ before: 'a\n' })
+      await expect(fs.deleteFile(large)).resolves.toEqual({ before: null })
+      expect(await fs.stat(small)).toBeUndefined()
+      await expectCode(fs.deleteFile(small), 'FS_STALE_VERSION')
+      await expectCode(fs.deleteFile(await fs.resolve('.')), 'FS_NOT_REGULAR_FILE')
+    } finally { await ctx.fiber.dispose() }
+  })
+
+  it('moves patched text with source permissions and both version guards', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/source.txt', 'old\r\n', 0o751)
+    remote.file('/workspace/destination.txt', 'prior')
+    const { ctx, fs } = await setup(remote)
+    try {
+      const source = await fs.resolve('source.txt')
+      const destination = await fs.resolve('destination.txt')
+      const sourceVersion = (await fs.stat(source))?.version
+      const destinationVersion = (await fs.stat(destination))?.version
+      if (sourceVersion === undefined || destinationVersion === undefined) throw new Error('fixture files missing')
+      await expectCode(fs.moveFile(source, source, {}), 'FS_SAME_TARGET')
+      await expectCode(fs.moveFile(source, destination, { expectedDestination: { kind: 'createIfAbsent' } }), 'FS_NOT_OBSERVED')
+      await expect(fs.moveFile(source, destination, { hunks: replacementHunks, expectedSource: { version: sourceVersion }, expectedDestination: { kind: 'replaceIfVersion', version: destinationVersion } })).resolves.toMatchObject({ sourceBefore: 'old\n', sourceDeleted: true, destination: { operation: 'update', before: 'prior', after: 'new\n' } })
+      expect(await fs.stat(source)).toBeUndefined()
+      expect(await fs.readText(destination)).toBe('new\r\n')
+      expect(remote.nodes.get('/workspace/destination.txt')?.mode).toBe(0o751)
+    } finally { await ctx.fiber.dispose() }
+  })
+
+  it('reports a published destination when removing the source fails', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/source.txt', 'old\n')
+    remote.removeFailures.set('/workspace/source.txt', new Error('permission denied'))
+    const { ctx, fs } = await setup(remote)
+    try {
+      const source = await fs.resolve('source.txt')
+      const destination = await fs.resolve('new.txt')
+      await expect(fs.moveFile(source, destination, {})).resolves.toMatchObject({ sourceDeleted: false, sourceFailure: { code: 'FS_PERMISSION_DENIED' }, destination: { operation: 'create', after: 'old\n' } })
+      expect(await fs.readText(source)).toBe('old\n')
+      expect(await fs.readText(destination)).toBe('old\n')
+    } finally { await ctx.fiber.dispose() }
+  })
+
+  it('orders overlapping reciprocal moves by canonical target keys', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/a.txt', 'a')
+    remote.file('/workspace/b.txt', 'b')
+    const { ctx, fs } = await setup(remote)
+    const entered = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    remote.beforeRename = async (_from, to) => { if (to === '/workspace/b.txt') { entered.resolve(undefined); await release.promise } }
+    try {
+      const a = await fs.resolve('a.txt')
+      const b = await fs.resolve('b.txt')
+      const version = (await fs.stat(b))?.version
+      if (version === undefined) throw new Error('fixture b missing')
+      const forward = fs.moveFile(a, b, {})
+      const reverse = fs.moveFile(b, a, { expectedSource: { version } })
+      const settled = Promise.allSettled([forward, reverse])
+      await entered.promise
+      release.resolve(undefined)
+      const results = await settled
+      expect(results[0]).toMatchObject({ status: 'fulfilled', value: { sourceDeleted: true } })
+      expect(results[1]).toMatchObject({ status: 'rejected', reason: { code: 'FS_STALE_VERSION' } })
+      expect(await fs.readText(b)).toBe('a')
+    } finally { release.resolve(undefined); await ctx.fiber.dispose() }
   })
 })

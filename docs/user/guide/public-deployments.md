@@ -10,7 +10,7 @@ dsh --profile web --public-url https://app.example/ui/ --trusted-host app.exampl
 
 ## What `--public-url` advertises
 
-`--public-url` accepts an `http://` or `https://` root with an optional mount prefix and normalizes it to end in `/`. It supplies the printed and opened startup URL, `DSH_WEB_URL`, and the web-surface orientation. The webserver keeps serving origin-root routes and never learns the mount. The `publicUrl` config field publishes the same advertisement.
+`--public-url` accepts an `http://` or `https://` root with an optional mount prefix and normalizes it to end in `/`. It supplies the printed and opened startup URL, `DSH_WEB_URL`, and the Web GUI URL in the agent's runtime context. The webserver keeps serving origin-root routes and never learns the mount. The `publicUrl` config field publishes the same advertisement.
 
 ## What the proxy must do
 
@@ -34,4 +34,4 @@ To terminate on the listener, pass `--tls-cert` and `--tls-key`, each a path res
 
 The printed URL carries a process credential, so share it only with intended users.
 
-The [Web app reference](../../../packages/bundle/web-app/README.md#public-deployments) documents the `--public-url`, `--trusted-host`, and `--tls-cert`/`--tls-key` command-line options. In the Web profile, `publicUrl` configures the `web-runtime` row, `trustedHosts` configures the [Connection row](../../../packages/client/connection/README.md), and `tls` configures the [webserver row](../../../docs/subsystems/web-server.md#config).
+The [Web app reference](../../../packages/bundle/web-app/README.md#public-deployments) documents the `--public-url`, `--trusted-host`, and `--tls-cert`/`--tls-key` command-line options. In the Web profile, `publicUrl` configures the `web-runtime` row, `trustedHosts` configures the [Connection row](../../../packages/client/connection/README.md), and `tls` configures the [webserver row](../../subsystems/web-server.md#config).

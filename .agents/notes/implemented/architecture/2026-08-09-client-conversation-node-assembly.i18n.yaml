@@ -9,8 +9,8 @@
   en: ebdd3ce57ca5b24d
   zh: 1aa034b4c3ed515f
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/decision:
-  en: a00a42085952faa8
-  zh: 6aef0a5a5e1067e8
+  en: af502b4eb9c09d33
+  zh: a20cd538e66d3a4b
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/decision/responsibility-layers:
   en: 36b54ef989c331af
   zh: 58cad4e07a800ba9
@@ -72,11 +72,11 @@
   en: 2a7cae3607dcbc1a
   zh: 86f6d8eb7871e253
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/how-built-in-businesses-use-definitions/matching-id-and-state:
-  en: 733e604d25ad25a8
-  zh: 0dc4418f1c745b58
+  en: 130f5db917574545
+  zh: 9bf13c96abdc3a4e
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/how-built-in-businesses-use-definitions/chat-node-and-history-live-behavior:
-  en: 643326aca63be78b
-  zh: b26fa1821b6a4afe
+  en: 0c52c9ae98f84a86
+  zh: d1c7587ad427d8fc
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/view-builder-and-react-identity:
   en: ced7ab385e5a81a8
   zh: 5c319ed7ca40e5b8
@@ -84,8 +84,8 @@
   en: 114ca8db361d22e5
   zh: 37b6d474e855c187
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/verification:
-  en: 61eb7ef155d2c272
-  zh: 633738294bc03118
+  en: cf36507c86d1139c
+  zh: 1fcdd4e2c2cc106b
 /agent-note-client-conversation-business-node-assembly-and-keyed-chat-snapshots/alternatives-considered:
   en: e150870d4e2525ed
   zh: 34eafb435036af9a

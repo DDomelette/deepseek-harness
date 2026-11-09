@@ -1,6 +1,6 @@
 ---
 description: "Single file-extension to syntax-highlighting language table shared by the Client code surfaces and the Host read card."
-kind: "package-reference"
+kind: "package-library"
 ---
 
 # dsh-util-code-language

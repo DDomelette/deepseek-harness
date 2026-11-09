@@ -31,7 +31,7 @@ describe('workspace export roots', () => {
   afterEach(() => { rmSync(directory, { recursive: true, force: true }) })
 
   const pack = (): ReturnType<typeof packVfsImage> => packVfsImage({
-    config: `- name: '${name}'\n`,
+    roster: [name],
     profile: 'export-roots',
     workspaces: new Map([[name, directory]]),
     resolveFrom: directory,

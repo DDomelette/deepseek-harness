@@ -1,3 +1,4 @@
+import { allowAllAccess, contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 // @vitest-environment jsdom
 /**
  * AuthRequiredScreen: the screen a non-loopback browser sees when the Host
@@ -32,7 +33,7 @@ function mount(options: {
   // the failure it was handed, exactly as the binding does.
   const useConnectionFailure = ((select: (failure: ConnectionFailure | undefined) => unknown) =>
     select(options.failure)) as never
-  render(<AuthRequiredScreen
+  render(<AuthRequiredScreen {...allowAllAccess} useContextMenu={contextMenuHook()}
     usePanelInfo={unused as never}
     useResource={unused as never}
     useSessionStatus={unused as never}

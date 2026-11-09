@@ -6,8 +6,8 @@
   en: 79e15a9da0b4053b
   zh: fb9719cd520abf7b
 /agent-note-session-history-control-state-and-remote-event-transport/problem:
-  en: 3fd3af32897be58e
-  zh: 0c4164689bd1ce43
+  en: b40a730a4cd03535
+  zh: 10d5a61824b53443
 /agent-note-session-history-control-state-and-remote-event-transport/decision:
   en: bbe86a1833ab5547
   zh: 987a2ade8b4cb909
@@ -27,20 +27,20 @@
   en: d5d0d6a57a4fa581
   zh: 265973b157f957d9
 /agent-note-session-history-control-state-and-remote-event-transport/decision/session-controller:
-  en: e338ac27490a380f
-  zh: 12600011ec742e5b
+  en: f432480a52414d56
+  zh: 15a3f175b69cdb53
 /agent-note-session-history-control-state-and-remote-event-transport/decision/session-controller/activation-policy:
-  en: abb7fea97be03875
-  zh: 66c893892a047bca
+  en: 03e24cdee8519a92
+  zh: 82dc02eb26d7d7f4
 /agent-note-session-history-control-state-and-remote-event-transport/decision/session-controller/session-journal:
-  en: bb710f8cf35f2028
-  zh: aae2cfb8cd848069
+  en: 4de2965717900b96
+  zh: 1d129003824fa6bd
 /agent-note-session-history-control-state-and-remote-event-transport/decision/session-controller/session-live-control:
-  en: b5b67be65c1d0c13
-  zh: e3ff008ac98685af
+  en: a11d627cd68650c3
+  zh: 9aff565b9f712853
 /agent-note-session-history-control-state-and-remote-event-transport/decision/workspace-controller:
-  en: 79007ad9c48ab3d0
-  zh: f53363fac4fa2bbc
+  en: ce0c3fcff169412d
+  zh: 7076182817358dff
 /agent-note-session-history-control-state-and-remote-event-transport/decision/remote-event:
   en: c76291bf39999882
   zh: 76f032664fb91ead
@@ -48,11 +48,11 @@
   en: 457408013eb78636
   zh: 126e9d263225d7c4
 /agent-note-session-history-control-state-and-remote-event-transport/alternatives-considered:
-  en: 8c9c1a9ee79ad33e
-  zh: b5e524b7224601e3
+  en: 22a77c3afd4df0d6
+  zh: 661cf8d02d741f1d
 /agent-note-session-history-control-state-and-remote-event-transport/verification:
-  en: 9374f73f0c51bb1b
-  zh: 636f8f01fb8fa88a
+  en: 7328f28ba3e32f4c
+  zh: 2150f20437a473af
 /agent-note-session-history-control-state-and-remote-event-transport/consequences:
-  en: 808ce6d1310876a2
-  zh: d9e8fe2aa5cda617
+  en: 7e130587088a18c5
+  zh: 5a7a02049aa74a5b

@@ -5,7 +5,7 @@ const binScript = fileURLToPath(new URL('./fixtures/dsh-badge/snapshot.ts', impo
 const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', import.meta.url))
 const defaultConfigPath = fileURLToPath(new URL('./fixtures/dsh-badge/default.cordis.yml', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
-const badgeAssetsPath = fileURLToPath(new URL('../../../packages/skill/skill-badge/assets/', import.meta.url))
+const badgeAssetsPath = fileURLToPath(new URL('../../../packages/experimental/skill-badge/assets/', import.meta.url))
 // Raw stdout is JSON-escaped, so a Windows assets path reaches it with doubled
 // separators and a replacement on the raw text misses; tokenize decoded values.
 const replaceAssetsPath = (_key: string, value: unknown): unknown =>

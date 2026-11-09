@@ -40,7 +40,7 @@ describe('dsh-skill-settings', () => {
     const pending = ctx.plugin({ name: 'pending-config-probe', inject: ['unavailable'], apply() {} })
     await pending.await()
     const stored = { disabled: ['stored legacy name'] }
-    expect(ctx.waterfall(pending, 'internal/config', stored, () => stored)).toBe(stored)
+    expect(ctx.waterfall('internal/config', pending, () => stored)).toBe(stored)
   })
 
   it('disables configured skills through the registry override and reverts live', async () => {

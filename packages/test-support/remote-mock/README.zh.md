@@ -1,6 +1,6 @@
 ---
 description: "Typert Remote 流量的端点具名 mock：一元应答与流脚本的表、活流控制、日志与 Connection 载体面，供测试作者在没有 Host 的情况下启动真实浏览器客户端。"
-kind: "package-reference"
+kind: "package-library"
 ---
 
 # @deepseek-ai/dsh-remote-mock

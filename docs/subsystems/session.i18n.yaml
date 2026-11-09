@@ -9,17 +9,17 @@
   en: 541354f6468e117d
   zh: 2d7a665bad828a02
 /sessions/sessioneventmap-the-event-vocabulary/the-request-header-event-request-header:
-  en: ab34605472a45b68
-  zh: bfd04649c552cebd
+  en: 6eb931fcb2f4ab8d
+  zh: d822a83384cc1fee
 /sessions/sessioneventmap-the-event-vocabulary/the-route-capacity-event-request-context:
-  en: e6bf2297344b77e3
-  zh: f99beedebc892f6a
+  en: 7e21ea8bcdb16b7a
+  zh: a377774d3596dbeb
 /sessions/sessionevent-t-one-log-entry:
-  en: f7904860fc73b9f3
-  zh: de6510ec5b491e04
+  en: 622d333d9d903795
+  zh: fdc9ee663330f01e
 /sessions/surface-types:
-  en: 37051863c91a00ac
-  zh: 67c2f358676fd80f
+  en: 55fa7be0643afc08
+  zh: 0bc544886c68cdb3
 /sessions/surface-types/surfaceeventtype-the-message-producing-subset-of-event-types:
   en: 2f1b6a16a4ee7cc1
   zh: 7f16b568c4aa940f
@@ -27,38 +27,47 @@
   en: 8fcc967516a13692
   zh: d3978d3b8d02c566
 /sessions/surface-types/surfaceintent-the-parameter-to-session-append:
-  en: ebdf0684eccf4f86
-  zh: e5f545c060bfb824
+  en: c65cc976acad9005
+  zh: 3efd10779881cba5
+/sessions/surface-types/plugin-owned-message-projections:
+  en: f1f73607d650620f
+  zh: b3ef72f19fb5ee3d
 /sessions/surface-types/sessionsurface-the-live-readonly-surface-projection:
-  en: 1e6525f96da63695
-  zh: 334ed18f40e07262
+  en: 350259099d8d60c9
+  zh: 7b25db461748c04e
 /sessions/surface-types/surfacefoldreplacement-and-surfacefoldresult-a-complete-surface-replay:
-  en: c43a72b01b5642fd
-  zh: 64b398b57a3999a3
+  en: 13820e0611b2e141
+  zh: 2aafb1e5e3dc42f6
 /sessions/session-public-api:
   en: 04e9982948d9560d
   zh: 221961cadebc6fb1
 /sessions/derived-history-derivemessages-and-deriveeventmessage:
-  en: b17cb9a4ca305b82
-  zh: 9f6c278aab43a74c
+  en: 45d1a9ee6d610ac5
+  zh: 79c061252fde4ceb
 /sessions/live-session-fork-api:
-  en: e779481af02174c6
-  zh: 848a6a0a797c7d29
+  en: 06189884c62a80a1
+  zh: 30121aed7a011c72
 /sessions/why-a-turn-ended-turnendreasonmap:
-  en: f564f220e9c54d99
-  zh: a232345423db2e6b
+  en: 966cc60273fb3911
+  zh: de5123ea9dbb0df2
 /sessions/execution-enclosure-and-standalone-events:
-  en: 3a5c550af9afd2dc
-  zh: c3353c5b98219828
+  en: 9091c5446e8cb9a2
+  zh: 04c8c4fd5d0eaefc
 /sessions/the-end-seed-boundary-session-end-seed:
-  en: 2697d706c4c7a27f
-  zh: c33b689ed7329c3e
+  en: 63b4059793255ca3
+  zh: 6bc7891c320249f4
 /sessions/plugin-contributed-log-only-events:
-  en: c08a79f1d3b30338
-  zh: 16b22bfadf84e124
+  en: 0a014a755b75449f
+  zh: 9d59d74490a1bcb2
+/sessions/plugin-contributed-log-only-events/plugin-records:
+  en: 15102fd0b937fbf3
+  zh: 37ebf1d715db097c
 /sessions/durability-contract:
   en: 62e3e4fbcba292a3
   zh: cb6dcaf531621e85
 /sessions/remote-catalog-and-workspace-opening:
-  en: 86b7222545d3ca90
-  zh: 3d8671d468c29f1a
+  en: dd27307e0d7c893c
+  zh: b77d2a749b7b641c
+/sessions/session-log-upload-exclusions:
+  en: cfe3323aade972be
+  zh: 8423b490c47c5013

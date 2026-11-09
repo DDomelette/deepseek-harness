@@ -77,6 +77,8 @@ kind: "package-reference"
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
+`NoteSessionId` 标识一个笔记会话，`MaterialId` 标识一份收集的文本或图像材料。`notes/material-settled` 事件携带会话标识与已完成材料的标识，客户端据此重新读取已记录的答案。
+
 <details>
 <summary>实现内部细节——点击展开</summary>
 

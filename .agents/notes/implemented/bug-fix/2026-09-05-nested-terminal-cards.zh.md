@@ -12,7 +12,7 @@ Status: implemented
 
 `terminalCardModel` 对根调用与 Code Dispatch 调用应用相同的适用检查，不因 `parentCallId` 拒绝调用。受支持的运行中与已完成的 `bash`、`pwsh` 和 `terminal_send` 调用使用现有 terminal 卡片。后台调用、工具错误、格式错误的输入、缺失的调用头和不受支持的结果内容保留通用回退。持久 shell 在运行中仍可使用 terminal，完成后使用通用展示；非零进程退出仍是 terminal 结果数据，而非工具错误。
 
-本文仅部分取代 [Client 派生工具展示](../architecture/2026-08-23-client-derived-tool-presentation.zh.md)中的 terminal 子调用卡片禁令。该文继续负责 Client 展示所有权及 diff/read/search/web 子调用限制。无需更改 Host 展示转换器、事件、schema、元数据、调用树或模型上下文。[规范工具输出](../architecture/2026-07-20-canonical-tool-output-contract.zh.md)与 [PTC 类型化返回值](../feature/2026-07-20-ptc-typed-tool-returns.zh.md)中的元数据和执行期值决策保持不变；省略元数据不禁止 Client 派生 terminal 卡片。
+本文仅部分取代 [Client 派生工具展示](../architecture/2026-08-23-client-derived-tool-presentation.zh.md)中的 terminal 子调用卡片禁令。该文继续负责 Client 展示所有权及 diff/read/search/web 子调用限制。无需更改 Host 展示转换器、事件、schema、元数据、调用树或模型上下文。[规范工具输出](../../archived/architecture/2026-07-20-canonical-tool-output-contract.md)与 [PTC 类型化返回值](../feature/2026-07-20-ptc-typed-tool-returns.zh.md)中的元数据和执行期值决策保持不变；省略元数据不禁止 Client 派生 terminal 卡片。
 
 以已识别的 spill 策略提示结尾的 shell 输出使用通用展示：在 `BashRow` 中可展开，在 Details 中使用原始回退。提示可能位于退出标记之后或取代它，因此末尾缺少退出标记不能作为 terminal 成功状态的依据。浏览器安全入口 `@deepseek-ai/dsh-spill-policy/notice` 负责文本约定：生产方调用 `formatSpillNotice(omitted, ref)`，Client 调用 `hasSpillNotice(text)`。两者共用分隔符，省略信息校验复用 `describeOmitted`，不复制其文案。格式化函数逐字节保留持久化拼写；现有 Session 结果字节保持不变，不更改 Session 格式，也不执行迁移。
 

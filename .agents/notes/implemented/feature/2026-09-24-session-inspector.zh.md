@@ -25,17 +25,9 @@ Status: implemented
 
 默认关闭的可选组合包 `inspector-profile` 启用会话检查能力、NodeJS 调试 Worker 和未脱敏的 Host fetch 采集。启用组合包不需要调试参数或用户覆盖配置。实现及显式源码／构建产物 overlay 保持可用；Web startup 不接受新参数，设置区不增加调试按钮。
 
-已发布的 Inspector 载荷包含内嵌前端，使调试不依赖运行时 CDN。固定版本的 npm 前端仍作为开发依赖；安装环境仅提供其编译产物。
-
 Host 管理调试 URL、Worker 和采集生命周期。组合配置提供 `--inspect` 时，Host 尝试打开 Chrome；打开失败后打印的链接仍可使用。关闭调试窗口不会停止采集。显式启用允许执行本地代码并采集未脱敏网络数据，风险说明见 [Inspector 安全部分](../../../../packages/experimental/inspector/README.zh.md#security)。
 
-页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。缓存页面在 `pagehide` 时挂起 source，并在 `pageshow` 时仅重连一次；逻辑 source id 保留，传输 generation 则轮换。Client 不接收也不打开调试 URL。
-
-Cordis 服务调用的 shadow Context 表示特定接收方视图，不代表独立的插件生命周期。Inspector 通过标准 Context 身份匹配 Fiber，保留经服务创建的插件及继承的 Context 层。
-
-每条内嵌 DevTools 连接仅选择承载页面的逻辑 Client，并保留 Host。每个投影自行持有订阅，因此关闭一个窗口不会释放其它窗口或共享快照存储。
-
-Node 仅在包装层 Request 仍可达时转发 fetch 调用方的 abort 信号。响应体的弱关联在调用方流的生命周期内保留 Request，包括采集停止之后；观察器不会因此持有全部响应。
+页面加载后启用的 Client 通过已鉴权、文档相对的 Connection 路由获取当前 ingest 参数。初始注入仍支持早期建联。连接重置会刷新参数；替换先释放旧 source，卸载会取消并等待未完成操作。Client 不接收也不打开调试 URL。
 
 ## 考虑过的替代方案
 
@@ -62,7 +54,5 @@ Node 仅在包装层 Request 仍可达时转发 fetch 调用方的 abort 信号�
 此前的[可选组合包决策](../architecture/2026-09-21-experimental-capabilities-as-optional-bundles.zh.md) 继续管理安装与提供方运行时的取舍。本功能向名单增加 Inspector profile，而不是把所有实验提供方都做成可选组合包。
 
 ## 测试
-
-原生 fetch GC 回归通过独立子进程隔离 V8 标志，验证采集进行中、达到字节上限以及释放之后的取消。
 
 包级测试覆盖注册释放、层级与折叠锚点、隐藏节点顺序、筛选、对象导航与缓存失效、DOM 范围、平滑滚动、点选和取消。工作量回归限制索引集合的首屏读取量，并防止追加时重新分组历史行。诊断测试覆盖 Loader 启用、注入和主动获取 bootstrap 的失败、重连恢复、注册回滚、打开窗口失败与等待释放完成。`snapshots/web/session-inspector` 中的 Web 场景通过可选组合包重放录制 Session，检查日志筛选、对象详情和 Chat Group 顺序。

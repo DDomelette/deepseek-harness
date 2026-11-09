@@ -77,6 +77,8 @@ A material is stored first and submitted later, so collecting never blocks on a 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
+`NoteSessionId` identifies one notes conversation; `MaterialId` identifies one collected text or image material. The `notes/material-settled` event carries the conversation id and the settled material ids so a client can reload their recorded answers.
+
 <details>
 <summary>Implementation internals — click to expand</summary>
 

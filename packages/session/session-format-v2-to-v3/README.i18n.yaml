@@ -30,7 +30,7 @@
   en: 04c39412c6bd4f0f
   zh: e8143eaeb44ede63
 /deepseek-ai-dsh-session-format-v2-to-v3/v2-to-v3-specification/system-head-and-message-identities:
-  en: c5a3d008a5b4f50d
+  en: a8baba72b6c187e4
   zh: 3410b2d12d37e24d
 /deepseek-ai-dsh-session-format-v2-to-v3/v2-to-v3-specification/sequence-references-and-inheritance:
   en: 5a93128360de269c
@@ -39,7 +39,7 @@
   en: 00a5c78a2b461538
   zh: 7af981f092f34f1f
 /deepseek-ai-dsh-session-format-v2-to-v3/v2-to-v3-specification/canonical-envelopes-and-tool-errors:
-  en: da1c16877b03fba1
+  en: b95b6f9c72de67c7
   zh: 45aa9f15820c8280
 /deepseek-ai-dsh-session-format-v2-to-v3/v2-to-v3-specification/delivery-guards:
   en: deb9d987126fea8b
@@ -48,7 +48,7 @@
   en: 32a16980bf3b1090
   zh: aebed8681dcfbeca
 /deepseek-ai-dsh-session-format-v2-to-v3/native-v3-admission:
-  en: cc980795572f9c00
+  en: 2f9127759a38289f
   zh: a7307aba72aaf25b
 /deepseek-ai-dsh-session-format-v2-to-v3/understand-the-implementation:
   en: 6d630626cd7a5017

@@ -1,3 +1,4 @@
+import { allowAllAccess, contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 // @vitest-environment jsdom
 /**
  * ConnectPhoneRow: the General row opens the pairing panel, which owns every
@@ -46,7 +47,7 @@ const api: PairingApi = {
 }
 
 function mount(face: Partial<ConnectPhoneRowInjected> = {}): void {
-  render(<ConnectPhoneRow
+  render(<ConnectPhoneRow {...allowAllAccess} useContextMenu={contextMenuHook()}
     usePanelInfo={unused as never}
     useResource={unused as never}
     useSessionStatus={unused as never}

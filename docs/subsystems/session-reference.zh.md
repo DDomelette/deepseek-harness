@@ -34,7 +34,7 @@ interface SessionReferenceInput {
 }
 ```
 
-`SessionReferenceCandidate` 是面向宿主的发现输出。存在最新会话标题时，它的 label 使用该标题；筛选搜索该 label 以及 session id 和 cwd，绝不搜索 transcript（文本记录）。
+`SessionReferenceCandidate` 是面向宿主的发现输出。存在最新 Session 标题时，它的 `label` 使用该标题；可选显示文本则优先使用 subagent 的持久创建 label。筛选会同时搜索两者、Session id 与 cwd，绝不搜索 transcript（文本记录）。Remote 候选在 `displayTitle` 存在时用它标记规范 mention。
 
 ```ts type-equiv
 /** One host-facing candidate from exact session metadata. */
@@ -205,20 +205,21 @@ async listCandidates( agent: Agent, query: string = '', limit: number = this.con
 
 /**
  * Snapshot all references for one accepted direct message and return one aggregated durable context.
- * Automatic budgets use the last assembled route, or agent options before any assembly.
+ * Automatic budgets use the context capacity of `route`.
  * Missing model capacity or adapter uses 64 KiB; other metadata lookup failures and cancellation reject preparation.
  * Truncated previews include omission facts and a full-snapshot spill locator, or an explicit unavailable notice.
  * Cancellation prevents context publication, including when storage completes after cancellation.
  * @param agent - target agent; references to it are rejected.
  * @param content - already host-normalized readable message content.
  * @param references - structured source sessions in mention order.
+ * @param route - provider and model whose context capacity sizes the previews.
  * @param signal - optional cancellation boundary for the active turn.
  * @returns detached content and optional referenced-session context.
  */
-async prepare( agent: Agent, content: ContentBlock[], references: SessionReferenceInput[], signal?: AbortSignal, ): Promise<PreparedReferencedMessage>
+async prepare( agent: Agent, content: ContentBlock[], references: SessionReferenceInput[], route: Readonly<Pick<LlmCallConfig, 'provider' | 'model'>>, signal?: AbortSignal, ): Promise<PreparedReferencedMessage>
 ```
 
-Types: [Agent](core.zh.md) · [ContentBlock](llm-streaming.zh.md)
+Types: [Agent](core.zh.md) · [ContentBlock](llm-streaming.zh.md) · [LlmCallConfig](llm-streaming.zh.md)
 
 Source: [`packages/context/session-reference/src/index.ts`](../../packages/context/session-reference/src/index.ts)
 <!-- END GENERATED cordis-surface -->

@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-compaction",
   "description": "Abstract compaction service seam (ctx.compaction) for the DeepSeek Harness",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -26,8 +26,8 @@
       "types": "./lib/types/checkpoint.d.ts",
       "default": "./lib/types/checkpoint.js"
     },
-    "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./src/*": "./src/*"
   },
   "files": [
     "lib/index.js",

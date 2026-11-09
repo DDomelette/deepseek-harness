@@ -34,6 +34,8 @@ interface ClientTransportGlobal {
       uplink?: AsyncIterable<unknown>,
     ) => AsyncIterable<unknown>
     loadBundle: (url: string) => Promise<void>
+    /** Package-asset resolver behind `require.asset`: the page cannot request asset references itself. */
+    resolveAsset: (reference: string) => string
     /** The page spawned the worker the Host runs in, so the page owns it. */
     ownsHost: boolean
   }
@@ -84,22 +86,7 @@ interface BootReadyGlobal {
 }
 
 function bootReadyGate(): PromiseWithResolvers<void> {
-  return (globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= createBootReadyDeferred()
-}
-
-/**
- * Build the boot-readiness deferred without `Promise.withResolvers` (Chrome 119,
- * Safari 17.4). This page bootstrap runs before the shell installs its browser
- * floor, so it cannot assume that API exists.
- */
-function createBootReadyDeferred(): PromiseWithResolvers<void> {
-  let resolve!: () => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<void>((settle, fail) => {
-    resolve = settle
-    reject = fail
-  })
-  return { promise, resolve, reject }
+  return (globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= Promise.withResolvers<void>()
 }
 
 /**
@@ -168,11 +155,12 @@ export async function connectWorkerHost(worker: Worker, options?: WorkerHostConn
       new URL(options?.image ?? IMAGE_FILE_NAME, document.baseURI).href,
       (options?.overlays ?? []).map(overlay => new URL(overlay, document.baseURI).href),
     )
-    const payload = await tunnel.bootPayload()
+    const [payload, resolveAsset] = await Promise.all([tunnel.bootPayload(), tunnel.packageAssets()])
     ;(globalThis as ClientTransportGlobal).__DSH_TRANSPORT__ = {
       fetch: (input, init) => tunnel.fetch(input, init),
       openStream: (endpoint, payload, signal, uplink) => tunnel.open(endpoint, payload, signal, uplink),
       loadBundle: (url: string) => tunnel.loadBundle(url),
+      resolveAsset,
       // The host lives in a worker this page spawned: the page owns it, so
       // the privileged surface stays reachable off loopback authorities.
       ownsHost: true,

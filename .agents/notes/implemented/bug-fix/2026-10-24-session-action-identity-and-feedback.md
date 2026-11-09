@@ -10,7 +10,7 @@ The Web command UI identifies first-party commands by their definition ids. A fe
 
 ## Decision
 
-The feedback and export producers declare their package names as branded `CommandDefinitionId` values. Names continue to select command execution and scoped shadowing under the [command registry](../feature/2026-07-19-plugin-command-registration.md); the definition id selects first-party Client presentation.
+The feedback and export producers declare their package names as branded `CommandDefinitionId` values. Names continue to select command execution and scoped shadowing under the [command registry](../../archived/feature/2026-07-19-plugin-command-registration.md); the definition id selects first-party Client presentation.
 
 The Session export plugin observes the optional `feedbackUi` service through Cordis injection and publishes availability through a stable observable source. The framework binds that source to the header's hook. The menu offers feedback only while the service is available, and its callback reads the service again because the plugin can unload between render and click. Opening feedback closes the menu and opens the existing Session draft without recording or downloading anything. Export remains available independently.
 

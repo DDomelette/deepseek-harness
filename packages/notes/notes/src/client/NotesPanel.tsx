@@ -265,16 +265,16 @@ export function NotesPanel({
             </button>
           </Tooltip>
         )}
-        <Tooltip label={panel.floating ? t('panel.dock') : t('panel.float')} side="bottom" delayMs={500}>
+        <Tooltip label={panel.isFloating ? t('panel.dock') : t('panel.float')} side="bottom" delayMs={500}>
           <button
             type="button"
             className={css.tool}
-            aria-label={panel.floating ? t('panel.dock') : t('panel.float')}
-            data-notes-present={panel.floating ? 'dock' : 'float'}
-            onClick={() => { present(tab.id, panel.id, panel.floating) }}
+            aria-label={panel.isFloating ? t('panel.dock') : t('panel.float')}
+            data-notes-present={panel.isFloating ? 'dock' : 'float'}
+            onClick={() => { present(tab.id, panel.id, panel.isFloating) }}
           >
-            {panel.floating ? <IconPanelLeftOutlineMedium size={14} /> : <IconFullscreenOutlineMedium size={14} />}
-            <span className={css.toolLabel}>{panel.floating ? t('panel.dock') : t('panel.float')}</span>
+            {panel.isFloating ? <IconPanelLeftOutlineMedium size={14} /> : <IconFullscreenOutlineMedium size={14} />}
+            <span className={css.toolLabel}>{panel.isFloating ? t('panel.dock') : t('panel.float')}</span>
           </button>
         </Tooltip>
         <Tooltip label={t('panel.settings')} side="bottom" delayMs={500}>

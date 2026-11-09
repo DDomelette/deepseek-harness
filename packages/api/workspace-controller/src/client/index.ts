@@ -1,6 +1,7 @@
 /** Workspace-specific adapter for the Gateway-owned snapshot stream lifecycle. */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-api-remote-access/client'
 import {
   RemoteSnapshotStream,
   RemoteStreamCarrierError,
@@ -44,7 +45,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Required Client Remote services. */
-export const inject = ['remote', 'remote.workspace', 'remote.sessionPins']
+export const inject = ['remote', 'remote.workspace', 'remote.sessionPins', 'remoteAccess']
 
 /**
  * Install Client Workspace state, ordered pin state, commands, and
@@ -63,8 +64,11 @@ export function apply(ctx: Context): void {
   control.start()
   // The pins snapshot is read on demand, not streamed: the first read and
   // every reconnection are when another surface's pins can have moved.
-  void pins.reload()
-  ctx.on('connection/reset', () => { void pins.reload() })
+  ctx.remoteAccess.whenAccess('sessionPins/list', () => {
+    void pins.reload()
+    const stop = ctx.on('connection/reset', () => { void pins.reload() })
+    return () => { stop(); pins.clear() }
+  })
   ctx.effect(
     () => async () => { await control.dispose() },
     'workspace-controller.client.control',
@@ -110,6 +114,9 @@ export function createWorkspaceStateStream(
 
 function acceptIncrement(accept: WorkspaceFollowSink, frame: WorkspaceFollowIncrement): void {
   switch (frame.type) {
+    case 'replace':
+      accept.replaceBaseline(frame.value)
+      return
     case 'upsert':
       accept.upsertView(frame.workspace)
       return

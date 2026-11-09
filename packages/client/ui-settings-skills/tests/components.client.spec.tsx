@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RemoteResult, SkillCatalogEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess, contextMenuHook, bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { SkillsSection, type SkillsSectionInjected } from '../src/client/SkillsSection.tsx'
 import { SkillsSettingsStore } from '../src/client/store.ts'
@@ -30,6 +30,7 @@ const enT: TranslateNS<'settings.skills'> = (key): string => {
 // Global standard kit stubs: this component does not consume these hooks.
 const unusedHook = (() => { throw new Error('unused by SkillsSection') }) as never
 const kit = {
+  ...allowAllAccess, useContextMenu: contextMenuHook(),
   usePanelInfo: unusedHook, useResource: unusedHook,
   useSessions: unusedHook, useWorkspaces: unusedHook,
   useSessionStatus: unusedHook, useSessionRetainInfo: unusedHook,

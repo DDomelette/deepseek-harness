@@ -220,6 +220,9 @@ def stage_runtime(destination: Path, version: str, executable: Path, executable_
     source_directory = executable.parent
     for filename in runtime_filenames(executable_name):
         shutil.copy2(source_directory / filename, runtime_dir / filename)
+    resources = executable_name.removeprefix("deepseek-harness-sdk-runtime-").removesuffix(".exe")
+    # Wheels materialize interpreter aliases because pip does not restore symlinks.
+    shutil.copytree(source_directory / resources, runtime_dir / resources)
 
 
 def verify_wheel(

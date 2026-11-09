@@ -1,11 +1,10 @@
-/** The Node OTLP client's socket and HTTP-agent transport cannot run in a browser Worker. */
+/** Node HTTP product telemetry is unavailable in the browser preview. */
 import { notImplementedFail } from '../notImplementedFail.ts'
 
-/** Refuse native OTLP HTTP requests without claiming a successful export. */
-export const post = notImplementedFail('got', 'post')
-
-/** CommonJS interop marker for the Worker module loader. */
+/** CommonJS interop marker for the worker loader's default import. */
 export const __esModule = true
 
-/** Default HTTP client namespace used by the Node event exporter. */
-export default { post }
+/** Reject product telemetry HTTP requests without opening a connection. */
+const got = { post: notImplementedFail('got', 'post') }
+
+export default got

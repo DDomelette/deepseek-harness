@@ -37,7 +37,10 @@ export interface NoteMessageSource {
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    /** A material or follow-up question the notes workspace submitted. */
+    /**
+     * A material or follow-up question the notes workspace submitted.
+     * @persistenceAttribution
+     */
     notes: NoteMessageSource
   }
 }
