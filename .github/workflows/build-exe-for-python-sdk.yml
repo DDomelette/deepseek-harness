@@ -159,7 +159,7 @@ jobs:
     needs: [plan, sdk-wheel]
     name: ${{ matrix.target }}
     runs-on: >-
-      ${{ github.repository != 'deepseek-ai/deepseek-harness' && 'windows-latest' || (inputs.release && matrix.target == 'node24-macos-x64' && 'macos-15-large'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness' && matrix.runner || (inputs.release && matrix.target == 'node24-macos-x64' && 'macos-15-large'
           || inputs.release && matrix.target == 'node24-macos-arm64' && 'macos-15-xlarge'
           || inputs.ci && !inputs.release && matrix.target == 'node24-linux-x64'
           && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-2vcpu-ubuntu-2404'

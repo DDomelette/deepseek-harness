@@ -7369,10 +7369,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type MatcherValue = string | number | boolean | null | RegExp | readonly (string | number | boolean | null)[];',
   },
   {
-    name: 'MaterialId',
-    declaration: 'export type MaterialId = Branded<\'material-id\'>;',
-  },
-  {
     name: 'McpCloseResult',
     declaration: 'export interface McpCloseResult {\n    closeConfirmed: boolean;\n    cleanupError?: string;\n}',
   },
@@ -7591,10 +7587,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'NativeFileApplication',
     declaration: 'export interface NativeFileApplication {\n    readonly id: string;\n    readonly name: string;\n    readonly default: boolean;\n    readonly icon: string | null;\n}',
-  },
-  {
-    name: 'NoteSessionId',
-    declaration: 'export type NoteSessionId = Branded<\'note-session-id\'>;',
   },
   {
     name: 'NpmFileSource',

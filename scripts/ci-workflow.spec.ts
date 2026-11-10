@@ -663,6 +663,10 @@ describe('CI workflow', () => {
     expect(sandbox['runs-on']).toContain("matrix.runner == 'bwrap'")
     expect(sandbox['runs-on']).toContain('DSH_CI_FAILOVER_LINUX')
     expect(sandbox['runs-on']).toContain('blacksmith-4vcpu-ubuntu-2404')
+    const github = { repository: 'DDomelette/deepseek-harness' }
+    expect(evaluateRunsOn(sandbox['runs-on'], {
+      github, vars: { DSH_CI_FAILOVER_LINUX: 'blacksmith' }, matrix: { os: 'macos-latest', runner: 'seatbelt' },
+    })).toBe('macos-latest')
     for (const name of ['larger-runner-benchmark', 'consolidated-runner-benchmark'] as const) {
       const benchmark = workflowJob(loadWorkflow('.github/workflows/ci-master.yml'), name)
       if (!isRecord(benchmark.strategy) || !isRecord(benchmark.strategy.matrix) || !Array.isArray(benchmark.strategy.matrix.include)) {
@@ -672,6 +676,8 @@ describe('CI workflow', () => {
       expect(benchmark['runs-on']).toContain('DSH_CI_FAILOVER_LINUX')
       expect(benchmark['runs-on']).toContain('DSH_CI_FAILOVER_WINDOWS')
       for (const row of benchmark.strategy.matrix.include as Array<Record<string, string>>) {
+        expect(evaluateRunsOn(benchmark['runs-on'], { github, vars: {}, matrix: row }))
+          .toBe(row.platform === 'windows' ? 'windows-latest' : 'ubuntu-24.04')
         expect(typeof row.blacksmith, `${name} ${row.cores}-core row must declare a blacksmith label`).toBe('string')
         if (row.cores === '64' || row.cores === '96') {
           expect(row.blacksmith, `${name} ${row.cores}-core row has no Blacksmith tier`).toBe('')
@@ -1083,6 +1089,9 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
             const vars = { DSH_CI_FAILOVER_LINUX: 'blacksmith', DSH_CI_FAILOVER_WINDOWS: 'blacksmith', [variable]: mode }
             expect(evaluateRunsOn(build['runs-on'], { inputs: { ci, release }, vars, matrix: { target, runner } }), `${target} ci=${ci} release=${release} mode=${mode}`)
               .toBe(release ? releaseRunner : ci && mode === 'blacksmith' ? blacksmith : runner)
+            expect(evaluateRunsOn(build['runs-on'], {
+              github: { repository: 'DDomelette/deepseek-harness' }, inputs: { ci, release }, vars, matrix: { target, runner },
+            }), `fork ${target} ci=${ci} release=${release} mode=${mode}`).toBe(runner)
           }
         }
       }

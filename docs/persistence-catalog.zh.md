@@ -4459,7 +4459,7 @@ SHA-256: `f09e5e7acf5ff5ccd193ff2eeec015fa2ff7c29d98bc465f8c3302058d47e29b`
 
 SHA-256: `41ffd9c0d610140b5ad08e0e79a98c98b145d08b3041114e84e97b34978ee645`
 
-来源：[`packages/notes/notes/src/types.ts:34`](../packages/notes/notes/src/types.ts)
+来源：[`packages/notes/notes/src/types.ts:30`](../packages/notes/notes/src/types.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|

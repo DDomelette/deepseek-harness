@@ -294,7 +294,7 @@ jobs:
     # 32 vCPU) move onto their Blacksmith equivalents, while the 64/96-core
     # rows keep the fleet labels because Blacksmith has no such tier.
     runs-on: >-
-      ${{ github.repository != 'deepseek-ai/deepseek-harness' && 'windows-latest' || ((matrix.platform == 'linux' && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness' && (matrix.platform == 'windows' && 'windows-latest' || 'ubuntu-24.04') || ((matrix.platform == 'linux' && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith'
             || matrix.platform == 'windows' && vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith')
           && matrix.blacksmith
           || matrix.runner) }}
@@ -405,7 +405,7 @@ jobs:
     # 32 vCPU) move onto their Blacksmith equivalents, while the 64/96-core
     # rows keep the fleet labels because Blacksmith has no such tier.
     runs-on: >-
-      ${{ github.repository != 'deepseek-ai/deepseek-harness' && 'windows-latest' || ((matrix.platform == 'linux' && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness' && (matrix.platform == 'windows' && 'windows-latest' || 'ubuntu-24.04') || ((matrix.platform == 'linux' && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith'
             || matrix.platform == 'windows' && vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith')
           && matrix.blacksmith
           || matrix.runner) }}

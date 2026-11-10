@@ -172,11 +172,13 @@ export function apply(ctx: Context, config: Config): void {
   // Connection's browser authentication writes the token exchange's 303 or
   // the 401 through a writeHead/end response; capture it as a Fetch response.
   // The answer stays a 401 unless Connection writes another one.
-  const authorizeIndex = (request: Request): { access: ConnectionIndexAccess; response?: Response } => {
+  const authorizeIndex = (request: Request, remoteAddress: string | undefined): { access: ConnectionIndexAccess; response?: Response } => {
     let status = 401
     const headers = new Headers()
     let body: string | undefined
-    const admitted = ctx.connection.authorizeIndex(request, {
+    const admitted = ctx.connection.authorizeIndex({
+      method: request.method, url: request.url, headers: request.headers, socket: { remoteAddress },
+    }, {
       setHeader(name, value) { headers.set(name, value) },
       writeHead(nextStatus, nextHeaders) {
         status = nextStatus
@@ -189,7 +191,7 @@ export function apply(ctx: Context, config: Config): void {
       : { access: admitted }
   }
   ctx.effect(() => ctx.webServer.registerFallback({
-    resource: (request, peer) => {
+    resource: (request, peer, remoteAddress) => {
       let authRequired = false
       return serveStatic(
         request,
@@ -199,7 +201,7 @@ export function apply(ctx: Context, config: Config): void {
         // none and passes Connection's browser authentication instead.
         () => {
           if (peer !== undefined) return undefined
-          const auth = authorizeIndex(request)
+          const auth = authorizeIndex(request, remoteAddress)
           authRequired = auth.access === 'auth-required'
           return auth.response
         },

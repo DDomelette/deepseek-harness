@@ -592,11 +592,12 @@ describe('real Loader composition', () => {
       host: string | null
       cookie: string | null
       peer: PeerScope | undefined
+      remoteAddress: string | undefined
     } | undefined
     server.register({
       kind: 'exact',
       path: '/resource',
-      resource: (request, peer) => {
+      resource: (request, peer, remoteAddress) => {
         seen = {
           url: request.url,
           method: request.method,
@@ -604,6 +605,7 @@ describe('real Loader composition', () => {
           host: request.headers.get('host'),
           cookie: request.headers.get('cookie'),
           peer,
+          remoteAddress,
         }
         const headers = new Headers({ 'content-type': 'text/plain; charset=utf-8', 'x-answer': 'yes' })
         headers.append('set-cookie', 'a=1; Path=/')
@@ -611,7 +613,9 @@ describe('real Loader composition', () => {
         return Promise.resolve(new Response('RESOURCE', { status: 201, headers }))
       },
     })
-    const created = await fetch(`http://127.0.0.1:${String(port)}/resource?q=1`, { headers: { 'x-probe': 'probe', cookie: 'a=b' } })
+    const created = await fetch(`http://127.0.0.1:${String(port)}/resource?q=1`, {
+      headers: { 'x-probe': 'probe', cookie: 'a=b', 'x-forwarded-for': '192.0.2.1' },
+    })
     expect(created.status).toBe(201)
     expect(created.headers.get('x-answer')).toBe('yes')
     expect(created.headers.getSetCookie()).toEqual(['a=1; Path=/', 'b=2; Path=/'])
@@ -624,6 +628,7 @@ describe('real Loader composition', () => {
       host: `127.0.0.1:${String(port)}`,
       cookie: 'a=b',
       peer: undefined,
+      remoteAddress: '127.0.0.1',
     })
 
     // The status and headers arrive before the first body chunk exists.

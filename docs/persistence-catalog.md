@@ -4457,7 +4457,7 @@ Sources: [`packages/core/agent/src/types.ts:79`](../packages/core/agent/src/type
 
 SHA-256: `41ffd9c0d610140b5ad08e0e79a98c98b145d08b3041114e84e97b34978ee645`
 
-Sources: [`packages/notes/notes/src/types.ts:34`](../packages/notes/notes/src/types.ts)
+Sources: [`packages/notes/notes/src/types.ts:30`](../packages/notes/notes/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|

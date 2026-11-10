@@ -236,7 +236,7 @@
     {"digest":"3fdf9582c3b5597df104d32d97dab6c6ee3a93794f3034ec6ada6272404ea27f","names":["packages/schedule/schedule/src/types.ts#LegacyAfterScheduleRecord"],"sources":["packages/schedule/schedule/src/types.ts:161"]},
     {"digest":"4018a00144474b6c60dc1aa6e5c1f03611c66bd739833779a7d20a511df6d082","names":["packages/team/agent-team/src/types.ts#TeamTaskSnapshot"],"sources":["packages/team/agent-team/src/types.ts:64"]},
     {"digest":"408927267422a7b2beb6df354ff7c1406d929a5646554f48adf85eb8372f811c","names":[],"sources":[]},
-    {"digest":"41ffd9c0d610140b5ad08e0e79a98c98b145d08b3041114e84e97b34978ee645","names":["packages/notes/notes/src/types.ts#NoteMessageSource"],"sources":["packages/notes/notes/src/types.ts:34"]},
+    {"digest":"41ffd9c0d610140b5ad08e0e79a98c98b145d08b3041114e84e97b34978ee645","names":["packages/notes/notes/src/types.ts#NoteMessageSource"],"sources":["packages/notes/notes/src/types.ts:30"]},
     {"digest":"4208123b50df5006b181481ab45fcf1cde807b88d3fd4d340090bc2e202fac41","names":[],"sources":[]},
     {"digest":"42e0916e0dda5f6d1e7bb05d8514717147c036a79c9f36085683469516c1fd3f","names":[],"sources":[]},
     {"digest":"4312134fc6f9cad507c31390bd3d147535492dd77621ec517c5e85f853d53a03","names":[],"sources":[]},

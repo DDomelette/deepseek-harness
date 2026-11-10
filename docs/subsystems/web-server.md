@@ -27,10 +27,14 @@ interface WebRoute {
 ```ts type-equiv
 /**
  * Answers one GET or HEAD request with a Fetch response. An HTTP request
- * arrives without a Peer and carries the client's headers; an in-process
- * {@link WebServer.readResource} read passes the Peer its caller admitted.
+ * carries the client's headers and the socket's remote address, when present.
+ * An in-process {@link WebServer.readResource} read passes the Peer its caller admitted.
+ * @param request - Fetch request to answer.
+ * @param peer - admitted caller of an in-process read.
+ * @param remoteAddress - HTTP listener's socket address for the request.
+ * @returns Response for the resource.
  */
-type WebResource = (request: Request, peer?: PeerScope) => Promise<Response>
+type WebResource = (request: Request, peer?: PeerScope, remoteAddress?: string) => Promise<Response>
 ```
 
 ```ts type-equiv
