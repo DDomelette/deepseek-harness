@@ -543,7 +543,7 @@ interface WorkspaceUnarchiveSessionRequest { readonly sessionId: SessionId }
 type WorkspaceFollowFrame =
   | {
     readonly type: 'baseline'
-    readonly value: WorkspaceBaseline
+    readonly value: Omit<WorkspaceBaseline, 'items'> & { readonly items: readonly WorkspaceView[] }
   }
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
