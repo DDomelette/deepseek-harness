@@ -6,6 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types'
 import { EVENT_API, SERVICE_API, TYPE_API } from '@deepseek-ai/dsh-tool-cordis/src/api-catalog.ts'
+import { COVERAGE_TEST_TIMEOUT_ENV, parseCoverageTestTimeout } from '../../../../scripts/coverage-partitions.ts'
 import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 
@@ -17,7 +18,8 @@ afterEach(() => {
 })
 
 describe('model-driven tool package generation', () => {
-  it('round-trips the complete service and event structure through the runtime registry', { timeout: 30_000 }, async ({ onTestFinished }) => {
+  const timeout = parseCoverageTestTimeout(process.env[COVERAGE_TEST_TIMEOUT_ENV]) ?? 30_000
+  it('round-trips the complete service and event structure through the runtime registry', { timeout }, async ({ onTestFinished }) => {
     const workspace = new WorkspaceAnalyzer({
       root: workspaceRoot,
       faces: ['host'],

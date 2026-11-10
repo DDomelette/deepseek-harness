@@ -4380,7 +4380,10 @@ describe('ChatView', () => {
     scroller.scrollTop = 700
     fireEvent.scroll(scroller)
     fireEvent(scroller, new Event('scrollend'))
+    act(() => { notify?.() })
     Object.defineProperty(scroller, 'scrollHeight', { value: 1_200, writable: true })
+    act(() => { h.setSession({ running: true }) })
+    expect(scroller.scrollTop).toBe(700)
     act(() => { notify?.() })
     expect(scroller.scrollTop).toBe(900)
     readerScroll(scroller, 200)

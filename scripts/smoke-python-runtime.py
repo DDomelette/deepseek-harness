@@ -85,6 +85,7 @@ LEGACY_CUSTOM_DISABLED_ROWS = (
     "plan-mode",
     "present",
     "skill",
+    "skill-settings",
     "skill-filesystem",
     "skill-office",
     "workspace-dependencies",

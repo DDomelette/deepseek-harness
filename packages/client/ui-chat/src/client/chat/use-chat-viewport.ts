@@ -85,7 +85,7 @@ export class ChatViewport {
   /** Discards a closing measurement that no size observation consumed by the end of its frame. */
   private closingFrame: number | null = null
   /** Content height without fold room at the latest size observation: the content that frame painted. */
-  private settledContent = 0
+  private settledContent: number | null = null
   /** The pending or running fold batch lands at the tail. */
   private tailRequested = false
   /** The tail request came from the reader's own input rather than from a content change. */
@@ -145,6 +145,7 @@ export class ChatViewport {
     for (const type of READING_INTENTS) this.elements?.scroller.removeEventListener(type, this.onIntent, true)
     this.observer?.disconnect()
     this.observer = null
+    this.settledContent = null
     this.elements = null
     this.events = null
     this.tailRequested = false
@@ -163,6 +164,9 @@ export class ChatViewport {
     this.events = events
     return () => { if (this.events === events) this.events = null }
   }
+
+  /** Whether this attachment has measured its layout through the size observer. */
+  get hasSizeObservation(): boolean { return this.settledContent !== null }
 
   /**
    * Adopt the loaded turn anchors without querying the DOM.
@@ -286,14 +290,15 @@ export class ChatViewport {
         start = elements.scroller.scrollTop
         const originalRoom = this.spacerHeight()
         initialHeight = Math.max(elements.column.offsetHeight, elements.scroller.scrollHeight - originalRoom)
-        if (tail && !input) {
+        const settledContent = this.settledContent
+        if (tail && !input && settledContent !== null) {
           // The batch replaces the immediate follow of a reader pinned to the tail, following content that
           // overflows with no fold room: content that grew outside the batch since that paint, such as a Turn's
           // duration control, is taken before the first frame as following takes streaming growth, so the
           // batch only animates its own rows.
-          const pinned = originalRoom === 0 && this.settledContent > elements.scroller.clientHeight
+          const pinned = originalRoom === 0 && settledContent > elements.scroller.clientHeight
             && follow.active && !reader.pending() && !follow.animating
-          const external = elements.scroller.scrollHeight - originalRoom - this.settledContent
+          const external = elements.scroller.scrollHeight - originalRoom - settledContent
           if (external > 0.5 && pinned) {
             elements.scroller.scrollTop = start + external
             start = elements.scroller.scrollTop

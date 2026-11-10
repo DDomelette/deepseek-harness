@@ -99,9 +99,11 @@ export function useChatScroll(input: ChatScrollInput): ChatScrollState {
     if (tipChanged && reading.followingTail) {
       navigation.cancel()
       if (current.deferCompletedTurns && reading.followInputFold(false)) return
-      reading.followTail()
+      // Once size delivery is active, it follows passive growth after layout and before paint.
+      if (viewport.hasSizeObservation) reading.refreshActiveTurn()
+      else reading.followTail()
     } else navigation.reconcile()
-  }, [reading, navigation])
+  }, [viewport, reading, navigation])
 
   useLayoutEffect(() => {
     const disconnectViewport = viewport.connect({

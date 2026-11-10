@@ -676,7 +676,12 @@ export class WebServer extends Service {
    * closing before this method ends the response aborts the request signal
    * and cancels the response body.
    */
-  private async serveResource(req: IncomingMessage, res: ServerResponse, target: URL, resource: WebResource): Promise<void> {
+  private async serveResource(
+    req: Pick<IncomingMessage, 'method' | 'headers'> & { socket?: Pick<IncomingMessage['socket'], 'remoteAddress'> },
+    res: ServerResponse,
+    target: URL,
+    resource: WebResource,
+  ): Promise<void> {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405, { allow: RESOURCE_METHODS })
       res.end()
