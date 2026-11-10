@@ -10294,7 +10294,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WebResource',
-    declaration: 'export type WebResource = (request: Request, peer?: PeerScope) => Promise<Response>;',
+    declaration: 'export type WebResource = (request: Request, peer?: PeerScope, remoteAddress?: string) => Promise<Response>;',
   },
   {
     name: 'WebResourceRoute',
