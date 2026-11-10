@@ -1,6 +1,7 @@
 - banner:
   - navigation "Session hierarchy": Use read_image to inspect red.png.
   - text: Minimal mode
+  - button "Open the notes panel"
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

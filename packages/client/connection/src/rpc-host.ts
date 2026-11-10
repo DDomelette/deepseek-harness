@@ -575,4 +575,11 @@ function assertFetchRoute(route: ConnectionFetchRoute): void {
   if (methods.size !== route.methods.length) {
     throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} repeats a method`)
   }
+  const bodyMethod = route.methods.find(method => method !== 'GET' && method !== 'HEAD')
+  if (bodyMethod === undefined && route.requestBody !== 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns only GET and HEAD and must declare requestBody 'none'`)
+  }
+  if (bodyMethod !== undefined && route.requestBody === 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns ${bodyMethod} and cannot declare requestBody 'none'`)
+  }
 }

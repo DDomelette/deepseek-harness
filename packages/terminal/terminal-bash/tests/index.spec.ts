@@ -438,11 +438,13 @@ describe('BashTerminalBackend startup rollback', () => {
     let sent: TerminalSendRequest | undefined
     const session = {
       motd: '',
+      initialize: () => Promise.resolve(),
+      controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sent = request
         return {
           done: Promise.resolve({
-            viewport: 'setup-echo dsh> ', waitReason: 'stdin_read' as const,
+            viewport: 'dsh> ', waitReason: 'stdin_read' as const,
             sessionStatus: { kind: 'running' as const }, truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
@@ -459,7 +461,7 @@ describe('BashTerminalBackend startup rollback', () => {
     )
     expect(await backend.spawn(spec(agent(ctx)))).toBe(session)
     expect(sent).toMatchObject({ text: ENCODING_PREAMBLE + PWSH_PROMPT_SETUP, submit: true })
-    expect(session.motd).toBe('setup-echo dsh> ')
+    expect(session.motd).toBe('dsh> ')
     expect(spawned?.env).toMatchObject({
       TERM: 'dumb', NO_COLOR: '1', DSH_SHELL: '1', DSH_SESSION_ID: 'agent', DSH_PTY_SESSION_ID: 'pty-1',
     })
@@ -467,7 +469,7 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(spawned?.env?.PROMPT_COMMAND).toBeUndefined()
   })
 
-  it('keeps waiting for stdin_read when the first settled output only echoes the prompt literal', async () => {
+  it('keeps waiting when stdin_read arrives before the rendered prompt', async () => {
     const ctx = new Context()
     provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(EmptySandbox)
@@ -476,13 +478,15 @@ describe('BashTerminalBackend startup rollback', () => {
     const sends: TerminalSendRequest[] = []
     const session = {
       motd: '',
+      initialize: () => Promise.resolve(),
+      get controlledPromptReady() { return sends.length > 1 },
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
         const second = sends.length > 1
         return {
           done: Promise.resolve({
             viewport: second ? 'dsh> ' : "function prompt { 'dsh> ' }\n",
-            waitReason: second ? 'stdin_read' as const : 'inferred_idle' as const,
+            waitReason: 'stdin_read' as const,
             sessionStatus: { kind: 'running' as const }, truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
@@ -510,6 +514,7 @@ describe('BashTerminalBackend startup rollback', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
     const sessionFor = (waitReason: TerminalWaitReason): LocalPtySession => ({
+      initialize: () => Promise.resolve(),
       startSend: () => ({
         done: Promise.resolve({
           viewport: 'no-prompt', waitReason,
@@ -546,6 +551,7 @@ describe('BashTerminalBackend startup rollback', () => {
       let closes = 0
       const session = {
         motd: '',
+        initialize: () => Promise.resolve(),
         startSend: () => {
           sends += 1
           return {
@@ -592,6 +598,8 @@ describe('BashTerminalBackend startup rollback', () => {
     const sends: TerminalSendRequest[] = []
     const session = {
       motd: '',
+      initialize: () => Promise.resolve(),
+      controlledPromptReady: true,
       startSend: (request: TerminalSendRequest) => {
         sends.push(request)
         return {

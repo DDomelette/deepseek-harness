@@ -153,7 +153,7 @@ export default class PluginMarket extends TypertRemoteService {
     )
     ctx.inject(['connection'], (scope) => {
       scope.effect(() => scope.connection.fetch.register({
-        path: DETAIL_FILE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: request => this.serveDetailFile(request),
+        path: DETAIL_FILE_PATH, methods: ['GET'], requestBody: 'none', fetch: request => this.serveDetailFile(request),
       }), `plugin-market: ${DETAIL_FILE_PATH}`)
     })
     ctx.on('loader/volatile-update', () => {

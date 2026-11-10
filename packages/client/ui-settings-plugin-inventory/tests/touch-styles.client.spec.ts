@@ -80,7 +80,8 @@ describe('built-in plugin inventory touch rules', () => {
   })
 
   it('keeps the focused search field at 16px under a coarse pointer', () => {
-    const coarse = /@media \(pointer: coarse\) \{([\s\S]*?)\n\}/.exec(rules)?.[1] ?? ''
+    const coarse = [...rules.matchAll(/@media \(pointer: coarse\) \{([\s\S]*?)\n\}/g)]
+      .map(match => match[1]).join('\n')
     expect(coarse).toMatch(/\.search input \{[^}]*font-size: 16px/)
   })
 })

@@ -106,7 +106,7 @@ describe('Connection exact Fetch routes', () => {
     const { connection, dispose: disposeFiber } = await mounted()
     const route = vi.fn(async () => new Response('route'))
     const disposeRoute = connection.fetch.register({
-      path: '/api/session.export', methods: ['GET'], requestBody: 'buffered', fetch: route,
+      path: '/api/session.export', methods: ['GET'], requestBody: 'none', fetch: route,
     })
     const peers: PeerScope[] = []
     const disposeInterceptor = connection.rpc.intercept('/api', () => true, async (_endpoint, _payload, _signal, peer) => {

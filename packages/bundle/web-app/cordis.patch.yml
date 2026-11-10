@@ -67,6 +67,9 @@
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
 
+    - id: notes
+      name: '@deepseek-ai/dsh-notes'
+
     # Session-menu application choices over Host resolution on macOS, Windows,
     # and Linux. An empty catalog hides the action. The Host routes and browser
     # controls also serve the file-tree directory opener.

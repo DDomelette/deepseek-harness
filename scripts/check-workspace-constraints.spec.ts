@@ -199,8 +199,11 @@ describe('experimental workspace constraints', () => {
     ])
   })
 
-  it('keeps the current experimental publication set unrestricted', () => {
-    expect(PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES).toEqual([])
+  it('keeps the Web Worker build and runtime workspaces private', () => {
+    expect(PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES).toEqual([
+      'packages/experimental/webworker-packer',
+      'packages/experimental/webworker-runtime',
+    ])
   })
 
   it('limits the public default to experimental package directories', () => {

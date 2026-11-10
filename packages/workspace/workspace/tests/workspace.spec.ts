@@ -10,6 +10,8 @@ import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionHeader } from '@deepseek-ai/dsh-session'
+import SessionFlags from '@deepseek-ai/dsh-session-flags'
+import SessionPins, { sessionPinsDomainSpec, type SessionPinsSnapshot } from '@deepseek-ai/dsh-session-pins'
 import { SessionPersistenceRevision } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
@@ -38,6 +40,7 @@ interface HarnessOptions {
   sessions?: SessionHeader[]
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
+  pins?: boolean
   backend?: StorageBackend
 }
 
@@ -50,6 +53,11 @@ async function harness(options: HarnessOptions = {}) {
   const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
   ctx.storage.mount('domain', facility)
   ctx.provide('storageDomain', facility)
+  if (options.pins === true) {
+    onTestFinished(() => ctx.fiber.dispose())
+    await ctx.plugin(SessionFlags)
+    await ctx.plugin(SessionPins)
+  }
 
   let listed = options.sessions ?? []
   const list = vi.fn(async (): Promise<SessionPersistenceSnapshot[]> =>
@@ -176,6 +184,10 @@ function storedState(pool: MemoryMediaPool): WorkspaceDomainState {
   return pool.media.get('workspace')!.global as WorkspaceDomainState
 }
 
+function storedPins(pool: MemoryMediaPool): readonly SessionId[] {
+  return (pool.media.get(sessionPinsDomainSpec.name)!.global as SessionPinsSnapshot).pinnedSessionIds
+}
+
 let base: string
 const tempDirs: string[] = []
 
@@ -205,7 +217,9 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     await fiber.await()
     expect(ctx.workspaceRegistry.list()).toEqual([])
     expect(list).toHaveBeenCalledTimes(1)
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    expect(storedState(pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
   })
 
   it('bootstraps once from list headers only, in workspace/session createdAt order', async () => {
@@ -239,6 +253,7 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
       initialized: true,
       workspaceIds: result.registry.list().map(workspace => workspace.id),
       archivedSessionIds: [],
+      archivedSessionAts: {},
       pinnedSessionIds: [],
     })
   })
@@ -268,7 +283,9 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
     const second = await harness({ pool, sessions: [header('late', late, 100)] })
     expect(second.list).not.toHaveBeenCalled()
     expect(second.registry.list()).toEqual([])
-    expect(storedState(pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    expect(storedState(pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
   })
 
   it('reuses partial records after a bootstrap record write fails', async () => {
@@ -522,7 +539,9 @@ describe('WorkspaceRegistry create and lookup', () => {
     await expect(result.registry.delete(workspace.id)).resolves.toBe(false)
     expect(result.registry.get(workspace.id)).toBeUndefined()
     expect(result.registry.list()).toEqual([])
-    expect(storedState(result.pool)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    expect(storedState(result.pool)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
     expect(result.pool.media.get('workspace')!.tables.get('workspaces')!.has(workspace.id)).toBe(false)
     await expect(realpath(dir)).resolves.toBe(dir)
     expect(result.list).toHaveBeenCalledTimes(1)
@@ -566,6 +585,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       initialized: true,
       workspaceIds: [],
       archivedSessionIds: [],
+      archivedSessionAts: {},
       pinnedSessionIds: [],
       pendingMutation: { operation: 'delete', workspaceId: workspace.id },
     })
@@ -575,6 +595,7 @@ describe('WorkspaceRegistry create and lookup', () => {
       initialized: true,
       workspaceIds: [reregistered.id],
       archivedSessionIds: [],
+      archivedSessionAts: {},
       pinnedSessionIds: [],
     })
     await first.fiber.dispose()
@@ -852,8 +873,7 @@ describe('header-validated membership projection', () => {
     const id = WorkspaceId('reindexed-workspace')
     const pool = storedPool([[id, record(dir, ['kept'])]], { initialized: true, workspaceIds: [id] })
     await rm(dir, { recursive: true })
-    const result = await harness({ pool, sessions: [header('kept', dir)] })
-    onTestFinished(() => result.ctx.fiber.dispose())
+    const result = await harness({ pool, pins: true, sessions: [header('kept', dir)] })
     const workspace = result.registry.get(id)!
     expect(workspace.sessionIds).toEqual(['kept'])
     result.setSessions([header('kept', elsewhere), header('trigger-one', elsewhere)])
@@ -999,7 +1019,9 @@ describe('header-validated membership projection', () => {
     const createRecovery = await harness({ pool: interruptedCreate })
     expect(createRecovery.registry.list()).toEqual([])
     expect(interruptedCreate.media.get('workspace')!.tables.get('workspaces')!.has(createId)).toBe(false)
-    expect(storedState(interruptedCreate)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    expect(storedState(interruptedCreate)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
 
     const interruptedDelete = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -1012,7 +1034,9 @@ describe('header-validated membership projection', () => {
     const deleteRecovery = await harness({ pool: interruptedDelete })
     expect(deleteRecovery.registry.list()).toEqual([])
     expect(interruptedDelete.media.get('workspace')!.tables.get('workspaces')!.has(deleteId)).toBe(false)
-    expect(storedState(interruptedDelete)).toEqual({ initialized: true, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] })
+    expect(storedState(interruptedDelete)).toEqual({
+      initialized: true, workspaceIds: [], archivedSessionIds: [], archivedSessionAts: {}, pinnedSessionIds: [],
+    })
 
     const corruptPending = storedPool(
       [[deleteId, record(deleteDir, [])]],
@@ -1265,9 +1289,9 @@ describe('registry-global session unarchive', () => {
 })
 
 describe('registry-global session pin', () => {
-  it('pins durably in prepend order, idempotently skips repeats, and leaves accounting untouched', async () => {
+  it('projects durable pin order and leaves Workspace accounting untouched', async () => {
     const dir = await makeDir('pin-home')
-    const result = await harness({ sessions: [header('first', dir, 100), header('second', dir, 200)] })
+    const result = await harness({ pins: true, sessions: [header('first', dir, 100), header('second', dir, 200)] })
     const workspace = result.registry.list()[0]!
     expect(result.registry.pinnedSessionIds).toEqual([])
 
@@ -1277,19 +1301,16 @@ describe('registry-global session pin', () => {
     expect(firstEntry).toEqual(SessionId('first'))
     // Pinning is a display-set write: the workspace account keeps the id.
     expect(workspace.sessionIds).toContain('first')
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([firstEntry])
-    const changesAfterFirst = result.changes.filter(change => change.table === '').length
+    expect(storedPins(result.pool)).toEqual([firstEntry])
 
     await result.registry.pinSession(SessionId('first'))
     expect(result.registry.pinnedSessionIds).toEqual([firstEntry])
-    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
 
-    // The most recent pin lands first (display order).
     await result.registry.pinSession(SessionId('second'))
-    expect(result.registry.pinnedSessionIds).toEqual(['second', 'first'])
-    expect(storedState(result.pool).pinnedSessionIds).toEqual([
-      SessionId('second'), SessionId('first'),
-    ])
+    expect(result.registry.pinnedSessionIds).toEqual(['first', 'second'])
+    expect(storedPins(result.pool)).toEqual(['first', 'second'])
+    expect(storedState(result.pool).pinnedSessionIds).toEqual([])
+    expect(result.changes.filter(change => change.domain === 'workspace')).toEqual([])
   })
 
   it('rejects pinning archived and unknown sessions without writing', async () => {
@@ -1314,9 +1335,9 @@ describe('registry-global session pin', () => {
     expect(storedState(result.pool).pinnedSessionIds).toEqual([])
   })
 
-  it('archiving drops the pin in the same durable write', async () => {
+  it('drops a pin from the pins domain when its Session is archived', async () => {
     const dir = await makeDir('pin-then-archive')
-    const result = await harness({ sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
+    const result = await harness({ pins: true, sessions: [header('s1', dir, 100), header('s2', dir, 200)] })
     await result.registry.pinSession(SessionId('s1'))
     await result.registry.pinSession(SessionId('s2'))
 
@@ -1324,7 +1345,8 @@ describe('registry-global session pin', () => {
     expect(result.registry.pinnedSessionIds).toEqual(['s2'])
     expect(result.registry.archivedSessionIds).toEqual(['s1'])
     const stored = storedState(result.pool)
-    expect(stored.pinnedSessionIds).toEqual(['s2'])
+    expect(storedPins(result.pool)).toEqual(['s2'])
+    expect(stored.pinnedSessionIds).toEqual([])
     expect(stored.archivedSessionIds).toEqual(['s1'])
   })
 
@@ -1332,43 +1354,43 @@ describe('registry-global session pin', () => {
     const dir = await makeDir('pin-restart')
     const pool = new MemoryMediaPool()
     const sessions = [header('kept', dir, 100)]
-    const first = await harness({ pool, sessions })
+    const first = await harness({ pool, pins: true, sessions })
     await first.registry.pinSession(SessionId('kept'))
     const pinned = [...first.registry.pinnedSessionIds]
-    await first.fiber.dispose()
+    await first.ctx.fiber.dispose()
 
-    const second = await harness({ pool, sessions })
+    const second = await harness({ pool, pins: true, sessions })
     expect(second.registry.pinnedSessionIds).toEqual(pinned)
   })
 
 })
 
 describe('registry-global session unpin', () => {
-  it('unpins durably in place and idempotently skips absent ids', async () => {
+  it('unpins durably while keeping the order of surviving pins', async () => {
     const dir = await makeDir('unpin-home')
     const result = await harness({
+      pins: true,
       sessions: [header('one', dir, 100), header('two', dir, 200), header('three', dir, 300)],
     })
     await result.registry.pinSession(SessionId('one'))
     await result.registry.pinSession(SessionId('two'))
     await result.registry.pinSession(SessionId('three'))
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'two', 'one'])
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'two', 'three'])
 
     await result.registry.unpinSession(SessionId('two'))
     // Removal keeps the survivors in pin order.
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'one'])
-    expect(storedState(result.pool).pinnedSessionIds).toEqual(['three', 'one'])
-    const changesAfterFirst = result.changes.filter(change => change.table === '').length
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
+    expect(storedPins(result.pool)).toEqual(['one', 'three'])
 
     await result.registry.unpinSession(SessionId('two'))
-    expect(result.registry.pinnedSessionIds).toEqual(['three', 'one'])
-    // The absent-id repeat neither rewrites the medium nor emits a change.
-    expect(result.changes.filter(change => change.table === '').length).toBe(changesAfterFirst)
+    expect(result.registry.pinnedSessionIds).toEqual(['one', 'three'])
+    expect(storedPins(result.pool)).toEqual(['one', 'three'])
+    expect(result.changes.filter(change => change.domain === 'workspace')).toEqual([])
   })
 
   it('unpins an entry whose session is gone without consulting session persistence', async () => {
     const dir = await makeDir('unpin-vanished')
-    const result = await harness({ sessions: [header('vanished', dir, 100)] })
+    const result = await harness({ pins: true, sessions: [header('vanished', dir, 100)] })
     await result.registry.pinSession(SessionId('vanished'))
     result.setSessions([])
     const listingsBefore = result.list.mock.calls.length

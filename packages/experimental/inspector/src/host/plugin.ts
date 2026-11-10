@@ -64,7 +64,7 @@ export async function apply(ctx: Context, config: HostPluginConfig): Promise<voi
     const dispose = () => disposeInspectorResources(disposers, () => worker?.close(), 'experimental-inspector: disposal failed')
     try {
       disposers.push(ctx.connection.fetch.register({
-        path: INSPECTOR_BOOTSTRAP_PATH, methods: ['GET'], requestBody: 'buffered',
+        path: INSPECTOR_BOOTSTRAP_PATH, methods: ['GET'], requestBody: 'none',
         fetch: request => bootstrapResponse(ready.promise, request),
       }))
       const handle = await startInspector(spec).catch((error: unknown) => {

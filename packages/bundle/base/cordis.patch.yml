@@ -332,6 +332,10 @@
     - id: skill-filesystem
       name: '@deepseek-ai/dsh-skill-filesystem'
 
+    - id: skill-badge
+      name: '@deepseek-ai/dsh-skill-badge'
+      disabled: true
+
     - id: tool-skill
       name: '@deepseek-ai/dsh-tool-skill'
 

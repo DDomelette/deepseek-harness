@@ -43,13 +43,14 @@ afterEach(() => {
 })
 
 describe('release families', () => {
-  it('publishes all current experimental packages', () => {
+  it('publishes the public experimental package set', () => {
     const members = releaseFamily('dsh').members(resolve(import.meta.dirname, '../..'))
 
     expect(members
       .filter(member => member.directory.startsWith('packages/experimental/'))
       .map(member => member.name)).toEqual([
       '@deepseek-ai/dsh-action-cards',
+      '@deepseek-ai/dsh-agent-team-web-profile',
       '@deepseek-ai/dsh-experimental-api-speech-to-text',
       '@deepseek-ai/dsh-experimental-auto-review',
       '@deepseek-ai/dsh-experimental-badge-skill-bundle',
@@ -105,10 +106,6 @@ describe('release families', () => {
       '@deepseek-ai/dsh-experimental-tool-worktree',
       '@deepseek-ai/dsh-experimental-translator',
       '@deepseek-ai/dsh-experimental-voice-input-bundle',
-      '@deepseek-ai/dsh-webhook-github',
-      '@deepseek-ai/dsh-webhook',
-      '@deepseek-ai/dsh-experimental-webworker-packer',
-      '@deepseek-ai/dsh-experimental-webworker-runtime',
       '@deepseek-ai/dsh-experimental-worktree',
     ])
   })

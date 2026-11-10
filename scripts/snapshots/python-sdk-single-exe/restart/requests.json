@@ -18,7 +18,14 @@
       }
     ],
     "toolNames": [
-      "run_code"
+      "cordis_inspect_list",
+      "cordis_inspect_query",
+      "job_kill",
+      "job_list",
+      "job_output",
+      "subagent",
+      "workflow",
+      "working_directory"
     ]
   },
   {
@@ -40,7 +47,14 @@
       }
     ],
     "toolNames": [
-      "run_code"
+      "cordis_inspect_list",
+      "cordis_inspect_query",
+      "job_kill",
+      "job_list",
+      "job_output",
+      "subagent",
+      "workflow",
+      "working_directory"
     ]
   }
 ]

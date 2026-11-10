@@ -1,8 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Use the bash tool to
   - text: Minimal mode
-  - button "More actions"
   - button "Open the notes panel"
+  - button "More actions"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]

@@ -64,7 +64,7 @@ async function harness(mode: 'view' | 'write' = 'view') {
     user: { tenant: 'fixture-private-tenant' },
   }]
   const describeSettings = vi.fn(() => namespaces)
-  ctx.provide('settings', { writable: true, describe: describeSettings } as never)
+  ctx.provide('settings', { writable: true, documentPath: '/fixture/settings.yml', describe: describeSettings } as never)
   await ctx.plugin(SettingsController)
   await ctx.plugin(CommandsFixture)
   const commands = ctx.get('commandsFixture') as CommandsFixture

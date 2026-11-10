@@ -384,7 +384,7 @@ export class PluginManager extends TypertRemoteService {
     }, 'plugin-manager: package cancellation')
     ctx.inject(['connection'], (scope) => {
       scope.effect(() => scope.connection.fetch.register({
-        path: DETAIL_FILE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: request => this.serveDetailFile(request),
+        path: DETAIL_FILE_PATH, methods: ['GET'], requestBody: 'none', fetch: request => this.serveDetailFile(request),
       }), `plugin-manager: ${DETAIL_FILE_PATH}`)
     })
   }

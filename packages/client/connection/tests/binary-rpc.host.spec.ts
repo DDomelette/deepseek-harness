@@ -39,10 +39,7 @@ describe('Connection binary RPC', () => {
       let transferred = 0
       let encoding: string | undefined
       const rpc = createWebConnectionRpc((path, init) => new Promise((resolve, reject) => {
-        const target = new URL(path)
-        target.protocol = 'http:'
-        target.hostname = '127.0.0.1'
-        target.port = String(ctx.webServer.port)
+        const target = new URL(path, `http://127.0.0.1:${String(ctx.webServer.port)}/`)
         const req = request(target, {
           method: init.method,
           headers: { ...Object.fromEntries(new Headers(init.headers)), 'accept-encoding': 'gzip' },

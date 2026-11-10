@@ -48,7 +48,9 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:~",
     "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-session-flags": "workspace:*",
     "@deepseek-ai/dsh-session-persistence": "workspace:*",
+    "@deepseek-ai/dsh-session-pins": "workspace:*",
     "@deepseek-ai/dsh-storage": "workspace:*",
     "@deepseek-ai/dsh-storage-domain": "workspace:*",
     "@deepseek-ai/dsh-typert-protocol": "workspace:*"

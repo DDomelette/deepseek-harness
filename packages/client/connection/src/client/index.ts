@@ -443,10 +443,9 @@ export function apply(ctx: Context): void {
   const globals = globalThis as ClientTransportGlobal
   const pageLocation = typeof location === 'undefined' ? undefined : location
   const declared = globals.__DSH_TRANSPORT__
-  // The served app's `?fixture` query selects the recorded fixture Host; an
-  // explicit carrier from the shell still supplies every other hook field.
-  const transport = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
-    ? { ...declared, rpc: createFixtureConnectionRpc() }
+  // A page without a carrier can select the recorded fixture Host with `?fixture`.
+  const transport = declared === undefined && pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
+    ? { rpc: createFixtureConnectionRpc() }
     : declared
   installConnection(ctx, {
     ...(transport === undefined ? {} : { transport }),

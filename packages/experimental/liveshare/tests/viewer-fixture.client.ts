@@ -16,6 +16,7 @@ import {
 } from '@deepseek-ai/dsh-llm/message'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { RemoteAccessFrame, RemoteAccessGrant } from '@deepseek-ai/dsh-api-remote-access/client'
+import type { WorkspaceArchiveValue, WorkspaceBaseline } from '@deepseek-ai/dsh-api-workspace-controller/types'
 import type { MessageId, ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type {
   AssistantMessage,
@@ -538,21 +539,16 @@ interface WorkspaceInsertSessionBeforeRequest {
 }
 interface WorkspaceArchiveSessionRequest { readonly sessionId: SessionId }
 interface WorkspaceUnarchiveSessionRequest { readonly sessionId: SessionId }
-interface WorkspaceArchiveValue { readonly archivedSessionIds: readonly SessionId[] }
 
 type WorkspaceFollowFrame =
   | {
     readonly type: 'baseline'
-    readonly value: {
-      readonly items: readonly WorkspaceView[]
-      readonly archivedSessionIds: readonly SessionId[]
-      readonly pinnedSessionIds: readonly SessionId[]
-    }
+    readonly value: WorkspaceBaseline
   }
   | { readonly type: 'upsert'; readonly workspace: WorkspaceView }
   | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
   | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
-  | { readonly type: 'archived'; readonly archivedSessionIds: readonly SessionId[] }
+  | ({ readonly type: 'archived' } & WorkspaceArchiveValue)
   | { readonly type: 'pinned'; readonly pinnedSessionIds: readonly SessionId[] }
 
 interface FixtureWorkspaceApi {
@@ -2210,6 +2206,11 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   const archivedSessionIds: SessionId[] = []
+  const archivedSessionAts = new Map<SessionId, string>()
+  const archiveSnapshot = (): WorkspaceArchiveValue => ({
+    archivedSessionIds: [...archivedSessionIds],
+    archivedSessionAts: Object.fromEntries(archivedSessionAts),
+  })
   // Registry-global pin set, most recently pinned first; this fixture never pins.
   const pinnedSessionIds: SessionId[] = []
   const workspaceSnapshot = (workspace: FixtureWorkspace): WorkspaceView => ({
@@ -2220,8 +2221,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     type: 'baseline',
     value: {
       items: workspaces.map(workspaceSnapshot),
-      archivedSessionIds: [...archivedSessionIds],
+      ...archiveSnapshot(),
       pinnedSessionIds: [...pinnedSessionIds],
+      sessionFlags: {},
     },
   })
 
@@ -4183,16 +4185,18 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }
       if (!archivedSessionIds.includes(request.sessionId)) {
         archivedSessionIds.push(request.sessionId)
-        emitWorkspace({ type: 'archived', archivedSessionIds: [...archivedSessionIds] })
+        archivedSessionAts.set(request.sessionId, new Date().toISOString())
+        emitWorkspace({ type: 'archived', ...archiveSnapshot() })
       }
-      return sessionOk({ archivedSessionIds: [...archivedSessionIds] })
+      return sessionOk(archiveSnapshot())
     },
     unarchiveSession: (request) => {
       if (archivedSessionIds.includes(request.sessionId)) {
         archivedSessionIds.splice(archivedSessionIds.indexOf(request.sessionId), 1)
-        emitWorkspace({ type: 'archived', archivedSessionIds: [...archivedSessionIds] })
+        archivedSessionAts.delete(request.sessionId)
+        emitWorkspace({ type: 'archived', ...archiveSnapshot() })
       }
-      return sessionOk({ archivedSessionIds: [...archivedSessionIds] })
+      return sessionOk(archiveSnapshot())
     },
   }
 
