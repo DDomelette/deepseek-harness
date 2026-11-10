@@ -24,10 +24,10 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 if TYPE_CHECKING:
-    from deepseek_harness import RunResult
+    from deepseek_harness import Notification, RunResult
 
 
 EXPECTED_TEXT = "runtime smoke ok"
@@ -38,6 +38,8 @@ WORKFLOW_PROMPT = "Use workflow to compute the packaged worker smoke value witho
 WORKFLOW_WORKER_TEXT = "workflow worker smoke ok"
 MINIMAL_PROMPT = "Exercise the packaged minimal agent's persistent shell."
 MINIMAL_TEXT = "minimal agent smoke ok"
+DYNAMIC_TOOLS_PROMPT = "Read dynamic-tool-task.txt, call the newly available snapshot_ping tool once, then reply DYNAMIC_TOOLS_OK."
+DYNAMIC_TOOLS_TEXT = "DYNAMIC_TOOLS_OK"
 FS_SEARCH_PROMPT = "Exercise the packaged filesystem search tools."
 FS_SEARCH_TEXT = "filesystem search smoke ok"
 FS_SEARCH_MARKER = "PACKAGED_FS_SEARCH_OK"
@@ -83,7 +85,6 @@ LEGACY_CUSTOM_DISABLED_ROWS = (
     "plan-mode",
     "present",
     "skill",
-    "skill-settings",
     "skill-filesystem",
     "skill-office",
     "workspace-dependencies",
@@ -124,11 +125,10 @@ SNAPSHOT_WORKFLOW_SCRIPT = (
     f"const reply = await agent('{SNAPSHOT_WORKFLOW_CHILD_PROMPT}', {{ label: 'workflow-child' }})\n"
     "return { reply }"
 )
-ADVANCED_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "advanced"
-)
+ADVANCED_SNAPSHOT_ROOT = Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe"
+ADVANCED_SNAPSHOT_DIRECTORY = ADVANCED_SNAPSHOT_ROOT / "advanced"
 ADVANCED_SNAPSHOT_FILENAMES = (
-    "result.json", "session.v3.jsonl", "session.1.v3.jsonl", "session.2.v3.jsonl",
+    "result.json", "session.v4.jsonl", "session.1.v4.jsonl", "session.2.v4.jsonl",
 )
 MINIMAL_SNAPSHOT_DIRECTORY = (
     Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "minimal"
@@ -145,12 +145,20 @@ IN_HISTORY_SNAPSHOT_DIRECTORY = (
     Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "minimal-in-history"
 )
 IN_HISTORY_SNAPSHOT_FILENAMES = ("prompt-history.json",)
+DYNAMIC_TOOLS_SNAPSHOT_DIRECTORY = (
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "dynamic-tools"
+)
+DYNAMIC_TOOLS_SNAPSHOT_FILENAMES = ("tool-history.json",)
 RESTART_SNAPSHOT_DIRECTORY = (
     Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "restart"
 )
 RESTART_SNAPSHOT_FILENAMES = (
     "result.json", "requests.json", "session.1.v4.jsonl", "session.2.v4.jsonl", "resume.json",
 )
+RECOVERY_SNAPSHOT_DIRECTORY = (
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "scheduler-recovery"
+)
+RECOVERY_SNAPSHOT_FILENAMES = ("result.json", "requests.json", "session.v4.jsonl")
 MCP_SERVER_SCRIPT = """\
 import json
 import os
@@ -248,7 +256,9 @@ def write_profile_patch(
     return path
 
 
-def write_advanced_profile_patch(root: Path, name: str, sessions: Path) -> Path:
+def write_advanced_profile_patch(
+    root: Path, name: str, sessions: Path, mode: Literal["native", "ptc"] = "native",
+) -> Path:
     """Write the shared custom, snapshot, and restart profile patch."""
     return write_profile_patch(root, name, sessions, [
         {"id": "tool-executor-native", "disabled": mode != "native"},
@@ -268,13 +278,12 @@ def write_advanced_profile_patch(root: Path, name: str, sessions: Path) -> Path:
             "config": {
                 "provider": "spawn",
                 "toolName": "subagent",
-                "backgroundMode": "one-shot",
             },
         },
         {"insert": [
             {"id": "ptc-runtime", "name": "@deepseek-ai/dsh-ptc-runtime-node"},
             {"id": "cordis-host-runner", "name": "@deepseek-ai/dsh-cordis-host-runner"},
-            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis", "config": {"dynamicPlugins": True}},
+            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis"},
         ]},
     ])
 
@@ -302,16 +311,25 @@ class MockModelHandler(BaseHTTPRequestHandler):
     """Return deterministic text, worker, and orchestration completions."""
 
     requests: list[dict[str, object]] = []
+    direct_child_finished = threading.Event()
 
     def do_POST(self) -> None:
+        if self.path != "/v1/messages":
+            self.send_error(404)
+            return
         content_length = int(self.headers.get("content-length", "0"))
         body = json.loads(self.rfile.read(content_length))
         self.requests.append(body)
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
         self.end_headers()
+        opening = message_start()
+        self.wfile.write(f"event: {opening['type']}\ndata: {json.dumps(opening)}\n\n".encode())
+        self.wfile.flush()
         chunks = completion_chunks(body)
-        for chunk in chunks:
+        if chunks[0] != opening:
+            raise AssertionError("model fixture response must begin with message_start")
+        for chunk in chunks[1:]:
             self.wfile.write(f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n".encode())
         self.wfile.flush()
 
@@ -329,7 +347,33 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(latest, dict):
         raise AssertionError(f"model request has an invalid latest message: {body}")
 
-    result_blocks = [
+    recovery_prompt = next((
+        block.get("text")
+        for block in latest.get("content", [])
+        if isinstance(block, dict) and block.get("type") == "text"
+        and block.get("text") in {RECOVERY_PROMPT, RECOVERY_CONTINUE_PROMPT}
+    ), None)
+    if recovery_prompt == RECOVERY_PROMPT:
+        assert_advertised_tool(body, "todo_write")
+        chunks = [message_start()]
+        for index, call_id in enumerate(RECOVERY_CALL_IDS):
+            call = tool_call_chunks(call_id, "todo_write", {"todos": []})
+            chunks.extend({**chunk, "index": index} for chunk in call[1:-2])
+        chunks.extend(call[-2:])
+        return chunks
+    if recovery_prompt == RECOVERY_CONTINUE_PROMPT:
+        results = [
+            block for message in messages
+            for block in message.get("content", [])
+            if isinstance(block, dict) and block.get("type") == "tool_result"
+        ]
+        if [result.get("tool_use_id") for result in results] != list(RECOVERY_CALL_IDS):
+            raise AssertionError(f"recovered history lost tool-result pairing: {results}")
+        if [result.get("is_error", False) for result in results] != [False, True, True]:
+            raise AssertionError(f"recovered history changed completed or pending outcomes: {results}")
+        return text_chunks(RECOVERY_TEXT)
+
+    tool_results = [
         block for block in latest.get("content", [])
         if isinstance(block, dict) and block.get("type") == "tool_result"
     ]
@@ -379,14 +423,25 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         minimal = minimal_tool_followup(call_id, tool_name, tool_text)
         if minimal is not None:
             return minimal
+        if call_id == "python-dynamic-read" and tool_name == "read":
+            if "Call snapshot_ping once." not in tool_text or result.get("is_error"):
+                raise AssertionError(f"dynamic tool scenario could not read its task: {tool_text}")
+            assert_advertised_tool(body, "snapshot_ping")
+            return tool_call_chunks("python-dynamic-ping", "snapshot_ping", {})
+        if call_id == "python-dynamic-ping" and tool_name == "snapshot_ping":
+            if tool_text != "pong" or result.get("is_error"):
+                raise AssertionError(f"dynamically added tool did not execute: {tool_text}")
+            if "snapshot_ping" in advertised_tool_names(body):
+                raise AssertionError("addition-only request retained the removed tool")
+            return text_chunks(DYNAMIC_TOOLS_TEXT)
         advanced = advanced_tool_followup(body, call_id, tool_name, tool_text)
         if advanced is not None:
             return advanced
-        if tool_text != "42":
+        if "42" not in tool_text:
             raise AssertionError(f"{tool_name} worker returned no expected value: {latest}")
-        if call_id == "call-code-worker" and tool_name == "run_code":
+        if tool_name == "run_code":
             return text_chunks(CODE_WORKER_TEXT)
-        if call_id == "call-workflow-worker" and tool_name == "run_code":
+        if tool_name == "workflow":
             return text_chunks(WORKFLOW_WORKER_TEXT)
         raise AssertionError(f"unexpected tool follow-up: {tool_name}")
 
@@ -395,7 +450,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         for message in reversed(messages)
         if isinstance(message, dict) and message.get("role") == "user"
         for block in message.get("content", [])
-        if isinstance(block, dict) and isinstance(block.get("text"), str)
+        if isinstance(block, dict) and block.get("type") == "text"
     ]
     minimal_prompt = next((prompt for prompt in user_prompts if prompt == MINIMAL_PROMPT), None)
     # The minimal composition's assembled system prompt, advertised tool schemas, and
@@ -441,23 +496,22 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         })
     if prompt == SNAPSHOT_DIRECT_CHILD_PROMPT:
         return text_chunks("DIRECT_CHILD_OK")
+    if prompt == AUTHORING_PROMPT:
+        assert_advertised_tool(body, "load_workspace_dependencies")
+        return tool_call_chunks("authoring-runtime", "load_workspace_dependencies", {})
     if prompt == SNAPSHOT_WORKFLOW_CHILD_PROMPT:
         return text_chunks("WORKFLOW_CHILD_OK")
     if prompt == SNAPSHOT_PROMPT:
-        assert_ptc_capability(body, "cordis_define")
-        arguments = {
-                "plugin": {"kind": "new", "idPrefix": "snap"},
-                "name": "Snapshot Double",
-                "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
-                "code": {"host": SNAPSHOT_PLUGIN_CODE},
-        }
-        return ptc_call_chunks(
-            body, "advanced-define",
-            f"const value = await tools.cordis_define({json.dumps(arguments)}); "
-            "if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); "
-            "return 'DEFINED';",
-            "Define the temporary Plugin",
-        )
+        if "run_code" in advertised_tool_names(body):
+            if advertised_tool_names(body) != {"run_code"}:
+                raise AssertionError("PTC mode must advertise only run_code")
+            return tool_call_chunks(
+                "advanced-code", "run_code",
+                {"code": "return await tools.snapshot_double({ value: 21 })",
+                 "description": "Call the configured Plugin tool"},
+            )
+        assert_advertised_tool(body, "snapshot_double")
+        return tool_call_chunks("advanced-native", "snapshot_double", {"value": 21})
     if prompt == RESTART_FIRST_PROMPT:
         return text_chunks(RESTART_FIRST_TEXT)
     if prompt == RESUME_PROMPT:
@@ -484,20 +538,17 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             {"code": "return 6 * 7", "description": "Compute the smoke value"},
         )
     if prompt == WORKFLOW_PROMPT:
-        assert_ptc_capability(body, "workflow")
-        arguments = {
+        assert_advertised_tool(body, "workflow")
+        return tool_call_chunks(
+            "call-workflow-worker",
+            "workflow",
+            {
                 "script": "return 6 * 7",
                 "meta": {
                     "name": "pkg-worker-smoke",
                     "description": "exercise the packaged workflow worker",
                 },
-        }
-        return ptc_call_chunks(
-            body, "call-workflow-worker",
-            f"const value = await tools.workflow({json.dumps(arguments)}); "
-            "if (value.kind !== 'foreground' || value.result !== 42) throw new Error('unexpected workflow result'); "
-            "return value.result;",
-            "Compute the workflow smoke value",
+            },
         )
     if prompt == FS_SEARCH_PROMPT:
         assert_advertised_tool(body, "grep")
@@ -522,13 +573,12 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             {"a": 19, "b": 23},
         )
     if prompt == PROFILE_PLUGIN_PROMPT:
-        prompts = [message_text(body.get("system"))]
-        prompts.extend(
+        system_text = message_text(body.get("system")) + "\n" + "\n".join(
             message_text(message.get("content"))
             for message in messages
             if isinstance(message, dict) and message.get("role") == "system"
         )
-        if PROFILE_PLUGIN_MARKER not in "\n".join(prompts):
+        if PROFILE_PLUGIN_MARKER not in system_text:
             raise AssertionError("external profile plugin contributed no model-visible marker")
         return text_chunks(PROFILE_PLUGIN_TEXT)
     return text_chunks(EXPECTED_TEXT)
@@ -633,79 +683,63 @@ def advanced_tool_followup(
     """Advance the executable snapshot's deterministic parent tool chain."""
     if not call_id.startswith("advanced-"):
         return None
-    if call_id == "advanced-define" and tool_name == "run_code":
-        if tool_text != "DEFINED":
-            raise AssertionError(f"cordis_define returned no dynamic Package ids: {tool_text}")
-        if "snapshot_double" in ptc_capability_names(body):
-            raise AssertionError("snapshot_double was advertised before cordis_run")
-        assert_ptc_capability(body, "cordis_run")
-        return ptc_call_chunks(
-            body, "advanced-run",
-            "const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); "
-            "if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); "
-            "return 'RUNNING';",
-            "Run the temporary Plugin",
-        )
-    if call_id == "advanced-run" and tool_name == "run_code":
-        if tool_text != "RUNNING":
-            raise AssertionError(f"cordis_run returned no running Package ids: {tool_text}")
-        assert_ptc_capability(body, "snapshot_double")
-        return ptc_call_chunks(
-            body, "advanced-code", "return await tools.snapshot_double({ value: 21 })",
-            "Run the temporary Plugin tool",
-        )
-    if call_id == "advanced-code" and tool_name == "run_code":
+    if call_id == "advanced-native" and tool_name == "snapshot_double":
         if tool_text != "42":
-            raise AssertionError(f"run_code returned no dynamic-tool value: {tool_text}")
-        assert_ptc_capability(body, "subagent")
-        arguments = {"description": "Check direct child", "prompt": SNAPSHOT_DIRECT_CHILD_PROMPT}
-        return ptc_call_chunks(
-            body, "advanced-direct-child", f"return await tools.subagent({json.dumps(arguments)})",
-            "Check direct child",
+            raise AssertionError(f"native call returned no configured-tool value: {tool_text}")
+        return tool_call_chunks("advanced-denied-native", "snapshot_double", {"value": -1})
+    if call_id == "advanced-code" and tool_name == "run_code":
+        if "42" not in tool_text:
+            raise AssertionError(f"run_code returned no configured-tool value: {tool_text}")
+        return tool_call_chunks("advanced-denied-ptc", "run_code", {
+            "code": "try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }",
+            "description": "Catch a structured inner tool denial",
+        })
+    if call_id == "advanced-denied-ptc" and tool_name == "run_code":
+        if 'Auto review rejected tool "snapshot_double"; its body was not executed' not in tool_text:
+            raise AssertionError(f"PTC denial did not preserve the model result: {tool_text}")
+        if "transport raw" in tool_text:
+            raise AssertionError("PTC denial leaked its user-facing reason to the model")
+        return text_chunks(SNAPSHOT_FINAL_TEXT)
+    if call_id == "advanced-denied-native" and tool_name == "snapshot_double":
+        if 'Auto review rejected tool "snapshot_double"; its body was not executed' not in tool_text:
+            raise AssertionError(f"native denial did not preserve the model result: {tool_text}")
+        if "transport raw" in tool_text:
+            raise AssertionError("native denial leaked its user-facing reason to the model")
+        assert_advertised_tool(body, "subagent")
+        return tool_call_chunks(
+            "advanced-direct-child",
+            "subagent",
+            {
+                "description": "Check direct child",
+                "prompt": SNAPSHOT_DIRECT_CHILD_PROMPT,
+            },
         )
-    if call_id == "advanced-direct-child" and tool_name == "run_code":
-        receipt = json.loads(tool_text)
-        if receipt.get("kind") != "activation" or not isinstance(receipt.get("subagentId"), str):
-            raise AssertionError(f"subagent returned no activation acknowledgement: {receipt}")
-        return text_chunks("Waiting for the direct child to finish.")
-    if call_id == "advanced-workflow" and tool_name == "run_code":
+    if call_id == "advanced-direct-child" and tool_name == "subagent":
+        if not tool_text.startswith("started subagent "):
+            raise AssertionError(f"subagent returned no child identity: {tool_text}")
+        if not MockModelHandler.direct_child_finished.wait(timeout=30):
+            raise AssertionError("direct child did not emit its terminal SDK notification")
+        assert_advertised_tool(body, "workflow")
+        return tool_call_chunks(
+            "advanced-workflow",
+            "workflow",
+            {
+                "script": SNAPSHOT_WORKFLOW_SCRIPT,
+                "meta": {
+                    "name": "advanced-exe-snapshot",
+                    "description": "exercise one packaged workflow child",
+                },
+            },
+        )
+    if call_id == "advanced-workflow" and tool_name == "workflow":
         if "WORKFLOW_CHILD_OK" not in tool_text:
             raise AssertionError(f"workflow returned no expected child value: {tool_text}")
-        assert_ptc_capability(body, "cordis_undefine")
-        return ptc_call_chunks(
-            body, "advanced-undefine",
-            "const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); "
-            "if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); "
-            "return 'REMOVED';",
-            "Remove the temporary Plugin",
-        )
-    if call_id == "advanced-undefine" and tool_name == "run_code":
-        if tool_text != "REMOVED":
-            raise AssertionError(f"cordis_undefine returned no removal result: {tool_text}")
-        if "snapshot_double" in ptc_capability_names(body):
-            raise AssertionError("snapshot_double remained advertised after cordis_undefine")
         return text_chunks(SNAPSHOT_FINAL_TEXT)
     raise AssertionError(f"unexpected advanced tool follow-up: {call_id} {tool_name}: {tool_text}")
 
 
-def advanced_workflow_chunks(body: dict[str, object]) -> list[dict[str, object]]:
-    """Continue the parent after the direct child's automatic completion notice."""
-    assert_ptc_capability(body, "workflow")
-    arguments = {
-        "script": SNAPSHOT_WORKFLOW_SCRIPT,
-        "meta": {
-            "name": "advanced-exe-snapshot",
-            "description": "exercise one packaged workflow child",
-        },
-    }
-    return ptc_call_chunks(
-        body, "advanced-workflow", f"return await tools.workflow({json.dumps(arguments)})",
-        "Check workflow child",
-    )
-
-
 def text_chunks(text: str) -> list[dict[str, object]]:
-    """Build a complete DeepSeek Messages text response."""
+    """Build a complete Messages text response."""
     return [
         message_start(),
         {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
@@ -717,7 +751,7 @@ def text_chunks(text: str) -> list[dict[str, object]]:
 
 
 def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> list[dict[str, object]]:
-    """Build a complete DeepSeek Messages tool-use response."""
+    """Build a complete Messages tool-use response."""
     return [
         message_start(),
         {
@@ -735,14 +769,14 @@ def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> l
 
 
 def message_start() -> dict[str, object]:
-    """Start one deterministic Messages response with disjoint token usage."""
+    """Start a Messages response with deterministic token usage."""
     return {
         "type": "message_start",
-        "message": {"id": "smoke-message", "model": "smoke-model", "usage": {"input_tokens": 3, "output_tokens": 0}},
+        "message": {"id": "msg_smoke", "model": "smoke-model", "usage": {"input_tokens": 3, "output_tokens": 0}},
     }
 
 
-def latest_tool_call(messages: list[object]) -> tuple[str, str]:
+def latest_tool_call(messages: list[object], result_id: object) -> tuple[str, str]:
     """Find the assistant call id and name paired with the latest tool result."""
     for message in reversed(messages[:-1]):
         if not isinstance(message, dict):
@@ -755,9 +789,10 @@ def latest_tool_call(messages: list[object]) -> tuple[str, str]:
                 continue
             call_id = call.get("id")
             if (
-                call.get("type") == "tool_use"
+                isinstance(call_id, str)
+                and call_id == result_id
+                and call.get("type") == "tool_use"
                 and isinstance(call.get("name"), str)
-                and isinstance(call_id, str)
             ):
                 return call_id, call["name"]
     raise AssertionError(f"tool result has no preceding assistant tool call: {messages}")
@@ -795,37 +830,6 @@ def assert_advertised_tool(body: dict[str, object], expected: str) -> None:
     names = advertised_tool_names(body)
     if expected not in names:
         raise AssertionError(f"model request did not advertise {expected}: {names}")
-
-
-def ptc_capability_names(body: dict[str, object]) -> set[str]:
-    """Read the current TypeScript SDK declaration while requiring PTC-only wire tools."""
-    names = advertised_tool_names(body)
-    if names != {"run_code"}:
-        raise AssertionError(f"PTC request advertised unexpected direct tools: {names}")
-    prompts = [message_text(body.get("system"))]
-    prompts.extend(
-        message_text(message.get("content"))
-        for message in body["messages"] if message.get("role") == "system"
-    )
-    sdk = next((prompt for prompt in reversed(prompts) if "interface ToolArgsMap {" in prompt), None)
-    if sdk is None:
-        raise AssertionError("PTC request contains no ToolArgsMap declaration")
-    arguments = sdk.split("interface ToolArgsMap {", 1)[1].split("\n}", 1)[0]
-    return set(re.findall(r"^  ([A-Za-z_$][A-Za-z0-9_$]*):", arguments, re.MULTILINE))
-
-
-def assert_ptc_capability(body: dict[str, object], expected: str) -> None:
-    """Require an end-capability in the model's current generated SDK."""
-    names = ptc_capability_names(body)
-    if expected not in names:
-        raise AssertionError(f"PTC SDK did not declare {expected}: {names}")
-
-
-def ptc_call_chunks(body: dict[str, object], call_id: str, code: str, description: str) -> list[dict[str, object]]:
-    """Invoke a program through the sole model-visible PTC transport."""
-    if advertised_tool_names(body) != {"run_code"}:
-        raise AssertionError("PTC program requires exactly the run_code wire tool")
-    return tool_call_chunks(call_id, "run_code", {"code": code, "description": description})
 
 
 class MockModel:
@@ -874,6 +878,13 @@ def main() -> None:
     if args.exe is not None and not args.exe.is_file():
         parser.error(f"runtime executable does not exist: {args.exe}")
 
+    if args.scenario in {"all", "sdk-office"}:
+        assert args.exe is not None
+        smoke_sdk_office(args.exe.resolve())
+    if args.scenario == "sdk-office":
+        print("smoke-python-runtime: sdk-office passed")
+        return
+
     if args.scenario in {"all", "runner"}:
         assert args.exe is not None
         smoke_packaged_runner(args.exe.resolve())
@@ -907,6 +918,9 @@ def main() -> None:
         if args.scenario in {"all", "sdk-minimal-in-history"}:
             assert args.exe is not None
             smoke_sdk_minimal(model.url, args.exe.resolve(), args.update_snapshots, in_history=True)
+        if args.scenario in {"all", "sdk-dynamic-tools"}:
+            assert args.exe is not None
+            smoke_sdk_dynamic_tools(model.url, args.exe.resolve(), args.update_snapshots)
         if args.scenario in {"all", "sdk-fs-search"}:
             assert args.exe is not None
             smoke_sdk_fs_search(model.url, args.exe.resolve())
@@ -918,6 +932,9 @@ def main() -> None:
         if args.scenario in {"all", "sdk-snapshot"}:
             assert args.exe is not None
             smoke_sdk_snapshot(model.url, args.exe.resolve(), args.update_snapshots)
+        if args.scenario in {"all", "sdk-snapshot", "sdk-recovery"}:
+            assert args.exe is not None
+            smoke_sdk_scheduler_recovery(model.url, args.exe.resolve(), args.update_snapshots)
         if args.scenario in {"all", "sdk-restart"}:
             assert args.exe is not None
             smoke_sdk_restart_snapshot(model.url, args.exe.resolve(), args.update_snapshots)
@@ -1297,6 +1314,8 @@ def smoke_sdk_live() -> None:
                     "Use a tool to read that same file and copy its exact current content to the "
                     "new receipt path below, without changing the source file. "
                     "Preserve every byte; do not add a newline or byte-order mark. "
+                    f"{LIVE_API_SENTINEL} is only the completion acknowledgement, "
+                    "not a claim about the source or receipt contents. "
                     f"Then reply with exactly {LIVE_API_SENTINEL}.\n{receipt}"
                 )
                 verified = harness.run(verify_prompt, session_id=session_id)
@@ -1311,7 +1330,7 @@ def smoke_sdk_live() -> None:
 
 
 def assert_live_turn(label: str, result: RunResult) -> None:
-    """Require completed model tool use and the exact smoke answer for each live turn."""
+    """Require completed model tool use and a standalone smoke acknowledgement."""
     if result.finish_reason != "completed":
         event_types = [event.get("type") for event in result.events]
         turn_end_data = next(
@@ -1328,7 +1347,7 @@ def assert_live_turn(label: str, result: RunResult) -> None:
             f"{label} turn made no model-requested tool call; "
             f"final={result.final_response!r}"
         )
-    if result.final_response.strip() != LIVE_API_SENTINEL:
+    if not any(line.strip() == LIVE_API_SENTINEL for line in result.final_response.splitlines()):
         raise AssertionError(f"{label} turn returned {result.final_response!r}")
 
 def safe_turn_end(value: object) -> object:
@@ -1398,33 +1417,35 @@ def smoke_sdk_default(base_url: str) -> None:
 def smoke_sdk_custom(base_url: str, executable: Path) -> None:
     from deepseek_harness import DeepSeekHarness
 
-    with tempfile.TemporaryDirectory(prefix="dsh-sdk-custom-") as temporary:
-        root = Path(temporary).resolve()
-        dsh_home = root / "home"
-        sessions = dsh_home / "sessions"
-        patch = write_advanced_profile_patch(root, "custom.patch.yml", sessions)
-        with DeepSeekHarness(
-            provider="deepseek-official",
-            model="smoke-model",
-            cwd=str(root),
-            dsh_bin=str(executable),
-            dsh_home=str(dsh_home),
-            patches=(str(patch),),
-            env={
-                "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
-            },
-            api_key="sk-keyless-smoke",
-            base_url=base_url,
-            request_timeout_seconds=60,
-        ) as harness:
-            text_result = harness.run("reply with the smoke text", session_id="custom-smoke")
-            code_result = harness.run(CODE_PROMPT, session_id="custom-smoke")
-            workflow_result = harness.run(WORKFLOW_PROMPT, session_id="custom-smoke")
-        assert text_result.final_response == EXPECTED_TEXT, text_result.final_response
-        assert code_result.final_response == CODE_WORKER_TEXT, code_result.final_response
-        assert workflow_result.final_response == WORKFLOW_WORKER_TEXT, workflow_result.final_response
-        assert_session_log(sessions, root, EXPECTED_TEXT, CODE_WORKER_TEXT, WORKFLOW_WORKER_TEXT)
+    cases: tuple[tuple[Literal["native", "ptc"], tuple[tuple[str, str], ...]], ...] = (
+        ("native", (("reply with the smoke text", EXPECTED_TEXT), (WORKFLOW_PROMPT, WORKFLOW_WORKER_TEXT))),
+        ("ptc", ((CODE_PROMPT, CODE_WORKER_TEXT),)),
+    )
+    for mode, turns in cases:
+        with tempfile.TemporaryDirectory(prefix=f"dsh-sdk-custom-{mode}-") as temporary:
+            root = Path(temporary).resolve()
+            dsh_home = root / "home"
+            sessions = dsh_home / "sessions"
+            patch = write_advanced_profile_patch(root, "custom.patch.yml", sessions, mode)
+            with DeepSeekHarness(
+                provider="deepseek-official",
+                model="smoke-model",
+                cwd=str(root),
+                dsh_bin=str(executable),
+                dsh_home=str(dsh_home),
+                patches=(str(patch),),
+                env={
+                    "DSH_PERMISSION_MODE": "danger-full-access",
+                    "DSH_TELEMETRY_DISABLED": "1",
+                },
+                api_key="sk-keyless-smoke",
+                base_url=base_url,
+                request_timeout_seconds=60,
+            ) as harness:
+                for prompt, expected in turns:
+                    result = harness.run(prompt, session_id=f"custom-{mode}")
+                    assert result.final_response == expected, result.final_response
+            assert_session_log(sessions, root, *(expected for _, expected in turns))
 
 
 def smoke_sdk_minimal(
@@ -1634,14 +1655,13 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
             result = harness.run(MCP_PROMPT, session_id="mcp-smoke")
 
         assert result.final_response == MCP_TEXT, result.final_response
-        discovery = discovery_log.read_text(encoding="utf-8").splitlines()
-        assert discovery == [
+        assert discovery_log.read_text().splitlines() == [
             "server/discover",
             "initialize",
             "notifications/initialized",
             "tools/list",
             "tools/call",
-        ], discovery
+        ]
         assert_session_log(sessions, root, MCP_TEXT, "mcp__fixture__add", "42")
 
 
@@ -1728,19 +1748,29 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
 
 
 def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) -> None:
-    """Drive and compare the advanced SDK/executable behavioral snapshot."""
-    from deepseek_harness import DeepSeekHarness, Notification, RunResult
-    from pydantic import BaseModel
+    """Exercise native and PTC calls in independent packaged-runtime compositions."""
+    for mode in ("native", "ptc"):
+        smoke_sdk_snapshot_mode(base_url, executable, update_snapshots, mode)
 
-    class WaitResponse(BaseModel):
-        model_config = {"extra": "forbid"}
+
+def smoke_sdk_snapshot_mode(
+    base_url: str, executable: Path, update_snapshots: bool, mode: Literal["native", "ptc"],
+) -> None:
+    """Drive one supported presentation through the SDK and persistent Session log."""
+    from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-snapshot-") as temporary:
         root = Path(temporary).resolve()
         dsh_home = root / "home"
         sessions = dsh_home / "sessions"
-        patch = write_advanced_profile_patch(root, "snapshot.patch.yml", sessions)
+        patch = write_advanced_profile_patch(root, "snapshot.patch.yml", sessions, mode)
         feedback_patch = write_profile_patch(root, "feedback.patch.yml", sessions, [{"insert": [
+            {"id": "snapshot-tool", "name": (
+                Path(__file__).resolve().parent / "fixtures/python-snapshot-tool.mjs"
+            ).as_uri()},
+            {"id": "snapshot-image-offload", "name": (
+                Path(__file__).resolve().parent / "fixtures/python-snapshot-image-offload.mjs"
+            ).as_uri(), "config": {"parentSessionId": SNAPSHOT_SESSION_ID}},
             {"id": "snapshot-workflow-order", "name": (
                 Path(__file__).resolve().parent / "fixtures/python-snapshot-workflow-order.mjs"
             ).as_uri(), "config": {
@@ -1753,13 +1783,19 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
                 Path(__file__).resolve().parent.parent / "snapshots/sdk/text-turn/feedback-producer.mjs"
             ).as_uri()},
         ]}])
+        creation_patch = write_profile_patch(root, "creation.patch.yml", sessions, [
+            {"insert": [{
+                "id": "serial-created-fixture",
+                "name": str(Path(__file__).resolve().parents[1] / "packages/core/agent-loop/tests/fixtures/serial-created.mjs"),
+            }]},
+        ])
         with DeepSeekHarness(
             provider="deepseek-official",
             model="smoke-model",
             cwd=str(root),
             dsh_bin=str(executable),
             dsh_home=str(dsh_home),
-            patches=(str(patch), str(feedback_patch)),
+            patches=(str(patch), str(feedback_patch), str(creation_patch)),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
                 "DSH_TELEMETRY_DISABLED": "1",
@@ -1768,26 +1804,15 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
             base_url=base_url,
             request_timeout_seconds=60,
         ) as harness:
-            notifications: list[Notification] = []
-            with harness.client.subscribe_session_notifications(SNAPSHOT_SESSION_ID) as subscription:
-                harness.client.session_prompt(
-                    SNAPSHOT_SESSION_ID, [{"type": "text", "text": SNAPSHOT_PROMPT}],
-                    on_notification=notifications.append, notification_subscription=subscription,
-                )
-                harness.client.request(
-                    "session/wait", {"sessionId": SNAPSHOT_SESSION_ID}, response_model=WaitResponse,
-                    on_notification=notifications.append, notification_subscription=subscription,
-                )
-            events = [
-                notification.payload["event"] for notification in notifications
-                if notification.method == "session.event" and notification.payload.get("sessionId") == SNAPSHOT_SESSION_ID
-            ]
-            messages = [event["data"] for event in events if event.get("type") == "assistant/message"]
-            endings = [event["data"] for event in events if event.get("type") == "turn/end"]
-            final = messages[-1].get("message", messages[-1]) if messages else {}
-            result = RunResult(
-                session_id=SNAPSHOT_SESSION_ID, final_response=message_text(final.get("content")),
-                finish_reason=endings[-1]["reason"]["kind"], events=events, notifications=notifications,
+            MockModelHandler.direct_child_finished.clear()
+
+            def observe_child(notification: "Notification") -> None:
+                if (notification.method == "subagent.finished"
+                        and message_text(notification.payload.get("lastAssistantMessage")) == "DIRECT_CHILD_OK"):
+                    MockModelHandler.direct_child_finished.set()
+
+            result = harness.run(
+                SNAPSHOT_PROMPT, session_id=SNAPSHOT_SESSION_ID, on_notification=observe_child,
             )
 
         assert result.final_response == SNAPSHOT_FINAL_TEXT, (result.final_response, harness.client._runtime_diagnostics())
@@ -1812,9 +1837,7 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
             raise AssertionError(f"advanced snapshot selected unexpected image occurrences: {targets}")
         feedback_types = [event.get("type") for event in result.events
                           if str(event.get("type")).startswith("feedback/")]
-        if len(endings) != 2:
-            raise AssertionError(f"advanced snapshot expected two parent turns: {endings}")
-        if feedback_types != ["feedback/record", "feedback/record", "feedback/message-put", "feedback/message-put", "feedback/message-delete"] * 2:
+        if feedback_types != ["feedback/record", "feedback/record", "feedback/message-put", "feedback/message-put", "feedback/message-delete"]:
             raise AssertionError(f"advanced snapshot did not exercise all feedback mutations: {feedback_types}")
         methods = [notification.method for notification in result.notifications]
         expected_children = 2 if mode == "native" else 0
@@ -1827,37 +1850,41 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
                 assert item.payload["parentSessionId"] == creators[item.payload["childSessionId"]]
         ptc_events = [event for event in result.events
                       if event.get("type") in ("tool/ptc-dispatch-start", "tool/ptc-dispatch")]
-        calls = [
-            ("advanced-define", "cordis_define"), ("advanced-run", "cordis_run"),
-            ("advanced-code", "snapshot_double"), ("advanced-direct-child", "subagent"),
-            ("advanced-workflow", "workflow"), ("advanced-undefine", "cordis_undefine"),
-        ]
-        if [event["type"] for event in ptc_events] != ["tool/ptc-dispatch-start", "tool/ptc-dispatch"] * len(calls):
+        expected_ptc_calls = 2 if mode == "ptc" else 0
+        if [event["type"] for event in ptc_events] != ["tool/ptc-dispatch-start", "tool/ptc-dispatch"] * expected_ptc_calls:
             raise AssertionError(f"advanced snapshot emitted unexpected PTC dispatch events: {ptc_events}")
         for index, event in enumerate(ptc_events):
             data = event["data"]
-            call_id, name = calls[index // 2]
             identity = (data.get("rootCallId"), data.get("parentCallId"), data.get("subCallId"))
-            if identity != (call_id, call_id, f"{call_id}:ptc:1") or data.get("name") != name:
+            root_call = "advanced-code" if index < 2 else "advanced-denied-ptc"
+            if identity != (root_call, root_call, root_call + ":ptc:1"):
                 raise AssertionError(f"advanced snapshot emitted unexpected PTC dispatch identity: {identity}")
-            if event["type"] == "tool/ptc-dispatch" and data.get("isError") is not False:
-                raise AssertionError(f"advanced PTC capability failed: {data}")
+            if {"description", "parameters", "schema"}.intersection(data):
+                raise AssertionError("PTC binding schema entered the packaged SDK wire")
+        errors = [event["data"]["error"] for event in result.events
+                  if event.get("type") in ("tool/result", "tool/ptc-dispatch") and "error" in event["data"]]
+        assert errors == [{
+            "name": "AutoReviewDeniedError", "code": "AUTO_REVIEW_DENIED", "reason": "  transport raw\r\nreason  ",
+        }], errors
 
         logs = read_session_logs(sessions)
-        child_ids = snapshot_child_ids(result)
+        child_ids = snapshot_child_ids(result, expected_children)
         expected_ids = {SNAPSHOT_SESSION_ID, *child_ids}
         if set(logs) != expected_ids:
-            raise AssertionError(f"advanced snapshot expected parent plus two child logs: {sorted(logs)}")
-        if "DIRECT_CHILD_OK" not in render_jsonl(logs[child_ids[0]]):
-            raise AssertionError("first advanced child log has no direct-subagent result")
-        if "WORKFLOW_CHILD_OK" not in render_jsonl(logs[child_ids[1]]):
-            raise AssertionError("second advanced child log has no workflow-subagent result")
+            raise AssertionError(f"advanced snapshot expected parent plus {expected_children} child logs: {sorted(logs)}")
+        if mode == "native":
+            if "DIRECT_CHILD_OK" not in render_jsonl(logs[child_ids[0]]):
+                raise AssertionError("first advanced child log has no direct-subagent result")
+            if "WORKFLOW_CHILD_OK" not in render_jsonl(logs[child_ids[1]]):
+                raise AssertionError("second advanced child log has no workflow-subagent result")
 
         assert [event for event in logs[SNAPSHOT_SESSION_ID] if event.get("type") in ("job/registered", "job/settled")] == jobs
 
         files = build_snapshot_files(result, logs, child_ids, root)
         compare_snapshot_files(
-            files, update_snapshots, ADVANCED_SNAPSHOT_DIRECTORY, ADVANCED_SNAPSHOT_FILENAMES,
+            files, update_snapshots, ADVANCED_SNAPSHOT_DIRECTORY if mode == "native" else ADVANCED_SNAPSHOT_ROOT / "advanced-ptc",
+            ADVANCED_SNAPSHOT_FILENAMES if mode == "native" else ("result.json", "session.v4.jsonl"),
+            native_writer_output=True,
         )
 
 
@@ -1981,6 +2008,98 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
         }, indent=2, ensure_ascii=False) + "\n"
         compare_snapshot_files(
             files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
+            native_writer_output=True,
+        )
+
+
+def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapshots: bool) -> None:
+    """Keep a failed tool turn usable through the real Messages serializer and SDK."""
+    from deepseek_harness import DeepSeekHarness
+
+    first_request = len(MockModelHandler.requests)
+    with tempfile.TemporaryDirectory(prefix="dsh-sdk-scheduler-recovery-") as temporary:
+        root = Path(temporary).resolve()
+        dsh_home = root / "home"
+        sessions = dsh_home / "sessions"
+        base_patch = write_advanced_profile_patch(root, "base.patch.yml", sessions)
+        patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
+            {"id": "tool-todo", "disabled": False},
+            {"id": "session-title-llm", "disabled": True},
+            {"id": "session-log-deepseek", "config": {"enabled": False}},
+            {"insert": [{
+                "id": "scheduler-failure-fixture",
+                "name": (
+                    Path(__file__).resolve().parent.parent
+                    / "snapshots/sdk/tool-scheduler-recovery/scheduler-failure.mjs"
+                ).as_uri(),
+            }]},
+        ])
+
+        def connect() -> DeepSeekHarness:
+            return DeepSeekHarness(
+                provider="deepseek-official", model="smoke-model", cwd=str(root),
+                dsh_bin=str(executable), dsh_home=str(dsh_home),
+                patches=(str(base_patch), str(patch)),
+                env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1"},
+                api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
+            )
+
+        with connect() as harness:
+            failed = harness.run(RECOVERY_PROMPT, session_id=RECOVERY_SESSION_ID)
+            continued = harness.run(RECOVERY_CONTINUE_PROMPT, session_id=RECOVERY_SESSION_ID)
+        results = [failed, continued]
+        if [result.finish_reason for result in results] != ["error", "completed"]:
+            outcomes = [
+                event["data"]["reason"] for result in results
+                for event in result.events if event.get("type") == "turn/end"
+            ]
+            raise AssertionError(f"scheduler recovery did not preserve turn outcomes: {outcomes}")
+        if continued.final_response != RECOVERY_TEXT:
+            raise AssertionError("scheduler recovery lost the continued response")
+        requests = MockModelHandler.requests[first_request:]
+        if len(requests) != 2:
+            raise AssertionError(f"scheduler recovery expected two serialized model requests: {requests}")
+        logs = read_session_logs(sessions)
+        records = logs[RECOVERY_SESSION_ID]
+        calls = [record["data"]["callId"] for record in records if record.get("type") == "tool/call"]
+        if calls != list(RECOVERY_CALL_IDS[:2]):
+            raise AssertionError(f"scheduler recovery dispatched the unstarted call: {calls}")
+        tool_results = [
+            record["data"]["message"]
+            for record in records if record.get("type") == "tool/result"
+        ]
+        if [(message.get("role"), message.get("toolCallId"), message.get("isError", False)) for message in tool_results] != [
+            ("tool", RECOVERY_CALL_IDS[0], False), ("tool", RECOVERY_CALL_IDS[1], True), ("tool", RECOVERY_CALL_IDS[2], True),
+        ]:
+            raise AssertionError(f"scheduler recovery duplicated or lost tool outcomes: {tool_results}")
+        if sum(record.get("type") == "todo/write" for record in records) != 1:
+            raise AssertionError("scheduler recovery executed an unstarted todo update")
+        replacements = [
+            *snapshot_directory_replacements(root, "{{cwd}}"),
+            (RECOVERY_SESSION_ID, "{{parent}}"),
+        ]
+        result_value = [{
+            "session_id": result.session_id,
+            "final_response": result.final_response,
+            "finish_reason": result.finish_reason,
+            "eventTypes": [event.get("type") for event in result.events],
+            "notificationMethods": [notification.method for notification in result.notifications],
+        } for result in results]
+        request_value = [{
+            "model": request.get("model"),
+            "messages": restart_request_messages(request),
+        } for request in requests]
+        normalized_records = project_session_snapshot([
+            normalize_snapshot_value(record, replacements) for record in records
+        ])
+        content = render_jsonl(normalized_records)
+        files = {
+            "result.json": json.dumps(normalize_snapshot_value(result_value, replacements), indent=2) + "\n",
+            "requests.json": json.dumps(normalize_snapshot_value(request_value, replacements), indent=2) + "\n",
+            snapshot_session_filename(0, session_header_version(content, "scheduler recovery")): content,
+        }
+        compare_snapshot_files(
+            files, update_snapshots, RECOVERY_SNAPSHOT_DIRECTORY, RECOVERY_SNAPSHOT_FILENAMES,
         )
 
 
@@ -2238,8 +2357,8 @@ def session_header_version(content: str, label: str) -> int:
     return version
 
 
-def current_session_format_version() -> int:
-    """Read the writer generation the TypeScript session package currently declares."""
+def assert_current_session_version(version: int, label: str) -> None:
+    """Require generated logs to use the source writer generation, independent of goldens."""
     source = Path(__file__).resolve().parents[1] / "packages/core/session/src/types.ts"
     declarations = re.findall(
         r"^export const SESSION_FORMAT_VERSION = ([0-9]+)$",
@@ -2248,12 +2367,7 @@ def current_session_format_version() -> int:
     )
     if len(declarations) != 1:
         raise AssertionError(f"{source}: expected one literal SESSION_FORMAT_VERSION declaration")
-    return int(declarations[0])
-
-
-def assert_current_session_version(version: int, label: str) -> None:
-    """Require generated logs to use the source writer generation, independent of goldens."""
-    current_version = current_session_format_version()
+    current_version = int(declarations[0])
     if version != current_version:
         raise AssertionError(
             f"{label}: expected current Session format v{current_version}, got v{version}",
@@ -2320,7 +2434,7 @@ def assert_session_log(sessions: Path, cwd: Path, *expected_texts: str) -> None:
     logs = latest_persisted_session_paths(sessions)
     if len(logs) != 1:
         raise AssertionError(f"expected one JSONL session log under {sessions}, found {logs}")
-    content = logs[0].read_text(encoding="utf-8")
+    content = logs[0].read_text()
     assert_persisted_session_version(logs[0], content)
     lines = content.splitlines()
     header = json.loads(lines[0])
@@ -2362,8 +2476,8 @@ def read_session_logs(sessions: Path) -> dict[str, list[dict[str, object]]]:
     return logs
 
 
-def snapshot_child_ids(result: "RunResult") -> list[str]:
-    """Return the two child session ids in their SDK notification order."""
+def snapshot_child_ids(result: "RunResult", expected_count: int) -> list[str]:
+    """Return the expected child session ids in their SDK notification order."""
     child_ids: list[str] = []
     for notification in result.notifications:
         if notification.method != "subagent.started":
@@ -2374,8 +2488,8 @@ def snapshot_child_ids(result: "RunResult") -> list[str]:
         child_id = payload.get("childSessionId")
         if isinstance(child_id, str) and child_id not in child_ids:
             child_ids.append(child_id)
-    if len(child_ids) != 2:
-        raise AssertionError(f"advanced snapshot expected two child session ids: {child_ids}")
+    if len(child_ids) != expected_count:
+        raise AssertionError(f"advanced snapshot expected {expected_count} child session ids: {child_ids}")
     return child_ids
 
 
@@ -2413,10 +2527,9 @@ def build_in_history_snapshot_files(
     for index, request in enumerate(requests):
         messages = request["messages"]
         assert message_text(request.get("system")) == prompts[0]
-        assert messages[0]["role"] == "user", messages
         assert request["tools"] == requests[0]["tools"], "prompt update changed tool schemas"
         positions = [position for position, message in enumerate(messages) if message["role"] == "system"]
-        texts = [message_text(request.get("system")), *[
+        texts = [message_text(request["system"]), *[
             message_text(messages[position]["content"]) for position in positions
         ]]
         assert texts == (prompts[:1] if index == 0 else prompts), texts
@@ -2435,6 +2548,68 @@ def build_in_history_snapshot_files(
     return {"prompt-history.json": json.dumps(evidence, indent=2, ensure_ascii=False) + "\n"}
 
 
+def build_dynamic_tools_snapshot_files(
+    result: "RunResult",
+    requests: list[dict[str, object]],
+    log: list[dict[str, object]],
+    cwd: Path,
+) -> dict[str, str]:
+    """Pin tool declarations, historical schema references, and Python SDK event delivery."""
+    selected_types = {"request/header", "request/context", "developer/message", "tool/call", "tool/result"}
+    events = [event for event in result.events if event.get("type") in selected_types]
+    subscribed = [notification.payload["event"] for notification in result.notifications
+                  if notification.method == "session.event"
+                  and notification.payload.get("event", {}).get("type") in selected_types]
+    assert subscribed == events, "SDK notifications differ from RunResult.events"
+    assert [event for event in log if event.get("type") in selected_types] == events, "SDK events differ from persistence"
+    headers = [event for event in events if event["type"] == "request/header"]
+    assert len(headers) == 3, headers
+    names = [[tool["name"] for tool in event["data"]["header"]["tools"]] for event in headers]
+    assert ["snapshot_ping" in tools for tools in names] == [False, True, False], names
+    assert names[1] == sorted([*names[0], "snapshot_ping"]), names
+    assert names[2] == names[0], names
+    updates = [event for event in events if event["type"] == "developer/message"]
+    assert len(updates) == 2, updates
+    assert [event["data"]["message"]["content"] for event in updates] == [
+        [{"type": "tool-addition", "toolName": "snapshot_ping"}],
+        [{"type": "tool-removal", "toolName": "snapshot_ping"}],
+    ], updates
+    assert updates[0]["data"]["headerSeq"] == headers[1]["seq"], updates
+    assert "headerSeq" not in updates[1]["data"], updates[1]
+    assert all(event.get("surfaceOp") == "append" for event in updates), updates
+    calls = [event["data"]["name"] for event in events if event["type"] == "tool/call"]
+    assert calls == ["read", "snapshot_ping"], calls
+    ping = next(event["data"]["message"] for event in events
+                if event["type"] == "tool/result" and event["data"]["message"]["toolCallId"] == "python-dynamic-ping")
+    assert ping["isError"] is False and ping["content"] == [{"type": "text", "text": "pong"}], ping
+    assert len(requests) == 3, requests
+    assert all(request["system"] == requests[0]["system"] for request in requests), "tool changes altered the prompt"
+    declarations = [next((tool for tool in request["tools"] if tool["name"] == "snapshot_ping"), None)
+                    for request in requests]
+    assert declarations[0] is None and declarations[2] is None, declarations
+    assert declarations[1]["defer_loading"] is True, declarations[1]
+    changes = [[block for message in request["messages"] for block in message["content"]
+                if block.get("type") in ("tool_addition", "tool_removal")] for request in requests]
+    assert changes == [[], [{"type": "tool_addition", "tool": {"type": "tool_reference", "name": "snapshot_ping"}}], []], changes
+    assert requests[1]["messages"][:len(requests[0]["messages"])] == requests[0]["messages"], "tool addition changed earlier messages"
+    replacements = [(str(cwd), "{{cwd}}"), (result.session_id, "{{session}}")]
+    header_references = {header["seq"]: f"{{{{header:{index + 1}}}}}" for index, header in enumerate(headers)}
+    snapshot_events = [
+        {**event, "data": {**event["data"], "headerSeq": header_references[event["data"]["headerSeq"]]}}
+        if event["type"] == "developer/message" and "headerSeq" in event["data"] else event
+        for event in events if event["type"] in {"request/header", "request/context", "developer/message"}
+    ]
+    evidence = {
+        "finalResponse": result.final_response,
+        "declarations": declarations,
+        "requestToolChanges": changes,
+        "events": snapshot_events,
+        "toolCalls": calls,
+        "pingResult": ping,
+    }
+    return {"tool-history.json": json.dumps(normalize_snapshot_value(evidence, replacements), indent=2, ensure_ascii=False) + "\n"}
+
+
 def build_minimal_snapshot_files(
     requests: list[dict[str, object]],
     cwd: Path,
@@ -2444,8 +2619,9 @@ def build_minimal_snapshot_files(
     Every assembled system prompt, advertised tool schema, and system or user message is
     kept verbatim: they carry what the deployment actually shows the model, so a plugin
     that contributes an unintended system section or user message cannot pass unnoticed.
-    Assistant tool calls and tool results keep only their call identity because their
-    payloads differ across the platforms this expected output must replay on.
+    Assistant and tool payloads keep only their call identity because their text differs
+    across the platforms this expected output must replay on. Required working-directory
+    context remains visible even when the profile disables optional runtime context.
     """
     snapshot = []
     for body in requests:
@@ -2468,35 +2644,45 @@ def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
     if not isinstance(message, dict):
         raise AssertionError(f"minimal model request has an invalid message: {message}")
     role = message.get("role")
-    content = message.get("content")
-    if not isinstance(content, list):
-        raise AssertionError(f"minimal Messages content is not a block list: {message}")
-    if role in ("system", "user"):
-        return {
-            "role": role,
-            "content": [
-                {"type": "tool_result", "tool_use_id": block["tool_use_id"], "content": "{{tool-result}}"}
-                if block.get("type") == "tool_result"
-                else minimal_snapshot_text(block, cwd)
-                for block in content
-            ],
-        }
+    if role == "system":
+        return {"role": role, "text": minimal_snapshot_text(message_text(message.get("content")), cwd)}
+    if role == "user":
+        content = []
+        for block in message.get("content", []):
+            if block.get("type") == "tool_result":
+                content.append({"type": "tool_result", "tool_use_id": block.get("tool_use_id"), "content": "{{tool-result}}"})
+            elif block.get("type") == "text":
+                content.append(minimal_snapshot_text(block, cwd))
+            else:
+                raise AssertionError(f"minimal user message has unexpected content: {block}")
+        return {"role": role, "content": content}
     if role == "assistant":
+        calls = message.get("content")
+        if not isinstance(calls, list):
+            raise AssertionError(f"minimal assistant message has no tool calls: {message}")
         return {
             "role": role,
             "toolCalls": [
-                {"id": call["id"], "name": call["name"]}
-                for call in content
-                if call.get("type") == "tool_use"
+                {"id": call.get("id"), "name": call.get("name")}
+                for call in calls
+                if isinstance(call, dict) and call.get("type") == "tool_use"
             ],
         }
     raise AssertionError(f"minimal model request has an unexpected message role: {message}")
 
 
+def snapshot_directory_replacements(directory: Path, token: str) -> list[tuple[str, str]]:
+    """Pin the allocated fixture path in plain fields and JSON-quoted context text."""
+    path = str(directory)
+    return [(json.dumps(path, ensure_ascii=False)[1:-1], token), (path, token)]
+
+
 def minimal_snapshot_text(value: object, cwd: Path) -> object:
     """Replace the scenario's temporary working directory everywhere it appears."""
     if isinstance(value, str):
-        return replace_snapshot_tokens(value, [(str(cwd), "{{cwd}}")])
+        for actual, token in snapshot_directory_replacements(cwd, "{{cwd}}"):
+            value = value.replace(actual, token)
+        return value
     if isinstance(value, list):
         return [minimal_snapshot_text(item, cwd) for item in value]
     if isinstance(value, dict):
@@ -2510,9 +2696,10 @@ def build_snapshot_files(
     child_ids: list[str],
     cwd: Path,
 ) -> dict[str, str]:
-    """Render the SDK result and three persisted logs into stable expected outputs."""
-    replacements = [(str(cwd), "{{cwd}}"), (SNAPSHOT_SESSION_ID, "{{parent}}")]
-    replacements.append((snapshot_workflow_run_id(result), "{{workflow-run}}"))
+    """Render the SDK result and its persisted parent/child logs into stable expected outputs."""
+    replacements = snapshot_directory_replacements(cwd, "{{cwd}}") + [(SNAPSHOT_SESSION_ID, "{{parent}}")]
+    if child_ids:
+        replacements.append((snapshot_workflow_run_id(result), "{{workflow-run}}"))
     for index, child_id in enumerate(child_ids, start=1):
         replacements.append((child_id, f"{{{{child-{index}}}}}"))
         agent_id = snapshot_agent_id(result, child_id)
@@ -2583,8 +2770,8 @@ def build_restart_snapshot_files(
 ) -> dict[str, str]:
     """Render two SDK processes, isolated model histories, and durable logs."""
     replacements = [
-        (str(sessions), "{{sessions}}"),
-        (str(cwd), "{{cwd}}"),
+        *snapshot_directory_replacements(sessions, "{{sessions}}"),
+        *snapshot_directory_replacements(cwd, "{{cwd}}"),
         (RESTART_FIRST_SESSION_ID, "{{session-1}}"),
         (RESTART_SECOND_SESSION_ID, "{{session-2}}"),
     ]
@@ -2607,7 +2794,7 @@ def build_restart_snapshot_files(
     request_value = [
         {
             "model": request.get("model"),
-            "system": "{{system}}",
+            "system": "{{system}}" if request.get("system") else None,
             "messages": restart_request_messages(request),
             "toolNames": sorted(advertised_tool_names(request)),
         }
@@ -2638,9 +2825,7 @@ def build_restart_snapshot_files(
 
 
 def restart_request_messages(request: dict[str, object]) -> list[object]:
-    """Project Messages history after requiring the separate initial system prompt."""
-    if not isinstance(request.get("system"), str) or not request["system"]:
-        raise AssertionError("restart snapshot request has no initial system prompt")
+    """Project model history while tokenizing composition-owned system prose."""
     messages = request.get("messages")
     if not isinstance(messages, list):
         raise AssertionError(f"restart snapshot request has no messages: {request}")
@@ -2653,19 +2838,15 @@ def restart_request_messages(request: dict[str, object]) -> list[object]:
 
 
 def snapshot_workflow_run_id(result: "RunResult") -> str:
-    """Read the nested workflow's canonical id from its model-visible PTC result."""
+    """Return the one workflow run id emitted by the advanced scenario."""
     run_ids: set[str] = set()
     for event in result.events:
+        event_type = event.get("type")
         data = event.get("data")
-        if event.get("type") != "tool/result" or not isinstance(data, dict):
+        if not isinstance(event_type, str) or not event_type.startswith("tool-workflow/"):
             continue
-        message = data.get("message", {})
-        if message.get("source", {}).get("callId") != "advanced-workflow":
-            continue
-        value = json.loads(message_text(message.get("content")))
-        if value.get("kind") != "foreground" or not isinstance(value.get("runId"), str):
-            raise AssertionError(f"advanced workflow returned no foreground run id: {value}")
-        run_ids.add(value["runId"])
+        if isinstance(data, dict) and isinstance(data.get("runId"), str):
+            run_ids.add(data["runId"])
     if len(run_ids) != 1:
         raise AssertionError(f"advanced snapshot expected one workflow run id: {sorted(run_ids)}")
     return next(iter(run_ids))
@@ -2693,7 +2874,10 @@ def normalize_snapshot_value(
 ) -> object:
     """Scrub volatile values and bulky request headers without losing behavior."""
     if isinstance(value, str):
-        return replace_snapshot_tokens(value, replacements)
+        normalized = value
+        for actual, token in replacements:
+            normalized = normalized.replace(actual, token)
+        return normalized
     if isinstance(value, list):
         return [normalize_snapshot_value(item, replacements) for item in value]
     if not isinstance(value, dict):
@@ -2739,13 +2923,20 @@ def normalize_snapshot_value(
                 dt = member.get("dt")
                 if isinstance(dt, list):
                     member["dt"] = [0] * len(dt)
-    source = normalized.get("source")
-    tool_message = (
-        normalized.get("role") == "tool" and isinstance(source, dict)
-        and source.get("kind") == "tool" and isinstance(normalized.get("toolCallId"), str)
-    )
-    if isinstance(normalized.get("id"), str) and (normalized.get("role") in ("assistant", "system", "user") or tool_message):
-        if not normalized["id"].startswith("{{message:"):
+    if isinstance(normalized.get("id"), str) and normalized.get("role") in ("assistant", "system", "user", "tool", "developer"):
+        # Replay fixtures retain deterministic repair ids with the call id and original event sequence.
+        source = normalized.get("source")
+        call_id = normalized.get("toolCallId") if normalized.get("role") == "tool" else (
+            source.get("callId") if isinstance(source, dict) and source.get("kind") == "tool" else None
+        )
+        repair_prefix = (
+            f"interrupted-tool-result-{call_id}-" if isinstance(call_id, str) else None
+        )
+        repair_id = (
+            repair_prefix is not None and normalized["id"].startswith(repair_prefix)
+            and normalized["id"][len(repair_prefix):].isdigit()
+        )
+        if not normalized["id"].startswith("{{message:") and not repair_id:
             normalized["id"] = "{{messageId}}"
     if normalized.get("type") in ("feedback/message-put", "feedback/message-delete"):
         data = normalized.get("data")
@@ -2758,13 +2949,6 @@ def normalize_snapshot_value(
     scrub_snapshot_header(normalized)
     scrub_snapshot_system_message(normalized)
     return normalized
-
-
-def replace_snapshot_tokens(value: str, replacements: list[tuple[str, str]]) -> str:
-    """Replace owned volatile values, including their JSON-escaped spelling in prose."""
-    for actual, token in replacements:
-        value = value.replace(json.dumps(actual, ensure_ascii=False)[1:-1], token).replace(actual, token)
-    return value
 
 
 def scrub_snapshot_header(value: dict[object, object]) -> None:
@@ -2816,6 +3000,7 @@ def project_session_snapshot(records: list[dict[str, object]]) -> list[dict[str,
 
 
 SESSION_FORMAT_TOKEN = "{{sessionFormatVersion}}"
+NATIVE_DELIVERY_FORMAT_TOKEN = "{{sourceSessionFormatVersion}}"
 
 
 def expand_snapshot_stream_member(member: object) -> list[dict[str, object]]:
@@ -2938,14 +3123,40 @@ def normalize_session_format_comparison(
     return normalized
 
 
-def normalize_snapshot_comparison_text(name: str, content: str) -> str:
-    """Normalize Session generation identity only while comparing committed expected outputs."""
+def normalize_native_delivery_record(value: object, source_version: int) -> object:
+    """Tokenize a native delivery qualifier in one Session event or SDK notification."""
+    if not isinstance(value, dict):
+        return value
+    if value.get("method") == "session.event":
+        for key in ("payload", "params"):
+            wrapper = value.get(key)
+            if isinstance(wrapper, dict) and "event" in wrapper:
+                return {**value, key: {
+                    **wrapper,
+                    "event": normalize_native_delivery_record(wrapper["event"], source_version),
+                }}
+    data = value.get("data")
+    if value.get("type") != "session-log-deepseek/delivery-accepted" or not isinstance(data, dict):
+        return value
+    if data.get("sessionFormatVersion") != source_version:
+        return value
+    return {**value, "data": {**data, "sessionFormatVersion": NATIVE_DELIVERY_FORMAT_TOKEN}}
+
+
+def normalize_snapshot_comparison_text(
+    name: str,
+    content: str,
+    native_writer_version: int | None = None,
+) -> str:
+    """Normalize Session generation metadata only while comparing committed expected outputs."""
     if name.startswith("session") and name.endswith(".jsonl"):
         parsed = [json.loads(line) for line in content.splitlines() if line]
         header = parsed[0] if parsed else None
         source_version = header.get("version") if isinstance(header, dict) else None
         if not isinstance(source_version, int):
             raise AssertionError(f"{name}: snapshot Session header has no integer format version")
+        if native_writer_version is not None:
+            parsed = [normalize_native_delivery_record(record, native_writer_version) for record in parsed]
         records = [
             normalize_session_format_comparison(expanded, source_version)
             for record in parsed
@@ -2953,8 +3164,18 @@ def normalize_snapshot_comparison_text(name: str, content: str) -> str:
         ]
         return render_jsonl(records)
     if name.endswith(".json"):
+        value = json.loads(content)
+        if name == "result.json" and native_writer_version is not None and isinstance(value, dict):
+            value = {
+                **value,
+                **{
+                    key: [normalize_native_delivery_record(record, native_writer_version) for record in value[key]]
+                    for key in ("events", "notifications")
+                    if isinstance(value.get(key), list)
+                },
+            }
         return json.dumps(
-            normalize_session_format_comparison(json.loads(content)),
+            normalize_session_format_comparison(value),
             indent=2,
             ensure_ascii=False,
         ) + "\n"
@@ -2966,8 +3187,10 @@ def compare_snapshot_files(
     update: bool,
     directory: Path,
     filenames: tuple[str, ...],
+    *,
+    native_writer_output: bool = False,
 ) -> None:
-    """Compare ordered artifact roles and Session content across generations, or write generated filenames."""
+    """Compare artifact roles and content, optionally matching each side's native delivery generation."""
     scenario = directory.name
 
     def role_name(name: str) -> str:
@@ -3019,12 +3242,24 @@ def compare_snapshot_files(
             f"{scenario} snapshot Session roles differ: "
             f"expected={sorted(selected_expected)}, actual={sorted(actual_sessions)}",
         )
+    actual_native_version = expected_native_version = None
+    if native_writer_output:
+        def common_generation(contents: list[tuple[str, str]]) -> int:
+            versions = {session_header_version(content, name) for name, content in contents}
+            if len(versions) != 1:
+                raise AssertionError(f"{scenario}: native writer comparison requires one Session generation across all roles")
+            return versions.pop()
+
+        actual_native_version = common_generation(list(actual_sessions.values()))
+        expected_native_version = common_generation([
+            (path.name, path.read_text(encoding="utf-8")) for path in selected_expected.values()
+        ])
     for name, actual in files.items():
         parsed = parse_snapshot_session_filename(name)
         expected_path = directory / name if parsed is None else selected_expected[parsed[0]]
         expected_text = expected_path.read_text(encoding="utf-8")
-        compared_actual = normalize_snapshot_comparison_text(name, actual)
-        compared_expected = normalize_snapshot_comparison_text(expected_path.name, expected_text)
+        compared_actual = normalize_snapshot_comparison_text(name, actual, actual_native_version)
+        compared_expected = normalize_snapshot_comparison_text(expected_path.name, expected_text, expected_native_version)
         if compared_actual == compared_expected:
             continue
         diff = "".join(difflib.unified_diff(

@@ -8,6 +8,7 @@ type ProjectFace = 'host' | 'client'
 
 interface ProjectReferenceConfig {
   readonly extends?: unknown
+  readonly compilerOptions?: { readonly emitDeclarationOnly?: unknown }
   readonly references?: ReadonlyArray<{ readonly path?: unknown }>
 }
 
@@ -22,7 +23,8 @@ const WORKSPACE_MANIFESTS = [
  *
  * A single-config project is neutral and may participate in either graph. Once
  * a package declares both face configs, every reachable reference must name
- * the leaf matching the aggregate from which traversal began.
+ * the matching leaf or an explicit declaration-only shared leaf. Shared
+ * leaves can only reference other shared or single-config projects.
  *
  * @param root - Repository root containing both aggregate tsconfigs.
  * @returns Repo-relative diagnostics for every mismatched reference edge.
@@ -40,7 +42,7 @@ export function collectProjectReferenceFaceViolations(root: string): string[] {
     for (const reference of projectReferences(config)) {
       const targetConfig = referenceConfigPath(configPath, reference)
       const splitRoot = containingSplitRoot(splitRoots, targetConfig)
-      if (splitRoot !== undefined) {
+      if (splitRoot !== undefined && !sharedDeclarationLeaf(root, splitRoot, targetConfig)) {
         if (face === undefined) {
           violations.push(
             `${repoPath(root, configPath)}: Project Reference ${JSON.stringify(reference)} enters split project ${repoPath(root, splitRoot)} from a config with no Host/Client face`,
@@ -60,6 +62,12 @@ export function collectProjectReferenceFaceViolations(root: string): string[] {
   }
 
   return violations.sort()
+}
+
+function sharedDeclarationLeaf(root: string, splitRoot: string, target: string): boolean {
+  return target === resolve(splitRoot, 'tsconfig.shared.json')
+    && existsSync(target)
+    && projectConfig(root, target).compilerOptions?.emitDeclarationOnly === true
 }
 
 function splitProjectRoots(root: string): string[] {
@@ -91,6 +99,7 @@ function projectFace(
   config: ProjectReferenceConfig,
   seen = new Set<string>(),
 ): ProjectFace | undefined {
+  if (basename(configPath) === 'tsconfig.shared.json') return undefined
   if (basename(configPath) === 'tsconfig.host.json') return 'host'
   if (basename(configPath) === 'tsconfig.client.json') return 'client'
   if (configPath === resolve(root, 'tsconfig.base.json')) return 'host'

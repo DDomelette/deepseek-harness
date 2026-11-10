@@ -49,7 +49,7 @@ describe('shipped MCP resource composition', () => {
       const rows = composeEntries([...profile.layers.map(layer => layer.patches), profile.patches])
       expect(rows.filter(row => row.name === '@deepseek-ai/dsh-mcp-manager')).toEqual(name === 'sdk-minimal'
         ? []
-        : [{ id: 'mcp-manager', name: '@deepseek-ai/dsh-mcp-manager', inject: ['credentials'] }])
+        : [{ id: 'mcp-manager', name: '@deepseek-ai/dsh-mcp-manager' }])
     } finally {
       rmSync(home, { recursive: true, force: true })
     }

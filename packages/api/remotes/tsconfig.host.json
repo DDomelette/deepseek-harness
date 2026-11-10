@@ -51,7 +51,7 @@
       "path": "../../mcp/mcp-manager"
     },
     {
-      "path": "../../notes/notes/tsconfig.host.json"
+      "path": "../../notes/notes/tsconfig.shared.json"
     },
     {
       "path": "../../skill/skill"

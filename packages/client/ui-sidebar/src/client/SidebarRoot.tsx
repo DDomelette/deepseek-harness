@@ -405,19 +405,6 @@ export function SidebarRoot({
                   {identity}
                 </button>
               )
-            return darwinDesktop
-              ? <span className={clsx(css.brand, css.wide)}>{identity}</span>
-              : (
-                <button
-                  type="button"
-                  className={clsx(css.brand, css.wide)}
-                  aria-label={t('session.new.label')}
-                  aria-keyshortcuts={newShortcut?.aria}
-                  onClick={() => { startSession() }}
-                >
-                  {identity}
-                </button>
-              )
           })()}
           {!darwinDesktop && toggle}
         </div>

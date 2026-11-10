@@ -26,6 +26,8 @@
 
 [workload.ts](workload.ts) 负责定义合成维度。其当前代历史在首个步骤的用户输入之前保留空 system 头节点，因此续聊提示词会替换该头节点而不移动历史消息。[Agent Note](../../.agents/notes/implemented/testing/2026-09-06-backend-continuation-performance.zh.md) 负责说明计时终点、校准证据、内存解释和排除项。模型适配器不执行提供方序列化或网络调用；集成用例通过真实工具执行流水线运行合成工具体，SDK profile 变体则执行真实文件读取。
 
+<a id="dev-note"></a>
+
 ## 开发备注
 
 无。

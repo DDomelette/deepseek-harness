@@ -76,9 +76,20 @@ if (downloads !== undefined) process.env.DSH_BUNDLED_OFFICE_SKILLS = join(resour
 
 const selectorName = 'DSH_SUBPROCESS_RUNNER'
 const selection = process.env[selectorName]
-Reflect.deleteProperty(process.env, selectorName)
+const aclRunner = process.platform === 'win32'
+  ? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner'))
+  : undefined
 
-if (process.env.DSH_PTC_RUNTIME_NODE === '1') {
+const resource = process.env.DSH_RUNTIME_DOWNLOAD
+if (resource !== undefined) {
+  Reflect.deleteProperty(process.env, 'DSH_RUNTIME_DOWNLOAD')
+  if (resource !== 'office' && resource !== 'primary') throw new Error('DSH_RUNTIME_DOWNLOAD must select office or primary')
+  const path = await downloadResource(resource)
+  console.log(JSON.stringify(path))
+} else if (aclRunner !== undefined && process.argv[2] === aclRunner) {
+  process.argv.splice(1, 1)
+  await import('@deepseek-ai/dsh-sandbox-windows-acl/runner')
+} else if (process.env.DSH_PTC_RUNTIME_NODE === '1') {
   Reflect.deleteProperty(process.env, 'DSH_PTC_RUNTIME_NODE')
   await import('@deepseek-ai/dsh-ptc-runtime-node/process')
 } else if (selection === undefined) {
@@ -98,6 +109,7 @@ if (process.env.DSH_PTC_RUNTIME_NODE === '1') {
   const { runCli } = await import('@deepseek-ai/dsh/lib/bin.js')
   await runCli({ packageManager })
 } else {
+  Reflect.deleteProperty(process.env, selectorName)
   const { runSelectedSubprocessRunner } = await import('@deepseek-ai/dsh-subprocess-local/runner')
   await runSelectedSubprocessRunner(selection)
 }

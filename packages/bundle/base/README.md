@@ -63,7 +63,7 @@ The built-in `working_directory` tool changes the directory for subsequent opera
         maxOutputChars: 16000
 ```
 
-The bundle mounts [MCP resources](../../mcp/mcp-resources/README.md) once. Configure only [MCP client entries](../../mcp/mcp-client/README.md) for the servers you need. Clients mounted by another provider also count as configured in their scope. Callers with no configured server in scope receive no MCP tools or prompt text.
+The bundle mounts the [MCP Manager](../../mcp/mcp-manager/README.md) in every base profile. Connections with credential references require a provider. The bundle mounts [MCP resources](../../mcp/mcp-resources/README.md) once. Configure only [MCP client entries](../../mcp/mcp-client/README.md) for the servers you need. Clients mounted by another provider also count as configured in their scope. Callers with no configured server in scope receive no MCP tools or prompt text.
 
 ### Shell tools per platform
 

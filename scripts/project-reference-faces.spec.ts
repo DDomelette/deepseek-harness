@@ -57,6 +57,21 @@ describe('Project Reference compiler faces', () => {
     expect(collectProjectReferenceFaceViolations(root)).toEqual([])
   })
 
+  it('allows an explicit declaration-only shared leaf without exposing the opposite face', () => {
+    const reference = './packages/api/split/tsconfig.shared.json'
+    const root = workspaceFixture({ host: [reference], client: [reference] })
+    const config = join(root, reference)
+    writeJson(config, { compilerOptions: { emitDeclarationOnly: true } })
+    expect(collectProjectReferenceFaceViolations(root)).toEqual([])
+
+    writeJson(config, { compilerOptions: { emitDeclarationOnly: true }, references: [{ path: './tsconfig.host.json' }] })
+    const [error] = collectProjectReferenceFaceViolations(root)
+    expect(error).toContain('from a config with no Host/Client face')
+
+    writeJson(config, { compilerOptions: { emitDeclarationOnly: false } })
+    expect(collectProjectReferenceFaceViolations(root)).toHaveLength(2)
+  })
+
   it('rejects the opposite leaf and the solution root of a split project', () => {
     const root = workspaceFixture({
       host: [

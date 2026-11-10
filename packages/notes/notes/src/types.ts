@@ -8,11 +8,7 @@
  * through that one declaration. Types only — the durable schemas that mint
  * these brands live in `src/domain.ts`.
  *
- * The forwardability declaration lives here rather than in its own
- * `remote-events` module because the `api/remotes` Client program reads this
- * package through `@deepseek-ai/dsh-notes/types` alone: a second notes module
- * in that program would need a Project Reference the notes browser half
- * already holds in the opposite direction.
+ * Both compiler faces and the Remote event assembly read the same declaration project.
  * @module @deepseek-ai/dsh-notes/types
  */
 

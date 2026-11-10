@@ -37,7 +37,6 @@
 
     - id: mcp-manager
       name: '@deepseek-ai/dsh-mcp-manager'
-      inject: [credentials]
 
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'

@@ -65,7 +65,7 @@ function waterfallRaw(
   args: readonly unknown[],
   next: () => Promise<unknown>,
 ): Promise<unknown> {
-  const result: unknown = Reflect.apply(ctx.waterfall, ctx, [target, event, ...args, next])
+  const result: unknown = Reflect.apply(ctx.waterfall.bind(ctx), undefined, [target, event, ...args, next])
   return Promise.resolve(result)
 }
 

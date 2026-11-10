@@ -16,7 +16,7 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
@@ -223,7 +223,7 @@ export class NoteSessions extends Service {
         // An absent effort leaves the choice to the route's own default.
         ...route.reasoningEffort === undefined
           ? {}
-          : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
+          : { reasoningEffort: brandString<ReasoningEffortId>(route.reasoningEffort) },
       },
       setup: presets === undefined || presetId === undefined
         ? undefined

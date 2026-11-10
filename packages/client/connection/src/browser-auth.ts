@@ -223,6 +223,17 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
 
 
 
+/** Read the signed cookie named for this request authority. */
+function readAuthorityCookie(headers: ConnectionTrustRequest['headers'], authority: string | undefined, secret: Buffer): CookiePayload | undefined {
+  if (authority === undefined) return undefined
+  const rawCookie = header(headers, 'cookie')
+  if (rawCookie === undefined) return undefined
+  const value = cookieValue(rawCookie, cookieName(authority))
+  if (value === undefined) return undefined
+  const payload = decodeCookie(value, secret)
+  return payload?.authority === authority ? payload : undefined
+}
+
 /** Protocol-scoped cookie audience; HTTP retains its existing authority-only spelling. */
 function requestAudience(headers: ConnectionTrustRequest['headers'], secure: boolean): string | undefined {
   const host = header(headers, 'host')
@@ -367,13 +378,7 @@ export class BrowserAuth {
   /** The decoded payload of the authority-bound cookie this request carries, when it has one. */
   private cookiePayload(request: ConnectionTrustRequest): CookiePayload | undefined {
     const authority = requestAuthority(request.headers)
-    const rawCookie = header(request.headers, 'cookie')
-    if (authority === undefined || rawCookie === undefined) return undefined
-    const value = cookieValue(rawCookie, cookieName(authority))
-    if (value === undefined) return undefined
-    const payload = decodeCookie(value, this.secret)
-    if (payload === undefined || payload.authority !== authority) return undefined
-    return payload
+    return readAuthorityCookie(request.headers, authority, this.secret)
   }
 
   /**
@@ -659,12 +664,8 @@ export class BrowserAuth {
 
   private authenticate(request: ConnectionTrustRequest, secure: boolean): CookiePayload | undefined {
     const authority = requestAudience(request.headers, secure)
-    const rawCookie = header(request.headers, 'cookie')
-    if (authority === undefined || rawCookie === undefined) return undefined
-    const value = cookieValue(rawCookie, cookieName(authority))
-    if (value === undefined) return undefined
-    const payload = decodeCookie(value, this.secret)
-    if (payload === undefined || payload.authority !== authority) return undefined
+    const payload = readAuthorityCookie(request.headers, authority, this.secret)
+    if (payload === undefined) return undefined
     const now = Date.now()
     if (payload.issuedAt > now || payload.expiresAt <= now || payload.expiresAt <= payload.issuedAt
       || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) return undefined
