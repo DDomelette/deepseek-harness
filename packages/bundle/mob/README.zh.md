@@ -61,7 +61,7 @@ dsh web --host 192.168.1.5 --port 8080
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webStartup` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置页提供服务——以及承载配对握手的十一条 `/pair*` 具名路由。
+本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-join` 行，以 `webServer` 与 `connection` 注入挂载本包的插件，不改动其他任何内容；`mob` 命名空间背后的控制器在此之上还要求 `webStartup`，用来拼出对外公布的原点。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置页提供服务——以及承载配对握手的十一条 `/pair*` 具名路由。
 
 ### 部署声明的 origin
 
@@ -73,7 +73,7 @@ dsh web --host 192.168.1.5 --port 8080
 
 | 文件 | 作用 |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | `mob-quick-join` 插入；不针对任何既有行 |
+| [`cordis.patch.yml`](cordis.patch.yml) | `mob-join` 插入；不针对任何既有行 |
 | [`src/index.ts`](src/index.ts) | Host 半层：只挂载 `mob` Remote 命名空间 |
 | [`src/join-url.ts`](src/join-url.ts) | Remote 方法调用的共享 URL 拼装器 |
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把未声明 origin 的部署分类为 `mob/no-advertised-origin` |
@@ -86,6 +86,7 @@ dsh web --host 192.168.1.5 --port 8080
 | [`src/client/bind-settings.ts`](src/client/bind-settings.ts) | 启动项的设置命名空间，以及页面编辑的 `bindMode`/`bindHost` 字段 |
 | [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | 面板调用 `/pair*` 路由的客户端半边，含设备名与配对 URL 两个 helper |
+| [`locale/*.json`](locale/en.json)、[`icon.svg`](icon.svg) | 插件管理页里本行的标题、描述与图标，从不激活插件的包导出资源读取 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从部署声明的 origin 推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | 真实 Loader 组合的 `web` profile：部署声明的 origin 与 `mob/no-advertised-origin` |

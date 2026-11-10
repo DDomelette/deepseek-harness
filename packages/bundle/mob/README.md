@@ -61,7 +61,7 @@ Everything `dsh web` provides, plus the Connect phone entry and the `mob` Remote
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The bundle is one insert-only patch plus one dual-face plugin. The patch adds the `mob-quick-join` row, which mounts this package's plugin with the `webServer` and `webStartup` injections, and changes nothing else. The plugin's apply mounts two things: `MobJoinController`, the Host service behind the `mob` Remote namespace whose `joinUrl` method serves the settings page, and the eleven `/pair*` named routes that carry the pairing handshake.
+The bundle is one insert-only patch plus one dual-face plugin. The patch adds the `mob-join` row, which mounts this package's plugin with the `webServer` and `connection` injections, and changes nothing else; the `mob` namespace's controller requires `webStartup` on top of them to compose the advertised origin. The plugin's apply mounts two things: `MobJoinController`, the Host service behind the `mob` Remote namespace whose `joinUrl` method serves the settings page, and the eleven `/pair*` named routes that carry the pairing handshake.
 
 ### The advertised origin
 
@@ -73,7 +73,7 @@ The page's address block writes the `dsh-web-app` startup entry's `bindMode`/`bi
 
 | File | Role |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | The `mob-quick-join` insert; it targets no existing row |
+| [`cordis.patch.yml`](cordis.patch.yml) | The `mob-join` insert; it targets no existing row |
 | [`src/index.ts`](src/index.ts) | The host half: mounts the `mob` Remote namespace and nothing else |
 | [`src/join-url.ts`](src/join-url.ts) | The shared URL composer the Remote method calls |
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`: the `mob` Remote namespace's `joinUrl`, classifying a deployment that declared no origin as `mob/no-advertised-origin` |
@@ -86,6 +86,7 @@ The page's address block writes the `dsh-web-app` startup entry's `bindMode`/`bi
 | [`src/client/bind-settings.ts`](src/client/bind-settings.ts) | The startup entry's settings namespace and the `bindMode`/`bindHost` fields the page edits |
 | [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | The computer's pairing panel: code and countdown, decisions, device list, and the recycle bin |
 | [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | The `/pair*` routes as the panel calls them, with the device-name and pairing-URL helpers |
+| [`locale/*.json`](locale/en.json), [`icon.svg`](icon.svg) | The Plugin Manager row's title, description, and icon, read from the package's exported resources without activating the plugin |
 | — | No runtime invariant companion is published; every observable effect is derived per call from the deployment's declared origin (see Invariant ownership below). |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host half: namespace registration, join answer, disposal |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | The real Loader-composed `web` profile: the declared origin and `mob/no-advertised-origin` |

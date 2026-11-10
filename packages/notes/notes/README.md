@@ -82,7 +82,7 @@ A material is stored first and submitted later, so collecting never blocks on a 
 
 This section explains how the Host half is wired; the observable behavior is covered in [Use this package](#use-this-package).
 
-The `./types` and `./remote-events` subpaths expose declarations for type-only imports. Runtime consumers use the root Host entry, the `./client` browser bundle, or the generated `./typert` and `./remote` entries; browser styles are included in the client bundle.
+The `./types` subpath exposes declarations for type-only imports, and the `./locale/*.json` resources carry this plugin's Plugin Manager title, description, and icon. Runtime consumers use the root Host entry, the `./client` browser bundle, or the generated `./typert` and `./remote` entries; browser styles are included in the client bundle.
 
 ### Storage
 
@@ -100,7 +100,7 @@ A draft edit and the first analysis share the material table's write queue. An e
 
 ### Answer arrival
 
-A settlement is the one outcome no call returns: it happens when the log publishes `turn/end`, with no browser operation waiting for it. `Analysis` therefore emits `notes/material-settled` with the conversation and the materials that moved, and `src/remote-events.ts` declares that name into the Remote event selection while `packages/api/remotes/src/remote-events.ts` allows it through — without both, the pushed name never reaches the page. The browser half follows it into a revision published as a reactive fact on the tab registration, which the panel re-reads on; the revision is deliberately not store state, because the shared store instance belongs to the slot runtime and `apply` minting a second one would leave the panel rendering a different snapshot than the one being told.
+A settlement is the one outcome no call returns: it happens when the log publishes `turn/end`, with no browser operation waiting for it. `Analysis` therefore emits `notes/material-settled` with the conversation and the materials that moved, and `src/types.ts` declares that name into the Remote event selection while `packages/api/remotes/src/remote-events.ts` allows it through — without both, the pushed name never reaches the page. The browser half follows it into a revision published as a reactive fact on the tab registration, which the panel re-reads on; the revision is deliberately not store state, because the shared store instance belongs to the slot runtime and `apply` minting a second one would leave the panel rendering a different snapshot than the one being told.
 
 A forced refresh received during a listing schedules another read after it finishes; concurrent refreshes share that pending read. Callers wait for the refreshed listing before reading the open thread, and an older thread response cannot replace a newer one.
 

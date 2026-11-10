@@ -370,10 +370,10 @@ git commit -m "feat(mob): render the phone pairing screen"
 ### Task B6: 设置面板(生成码 / 待确认 / 设备列表 / 吊销)
 
 **Files:**
-- Modify: `packages/bundle/mob/src/client/ConnectPhoneRow.tsx`(保留"未开启 LAN"提示)
+- Modify: `packages/bundle/mob/src/client/MobileSection.tsx`(保留"未开启 LAN"提示)
 - Create: `packages/bundle/mob/src/client/PairingPanel.tsx`
 - Modify: `packages/bundle/mob/src/controller.ts`
-- Test: `packages/bundle/mob/tests/row.client.spec.tsx`、`packages/bundle/mob/tests/panel.client.spec.tsx`
+- Test: `packages/bundle/mob/tests/section.client.spec.tsx`、`packages/bundle/mob/tests/panel.client.spec.tsx`
 
 - [x] **Step 1: 先写测试(红)**
 

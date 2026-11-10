@@ -1159,7 +1159,7 @@ git commit -m "feat(mob): add the per-device lifetime route"
 - Modify: `packages/bundle/mob/src/client/PairingPanel.tsx`
 - Test: `packages/bundle/mob/tests/pairing-api.client.spec.ts`
 - Test: `packages/bundle/mob/tests/panel.client.spec.tsx`
-- Test: `packages/bundle/mob/tests/row.client.spec.tsx`
+- Test: `packages/bundle/mob/tests/section.client.spec.tsx`
 
 **Interfaces:**
 - Consumes: the `/pair/devices/lifetime` route and the `/pair/devices` payload from Task 5.
@@ -1295,7 +1295,7 @@ and add these three cases:
   })
 ```
 
-In `packages/bundle/mob/tests/row.client.spec.tsx`, add the new member to the `api` fixture:
+In `packages/bundle/mob/tests/section.client.spec.tsx`, add the new member to the `api` fixture:
 
 ```text
   setLifetime: async () => ({ ok: true, value: undefined }),
@@ -1503,7 +1503,7 @@ finally add the two guidance lines to the devices section, before its list:
 
 - [x] **Step 6: Run the tests to verify they pass**
 
-Run: `pnpm exec vitest run packages/bundle/mob/tests/pairing-api.client.spec.ts packages/bundle/mob/tests/panel.client.spec.tsx packages/bundle/mob/tests/row.client.spec.tsx`
+Run: `pnpm exec vitest run packages/bundle/mob/tests/pairing-api.client.spec.ts packages/bundle/mob/tests/panel.client.spec.tsx packages/bundle/mob/tests/section.client.spec.tsx`
 
 Expected: PASS — the three new panel cases, the new client case, and the unchanged row case are green.
 
