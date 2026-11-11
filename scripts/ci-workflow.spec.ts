@@ -568,10 +568,14 @@ describe('CI workflow', () => {
           run: 'bash scripts/prepare-ci-apt-mirror.sh',
         })
     }
-    expect(benchSteps).toContainEqual({
-      name: 'Install benchmark browser and hosted dependencies',
-      run: 'pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium',
-    })
+    // A fork hosted run tries the apt-backed install and falls back to the
+    // image's libraries when the archive transaction fails.
+    const benchInstall = benchSteps.find((step): step is Record<string, unknown> & { run: string } => (
+      isRecord(step) && step.name === 'Install benchmark browser and hosted dependencies' && typeof step.run === 'string'
+    ))
+    expect(benchInstall?.run).toContain('pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright')
+    expect(benchInstall?.run).toContain('timeout 240s "${playwright[@]}" install --with-deps chromium')
+    expect(benchInstall?.run).toContain('"${playwright[@]}" install chromium')
     expect(JSON.stringify(node24Bench.steps)).not.toContain('DSH_CI_FAILOVER_LINUX')
     // Enterprise-pool budgets: a fork hosted run reports them without blocking.
     expect(node24Bench.steps).toContainEqual({
@@ -580,12 +584,19 @@ describe('CI workflow', () => {
       env: { DSH_GATE_VERBOSE: '1' },
       run: 'pnpm run check:ci:bench',
     })
-    // The upstream-scoped browser corpus keeps its apt-backed browser install.
+    // The upstream-scoped browser corpus keeps its apt-backed browser install,
+    // and the fork keeps the Chromium the keyless web-profile snapshots launch.
     const consumerSteps = node24Consumers.steps as unknown[]
     const consumerInstall = consumerSteps.find((step): step is Record<string, unknown> & { if: string } => (
       isRecord(step) && step.name === 'Install Playwright Chromium, WebKit, and hosted dependencies' && typeof step.if === 'string'
     ))
     expect(consumerInstall?.if).toContain("github.repository == 'deepseek-ai/deepseek-harness'")
+    const forkChromium = consumerSteps.find((step): step is Record<string, unknown> & { if: string; run: string } => (
+      isRecord(step) && step.name === 'Install Playwright Chromium for the keyless snapshot gate'
+        && typeof step.if === 'string' && typeof step.run === 'string'
+    ))
+    expect(forkChromium?.if).toContain("github.repository != 'deepseek-ai/deepseek-harness'")
+    expect(forkChromium?.run).toContain('install chromium')
     expect(windowsAggregate.needs).not.toContain('serial-windows')
 
     // Linux failover is a separate switch: the three enterprise Linux workers

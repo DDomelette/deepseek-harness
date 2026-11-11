@@ -314,7 +314,14 @@ jobs:
         run: bash scripts/prepare-ci-apt-mirror.sh
 
       - name: Install benchmark browser and hosted dependencies
-        run: pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium
+        run: |
+          playwright=(pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright)
+          if [[ "$GITHUB_REPOSITORY" == 'deepseek-ai/deepseek-harness' ]]; then
+            "${playwright[@]}" install --with-deps chromium
+          elif ! timeout 240s "${playwright[@]}" install --with-deps chromium; then
+            echo 'Retrying Chromium installation from the hosted image libraries'
+            "${playwright[@]}" install chromium
+          fi
 
       - name: Run performance benchmarks
         # Budgets are calibrated on the enterprise pool; fork hosted runners are
@@ -468,6 +475,17 @@ jobs:
       - name: Install Playwright Chromium and WebKit on the failover VM
         if: vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]'
         run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install chromium webkit
+
+      # The keyless web-profile snapshots in test:snapshot launch Chromium even
+      # where the upstream browser corpus is out of scope.
+      - name: Install Playwright Chromium for the keyless snapshot gate
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: |
+          playwright=(pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright)
+          if ! timeout 240s "${playwright[@]}" install --with-deps chromium; then
+            echo 'Retrying Chromium installation from the hosted image libraries'
+            "${playwright[@]}" install chromium
+          fi
 
       - name: Build and execute the Linux Office runtime
         run: CI=true pnpm run prepare:primary-runtime --target linux-x64 --output "$RUNNER_TEMP/office-runtime" --cache "$RUNNER_TEMP/office-runtime-downloads"
