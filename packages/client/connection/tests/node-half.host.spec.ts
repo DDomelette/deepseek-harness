@@ -106,7 +106,7 @@ function fakeResponse(): {
 async function mounted(
   config?: ConnectionConfig,
   protocol: WebServer['protocol'] = 'http:',
-  credentials?: CredentialProvider,
+  options: { credentials?: CredentialProvider; host?: string } = {},
 ): Promise<{
   ctx: Context
   routes: WebRoute[]
@@ -119,9 +119,9 @@ async function mounted(
   const routes: WebRoute[] = []
   const upgrades: WebUpgradeRoute[] = []
   const store = new RecordCredentials()
-  if (credentials === undefined) provideBrowserCredentials(ctx, store)
-  else ctx.provide('credentials', credentials)
-  ctx.provide('webServer', fakeHttpServer(routes, upgrades, '127.0.0.1', protocol) as WebServer)
+  if (options.credentials === undefined) provideBrowserCredentials(ctx, store)
+  else ctx.provide('credentials', options.credentials)
+  ctx.provide('webServer', fakeHttpServer(routes, upgrades, options.host, protocol) as WebServer)
   const fiber = ctx.plugin({ inject: [...inject], apply }, config)
   await fiber.await()
   return {
@@ -282,6 +282,27 @@ describe('connection node half', () => {
     expect(state.status).toBe(403)
     expect(state.body).toBe('forbidden')
     await dispose()
+  })
+
+  it.each(['2001:db8::1', '[2001:db8::1]'])('uses the bound IPv6 authority and TLS declarations (%s)', async (host) => {
+    const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example:443'] }, 'https:', { host })
+    try {
+      const unpaired = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: '[2001:db8::1]:0' }), unpaired.response)
+      expect(unpaired.state.status).toBe(401)
+
+      const wrongPort = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: '[2001:db8::1]:444' }), wrongPort.response)
+      expect(wrongPort.state.status).toBe(403)
+
+      const token = new URL(connection.authenticatedUrl('https://harness.example/'))
+      const trusted = fakeResponse()
+      connection.authorizeIndex(fakeRequest({ host: 'harness.example' }, `/${token.search}`), trusted.response)
+      expect(trusted.state.status).toBe(303)
+      expect(trusted.state.headers?.['set-cookie']).toContain('; Secure')
+    } finally {
+      await dispose()
+    }
   })
 
   it('requires the same browser session for every method on every trusted authority', async () => {
@@ -938,7 +959,7 @@ describe('operator-scoped connect', () => {
       await host.dispose()
       expect(cleanup).toHaveBeenCalledOnce()
       expect(host.connection.admit(request)).toEqual({ rejection: 401 })
-      const restarted = await mounted(undefined, 'http:', host.ctx.credentials)
+      const restarted = await mounted(undefined, 'http:', { credentials: host.ctx.credentials })
       try {
         expect(admitted(restarted.connection, browser.cookie)).toBe(restarted.connection.browserPeer)
         expect(admitted(restarted.connection, browser.cookie)).not.toBe(browserPeer)

@@ -114,11 +114,11 @@ async function request(
  * @param port - loopback port the fixture server listens on.
  * @param host - the authority the request declares.
  * @param cookie - optional Cookie header.
- * @returns status, content-type, and the body.
+ * @returns status, content-type, cookies, and the body.
  */
 function lanRequest(
   port: number | undefined, host: string, cookie?: string,
-): Promise<{ status: number; type: string | undefined; body: string }> {
+): Promise<{ status: number; type: string | undefined; cookies: string[]; body: string }> {
   if (port === undefined) throw new Error('the listener has not bound a port')
   return new Promise((resolve, reject) => {
     const req = httpRequest({
@@ -134,6 +134,7 @@ function lanRequest(
         resolve({
           status: res.statusCode ?? 0,
           type: res.headers['content-type'],
+          cookies: res.headers['set-cookie'] ?? [],
           body: Buffer.concat(chunks).toString('utf8'),
         })
       })
@@ -197,6 +198,13 @@ describe('real Loader composition', () => {
     expect(paired.status).toBe(200)
     expect(paired.type).toBe('text/html; charset=utf-8')
     expect(paired.body).not.toContain('__DSH_AUTH_REQUIRED__')
+
+    await loaded.connection.devices.setLifetime(device.id, 90)
+    const renewed = await lanRequest(port, lanAuthority, issued.split(';', 1)[0])
+    expect(renewed.status).toBe(200)
+    expect(renewed.cookies).toHaveLength(1)
+    expect(renewed.cookies[0]).toContain('Max-Age=777')
+    expect(renewed.cookies[0]).not.toBe(issued)
 
     // Real assets with their MIME types; a live rebuild is served on the next read.
     expect(await request(port, '/app.js')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8', body: 'export {}' })

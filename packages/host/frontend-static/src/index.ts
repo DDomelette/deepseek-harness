@@ -112,8 +112,7 @@ function bytesBody(bytes: Uint8Array): ReadableStream<Uint8Array> {
  * @param request - the request; only its method and URL path are read.
  * @param distRoot - absolute dist root directory (resolved by the caller).
  * @param distIndex - absolute path of index.html inside distRoot.
- * @param authorizeIndex - answers an index request before its bytes are read:
- * the response to send instead of the index, or undefined to serve it.
+ * @param authorizeIndex - stages headers for the served index or returns a complete authentication response.
  * @param renderIndex - turns the raw index.html body into the served document
  * for the dist root and configured index path.
  * @returns the dist response; a HEAD response carries the GET status and
@@ -123,7 +122,7 @@ function bytesBody(bytes: Uint8Array): ReadableStream<Uint8Array> {
  */
 async function serveStatic(
   request: Request, distRoot: string, distIndex: string,
-  authorizeIndex: () => Response | undefined,
+  authorizeIndex: (headers: Headers) => Response | undefined,
   renderIndex: (html: string) => string,
 ): Promise<Response> {
   const target = resolve(normalize(join(distRoot, decodeURIComponent(new URL(request.url).pathname))))
@@ -133,14 +132,16 @@ async function serveStatic(
   if (target !== distRoot && !target.startsWith(distRoot + sep)) return new Response(null, { status: 403 })
   const isIndex = target === distRoot || target.toLowerCase() === distIndex.toLowerCase()
   let body: string | Uint8Array<ArrayBuffer>
-  let headers: Record<string, string>
+  let headers: Headers | Record<string, string>
   try {
     if (target === distRoot || target === distIndex
       || target.toLowerCase() === distIndex.toLowerCase() && await realpath(target) === await realpath(distIndex)) {
-      const refusal = authorizeIndex()
+      const indexHeaders = new Headers()
+      const refusal = authorizeIndex(indexHeaders)
       if (refusal !== undefined) return refusal
       body = renderIndex(await readFile(distIndex, 'utf8'))
-      headers = { 'content-type': HTML_MIME }
+      indexHeaders.set('content-type', HTML_MIME)
+      headers = indexHeaders
     } else {
       body = await readFile(target)
       // Weak: gzip changes the transferred bytes.
@@ -172,9 +173,12 @@ export function apply(ctx: Context, config: Config): void {
   // Connection's browser authentication writes the token exchange's 303 or
   // the 401 through a writeHead/end response; capture it as a Fetch response.
   // The answer stays a 401 unless Connection writes another one.
-  const authorizeIndex = (request: Request, remoteAddress: string | undefined): { access: ConnectionIndexAccess; response?: Response } => {
+  const authorizeIndex = (
+    request: Request,
+    remoteAddress: string | undefined,
+    headers: Headers,
+  ): { access: ConnectionIndexAccess; response?: Response } => {
     let status = 401
-    const headers = new Headers()
     let body: string | undefined
     const admitted = ctx.connection.authorizeIndex({
       method: request.method, url: request.url, headers: request.headers, socket: { remoteAddress },
@@ -199,9 +203,9 @@ export function apply(ctx: Context, config: Config): void {
         distIndex,
         // A read with a Peer was admitted by its caller; an HTTP request carries
         // none and passes Connection's browser authentication instead.
-        () => {
+        (headers) => {
           if (peer !== undefined) return undefined
-          const auth = authorizeIndex(request, remoteAddress)
+          const auth = authorizeIndex(request, remoteAddress, headers)
           authRequired = auth.access === 'auth-required'
           return auth.response
         },

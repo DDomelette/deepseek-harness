@@ -138,11 +138,17 @@ if (!BOOTSTRAP) {
   rmSync(join(recordDir, 'rec-pin', 'session.v3.jsonl'))
   writeFileSync(join(recordDir, 'rec-child', 'session.2.v3.jsonl'), retiredChildFixture)
 }
+const replayDir = mkdtempSync(join(tmpdir(), 'acp-snap-replay-suite-'))
+cpSync(REPLAY_DIR, replayDir, { recursive: true })
+const pinPrompt = join(replayDir, 'pin-turn', 'system-prompt.expected.md')
+writeFileSync(join(replayDir, 'shared-prompt.md'), readFileSync(pinPrompt, 'utf8'))
+writeFileSync(pinPrompt, '../shared-prompt.md')
 const refreshDir = mkdtempSync(join(tmpdir(), 'acp-snap-refresh-suite-'))
 cpSync(REPLAY_DIR, refreshDir, { recursive: true })
 staleRefreshFixtures(refreshDir)
 afterAll(async () => {
   if (!BOOTSTRAP) await rm(recordDir, { recursive: true, force: true })
+  await rm(replayDir, { recursive: true, force: true })
   await rm(refreshDir, { recursive: true, force: true })
 })
 
@@ -171,7 +177,7 @@ function staleRefreshFixtures(dir: string): void {
 }
 
 describe('defineAcpSnapshotSuite: replay mode', () => {
-  defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: REPLAY_DIR, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
+  defineAcpSnapshotSuite({ agent: AGENT, snapshotsDir: replayDir, scenarios: REPLAY_SCENARIOS, mode: 'replay' })
 })
 
 // The record suite's tests run in registration order: rec-pin re-records the

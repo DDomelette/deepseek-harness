@@ -50,13 +50,14 @@ function makeHeaderProps(): HeaderLeadingControlsProps {
   }
 }
 
-function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts = [], panels = [], content }: {
+function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts = [], panels = [], content, settings }: {
   collapsed?: boolean
   width?: number
   drawer?: boolean
   shortcuts?: readonly ShortcutCatalogEntry[]
   panels?: readonly SidebarPanelMetadata[]
   content?: ReactNode
+  settings?: ReactNode
 } = {}) {
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
@@ -67,10 +68,11 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
   const brandMark = <span data-testid="custom-brand-mark">M</span>
   const brandName = <span data-testid="custom-brand-name">Custom Brand</span>
-  let current = { collapsed, width, drawer }
+  let current = { collapsed, width, drawer, fab: false }
   const root = () => (
     <SidebarRoot
       drawer={current.drawer}
+      fab={current.fab}
       collapsed={current.collapsed} width={current.width}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector(panels)} useEntryPins={selector => selector([])}
@@ -91,7 +93,7 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
         if (key === 'sidebar.panellist') return <span aria-hidden="true">P</span>
         if (key === 'sidebar.settings') {
           settingsOwner = owner
-          return <div data-testid="settings-seat" data-wide={owner.wide} />
+          return <div data-testid="settings-seat" data-wide={owner.wide}>{settings}</div>
         }
         if (key === 'sidebar.footer.action') {
           footerActionOwner = owner
@@ -132,6 +134,23 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
 }
 
 describe('SidebarRoot shell', () => {
+  it('retains a settings draft while the handset opener replaces the visible column', () => {
+    const shell = mountShell({ settings: <input aria-label="Settings draft" defaultValue="" /> })
+    const draft = screen.getByRole('textbox', { name: 'Settings draft' })
+    if (!(draft instanceof HTMLInputElement)) throw new Error('missing draft input')
+    fireEvent.change(draft, { target: { value: 'unsaved model' } })
+
+    shell.rerender({ collapsed: true, width: 0, fab: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+    expect(shell.toggleSidebar).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
+    expect(draft.isConnected).toBe(true)
+
+    shell.rerender({ collapsed: false, width: 300, fab: false })
+    expect(screen.getByRole('textbox', { name: 'Settings draft' })).toBe(draft)
+    expect(draft.value).toBe('unsaved model')
+  })
+
   it('puts navigation and workspaces in one viewport without scrolling primary controls or the footer', () => {
     mountShell({ panels: [{ id: 'notes' as SidebarPanelMetadata['id'], order: 1, label: 'Notes' }] })
     const viewport = document.querySelector('[data-sidebar-scrollport]')!

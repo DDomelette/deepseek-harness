@@ -104,6 +104,7 @@ export async function apply(ctx: Context, config: HostPluginConfig): Promise<voi
             case 'serve': break
             case 'auth-required': res.writeHead(401).end(); return
             case 'answered': return
+            /* v8 ignore next -- closed ConnectionIndexAccess union. */
             default: assertNever(access, 'Inspector frontend index access')
           }
           const url = new URL(req.url ?? '/', 'http://inspector.invalid')

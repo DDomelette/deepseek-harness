@@ -1112,15 +1112,20 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
 })
 
 describe('bubblewrap preparation script', () => {
-  it('pins bubblewrap to a recorded Launchpad build and excludes Ubuntu pool downloads', () => {
+  it('downloads one pinned bubblewrap package from Ubuntu or its recorded build', () => {
     const script = readFileSync(resolve(root, 'scripts/prepare-ci-bubblewrap.sh'), 'utf8')
-    const url = /^readonly BUBBLEWRAP_URL="([^"]+)"$/mu.exec(script)?.[1]
+    const archiveUrl = /^readonly BUBBLEWRAP_ARCHIVE_URL="([^"]+)"$/mu.exec(script)?.[1]
+    const buildUrl = /^readonly BUBBLEWRAP_BUILD_URL="([^"]+)"$/mu.exec(script)?.[1]
 
-    expect(url).toMatch(
+    expect(archiveUrl).toMatch(
+      /^https:\/\/archive\.ubuntu\.com\/ubuntu\/pool\/main\/b\/bubblewrap\/bubblewrap_[^/]+_amd64\.deb$/u,
+    )
+    expect(buildUrl).toMatch(
       /^https:\/\/launchpad\.net\/ubuntu\/\+source\/bubblewrap\/[^/]+\/\+build\/\d+\/\+files\/bubblewrap_[^/]+_amd64\.deb$/u,
     )
-    // Ubuntu removes superseded versions from its live package pool.
-    expect(script).not.toMatch(/https?:\/\/[^/'"\s]+\/ubuntu(?:-ports)?\/pool\//u)
+    expect(script).toContain('download "$BUBBLEWRAP_ARCHIVE_URL" || download "$BUBBLEWRAP_BUILD_URL"')
+    expect(script).toMatch(/^readonly BUBBLEWRAP_SHA256='[\da-f]{64}'$/mu)
+    expect(script.indexOf('sha256sum --check --status')).toBeLessThan(script.indexOf('dpkg-deb --extract'))
   })
 })
 

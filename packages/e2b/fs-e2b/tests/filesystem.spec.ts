@@ -901,7 +901,7 @@ describe('E2BFileSystem patch, delete, and move', () => {
     try {
       const growing = await fs.resolve('growing.txt')
       const protectedFile = await fs.resolve('protected.txt')
-      const read = remote.sandbox.files.read
+      const read = remote.sandbox.files.read.bind(remote.sandbox.files)
       vi.spyOn(remote.sandbox.files, 'read').mockImplementationOnce((path, options) => {
         remote.mutate(path, '1234')
         return read(path, options)

@@ -2292,11 +2292,13 @@ describe('Client Typert API', () => {
     })
     // The handle opens its stream when the method is called; the mount is withdrawn before the first item arrives.
     const active = ctx.remote.probe.watch('active')[Symbol.asyncIterator]()
+    const unread = ctx.remote.probe.watch('unread')[Symbol.asyncIterator]()
     const pending = active.next()
     await started
     await firstDispose()
     release()
     await expect(pending).rejects.toThrow('Remote method probe/watch is no longer mounted')
+    await expect(unread.next()).rejects.toThrow('Remote method probe/watch is no longer mounted')
 
     const secondDispose = await ctx.remote.$mount({
       package: '@fixture/stream-second', descriptors: [streamDescriptor()],
@@ -2996,6 +2998,27 @@ describe('Remote stream client carrier lifecycle', () => {
       } finally {
         await client.close()
         vi.unstubAllGlobals()
+      }
+    })
+  })
+
+  it.each([
+    ['https://harness.example', 'wss://harness.example/api/remote.mux'],
+    ['null', 'ws://dsh.internal/api/remote.mux'],
+    [undefined, 'ws://dsh.internal/api/remote.mux'],
+  ] as const)('resolves a stream without a document (origin %s)', async (origin, expected) => {
+    await withFakeWebSocket('https://harness.example', async () => {
+      Reflect.deleteProperty(globalThis, 'document')
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: origin === undefined ? undefined : { origin },
+      })
+      const client = new RemoteStreamMuxClient()
+      try {
+        client.start()
+        expect(FakeWebSocket.sockets[0]?.url).toBe(expected)
+      } finally {
+        await client.close()
       }
     })
   })

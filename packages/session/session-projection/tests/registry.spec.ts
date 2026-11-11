@@ -264,6 +264,7 @@ describe('SessionProjectionRegistry drive', () => {
     const order: string[] = []
     const events: { changes: readonly { key: string; val: unknown }[]; seq: SessionSeq; sessionId: string }[] = []
     ctx.sessionProjections.onChanged((_session, key) => { order.push(`key:${key}`) })
+    ctx.sessionProjections.onEventChanged(() => { throw new Error('event listener broke') })
     ctx.sessionProjections.onEventChanged((changedSession, changes, seq) => {
       order.push('event')
       events.push({ changes, seq, sessionId: String(changedSession.id) })

@@ -53,7 +53,7 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
-async function harness(options: { systemDocuments?: boolean } = {}) {
+async function harness(options: { systemDocuments?: boolean; pins?: boolean } = {}) {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-workspace-controller-')))
   tempDirs.push(root)
   const ctx = new Context()
@@ -65,8 +65,10 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
   ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
-  await ctx.plugin(SessionFlags)
-  await ctx.plugin(SessionPins)
+  if (options.pins !== false) {
+    await ctx.plugin(SessionFlags)
+    await ctx.plugin(SessionPins)
+  }
   await ctx.plugin(WorkspaceRegistry)
   const dispose = (): void => {}
   const registerResource = vi.fn(() => dispose)
@@ -209,6 +211,24 @@ describe('WorkspaceController commands', () => {
     vi.spyOn(ctx.workspaceRegistry, 'unpinSession').mockRejectedValueOnce(unpinFailure)
     await expect(controller.unpinSession({ sessionId: SessionId('session') }))
       .rejects.toBe(unpinFailure)
+  })
+
+  it('reports no Session flags and rejects pin changes in a profile without the pins service', async () => {
+    const { controller, ctx } = await harness({ pins: false })
+    const sessionId = SessionId('known-unpinnable')
+    ctx.sessions.create(sessionId)
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'baseline', value: { pinnedSessionIds: [], sessionFlags: {} },
+      })
+      await expect(controller.pinSession({ sessionId })).rejects.toMatchObject({ code: 'gateway/bad-request' })
+      await expect(controller.unpinSession({ sessionId })).rejects.toMatchObject({ code: 'gateway/bad-request' })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
   })
 
   it('resolves queued Workspace identities when their operation starts', async () => {
@@ -462,17 +482,22 @@ describe('WorkspaceController follow', () => {
     const hiddenId = hiddenWorkspace.workspace.workspaceId
     const shared = ctx.sessions.create(SessionId('shared'), { meta: { cwd: shown.workspace.path } })
     const secret = ctx.sessions.create(SessionId('secret'), { meta: { cwd: shown.workspace.path } })
+    const sharedArchive = ctx.sessions.create(SessionId('shared-archive'))
+    const secretArchive = ctx.sessions.create(SessionId('secret-archive'))
     const workspace = ctx.workspaceRegistry.get(shownId)
     if (workspace === undefined) throw new Error('fixture Workspace disappeared')
     await workspace.attachSession(shared.id)
     await workspace.attachSession(secret.id)
     await controller.pinSession({ sessionId: shared.id })
     await controller.pinSession({ sessionId: secret.id })
+    const originalArchive = await controller.archiveSession({ sessionId: sharedArchive.id })
+    await controller.archiveSession({ sessionId: secretArchive.id })
     ctx.remoteAccess.registerPolicy('test-guest', {
       bindings: () => [
         { role: FOLLOWER, resource: { kind: 'global' } },
         { role: WORKSPACE_VIEWER, resource: { kind: 'workspace', id: shownId } },
         { role: SESSION_VIEWER, resource: { kind: 'session', id: shared.id } },
+        { role: SESSION_VIEWER, resource: { kind: 'session', id: sharedArchive.id } },
       ],
     })
     const guest: Principal = { kind: 'test-guest', guest: 'workspace-controller' }
@@ -482,8 +507,8 @@ describe('WorkspaceController follow', () => {
       type: 'baseline',
       value: {
         items: [expect.objectContaining({ workspaceId: shownId, sessionIds: [shared.id] })],
-        archivedSessionIds: [],
-        archivedSessionAts: {},
+        archivedSessionIds: [sharedArchive.id],
+        archivedSessionAts: { [sharedArchive.id]: originalArchive.archivedSessionAts[sharedArchive.id] },
         pinnedSessionIds: [shared.id],
         sessionFlags: { [shared.id]: { pinned: true } },
       },
@@ -500,9 +525,18 @@ describe('WorkspaceController follow', () => {
     await controller.archiveSession({ sessionId: secret.id })
     const archived = await controller.archiveSession({ sessionId: shared.id })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'pinned', pinnedSessionIds: [] })
-    await expect(nextFrame(iterator)).resolves.toEqual({ type: 'archived', archivedSessionIds: [], archivedSessionAts: {} })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [shared.id], archivedSessionAts: { [shared.id]: archived.archivedSessionAts[shared.id] },
+      type: 'archived',
+      archivedSessionIds: [sharedArchive.id],
+      archivedSessionAts: { [sharedArchive.id]: originalArchive.archivedSessionAts[sharedArchive.id] },
+    })
+    await expect(nextFrame(iterator)).resolves.toEqual({
+      type: 'archived',
+      archivedSessionIds: [sharedArchive.id, shared.id],
+      archivedSessionAts: {
+        [sharedArchive.id]: originalArchive.archivedSessionAts[sharedArchive.id],
+        [shared.id]: archived.archivedSessionAts[shared.id],
+      },
     })
     await controller.delete({ workspaceId: hiddenId })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [shownId] })

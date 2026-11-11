@@ -128,6 +128,19 @@ afterEach(() => {
 })
 
 describe('API credentials', () => {
+  it.each([{}, { host: 'bad host' }])('refuses an unusable Host before publishing an API operator (%o)', async (headers) => {
+    const auth = await createAuth(new RecordCredentials())
+    const publish = vi.fn(() => 'api-operator' as PeerId)
+    const res = response()
+    const url = auth.authenticatedUrl('http://localhost/connect')
+
+    auth.authorizeConnect({ method: 'GET', url, headers }, res.value, false, publish)
+
+    expect(res.state.status).toBe(401)
+    expect(res.state.headers?.['set-cookie']).toBeUndefined()
+    expect(publish).not.toHaveBeenCalled()
+  })
+
   it('refuses a request without a URL before publishing an API operator', async () => {
     const auth = await createAuth(new RecordCredentials())
     const publish = vi.fn(() => 'api-operator' as PeerId)
