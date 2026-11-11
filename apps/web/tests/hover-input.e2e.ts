@@ -99,7 +99,7 @@ it.each([false, true])('keeps workspace and archived search actions reachable wi
     await page.keyboard.press('Escape')
     await page.setViewportSize({ width: 390, height: 900 })
     await page.locator('[data-sidebar-drawer]').waitFor()
-    await page.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).tap()
+    await page.locator('[data-sidebar-opener]').tap()
     await activate(actions)
     await archive.waitFor()
   }

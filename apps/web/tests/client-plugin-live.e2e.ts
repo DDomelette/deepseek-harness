@@ -116,7 +116,7 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
     await page.mouse.move(0, 0)
     await observe('blur', true, false)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).click()
+    await page.locator('[data-sidebar-opener]').click()
     await page.mouse.move(0, 0)
     await observe('narrow', true, false)
     const bounds = await row.evaluate((element) => {
@@ -136,7 +136,7 @@ it('keeps ordered legacy Session menu rows before Archive and removes them with 
     try {
       const touchConsole = watchConsole(touchPage)
       await touchPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await touchPage.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).click()
+      await touchPage.locator('[data-sidebar-opener]').click()
       const touchRow = touchPage.getByRole('treeitem').filter({ has: touchPage.getByText(SESSION_TITLE, { exact: true }) })
       const touchTrigger = touchRow.getByRole('button', { name: `Session actions for ${SESSION_TITLE}` })
       await touchTrigger.waitFor()

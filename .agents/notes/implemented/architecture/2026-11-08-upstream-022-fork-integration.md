@@ -18,7 +18,7 @@ The MCP settings panel reads a small `mcpServers` projection of the current Mana
 
 Notes, pins, deletion, and skill catalog endpoints are explicitly owner-only in the share-viewer endpoint classification. Workspace follow responses filter fork-owned archive timestamps and flags to the visible Session set. The Remote assembly and both Notes compiler faces reference a single declaration-only project for Notes types. Projection observers cannot stop other observers by throwing. E2B implements the current guarded patch, deletion, and move operations using the shared patch library and ordered target locks; a move that publishes its destination but cannot remove its source reports that partial result.
 
-The fork retains its mobile floating entry and edge-swipe drawer, while folded landscape posture participates in the current column calculation. UI tests distinguish local interaction state from Host-owned pin order: a pin drop writes the pin domain and leaves manual Session order intact.
+The fork retains its mobile floating entry and edge-swipe drawer, while folded landscape posture participates in the current column calculation. The fork's handset drawer lane owns that drawer; upstream's window-chrome-seat drawer suite is not carried. UI tests distinguish local interaction state from Host-owned pin order: a pin drop writes the pin domain and leaves manual Session order intact.
 
 Committed Session generations and sealed Agent Note triplets retain their existing bytes. New upstream artifacts are additional files. Runtime deletion concerns user-owned Session storage, not committed fixture history.
 

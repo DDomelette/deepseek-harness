@@ -310,7 +310,7 @@ async function loadedFlowRows(page: Page): Promise<number> {
 
 async function openSeed(page: Page, fixture: ChatScrollFixture, tailMarker?: string): Promise<void> {
   if (await page.locator('[data-sidebar-drawer][data-sidebar-collapsed]').count() > 0) {
-    await page.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).click()
+    await page.locator('[data-sidebar-opener]').click()
   }
   // Search collapsed into a header action; expand it before filling.
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
