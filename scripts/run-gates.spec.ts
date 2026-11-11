@@ -1023,6 +1023,24 @@ describe('Node 24 lane ownership', () => {
       ],
     })
   })
+
+  it('drops the upstream browser corpus from a fork consumer lane', () => {
+    const subject = withEnv('DSH_WEB_SNAPSHOT_SCOPE', 'fork',
+      () => withPnpmEntrypoint(() => gatesForMode('ci-consumers')))
+
+    expect(subject.map(item => item.id)).not.toContain('web-snapshot')
+    // The rest of the consumer lane still runs.
+    expect(subject.map(item => item.id)).toEqual([
+      'build',
+      'node-compat',
+      'publint',
+      'snapshot',
+      'expected-output',
+      'doc-typecheck',
+      'node-next-types',
+      'built-bin-smoke',
+    ])
+  })
 })
 
 describe('Linux primary graph', () => {

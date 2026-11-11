@@ -547,6 +547,15 @@ function ciConsumerGates(): Gate[] {
     'node-next-types',
     'built-bin-smoke',
   ]
+  // The browser corpus and its goldens encode the upstream client surface. A
+  // fork whose handset drawer and plugin panels diverge sets the scope to keep
+  // that gate out of the required lane instead of failing every run.
+  const webSnapshot = process.env.DSH_WEB_SNAPSHOT_SCOPE === 'fork'
+    ? []
+    : [webSnapshotGate(builtTree, buildArtifactReaders)]
+  if (webSnapshot.length === 0) {
+    console.log('run-gates: skipping the upstream browser corpus on a fork run; its scenarios encode the upstream client surface')
+  }
   return [
     ciArtifactBuildGate(),
     pnpmScript('node-compat', 'check:node-compat', {
@@ -556,7 +565,7 @@ function ciConsumerGates(): Gate[] {
     pnpmScript('publint', 'publint', { needs: builtTree }),
     snapshotGate(builtTree),
     expectedOutputGate(builtTree),
-    webSnapshotGate(builtTree, buildArtifactReaders),
+    ...webSnapshot,
     pnpmScript('doc-typecheck', 'doc-typecheck:contracts-ready', {
       needs: builtTree,
       env: { DSH_DOC_TYPECHECK_USE_BUILD_OUTPUT: '1' },

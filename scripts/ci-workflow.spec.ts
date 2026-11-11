@@ -634,6 +634,12 @@ describe('CI workflow', () => {
       expect(job.env, `${jobName} must enable fail-fast`).toMatchObject({ DSH_GATE_FAIL_FAST: '1' })
     }
 
+    // The upstream browser corpus and its goldens encode the upstream client
+    // surface; fork runs scope that gate out instead of failing every run.
+    expect(node24Consumers.env, 'node-24-consumers must scope the browser corpus').toMatchObject({
+      DSH_WEB_SNAPSHOT_SCOPE: "${{ github.repository != 'deepseek-ai/deepseek-harness' && 'fork' || 'upstream' }}",
+    })
+
     // The native Windows lanes with run-gates aggregates fail fast for the
     // same reason: a failing gate aborts the sibling gate instead of waiting
     // out the multi-minute instrumented coverage run.

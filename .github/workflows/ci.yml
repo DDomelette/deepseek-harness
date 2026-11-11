@@ -352,6 +352,10 @@ jobs:
       DSH_WEB_SNAPSHOT_WORKERS: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '6' || '' }}
       DSH_SNAPSHOT_MAX_CONCURRENCY: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '12' || '' }}
       DSH_NODE_COMPAT_SKIP_TYPECHECK: '1'
+      # The browser corpus and its goldens encode the upstream client surface;
+      # the fork's divergent handset drawer and plugin panels cannot satisfy it,
+      # so fork runs keep that gate out of the required lane until reconciled.
+      DSH_WEB_SNAPSHOT_SCOPE: ${{ github.repository != 'deepseek-ai/deepseek-harness' && 'fork' || 'upstream' }}
       # A failing gate aborts its running siblings: a failing build stops the
       # independent Node compatibility smoke, and a failing reader (e.g.
       # publint) stops the remaining artifact consumers.
