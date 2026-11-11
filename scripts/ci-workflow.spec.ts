@@ -557,7 +557,18 @@ describe('CI workflow', () => {
     expect(aggregate.needs).toContain('node-24-bench')
     expect(node24Bench.name).toBe('node 24 / benchmarks')
     expect(node24Bench.env).toBeUndefined()
-    expect(node24Bench.steps).toContainEqual({
+    const benchSteps = node24Bench.steps as unknown[]
+    // Fork runners cannot resolve the Ubuntu archive hosts, so both jobs that
+    // install system packages first point apt at the reachable mirror.
+    for (const [jobName, job] of [['node-24-bench', node24Bench], ['node-24-consumers', node24Consumers]] as const) {
+      const steps = job.steps as unknown[]
+      expect(steps.find(step => isRecord(step) && step.name === 'Point fork runners at the Kernel.org Ubuntu mirror'), jobName)
+        .toMatchObject({
+          if: "github.repository != 'deepseek-ai/deepseek-harness'",
+          run: 'bash scripts/prepare-ci-apt-mirror.sh',
+        })
+    }
+    expect(benchSteps).toContainEqual({
       name: 'Install benchmark browser and hosted dependencies',
       run: 'pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium',
     })
@@ -1115,17 +1126,36 @@ describe('bubblewrap preparation script', () => {
   it('downloads one pinned bubblewrap package from Ubuntu or its recorded build', () => {
     const script = readFileSync(resolve(root, 'scripts/prepare-ci-bubblewrap.sh'), 'utf8')
     const archiveUrl = /^readonly BUBBLEWRAP_ARCHIVE_URL="([^"]+)"$/mu.exec(script)?.[1]
+    const mirrorUrl = /^readonly BUBBLEWRAP_MIRROR_URL="([^"]+)"$/mu.exec(script)?.[1]
     const buildUrl = /^readonly BUBBLEWRAP_BUILD_URL="([^"]+)"$/mu.exec(script)?.[1]
 
     expect(archiveUrl).toMatch(
       /^https:\/\/archive\.ubuntu\.com\/ubuntu\/pool\/main\/b\/bubblewrap\/bubblewrap_[^/]+_amd64\.deb$/u,
     )
+    expect(mirrorUrl).toMatch(
+      /^https:\/\/mirrors\.edge\.kernel\.org\/ubuntu\/pool\/main\/b\/bubblewrap\/bubblewrap_[^/]+_amd64\.deb$/u,
+    )
     expect(buildUrl).toMatch(
       /^https:\/\/launchpad\.net\/ubuntu\/\+source\/bubblewrap\/[^/]+\/\+build\/\d+\/\+files\/bubblewrap_[^/]+_amd64\.deb$/u,
     )
-    expect(script).toContain('download "$BUBBLEWRAP_ARCHIVE_URL" || download "$BUBBLEWRAP_BUILD_URL"')
+    expect(script).toContain(
+      'download "$BUBBLEWRAP_ARCHIVE_URL" || download "$BUBBLEWRAP_MIRROR_URL" || download "$BUBBLEWRAP_BUILD_URL"',
+    )
     expect(script).toMatch(/^readonly BUBBLEWRAP_SHA256='[\da-f]{64}'$/mu)
     expect(script.indexOf('sha256sum --check --status')).toBeLessThan(script.indexOf('dpkg-deb --extract'))
+  })
+})
+
+describe('apt mirror preparation script', () => {
+  it('redirects the Ubuntu archive and security hosts to the Kernel.org mirror', () => {
+    const script = readFileSync(resolve(root, 'scripts/prepare-ci-apt-mirror.sh'), 'utf8')
+    expect(script).toMatch(/^readonly MIRROR_ROOT='https:\/\/mirrors\.edge\.kernel\.org\/ubuntu'$/mu)
+    expect(script).toContain('readonly UBUNTU_ARCHIVE=')
+    expect(script).toContain('if [[ -f /etc/apt/apt-mirrors.txt ]]')
+    expect(script).toContain("printf '%s/\\tpriority:1\\n' \"$MIRROR_ROOT\" | sudo tee /etc/apt/apt-mirrors.txt")
+    expect(script).toContain("-name '*.list' -o -name '*.sources'")
+    expect(script).toContain('s@${UBUNTU_ARCHIVE}@${MIRROR_ROOT}@g')
+    expect(script).toContain('if sudo grep -qrIlE "$UBUNTU_ARCHIVE" /etc/apt; then')
   })
 })
 

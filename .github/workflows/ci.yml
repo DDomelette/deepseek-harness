@@ -309,6 +309,10 @@ jobs:
       - name: Install (immutable)
         run: pnpm install --frozen-lockfile
 
+      - name: Point fork runners at the Kernel.org Ubuntu mirror
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: bash scripts/prepare-ci-apt-mirror.sh
+
       - name: Install benchmark browser and hosted dependencies
         run: pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium
 
@@ -437,6 +441,10 @@ jobs:
                       r'http://((?:[a-z]{2}\.)?archive\.ubuntu\.com|security\.ubuntu\.com)/',
                       r'https://\1/', source.read_text()))
           PY
+
+      - name: Point fork runners at the Kernel.org Ubuntu mirror
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: bash scripts/prepare-ci-apt-mirror.sh
 
       - name: Install Playwright Chromium, WebKit, and hosted dependencies
         if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'

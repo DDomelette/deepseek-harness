@@ -8,6 +8,7 @@ set -euo pipefail
 readonly BUBBLEWRAP_VERSION='0.12.0-1'
 readonly BUBBLEWRAP_SHA256='db4d572a7927bfd34cc9b8e24b56983efa8e0483d03da6c810f6caae081dcc36'
 readonly BUBBLEWRAP_ARCHIVE_URL="https://archive.ubuntu.com/ubuntu/pool/main/b/bubblewrap/bubblewrap_${BUBBLEWRAP_VERSION}_amd64.deb"
+readonly BUBBLEWRAP_MIRROR_URL="https://mirrors.edge.kernel.org/ubuntu/pool/main/b/bubblewrap/bubblewrap_${BUBBLEWRAP_VERSION}_amd64.deb"
 # The recorded build remains addressable after Ubuntu prunes its live package pool.
 readonly BUBBLEWRAP_BUILD_URL="https://launchpad.net/ubuntu/+source/bubblewrap/${BUBBLEWRAP_VERSION}/+build/33546835/+files/bubblewrap_${BUBBLEWRAP_VERSION}_amd64.deb"
 
@@ -26,7 +27,7 @@ download() {
   curl --fail --silent --show-error --location --connect-timeout 10 \
     --retry 3 --retry-all-errors --output "$archive" "$1"
 }
-download "$BUBBLEWRAP_ARCHIVE_URL" || download "$BUBBLEWRAP_BUILD_URL"
+download "$BUBBLEWRAP_ARCHIVE_URL" || download "$BUBBLEWRAP_MIRROR_URL" || download "$BUBBLEWRAP_BUILD_URL"
 printf '%s  %s\n' "$BUBBLEWRAP_SHA256" "$archive" | sha256sum --check --status
 mkdir -p "$root"
 dpkg-deb --extract "$archive" "$root"
