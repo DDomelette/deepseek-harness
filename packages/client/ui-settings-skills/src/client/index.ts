@@ -22,7 +22,7 @@ import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { SkillsSection } from './SkillsSection.tsx'
 import type { SkillsSectionInjected } from './SkillsSection.tsx'
 import { SkillsSettingsStore } from './store.ts'
-import { en, zh, type SkillsKey } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh, type SkillsKey } from './locales.ts'
 
 export type { SkillsSectionInjected, SkillsSectionProps } from './SkillsSection.tsx'
 export type { SkillsKey } from './locales.ts'
@@ -72,7 +72,7 @@ export const inject = ['slots', 'locale', 'sessions', 'remote', 'remote.skills',
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-skills: copy dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-skills: copy dictionaries')
 
   const sessions = ctx.get('sessions') as ISessions
   let current = currentSessionId(sessions)

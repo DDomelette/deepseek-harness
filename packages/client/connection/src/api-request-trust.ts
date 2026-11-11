@@ -110,17 +110,20 @@ export function isRemoteAuthority(entry: string): boolean {
  * Whether a parsed authority names the deployment's own bind address. A browser
  * dialing that literal sends it as Host, and accepting it grants nothing
  * further: the literal is no rebinding target, the Origin and cross-site checks
- * still apply, and it stays outside `trustedHosts`. Matching ignores the port,
- * like a port-less entry, and any `%zone` id (an interface selector, not
- * address text).
+ * still apply. A bind address with a port matches that exact authority. A
+ * bare address matches any port. An IPv6 interface zone is local to the listener.
  */
 function isBindAddressAuthority(hostUrl: URL, bindHost: string | undefined, protocol: 'http:' | 'https:'): boolean {
   if (bindHost === undefined) return false
   const bound = parseAuthority(bindHost, protocol)
-  if (bound !== undefined && canonicalAuthority(bindHost, bound) !== bound.hostname) return bound.host === hostUrl.host
+  if (bound !== undefined) {
+    return canonicalAuthority(bindHost, bound) === bound.hostname
+      ? bound.hostname === hostUrl.hostname
+      : bound.host === hostUrl.host
+  }
   const zoneAt = bindHost.indexOf('%')
   const address = zoneAt === -1 ? bindHost : bindHost.slice(0, zoneAt)
-  const bindUrl = parseAuthority(address.includes(':') ? `[${address}]` : address)
+  const bindUrl = parseAuthority(`[${address}]`, protocol)
   return bindUrl !== undefined && bindUrl.hostname === hostUrl.hostname
 }
 
@@ -128,7 +131,7 @@ function isBindAddressAuthority(hostUrl: URL, bindHost: string | undefined, prot
  * Decide whether one /api request may reach the RPC bridge.
  * @param request - Node HTTP or Fetch request facts (headers).
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
- * @param bindHost - the listener's own bind IP literal, accepted on any port independently of `trustedHosts`.
+ * @param bindHost - the listener's bind IP literal with an optional exact port.
  * @param protocol - listener protocol for default Host ports; HTTP when no Web carrier is mounted.
  * @returns true when the Host is ours (loopback, the bind address, or trusted) and any attached browser markers are same-origin.
  */

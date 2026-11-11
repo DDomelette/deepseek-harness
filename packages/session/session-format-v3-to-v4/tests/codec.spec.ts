@@ -140,6 +140,11 @@ describe('V4 framing and restoration', () => {
     }
   })
 
+  it('rejects retired system text in a native request header', () => {
+    const row = { type: 'request/header', data: { header: { system: 'retired text' } } }
+    expect(() => { assertV4RowAdmission(row) }).toThrow('format v4 request/header rejects retired header.system')
+  })
+
   it('leaves ordinary framing recovery to the released decoder', () => {
     expect(() => { assertV4RowAdmission(null) }).not.toThrow()
     expect(() => { assertV4RowAdmission(fact) }).not.toThrow()

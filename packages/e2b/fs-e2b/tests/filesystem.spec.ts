@@ -892,6 +892,26 @@ describe('E2BFileSystem patch, delete, and move', () => {
     } finally { await ctx.fiber.dispose() }
   })
 
+  it('bounds the delete diff by bytes read and reports a denied removal', async () => {
+    const remote = new FakeRemote()
+    remote.file('/workspace/growing.txt', 'a')
+    remote.file('/workspace/protected.txt', 'b')
+    remote.removeFailures.set('/workspace/protected.txt', new Error('permission denied'))
+    const { ctx, fs } = await setup(remote, { diffBasisMaxBytes: 4 })
+    try {
+      const growing = await fs.resolve('growing.txt')
+      const protectedFile = await fs.resolve('protected.txt')
+      const read = remote.sandbox.files.read
+      vi.spyOn(remote.sandbox.files, 'read').mockImplementationOnce((path, options) => {
+        remote.mutate(path, '1234')
+        return read(path, options)
+      })
+      await expect(fs.deleteFile(growing)).resolves.toEqual({ before: null })
+      await expectCode(fs.deleteFile(protectedFile), 'FS_PERMISSION_DENIED')
+      expect(await fs.readText(protectedFile)).toBe('b')
+    } finally { await ctx.fiber.dispose() }
+  })
+
   it('moves patched text with source permissions and both version guards', async () => {
     const remote = new FakeRemote()
     remote.file('/workspace/source.txt', 'old\r\n', 0o751)
@@ -900,10 +920,12 @@ describe('E2BFileSystem patch, delete, and move', () => {
     try {
       const source = await fs.resolve('source.txt')
       const destination = await fs.resolve('destination.txt')
+      const directory = await fs.resolve('.')
       const sourceVersion = (await fs.stat(source))?.version
       const destinationVersion = (await fs.stat(destination))?.version
       if (sourceVersion === undefined || destinationVersion === undefined) throw new Error('fixture files missing')
       await expectCode(fs.moveFile(source, source, {}), 'FS_SAME_TARGET')
+      await expectCode(fs.moveFile(source, directory, {}), 'FS_NOT_REGULAR_FILE')
       await expectCode(fs.moveFile(source, destination, { expectedDestination: { kind: 'createIfAbsent' } }), 'FS_NOT_OBSERVED')
       await expect(fs.moveFile(source, destination, { hunks: replacementHunks, expectedSource: { version: sourceVersion }, expectedDestination: { kind: 'replaceIfVersion', version: destinationVersion } })).resolves.toMatchObject({ sourceBefore: 'old\n', sourceDeleted: true, destination: { operation: 'update', before: 'prior', after: 'new\n' } })
       expect(await fs.stat(source)).toBeUndefined()

@@ -437,7 +437,7 @@ export default class McpServerManager extends TypertRemoteService {
         ...(status !== undefined && 'lastError' in status ? { error: status.lastError } : {}),
       }
     })
-    if (this.ctx.get('loader') !== undefined) for (const server of declarativeMcpServers(this.ctx)) {
+    for (const server of declarativeMcpServers(this.ctx)) {
       entries.push({ serverName: server.serverName, transport: server.transport, source: 'declarative', enabled: server.enabled, status: null })
     }
     return { entries }

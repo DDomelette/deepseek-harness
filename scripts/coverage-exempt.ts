@@ -48,6 +48,11 @@ export const coverageExemptHeavySuites: readonly CoverageExemptSuite[] = [
   { filter: 'scripts/install-lefthook.spec.ts', exclude: 'scripts/install-lefthook.spec.ts' },
   { filter: 'scripts/oxlint-contract.spec.ts', exclude: 'scripts/oxlint-contract.spec.ts' },
   { filter: 'scripts/change-scope.spec.ts', exclude: 'scripts/change-scope.spec.ts' },
+  // These compiler-based catalogs scan package sources without executing them.
+  { filter: 'scripts/gen-client-catalog.spec.ts', exclude: 'scripts/gen-client-catalog.spec.ts' },
+  { filter: 'scripts/persistence-schema.spec.ts', exclude: 'scripts/persistence-schema.spec.ts' },
+  // The released codec's admission rules are exercised in its package suites.
+  { filter: 'scripts/persistence-epoch-header.spec.ts', exclude: 'scripts/persistence-epoch-header.spec.ts' },
   // Built-artifact proof. Packer/runtime src is threshold-excluded, and the
   // suite self-skips on unbuilt checkouts; the serial-windows complete
   // reference still starts this uninstrumented gate after its build gate, so

@@ -22,6 +22,8 @@
   height: 15px;
 }
 
-.button:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .button:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }

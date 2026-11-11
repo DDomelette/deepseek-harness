@@ -342,9 +342,11 @@ export default defineConfig({
         // whose remaining branches need real-composition/process harnesses.
         // TODO(gui): cover and remove with the client test lane above.
         'packages/client/modules/src/index.ts',
+        'packages/client/modules/src/invariant.ts',
         'packages/client/modules/src/client/index.ts',
         'packages/client/modules/src/client/manifest.ts',
         'packages/client/hmr/src/index.ts',
+        'packages/client/hmr/src/invariant.ts',
         'packages/client/connection/src/index.ts',
         'packages/client/connection/src/http-bridge.ts',
         // This assembly imports generated Host-for-Client code that exists
@@ -374,6 +376,7 @@ export default defineConfig({
         'packages/experimental/client-ui-forge/src/client/index.ts',
         // Slash/command/input round: per-file gaps deferred with the same
         // client-lane debt. TODO(gui): cover and remove with the lane above.
+        'packages/client/connection/src/client/fixture.ts',
         'packages/client/ui-commands/src/index.ts',
         'packages/client/ui-skill/src/index.ts',
         'packages/client/ui-input-trigger/src/index.ts',

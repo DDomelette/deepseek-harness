@@ -21,7 +21,7 @@ it.each([false, true])('starts the Web kernel with the current Desktop marker (%
   vi.stubGlobal('dshDesktop', desktop ? { protocolVersion: 1 } : undefined)
   await import('../src/main.ts')
   expect(boot.mount).toHaveBeenCalledExactlyOnceWith(document.getElementById('root'))
-  expect(boot.run).toHaveBeenCalledExactlyOnceWith()
+  expect(boot.run).toHaveBeenCalledExactlyOnceWith(undefined)
 })
 
 it('rejects a missing root before starting the client kernel', async () => {

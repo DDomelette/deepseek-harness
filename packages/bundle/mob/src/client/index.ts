@@ -28,8 +28,11 @@ import {
   AuthRequiredScreen, authRequiredBootFact, type AuthRequiredScreenInjected,
 } from './AuthRequiredScreen.tsx'
 import { createPairingApi } from './pairing-api.ts'
-import { en, zh, type MobileSettingsKey } from './locales.ts'
-import { en as pairEn, zh as pairZh, type PairScreenKey } from './pair-locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh, type MobileSettingsKey } from './locales.ts'
+import {
+  de as pairDe, en as pairEn, es as pairEs, fr as pairFr, ja as pairJa, pt as pairPt, ru as pairRu, zh as pairZh,
+  type PairScreenKey,
+} from './pair-locales.ts'
 
 export type { ConnectPhoneRowComponentProps, ConnectPhoneRowInjected } from './ConnectPhoneRow.tsx'
 export type { AuthRequiredScreenInjected, AuthRequiredScreenProps } from './AuthRequiredScreen.tsx'
@@ -65,8 +68,8 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mob']
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-mob: connect-phone dictionaries')
-  ctx.effect(() => ctx.locale.register(PAIR_NS, { zh: pairZh, en: pairEn }), 'dsh-mob: pairing dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'dsh-mob: connect-phone dictionaries')
+  ctx.effect(() => ctx.locale.register(PAIR_NS, { zh: pairZh, en: pairEn, ja: pairJa, es: pairEs, fr: pairFr, de: pairDe, ru: pairRu, pt: pairPt }), 'dsh-mob: pairing dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
   const api = createPairingApi()
   const injected = (): ConnectPhoneRowInjected => ({

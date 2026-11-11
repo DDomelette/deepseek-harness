@@ -269,8 +269,10 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.back:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .back:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .detailTitle {

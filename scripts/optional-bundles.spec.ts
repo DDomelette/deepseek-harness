@@ -77,15 +77,16 @@ describe.each(['web', 'desktop'] as const)('%s optional bundle overrides', (surf
     expect(entries.find(row => row.id === 'optional-ralph')?.isolate).toEqual({ workflowEngine: true })
   })
 
-  it('enables the shipped badge row and leaves an absent Ralph bundle unselected', () => {
+  it('does not select absent bundles through enable-only row overrides', () => {
     const warnings: string[] = []
     const entries = composeEntries([...profileLayers(surface), [
       { id: 'skill-badge', disabled: false },
       { id: 'tool-ralph', disabled: false },
     ]], warning => warnings.push(warning))
-    expect(warnings).toEqual(['patch: entry "tool-ralph" not found'])
-    expect(entries.find(row => row.id === 'skill-badge'))
-      .toMatchObject({ name: '@deepseek-ai/dsh-skill-badge', disabled: false })
+    expect(warnings).toHaveLength(2)
+    expect(warnings.some(warning => warning.includes('skill-badge'))).toBe(true)
+    expect(warnings.some(warning => warning.includes('tool-ralph'))).toBe(true)
+    expect(entries.some(row => row.id === 'skill-badge')).toBe(false)
     expect(flattenRows(entries).some(row => row.id === 'tool-ralph')).toBe(false)
   })
 })

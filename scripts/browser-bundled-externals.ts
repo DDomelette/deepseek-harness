@@ -138,7 +138,7 @@ async function collectShell(
     const config = await vite.resolveConfig({ root: dir, logLevel: 'error' }, 'build', 'production', 'production')
     const input = config.build.rollupOptions?.input
     const entries = typeof input === 'string' ? [input] : Object.values(input ?? {})
-    const pages = entries.filter(entry => entry.endsWith('.html'))
+    const pages = entries.filter(entry => entry.endsWith('.html')).map(entry => realpathSync.native(resolve(dir, entry)))
     if (pages.length === 0) throw new Error(`browser notices: ${manifest.name} has no HTML build entry`)
     await vite.build({
       root: dir,

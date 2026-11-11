@@ -37,6 +37,11 @@
   container-type: inline-size;
 }
 
+[data-sidebar-fab] .scroll {
+  padding-left: var(--dsh-composer-side-clearance);
+  padding-right: var(--dsh-composer-side-clearance);
+}
+
 .root[data-chat-following-tail] .scroll,
 :global([data-conversation-scroll]):has(.root[data-chat-following-tail]) {
   overflow-anchor: none;

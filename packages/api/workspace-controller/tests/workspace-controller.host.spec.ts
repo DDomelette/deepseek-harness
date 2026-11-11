@@ -69,14 +69,15 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
   await ctx.plugin(SessionPins)
   await ctx.plugin(WorkspaceRegistry)
   const dispose = (): void => {}
+  const registerResource = vi.fn(() => dispose)
   ctx.provide('typert', {
     lookups: { configure: () => dispose },
     contexts: { configureHost: () => dispose },
-    resources: { register: vi.fn(() => dispose) },
+    resources: { register: registerResource },
   } as never)
   new RemoteAccessService(ctx)
   const controller = new WorkspaceController(ctx, options.systemDocuments === true ? {} : { documentsDirectory: root })
-  return { controller, ctx, root, storageDomain }
+  return { controller, ctx, root, storageDomain, registerResource }
 }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -288,16 +289,18 @@ describe('WorkspaceController commands', () => {
     // the stop providers first.
     const stops: string[] = []
     const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
-    await expect(controller.archiveSession({ sessionId: session.id, stopActivity: true }))
-      .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) } })
+    const stopped = await controller.archiveSession({ sessionId: session.id, stopActivity: true })
+    expect(stopped.archivedSessionIds).toEqual([session.id])
+    expect(stopped.archivedSessionAts[session.id]).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/)
     expect(stops).toEqual([String(session.id)])
     stopListening()
     await expect(controller.unarchiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [], archivedSessionAts: {} })
     stopReporting()
 
-    await expect(controller.archiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [session.id], archivedSessionAts: { [session.id]: expect.any(String) } })
+    const archived = await controller.archiveSession({ sessionId: session.id })
+    expect(archived.archivedSessionIds).toEqual([session.id])
+    expect(archived.archivedSessionAts[session.id]).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/)
     await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
       .rejects.toMatchObject({ code: 'session/not-found' })
     await expect(controller.unarchiveSession({ sessionId: session.id }))
@@ -451,9 +454,8 @@ describe('WorkspaceController follow', () => {
   })
 
   it('follows only the Workspaces and Sessions a non-owner may follow', async () => {
-    const { controller, ctx, root } = await harness()
-    // oxlint-disable-next-line typescript/unbound-method -- the assertion inspects the spy and never calls it.
-    expect(ctx.typert.resources.register).toHaveBeenCalledWith('workspace', { field: 'workspaceId' })
+    const { controller, ctx, root, registerResource } = await harness()
+    expect(registerResource).toHaveBeenCalledWith('workspace', { field: 'workspaceId' })
     const shown = await controller.create({ path: stageDir(root, 'shown') })
     const hiddenWorkspace = await controller.create({ path: stageDir(root, 'hidden') })
     const shownId = shown.workspace.workspaceId

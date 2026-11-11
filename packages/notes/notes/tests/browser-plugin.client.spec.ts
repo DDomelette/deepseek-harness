@@ -17,7 +17,7 @@ import { NotesPanel } from '../src/client/NotesPanel.tsx'
 import { SelectionBubble } from '../src/client/SelectionBubble.tsx'
 import type { NotesButtonInjected } from '../src/client/NotesButton.tsx'
 import type { NotesPanelInjected } from '../src/client/face.ts'
-import { en, zh } from '../src/client/locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh } from '../src/client/locales.ts'
 import type { NotesStore } from '../src/client/store.ts'
 import {
   directoryListing, materialSummary, materials, modelCatalog, noteId, sessionSummary, sessions, source,
@@ -98,7 +98,7 @@ describe('notes browser half', () => {
     expect(tabs.get(NOTES_KIND)?.id).toBe(NOTES_ID)
     expect(tabs.get(NOTES_KIND)?.priority).toBe('builtin')
     expect(tabs.get(NOTES_KIND)?.title('sidebar://notes')).toBe('tab.title')
-    expect(dictionaries.get('notes')).toEqual({ zh, en })
+    expect(dictionaries.get('notes')).toEqual({ zh, en, ja, es, fr, de, ru, pt })
   })
 
   it('registers the panel body under the type\'s id with a store and commands', async () => {

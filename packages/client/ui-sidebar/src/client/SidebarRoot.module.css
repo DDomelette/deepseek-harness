@@ -42,12 +42,12 @@
   padding: 18px 10px 6px;
 }
 
-/* Floating brand button (owner prop fab, below the layout's 768px overlay
-   breakpoint): replaces the rail wholesale — the component returns it without
-   the .root column, fixed to the frame's top-left corner so the zero-width
-   sidebar track and its overflow clip never reach it. It sits at the scrim's
-   z-index (12); opening the drawer unmounts it, so it never meets the drawer
-   (13). 36px circle, 24px mark, 18px top / 10px left offsets. */
+.root[hidden] {
+  display: none;
+}
+
+/* The handset button sits beyond the collapsed column's clip at the frame's
+   top left. Its z-index matches the scrim. The drawer opens above both. */
 .fab {
   position: fixed;
   top: 18px;

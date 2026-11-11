@@ -256,7 +256,7 @@ export async function revealNavigationDrawer(page: Page, locale: 'en' | 'zh' | '
   await page.waitForFunction(expected => Boolean(document.querySelector('[data-sidebar-drawer]')) === expected, drawer)
   const closed = page.locator('[data-sidebar-drawer][data-sidebar-collapsed]')
   if (await closed.count() === 0) return
-  await page.locator('[data-shell-leading]').getByRole('button', {
+  await page.getByRole('button', {
     name: { en: 'Open sidebar', zh: '打开侧边栏', ja: 'サイドバーを開く' }[locale], exact: true,
   }).click()
   await closed.waitFor({ state: 'detached' })

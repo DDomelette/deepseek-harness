@@ -20,6 +20,7 @@ import WorkspaceRegistry, {
   type workspaceDomainState,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
+  WorkspacePinsUnavailableError,
 } from '../src/index.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from '../src/index.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath } from '../src/paths.ts'
@@ -40,7 +41,7 @@ interface HarnessOptions {
   sessions?: SessionHeader[]
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
-  pins?: boolean
+  pins?: boolean | 'pending'
   backend?: StorageBackend
 }
 
@@ -53,10 +54,14 @@ async function harness(options: HarnessOptions = {}) {
   const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
   ctx.storage.mount('domain', facility)
   ctx.provide('storageDomain', facility)
-  if (options.pins === true) {
+  if (options.pins === true || options.pins === 'pending') {
     onTestFinished(() => ctx.fiber.dispose())
     await ctx.plugin(SessionFlags)
     await ctx.plugin(SessionPins)
+    if (options.pins === 'pending') {
+      const ready = vi.spyOn(ctx.sessionPins, 'ready', 'get').mockReturnValue(false)
+      onTestFinished(() => { ready.mockRestore() })
+    }
   }
 
   let listed = options.sessions ?? []
@@ -133,9 +138,11 @@ function selectiveFailureBackend(
           },
           deleteRecords: (table, keys) => unit.deleteRecords(table, keys),
           setGlobal: async (value) => {
-            globals += 1
-            const failAt = Array.isArray(failure.globalAt) ? failure.globalAt : [failure.globalAt]
-            if (failAt.includes(globals)) throw new Error('selected bootstrap marker failure')
+            if (descriptor.name === 'workspace') {
+              globals += 1
+              const failAt = Array.isArray(failure.globalAt) ? failure.globalAt : [failure.globalAt]
+              if (failAt.includes(globals)) throw new Error('selected bootstrap marker failure')
+            }
             await unit.setGlobal(value)
           },
           close: () => unit.close(),
@@ -1361,6 +1368,72 @@ describe('registry-global session pin', () => {
 
     const second = await harness({ pool, pins: true, sessions })
     expect(second.registry.pinnedSessionIds).toEqual(pinned)
+  })
+
+  it('retains the durable archive when the pins owner rejects the unpin', async () => {
+    const result = await harness({ pins: true, sessions: [header('archived')] })
+    const warn = vi.spyOn(result.ctx.logger, 'warn').mockImplementation(() => {})
+    const write = vi.spyOn(result.ctx.sessionPins, 'setPinned')
+    onTestFinished(() => {
+      warn.mockRestore()
+      write.mockRestore()
+    })
+    await result.registry.pinSession(SessionId('archived'))
+    write.mockRejectedValueOnce(new Error('pin storage unavailable'))
+
+    await expect(result.registry.archiveSession(SessionId('archived'))).resolves.toBeUndefined()
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['archived'])
+    expect(storedPins(result.pool)).toEqual(['archived'])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('pin storage unavailable'))
+  })
+
+  it.each([false, 'pending'] as const)('retains legacy pins while the pins owner is unavailable (%s)', async (pins) => {
+    const pool = storedPool([], { initialized: true, workspaceIds: [], pinnedSessionIds: ['second', 'first'] })
+    const first = await harness({ pool, pins })
+    if (pins === false) onTestFinished(() => first.ctx.fiber.dispose())
+    expect(first.registry.pinnedSessionIds).toEqual([])
+    await expect(first.registry.unpinSession(SessionId('second'))).rejects.toThrow(WorkspacePinsUnavailableError)
+    expect(storedState(pool).pinnedSessionIds).toEqual(['second', 'first'])
+    await first.ctx.fiber.dispose()
+
+    const second = await harness({ pool, pins: true })
+    expect(storedPins(pool)).toEqual(['second', 'first'])
+    expect(second.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
+  })
+
+  it('retries legacy pins after the Workspace cleanup write fails', async () => {
+    const pool = storedPool([], { initialized: true, workspaceIds: [], pinnedSessionIds: ['second', 'first'] })
+    const first = await harness({ pool, pins: true, backend: selectiveFailureBackend(pool, { globalAt: 1 }) })
+    expect(first.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual(['second', 'first'])
+    await first.ctx.fiber.dispose()
+
+    const second = await harness({ pool, pins: true })
+    expect(second.registry.pinnedSessionIds).toEqual(['second', 'first'])
+    expect(storedState(pool).pinnedSessionIds).toEqual([])
+  })
+
+  it('removes deleted Sessions from accounting, archive, pins, and the header index', async () => {
+    const dir = await makeDir('forget-home')
+    const kept = header('kept', dir, 300)
+    const result = await harness({ pins: true, sessions: [header('gone', dir, 100), header('pinned', dir, 200), kept] })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('gone'))
+    await result.registry.pinSession(SessionId('pinned'))
+    expect(workspace.sessionIds).toEqual(['kept', 'pinned', 'gone'])
+
+    result.setSessions([kept])
+    await result.registry.forgetSession(SessionId('gone'))
+    await result.registry.forgetSession(SessionId('pinned'))
+    await expect(result.registry.forgetSession(SessionId('never-here'))).resolves.toBeUndefined()
+
+    expect(workspace.sessionIds).toEqual(['kept'])
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(storedPins(result.pool)).toEqual([])
+    await expect(result.registry.pinSession(SessionId('pinned'))).rejects.toThrow(/cannot pin session 'pinned'/)
   })
 
 })

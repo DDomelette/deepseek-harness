@@ -12,6 +12,9 @@ const fixtureServerPath = fileURLToPath(new URL('../../mcp-client/tests/fixture-
 const declarative = [
   { name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'docs', transport: 'streamable-http', headers: { authorization: 'secret' } }, fiberState: FiberState.ACTIVE },
   { name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'legacy', transport: 'stdio', env: { TOKEN: 'secret' } }, disabled: true },
+  { name: '@deepseek-ai/dsh-mcp-client', group: true, config: { serverName: 'group', transport: 'stdio' } },
+  { name: '@deepseek-ai/dsh-mcp-client', config: { transport: 'stdio' } },
+  { name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'invalid', transport: 'invalid' } },
 ]
 
 async function boot(servers: NonNullable<Parameters<typeof McpManager.Config>[0]>['servers'] = {}) {
@@ -22,7 +25,7 @@ async function boot(servers: NonNullable<Parameters<typeof McpManager.Config>[0]
   // Only entries() is read; no Loader lifecycle is exercised by this fixture.
   ctx.provide('loader', {
     entries: () => declarative.map((entry, index) => ({
-      id: String(index), options: { name: entry.name, config: entry.config },
+      id: String(index), options: { name: entry.name, config: entry.config, group: entry.group },
       disabled: 'disabled' in entry && entry.disabled,
       fiber: 'fiberState' in entry ? { state: entry.fiberState } : undefined,
     })),
