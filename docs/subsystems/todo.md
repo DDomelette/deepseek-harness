@@ -27,6 +27,6 @@ interface TodoItem {
 }
 ```
 
-## Durable event and projection
+## Durable event
 
-The package declaration-merges `todo/write: { todos: TodoItem[] }` into `SessionEventMap`. The event is log-only and carries the complete replacement list; the generated [persistence catalog](../persistence-catalog.md#todowrite--log-only) records its declaration site. The package registers the `todos` unit on `ctx.sessionProjections`, whose state schema validates that unit's stored state when the registry reads a checkpoint.
+The package declaration-merges `todo/write: { todos: TodoItem[] }` into `SessionEventMap`. The event is log-only and carries the complete replacement list; the generated [persistence catalog](../persistence-catalog.md#todowrite--log-only) records its declaration site.

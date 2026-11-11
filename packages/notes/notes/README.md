@@ -54,6 +54,8 @@ A bare row needs no `config`: the schema defaults the strategy to `manual` and t
 
 ### Host services
 
+The Host, Client, and Remote assembly reference the same declaration project for Notes event payloads and identifiers.
+
 The plugin mounts six services, and each is the documented owner of its slice of the contract. `ctx.notesStore` opens the notes domain and holds the material and conversation tables; `ctx.notesMaterials` stores materials, their manual order, and their archived bucket; `ctx.notesSessions` starts a conversation over the configured workspace and model, loads one again when this process no longer holds its Session, records one entry per conversation, and holds the panel's active pointer; `ctx.notesSettings` reads the settings section above, falling back to the composition entry when no settings provider is mounted; `ctx.notesAnalysis` turns one material into one user message on its conversation; `ctx.notes` is the Remote namespace the browser panel calls, whose operations answer with the wire vocabulary in `src/types.ts` — a successful value or a named refusal — so nothing reaches the panel as a thrown error.
 
 ### Browser half
@@ -76,6 +78,8 @@ A material is stored first and submitted later, so collecting never blocks on a 
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
+
+`NoteSessionId` identifies one notes conversation; `MaterialId` identifies one collected text or image material. The `notes/material-settled` event carries the conversation id and the settled material ids so a client can reload their recorded answers.
 
 <details>
 <summary>Implementation internals — click to expand</summary>

@@ -54,6 +54,8 @@ kind: "package-reference"
 
 ### 宿主服务
 
+Host、Client 和 Remote 组装使用同一声明项目中的笔记事件载荷与标识类型。
+
 插件挂载六个服务，每个服务是它那一部分契约的文档归属。`ctx.notesStore` 打开笔记域并持有素材表与会话表；`ctx.notesMaterials` 存储素材、手工顺序与归档区；`ctx.notesSessions` 按配置的工作区与模型启动会话、在本进程不再持有该 Session 时把它重新载入、为每个会话记录一条条目，并持有面板的活动指针；`ctx.notesSettings` 读取上面的设置节，在没有挂载设置 provider 时回落到组装入口的值；`ctx.notesAnalysis` 把一条素材变成它所在会话上的一条用户消息；`ctx.notes` 是浏览器面板调用的 Remote 命名空间，它的操作以 `src/types.ts` 里的 wire 词汇作答——成功值或具名拒绝——因此没有任何东西以抛出异常的形式到达面板。
 
 ### 浏览器半边
@@ -76,6 +78,8 @@ kind: "package-reference"
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
+
+`NoteSessionId` 标识一个笔记会话，`MaterialId` 标识一份收集的文本或图像材料。`notes/material-settled` 事件携带会话标识与已完成材料的标识，客户端据此重新读取已记录的答案。
 
 <details>
 <summary>实现内部细节——点击展开</summary>

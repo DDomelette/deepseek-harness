@@ -6,17 +6,17 @@
   en: acbf72f6a3c5bea9
   zh: 4d655027ac2b78db
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/problem:
-  en: 1837d33ff7988a4d
-  zh: 96a5efc7ee20ee1f
+  en: 63a2f51853b2c530
+  zh: 2babef0ecce89b21
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/decision:
-  en: 8542245742e142b2
-  zh: 0d2aa862b9271385
+  en: c2f86db5f0b6b5a4
+  zh: dd07b529cc65e7d2
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/decision/scaffold-apps-web-tests-scaffold-ts:
   en: 3d09cd693966a674
   zh: 4cda02850961f8d0
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/decision/determinism-rules:
-  en: 6ee368e015c6e1bc
-  zh: 2d3b3eb7971c64f1
+  en: 41790d8d79b7ada3
+  zh: 1fc7e85a1accd806
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/decision/expected-outputs:
   en: ca1ae9ccbeab8c01
   zh: 662cd5d98ee20ccc
@@ -27,20 +27,20 @@
   en: c529437d4fbaeeb3
   zh: fe13551e56cba7df
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/decision/ci-stance:
-  en: aa3c8d429c203b6b
-  zh: 4563f48d5b81dab9
+  en: a4ed258cd19db1c0
+  zh: 913e079a6250d7d7
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/prior-art:
   en: 7472e212043721dd
   zh: 61dd9f5a8e12730b
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/alternatives-considered:
-  en: 761a26e8d94e5d40
-  zh: 2dacc1e3cb48b02a
+  en: 5bd57b3dbacd8380
+  zh: a154f27d93930f77
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/testing:
   en: f4459a24f56c9cfe
   zh: a15bdc45785ed7e8
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/deferred:
-  en: 210039228bc72d1d
-  zh: 8b7b66a2d8f584d2
+  en: aef84d3933bb72a1
+  zh: 1cc5e2f1c9bcccf9
 /agent-note-keyless-browser-e2e-lane-for-the-web-gui/consequences:
-  en: 9d1678b739d39aaf
-  zh: a16706e20e5802d1
+  en: 30928e1b547ddc34
+  zh: 068bd12b2ac119dc

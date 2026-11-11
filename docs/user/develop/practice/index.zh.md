@@ -152,4 +152,4 @@ export function apply(ctx: Context) {
 
 ## 下一步
 
-- [LLM（大语言模型）适配器](./llm-adapter.zh.md)：实现一个 LLM 提供方
+- [LLM（大语言模型）适配器](llm-adapter.zh.md)：实现一个 LLM 提供方

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-12-dsh-web-lan-and-pairing-design.md`
 
-**前置状态:** 本计划在隔离工作树 `.worktrees/web-lan-entry`(分支 `feat/web-lan-entry`,基于 `feat/dsh-mob` 的 `20e2ad5b88`)执行。主检出 `D:\Deepseek_Harness` 留在 `feat/dsh-mob` 并继续服务手机,**不要在主检出里改代码或跑构建**。
+**前置状态:** 本计划在隔离工作树 `.worktrees/web-lan-entry`(分支 `feat/web-lan-entry`,基于 `feat/dsh-mob`)执行。主检出 `D:\Deepseek_Harness` 留在 `feat/dsh-mob` 并继续服务手机,**不要在主检出里改代码或跑构建**。
 
 ## Global Constraints
 
@@ -438,12 +438,12 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 
 真机走查的第 5、6 项暴露一个缺口:手机若先打开过带令牌的 LAN URL,就持有了一份 v1 启动令牌 cookie,而 `isAuthenticated` 当时在任何 authority 上都承认它——于是电脑端吊销设备后,手机仍靠这份 cookie 继续访问。
 
-- [x] `BrowserAuth.authorizeIndex` 只在回环 authority 上交换启动令牌,`isAuthenticated` 也只在回环上承认 v1 cookie(`6cf55029fb`)。
-- [x] `dsh web` 的 LAN 就绪行与 `mob.joinUrl` 改为不带令牌的 origin(`8be795644b`)。
-- [x] Agent Note 与各 README 同步该规则(`36687ed7dd`)。
+- [x] `BrowserAuth.authorizeIndex` 只在回环 authority 上交换启动令牌,`isAuthenticated` 也只在回环上承认 v1 cookie。
+- [x] `dsh web` 的 LAN 就绪行与 `mob.joinUrl` 改为不带令牌的 origin(the implementation branch)。
+- [x] Agent Note 与各 README 同步该规则(the implementation branch)。
 - [x] Run: `pnpm run test:docs`(16/16 通过)、`pnpm exec vitest run packages/client/connection packages/bundle/mob packages/bundle/web-app`、`pnpm exec vitest run --config vitest.e2e.config.ts apps/cli/tests/web-auth.e2e.ts apps/cli/tests/pairing.e2e.ts`(3/3 通过)。
 - [x] 合并与重启同上(操作者执行);真机复验第 5、6 项通过:吊销后手机刷新被挡下,重新配对后恢复访问。第 7 项的界面表现暴露第三处缺口,见下。
-- [x] 路线图遗留:第一轮的合并步骤(第 434、435 行)已由操作者完成,`master` 现为 `20a9c9752a`。
+- [x] 路线图遗留:第一轮的合并步骤(第 434、435 行)已由操作者完成。
 
 ### 第三轮修复:被拒绝的局域网页面给出去向
 
@@ -453,7 +453,7 @@ git commit -m "feat(mob): pair a phone through a one-time code and a device sess
 - [x] `frontend-static` 在 `auth-required` 时以 401 提供外壳本身,并在 `<head>` 后注入 `__DSH_AUTH_REQUIRED__` 启动事实。
 - [x] mob 浏览器半层新增「登录已失效」全屏界面(`shell.overlay`,order 90)、中英文案与「重新加载」按钮;`/pair` 页面仍优先渲染配对界面。
 - [x] 覆盖:connection 单测(三态 + 已配对/已吊销设备 cookie)、`frontend-static` 真实组合测试(LAN 匿名 401 HTML + 事实,设备 cookie 后 200 无事实)、mob 组件与注册测试、真实 CLI e2e(LAN 带/不带令牌都是 401 + 事实 + 无 cookie,回环仍是纯文本 401)。
-- [x] 加固:`authorizeIndex` 在交出 `auth-required` 之前先过 Host/Origin 栅栏,因此只有**受信** authority 能拿到外壳,伪造 Host 仍得到纯文本 401(组合测试覆盖;`9d5a977fdb`)。
+- [x] 加固:`authorizeIndex` 在交出 `auth-required` 之前先过 Host/Origin 栅栏,因此只有**受信** authority 能拿到外壳,伪造 Host 仍得到纯文本 401(组合测试覆盖)。
 - [ ] 合并与重启同上(操作者执行),然后真机清单第 7 项应显示「登录已失效」全屏界面(含 设置 → 通用设置 → 连接手机 的指引与重新加载按钮),而不是英文纯文本页。
 
 ### 真机验证清单(操作者执行)

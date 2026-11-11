@@ -14,8 +14,8 @@ import type { AttachmentId, ImageAttachmentRef } from '@deepseek-ai/dsh-attachme
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
-import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
-import type { Domain } from '@deepseek-ai/dsh-storage-domain'
+import { defineDomain } from '@deepseek-ai/dsh-storage-domain'
+import type { Domain, DomainTableSpec } from '@deepseek-ai/dsh-storage-domain'
 import type {
   MaterialId, MaterialKind, MaterialSource, MaterialStatus, MaterialView, NotesImageMediaType,
   NoteSessionId,
@@ -142,6 +142,9 @@ export const notesGlobal = z.object({
 /** Stored global state of the notes domain. */
 export type NotesGlobalState = z.infer<typeof notesGlobal>
 
+const materialTable: DomainTableSpec<MaterialId, MaterialRecord> = { valueSchema: materialRecord }
+const sessionTable: DomainTableSpec<NoteSessionId, NoteSessionRecord> = { valueSchema: noteSessionRecord }
+
 /**
  * The notes domain spec: materials and notes conversations, plus the active
  * pointer. `defineDomain` validates the names and the global's null handling
@@ -152,8 +155,8 @@ export const notesDomainSpec = defineDomain({
   version: NOTES_DOMAIN_VERSION,
   global: { schema: notesGlobal, initial: { activeNoteId: null } },
   tables: {
-    materials: domainTable<MaterialId, MaterialRecord>(materialRecord),
-    sessions: domainTable<NoteSessionId, NoteSessionRecord>(noteSessionRecord),
+    materials: materialTable,
+    sessions: sessionTable,
   },
 })
 

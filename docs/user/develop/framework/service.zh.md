@@ -146,5 +146,5 @@ export function apply(ctx: Context) {
 
 ## 下一步
 
-- [事件系统](./events.zh.md) — 插件间松耦合通信
+- [事件系统](events.zh.md) — 插件间松耦合通信
 - [能力分层](../practice/index.zh.md) — 将服务用作能力接口

@@ -60,8 +60,10 @@
   cursor: pointer;
 }
 
-.secondaryButton:hover {
-  background: var(--dsw-alias-bg-layer-2);
+@media (hover: hover) {
+  .secondaryButton:hover {
+    background: var(--dsw-alias-bg-layer-2);
+  }
 }
 
 /* One icon per display group; the count rides a caption line below the label. */
@@ -91,8 +93,10 @@
   text-align: left;
 }
 
-.groupIcon:hover {
-  background: var(--dsw-alias-bg-layer-2);
+@media (hover: hover) {
+  .groupIcon:hover {
+    background: var(--dsw-alias-bg-layer-2);
+  }
 }
 
 .groupGlyph {

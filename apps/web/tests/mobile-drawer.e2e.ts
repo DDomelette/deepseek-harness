@@ -108,6 +108,10 @@ describe('mobile viewport (390×844, touch)', () => {
 
   it('keeps the hero composer selectors identifiable and the send action tappable on touch', async () => {
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'workspace-selectors')
+    if (await page.locator('[data-sidebar-drawer][data-drawer]').count() > 0) {
+      await page.keyboard.press('Escape')
+    }
+    await page.locator('[data-drawer-scrim]').waitFor({ state: 'detached' })
     // A coarse pointer keeps the permission label (its container query would
     // drop it). The control row measures expanded demand, so at 390px the model
     // seat collapses to its glyph and keeps the name on its accessible name.
@@ -119,6 +123,7 @@ describe('mobile viewport (390×844, touch)', () => {
     expect(await model.getAttribute('title')).toContain('DeepSeek-V4-Flash')
     // Identifying the selectors costs row width: the send action must still land
     // inside the viewport and answer a tap at its own center.
+    await page.locator('[data-composer-input][contenteditable="true"]').fill('Touch input')
     const send = page.getByRole('button', { name: 'Send message' })
     const hitTest = await send.evaluate((el) => {
       const box = el.getBoundingClientRect()

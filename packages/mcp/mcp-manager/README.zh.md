@@ -1,5 +1,5 @@
 ---
-description: "本包的配置与行为。"
+description: "MCP 服务器管理器：面向需要在运行时添加、修改、注册、启停、删除、探测并观察 MCP 服务器的部署、插件与管理界面。"
 kind: "package-reference"
 ---
 
@@ -9,101 +9,192 @@ kind: "package-reference"
 
 ## 概述
 
-由设置驱动的 MCP 服务器管理器：声明 `mcp-servers` 设置段——即它自己的插件 Config，由 Web 设置面板编辑——并将 `cordis.yml` 中声明的（declarative）MCP 服务器以只读方式投影在面板管理的名册旁边。
-
+`dsh-mcp-manager` 管理一组实时 MCP 服务器，来源有两个：其 profile 条目 `config.servers` 中的条目（也可通过 Settings 编辑），以及已安装插件在自身生命周期内注册的条目。管理器为每个启用的条目挂载一个 `dsh-mcp-client` 实例，并随任一来源变化实时增加、重建、停用与移除实例。`ctx.mcpManager` 汇总每台服务器的连接状态，`restart` 恢复重连预算耗尽的服务器，`probe` 在不触碰活动实例的情况下测试一个条目，`watch` 向 Remote 客户端推送服务器列表。`${credential:REF}` 模板让密钥不进入条目；mcp-client 在各实例内部处理凭据轮换。
 
 ## 目录
 
-- [用法](#usage)
-- [配置](#config)
-- [Declarative 投影](#declarative-projection)
-- [名册 Remote](#roster-remote)
-- [与 dsh-mcp-client 的关系](#relationship-to-dsh-mcp-client)
+- [使用本包](#use-this-package)
+- [理解实现](#understand-the-implementation)
+- [延伸阅读](#further-exploration)
 - [模型体验](#model-experience)
-- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [已知限制与延期工作](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
 
-<a id="usage"></a>
-## 用法
+-----
 
-与 Loader 一起挂载该插件；它注入 `loader`，并把该 section 声明为自己的 Config：
+<a id="use-this-package"></a>
+## 使用本包
+
+每个宿主挂载一次管理器。包含基础 bundle 的 profile 将它作为 [`dsh-base`](../../bundle/base/README.zh.md) 的 `mcp-manager` 行挂载。其 volatile `config.servers` 存放配置条目；Settings 以所属条目 id 作为命名空间（下例为 `mcp`）。凭据模板经凭据提供方解析，因此只要条目可能使用模板，就为该行加上 `inject: [credentials]`。
+
+### 何时选择它
+
+当服务器集合需要在运行时变化——设置编辑或管理界面添加、改配、停用、删除配置的服务器，或已安装插件带来自己的服务器——就选管理器。当部署把服务器钉死在组合里，或某台服务器只属于一个 agent preset 而非整个宿主时，继续用普通的 `dsh-mcp-client` 行；管理器只治理全局面。
+
+### 最小配置
+
+一条 `cordis.yml` 行挂载管理器；其配置里的 `servers` 可选，将成为组合基层：
 
 ```yaml
-- id: mcp-servers
+- id: mcp
   name: '@deepseek-ai/dsh-mcp-manager'
+  inject: [credentials]
+  config:
+    servers:
+      github:
+        transport: stdio
+        command: npx
+        args: ['-y', '@modelcontextprotocol/server-github']
+        env:
+          GITHUB_TOKEN: '${credential:GITHUB_TOKEN}'
 ```
 
-`mcp-servers` 段在 `servers` 下持有面板管理的名册：一个以 serverName 为键的字典，每个条目镜像 `dsh-mcp-client` 的 Config 字段并增加 `enabled`。设置编辑即时生效。段的 schema 会拒绝违反 serverName 模式（`[A-Za-z0-9_-]{1,32}`）的键；对运行中管理器的编辑若命名了 `cordis.yml` 中已声明的服务器，也会被拒绝——declarative 名册与面板管理名册绝不重叠。管理器挂载时组合中已存储的段则由本包的不变式报告。
+profile 的 `cordis.patch.yml` 会替换条目的完整 `servers` 映射。需要局部编辑并保留继承服务器时使用 Settings；完整替换则按以下方式指定管理器条目：
 
-namespace 就是其 Loader entry id，因此管理器所在行必须使用 `mcp-servers` 这个 id，绑定同一键的 Web MCP 标签页才能寻址该段。
+```yaml
+- id: mcp
+  config:
+    servers:
+      internal:
+        transport: streamable-http
+        url: https://mcp.example.com/mcp
+        headers:
+          Authorization: 'Bearer ${credential:MCP_TOKEN}'
+        enabled: true
+```
 
-<a id="config"></a>
-## 配置
+| 字段 | 默认值 | 含义 |
+|---|---|---|
+| `servers.<name>` | `{}` | 每个键一台受管服务器；键即实例的 `serverName`（`[A-Za-z0-9_-]{1,32}`） |
+| `transport` | 必填 | `stdio` 或 `streamable-http` |
+| `command` / `args` / `env` / `cwd` | — | stdio：可执行文件、参数、附加子进程环境、工作目录 |
+| `url` / `headers` | — | streamable-http：端点 URL 与附加请求头 |
+| `enabled` | `true` | 持久意图：`false` 卸载实例但保留条目 |
+| `startupTimeoutMs` | `30,000` | 模板解析、协商、连接与初次工具发现的预算 |
+| `toolCallTimeoutMs` / `closeTimeoutMs` / `reconnect` | mcp-client 默认值 | 逐服务器覆盖 |
 
-`mcp-servers` 段就是插件自身的 Config，因此设置页由 `McpServersSchema` 渲染它，配置编辑器把它持久化在 profile patch 中：
+生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-mcp-manager)是每个可接受字段的详尽出处。
 
-| 字段 | 传输 | 必填 | 描述 |
-|---|---|---|---|
-| `servers` | 两者 | 否 | 以 serverName 为键的面板管理名册（默认 `{}`）；设置 seam 对其就地编辑 |
-| `servers.<key>` | 两者 | 是 | serverName：`[A-Za-z0-9_-]{1,32}`，在面板管理名册与所有 declarative 服务器中唯一 |
-| `enabled` | 两者 | 否 | 该条目是否生效（默认 `true`） |
-| `transport` | 两者 | 是 | `"stdio"` 或 `"streamable-http"` |
-| `command` | stdio | 是 | 要 spawn 的可执行文件 |
-| `args` | stdio | 否 | 传给命令的参数（默认 `[]`） |
-| `env` | stdio | 否 | 额外环境变量；带 `role('secret')`，在任何脱敏 `describe()` 中都会被隐藏 |
-| `cwd` | stdio | 否 | 子进程工作目录（默认 `''`） |
-| `url` | http | 是 | MCP 服务器 URL |
-| `headers` | http | 否 | 额外标头；带 `role('secret')` |
-| `toolCallTimeoutMs` | 两者 | 否 | 每次 `callTool` 调用的超时（默认 60000） |
-| `failOnStartupError` | 两者 | 否 | 将初始连接或工具同步失败视为该条目的致命错误（默认 `false`） |
-| `reconnect.enabled` | 两者 | 否 | 连接丢失后是否启动自动重连（默认 `true`） |
-| `reconnect.initialDelayMs` | 两者 | 否 | 首次重连尝试前的延迟（默认 500） |
-| `reconnect.maxDelayMs` | 两者 | 否 | 指数退避的最大延迟（默认 30000） |
-| `reconnect.maxAttempts` | 两者 | 否 | 停止前的最大重连尝试次数（默认 10） |
+### 管理配置的服务器
 
-<a id="declarative-projection"></a>
-## Declarative 投影
+Settings 写入经 ConfigEditor 持久化并检查 revision；Loader 更新 volatile 配置，无需重新挂载管理器。每次提交的配置变更都会对账编队：新的启用条目挂载，被移除的条目卸载，`enabled: false` 卸载实例但保留条目在列表中，其余任何字段变化只重建那一个实例、未变的同级继续运行。通过 Settings 可以覆盖或停用继承的服务器；删除继承的服务器会恢复其基层配置。只有用户层新增的服务器才可移除。坏条目——缺 `command`、带跨传输字段、模板写错，或使用了插件已注册的名字——在写入处被拒绝，因此文档绝不会存下管理器无法执行的服务器。
 
-`declarativeMcpServers(ctx)` 投影挂载 `dsh-mcp-client` 的 Loader 条目：serverName 和 transport 从条目配置读取，启用状态来自 Loader，并携带根 Fiber 相位。面板将它们以只读方式与设置管理的名册并排渲染；它们的生命周期始终由 `cordis.yml` 拥有。
+`env` 值、`headers` 值、`command`、`args`、`cwd` 与 `url` 接受 `${credential:REF}` 模板。管理器将原始字符串传给 mcp-client 并启用模板展开；配置对管理界面保持可读，因此密钥值应保存在凭据提供方中。缺失值使实例进入 `waiting-credentials`；被引用凭据更新时重试解析，解析值变化时替换连接。诊断与工具失败会把每个已解析的值替换为 `[redacted]`。提供方要求与替换顺序见[运行时模板与凭据](../mcp-client/README.zh.md#runtime-templates-and-credentials)。
 
-<a id="roster-remote"></a>
-## 名册 Remote
+### 从插件注册服务器
 
-本包的默认导出是 `McpServersGateway`，即 Loader 为 `@deepseek-ai/dsh-mcp-manager` 条目挂载的插件：它拥有该段的 schema 与 supervisor，并暴露带唯一 `list()` 方法的 `mcpServers` Remote。每次调用都重新读取两个平面，先返回 settings 行，再返回 declarative 行：serverName、transport、source、`enabled`，以及挂载 `status`（`connecting`/`ready`/`failed`，失败时附 `error`）。`status` 仅表示挂载生命周期——`ready` 表示 mcp-client fiber 已落定，绝不表示服务器已应答；disabled 的 settings 行与 declarative 行报告 `null`。机密配置字段（`env`、`headers`）从不投影；agent preset 内联挂载的 MCP 服务器按设计不在其中——它们从不出现在 `ctx.loader.entries()` 中。设置名单或挂载生命周期状态变化后，管理器会发出不带载荷的 `mcp-servers/change` 失效通知；Remote 消费端重新读取 `list()`，而不把事件本身当作快照。
+接入某个 MCP 服务的插件注册自己的服务器，而不是写入配置：
 
-<a id="relationship-to-dsh-mcp-client"></a>
-## 与 dsh-mcp-client 的关系
+```ts
+import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-mcp-manager'
 
-`dsh-mcp-client` 每个插件实例连接一个 MCP 服务器，并把它的工具注册到 `ctx.tools`。本包拥有面板写入的设置段，自身从不连接任何服务器——每个生效条目都是一个 `dsh-mcp-client` 实例。
+export const name = 'example-app'
+export const inject = ['mcpManager']
+
+export function apply(ctx: Context): void {
+  ctx.mcpManager.register('example', {
+    transport: 'streamable-http',
+    url: 'https://mcp.example.com/mcp',
+    headers: { Authorization: 'Bearer ${credential:EXAMPLE_TOKEN}' },
+  })
+}
+```
+
+`register(name, entry)` 接受除 `enabled` 外的全部配置条目字段，并执行相同校验。注册在调用方插件的生命周期内有效：通过插件管理器停用或卸载该插件会将其卸载，注册的释放会卸载服务器并撤回其工具，然后插件的释放才完成。服务器解析过的值仍保存在凭据提供方中。注册名必须与所有配置条目和其他注册都不同；注册与之后的设置写入都会拒绝冲突。Settings 不编辑注册的条目。
+
+### 观察与恢复
+
+`ctx.mcpManager.list()` 返回各服务器的 `name`、`configured` 标记与实时 `status`，配置条目排在注册条目之前。已移除、但仍在清理或清理失败的条目继续列出，`configured: false`；清理失败时该行保留到宿主重启。清理状态保留首个诊断；任一实例或探测未确认关闭时，`closeConfirmed` 保持 `false`。管理器存活期间，已发布状态的变化会发出 `mcp-manager/status`，包括条目移除后的清理失败。生命周期操作不等待监听器完成；监听器同步抛错或返回的 Promise 拒绝都会被记录，其他监听器仍会收到通知。
+
+重连留在 mcp-client 内。`restart(name)` 替换实例并重置重连预算，预算耗尽后同样适用。传输关闭未确认或本地清理出错时，会阻止该服务器的替换与后续探测；需要重启宿主恢复。`probe(name, options)` 解析模板、连接、读取服务器身份与工具名，再关闭，不注册工具或预留 namespace。已停用条目也可探测。探测有独立的截止时间与取消信号，并分别报告连接/列表查询成功与关闭、清理结果。
+
+### Remote 操作
+
+浏览器客户端经 [`dsh-api-remotes`](../../api/remotes/README.zh.md) 以 `ctx.remote.mcpManager` 访问管理器。`watch(signal)` 在订阅时推送完整服务器列表，之后每次状态或条目变化再推送一次，订阅方尚未读取的变化会合并；中止信号结束该流，管理器销毁结束所有流。`restart(name)` 与 `probe(name, signal)` 执行上述操作。配置写入仍走 Settings Remote；管理器不提供写入方法，因此浏览器无法定义服务器命令。
+
+-----
+
+<a id="understand-the-implementation"></a>
+## 理解实现
+
+不发布不变量伴随模块，因为管理器独立拥有配置的服务器集合及其状态，重复验证配置或重读状态映射不会提供独立观察。
+
+<details>
+<summary>实现内幕——点击展开</summary>
+
+本节解释设计决策并指向代码；可观察行为已在[使用本包](#use-this-package)中完整覆盖。
+
+### 设计理念
+
+- **两个来源决定服务器集合。** 当前 volatile Config 值（schema 默认值 → 继承的 profile 配置 → 用户 patch）决定配置条目；注册添加插件拥有的条目。运行时记录保留实例归属、活动探测与清理失败。外部文件编辑与管理界面写入走同一条路。
+- **注册是副作用。** 注册是调用方插件的副作用，因此由其所有者的生命周期决定服务器何时存在；没有插件需要写入别的插件的配置，移除时也不会残留条目。
+- **单条串行操作队列。** 对账与 restart 排在一条链上，两个生命周期操作不能交错同一实例的卸载/挂载。探测独立运行；条目变化与销毁会先取消探测，再等待操作队列与所属资源的清理。
+- **整条目即身份。** 除 `enabled` 外任何字段变化都会重建实例——实例配置在 mcp-client 加载时被捕获，原地更新不存在。`enabled` 只切换是否挂载。
+- **扁平条目 schema，跨字段校验。** 写入期校验在写入处强制执行 union 本可表达的逐传输规则，拒绝时点名出错字段——union 的形状错误做不到这一点。
+- **连接处理留在 mcp-client。** 子实例是挂在管理器 fiber 下的普通插件实例：`serverName` 预留与静态组合实例正确互斥，收卷即注销工具，管理器经 `connectionStatusOf` 读取各实例状态而不重复监督。
+
+### 源码地图
+
+| 文件 | 职责 |
+|---|---|
+| [`src/index.ts`](src/index.ts) | 服务本体：schema、校验、注册、对账、restart、probe、watch、状态注册表 |
+| [`src/types.ts`](src/types.ts) | 状态联合、列表视图与 `mcp-manager/status` 事件声明（`./types`） |
+
+### 生命周期要点
+
+首次对账等待管理器自身 fiber 激活，因为服务从那一刻起才对依赖方可见。子实例启动不占住操作队列。条目变化或移除时，在排队清理前停止转发子实例状态并取消其探测；替换等待探测与子实例都完成清理。相等的状态不重复发布。条目移除后仍可观察清理失败；销毁停止所有后续事件并结束每个 `watch` 流。
+
+</details>
+
+-----
+
+<a id="further-exploration"></a>
+## 延伸阅读
+
+包级契约不够用时读这些页面。
+
+- [mcp-client README](../mcp-client/README.zh.md) —— 单实例桥：命名、重连策略、工具执行、状态面。
+- [Settings 包 README](../../settings/settings/README.zh.md) —— 管理器使用的 Config 表单、继承、revision 检查与 profile 写入。
+- [Credentials 组 README](../../credentials/README.zh.md) —— `${credential:…}` 模板解析的凭据引用。
+- [生成的配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-mcp-manager) —— 每个可接受的配置字段。
+- [MCP 管理器 Agent Note](../../../.agents/notes/implemented/feature/2026-08-31-mcp-manager-plugin.zh.md) —— 设计决策、同类产品调研与被否决的替代方案。
+
+-----
 
 <a id="model-experience"></a>
 ## 模型体验
 
-### 受管理的 MCP 服务器工具
-
-#### 模型看到的内容
-
-本包不注册任何自己的提示词、工具或结果；模型看到的内容与每个已挂载的 `dsh-mcp-client` 实例为启用的 `mcp-servers` 条目在 `mcp__<serverName>__<rawName>` 下注册的内容完全相同。
-
-#### Token 影响
-
-自身没有 token 成本；每个已挂载服务器的工具定义成本与 `dsh-mcp-client` 文档中按服务器描述的相同。
+通过其挂载的 `dsh-mcp-client` 实例间接影响；进入请求的是那些实例的服务器限定工具与 schema，管理器自身不注册任何提示词或工具内容。
 
 #### KV Cache 影响
 
-自身没有 KV-cache 影响；新增、移除或切换条目对已挂载工具集的改变，与编辑等价的 `cordis.yml` 条目完全相同。
+不会直接导致 KV Cache 失效；挂载、重建与卸载实例对工具定义的影响与 mcp-client README 所述完全一致，管理器自身不添加任何请求内容。
 
-## 已知限制与暂缓事项
+## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **仅生命周期状态** — `status` 上报挂载 fiber 的结算，而非存活状态；在默认 `failOnStartupError: false` 下，一台始终不应答初始连接的服务器仍会报告 `ready`。
-- **预设挂载的服务器不可见** — agent preset 内联挂载的 MCP 服务器不在 `ctx.loader.entries()` 中，因此也不在声明式名单里。
-- **以 serverName 为键** — 改名意味着删除条目并新增；settings 键即名称。
-- **面板是唯一编辑器** — 该段是普通 profile 配置，部署可直接编辑 patch，但针对声明式名称的写时重名守卫只在管理器自己提交该段时生效。
-- **命名空间跟随所在行 id** — namespace 就是其 Loader entry id，重命名管理器所在行会让该段脱离 Web MCP 标签页绑定的键。
+这些限制描述今天用本管理器做不到的事。它们是当前包约束，不是任务清单。
+
+- **没有 OAuth 流程**——服务器返回授权挑战时表现为普通连接失败与重连翻腾；没有 needs-auth 状态、token 存储或交互式登录。
+- **只治理全局面**——agent preset 或静态 `cordis.yml` 行挂载的实例既不被列出也不受治理；静态实例只在受管条目试图复用其名字时以 `serverName` 冲突现身。
+- **重建存在工具空窗**——变更的条目先销毁再重挂，其工具会从模型工具集消失直到新实例完成初次同步；没有旧代继续服务到换代完成的交接。
+- **注册条目由其插件固定**——Settings 无法覆盖注册条目的预算；注册插件需要的可调参数放在它自己的配置中。
+- **探测输出有上限**——探测默认最多跟进 16 页列表、返回 512 个工具名，超出即报告截断；调用方可设置 `maxPages` 与 `maxToolNames`。
 
 <a id="dev-note"></a>
 ### 开发备注
 
-无。
+<details>
+<summary>维护者的工作上下文——点击展开</summary>
+
+本开发备注是维护者的工作上下文：开放设计问题与尚未决定的方向。它明确不具权威性——已交付行为、限制与既定理由以上文、包代码与所链接的 Agent Note 为准。
+
+- OAuth 应落在凭据记录与 authorization seam 加上 MCP SDK 的 `OAuthClientProvider` 之上；`needs-auth` 状态位为其保留。
+- 滚动换代（先起新实例再销毁旧实例、保持公开工具名稳定）可以消除重建空窗；同类产品用代理世代实现这一点。
+- 逐服务器的工具允许/禁用清单是条目的自然扩展，待出现真实消费方再加。
+
+</details>
+
+运行时不变式: 配置验证会在激活或持久化之前拒绝与声明式 MCP 服务名称的冲突；重复验证不是独立的运行时观测。

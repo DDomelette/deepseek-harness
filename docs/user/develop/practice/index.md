@@ -152,4 +152,4 @@ export function apply(ctx: Context) {
 
 ## Next steps
 
-- [LLM adapter](./llm-adapter.md) — implement an LLM provider
+- [LLM adapter](llm-adapter.md) — implement an LLM provider

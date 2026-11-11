@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /** Frame interactions with a real store and explicitly driven browser measurements. */
 import type { GlobalStandardProps, RenderOpts } from '@deepseek-ai/dsh-client-ui-slots'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess, contextMenuHook, bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { AppFrame } from '../src/client/AppFrame.tsx'
 import type { AppFrameProps } from '../src/client/AppFrame.tsx'
 import type { MainPanelId, RightbarOwnerProps, SidebarOwnerProps } from '../src/client/index.ts'
@@ -12,6 +13,7 @@ import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controlle
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined })) as GlobalStandardProps['useResource']
+let foldedLandscape: SnapshotStore<boolean>
 let selectedSession: SessionId | undefined
 let selectedSessionTitle: string | undefined
 let workspacesReady = true
@@ -95,6 +97,9 @@ function mountFrame(windowWidth = frameWidth) {
   })
   const element = () => (
     <AppFrame
+      {...allowAllAccess}
+      useContextMenu={contextMenuHook()}
+      useFoldedLandscape={bindSnapshotSelector(foldedLandscape)}
       useStore={useStore}
       actions={instance.actions}
       renderSlot={renderSlot}
@@ -150,6 +155,7 @@ function swipe(frame: Element, type: string, clientX: number, clientY = 0, point
 }
 
 beforeEach(() => {
+  foldedLandscape = createSnapshotStore(false)
   originalTitle = document.title
   frameWidth = 1920
   selectedSession = 's-test' as SessionId
@@ -213,7 +219,7 @@ describe('AppFrame', () => {
   it('renders owner props for the default sidebar and prospective right panel', () => {
     const { frame, rightOwner, sidebarOwner, slotCalls } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: false })
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 280, fab: false })
     expect(rightOwner()).toEqual({ width: 864, viewportWidth: 1920, canShow: true })
     expect(slotCalls.find(c => c.key === 'main')).toEqual({ key: 'main', props: {}, options: { entryKey: 'conversation' } })
   })
@@ -224,7 +230,7 @@ describe('AppFrame', () => {
     // attribute the content packages key their handset rules on.
     frameWidth = 700
     const { frame, sidebarOwner } = mountFrame()
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0, fab: true })
     expect(tracks(frame)).toEqual([0, 0])
     expect(frame.getAttribute('data-sidebar-fab')).toBe('true')
     expect(frame.getAttribute('data-sidebar-collapsed')).toBe('true')
@@ -267,7 +273,7 @@ describe('AppFrame', () => {
     const { frame, instance, sidebarOwner, getByTestId, queryByTestId } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([56, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 56, fab: false })
+    expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 56, fab: false })
     expect(getByTestId('sidebar-content')).toBeTruthy()
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
     // The rail keeps the window chrome housed: no shell.leading seat.
@@ -284,7 +290,7 @@ describe('AppFrame', () => {
     expect(queryByTestId('shell.leading-content')).toBeNull()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([0, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: false })
+    expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0, fab: false })
     expect(frame.querySelector('[data-shell-leading]')).not.toBeNull()
     expect(queryByTestId('shell.leading-content')).toBeTruthy()
     act(() => { instance.actions.toggleSidebar() })
@@ -319,7 +325,7 @@ describe('AppFrame drawer', () => {
     // brand button (fab) replaces the rail, and the frame carries the
     // cross-package attribute the conversation header pads against.
     expect(tracks(frame)).toEqual([0, 0])
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0, fab: true })
     expect(frame.dataset.sidebarFab).toBe('true')
     expect(frame.dataset.drawer).toBeUndefined()
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
@@ -328,7 +334,7 @@ describe('AppFrame drawer', () => {
     expect(frame.dataset.drawer).toBe('true')
     const drawerCol = frame.querySelector('[data-drawer]')
     expect(drawerCol?.querySelector('[data-testid="sidebar-content"]')).toBeTruthy()
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 280, fab: true })
     expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) })
@@ -341,12 +347,12 @@ describe('AppFrame drawer', () => {
     // unmounts them.
     expect(frame.querySelector('[data-drawer][data-closing]')).toBeTruthy()
     expect(frame.querySelector('[data-drawer-scrim][data-closing]')).toBeTruthy()
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 280, fab: true })
     act(() => { vi.advanceTimersByTime(300) })
     expect(frame.dataset.drawer).toBeUndefined()
     expect(frame.querySelector('[data-drawer]')).toBeNull()
     expect(frame.querySelector('[data-drawer-scrim]')).toBeNull()
-    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0, fab: true })
     act(() => { instance.actions.toggleSidebar() })
     const scrim = frame.querySelector('[data-drawer-scrim]')!
     act(() => { scrim.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
@@ -466,7 +472,7 @@ describe('AppFrame drawer', () => {
     act(() => { instance.actions.openRightbar(true, false) })
     act(() => { instance.actions.toggleSidebar() })
     expect(frame.dataset.drawer).toBe('true')
-    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280, fab: true })
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 280, fab: true })
     expect(rightOwner().canShow).toBe(false)
     expect(frame.querySelector('[data-drawer-scrim]')).toBeTruthy()
   })
@@ -1180,5 +1186,38 @@ describe('AppFrame frame measurement lifecycle', () => {
     act(() => { observer.fire(); flushFrames() })
     expect(instance.getSnapshot().layoutInfo.viewportWidth).toBe(1920)
     expect(animationFrames.size).toBe(0)
+  })
+})
+
+describe('folded landscape', () => {
+  it('centers the sidebar while folded in landscape and restores its width without remounting', () => {
+    frameWidth = 951
+    const { frame, instance, sidebarOwner, getByTestId, unmount } = mountFrame()
+    act(() => { instance.actions.setSidebar(360); instance.actions.toggleSidebar() })
+    const sidebar = getByTestId('sidebar-content')
+    expect(tracks(frame)[0]).toBe(360)
+    fireEvent.transitionEnd(frame, { propertyName: 'grid-template-columns' })
+    act(() => { foldedLandscape.set(true) })
+    expect(tracks(frame)).toEqual([475.5, 0])
+    expect(frame.dataset.animating).toBe('true')
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 475.5, drawer: false })
+    expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
+    expect(getByTestId('sidebar-content')).toBe(sidebar)
+    act(() => { instance.actions.toggleSidebar() })
+    expect(tracks(frame)[0]).toBe(56)
+    resize(767)
+    expect(frame.dataset.animating).toBeUndefined()
+    act(() => { instance.actions.toggleSidebar() })
+    expect(sidebarOwner()).toMatchObject({ collapsed: false, width: 360, drawer: true })
+    resize(951)
+    act(() => { instance.actions.toggleSidebar() })
+    expect(tracks(frame)[0]).toBe(475.5)
+    fireEvent.transitionEnd(frame, { propertyName: 'grid-template-columns' })
+    act(() => { foldedLandscape.set(false) })
+    expect(tracks(frame)[0]).toBe(360)
+    expect(frame.dataset.animating).toBe('true')
+    expect(frame.querySelector('[data-side="sidebar"]')).not.toBeNull()
+    expect(instance.getSnapshot().layoutInfo.sidebar).toBe(360)
+    unmount()
   })
 })

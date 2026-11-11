@@ -60,5 +60,5 @@ Status: proposed
 
 - [有界冷空白验证](../../archived/bug-fix/2026-08-13-bounded-cold-blank-verification.md)——移除 mtime 排序，并定义了本提案将使之精确的、仅依赖 cache 的过渡冷摘要。
 - [种子结束日志边界](../../implemented/architecture/2026-07-30-session-end-seed-log-boundary.zh.md)——让 mtime 不适用的非 prompt 写入之一。
-- [会话持久化](../../implemented/architecture/2026-06-14-session-persistence.zh.md)——仅追加与绝不重写这两条不变式，正是它们排除了可变的 JSONL header 字段。
+- [会话持久化](../../archived/architecture/2026-06-14-session-persistence.md)——仅追加与绝不重写这两条不变式，正是它们排除了可变的 JSONL header 字段。
 - [基于句柄的会话持久化](../../implemented/architecture/2026-08-27-handle-based-session-persistence.zh.md)——一个已存储字段将挂入的那条写句柄追加路径。

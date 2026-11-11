@@ -98,7 +98,7 @@ await fiber.dispose()
 
 ## Hot replacement (HMR)
 
-With `@deepseek-ai/cordis-plugin-hmr` loaded from `cordis.yml`, editing a plugin source file triggers:
+With `@deepseek-ai/dsh-hmr` loaded from `cordis.yml`, editing a plugin source file triggers:
 
 1. Unload the old plugin and clean up its registrations.
 2. Load the new code.
@@ -132,6 +132,6 @@ effect cleaned up
 
 ## Next steps
 
-- [Services and dependencies](./service.md) — expose a capability to other plugins
-- [Event system](./events.md) — communicate between plugins
+- [Services and dependencies](service.md) — expose a capability to other plugins
+- [Event system](events.md) — communicate between plugins
 - [Cordis tutorial](../../../cordis-tutorial/index.md) — the same lifecycle, services, and events built step by step against the Cordis runtime

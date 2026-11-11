@@ -1,11 +1,5 @@
-/** Native pnpm and git processes cannot execute inside the browser Worker. */
+/** Host package commands cannot install dependencies in the browser preview. */
 import { notImplementedFail } from '../notImplementedFail.ts'
 
-/** Refuse native package-manager and repository commands explicitly. */
+/** Refuse external package commands in the worker host. */
 export const execa = notImplementedFail('execa', 'execa')
-
-/** CommonJS interop marker for the Worker module loader. */
-export const __esModule = true
-
-/** CommonJS namespace for the package manager's named process helper. */
-export default { execa }

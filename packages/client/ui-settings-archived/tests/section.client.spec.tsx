@@ -1,3 +1,4 @@
+import { allowAllAccess, contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 // @vitest-environment jsdom
 /** Archived settings section: grouping, archive dates, details, restore, and delete. */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -95,7 +96,7 @@ function mount(
     refresh: vi.fn(async () => {}),
     ...injected,
   }
-  render(<ArchivedSection
+  render(<ArchivedSection {...allowAllAccess} useContextMenu={contextMenuHook()}
     usePanelInfo={() => { throw new Error('unused by ArchivedSection') }}
     useResource={() => { throw new Error('unused by ArchivedSection') }}
     useSessionStatus={() => { throw new Error('unused by ArchivedSection') }}

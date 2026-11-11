@@ -8,13 +8,14 @@
 
 ## 地址
 
-资源地址是 `dsh-resource://<type>/…` 形式的 URL。authority 命名协议，必须是 `ResourceProtocolMap` 的键；路径归协议自己，由其拥有者逐段做百分号编码。需要作用域的协议把作用域放进路径：`file` 协议的地址形如 `dsh-resource://file/session/<sessionId>/<path>`，其中 path 可以相对工作区根，也可以是保留前导斜杠的绝对路径，用 [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.zh.md) 的 `fileAddressFor(sessionId, cwd, path)` 构造、`parseFileAddress(address)` 读回。模型本身只读 scheme 与 authority：`protocolOf(address)` 返回 `dsh-resource://` 地址中 `://` 与第一个 `/`、`?`、`#` 之间文本的小写形式，对其它任何字串返回 `undefined`。这段文本由它自己读，而不是问 `new URL`——后者对非特殊 scheme 的答案各引擎不一致（[引擎差异](../../.agents/notes/implemented/bug-fix/2026-10-09-resource-address-authority.zh.md)）。其它 scheme 下的地址——Sidebar 的 `sidebar://guide`——不指向资源，读作 `none`。
+资源地址是 `dsh-resource://<type>/…` 形式的 URL。host 命名协议，必须是 `ResourceProtocolMap` 的键；路径归协议自己，由其拥有者逐段做百分号编码。需要作用域的协议把作用域放进路径：`file` 协议的地址形如 `dsh-resource://file/session/<sessionId>/<path>`，其中 path 可以相对工作区根，也可以是保留前导斜杠的绝对路径，用 [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.zh.md) 的 `fileAddressFor(sessionId, cwd, path)` 构造、`parseFileAddress(address)` 读回。模型本身只读 scheme 与 host：`protocolOf(address)` 对 `dsh-resource://` URL 返回小写 host，对其它任何字串返回 `undefined`。其它 scheme 下的地址——Sidebar 的 `sidebar://guide`——不指向资源，读作 `none`。
 
 | 地址 | 协议键 | 读作 |
 |---|---|---|
 | `dsh-resource://file/session/s1/notes/a.md` | `file` | 会话 `s1` 工作区根下 `notes/a.md` 的元数据（`file` 提供方已注册时） |
 | `dsh-resource://file/absolute/home/me/notes.md` | `file` | 可解析，但没有授权 Session，以 `workspace-file/unknown-workspace` 失败；不借用当前或 Tab Session |
 | `DSH-RESOURCE://File/session/s1/a` | `file` | 另一份记录：地址按字符串比较，`openResource` 只接受 `fileAddressFor` 生成的规范小写拼写 |
+| `dsh-resource://subagentchat/session/c1?parent=p1&mode=continuable` | `subagentchat` | 已寻址的 subagent Conversation；其值持有一个 `SessionReference`，直到资源关闭 |
 | `sidebar://guide` | — | `none`：导航地址 |
 | `/home/me/notes.md` | — | `none`：不是 URL |
 
@@ -39,7 +40,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.resources.register<'note'>({
     protocol: 'note',
     async *open(address, { signal }): AsyncIterable<RemoteResult<NoteView>> {
-      const id = address.slice('dsh-resource://note/'.length)
+      const id = new URL(address).pathname.slice(1)
       yield await ctx.remote.notes.read(id, signal)
       for await (const change of ctx.remote.notes.follow(id, signal)) yield change
     },
@@ -84,7 +85,7 @@ export function FileHeader({ useTabInfo, useResource, t }: Props) {
 
 资源有持有者就存活：一个订阅中的 `useResource`，或一次钉住。`ctx.resources.pin(address, signal)` 在不订阅的情况下让资源保持打开直到 `signal` 中止，已中止的信号什么也不钉；右侧 Sidebar 在每条打开的 tab 记录存续期内钉住其地址，因此切 tab 卸载正文不关流。第一个持有者打开提供方的流；最后一个释放时中止它、丢弃值，并把快照回到 `loading`（有提供方）或 `none`（没有）。提供方在这次释放之后产出的帧被丢弃，迭代器被归还。`ctx.resources.source(address)` 是 hook 背后的裸 observable，按地址引用稳定，供 React 之外的调用方使用；只读它的快照不算持有（[生命周期](../../packages/client/resources/README.zh.md#lifecycle)）。
 
-流只推元数据不推内容。`file` 提供方的值是 `WorkspaceFileStat { absolutePath, version, bytes? }`：首帧来自 Host 的 `stat`，后续观察更新版本。消费方自己经 Workspace Files Remote 命名空间读取内容；Preview 按 tab 独立刷新（[`dsh-api-workspace-files`](../../packages/api/workspace-files/README.zh.md)）。
+多数流只推元数据而不推内容。`file` 提供方的值是 `WorkspaceFileStat { absolutePath, version, bytes? }`：首帧来自 Host 的 `stat`，后续观察更新版本。消费方自己经 Workspace Files Remote 命名空间读取内容；Preview 按 tab 独立刷新（[`dsh-api-workspace-files`](../../packages/api/workspace-files/README.zh.md)）。`subagentchat` 提供方保留已寻址 Session 并产出其 `SessionReference`，在资源 signal 中止时释放该 reference。
 
 ## 限制
 

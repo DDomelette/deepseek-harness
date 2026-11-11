@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-experimental-speech-to-text",
   "description": "Experimental speech recognition with independently selectable providers",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -18,7 +18,6 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
-    "./src/*": "./src/*",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
     "./types": {
@@ -28,7 +27,8 @@
     "./wave": {
       "types": "./lib/types/wave.d.ts",
       "default": "./lib/types/wave.js"
-    }
+    },
+    "./src/*": "./src/*"
   },
   "files": [
     "locale/*.json",

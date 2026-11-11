@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-session-format-catalog",
   "description": "Build-static first-party Session format codec and migration catalog",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -18,12 +18,12 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
-    "./src/*": "./src/*",
     "./package.json": "./package.json",
     "./message-projections": {
       "types": "./lib/types/message-projections.d.ts",
       "default": "./lib/types/message-projections.js"
-    }
+    },
+    "./src/*": "./src/*"
   },
   "files": [
     "lib/index.js",

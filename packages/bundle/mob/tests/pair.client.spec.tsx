@@ -1,3 +1,4 @@
+import { allowAllAccess, contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 // @vitest-environment jsdom
 /**
  * PairScreen: the phone's pairing screen polls the Host, shows the code and the
@@ -27,7 +28,7 @@ function mount(
   navigate: (path: string) => void = vi.fn(),
 ): { navigate: (path: string) => void; polls: () => number } {
   const poll = vi.fn(pollState)
-  render(<PairScreen
+  render(<PairScreen {...allowAllAccess} useContextMenu={contextMenuHook()}
     usePanelInfo={unused as never}
     useResource={unused as never}
     useSessionStatus={unused as never}
@@ -106,7 +107,7 @@ describe('PairScreen', () => {
   it('ignores an answer that arrives after the screen unmounted', async () => {
     let answer: ((state: PairingStateView) => void) | undefined
     const poll = vi.fn(async () => await new Promise<PairingStateView>((resolve) => { answer = resolve }))
-    render(<PairScreen
+    render(<PairScreen {...allowAllAccess} useContextMenu={contextMenuHook()}
       usePanelInfo={unused as never}
       useResource={unused as never}
       useSessionStatus={unused as never}
@@ -129,7 +130,7 @@ describe('PairScreen', () => {
   it('stops polling when the screen unmounts', async () => {
     vi.useFakeTimers()
     const poll = vi.fn(async (): Promise<PairingStateView> => ({ status: 'pending' }))
-    render(<PairScreen
+    render(<PairScreen {...allowAllAccess} useContextMenu={contextMenuHook()}
       usePanelInfo={unused as never}
       useResource={unused as never}
       useSessionStatus={unused as never}

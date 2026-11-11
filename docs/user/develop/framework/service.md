@@ -144,5 +144,5 @@ The repository generates the service names, public methods, and source locations
 
 ## Next steps
 
-- [Event system](./events.md) — communicate between plugins without tight coupling
+- [Event system](events.md) — communicate between plugins without tight coupling
 - [Capability layering](../practice/index.md) — use services as capability interfaces

@@ -11,8 +11,8 @@
 /agent-note-settlement-delivery-belongs-to-the-continuation-manager/decision:
   en: c71529b3f11612db
   zh: f89b95417265b62a
-/agent-note-settlement-delivery-belongs-to-the-continuation-manager/decision/provenance:
-  en: 9690b2904e90ad0b
+/agent-note-settlement-delivery-belongs-to-the-continuation-manager/decision/source-identity:
+  en: d5a6b6df9b8c98e2
   zh: 9bf619cd5b697e68
 /agent-note-settlement-delivery-belongs-to-the-continuation-manager/decision/two-ordering-rules-and-why-the-manager-owns-them:
   en: 34fad866d5c6377b

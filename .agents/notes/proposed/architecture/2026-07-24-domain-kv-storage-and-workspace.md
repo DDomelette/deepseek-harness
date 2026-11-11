@@ -13,7 +13,7 @@ The host's only persistence surface is the session event log (`packages/session/
 
 Separately, Session deletion needs a `SessionPersistence` delete primitive and a `session.delete` endpoint. That gap's design is settled in this note, but its implementation remains future work.
 
-The later [Workspace registration deletion decision](../../implemented/feature/2026-07-27-workspace-registration-deletion.md) supersedes only that coupling: deleting a Workspace registration preserves its Sessions and their logs, while Session deletion remains separate future work. The cascade design below is therefore not the Workspace GUI delete semantic.
+The later [Workspace registration deletion decision](../../archived/feature/2026-07-27-workspace-registration-deletion.md) supersedes only that coupling: deleting a Workspace registration preserves its Sessions and their logs, while Session deletion remains separate future work. The cascade design below is therefore not the Workspace GUI delete semantic.
 
 ## Proposal
 
@@ -44,9 +44,9 @@ A backend is one **medium owner** (a file-tree root / one db file) exposing prim
 The backend contract (asserted clause by clause by the shared conformance suite, one suite for both backends):
 
 1. `open` creates when the medium holds nothing (lazy materialization allowed: may defer to the first write, but `loadAll` must immediately serve empty tables); loads when the medium exists.
-2. A stored version ≠ descriptor.version → `StorageError('version-mismatch')`; no migration, no rebuild.
+2. Unit-wide checks accept `descriptor.version` and the owner's `compatibleVersions`; other stamps reject with `StorageError('version-mismatch')`. Ordinary compatible reads preserve saved stamps and values. [Domain versioning](../../../../docs/subsystems/storage.md#domain-versioning) defines write stamping and JSON per-record exceptions.
 3. Durability: after a write primitive resolves, a process crash followed by a re-open must observe the write in `loadAll`.
-4. The backend does not promise write ordering within a unit — **the caller serializes**; the backend only guarantees each single call is atomic (JSON whole-file replace / SQLite single statement).
+4. The backend does not promise write ordering within a unit — **the caller serializes**; whole-unit mutations atomically publish their data and current stamp (JSON whole-file replacement / SQLite transaction for batch deletion or advancing the stamp); per-record batches can be partially applied if interrupted before resolution.
 5. `deleteRecord` is idempotent; `putRecord` overwrites.
 6. Any string key / any JSON value is safe (keys never reach file paths, a structural property).
 7. `close` is idempotent; any operation after close → `StorageError('closed')`.
@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS "u_<unit>_<table>" (
   key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;             -- value = record JSON document
 ```
 
-- Unit versions live in `units` rows; a descriptor mismatch → `version-mismatch`. Row granularity is document-per-row, preserving precise per-key durable updates (the path left open for high-frequency point-update tables like the session sidecar); when query needs appear, JSON1 reads the value column directly.
-- Write primitives are single statements and thus atomic; no cross-statement transactions needed (the domain layer has no cross-table transactions, see the out-of-scope list).
+- Unit versions live in `units` rows; an unaccepted version rejects with `version-mismatch`. Row granularity is document-per-row, preserving precise per-key durable updates (the path left open for high-frequency point-update tables like the session sidecar); when query needs appear, JSON1 reads the value column directly.
+- Current-version single-record writes use single statements. Batch deletes and the first mutation of an accepted older unit use one transaction; the first mutation commits its data and current stamp together. This does not add cross-table domain transactions.
 
 ### `dsh-domain`: the domain data form
 
@@ -117,6 +117,7 @@ export interface DomainTableSpec<K extends string, V> { readonly valueSchema: Zo
 export interface DomainSpec {
   readonly name: string                          // ^[a-z][a-z0-9_]*$
   readonly version: number
+  readonly compatibleVersions?: readonly number[]
   readonly global?: DomainGlobalSpec<unknown>
   readonly tables: Record<string, DomainTableSpec<string, unknown>>
 }
@@ -157,8 +158,8 @@ Rules:
 
 - **Single-level mapping**: key → record, no nested tables; hierarchical needs use composite keys or fields inside the value. The two backends stay isomorphic as a result (one JSON object level ↔ one SQLite row).
 - **Records are plain data**: immutable, directly JSON-serializable POJOs; values returned by `get`/`entries` must not be mutated in place (TypeScript readonly projection, no runtime freezing). Behavior-carrying domain objects belong to consumer packages.
-- **Serialized writes**: one promise chain per domain; `put`/`delete`/`update`/`global.set` all queue on it; `update`'s fn runs on the chain, so concurrency cannot interleave. No active-record (pulling out a mutable object that auto-persists — uncontrollable persist timing, in conflict with the whole-unit atomic-rewrite model).
-- **Version fails loud**: a stored version differing from the spec throws outright; no migration, no rebuild (the data is not regenerable; pre-release rejects old formats).
+- **Serialized writes**: one promise chain per domain; `put`/`delete`/`deleteMany`/`update`/`global.set` all queue on it; `update`'s fn runs on the chain, so concurrency cannot interleave. No active-record (pulling out a mutable object that auto-persists — uncontrollable persist timing, in conflict with the whole-unit atomic-rewrite model).
+- **Version compatibility**: the domain owner declares readable older versions through `compatibleVersions` and decodes historical values with its current schemas. Storage does not convert record values; [domain versioning](../../../../docs/subsystems/storage.md#domain-versioning) defines stamp publication and mixed-generation requirements.
 - **Change events**: after each write's durability resolves, emit `domain/changed` (`@mode emit`), one per record, no old value (matching the repository's "new snapshot + operation discriminant" convention, template `goal/changed`); the payload `DomainChanged` is a put/deleted discriminated union — domain + table + key (both `''` for global changes) + operation, with the put branch carrying the new snapshot value and the deleted branch carrying none (`packages/storage/storage-domain/src/events.ts`). This is next phase's RPC push-frame event source. The error vocabulary is `DomainError`, codes: `already-open` / `facet-unsupported` / `invalid-record` (with `{ table, key }`) / `missing-key` / `closed`.
 
 ### Future work: session-side deletion (design settled, not implemented this phase)
@@ -243,7 +244,7 @@ export class WorkspaceRegistry extends Service {
 - **Path canon**: the stored value = `fs.realpath(input)` (trailing slashes, `..`, and symlinks all resolved); uniqueness = string equality after normalization (a symlink resolving to the same directory counts as a collision). A missing directory makes create reject outright (realpath fails — a workspace must point at an existing directory; "Create new = make the directory" is upper-layer interaction: mkdir first, then create). The session cwd in attach checks follows the same canon. Single-valued cwd + unique path ⇒ one session structurally belongs to at most one workspace; double bookkeeping is impossible on the write side.
 - **Title**: a display name, defaults to `basename(path)`, mutable, duplicates allowed. Ownership is never derived from cwd as a fallback — cwd cannot express ordering, and ownership is a workspace-side fact; sessions started headless belong to no workspace.
 - Consumers see only the `Workspace` interface; `WorkspaceEntity` stays inside the package (a single implementation does not pre-split a seam). Entities are unique per id (registry cache); the record snapshot is swapped in place after each write, and the outside sees getters only. Every write funnels through the entity's internal `mutate(fn)` → `table.update`, with `updatedAt` refreshed inside mutate. Domain objects never cross RPC; next phase the wire layer projects records into zod wire schemas.
-- **Session deletion remains future work.** The later [Workspace registration deletion decision](../../implemented/feature/2026-07-27-workspace-registration-deletion.md) ships `ctx.workspaceRegistry.delete(id)` as a metadata-only operation that preserves Sessions and logs. Recursive Session deletion, running checks, and crash-rerun convergence belong to a separate `session.delete` capability.
+- **Session deletion remains future work.** The later [Workspace registration deletion decision](../../archived/feature/2026-07-27-workspace-registration-deletion.md) ships `ctx.workspaceRegistry.delete(id)` as a metadata-only operation that preserves Sessions and logs. Recursive Session deletion, running checks, and crash-rerun convergence belong to a separate `session.delete` capability.
 
 Consistency doctrine (the ledger = the only ownership authority; the implementation and test baseline):
 

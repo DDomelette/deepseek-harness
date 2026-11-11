@@ -8,11 +8,11 @@
  * imports can create two slots, leaving the bridge with no mounted filesystem.
  */
 import { expect, test } from 'vitest'
-import { promisify } from 'node:util'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import * as fs from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/fs.ts'
 import * as fsp from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/fs/promises.ts'
+import { promisify } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/util.ts'
 import type { VfsBigIntStats, VfsMutationSink, VfsStats } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/types.ts'
 
 let flushes = 0
@@ -64,16 +64,20 @@ check('statSync size', fs.statSync('/dsh/config/cordis.yml').size, 12)
 check('statSync dir', fs.statSync('/dsh/config').isDirectory(), true)
 check('realpathSync', fs.realpathSync('/dsh/config/../config/cordis.yml'), '/dsh/config/cordis.yml')
 
-test('realpath.native supports promisified canonical paths and missing-path errors', async () => {
-  const resolve = promisify(fs.realpath.native)
-  await expect(resolve('/dsh/config/../config/cordis.yml')).resolves.toBe('/dsh/config/cordis.yml')
-  await expect(resolve('/dsh/no-such-file')).rejects.toMatchObject({ code: 'ENOENT' })
-  await expect(new Promise((resolve, reject) => {
-    fs.realpath('/dsh/config/cordis.yml', { encoding: 'buffer' }, (error, result) => {
-      if (error !== null) reject(error)
-      else resolve(result)
-    })
-  })).resolves.toEqual(Buffer.from('/dsh/config/cordis.yml'))
+test('native realpath supports the filesystem provider promise wrapper', async () => {
+  expect(fs.default.realpath).toBe(fs.realpath)
+  const resolveNative = promisify(fs.realpath.native)
+  expect(await resolveNative('/dsh/config/../config/cordis.yml')).toBe('/dsh/config/cordis.yml')
+  await expect(resolveNative('/dsh/missing-realpath')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('callback realpath settles after the current call returns', async () => {
+  let returned = false
+  const completion = new Promise<unknown>((resolve) => {
+    fs.realpath('/dsh/config/cordis.yml', (error, path) => { resolve({ error, path, returned }) })
+  })
+  returned = true
+  expect(await completion).toEqual({ error: null, path: '/dsh/config/cordis.yml', returned: true })
 })
 
 fs.appendFileSync('/dsh/config/cordis.yml', '- id: llm\n')

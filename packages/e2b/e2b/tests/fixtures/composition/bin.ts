@@ -21,6 +21,7 @@ const unsupportedInboxMutation = (): never => {
 const owner: Agent = {
   id: ownerId,
   options: {},
+  get model(): Agent['model'] { throw new Error('the filesystem fixture does not select a model') },
   session,
   inbox: {
     nextTurn: [],

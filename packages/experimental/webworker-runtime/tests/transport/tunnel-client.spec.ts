@@ -32,14 +32,14 @@ type StubListener = (event: { data?: unknown; message?: string }) => void
 /** A worker stand-in: collects what the page sent, replays what the test delivers. */
 function stubWorker(): {
   worker: Worker
-  sent: { t: string; id: number }[]
+  sent: { t: string; id: number; body?: unknown }[]
   transfers: Transferable[][]
   deliver: (frame: unknown) => void
   fail: (message: string) => void
 } {
   const listeners: StubListener[] = []
   const errorListeners: StubListener[] = []
-  const sent: { t: string; id: number }[] = []
+  const sent: { t: string; id: number; body?: unknown }[] = []
   const transfers: Transferable[][] = []
   const worker = {
     addEventListener: (type: string, listener: StubListener) => {
@@ -50,7 +50,7 @@ function stubWorker(): {
       sent.push(frame as { t: string; id: number })
       transfers.push(transfer ?? [])
     },
-  } as unknown as Worker
+  } as Worker
   return {
     worker,
     sent,
@@ -66,7 +66,7 @@ function stubWorker(): {
   const tunnel = new WorkerTunnel(worker)
   const body = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
   void tunnel.fetch('/upload', { method: 'POST', body, duplex: 'half' } as RequestInit)
-  check('a stream request body stays intact', (sent[0] as unknown as { body: unknown }).body, body)
+  check('a stream request body stays intact', sent[0]?.body, body)
   check('a stream request body is transferred', transfers[0], [body])
 }
 
@@ -96,7 +96,7 @@ function stubWorker(): {
   const { worker, sent, deliver } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
   const response = tunnel.fetch('/api/session.list', { method: 'POST', body: '{"a":1}' })
-  const request = sent[0] as unknown as { t: string; id: number; method: string; url: string; body: ArrayBuffer }
+  const request = sent[0] as { t: string; id: number; method: string; url: string; body: ArrayBuffer }
   check('the request frame carries method and absolute url', [request.t, request.id, request.method, request.url],
     ['req', 1, 'POST', 'http://localhost:4173/api/session.list'])
   check('the request body travels as bytes', new TextDecoder().decode(request.body), '{"a":1}')
@@ -122,7 +122,7 @@ function stubWorker(): {
   const tunnel = new WorkerTunnel(worker)
   const body = new Blob(['large'])
   void tunnel.fetch('/upload', { method: 'POST', body })
-  check('a Blob request body stays opaque', (sent[0] as unknown as { body: unknown }).body, body)
+  check('a Blob request body stays opaque', sent[0]?.body, body)
 }
 
 // A streamed reply reassembles in order and closes.

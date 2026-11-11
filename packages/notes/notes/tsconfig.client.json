@@ -24,10 +24,10 @@
     "src/client/WorkspaceField.tsx",
     "src/client/WorkspaceGate.tsx",
     "src/css-modules.d.ts",
-    "src/client/title.ts",
-    "src/types.ts"
+    "src/client/title.ts"
   ],
   "references": [
+    { "path": "./tsconfig.shared.json" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../api/remotes/tsconfig.client.json" },
     { "path": "../../api/session-controller/tsconfig.client.json" },

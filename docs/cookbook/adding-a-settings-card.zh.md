@@ -8,9 +8,6 @@
 
 ```ts
 import type { Context, Volatile } from '@deepseek-ai/cordis'
-// The `loader/volatile-update` event below is declared by the Loader's own
-// module augmentation, so the fence names it to bring those types into scope.
-import type {} from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
 
 export interface Config {

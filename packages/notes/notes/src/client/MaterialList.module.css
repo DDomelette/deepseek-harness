@@ -41,8 +41,10 @@
   border-radius: 6px;
 }
 
-.row:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .row:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 /* The open material's card. */
@@ -88,10 +90,16 @@
   transition: max-width var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
-.row:hover .handles,
 .row:focus-within .handles {
   max-width: 220px;
   visibility: visible;
+}
+
+@media (hover: hover) {
+  .row:hover .handles {
+    max-width: 220px;
+    visibility: visible;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -100,9 +108,14 @@
   }
 }
 
-.row:hover .handles,
 .row:focus-within .handles {
   visibility: visible;
+}
+
+@media (hover: hover) {
+  .row:hover .handles {
+    visibility: visible;
+  }
 }
 
 .handle:focus-visible {
@@ -224,8 +237,10 @@
   cursor: pointer;
 }
 
-.archivedToggle:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .archivedToggle:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 /* An archived row stays dimmed until the reader takes it back. */
@@ -243,7 +258,9 @@
   opacity: 0.75;
 }
 
-.archivedRow:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-  opacity: 1;
+@media (hover: hover) {
+  .archivedRow:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    opacity: 1;
+  }
 }

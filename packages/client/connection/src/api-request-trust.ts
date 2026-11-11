@@ -4,13 +4,12 @@
  * the attacker's domain while the socket reaches this server) and cross-site
  * requests fired from a malicious page. The Host fence binds every request,
  * browser-looking or not: over plain HTTP a browser attaches neither Origin
- * nor Fetch-Metadata to reads (images and navigations — those
- * headers go only to trustworthy destinations), so an unmarked request may
- * still be a rebound browser read and Host is the one header rebinding cannot
- * forge. Non-browser and remote clients pass the same fence via loopback,
- * deployment-derived LAN IP literals, or a declared `trustedHosts` authority.
- * Network reachability and authentication stay out of scope: binding policy
- * belongs to the webserver config, and this fence is not an auth layer.
+ * nor Fetch-Metadata to reads (images and navigations — those headers go only
+ * to trustworthy destinations), so an unmarked request may still be a rebound
+ * browser read and Host is the one header rebinding cannot forge. Non-browser
+ * and remote clients pass the same fence via loopback, the listener's bind IP
+ * literal, or a declared `trustedHosts` authority. Binding policy belongs to
+ * the webserver config; this fence never establishes identity.
  */
 
 import { isLoopbackHostname } from './loopback-hostname.ts'
@@ -23,30 +22,18 @@ function header(headers: ConnectionTrustRequest['headers'], name: string): strin
 }
 
 /**
- * Normalize a bare authority under one HTTP(S) scheme.
- * @param authority - Host header or configured host[:port].
- * @param scheme - scheme whose default port is omitted by URL parsing.
- * @returns the parsed authority, or undefined when invalid.
+ * Normalized URL of a bare authority (hostname lowercased, default port
+ * stripped, IPv6 bracketed), or undefined when unparsable.
+ * @param authority - `host` or `host:port` text.
+ * @param scheme - special scheme to parse under; its default port is the one stripped.
  */
 function parseAuthority(authority: string, scheme: 'http:' | 'https:' = 'http:'): URL | undefined {
   try {
+    // http: and https: are WHATWG "special schemes": parsing yields a non-empty hostname or throws.
     return new URL(`${scheme}//${authority}`)
   } catch {
     return undefined
   }
-}
-
-/**
- * Whether one request authority is a declared `trustedHosts` entry: an exact
- * `host:port` matches that authority, a port-less `host` matches any port.
- * @param authority - canonical `host:port` of the request.
- * @param trustedHosts - non-loopback authorities this deployment serves.
- * @returns true when the authority is declared.
- */
-export function isDeclaredAuthority(authority: string, trustedHosts: readonly string[]): boolean {
-  const hostUrl = parseAuthority(authority)
-  if (hostUrl === undefined) return false
-  return isTrustedAuthority(hostUrl, trustedHosts)
 }
 
 /**
@@ -77,21 +64,19 @@ export function assertTrustedAuthority(entry: string): void {
  * shapes like `host:port ` as port-less.
  */
 function canonicalAuthority(entry: string, entryUrl: URL): string {
-  // An authority that parsed under http cannot fail under https.
-  const port = entryUrl.port !== '' ? entryUrl.port : new URL(`https://${entry}`).port
+  const port = entryUrl.port !== '' ? entryUrl.port : new URL(`${entryUrl.protocol === 'http:' ? 'https:' : 'http:'}//${entry}`).port
   return port === '' ? entryUrl.hostname : `${entryUrl.hostname}:${port}`
 }
 
 /**
  * Whether the request authority matches a `trustedHosts` entry. An entry with
  * an explicit port matches that exact authority; a port-less entry matches the
- * hostname on any port (the shape the CLI derives for IP-literal LAN serving,
- * where the bound port may be OS-assigned). Both sides compare through WHATWG
- * normalization, so case and a redundant `:80` never decide trust.
+ * hostname on any port. Both sides compare through WHATWG normalization,
+ * so case and a redundant scheme-default port never decide trust.
  */
-function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): boolean {
+function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[], protocol: 'http:' | 'https:'): boolean {
   return trustedHosts.some((entry) => {
-    const entryUrl = parseAuthority(entry)
+    const entryUrl = parseAuthority(entry, protocol)
     if (entryUrl === undefined) return false
     return canonicalAuthority(entry, entryUrl) === entryUrl.hostname
       ? entryUrl.hostname === hostUrl.hostname
@@ -100,16 +85,61 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
 }
 
 /**
+ * Check whether deployment configuration explicitly grants an authority.
+ * @param authority - request authority already normalized by the carrier.
+ * @param trustedHosts - validated host or host-and-port declarations.
+ * @param protocol - listener protocol used to normalize default ports.
+ * @returns true when one declaration matches the authority.
+ */
+export function isDeclaredAuthority(authority: string, trustedHosts: readonly string[], protocol: 'http:' | 'https:' = 'http:'): boolean {
+  const host = parseAuthority(authority, protocol)
+  return host !== undefined && isTrustedAuthority(host, trustedHosts, protocol)
+}
+
+/**
+ * Classify an authority already accepted by {@link assertTrustedAuthority}.
+ * @param entry - the configured authority, verbatim.
+ * @returns true unless the entry parses as a loopback hostname.
+ */
+export function isRemoteAuthority(entry: string): boolean {
+  const url = parseAuthority(entry)
+  return url === undefined || !isLoopbackHostname(url.hostname)
+}
+
+/**
+ * Whether a parsed authority names the deployment's own bind address. A browser
+ * dialing that literal sends it as Host, and accepting it grants nothing
+ * further: the literal is no rebinding target, the Origin and cross-site checks
+ * still apply. A bind address with a port matches that exact authority. A
+ * bare address matches any port. An IPv6 interface zone is local to the listener.
+ */
+function isBindAddressAuthority(hostUrl: URL, bindHost: string | undefined, protocol: 'http:' | 'https:'): boolean {
+  if (bindHost === undefined) return false
+  const bound = parseAuthority(bindHost, protocol)
+  if (bound !== undefined) {
+    return canonicalAuthority(bindHost, bound) === bound.hostname
+      ? bound.hostname === hostUrl.hostname
+      : bound.host === hostUrl.host
+  }
+  const zoneAt = bindHost.indexOf('%')
+  const address = zoneAt === -1 ? bindHost : bindHost.slice(0, zoneAt)
+  const bindUrl = parseAuthority(`[${address}]`, protocol)
+  return bindUrl !== undefined && bindUrl.hostname === hostUrl.hostname
+}
+
+/**
  * Decide whether one /api request may reach the RPC bridge.
  * @param request - Node HTTP or Fetch request facts (headers).
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
- * @param boundAuthority - the exact address this listener bound, which is ours as well.
- * @returns true when the Host is ours (loopback, trusted, or the bound address) and any attached browser markers are same-origin.
+ * @param bindHost - the listener's bind IP literal with an optional exact port.
+ * @param protocol - listener protocol for default Host ports; HTTP when no Web carrier is mounted.
+ * @returns true when the Host is ours (loopback, the bind address, or trusted) and any attached browser markers are same-origin.
  */
 export function isTrustedApiRequest(
   request: ConnectionTrustRequest,
   trustedHosts: readonly string[],
-  boundAuthority?: string,
+  bindHost?: string,
+  protocol: 'http:' | 'https:' = 'http:',
 ): boolean {
   // Host fence (DNS-rebinding defense), applied to every request: the browser
   // fills Host from the URL it believes it is talking to, so a rebound page
@@ -120,12 +150,11 @@ export function isTrustedApiRequest(
   // by the rebound page.
   const host = header(request.headers, 'host')
   if (host === undefined) return false
-  const hostUrl = parseAuthority(host)
+  const hostUrl = parseAuthority(host, protocol)
   if (hostUrl === undefined) return false
-  const bound = boundAuthority === undefined ? undefined : parseAuthority(boundAuthority)
   if (!isLoopbackHostname(hostUrl.hostname)
-    && !isTrustedAuthority(hostUrl, trustedHosts)
-    && (bound === undefined || (bound.hostname !== hostUrl.hostname || bound.port !== hostUrl.port))) return false
+    && !isTrustedAuthority(hostUrl, trustedHosts, protocol)
+    && !isBindAddressAuthority(hostUrl, bindHost, protocol)) return false
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.
   if (header(request.headers, 'sec-fetch-site') === 'cross-site') return false
@@ -137,6 +166,7 @@ export function isTrustedApiRequest(
   if (origin === undefined) return true
   return isSameAuthorityOrigin(origin, host)
 }
+
 /**
  * Compare Host under the Origin's HTTP(S) scheme so default ports normalize
  * consistently. The transport may remain HTTP behind an HTTPS proxy.

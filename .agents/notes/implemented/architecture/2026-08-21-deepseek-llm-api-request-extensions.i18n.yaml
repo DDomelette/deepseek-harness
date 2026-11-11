@@ -9,20 +9,20 @@
   en: 4945ce54f66df55c
   zh: 9fbd833c1d8122a7
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/decision:
-  en: 86f70d60cb43850b
-  zh: 74dae245cca0da6b
+  en: d2452e4a39db0b6b
+  zh: 87f7e0be1f613285
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/incremental-session-log-field:
-  en: 000313a068994672
-  zh: d2fb2cbac311ede0
+  en: 4e3138fbdd94259b
+  zh: 8fda801522045b88
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/plugin-package-field:
-  en: 3013bec3b28a724a
+  en: 0e51b8d8a1bd60fc
   zh: dd18fd176c3f101f
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/deferred-inventory-caching:
   en: eb69576e756f4aa1
   zh: 5c1923159da3f7a2
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/verification:
-  en: bb2a780f497ef87c
-  zh: 35bb237d13f6c877
+  en: ed730f117365f007
+  zh: a9a36702bc72a9f7
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/alternatives-considered:
   en: 5faf7699272f99b4
   zh: 7a402e24c80131cf
@@ -30,8 +30,8 @@
   en: 3f03c2028adf5814
   zh: c50f7f7b0af04655
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/alternatives-considered/why-not-omit-assistant-chunks-or-overlapping-event-data:
-  en: f99dd549a58b0097
-  zh: 0faccf10ff2a0c7c
+  en: b6eff63f49220dcc
+  zh: 8e4a6c785ed2256a
 /agent-note-deepseek-llm-api-request-extensions-for-session-logs-and-plugin-packages/consequences:
-  en: d3bbb3709dd460be
-  zh: de6a762d91d7d033
+  en: fed545acefb91f2a
+  zh: c474a94bb956bbf6

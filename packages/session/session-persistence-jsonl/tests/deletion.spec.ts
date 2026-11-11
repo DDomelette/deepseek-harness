@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SessionAlreadyOwnedError, SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
-import JsonlSessionPersistence from '../src/index.ts'
+import * as JsonlSessionPersistence from '../src/index.ts'
 import { generationLogPath, sessionDir } from '../src/format.ts'
 import { LEASE_FILENAME, SessionWriteLease } from '../src/lease.ts'
 import { meta, oneTurnLog } from '../../session-persistence/tests/contract.ts'

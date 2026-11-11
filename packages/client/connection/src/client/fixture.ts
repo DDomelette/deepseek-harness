@@ -49,6 +49,10 @@ import type {
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
+    /**
+     * Source label carried by browser fixture context.
+     * @persistenceAttribution
+     */
     fixture: { kind: 'fixture' } & ContextFormed
   }
 }

@@ -50,7 +50,7 @@ description: "受管理的子 agent activation 替代前台与 Job 后台委派�
 
    调用方投递不会发送父级完成通知。`result` 在清理结束后结算，包含 `output`、`stopReason` 以及可选的 `structured` 和 `diagnostic` 值；将结果视为成功前先检查 `stopReason`。发布后，启动信号不再控制取消：保留回执，通过 `dispose()` 取消该次 activation。`dispose()` 单独报告清理失败，不替换已捕获的执行结果。
 
-4. 删除驱动包依赖及其导入，包括 `startInProcessRun`。挂载现有的 Spawn 或 Fork 提供方，并按上例调用服务。自定义本地提供方按[提供方 API](../../../../docs/subsystems/subagent.zh.md)实现 `prepareContinuable()`；没有替代的独立驱动包。
+4. 删除驱动包依赖及其导入，包括 `startInProcessRun`。挂载现有的 Spawn 或 Fork 提供方，并按上例调用服务。自定义本地提供方按[提供方 API](../../../subsystems/subagent.zh.md)实现 `prepareContinuable()`；没有替代的独立驱动包。
 
    外部提供方保留 `start()`，但每次返回的 `SubagentRun.id` 必须在运行时内跨父级、提供方和本地 Session 保持唯一。为每次执行生成新的 id，替代父级独立计数器。
 

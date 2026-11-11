@@ -56,6 +56,8 @@ kind: "package-reference"
 
 普通 Web profile 已经拥有 `ctx.webServer`。把另一个 `dsh-host-webserver` 和此适配器挂载到仅隔离 `webServer` 的 group 内；适配器仍会继承凭据与 `webhookRuntime`。[GitHub 评审指南](../../../docs/user/guide/github-review.zh.md)在 TLS 反向代理后使用 `127.0.0.1:3081/github`，而 UI 继续位于端口 3080。
 
+示例的 overlay 与规则模块随本包发布，位于 `examples/github-review/`。先将本包及其 `dsh-webhook` peer 安装到 profile，再从该安装目录加载 overlay；[指南](../../../docs/user/guide/github-review.zh.md)给出完整命令。
+
 <a id="model-experience"></a>
 ## 模型体验
 
@@ -78,11 +80,11 @@ kind: "package-reference"
 <a id="dev-note"></a>
 ### 开发备注
 
+不发布不变量伴随模块，因为入口分派将会话与智能体的所有权交给对应服务，适配器不维护第二份持久会话注册表。
+
 <details>
 <summary>维护者工作上下文——点击展开</summary>
 
 无。
 
 </details>
-
-**运行时不变式：** 不发布伴生入口。authentication 与 input validation 在对应 HTTP 操作中完成；route/disposer 对称性由 `dsh-host-webserver` 负责。

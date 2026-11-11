@@ -8,13 +8,14 @@ This page is the developer reference: how to write an address, how to register a
 
 ## Addresses
 
-A resource address is a `dsh-resource://<type>/…` URL. The authority names the protocol and must be a key of `ResourceProtocolMap`; the path is the protocol's own, and its owner percent-encodes each segment. A protocol that needs a scope puts it in the path: the `file` protocol's addresses read `dsh-resource://file/session/<sessionId>/<path>`, where path is workspace-relative or absolute with its leading slashes preserved, built with `fileAddressFor(sessionId, cwd, path)` and read back with `parseFileAddress(address)` from [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.md). The model itself reads only the scheme and the authority: `protocolOf(address)` returns the lower-cased authority of a `dsh-resource://` address — the text between `://` and the first `/`, `?`, or `#` — and `undefined` for anything else. It reads that text itself rather than asking `new URL`, whose answer for a non-special scheme differs between engines ([engine variance](../../.agents/notes/implemented/bug-fix/2026-10-09-resource-address-authority.md)). Addresses under any other scheme — the Sidebar's `sidebar://guide` — name no resource and read as `none`.
+A resource address is a `dsh-resource://<type>/…` URL. The host names the protocol and must be a key of `ResourceProtocolMap`; the path is the protocol's own, and its owner percent-encodes each segment. A protocol that needs a scope puts it in the path: the `file` protocol's addresses read `dsh-resource://file/session/<sessionId>/<path>`, where path is workspace-relative or absolute with its leading slashes preserved, built with `fileAddressFor(sessionId, cwd, path)` and read back with `parseFileAddress(address)` from [`dsh-util-workspace-path`](../../packages/util/workspace-path/README.md). The model itself reads only the scheme and the host: `protocolOf(address)` returns the lower-cased host of a `dsh-resource://` URL and `undefined` for anything else. Addresses under any other scheme — the Sidebar's `sidebar://guide` — name no resource and read as `none`.
 
 | Address | Protocol key | Reads as |
 |---|---|---|
 | `dsh-resource://file/session/s1/notes/a.md` | `file` | the metadata of `notes/a.md` under session `s1`'s workspace root, when the `file` provider is registered |
 | `dsh-resource://file/absolute/home/me/notes.md` | `file` | parseable but fails with `workspace-file/unknown-workspace`: no authorizing Session, and neither current nor Tab Session is borrowed |
 | `DSH-RESOURCE://File/session/s1/a` | `file` | a distinct record: addresses compare as strings, and `openResource` accepts only the canonical lower-case spelling that `fileAddressFor` emits |
+| `dsh-resource://subagentchat/session/c1?parent=p1&mode=continuable` | `subagentchat` | an addressed subagent Conversation whose value owns a `SessionReference` until the resource closes |
 | `sidebar://guide` | — | `none`: a navigation address |
 | `/home/me/notes.md` | — | `none`: not a URL |
 
@@ -39,7 +40,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.resources.register<'note'>({
     protocol: 'note',
     async *open(address, { signal }): AsyncIterable<RemoteResult<NoteView>> {
-      const id = address.slice('dsh-resource://note/'.length)
+      const id = new URL(address).pathname.slice(1)
       yield await ctx.remote.notes.read(id, signal)
       for await (const change of ctx.remote.notes.follow(id, signal)) yield change
     },
@@ -84,7 +85,7 @@ A consumer presents `failed` itself: the model keeps the last value beside the f
 
 A resource is alive while it has a holder: a subscribed `useResource`, or a pin. `ctx.resources.pin(address, signal)` keeps a resource open without subscribing until `signal` aborts, and an already-aborted signal pins nothing; the right Sidebar pins every open tab record's address for the record's life, so switching tabs unmounts a body without closing its stream. The first holder opens the provider's stream; the last release aborts it, discards the value, and returns the snapshot to `loading` (provider present) or `none` (absent). A frame the provider yields after that release is dropped, and the iterator is returned. `ctx.resources.source(address)` is the bare observable behind the hook, reference-stable per address, for callers outside React; reading its snapshot does not hold the resource ([lifecycle](../../packages/client/resources/README.md#lifecycle)).
 
-Streams carry metadata, not content. The `file` provider's value is `WorkspaceFileStat { absolutePath, version, bytes? }`: the first frame comes from Host `stat`, and later observations update the version. A consumer reads content through the Workspace Files Remote namespace; Preview owns refresh independently per tab ([`dsh-api-workspace-files`](../../packages/api/workspace-files/README.md)).
+Most streams carry metadata rather than content. The `file` provider's value is `WorkspaceFileStat { absolutePath, version, bytes? }`: the first frame comes from Host `stat`, and later observations update the version. A consumer reads content through the Workspace Files Remote namespace; Preview owns refresh independently per tab ([`dsh-api-workspace-files`](../../packages/api/workspace-files/README.md)). The `subagentchat` provider retains the addressed Session and yields its `SessionReference`, then releases that reference when the resource signal aborts.
 
 ## Limits
 

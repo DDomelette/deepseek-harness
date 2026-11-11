@@ -61,7 +61,7 @@ describe.each(carriers)('SEA empty files: $name', ({ source }) => {
 
   it.each(codecs.filter(codec => codec.unpack !== null))('rejects bytes in a declared-empty $name entry', (codec) => {
     const reader = createReader(source, codec, Buffer.from('x'), 0)
-    expect(() => reader.readFileSync(file)).toThrow('non-empty data for empty file')
+    expect(() => reader.readFileSync(file)).toThrow(/corrupt SEA manifest/)
   })
 })
 

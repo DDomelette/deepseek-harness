@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionPersistenceCorruptionError } from '@deepseek-ai/dsh-session-persistence'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -55,8 +55,13 @@ describe.each(modes)('native message-source admission ($compression, $access)', 
     expect(await readFile(path)).toEqual(bytes)
   })
 
-  it('preserves external attribution and own JSON metadata without a producer installed', async () => {
-    const source = JSON.parse('{"kind":"external-producer","__proto__":{"retain":true},"metadata":{"count":1}}') as unknown
+  it.each([
+    ['external-producer', '{"kind":"external-producer","__proto__":{"retain":true},"metadata":{"count":1}}'],
+    ['notes', '{"kind":"notes"}'],
+    ['tool-cordis', '{"kind":"tool-cordis","form":"instructions"}'],
+    ['fixture', '{"kind":"fixture","form":"notice"}'],
+  ])('preserves %s attribution and JSON metadata without the producer', async (_kind, json) => {
+    const source: unknown = JSON.parse(json)
     const { ctx, path, bytes, event } = await stored(source)
     const handle = await ctx.sessionPersistence.open(id, access)
     try {

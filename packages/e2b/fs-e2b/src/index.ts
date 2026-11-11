@@ -4,11 +4,17 @@
  * @module @deepseek-ai/dsh-fs-e2b
  */
 
+import { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import { applyHunks } from '@deepseek-ai/dsh-fs-patch'
+import type { PatchHunk } from '@deepseek-ai/dsh-fs-patch'
 import { createHash, randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { posix } from 'node:path'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
+  FsDeleteOutcome,
+  FsMoveOutcome,
   FsDirEntry,
   FsEditOutcome,
   FsEditRequest,
@@ -167,9 +173,22 @@ function literalEdit(content: string, request: FsEditRequest, displayPath: strin
   return request.replaceAll ? content.split(oldString).join(newString) : content.replace(oldString, newString)
 }
 
+/** Bounds for optional before-text returned by remote mutations. */
+export interface Config {
+  /** Exclusive UTF-8 byte limit for a contextual before-text basis. @default 10485760 */
+  diffBasisMaxBytes: number
+}
+
 /** Remote filesystem backend sharing the sandbox owned by `ctx.e2b`. */
 export class E2BFileSystem extends FileSystem {
   static inject = ['e2b']
+  static Config = z.object({ diffBasisMaxBytes: z.number().min(0).step(1).default(10 * 1024 * 1024) }) as z<Config>
+
+  /**
+   * @param ctx - owner of the shared remote sandbox.
+   * @param config - validated mutation output bounds.
+   */
+  constructor(ctx: Context, public config: Config) { super(ctx) }
 
   private readonly locks = new Map<string, Promise<unknown>>()
 
@@ -448,30 +467,102 @@ export class E2BFileSystem extends FileSystem {
     })
   }
 
-  override async editText(
+  override editText(
     target: FsTarget,
     edit: FsEditRequest,
     expected?: { version: ReturnType<typeof FsVersion> },
     signal?: AbortSignal,
   ): Promise<FsEditOutcome> {
+    return this.transformText(target, before => literalEdit(before, edit, target.displayPath), expected, signal)
+  }
+
+  override patchText(
+    target: FsTarget,
+    hunks: readonly PatchHunk[],
+    expected?: { version: ReturnType<typeof FsVersion> },
+    signal?: AbortSignal,
+  ): Promise<FsEditOutcome> {
+    return this.transformText(target, before => this.patchContent(target, before, hunks), expected, signal)
+  }
+
+  override deleteFile(
+    target: FsTarget,
+    expected?: { version: ReturnType<typeof FsVersion> },
+    signal?: AbortSignal,
+  ): Promise<FsDeleteOutcome> {
     return this.withLock(String(target.targetKey), async () => {
-      const existing = await this.probe(String(target.targetKey), target.displayPath, signal)
-      if (existing === undefined) {
-        throw new FsError(`cannot edit "${target.displayPath}": file changed since it was read`, 'FS_STALE_VERSION')
+      await this.requireExpectedFile(target, expected, signal)
+      const before = await this.readForDiff(target, signal)
+      const sandbox = await this.ctx.e2b.getSandbox()
+      assertNotAborted(signal, 'delete')
+      try { await sandbox.files.remove(String(target.targetKey)) }
+      catch (error: unknown) { throw mapError(error, 'delete', target.displayPath, signal) }
+      return { before }
+    })
+  }
+
+  override async moveFile(source: FsTarget, destination: FsTarget, options: Parameters<FileSystem['moveFile']>[2], signal?: AbortSignal): Promise<FsMoveOutcome> {
+    if (source.targetKey === destination.targetKey) throw new FsError(`cannot move "${source.displayPath}" to itself`, 'FS_SAME_TARGET')
+    const sourceKey = String(source.targetKey)
+    const destinationKey = String(destination.targetKey)
+    const first = sourceKey < destinationKey ? sourceKey : destinationKey
+    const second = sourceKey < destinationKey ? destinationKey : sourceKey
+    return this.withLock(first, () => this.withLock(second, async () => {
+      const original = await this.requireExpectedFile(source, options.expectedSource, signal)
+      const existing = await this.probe(String(destination.targetKey), destination.displayPath, signal)
+      if (existing !== undefined && entryType(existing) !== 'file') throw new FsError(`cannot write "${destination.displayPath}": not a regular file`, 'FS_NOT_REGULAR_FILE')
+      this.checkWriteIntent(existing, options.expectedDestination, destination)
+      const raw = await this.readForEdit(source, signal)
+      const normalized = normalizeLineEndings(raw)
+      const after = options.hunks === undefined ? normalized : this.patchContent(source, normalized, options.hunks)
+      const content = restoreLineEndings(after, detectsCrlf(raw))
+      const sourceBefore = await this.readForDiff(source, signal)
+      const before = existing === undefined || Buffer.byteLength(content) >= this.config.diffBasisMaxBytes
+        ? null
+        : await this.readForDiff(destination, signal)
+      const sandbox = await this.ctx.e2b.getSandbox()
+      const version = await this.writeAtomic(destination, content, original, options.expectedDestination?.kind === 'createIfAbsent', signal)
+      const written: FsWriteOutcome = { operation: existing === undefined ? 'create' : 'update', version, before, after }
+      try { await sandbox.files.remove(String(source.targetKey)) }
+      catch (error: unknown) {
+        const failure = mapError(error, 'delete', source.displayPath)
+        return { sourceBefore, destination: written, sourceDeleted: false, sourceFailure: { code: failure.code, message: failure.message } }
       }
-      if (entryType(existing) !== 'file') {
-        throw new FsError(`cannot edit "${target.displayPath}": not a regular file`, 'FS_NOT_REGULAR_FILE')
-      }
-      if (expected !== undefined && entryVersion(existing) !== expected.version) {
-        throw new FsError(`cannot edit "${target.displayPath}": file changed since it was read`, 'FS_STALE_VERSION')
-      }
+      return { sourceBefore, destination: written, sourceDeleted: true }
+    }))
+  }
+
+  private async requireExpectedFile(
+    target: FsTarget,
+    expected?: { version: ReturnType<typeof FsVersion> },
+    signal?: AbortSignal,
+  ): Promise<EntryInfo> {
+    const existing = await this.probe(String(target.targetKey), target.displayPath, signal)
+    if (existing === undefined || expected !== undefined && entryVersion(existing) !== expected.version) throw new FsError(`cannot mutate "${target.displayPath}": file changed since it was read`, 'FS_STALE_VERSION')
+    if (entryType(existing) !== 'file') throw new FsError(`cannot mutate "${target.displayPath}": not a regular file`, 'FS_NOT_REGULAR_FILE')
+    return existing
+  }
+
+  private transformText(
+    target: FsTarget,
+    transform: (before: string) => string,
+    expected?: { version: ReturnType<typeof FsVersion> },
+    signal?: AbortSignal,
+  ): Promise<FsEditOutcome> {
+    return this.withLock(String(target.targetKey), async () => {
+      const existing = await this.requireExpectedFile(target, expected, signal)
       const raw = await this.readForEdit(target, signal)
       const before = normalizeLineEndings(raw)
-      const after = literalEdit(before, edit, target.displayPath)
-      const storage = restoreLineEndings(after, detectsCrlf(raw))
-      const version = await this.writeAtomic(target, storage, existing, false, signal)
+      const after = transform(before)
+      const version = await this.writeAtomic(target, restoreLineEndings(after, detectsCrlf(raw)), existing, false, signal)
       return { version, before, after }
     })
+  }
+
+  private patchContent(target: FsTarget, before: string, hunks: readonly PatchHunk[]): string {
+    const result = applyHunks(before, hunks)
+    if (!result.ok) throw new FsError(`cannot patch "${target.displayPath}": hunk at patch line ${result.failure.hunkLineNumber} (${result.failure.stage}) does not match`, 'FS_PATCH_MISMATCH')
+    return result.after
   }
 
   private async withLock<T>(targetKey: string, operation: () => Promise<T>): Promise<T> {
@@ -533,8 +624,11 @@ export class E2BFileSystem extends FileSystem {
   private async readForDiff(target: FsTarget, signal?: AbortSignal): Promise<string | null> {
     try {
       const sandbox = await this.ctx.e2b.getSandbox()
+      const info = await this.requireRegular(target, signal)
+      if (info.size !== undefined && info.size >= this.config.diffBasisMaxBytes) return null
       const bytes = await sandbox.files.read(String(target.targetKey), { format: 'bytes', ...signalOpts(signal) })
       assertNotAborted(signal, 'read')
+      if (bytes.byteLength >= this.config.diffBasisMaxBytes) return null
       return normalizeLineEndings(decodeText(bytes, target.displayPath, bytes.length))
     } catch (error: unknown) {
       if (error instanceof FsError && error.code === 'FS_NOT_TEXT') return null

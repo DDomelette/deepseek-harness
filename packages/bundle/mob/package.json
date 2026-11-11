@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-mob",
   "description": "Phone access for the DeepSeek Harness Web UI: the settings join entry and the LAN join-URL Remote namespace.",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -31,10 +31,12 @@
       "types": "./lib/typert.remote-client.d.ts",
       "default": "./lib/typert.remote-client.js"
     },
-    "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./src/*": "./src/*"
   },
   "files": [
+    "locale/*.json",
     "lib/index.js",
     "lib/client.js",
     "cordis.patch.yml",
@@ -88,7 +90,6 @@
     "@deepseek-ai/dsh-web-app": "workspace:*",
     "@testing-library/react": "^16.0.0",
     "@types/qrcode": "^1.5",
-    "@types/react": "~18.3.1",
     "qrcode": "^1.5",
     "react": "^18.2.0"
   }

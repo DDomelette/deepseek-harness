@@ -324,7 +324,7 @@ export function harness(script: {
   const controller = new AbortController()
   const useTabInfo = () => ({
     sidebar: { expanded: true, fullscreen: false },
-    panel: { id: 'pane-1' as PaneId, floating: script.floating ?? false },
+    panel: { id: 'pane-1' as PaneId, isFloating: script.floating ?? false },
     tab: {
       id: 'tab-1' as TabId,
       kind: 'notes',

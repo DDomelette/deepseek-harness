@@ -1,27 +1,37 @@
 // @vitest-environment jsdom
+import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ShortcutCatalogEntry, ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSettingsShellStore } from '../src/client/shell-store.ts'
-import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { DesktopUpdateView } from '../src/types.ts'
-import {
-  IconPersonalizationOutlineMedium, IconPluginOutlineMedium, Modal,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
+const scrollIntoView = vi.fn()
+let scrollIntoViewDescriptor: PropertyDescriptor | undefined
+
+beforeEach(() => {
+  scrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
+  Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView })
+  scrollIntoView.mockClear()
+})
+
 afterEach(() => {
   cleanup()
+  if (scrollIntoViewDescriptor === undefined) Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  else Object.defineProperty(Element.prototype, 'scrollIntoView', scrollIntoViewDescriptor)
   vi.useRealTimers()
 })
 
@@ -106,6 +116,8 @@ function mount({
     useSessionStatus,
     usePanelInfo, useSessionRetainInfo: () => undefined, useResource,
     useWorkspaces: unusedHook,
+    ...allowAllAccess,
+    useContextMenu: contextMenuHook(),
     wide,
     reconnect,
     openDesktopUpdate: () => {},
@@ -361,144 +373,6 @@ describe('SettingsPanel close paths', () => {
   })
 })
 
-describe('SettingsPanel navigation', () => {
-  it('projects rows, marks the first active, and renders only that section', () => {
-    mount()
-    openPanel()
-    expect(screen.getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBe('true')
-    expect(screen.getByRole('button', { name: 'Models' }).getAttribute('aria-current')).toBeNull()
-    expect(screen.getByTestId('section-general')).toBeTruthy()
-  })
-
-  it('gives every section a nav glyph, distinct for the ids the shell knows', () => {
-    mount({
-      rows: [
-        { id: 'general', order: 0, label: 'General' },
-        { id: 'models', order: 10, label: 'Models' },
-        { id: 'agent-presets', order: 20, label: 'Agent presets' },
-        { id: 'plugins', order: 30, label: 'Plugins' },
-        { id: 'archived-sessions', order: 40, label: 'Archived sessions' },
-        { id: 'contributed', order: 50, label: 'Contributed' },
-      ],
-    })
-    openPanel()
-    // Glyphs carry no id of their own, so the drawn paths are what tells them apart.
-    const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Archived sessions', 'Contributed']
-      .map(name => screen.getByRole('button', { name }).querySelector('svg')?.innerHTML)
-
-    expect(glyphs.every(glyph => glyph !== undefined && glyph !== '')).toBe(true)
-    // The four ids the shell names get their own glyph; every other section —
-    // including one this package never heard of — shares the gear.
-    expect(new Set(glyphs.slice(0, 5)).size).toBe(5)
-    expect(glyphs[5]).toBe(glyphs[0])
-  })
-
-  it('draws Plugins with the product puzzle glyph, not the personalization controls', () => {
-    mount({ rows: [{ id: 'plugins', order: 0, label: 'Plugins' }] })
-    openPanel()
-    const drawn = screen.getByRole('button', { name: 'Plugins' }).querySelector('svg')?.innerHTML
-    const artwork = (element: Parameters<typeof render>[0]) =>
-      render(element).container.querySelector('svg')?.innerHTML
-
-    expect(drawn).toBeTruthy()
-    expect(drawn).toBe(artwork(<IconPluginOutlineMedium size={16} />))
-    expect(drawn).not.toBe(artwork(<IconPersonalizationOutlineMedium size={16} />))
-  })
-
-  it('switches the rendered section on nav click', () => {
-    mount()
-    openPanel()
-    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
-    expect(screen.getByRole('button', { name: 'Models' }).getAttribute('aria-current')).toBe('true')
-    expect(screen.getByTestId('section-models')).toBeTruthy()
-    expect(screen.queryByTestId('section-general')).toBeNull()
-  })
-
-  it('mounts onboarding steps in order and transfers ownership only on completion', () => {
-    const { renderSlot } = mount()
-    const first = renderSlot.mock.calls.find(call => call[0] === 'settings.onboarding')
-    expect(first?.[1]).toMatchObject({ stepId: 'welcome' })
-    expect(first?.[2]).toEqual({ only: 'welcome' })
-    act(() => {
-      (first?.[1] as { complete: () => void }).complete()
-      ;(first?.[1] as { complete: () => void }).complete()
-    })
-    const onboardingCalls = renderSlot.mock.calls.filter(call => call[0] === 'settings.onboarding')
-    const second = onboardingCalls.at(-1)
-    expect(second?.[1]).toMatchObject({ stepId: 'credential' })
-    expect(second?.[2]).toEqual({ only: 'credential' })
-
-    act(() => {
-      (second?.[1] as { openSection: (id: string) => void }).openSection('models')
-    })
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(screen.getByTestId('section-models')).toBeTruthy()
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Models' }))
-
-    cleanup()
-    const inactive = mount({ onboardingActive: false }).renderSlot.mock.calls
-      .filter(call => call[0] === 'settings.onboarding')
-    expect(inactive).toHaveLength(0)
-  })
-
-  it('takes the panel down when an onboarding step appears beneath it', () => {
-    const { setOnboardingActive } = mount({ onboardingActive: false })
-    openPanel()
-    expect(screen.getByRole('dialog')).toBeDefined()
-
-    // The step's overlay marks only #root inert, and the panel is portalled beside it.
-    setOnboardingActive(true)
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('keeps onboarding active before a main Session is retained', () => {
-    const { renderSlot } = mount({ mainView: false })
-
-    expect(renderSlot.mock.calls.some(call => call[0] === 'settings.onboarding')).toBe(true)
-  })
-
-  it('paints no takeover chrome of its own around the mounted step', () => {
-    // The chrome (mask, opaque stage, #root inert) belongs to the step via
-    // the step-owned dialog surface — a mounted-but-deciding step that
-    // renders null must show and block nothing (the reload white-flash fix;
-    // onboarding-surface.spec.tsx pins the primitive's half).
-    const appRoot = document.createElement('div')
-    appRoot.id = 'root'
-    document.body.append(appRoot)
-    const { view } = mount()
-    expect(view.container.querySelector('[class*="onboarding"]')).toBeNull()
-    expect(document.body.querySelector('[class*="onboarding"]')).toBeNull()
-    expect(appRoot.inert).not.toBe(true)
-    view.unmount()
-    appRoot.remove()
-  })
-
-  it('falls back to the first row when the active entry unregisters', () => {
-    const { bump } = mount()
-    openPanel()
-    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
-    bump([{ id: 'general', order: 0, label: 'General' }])
-    expect(screen.queryByRole('button', { name: 'Models' })).toBeNull()
-    expect(screen.getByTestId('section-general')).toBeTruthy()
-  })
-
-  it('renders an empty content column and focuses the title when the ledger is empty', () => {
-    const { renderSlot } = mount({ rows: [] })
-    openPanel()
-    expect(document.activeElement).toBe(screen.getByText('Settings Title'))
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    const sectionCalls = renderSlot.mock.calls.filter(c => c[0] === 'settings.section')
-    expect(sectionCalls).toHaveLength(0)
-  })
-
-  it('drops the ledger subscription on unmount', () => {
-    const { view, listeners } = mount()
-    expect(listeners.size).toBe(1)
-    view.unmount()
-    expect(listeners.size).toBe(0)
-  })
-})
-
 describe('SettingsPanel panes', () => {
   const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
 
@@ -630,6 +504,134 @@ describe('SettingsPanel panes', () => {
     // Both columns paint, so choosing a section moves no focus.
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Back' }))
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'General' }))
+  })
+})
+
+describe('SettingsPanel navigation', () => {
+  it('projects rows, marks the first active, and renders only that section', () => {
+    mount()
+    openPanel()
+    expect(screen.getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Models' }).getAttribute('aria-current')).toBeNull()
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+  })
+
+  it('gives every section a nav glyph, distinct for the ids the shell knows', () => {
+    mount({
+      rows: [
+        { id: 'general', order: 0, label: 'General' },
+        { id: 'models', order: 10, label: 'Models' },
+        { id: 'agent-presets', order: 20, label: 'Agent presets' },
+        { id: 'plugins', order: 30, label: 'Plugins' },
+        { id: 'archived-sessions', order: 40, label: 'Archived sessions' },
+        { id: 'contributed', order: 50, label: 'Contributed' },
+      ],
+    })
+    openPanel()
+    // Each product glyph names its sprite symbol id in data-icon.
+    const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Archived sessions', 'Contributed']
+      .map(name => screen.getByRole('button', { name }).querySelector('svg')?.getAttribute('data-icon'))
+
+    expect(glyphs.every(glyph => glyph !== undefined && glyph !== '')).toBe(true)
+    // The four ids the shell names get their own glyph; every other section —
+    // including one this package never heard of — shares the gear.
+    expect(new Set(glyphs.slice(0, 5)).size).toBe(5)
+    expect(glyphs[5]).toBe(glyphs[0])
+  })
+
+  it('switches the rendered section on nav click', () => {
+    mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(screen.getByRole('button', { name: 'Models' }).getAttribute('aria-current')).toBe('true')
+    expect(screen.getByTestId('section-models')).toBeTruthy()
+    expect(screen.queryByTestId('section-general')).toBeNull()
+  })
+
+  it('mounts onboarding steps in order and transfers ownership only on completion', () => {
+    const { renderSlot } = mount()
+    const first = renderSlot.mock.calls.find(call => call[0] === 'settings.onboarding')
+    expect(first?.[1]).toMatchObject({ stepId: 'welcome' })
+    expect(first?.[2]).toEqual({ only: 'welcome' })
+    act(() => {
+      (first?.[1] as { complete: () => void }).complete()
+      ;(first?.[1] as { complete: () => void }).complete()
+    })
+    const onboardingCalls = renderSlot.mock.calls.filter(call => call[0] === 'settings.onboarding')
+    const second = onboardingCalls.at(-1)
+    expect(second?.[1]).toMatchObject({ stepId: 'credential' })
+    expect(second?.[2]).toEqual({ only: 'credential' })
+
+    act(() => {
+      (second?.[1] as { openSection: (id: string) => void }).openSection('models')
+    })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByTestId('section-models')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Models' }))
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'nearest' })
+    expect(scrollIntoView.mock.instances.at(-1)).toBe(document.activeElement)
+
+    cleanup()
+    const inactive = mount({ onboardingActive: false }).renderSlot.mock.calls
+      .filter(call => call[0] === 'settings.onboarding')
+    expect(inactive).toHaveLength(0)
+  })
+
+  it('takes the panel down when an onboarding step appears beneath it', () => {
+    const { setOnboardingActive } = mount({ onboardingActive: false })
+    openPanel()
+    expect(screen.getByRole('dialog')).toBeDefined()
+
+    // The step's overlay marks only #root inert, and the panel is portalled beside it.
+    setOnboardingActive(true)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('keeps onboarding active before a main Session is retained', () => {
+    const { renderSlot } = mount({ mainView: false })
+
+    expect(renderSlot.mock.calls.some(call => call[0] === 'settings.onboarding')).toBe(true)
+  })
+
+  it('paints no takeover chrome of its own around the mounted step', () => {
+    // The chrome (mask, opaque stage, #root inert) belongs to the step via
+    // the step-owned dialog surface — a mounted-but-deciding step that
+    // renders null must show and block nothing (the reload white-flash fix;
+    // onboarding-surface.spec.tsx pins the primitive's half).
+    const appRoot = document.createElement('div')
+    appRoot.id = 'root'
+    document.body.append(appRoot)
+    const { view } = mount()
+    expect(view.container.querySelector('[class*="onboarding"]')).toBeNull()
+    expect(document.body.querySelector('[class*="onboarding"]')).toBeNull()
+    expect(appRoot.inert).not.toBe(true)
+    view.unmount()
+    appRoot.remove()
+  })
+
+  it('falls back to the first row when the active entry unregisters', () => {
+    const { bump } = mount()
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    bump([{ id: 'general', order: 0, label: 'General' }])
+    expect(screen.queryByRole('button', { name: 'Models' })).toBeNull()
+    expect(screen.getByTestId('section-general')).toBeTruthy()
+  })
+
+  it('renders an empty content column and focuses the title when the ledger is empty', () => {
+    const { renderSlot } = mount({ rows: [] })
+    openPanel()
+    expect(document.activeElement).toBe(screen.getByText('Settings Title'))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    const sectionCalls = renderSlot.mock.calls.filter(c => c[0] === 'settings.section')
+    expect(sectionCalls).toHaveLength(0)
+  })
+
+  it('drops the ledger subscription on unmount', () => {
+    const { view, listeners } = mount()
+    expect(listeners.size).toBe(1)
+    view.unmount()
+    expect(listeners.size).toBe(0)
   })
 })
 

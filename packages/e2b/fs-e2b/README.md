@@ -59,6 +59,8 @@ Relative paths resolve against the caller's working directory or the sandbox's s
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
+The provider implements guarded `patchText`, `deleteFile`, and `moveFile` operations. Patch application uses the shared filesystem patch library and preserves line endings. `diffBasisMaxBytes` defaults to 10 MiB and excludes files at or above the limit from returned diff text. Moves lock both targets in a stable order, check source and destination versions before publication, and retain the published destination when source removal fails; `sourceFailure` reports that partial completion.
+
 <details>
 <summary>Implementation internals — click to expand</summary>
 

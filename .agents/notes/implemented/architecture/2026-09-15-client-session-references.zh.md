@@ -28,7 +28,7 @@ Client Session 对象、Agent 作用域的 Client Context、引用、使用方�
 | Conversation 与 Sidebar 子树 | 只消费所在 Provider 的 Session，不读取主区域引用或全局选择 |
 | Client Gateway | 处理 Host 事件时调用期的 Context 所有权 |
 
-[Client 分层设计](../../implemented/architecture/2026-08-20-client-session-conversation-ownership.zh.md)定义数据、适配器、渲染器与展示层的单向依赖。引用来源统计不会使 Controller 依赖 UI 包。
+[Client 分层设计](2026-08-20-client-session-conversation-ownership.zh.md)定义数据、适配器、渲染器与展示层的单向依赖。引用来源统计不会使 Controller 依赖 UI 包。
 
 [空白 Session 决策](2026-09-17-process-local-blank-sessions.zh.md)负责创建与复用；本决策负责显式 Provider 引用与收养。
 

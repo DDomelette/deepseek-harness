@@ -3,29 +3,29 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/experimental/session-search/README.md
 /:
-  en: ac0fb71830f58337
+  en: c8e3f38d9f1a4e2f
   zh: 0ece950cf48261a1
 /deepseek-ai-dsh-experimental-session-search:
   en: f4f9c83d1dd36580
   zh: f34e5a1c0df5e469
 /deepseek-ai-dsh-experimental-session-search/summary:
-  en: 3461520fc9a6b225
-  zh: aeedca620262e8ae
+  en: b97bf7f544470659
+  zh: ca0cc17a5806963f
 /deepseek-ai-dsh-experimental-session-search/table-of-contents:
   en: d152484eb41ac6b4
   zh: 988e839059414d27
 /deepseek-ai-dsh-experimental-session-search/use-this-package:
-  en: 29e4de34bed1ed2e
-  zh: 539638a62c0a99c3
+  en: 5ab81c3861e28980
+  zh: da1a615153b4ea4b
 /deepseek-ai-dsh-experimental-session-search/understand-the-implementation:
   en: 7c40cb34ffc89ed4
   zh: ce6ff516434ba582
 /deepseek-ai-dsh-experimental-session-search/further-exploration:
-  en: fcd73e6db7e973cd
-  zh: b158af8273d11df0
+  en: 3016959b8c0546d0
+  zh: a356ef50b3ce9f77
 /deepseek-ai-dsh-experimental-session-search/model-experience:
-  en: e01cb02606d75f9c
-  zh: 38709ef0209996ac
+  en: 00d8bdccc42b1f10
+  zh: 3264a962cff8127e
 /deepseek-ai-dsh-experimental-session-search/model-experience/kv-cache-effect:
   en: 25f20eda0e696067
   zh: 378c4a15a5704ba0

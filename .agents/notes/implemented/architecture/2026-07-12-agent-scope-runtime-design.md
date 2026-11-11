@@ -6,7 +6,7 @@ English | [中文](2026-07-12-agent-scope-runtime-design.zh.md)
 
 ## Problem
 
-The [agent-scope contract](2026-07-08-agent-scope-contexts.md) is simple for contributors: register through `agent.ctx`, resolve one global-plus-agent view, publish only after setup, and retain the scope until work stops. The runtime must preserve that contract across a cooperative plugin framework, asynchronous creation, reentrant listeners, durable session commits, and worker or process failure.
+The [agent-scope contract](../../archived/architecture/2026-07-08-agent-scope-contexts.md) is simple for contributors: register through `agent.ctx`, resolve one global-plus-agent view, publish only after setup, and retain the scope until work stops. The runtime must preserve that contract across a cooperative plugin framework, asynchronous creation, reentrant listeners, durable session commits, and worker or process failure.
 
 The main design risk is adding a second mechanism for every race. Separate reservations, readiness sentinels, cancellation relays, snapshot layers, and protection registries can mirror the same fact until no reader can tell which one is authoritative. That machinery also encourages the runtime to treat trusted typed calls as hostile serialization boundaries.
 
@@ -30,7 +30,7 @@ The design can be skimmed as seven choices:
 
 The rest of this Agent Note expands those choices in dependency order: Cordis mechanics, scope routing, creation and session commit, tools and prompts, subagents and workflows, then executable checks.
 
-The [July 8 Agent Note](2026-07-08-agent-scope-contexts.md) remains the contributor contract. The separate [subagent composition-controls Agent Note](../feature/2026-07-12-subagent-persona-tool-filter-and-depth.md) owns `persona`, `toolFilter`, and `maxDepth`; this document discusses only how their setup fits the lifecycle.
+The [July 8 Agent Note](../../archived/architecture/2026-07-08-agent-scope-contexts.md) remains the contributor contract. The separate [subagent composition-controls Agent Note](../feature/2026-07-12-subagent-persona-tool-filter-and-depth.md) owns `persona`, `toolFilter`, and `maxDepth`; this document discusses only how their setup fits the lifecycle.
 
 ## Cordis model: context, fiber, effect, receiver, and waterfall
 
@@ -338,7 +338,7 @@ Behavioral tests pin scoped routing and disposal, final-entry collision cleanup,
 
 ## Alternatives considered
 
-The [July 8 Agent Note](2026-07-08-agent-scope-contexts.md#alternatives-considered) owns alternatives to the public flat-scope contract. The alternatives here concern implementation shape.
+The [July 8 Agent Note](../../archived/architecture/2026-07-08-agent-scope-contexts.md#alternatives-considered) owns alternatives to the public flat-scope contract. The alternatives here concern implementation shape.
 
 ### Use a transparent proxy as the scope carrier
 
@@ -391,4 +391,4 @@ A trusted `system-prompt/assemble` listener can remove or replace PTC mode and s
 
 The design trusts typed plugins in the same process. It does not defend against arbitrary casts, stateful getters, mutation that violates readonly contracts, or a plugin deliberately using ambient service access outside the supported composition API.
 
-The [security and authority non-goal](2026-07-08-agent-scope-contexts.md#security-and-authority-are-non-goals) remains fundamental. These mechanisms prove registration composition, publication, and lifetime ownership; they do not prove confinement or parent-to-child non-escalation.
+The [security and authority non-goal](../../archived/architecture/2026-07-08-agent-scope-contexts.md#security-and-authority-are-non-goals) remains fundamental. These mechanisms prove registration composition, publication, and lifetime ownership; they do not prove confinement or parent-to-child non-escalation.

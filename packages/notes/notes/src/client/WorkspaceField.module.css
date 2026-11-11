@@ -96,8 +96,10 @@
   cursor: pointer;
 }
 
-.browserEntry:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .browserEntry:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .browserActions {

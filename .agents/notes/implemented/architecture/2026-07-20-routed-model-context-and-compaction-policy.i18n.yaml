@@ -12,23 +12,23 @@
   en: a15c7c13f167e5ac
   zh: 63bcc2ef60c2f344
 /agent-note-routed-model-context-and-compaction-policy/decision/adapters-own-exact-route-capacity:
-  en: c163ab65aa22cff0
-  zh: e000dca4960e6a36
+  en: 7bcf0ae2c74a0eb7
+  zh: bc0e04a25492d5ba
 /agent-note-routed-model-context-and-compaction-policy/decision/token-measurement-remains-model-agnostic:
   en: 51d1b39d06407320
   zh: 85c88f6b5d8508d6
 /agent-note-routed-model-context-and-compaction-policy/decision/compact-basic-resolves-a-target-spec:
-  en: 1a940ed17ec510d5
-  zh: 6e5fb808b59387f1
+  en: d8827f9fa70aa65f
+  zh: a9d29e05dcb0cfdb
 /agent-note-routed-model-context-and-compaction-policy/decision/target-specific-pressure-failures-preserve-optional-composition:
-  en: 8fc0f70c12b5d3bb
-  zh: ea6c1825835b4a2e
+  en: 1bd81ae0a1409e24
+  zh: 635c2937d5a94df7
 /agent-note-routed-model-context-and-compaction-policy/testing:
-  en: 092caa6999eaebc5
-  zh: a3ba2bff2fc8d415
+  en: 1ac13596df50571f
+  zh: 8605a6f0de049dfc
 /agent-note-routed-model-context-and-compaction-policy/alternatives-considered:
   en: 0ca0a4b1318188ec
   zh: de98cd4494a6c0d0
 /agent-note-routed-model-context-and-compaction-policy/consequences:
-  en: 44d336ff6b0fd6e3
-  zh: 94a867eef083c0d6
+  en: d00f83e85ba5e431
+  zh: 32665480f0cdc4ea

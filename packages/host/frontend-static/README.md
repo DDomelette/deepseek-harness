@@ -39,11 +39,13 @@ Compose this plugin in a browser-facing host that serves the built Web shell: it
 
 ### What the server enforces
 
-Requests are served from the dist root (the directory containing `distIndex`). The dist root and the configured index path render `index.html` with HTTP 200; any other existing file is served directly with its MIME type, and unknown extensions ship as `application/octet-stream`. A path that resolves outside the root is rejected with 403, so a crafted path cannot read files above the dist. An absent or non-file asset target inside the dist root — a missing file or a directory — returns an empty 404, while a missing configured index answers 404 naming the step that produces it (`pnpm run build`), because the readiness line already advertised a URL. Non-GET/HEAD requests without a matching named route are answered 405 with `Allow: GET, HEAD`. Every successful index response is rendered through the webserver's `renderIndex`, so the boot manifest reaches the page on `/` and on the configured index path.
+Requests are served from the dist root (the directory containing `distIndex`). The dist root and the configured index path render `index.html` with HTTP 200; any other existing file is served directly with its MIME type, and unknown extensions ship as `application/octet-stream`. A path that resolves outside the root is rejected with 403, so a crafted path cannot read files above the dist. An absent or non-file target inside the dist root — a missing file, a directory, or a missing configured index — returns an empty 404. Non-GET/HEAD requests without a matching named route are answered 405. The fallback is a webserver resource. Every successful index response is rendered through the webserver's `renderIndex` — for `connection.browserPeer`, the Peer Connection's browser authentication admits, over HTTP, and for `peer` in a `webServer.readResource(request, peer)` read, which skips browser authentication — so the boot manifest and that Peer's access snapshot reach the page on `/` and on the configured index path.
 
-Root and configured-index responses call `ctx.connection.authorizeIndex` before reading HTML. A valid process token receives a 303 redirect plus the persistent browser cookie; an existing valid cookie serves the index; a refusal on a loopback authority writes the Connection-owned 401. A refusal on any other authority returns the shell itself as a 401 carrying `__DSH_AUTH_REQUIRED__`, because the launch token is the computer's own credential: `@deepseek-ai/dsh-mob` reads that fact and tells the device to pair again. An authority the Host/Origin fence rejects receives the plain 401 text instead, so an untrusted name never receives the application. Non-index files remain public static assets. Connection owns the token, cookie, expiry, and signing-record semantics; the verdict vocabulary is its [`ConnectionIndexAccess`](../../client/connection/README.md#browser-authentication-and-request-trust).
+Root and configured-index requests pass the HTTP socket address to `ctx.connection.authorizeIndex` before reading HTML. A valid process token receives a 303 redirect with the persistent browser cookie. A valid cookie serves the index, and the response includes any device cookie renewal staged by Connection. An unauthenticated loopback request or a request that fails the Host and Origin checks receives a plain 401. An unauthenticated request from another trusted authority receives the shell with status 401 and `__DSH_AUTH_REQUIRED__`, which `@deepseek-ai/dsh-mob` uses to prompt for pairing. Connection owns the [authentication decisions](../../client/connection/README.md#browser-authentication-and-request-trust).
 
-`apply` also provides the `frontend` service: `renderIndex()` returns the same shell bytes an index response would carry, or `undefined` when the dist has no readable `index.html`. A Host route outside the fallback seat that must serve the application itself — a page a visitor reaches before holding any browser cookie — answers that undefined in its own response, exactly as the fallback answers the 404 above. That caller owns the route's own access rule, its boot facts, and its response headers; this package keeps serving everything the fallback already answers.
+Static files outside the index are public.
+
+Browsers revalidate every served file except the index. Such a response carries `cache-control: no-cache` and a weak ETag built from a SHA-1 of the file's bytes, so a file whose content changes gets a new ETag even when its name stays the same; a request whose `If-None-Match` equals the current ETag receives an empty 304. The rendered index carries no cache headers.
 
 ### Observable failures
 
@@ -59,7 +61,7 @@ Traversal returns 403 rather than an error page. An absent or non-file target in
 
 ### Design concept
 
-The package is one function plugin around `serveStatic`: `apply` resolves the dist root from `distIndex`, builds a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html`, provides it as the `frontend` service, and registers the fallback handler under an effect scope. The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
+The package is one function plugin around `serveStatic`, which maps a Fetch `Request` to a `Response`: `apply` resolves the dist root from `distIndex` and registers a fallback resource under an effect scope. For each request the resource passes `serveStatic` an `authorizeIndex` closure, which runs `ctx.connection.authorizeIndex` only when no Peer came with the request, and a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html` for that Peer or the browser Peer and splices the document base in after the opening head tag (after the raw taps, so it precedes their markup too). The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
 
 ### The traversal fence
 
@@ -69,7 +71,7 @@ The package is one function plugin around `serveStatic`: `apply` resolves the di
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | `serveStatic` and `apply`: fallback claim, traversal rejection, index rendering, MIME table |
+| [`src/index.ts`](src/index.ts) | `serveStatic` and `apply`: fallback resource, traversal rejection, index authorization and rendering, revalidation, MIME table |
 
 </details>
 

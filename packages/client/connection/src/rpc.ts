@@ -1,7 +1,7 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
+import type { PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
 import type { PairedDevice, RegisterDeviceRequest } from './device-types.ts'
 import type { PairedDeviceId } from './device-brand.ts'
 
@@ -117,6 +117,22 @@ export interface ConnectionTrustRequest {
 /** HTTP status returned before dispatch, or undefined when the request may proceed. */
 export type ConnectionRequestRejection = 401 | 403 | undefined
 
+
+
+/**
+ * What an index request is allowed to receive. A non-loopback client that holds
+ * no accepted session gets the application shell marked as needing
+ * authentication, because the computer's launch token never reaches it: on a
+ * LAN the only credential is a paired device cookie.
+ */
+export type ConnectionIndexAccess =
+  /** The caller serves the application shell. */
+  | 'serve'
+  /** Connection wrote the complete response: a token redirect, or the loopback 401. */
+  | 'answered'
+  /** The caller serves the shell, marked with the auth-required boot fact, as a 401. */
+  | 'auth-required'
+
 /** Root/index request facts used by the browser-token exchange. */
 export interface ConnectionIndexRequest extends ConnectionTrustRequest {
   readonly method?: string | undefined
@@ -136,25 +152,18 @@ export interface ConnectionIndexResponse {
   end(body?: string): unknown
 }
 
-/**
- * What an index request is allowed to receive. A non-loopback client that holds
- * no accepted session gets the application shell marked as needing
- * authentication, because the computer's launch token never reaches it: on a
- * LAN the only credential is a paired device cookie.
- */
-export type ConnectionIndexAccess =
-  /** The caller serves the application shell. */
-  | 'serve'
-  /** Connection wrote the complete response: a token redirect, or the loopback 401. */
-  | 'answered'
-  /** The caller serves the shell, marked with the auth-required boot fact, as a 401. */
-  | 'auth-required'
+/** Socket admission claims API ownership until its carrier calls release, including failed upgrades. */
+export type ConnectionAdmission =
+  | {
+    readonly peer: PeerScope
+    /** Remove and dispose an API Peer; browser releases leave the shared browser Peer intact. */
+    readonly release: () => Promise<void>
+  }
+  | { readonly rejection: 401 | 403 | 409 }
 
 /**
  * Handler invoked after Connection has decoded the transport envelope.
- * `peer` is the Peer the request was admitted as
- * ({@link HostConnectionHandle.admit}), so a handler that scopes work to the
- * caller reaches only that caller's registrations.
+ * `peer` is the Peer the carrier admitted or the in-process caller supplied.
  */
 export type ConnectionRpcHandler = (
   endpoint: string,
@@ -190,7 +199,11 @@ export interface ConnectionFetchRoute {
    * only `GET`/`HEAD`.
    */
   readonly requestBody: ConnectionRequestBodyMode
-  /** Handle one request after the physical carrier has applied its trust and authentication policy. */
+  /**
+   * Handle one request after the physical carrier has applied its trust and
+   * authentication policy. Only owner Peers reach an exact route; the shared
+   * handler answers 403 for every other principal.
+   */
   readonly fetch: (request: Request) => Promise<Response>
 }
 
@@ -237,14 +250,21 @@ export interface HostConnectionHandle {
   readonly rpc: HostConnectionRpc
   /** Exact Fetch routes for streaming or browser-native responses. */
   readonly fetch: HostConnectionFetch
+  /** The owner Peer every authenticated browser connection shares. */
+  readonly browserPeer: PeerScope
+
+  /**
+   * Whether this deployment accepts authorities beyond loopback: true only
+   * when a validated `trustedHosts` entry names a non-loopback hostname.
+   */
+  readonly allowsRemoteAuthorities: boolean
 
   /**
    * Compose exact Fetch routes and the shared-channel RPC interceptor.
    * @param channel - shared channel mounted by Connection.
-   * @param peer - Peer the admitted request speaks for, from {@link admit}.
    * @returns Fetch handler for trusted, authenticated requests.
    */
-  createSharedFetchHandler(channel: '/api', peer: PeerScope): ConnectionFetchHandler
+  createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler
 
   /**
    * Apply Connection's Host/Origin checks and browser authentication to
@@ -255,13 +275,9 @@ export interface HostConnectionHandle {
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
 
   /**
-   * Admit one request as the caller its credential names. A request that fails
-   * the Host/Origin fence or carries no accepted credential is refused with the
-   * same status {@link requestRejection} returns; every admitted request gets
-   * the Peer of its own authority class — the operator Peer for the loopback
-   * launch-token credential, that device's Peer for a paired-device cookie.
+   * Admit an HTTP request against its signed browser or API credential and live Peer.
    * @param request - request headers from the HTTP or upgrade request.
-   * @returns the admitted caller's Peer, or the rejection status.
+   * @returns the credential's Peer, or the rejection status.
    */
   admit(request: ConnectionTrustRequest): PeerAdmission
 
@@ -269,9 +285,25 @@ export interface HostConnectionHandle {
   readonly operator: PeerScope
 
   /**
-   * Authenticate one frontend index request. A valid loopback launch-token
-   * exchange or an existing accepted cookie is decided here; a client that
-   * holds none is told what it may serve instead.
+   * Create an independent in-process Peer, disposed with the Context that read `ctx.connection`.
+   * @param options - fixed principal and optional interaction participation (default `answer`).
+   * @returns a new Peer distinct from every other Peer.
+   */
+  createPeer(options: { readonly principal: Principal; readonly interactions?: 'answer' | 'none' }): PeerScope
+
+  /**
+   * Claim a physical socket for an API Peer; browser sockets share their owner Peer.
+   * @param request - authenticated upgrade request headers.
+   * @returns the Peer and idempotent release, or 409 for duplicate API ownership.
+   * The carrier releases on socket termination or failed upgrade; release removes
+   * API admission synchronously without cancelling independent HTTP calls.
+   */
+  admitConnection(request: ConnectionTrustRequest): ConnectionAdmission
+
+  /**
+   * Authenticate one frontend index request, owning a token redirect or 401.
+   * The cookie this mints is `Secure` when the mounted Web carrier serves TLS,
+   * which only that listener's protocol decides.
    * @param request - root or configured-index HTTP request.
    * @param response - response owned when the result is `answered`.
    * @returns whether the caller serves the shell, and under which marking.
@@ -295,6 +327,7 @@ export interface HostConnectionHandle {
 
   /** Paired-device registry and the device cookies the pairing handshake issues. */
   readonly devices: HostConnectionDevices
+
 }
 
 /**
@@ -385,9 +418,10 @@ export interface ConnectionFetchHandler {
   /**
    * Dispatch one already-authenticated request.
    * @param request - Fetch request below the shared channel.
-   * @returns the registered response or a 404 response.
+   * @param peer - Peer to dispatch as; required, never defaulted.
+   * @returns the registered response, a 403 response for an exact route and a non-owner Peer, or a 404 response.
    */
-  fetch(request: Request): Promise<Response>
+  fetch(request: Request, peer: PeerScope): Promise<Response>
 }
 
 /** Client caller for logical RPC channels carried by the current transport. */

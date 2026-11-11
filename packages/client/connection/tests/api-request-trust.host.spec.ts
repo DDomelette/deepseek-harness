@@ -14,6 +14,21 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ host: '192.168.1.6:3080' }), [], '192.168.1.5:3080')).toBe(false)
   })
 
+  it('uses the listener protocol for explicit bind ports', () => {
+    const origin = 'https://192.168.1.5'
+    expect(isTrustedApiRequest(request({ host: '192.168.1.5', origin }), [], '192.168.1.5:443', 'https:')).toBe(true)
+    expect(isTrustedApiRequest(request({ host: '192.168.1.5:8443' }), [], '192.168.1.5:443', 'https:')).toBe(false)
+  })
+
+  it('matches a bare IPv6 bind address independently of port and interface zone', () => {
+    const host = '[fe80::a]:3080'
+    for (const bindHost of ['fe80::a', 'fe80::a%eth0', '[fe80::a]']) {
+      expect(isTrustedApiRequest(request({ host }), [], bindHost), bindHost).toBe(true)
+    }
+    expect(isTrustedApiRequest(request({ host }), [], 'fe80::b')).toBe(false)
+    expect(isTrustedApiRequest(request({ host }), [], 'bad bind address')).toBe(false)
+  })
+
   it('compares Origin and Host under the Origin scheme, so HTTPS default ports normalize like HTTP ones', () => {
     // A browser omits the default port it dialed, while a proxy or a direct
     // client may still write it in Host: both spellings name one authority.

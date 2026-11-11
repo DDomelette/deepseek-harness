@@ -135,8 +135,10 @@
   cursor: pointer;
 }
 
-.template:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .template:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .template:focus-visible {

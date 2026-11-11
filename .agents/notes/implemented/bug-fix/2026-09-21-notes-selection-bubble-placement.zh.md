@@ -17,7 +17,7 @@ Status: implemented
 
 定位由 `SelectionBubble.tsx` 导出的纯函数 `placeBubble(viewport, anchor, size)` 计算：气泡对选区居中，但以 8px 边距钳制在视口内（气泡比视口还宽时改为居中而非钳制），上方空间放不下气泡加 8px 间距时翻到选区下方。组件在 `useLayoutEffect` 里量取已渲染气泡的自身尺寸——定位依赖这个尺寸，而它只在渲染后存在——React 在绘制前应用结果，因此不需要「定位前隐藏」状态。翻到下方通过 `data-notes-bubble-side` 属性表达，transform 留在样式表里。
 
-关闭行为遵循两条既有产品惯例。Escape：仅在气泡显示期间挂 document `keydown` 监听，用 `preventDefault()` 消费按键，并跳过已被 `defaultPrevented` 的 Escape——即最上层表面拥有 Escape 的惯例（[commit 21ee6424a1](https://github.com/deepseek-ai/deepseek-harness/commit/21ee6424a1)，如 `AppFrame` 跳过已被消费的 Escape）。滚动：气泡直接关闭而非跟随——fixed 定位的气泡要不逐帧重算就无法贴住滚动中的文本，而钳制在视口边缘、悬在无关文本上的气泡读起来就是缺陷；scroll 事件不冒泡，监听挂在 `window` 的捕获阶段，以便到达会话内部的滚动容器。窗口 resize 时选区仍在，因此气泡重新测量而不是关闭。
+关闭行为遵循两条既有产品惯例。Escape：仅在气泡显示期间挂 document `keydown` 监听，用 `preventDefault()` 消费按键，并跳过已被 `defaultPrevented` 的 Escape——即最上层表面拥有 Escape 的惯例（[overlay ownership](../../../../packages/client/ui-layout/README.zh.md)，如 `AppFrame` 跳过已被消费的 Escape）。滚动：气泡直接关闭而非跟随——fixed 定位的气泡要不逐帧重算就无法贴住滚动中的文本，而钳制在视口边缘、悬在无关文本上的气泡读起来就是缺陷；scroll 事件不冒泡，监听挂在 `window` 的捕获阶段，以便到达会话内部的滚动容器。窗口 resize 时选区仍在，因此气泡重新测量而不是关闭。
 
 z-index 改为 30，层级依据写进样式表注释：会话层 chrome 应在框架 overlay 层（20，AppFrame）与停靠右面板（10）之上、浮动窗口（60，FloatLayer）与 tooltip chrome（100，ui-primitives）之下。
 

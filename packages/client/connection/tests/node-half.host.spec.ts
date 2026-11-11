@@ -2,28 +2,36 @@
 import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
-import { Context } from '@deepseek-ai/cordis'
 import { scopeOf } from '@deepseek-ai/dsh-scope'
 import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
+import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
+import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import type { IndexInjection, WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH, Config, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
 import { BrowserAuth } from '../src/browser-auth.ts'
 import { PairedDeviceId } from '../src/device-brand.ts'
 import { PAIRED_DEVICES_RECORD_KEY } from '../src/devices.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
-import { provideBrowserCredentials, type RecordCredentials } from './browser-credentials.ts'
+import { provideBrowserCredentials, RecordCredentials } from './browser-credentials.ts'
+
+/** The Peer an index render speaks for; this listener reads no field of it. */
+const PAGE_PEER = { principal: { kind: 'owner' } } as Parameters<WebServer['renderIndex']>[1]
 
 /** Structural webServer fake recording both route registries. */
 function fakeHttpServer(
   routes: WebRoute[],
   upgrades: WebUpgradeRoute[],
-): Pick<WebServer, 'register' | 'registerUpgrade' | 'tapIndex' | 'port'> {
+  host = '127.0.0.1',
+  protocol: WebServer['protocol'] = 'http:',
+): Pick<WebServer, 'register' | 'registerUpgrade' | 'tapIndex' | 'port' | 'host' | 'protocol'> {
   return {
-    register(route) {
+    host,
+    protocol,
+    register(route: WebRoute) {
       if (routes.some(candidate => candidate.kind === route.kind && candidate.path === route.path)) {
         throw new Error(`duplicate route ${route.path}`)
       }
@@ -41,21 +49,21 @@ function fakeHttpServer(
 
 /** Bodyless GET carrying the given headers (enough for the trust fence + bridge). */
 function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session.list`): IncomingMessage {
-  const request = Readable.from([]) as unknown as IncomingMessage
+  const request = Readable.from([]) as IncomingMessage
   Object.assign(request, { url, method: 'GET', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** JSON POST carrying a complete client-request envelope. */
 function fakePost(headers: Record<string, string>, url: string, body: unknown): IncomingMessage {
-  const request = Readable.from([Buffer.from(JSON.stringify(body))]) as unknown as IncomingMessage
+  const request = Readable.from([Buffer.from(JSON.stringify(body))]) as IncomingMessage
   Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers }, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
 
 /** Raw POST for malformed-body and media-type boundary cases. */
 function fakeRawPost(headers: Record<string, string>, url: string, body: string): IncomingMessage {
-  const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
+  const request = Readable.from([Buffer.from(body)]) as IncomingMessage
   Object.assign(request, { url, method: 'POST', headers, socket: { remoteAddress: '127.0.0.1' } })
   return request
 }
@@ -91,11 +99,15 @@ function fakeResponse(): {
       this.writableEnded = true
       return this
     },
-  }) as unknown as ServerResponse
+  }) as ServerResponse
   return { response, state }
 }
 
-async function mounted(config?: ConnectionConfig): Promise<{
+async function mounted(
+  config?: ConnectionConfig,
+  protocol: WebServer['protocol'] = 'http:',
+  options: { credentials?: CredentialProvider; host?: string } = {},
+): Promise<{
   ctx: Context
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
@@ -106,8 +118,10 @@ async function mounted(config?: ConnectionConfig): Promise<{
   const ctx = new Context()
   const routes: WebRoute[] = []
   const upgrades: WebUpgradeRoute[] = []
-  const store = provideBrowserCredentials(ctx)
-  ctx.provide('webServer', fakeHttpServer(routes, upgrades) as WebServer)
+  const store = new RecordCredentials()
+  if (options.credentials === undefined) provideBrowserCredentials(ctx, store)
+  else ctx.provide('credentials', options.credentials)
+  ctx.provide('webServer', fakeHttpServer(routes, upgrades, options.host, protocol) as WebServer)
   const fiber = ctx.plugin({ inject: [...inject], apply }, config)
   await fiber.await()
   return {
@@ -164,9 +178,26 @@ describe('connection node half', () => {
     const ctx = new Context()
     provideBrowserCredentials(ctx)
     const fiber = ctx.plugin({ inject: [...inject], apply })
-    await fiber.await()
     try {
+      await fiber.await()
       const connection = ctx.get('connection') as HostConnectionHandle
+      const cookie = browserCookie(connection, 'localhost')
+      expect(connection.admit(fakeRequest({ host: 'localhost', cookie }))).toEqual({ peer: connection.browserPeer })
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('accepts the bind address of a web carrier attached after Connection', async () => {
+    const ctx = new Context()
+    const routes: WebRoute[] = []
+    const upgrades: WebUpgradeRoute[] = []
+    provideBrowserCredentials(ctx)
+    const fiber = ctx.plugin({ inject: [...inject], apply }, { trustedHosts: ['harness.example'] })
+    try {
+      await fiber.await()
+      const connection = ctx.get('connection') as HostConnectionHandle
+      ctx.provide('webServer', { ...fakeHttpServer(routes, upgrades), port: 3080 } as WebServer)
       expect(connection).toBeInstanceOf(Object)
       expect(connection.admit(fakeRequest({ host: '127.0.0.1:3080' }))).toEqual({ rejection: 401 })
     } finally {
@@ -178,7 +209,7 @@ describe('connection node half', () => {
     const { ctx, dispose } = await mounted({ recovery: { generationReadyTimeoutMs: 25_000 } })
     try {
       const rows: IndexInjection[] = []
-      ctx.emit('webserver/index-inject', rows)
+      ctx.emit('webserver/index-inject', rows, PAGE_PEER)
       expect(rows).toEqual([{
         kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
           backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
@@ -187,7 +218,7 @@ describe('connection node half', () => {
       }])
       await dispose()
       const after: IndexInjection[] = []
-      ctx.emit('webserver/index-inject', after)
+      ctx.emit('webserver/index-inject', after, PAGE_PEER)
       expect(after).toEqual([])
     } finally {
       await dispose()
@@ -232,9 +263,9 @@ describe('connection node half', () => {
     expect(upgrades).toHaveLength(0)
   })
 
-  it('registers only the HTTP route and removes it with the fiber', async () => {
+  it('registers the API and connect HTTP routes and removes them with the fiber', async () => {
     const { routes, upgrades, dispose } = await mounted()
-    expect(routes).toHaveLength(1)
+    expect(routes).toHaveLength(2)
     expect(routes[0]).toMatchObject({ kind: 'prefix', path: API_PATH })
     expect(upgrades).toHaveLength(0)
     await dispose()
@@ -251,6 +282,27 @@ describe('connection node half', () => {
     expect(state.status).toBe(403)
     expect(state.body).toBe('forbidden')
     await dispose()
+  })
+
+  it.each(['2001:db8::1', '[2001:db8::1]'])('uses the bound IPv6 authority and TLS declarations (%s)', async (host) => {
+    const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example:443'] }, 'https:', { host })
+    try {
+      const unpaired = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: '[2001:db8::1]:0' }), unpaired.response)
+      expect(unpaired.state.status).toBe(401)
+
+      const wrongPort = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: '[2001:db8::1]:444' }), wrongPort.response)
+      expect(wrongPort.state.status).toBe(403)
+
+      const token = new URL(connection.authenticatedUrl('https://harness.example/'))
+      const trusted = fakeResponse()
+      connection.authorizeIndex(fakeRequest({ host: 'harness.example' }, `/${token.search}`), trusted.response)
+      expect(trusted.state.status).toBe(303)
+      expect(trusted.state.headers?.['set-cookie']).toContain('; Secure')
+    } finally {
+      await dispose()
+    }
   })
 
   it('requires the same browser session for every method on every trusted authority', async () => {
@@ -473,7 +525,7 @@ describe('connection node half', () => {
     ctx.provide('webServer', fakeHttpServer(routes, []) as WebServer)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(routes).toHaveLength(1)
+    expect(routes).toHaveLength(2)
     expect(routes[0]).toMatchObject({ kind: 'prefix', path: API_PATH })
 
     const connection = ctx.get('connection') as HostConnectionHandle
@@ -510,7 +562,7 @@ describe('connection node half', () => {
     expect(() => connection.rpc.handle('/rpc', async () => ({ ok: true, value: null })))
       .toThrow(/duplicate route/)
     await remove()
-    expect(routes.map(candidate => candidate.path)).toEqual([API_PATH])
+    expect(routes.map(candidate => candidate.path)).toEqual([API_PATH, '/connect'])
     await fiber.dispose()
     expect(routes).toHaveLength(0)
   })
@@ -599,6 +651,48 @@ describe('connection node half', () => {
     await fiber.dispose()
   })
 
+  it('admits every trusted, authenticated request as the owner browser Peer and hands each call that Peer', async () => {
+    const { connection, routes, dispose } = await mounted({ trustedHosts: ['harness.example'] })
+    const peers: PeerScope[] = []
+    const remove = connection.rpc.intercept(
+      '/api',
+      () => true,
+      async (_endpoint, _payload, _signal, peer) => {
+        peers.push(peer)
+        return { ok: true, value: null }
+      },
+    )
+    expect(connection.admit(fakeRequest({ host: 'other.example' }))).toEqual({ rejection: 403 })
+    expect(connection.admit(fakeRequest({ host: '127.0.0.1:3080' }))).toEqual({ rejection: 401 })
+    const cookie = browserCookie(connection, '127.0.0.1:3080')
+    expect(connection.admit(fakeRequest({ host: '127.0.0.1:3080', cookie }))).toEqual({ peer: connection.browserPeer })
+
+    const route = routes.find(candidate => candidate.path === API_PATH)!
+    const request: ClientRequest = {
+      type: 'client-request',
+      rpcId: RpcId('rpc-peer'),
+      method: 'goals/create',
+      payload: { args: {} },
+    }
+    const answered = fakeResponse()
+    await route.handler(fakePost({ host: '127.0.0.1:3080', cookie }, '/api/goals/create', request), answered.response)
+    expect(JSON.parse(String(answered.state.body))).toMatchObject({ result: { ok: true, value: null } })
+    // A shell-owned carrier dispatches the shared handler without the bridge and speaks for the browser Peer too.
+    const direct = await connection.createSharedFetchHandler('/api').fetch(new Request('http://127.0.0.1:3080/api/goals/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    }), connection.browserPeer)
+    expect(direct.status).toBe(200)
+    expect(peers).toEqual([connection.browserPeer, connection.browserPeer])
+    expect(connection.browserPeer.principal).toEqual({ kind: 'owner' })
+
+    // Racing disposals share one completion, and the scope goes with the Connection.
+    await Promise.all([connection.browserPeer.dispose(), connection.browserPeer.dispose()])
+    await remove()
+    await dispose()
+  })
+
   it('applies the configured trust fence and JSON envelope checks to generic channels', async () => {
     const ctx = new Context()
     const routes: WebRoute[] = []
@@ -672,6 +766,206 @@ describe('connection node half', () => {
       .toThrow('invalid or reserved RPC channel')
     await remove()
     await fiber.dispose()
+  })
+})
+
+describe('operator-scoped connect', () => {
+  async function connect(
+    host: Awaited<ReturnType<typeof mounted>>,
+    query = '',
+    headers: Record<string, string> = {},
+  ): Promise<{ cookie: string; state: ReturnType<typeof fakeResponse>['state'] }> {
+    const token = new URL(host.connection.authenticatedUrl('http://localhost')).search
+    const response = fakeResponse()
+    await host.routes.find(route => route.path === '/connect')!.handler(
+      fakeRequest({ host: 'localhost', ...headers }, `/connect${token}${query}`), response.response,
+    )
+    const cookie = response.state.headers?.['set-cookie']
+    return { cookie: (Array.isArray(cookie) ? cookie[0] : cookie)?.split(';', 1)[0] ?? '', state: response.state }
+  }
+
+  function admitted(connection: HostConnectionHandle, cookie: string): PeerScope {
+    const admission = connection.admit(fakeRequest({ host: 'localhost', cookie }))
+    if ('rejection' in admission) throw new Error(`operator refused: ${admission.rejection}`)
+    return admission.peer
+  }
+
+  it('defaults API callers to none regardless of Accept and honors explicit declarations', async () => {
+    const host = await mounted()
+    try {
+      for (const [query, headers, interactions, status, location] of [
+        ['', {}, 'none', 302, './api/remote.mux'],
+        ['&interactions=none', {}, 'none', 302, './api/remote.mux'],
+        ['&interactions=answer', {}, 'answer', 302, './api/remote.mux'],
+        ['', { accept: 'text/html,application/xhtml+xml' }, 'none', 302, './api/remote.mux'],
+        ['&interactions=answer', { accept: 'text/html' }, 'answer', 302, './api/remote.mux'],
+      ] as const) {
+        const result = await connect(host, query, headers)
+        expect(result.state).toMatchObject({ status, headers: { location, 'cache-control': 'no-store' } })
+        expect(admitted(host.connection, result.cookie).interactions).toBe(interactions)
+      }
+      const rootCookie = browserCookie(host.connection, 'localhost')
+      expect(admitted(host.connection, rootCookie).interactions).toBe('answer')
+    } finally { await host.dispose() }
+  })
+
+  it('keeps all browser cookies on the shared operator and creates independent API operators', async () => {
+    const host = await mounted()
+    try {
+      const cookie = browserCookie(host.connection, 'localhost')
+      expect(admitted(host.connection, cookie)).toBe(host.connection.browserPeer)
+      expect(admitted(host.connection, browserCookie(host.connection, 'localhost'))).toBe(host.connection.browserPeer)
+      const api = await connect(host, '', { cookie })
+      expect(admitted(host.connection, api.cookie)).not.toBe(host.connection.browserPeer)
+      const second = await connect(host, '', { cookie: api.cookie })
+      expect(admitted(host.connection, second.cookie)).not.toBe(admitted(host.connection, api.cookie))
+      const denied = fakeResponse()
+      expect(host.connection.authorizeIndex(fakeRequest(
+        { host: 'localhost', cookie: api.cookie }, '/',
+      ), denied.response)).toBe('answered')
+      expect(denied.state.status).toBe(401)
+    } finally { await host.dispose() }
+  })
+
+  it('refuses invalid declarations, authentication, and untrusted connect requests without a cookie', async () => {
+    const host = await mounted()
+    try {
+      for (const query of ['&interactions=observe', '&interactions=', '&interactions=none&interactions=answer']) {
+        const result = await connect(host, query)
+        expect(result.state.status).toBe(400)
+        expect(result.cookie).toBe('')
+      }
+      for (const headers of [{ host: 'untrusted.example' }, { origin: 'http://untrusted.example' }]) {
+        expect((await connect(host, '', headers)).state.status).toBe(403)
+      }
+      const route = host.routes.find(route => route.path === '/connect')!
+      for (const request of [
+        fakeRequest({ host: 'localhost' }, '/connect?token=invalid'),
+        fakePost({ host: 'localhost' }, '/connect', {}),
+      ]) {
+        const response = fakeResponse()
+        await route.handler(request, response.response)
+        expect(response.state.status).toBe(401)
+        expect(response.state.headers?.['set-cookie']).toBeUndefined()
+      }
+    } finally { await host.dispose() }
+  })
+
+  it('refuses a captured connect request after the owning fiber is disposed', async () => {
+    const host = await mounted()
+    try {
+      const route = host.routes.find(candidate => candidate.path === '/connect')!
+      const request = fakeRequest({ host: 'localhost' }, host.connection.authenticatedUrl('http://localhost/connect'))
+      await host.dispose()
+      const response = fakeResponse()
+
+      await route.handler(request, response.response)
+
+      expect(response.state).toMatchObject({ status: 401, body: 'unauthorized' })
+      expect(response.response.writableEnded).toBe(true)
+    } finally { await host.dispose() }
+  })
+
+  it('dispatches HTTP before a socket and lets an admitted call finish after socket release', async () => {
+    const host = await mounted()
+    const finish = Promise.withResolvers<undefined>()
+    const started = Promise.withResolvers<AbortSignal>()
+    try {
+      const first = await connect(host)
+      const second = await connect(host)
+      const peer = admitted(host.connection, first.cookie)
+      expect(admitted(host.connection, second.cookie).id).not.toBe(peer.id)
+      host.connection.rpc.intercept('/api', () => true, async (_endpoint, _payload, signal, caller) => {
+        expect(caller).toBe(peer)
+        if (_endpoint === 'fixture/held') {
+          started.resolve(signal)
+          await finish.promise
+        }
+        return { ok: true, value: { id: caller.id } }
+      })
+      const api = host.routes.find(route => route.path === '/api')!
+      const post = (method: string): IncomingMessage => fakePost({ host: 'localhost', cookie: first.cookie }, `/api/${method}`, {
+        type: 'client-request', rpcId: 'connect-test', method, payload: {},
+      })
+      const beforeSocket = fakeResponse()
+      await api.handler(post('fixture/now'), beforeSocket.response)
+      expect(JSON.parse(String(beforeSocket.state.body))).toMatchObject({ result: { ok: true, value: { id: peer.id } } })
+
+      const pendingResponse = fakeResponse()
+      const pending = api.handler(post('fixture/held'), pendingResponse.response)
+      const signal = await started.promise
+      const owner = host.connection.admitConnection(fakeRequest({ host: 'localhost', cookie: first.cookie }))
+      if ('rejection' in owner) throw new Error('first socket was refused')
+      expect(owner.peer).toBe(peer)
+      expect(host.connection.admitConnection(fakeRequest({ host: 'localhost', cookie: first.cookie })))
+        .toEqual({ rejection: 409 })
+      expect(admitted(host.connection, first.cookie)).toBe(peer)
+      const cleanup = vi.fn()
+      peer.ctx.effect(() => cleanup)
+      const released = owner.release()
+      expect(host.connection.admit(fakeRequest({ host: 'localhost', cookie: first.cookie }))).toEqual({ rejection: 401 })
+      expect(owner.release()).toBe(released)
+      await released
+      expect(cleanup).toHaveBeenCalledOnce()
+      expect(signal.aborted).toBe(false)
+      finish.resolve(undefined)
+      await pending
+      expect(pendingResponse.state.status).toBe(200)
+      const afterSocket = fakeResponse()
+      await api.handler(post('fixture/now'), afterSocket.response)
+      expect(afterSocket.state.status).toBe(401)
+      expect(host.connection.admitConnection(fakeRequest({ host: 'localhost', cookie: first.cookie })))
+        .toEqual({ rejection: 401 })
+    } finally { finish.resolve(undefined); await host.dispose() }
+  })
+
+  it('retains unused operators for arbitrary elapsed time but rejects expired cookies', async () => {
+    const host = await mounted({ cookieMaxAgeDays: 36_500 })
+    vi.useFakeTimers()
+    try {
+      const { cookie } = await connect(host)
+      const peer = admitted(host.connection, cookie)
+      await vi.advanceTimersByTimeAsync(10 * 365 * 86_400_000)
+      expect(admitted(host.connection, cookie)).toBe(peer)
+      const disposed = vi.fn()
+      peer.ctx.effect(() => disposed)
+      await vi.advanceTimersByTimeAsync(100 * 365 * 86_400_000)
+      expect(host.connection.admit(fakeRequest({ host: 'localhost', cookie }))).toEqual({ rejection: 401 })
+      expect(disposed).not.toHaveBeenCalled()
+      await host.dispose()
+      expect(disposed).toHaveBeenCalledOnce()
+    } finally { vi.useRealTimers(); await host.dispose() }
+  })
+
+  it('preserves browser tabs and restart recovery without resurrecting API operators', async () => {
+    const host = await mounted()
+    const browser = { cookie: browserCookie(host.connection, 'localhost') }
+    const api = await connect(host)
+    const browserPeer = admitted(host.connection, browser.cookie)
+    try {
+      const request = fakeRequest({ host: 'localhost', cookie: browser.cookie })
+      const one = host.connection.admitConnection(request)
+      const two = host.connection.admitConnection(request)
+      if ('rejection' in one || 'rejection' in two) throw new Error('browser tab was refused')
+      expect(two.peer).toBe(one.peer)
+      await one.release()
+      expect(admitted(host.connection, browser.cookie)).toBe(browserPeer)
+      await two.release()
+      expect(admitted(host.connection, browser.cookie)).toBe(browserPeer)
+      const refresh = fakeResponse()
+      expect(host.connection.authorizeIndex(fakeRequest({ host: 'localhost', cookie: browser.cookie }, '/'), refresh.response)).toBe('serve')
+      const cleanup = vi.fn()
+      browserPeer.ctx.effect(() => cleanup)
+      await host.dispose()
+      expect(cleanup).toHaveBeenCalledOnce()
+      expect(host.connection.admit(request)).toEqual({ rejection: 401 })
+      const restarted = await mounted(undefined, 'http:', { credentials: host.ctx.credentials })
+      try {
+        expect(admitted(restarted.connection, browser.cookie)).toBe(restarted.connection.browserPeer)
+        expect(admitted(restarted.connection, browser.cookie)).not.toBe(browserPeer)
+        expect(restarted.connection.admit(fakeRequest({ host: 'localhost', cookie: api.cookie }))).toEqual({ rejection: 401 })
+      } finally { await restarted.dispose() }
+    } finally { await host.dispose() }
   })
 })
 
@@ -883,7 +1177,7 @@ describe('connection device registry handle', () => {
       const cookie = connection.devices.issueCookie(fakeRequest({ host }), device.id)!.split(';', 1)[0]!
       const classify = vi.spyOn(BrowserAuth.prototype, 'deviceIdOf').mockReturnValueOnce(undefined)
       try {
-        expect(() => connection.admit(fakeRequest({ host, cookie }))).toThrow('admitted request carries no authority class')
+        expect(connection.admit(fakeRequest({ host, cookie }))).toEqual({ rejection: 401 })
       } finally {
         classify.mockRestore()
       }

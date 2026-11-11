@@ -61,13 +61,16 @@
       "path": "../ui-tool"
     },
     {
-      "path": "../../fs/tool-present"
+      "path": "../../deliverables/tool-present"
     },
     {
       "path": "../../deliverables/workspace-changes"
     },
     {
       "path": "../../util/workspace-path"
+    },
+    {
+      "path": "../ui-context-menu"
     }
   ]
 }

@@ -86,6 +86,7 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
       const owner: Agent = {
         id: ownerId,
         options: {},
+        get model(): Agent['model'] { throw new Error('the filesystem fixture does not select a model') },
         session: ownerSession,
         inbox: unsupportedInbox(),
         status: 'idle',

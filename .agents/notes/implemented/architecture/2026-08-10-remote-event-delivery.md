@@ -6,7 +6,7 @@ English | [中文](2026-08-10-remote-event-delivery.zh.md)
 
 ## Problem
 
-[Typert Remote method calls](../../implemented/architecture/2026-08-02-typert-remote-method-calls.md) initially cover targeted calls with one result per request and deliberately leave Session streams and stateful interactions elsewhere. Host-to-consumer events need a delivery mechanism that is not owned by the API Proxy domain.
+[Typert Remote method calls](2026-08-02-typert-remote-method-calls.md) initially cover targeted calls with one result per request and deliberately leave Session streams and stateful interactions elsewhere. Host-to-consumer events need a delivery mechanism that is not owned by the API Proxy domain.
 
 The Host owns one-way events such as `agent-preset/selected`, `commands/change`, `credentials/reference-updated`, `llm/adapters-updated`, and `settings/document-updated`. They do not depend on AgentScope, and their payloads are already JSON. Requiring every event to cross a handwritten API Proxy frame, a handwritten Client Runtime bridge, and a Client event alias adds no fact beyond the owner event declaration.
 
