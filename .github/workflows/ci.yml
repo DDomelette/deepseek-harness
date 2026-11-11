@@ -317,6 +317,10 @@ jobs:
         run: pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium
 
       - name: Run performance benchmarks
+        # Budgets are calibrated on the enterprise pool; fork hosted runners are
+        # slower and noisier, so a fork run reports budget misses without
+        # failing the verdict. Upstream keeps the blocking gate.
+        continue-on-error: ${{ github.repository != 'deepseek-ai/deepseek-harness' }}
         env:
           DSH_GATE_VERBOSE: '1'
         run: pnpm run check:ci:bench
@@ -451,7 +455,9 @@ jobs:
         run: bash scripts/prepare-ci-apt-mirror.sh
 
       - name: Install Playwright Chromium, WebKit, and hosted dependencies
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        # The browser corpus that needs these browsers runs only upstream, so a
+        # fork run skips the apt transaction with it.
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         # Ephemeral runner images can carry Ubuntu mirrors whose HTTP endpoints are unreachable.
         run: |
           sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i -E 's@http://([a-z]{2}\.)?archive\.ubuntu\.com/ubuntu@https://archive.ubuntu.com/ubuntu@g; s@http://security\.ubuntu\.com/ubuntu@https://security.ubuntu.com/ubuntu@g' {} +

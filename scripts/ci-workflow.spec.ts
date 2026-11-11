@@ -573,11 +573,19 @@ describe('CI workflow', () => {
       run: 'pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium',
     })
     expect(JSON.stringify(node24Bench.steps)).not.toContain('DSH_CI_FAILOVER_LINUX')
+    // Enterprise-pool budgets: a fork hosted run reports them without blocking.
     expect(node24Bench.steps).toContainEqual({
       name: 'Run performance benchmarks',
+      'continue-on-error': "${{ github.repository != 'deepseek-ai/deepseek-harness' }}",
       env: { DSH_GATE_VERBOSE: '1' },
       run: 'pnpm run check:ci:bench',
     })
+    // The upstream-scoped browser corpus keeps its apt-backed browser install.
+    const consumerSteps = node24Consumers.steps as unknown[]
+    const consumerInstall = consumerSteps.find((step): step is Record<string, unknown> & { if: string } => (
+      isRecord(step) && step.name === 'Install Playwright Chromium, WebKit, and hosted dependencies' && typeof step.if === 'string'
+    ))
+    expect(consumerInstall?.if).toContain("github.repository == 'deepseek-ai/deepseek-harness'")
     expect(windowsAggregate.needs).not.toContain('serial-windows')
 
     // Linux failover is a separate switch: the three enterprise Linux workers
@@ -746,6 +754,7 @@ describe('CI workflow', () => {
     expect(benchmark['timeout-minutes']).toBe(20)
     expect(benchmark.steps).toContainEqual({
       name: 'Run performance benchmarks',
+      'continue-on-error': "${{ github.repository != 'deepseek-ai/deepseek-harness' }}",
       env: { DSH_GATE_VERBOSE: '1' },
       run: 'pnpm run check:ci:bench',
     })
