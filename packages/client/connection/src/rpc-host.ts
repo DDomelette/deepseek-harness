@@ -2,47 +2,55 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
+import type { PeerId, PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
+import type { ConnectionInteractions } from './connect-protocol.ts'
 import {
   RpcId,
   type ClientRequest,
   type RpcId as RpcIdType,
 } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
-import { bridge } from './http-bridge.ts'
-import { isDeclaredAuthority, isTrustedApiRequest } from './api-request-trust.ts'
+import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
+import { isRemoteAuthority, isTrustedApiRequest } from './api-request-trust.ts'
+import { isDeclaredAuthority } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
-import { requestAuthority } from './request-authority.ts'
-import { ConnectionPeer } from './peer.ts'
+import { isLoopbackPeer, requestAuthority, requestHostname } from './request-authority.ts'
+import { isLoopbackHostname } from './loopback-hostname.ts'
 import type { PairedDeviceId } from './device-brand.ts'
+import type { ConnectionIndexAccess, HostConnectionDevices } from './rpc.ts'
 import type { BrowserAuth } from './browser-auth.ts'
+import { Peer } from './peer.ts'
 import type {
-  ConnectionIndexAccess,
+  PeerAdmission,
+  ConnectionAdmission,
   ConnectionIndexRequest,
   ConnectionIndexResponse,
   ConnectionFetchRoute,
   ConnectionFetchHandler,
-  HostConnectionDevices,
   HostConnectionFetch,
   ConnectionRpcEndpointMatcher,
   ConnectionRpcFailure,
   ConnectionRpcHandler,
-  ConnectionRpcHandlerResult,
+  ConnectionRpcResult,
   ConnectionRequestRejection,
   ConnectionTrustRequest,
   HostConnectionHandle,
   HostConnectionRpc,
-  PeerAdmission,
 } from './rpc.ts'
 
 const INVALID_REQUEST_RPC_ID = RpcId('invalid-request')
 const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
 const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 
+interface PeerRecord {
+  readonly peer: Peer
+  ownsSocket: boolean
+}
+
 interface ConnectionRpcInterceptor {
   readonly matches: ConnectionRpcEndpointMatcher
-  readonly handler: ConnectionRpcHandler
+  readonly fetchHandler: ConnectionFetchHandler
 }
 
 interface RegisteredFetchRoute {
@@ -54,7 +62,7 @@ interface RegisteredFetchRoute {
 interface ConnectionServerResponse {
   readonly type: 'server-response'
   readonly rpcId: RpcIdType
-  readonly result: ConnectionRpcHandlerResult
+  readonly result: ConnectionRpcResult<unknown>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -66,69 +74,269 @@ declare module '@deepseek-ai/cordis' {
 
 /** Host Connection service whose channel registrations belong to the caller fiber. */
 export class HostConnectionService extends Service implements HostConnectionHandle {
+  /** The Peer every authenticated browser connection shares. */
+  readonly browserPeer: PeerScope
+  private readonly peers = new Map<PeerId, PeerRecord>()
+  private readonly owner: Context
+  private disposed = false
+  private readonly devicePeers = new Map<PairedDeviceId, Peer>()
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
-  /** The operator's Peer: one scope for every launch-token caller of this Connection. */
-  private readonly operatorPeer: ConnectionPeer
-  /** One Peer per paired device that has been admitted; a device keeps its own scope. */
-  private readonly devicePeers = new Map<PairedDeviceId, ConnectionPeer>()
-  /** Shared-channel endpoints only the operator's Peer may invoke. */
+  /** Shared-channel endpoints only the operator's browser Peer may invoke. */
   private readonly operatorOnlyEndpoints = new Set<string>()
+
+  readonly allowsRemoteAuthorities: boolean
 
   /**
    * Provide the Host half over the active HTTP server.
-   * @param ctx - owning Connection plugin context, which also carries the credential provider.
+   * @param ctx - owning Connection plugin context.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
-   * @param maxRequestBodyBytes - carrier cap every buffered route of this
-   *   activation buffers under, `/api` and registered channels alike.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
-    private readonly maxRequestBodyBytes: number,
+    private readonly maxRequestBodyBytes = DEFAULT_MAX_REQUEST_BODY_BYTES,
   ) {
     super(ctx, 'connection')
-    this.operatorPeer = new ConnectionPeer(ctx)
-    ctx.effect(() => () => this.disposePeers(), 'client-connection: caller Peers')
+    this.owner = ctx
+    this.browserPeer = new Peer(ctx, { principal: { kind: 'owner' } })
+    ctx.effect(() => async () => {
+      this.disposed = true
+      const peers = [this.browserPeer, ...this.devicePeers.values(), ...Array.from(this.peers.values(), record => record.peer)]
+      this.devicePeers.clear()
+      this.peers.clear()
+      await Promise.all(peers.map(peer => peer.dispose()))
+    }, 'client-connection: Peer scopes')
+    this.allowsRemoteAuthorities = trustedHosts.some(isRemoteAuthority)
   }
 
-  /** The local operator's Peer; its scope lives as long as this Connection. */
-  get operator(): PeerScope {
-    return this.operatorPeer
+  /** Generic channel registry scoped to the Context reading this service. */
+  get rpc(): HostConnectionRpc {
+    const owner = this.ctx
+    return {
+      handle: (channel, handler) => this.register(owner, channel, handler),
+      intercept: (channel, matches, handler) =>
+        this.registerInterceptor(owner, channel, matches, handler),
+    }
+  }
+
+  /** Exact Fetch-route registry scoped to the Context reading this service. */
+  get fetch(): HostConnectionFetch {
+    const owner = this.ctx
+    return {
+      register: route => this.registerFetchRoute(owner, route),
+    }
+  }
+
+  /** Apply the Host/Origin fence and require an authenticated live Peer. */
+  requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
+    const admission = this.admit(request)
+    return 'rejection' in admission ? admission.rejection : undefined
+  }
+
+  /** Browser requests share an owner Peer; API HTTP does not depend on an attached socket. */
+  admit(request: ConnectionTrustRequest): PeerAdmission {
+    if (!this.isTrusted(request)) return { rejection: 403 }
+    if (this.disposed) return { rejection: 401 }
+    const secure = this.owner.get('webServer')?.protocol === 'https:'
+    if (this.browserAuth.isLocalOperator(request, this.redeemsToken)) return { peer: this.browserPeer }
+    const deviceId = this.browserAuth.deviceIdOf(request)
+    if (deviceId !== undefined) return { peer: this.devicePeer(deviceId) }
+    const id = this.browserAuth.authenticateApi(request, secure)
+    const record = id === undefined ? undefined : this.peers.get(id)
+    return record === undefined ? { rejection: 401 } : { peer: record.peer }
+  }
+
+  /** Create one in-process Peer owned by the Context that read this service. */
+  createPeer(options: { readonly principal: Principal; readonly interactions?: ConnectionInteractions }): PeerScope {
+    return new Peer(this.ctx, options)
+  }
+
+  /** Claim API socket ownership synchronously; callers release on termination or failed upgrade. */
+  admitConnection(request: ConnectionTrustRequest): ConnectionAdmission {
+    const admission = this.admit(request)
+    if ('rejection' in admission) return admission
+    const record = this.peers.get(admission.peer.id)
+    if (record === undefined) return { ...admission, release: () => Promise.resolve() }
+    if (record.ownsSocket) return { rejection: 409 }
+    record.ownsSocket = true
+    let released: Promise<void> | undefined
+    return {
+      peer: record.peer,
+      release: () => {
+        if (released !== undefined) return released
+        this.peers.delete(record.peer.id)
+        released = record.peer.dispose()
+        return released
+      },
+    }
+  }
+
+  private isTrusted(request: ConnectionTrustRequest): boolean {
+    const carrier = this.owner.get('webServer')
+    let boundAuthority: string | undefined
+    if (carrier !== undefined) {
+      const host = carrier.host.includes(':') && !carrier.host.startsWith('[') ? `[${carrier.host}]` : carrier.host
+      boundAuthority = `${host}:${String(carrier.port)}`
+    }
+    return isTrustedApiRequest(request, this.trustedHosts, boundAuthority, carrier?.protocol ?? 'http:')
+  }
+
+  private publishPeer(interactions: ConnectionInteractions): PeerId {
+    const peer = new Peer(this.owner, { principal: { kind: 'owner' }, interactions })
+    this.peers.set(peer.id, { peer, ownsSocket: false })
+    return peer.id
   }
 
   /**
-   * Admit one request as the caller its credential names, never as a broader
-   * one: an accepted launch-token cookie is the loopback operator, and an
-   * accepted paired-device cookie is that device's own Peer, so a device never
-   * inherits the operator's scope.
-   * @param request - request headers and the TCP peer observed by the server.
-   * @returns the admitted caller's Peer, or the status refusing the request.
+   * Authenticate and publish a credential before sending the connect redirect.
+   * @param request - launch-token request on /connect.
+   * @param response - response owned to completion.
    */
-  admit(request: ConnectionTrustRequest): PeerAdmission {
-    const rejection = this.requestRejection(request)
-    if (rejection !== undefined) return { rejection }
-    if (this.browserAuth.isLocalOperator(request, this.redeemsToken)) return { peer: this.operatorPeer }
-    const deviceId = this.browserAuth.deviceIdOf(request)
-    if (deviceId !== undefined) return { peer: this.devicePeer(deviceId) }
-    // `accepts` admits exactly the launch-token credential and device cookies,
-    // so a request that is authenticated but belongs to neither class means a
-    // credential was added without an authority class: fail rather than let it
-    // inherit the operator's scope.
-    /* v8 ignore next 2 -- the two accepted credential versions are exactly these classes. */
-    throw new Error('connection: admitted request carries no authority class')
+  authorizeConnect(request: ConnectionIndexRequest, response: ConnectionIndexResponse): void {
+    if (!this.isTrusted(request) || this.disposed) {
+      response.writeHead(this.disposed ? 401 : 403)
+      response.end(this.disposed ? 'unauthorized' : 'forbidden')
+      return
+    }
+    this.browserAuth.authorizeConnect(request, response,
+      this.owner.get('webServer')?.protocol === 'https:', interactions => this.publishPeer(interactions))
+  }
+
+  /**
+   * Authenticate an index request through the process-token exchange or cookie.
+   * The Host/Origin fence keeps the application shell away from an authority
+   * this Host does not trust, so only a trusted client without a session is
+   * told how to pair. A TLS listener mints `Secure` cookies, and the launch
+   * token redeems on loopback plus every authority this deployment declared.
+   */
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
+    const access = this.browserAuth.authorizeIndex(request, response, this.servesTls(), this.redeemsToken)
+    if (access !== 'auth-required' || this.isTrusted(request)) return access
+    this.browserAuth.refuseIndexInText(request, response)
+    return 'answered'
+  }
+
+  /** Add this process's launch token to the clean application URL. */
+  authenticatedUrl(baseUrl: string): string {
+    return this.browserAuth.authenticatedUrl(baseUrl)
+  }
+
+  /**
+   * Compose one shared-channel Fetch handler from exact routes and its interceptor.
+   * @param channel - shared channel mounted by Connection.
+   * @returns Fetch handler that selects one owner or returns 404.
+   */
+  createSharedFetchHandler(
+    channel: '/api',
+  ): ConnectionFetchHandler {
+    return {
+      requestBodyMode: ({ method, url }) => {
+        const route = this.fetchRoutes.get(url.pathname)
+        return route?.methods.has(method) === true ? route.requestBody : 'buffered'
+      },
+      fetch: (request, peer) => {
+        const pathname = new URL(request.url).pathname
+        const route = this.fetchRoutes.get(pathname)
+        if (route?.methods.has(request.method) === true) {
+          // Exact routes bypass Gateway access checks, so only the owner reaches them.
+          // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
+          if (peer.principal.kind !== 'owner') return Promise.resolve(new Response('forbidden', { status: 403 }))
+          return route.fetch(request)
+        }
+        const endpoint = endpointFromPath(channel, pathname)
+        const interceptor = this.interceptors.get(channel)
+        if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
+          return Promise.resolve(new Response('not found', { status: 404 }))
+        }
+        if (!this.allowsEndpoint(peer, endpoint)) {
+          return Promise.resolve(new Response('forbidden', { status: 403 }))
+        }
+        return interceptor.fetchHandler.fetch(request, peer)
+      },
+    }
+  }
+
+  private registerFetchRoute(
+    owner: Context,
+    route: ConnectionFetchRoute,
+  ): () => Promise<void> {
+    assertFetchRoute(route)
+    const registered: RegisteredFetchRoute = {
+      methods: new Set(route.methods),
+      requestBody: route.requestBody,
+      fetch: route.fetch,
+    }
+    return owner.effect(() => {
+      if (this.fetchRoutes.has(route.path)) {
+        throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} is already registered`)
+      }
+      this.fetchRoutes.set(route.path, registered)
+      return () => { this.fetchRoutes.delete(route.path) }
+    }, `client-connection: ${route.path} Fetch route`)
+  }
+
+  private register(
+    owner: Context,
+    channel: string,
+    handler: ConnectionRpcHandler,
+  ): () => Promise<void> {
+    assertChannel(channel)
+    const fetchHandler = rpcFetchHandler(channel, handler)
+    const route: WebRoute = {
+      kind: 'prefix',
+      path: channel,
+      handler: async (req, res) => {
+        const admission = this.admit(req)
+        if ('rejection' in admission) {
+          res.writeHead(admission.rejection)
+          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
+          return
+        }
+        await bridge(req, res, fetchHandler, admission.peer, this.maxRequestBodyBytes)
+      },
+    }
+    return owner.effect(
+      () => owner.webServer.register(route),
+      `client-connection: ${channel} rpc channel`,
+    )
+  }
+
+  private registerInterceptor(
+    owner: Context,
+    channel: string,
+    matches: ConnectionRpcEndpointMatcher,
+    handler: ConnectionRpcHandler,
+  ): () => Promise<void> {
+    if (channel !== API_PATH) {
+      throw new Error(`connection: invalid shared RPC channel ${JSON.stringify(channel)}`)
+    }
+    const interceptor: ConnectionRpcInterceptor = {
+      matches,
+      fetchHandler: rpcFetchHandler(channel, handler),
+    }
+    return owner.effect(() => {
+      if (this.interceptors.has(channel)) {
+        throw new Error(`connection: shared RPC channel ${JSON.stringify(channel)} already has an interceptor`)
+      }
+      this.interceptors.set(channel, interceptor)
+      return () => {
+        this.interceptors.delete(channel)
+      }
+    }, `client-connection: ${channel} rpc interceptor`)
   }
 
   /** The admitted device's own Peer, minted on its first request. */
-  private devicePeer(deviceId: PairedDeviceId): ConnectionPeer {
+  private devicePeer(deviceId: PairedDeviceId): Peer {
     const existing = this.devicePeers.get(deviceId)
     if (existing !== undefined) return existing
-    const peer = new ConnectionPeer(this.ctx)
+    const peer = new Peer(this.owner, { principal: { kind: 'owner' } })
     this.devicePeers.set(deviceId, peer)
     return peer
   }
+
 
   /**
    * Close one device's Peer, ending the registrations and live streams that
@@ -141,12 +349,6 @@ export class HostConnectionService extends Service implements HostConnectionHand
     await peer.dispose()
   }
 
-  private async disposePeers(): Promise<void> {
-    const devices = [...this.devicePeers.values()]
-    this.devicePeers.clear()
-    for (const peer of devices) await peer.dispose()
-    await this.operatorPeer.dispose()
-  }
 
   /** Paired-device registry; each mutation refreshes the cookie check in place. */
   get devices(): HostConnectionDevices {
@@ -198,6 +400,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
+
   /**
    * Re-read the paired-device registry, for a credential record that changed
    * outside this service's own mutations.
@@ -207,57 +410,16 @@ export class HostConnectionService extends Service implements HostConnectionHand
     await this.browserAuth.refreshPairedDevices()
   }
 
-  /** Generic channel registry scoped to the Context reading this service. */
-  get rpc(): HostConnectionRpc {
-    const owner = this.ctx
-    return {
-      handle: (channel, handler) => this.register(owner, channel, handler),
-      intercept: (channel, matches, handler) =>
-        this.registerInterceptor(owner, channel, matches, handler),
-    }
-  }
-
-  /** Exact Fetch-route registry scoped to the Context reading this service. */
-  get fetch(): HostConnectionFetch {
-    const owner = this.ctx
-    return {
-      register: route => this.registerFetchRoute(owner, route),
-    }
-  }
-
-  /** Apply the configured Host/Origin fence, then browser authentication. */
-  requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return 403
-    return this.browserAuth.isAuthenticated(request, this.redeemsToken) ? undefined : 401
-  }
-
-  /** The exact address this process bound, as a fence authority, when a listener is up. */
-  private boundAuthority(): string | undefined {
-    const webServer = this.ctx.get('webServer')
-    return webServer === undefined ? undefined : `${webServer.host}:${String(webServer.port)}`
-  }
-
-  /**
-   * Authenticate an index request through the process-token exchange or cookie.
-   * The Host/Origin fence keeps the application shell away from an authority
-   * this Host does not trust, so only a trusted client without a session is
-   * told how to pair. A TLS listener mints `Secure` cookies, and the launch
-   * token redeems on loopback plus every authority this deployment declared.
-   */
-  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): ConnectionIndexAccess {
-    const access = this.browserAuth.authorizeIndex(request, response, this.servesTls(), this.redeemsToken)
-    if (access !== 'auth-required' || isTrustedApiRequest(request, this.trustedHosts, this.boundAuthority())) return access
-    this.browserAuth.refuseIndexInText(request, response)
-    return 'answered'
-  }
 
   /** Whether the listener carrying browser requests serves TLS. */
   private servesTls(): boolean {
     return this.ctx.get('webServer')?.protocol === 'https:'
   }
 
+
   /** Bound function form of {@link declaresAuthority}, for the browser-auth predicates. */
   private readonly redeemsToken = (authority: string, hostname: string): boolean => this.declaresAuthority(authority, hostname)
+
 
   /**
    * Whether the operator declared this authority: the address the launcher
@@ -273,12 +435,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
       && (hostname === webServer.host || authority === `${webServer.host}:${String(webServer.port)}`)) {
       return true
     }
-    return isDeclaredAuthority(authority, this.trustedHosts)
+    return isDeclaredAuthority(authority, this.trustedHosts, this.servesTls() ? 'https:' : 'http:')
   }
-  /** Add this process's launch token to the clean application URL. */
-  authenticatedUrl(baseUrl: string): string {
-    return this.browserAuth.authenticatedUrl(baseUrl)
-  }
+
 
   /**
    * Note one authenticated request from a paired device: stage the aligned
@@ -303,17 +462,20 @@ export class HostConnectionService extends Service implements HostConnectionHand
     })
   }
 
-  /**
-   * Whether the local operator's launch-token cookie authorizes device management.
-   * @param request - HTTP headers and the peer the server observed.
-   * @returns true for the operator credential on a loopback or declared authority.
-   */
+
+  /** Whether the local operator's launch-token cookie authorizes device management. */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
+    const hostname = requestHostname(request.headers)
+    if (hostname === undefined) return false
+    // A loopback authority also demands an actual loopback TCP peer; a declared
+    // authority (the bound address or --trusted-host) is reachable only through
+    // itself, and its launch-token cookie already proves the operator.
     return this.browserAuth.isLocalOperator(request, this.redeemsToken)
+      && (!isLoopbackHostname(hostname) || isLoopbackPeer(request))
   }
 
   /**
-   * Reserve one shared-channel endpoint to the operator's Peer.
+   * Reserve one shared-channel endpoint to the operator's browser Peer.
    * @param endpoint - exact endpoint text after the channel, e.g. `settings/mutate`.
    * @returns disposer releasing the reservation.
    */
@@ -336,119 +498,21 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @returns true when the endpoint is unreserved or the caller is the operator.
    */
   private allowsEndpoint(peer: PeerScope, endpoint: string): boolean {
-    return peer === this.operatorPeer || !this.operatorOnlyEndpoints.has(endpoint)
+    return peer === this.browserPeer || !this.operatorOnlyEndpoints.has(endpoint)
   }
 
-  /**
-   * Compose one shared-channel Fetch handler from exact routes and its interceptor.
-   * @param channel - shared channel mounted by Connection.
-   * @param peer - Peer the admitted request speaks for, from {@link admit}.
-   * @returns Fetch handler that selects one owner or returns 404.
-   */
-  createSharedFetchHandler(
-    channel: '/api',
-    peer: PeerScope,
-  ): ConnectionFetchHandler {
-    return {
-      requestBodyMode: ({ method, url }) => {
-        const route = this.fetchRoutes.get(url.pathname)
-        return route?.methods.has(method) === true ? route.requestBody : 'buffered'
-      },
-      fetch: (request) => {
-        const pathname = new URL(request.url).pathname
-        const route = this.fetchRoutes.get(pathname)
-        if (route?.methods.has(request.method) === true) return route.fetch(request)
-        const endpoint = endpointFromPath(channel, pathname)
-        const interceptor = this.interceptors.get(channel)
-        if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
-          return Promise.resolve(new Response('not found', { status: 404 }))
-        }
-        if (!this.allowsEndpoint(peer, endpoint)) {
-          return Promise.resolve(new Response('forbidden', { status: 403 }))
-        }
-        return rpcFetchHandler(channel, interceptor.handler, peer).fetch(request)
-      },
-    }
-  }
+  /** The launch-token caller scope; paired devices receive their own scopes. */
+  get operator(): PeerScope { return this.browserPeer }
 
-  private registerFetchRoute(
-    owner: Context,
-    route: ConnectionFetchRoute,
-  ): () => Promise<void> {
-    assertFetchRoute(route)
-    const registered: RegisteredFetchRoute = {
-      methods: new Set(route.methods),
-      requestBody: route.requestBody,
-      fetch: route.fetch,
-    }
-    return owner.effect(() => {
-      if (this.fetchRoutes.has(route.path)) {
-        throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} is already registered`)
-      }
-      this.fetchRoutes.set(route.path, registered)
-      return () => { this.fetchRoutes.delete(route.path) }
-    }, `client-connection: ${route.path} Fetch route`)
-  }
-
-  private register(
-    owner: Context,
-    channel: string,
-    handler: ConnectionRpcHandler,
-  ): () => Promise<void> {
-    assertChannel(channel)
-    // Read the cap once, at registration: the request handler must not depend on
-    // a Context-resolved `this` for a limit the activation already fixed.
-    const maxRequestBodyBytes = this.maxRequestBodyBytes
-    const route: WebRoute = {
-      kind: 'prefix',
-      path: channel,
-      handler: async (req, res) => {
-        const admission = this.admit(req)
-        if ('rejection' in admission) {
-          res.writeHead(admission.rejection)
-          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
-          return
-        }
-        this.noteDeviceRequest(req, res)
-        await bridge(req, res, rpcFetchHandler(channel, handler, admission.peer), maxRequestBodyBytes)
-      },
-    }
-    return owner.effect(
-      () => owner.webServer.register(route),
-      `client-connection: ${channel} rpc channel`,
-    )
-  }
-
-  private registerInterceptor(
-    owner: Context,
-    channel: string,
-    matches: ConnectionRpcEndpointMatcher,
-    handler: ConnectionRpcHandler,
-  ): () => Promise<void> {
-    if (channel !== API_PATH) {
-      throw new Error(`connection: invalid shared RPC channel ${JSON.stringify(channel)}`)
-    }
-    const interceptor: ConnectionRpcInterceptor = { matches, handler }
-    return owner.effect(() => {
-      if (this.interceptors.has(channel)) {
-        throw new Error(`connection: shared RPC channel ${JSON.stringify(channel)} already has an interceptor`)
-      }
-      this.interceptors.set(channel, interceptor)
-      return () => {
-        this.interceptors.delete(channel)
-      }
-    }, `client-connection: ${channel} rpc interceptor`)
-  }
 }
 
 function rpcFetchHandler(
   channel: string,
   handler: ConnectionRpcHandler,
-  peer: PeerScope,
 ): ConnectionFetchHandler {
   return {
     requestBodyMode: () => 'buffered',
-    async fetch(request: Request): Promise<Response> {
+    async fetch(request: Request, peer: PeerScope): Promise<Response> {
       const endpoint = endpointFromPath(channel, new URL(request.url).pathname)
       if (request.method !== 'POST' || endpoint === undefined) {
         return new Response('not found', { status: 404 })
@@ -514,16 +578,10 @@ function errorResponse(rpcId: RpcIdType, error: ConnectionRpcFailure): Response 
   return fullResponse(rpcId, { ok: false, error })
 }
 
-/**
- * Frame one unary result, carrying projected bytes as multipart parts.
- * @param rpcId - correlation id echoed to the caller.
- * @param result - handler result, possibly with byte attachments.
- * @returns a JSON envelope, or a multipart envelope when bytes ride along.
- */
-function fullResponse(rpcId: RpcIdType, result: ConnectionRpcHandlerResult): Response {
+function fullResponse(rpcId: RpcIdType, result: Awaited<ReturnType<ConnectionRpcHandler>>): Response {
   if (!result.ok) {
-    const failure: ConnectionServerResponse = { type: 'server-response', rpcId, result }
-    return Response.json(failure)
+    const body: ConnectionServerResponse = { type: 'server-response', rpcId, result }
+    return Response.json(body)
   }
   const { attachments, ...success } = result
   const body: ConnectionServerResponse = { type: 'server-response', rpcId, result: success }
@@ -556,13 +614,11 @@ function assertFetchRoute(route: ConnectionFetchRoute): void {
   if (methods.size !== route.methods.length) {
     throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} repeats a method`)
   }
-  // Fetch forbids a body on GET and HEAD, so a route's declared mode must agree
-  // with the methods it owns: the bridge can attach a body only for the others.
-  const bodyCarrier = route.methods.find(method => method !== 'GET' && method !== 'HEAD')
-  if (bodyCarrier === undefined && route.requestBody !== 'none') {
+  const bodyMethod = route.methods.find(method => method !== 'GET' && method !== 'HEAD')
+  if (bodyMethod === undefined && route.requestBody !== 'none') {
     throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns only GET and HEAD and must declare requestBody 'none'`)
   }
-  if (bodyCarrier !== undefined && route.requestBody === 'none') {
-    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns ${bodyCarrier} and cannot declare requestBody 'none'`)
+  if (bodyMethod !== undefined && route.requestBody === 'none') {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} owns ${bodyMethod} and cannot declare requestBody 'none'`)
   }
 }

@@ -14,7 +14,7 @@ import { type IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/clie
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { ArchivedSection, type ArchivedSectionInjected } from './ArchivedSection.tsx'
-import { en, zh, type ArchivedSettingsKey } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh, type ArchivedSettingsKey } from './locales.ts'
 
 export type { ArchivedSectionInjected, ArchivedSectionProps } from './ArchivedSection.tsx'
 export type { ArchivedSettingsKey } from './locales.ts'
@@ -30,7 +30,7 @@ const NS = 'settings.archived'
 export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace']
 
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-archived: copy dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-archived: copy dictionaries')
   const sessions = ctx.get('sessions') as ISessions
   const workspaces = ctx.get('workspaces') as IWorkspaces
   const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspace

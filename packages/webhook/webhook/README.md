@@ -27,18 +27,18 @@ English | [中文](README.zh.md)
 
 `WebhookRule<K>` has a branded unique `id`, a provider `kind`, and `run(delivery, signal)`. A callback may execute arbitrary trusted code and returns either `null` or one `WebhookSessionRequest`. Rules of the same kind start independently, and one throw or rejection is logged without starving siblings.
 
-`VerifiedWebhookDelivery` carries provider kind, configured source id, provider delivery id, normalized lossless JSON, and receipt time. The runtime snapshots and freezes the complete value before sharing it. `deliveryId` is provenance only; repeated delivery runs the rules again.
+`VerifiedWebhookDelivery` carries provider kind, configured source id, provider delivery id, normalized lossless JSON, and receipt time. The runtime snapshots and freezes the complete value before sharing it. `deliveryId` records the provider's identifier only; repeated delivery runs the rules again.
 
 Registration is an effect. Its awaitable disposer first hides the rule, then aborts and drains active callbacks. Callbacks must observe the supplied signal; same-process code that ignores cancellation cannot be forcibly stopped safely.
 
 <a id="session-request"></a>
 ## Session request
 
-`WebhookSessionRequest` requires `workspacePath`, `title`, `prompt`, `agentPreset`, and `permissionPreset`; optional `model` names an explicit provider/model route plus an output-token cap. An explicit route uses its adapter's reasoning default. Omission snapshots the complete current deployment selection, including reasoning effort, until the first request records its durable header; later Web model changes retain the ordinary session behavior.
+`WebhookSessionRequest` requires `workspacePath`, `title`, `prompt`, `agentPreset`, and `permissionPreset`; optional `model` names an explicit provider/model route plus an output-token cap. An explicit route uses its adapter's reasoning default. Omission captures the complete current deployment selection, including reasoning effort, as the initial Agent options. A recorded Session selection or request then takes precedence; later Web model changes follow the ordinary Session behavior.
 
 The runtime validates presets before mutation, resolves or creates the canonical Workspace, creates an Agent with that Workspace path as `SessionHeader.cwd`, mounts the agent preset before publication, and attaches the Session before applying permissions, title, and prompt. Failed attachment disposes the unpublished action. A later pre-prompt failure detaches the Workspace and disposes the Agent on a best-effort rollback.
 
-Successful `Agent.followup()` is the webhook operation's commit point. The message uses `source.kind: "webhook"` with provider, source, delivery, and rule provenance. The runtime does not wait for idle, flush specially, inspect the reply, or publish completion state; ordinary Agent and Session behavior owns everything afterward.
+Successful `Agent.followup()` is the webhook operation's commit point. The message uses `source.kind: "webhook"` and records the provider, source, delivery, and rule identifiers. The runtime does not wait for idle, flush specially, inspect the reply, or publish completion state; ordinary Agent and Session behavior owns everything afterward.
 
 <a id="composition"></a>
 ## Composition
@@ -77,6 +77,8 @@ The initial prompt begins a new Session, so it establishes rather than invalidat
 
 <a id="dev-note"></a>
 ### Dev Note
+
+No invariant companion is published because ingress dispatch delegates Session and Agent ownership to their services; the adapter keeps no second durable Session registry.
 
 <details>
 <summary>Working context for maintainers — click to expand</summary>

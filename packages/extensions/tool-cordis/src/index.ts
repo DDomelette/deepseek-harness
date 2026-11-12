@@ -24,6 +24,10 @@ import { CORDIS_SYSTEM_PROMPT } from './prompt.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
+    /**
+     * Source label for recorded plugin reference context.
+     * @persistenceAttribution
+     */
     'tool-cordis': ToolCordisReferenceSource
   }
 }

@@ -341,7 +341,7 @@ describe('spawn construction (pure, every platform)', () => {
 describe('background spawn failure (fake backend, every platform)', () => {
   /** A subprocess service whose spawn rejects the way a missing pwsh does. */
   class RejectingSubprocessRuntime extends SubprocessRuntime {
-    async terminalEnvironment() { return { platform: 'posix' as const } }
+    override async terminalEnvironment() { return { platform: 'posix' as const } }
     override async resolveExecutable(command: string): Promise<string> { return command }
     override spawnTerminal(): Promise<never> { throw new Error('pwsh spawns pipes, never terminals') }
     private readonly reader: SubprocessOutputReader = {
@@ -381,7 +381,7 @@ describe('cancellation against a hanging backend (fake backend, every platform)'
   /** A subprocess service whose process runs until the test settles it and ignores the spawn signal. */
   class HangingSubprocessRuntime extends SubprocessRuntime {
     settle: (outcome: { exitCode: number | null; signal: NodeJS.Signals | null }) => void = () => {}
-    async terminalEnvironment(): Promise<never> { throw new Error('fixture does not open terminals') }
+    override async terminalEnvironment(): Promise<never> { throw new Error('fixture does not open terminals') }
     override async resolveExecutable(command: string): Promise<string> { return command }
     override spawnTerminal(): Promise<never> { throw new Error('pwsh spawns pipes, never terminals') }
     private readonly reader: SubprocessOutputReader = {

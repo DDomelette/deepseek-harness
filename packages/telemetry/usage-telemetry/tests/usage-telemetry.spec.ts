@@ -76,7 +76,10 @@ async function* source(chunks: readonly StreamChunk[]): AsyncIterable<StreamChun
 }
 
 function openStream(ctx: Context, request: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk> {
-  return ctx.waterfall(ctx as never, 'llm/stream', request, next)
+  const waterfall = ctx.waterfall.bind(ctx) as (
+    target: object, event: string, request: GenerateOptions, next: () => AsyncIterable<StreamChunk>,
+  ) => AsyncIterable<StreamChunk>
+  return waterfall(ctx, 'llm/stream', request, next)
 }
 
 async function consume(ctx: Context, request: GenerateOptions, chunks: readonly StreamChunk[]): Promise<StreamChunk[]> {

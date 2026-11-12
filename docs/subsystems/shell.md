@@ -1,8 +1,8 @@
-# Bash Executor
+# Shell Executor
 
 English | [中文](shell.zh.md)
 
-The bash execution seam is split across a Service Definition ([dsh-shell](../../packages/shell/shell), `ctx.shell`), Service Providers ([dsh-bash-local](../../packages/shell/bash-local) and [dsh-bash-sandbox](../../packages/shell/bash-sandbox)), and Consumer ([dsh-tool-bash](../../packages/shell/tool-bash), the `bash` schema). Generic background-job ids, ownership, and controls live in [jobs.md](jobs.md); this seam returns a task-free process handle. Managed-range mechanics live behind the [subprocess seam](subprocess.md).
+The shell execution seam uses [dsh-shell](../../packages/shell/shell) as its Service Definition on `ctx.shell`. The [shell package group](../../packages/shell/README.md) lists its Bash and PowerShell providers and model-facing Consumers. Generic background-job ids, ownership, and controls live in [jobs.md](jobs.md); this seam returns a process handle without job registration. Managed-range mechanics live behind the [subprocess seam](subprocess.md).
 
 Source: [`packages/shell/shell/src/types.ts`](../../packages/shell/shell/src/types.ts)
 
@@ -166,11 +166,11 @@ interface ShellSandboxInfo {
 }
 ```
 
-The `SANDBOX_UNAVAILABLE` error code (owned by the [sandbox seam](sandbox.md)) is what the `ctx.sandbox` provider throws — and the executor propagates — when a confined mode has no usable backend. A selected runner refusing its profile reaches the same fail-closed foreground error; a settled background job records `runnerFailed`. The model receives denial/runner facts in results, learns the effective mode only when a denial marker names it, and can request a one-shot strictly wider retry through `sandbox_permissions` plus `justification`; `ctx.approval` must grant that exact call before anything executes. The complete policy and switching design is the [sandbox Agent Note](../../.agents/notes/implemented/feature/2026-07-06-sandbox.md).
+The `SANDBOX_UNAVAILABLE` error code (owned by the [sandbox seam](sandbox.md)) is what the `ctx.sandbox` provider throws — and the executor propagates — when a confined mode has no usable backend. A selected runner refusing its profile reaches the same fail-closed foreground error; a settled background job records `runnerFailed`. The model receives denial/runner facts in results, learns the effective mode only when a denial marker names it, and can request a one-shot strictly wider retry through `sandbox_permissions` plus `justification`; `ctx.approval` must grant that exact call before anything executes. The complete policy and switching design is the [sandbox reference](../../packages/sandbox/sandbox-policy/README.md).
 
 ## Background processes: `ShellProcess`
 
-`execute({ onExpiry: 'none' })` resolves with a handle after asynchronous launch preparation; cancellation or preparation failure rejects before publication. The handle has no id or owner. `dsh-tool-bash` adapts it into `ctx.jobs.start()` hooks; the generic runtime then owns job identity and lifecycle. `done` resolves when the underlying process settles and never rejects; a subprocess provider rejection becomes a `killed` process with a stage-neutral error on stderr. Reads remain valid after settlement, and sandbox facts are stamped before `done` resolves.
+`start()` resolves with a handle after asynchronous launch preparation; cancellation or preparation failure rejects before publication. The handle has no id or owner. `dsh-tool-bash` adapts it into `ctx.jobs.start()` hooks; the generic runtime then owns job identity and lifecycle. `done` resolves when the underlying process settles and never rejects; a subprocess provider rejection becomes a `killed` process with a stage-neutral error on stderr. Reads remain valid after settlement, and sandbox facts are stamped before `done` resolves.
 
 ```ts type-equiv
 /**

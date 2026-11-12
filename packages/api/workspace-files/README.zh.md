@@ -117,7 +117,7 @@ Typert 生成 `./typert` 与 `./remote` 暴露的 Host 与 Client Remote 产物�
 
 - [文件系统能力](../../fs/fs/README.zh.md)——本服务经由读取的 `ctx.fs` 约定，含 `fs/observed` 与 `readByteRange`。
 - [沙箱策略](../../sandbox/sandbox-policy/README.zh.md)——Session 工作区根的来源。
-- [Remote 装配](../../api/remotes/README.zh.md)——Client 包如何触达 `workspaceFiles` 命名空间。
+- [Remote 装配](../remotes/README.zh.md)——Client 包如何触达 `workspaceFiles` 命名空间。
 - [Client 资源](../../client/resources/README.zh.md)——资源模型、`useResource`、pin 与提供者生命周期。
 - [工作区路径辅助](../../util/workspace-path/README.zh.md)——`fileAddressFor` 与 `parseFileAddress`，两端共享的 `dsh-resource://file/…` 地址语法。
 - [Sidebar 文本预览](../../client/ui-sidebar-documentpreview/README.zh.md)——经 `file` 提供者跟随文件并读取其页的 tab 类型。

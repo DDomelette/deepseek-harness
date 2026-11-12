@@ -10,7 +10,7 @@ Web 命令 UI 通过定义标识识别第一方命令。反馈或导出的生产
 
 ## Decision
 
-反馈和导出的生产方将包名声明为带品牌类型的 `CommandDefinitionId`。名称仍按[命令注册表](../feature/2026-07-19-plugin-command-registration.zh.md)的规则选择命令执行与作用域覆盖；定义标识选择第一方客户端呈现。
+反馈和导出的生产方将包名声明为带品牌类型的 `CommandDefinitionId`。名称仍按[命令注册表](../../archived/feature/2026-07-19-plugin-command-registration.md)的规则选择命令执行与作用域覆盖；定义标识选择第一方客户端呈现。
 
 Session 导出插件通过 Cordis 注入观察可选的 `feedbackUi` 服务，并通过稳定的可观察源发布可用性。框架将该源绑定为页头的 hook。菜单仅在服务可用时提供反馈操作；回调再次读取服务，因为插件可能在渲染与点击之间卸载。打开反馈会关闭菜单并打开已有的 Session 草稿，不会记录反馈或启动下载。导出始终独立可用。
 

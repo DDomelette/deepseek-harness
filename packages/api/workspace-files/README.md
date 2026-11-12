@@ -117,7 +117,7 @@ Typert generates the Host and Client Remote artifacts exposed by `./typert` and 
 
 - [Filesystem capability](../../fs/fs/README.md) — the `ctx.fs` contract this service reads through, including `fs/observed` and `readByteRange`.
 - [Sandbox policy](../../sandbox/sandbox-policy/README.md) — where the Session's workspace root comes from.
-- [Remote assembly](../../api/remotes/README.md) — how Client packages reach the `workspaceFiles` namespace.
+- [Remote assembly](../remotes/README.md) — how Client packages reach the `workspaceFiles` namespace.
 - [Client resources](../../client/resources/README.md) — the resource model, `useResource`, pins, and provider lifetime.
 - [Workspace path helpers](../../util/workspace-path/README.md) — `fileAddressFor` and `parseFileAddress`, the `dsh-resource://file/…` address grammar both ends share.
 - [Sidebar text preview](../../client/ui-sidebar-documentpreview/README.md) — the tab type that follows a file through the `file` provider and reads its pages.

@@ -10,7 +10,7 @@ dsh --profile web --public-url https://app.example/ui/ --trusted-host app.exampl
 
 ## `--public-url` 公告什么
 
-`--public-url` 接受可带挂载前缀的 `http://` 或 `https://` 根，并把它归一化为以 `/` 结尾。它提供打印与打开的启动 URL、`DSH_WEB_URL` 与 web 表层定位。webserver 继续提供 origin-root 路由，且从不了解挂载。`publicUrl` 配置字段发布同样的公告。
+`--public-url` 接受可带挂载前缀的 `http://` 或 `https://` 根，并把它归一化为以 `/` 结尾。它提供打印与打开的启动 URL、`DSH_WEB_URL`，以及 agent 运行时上下文中的 Web GUI URL。webserver 继续提供 origin-root 路由，且从不了解挂载。`publicUrl` 配置字段发布同样的公告。
 
 ## 代理必须做什么
 
@@ -34,4 +34,4 @@ dsh --profile web --public-url https://app.example/ui/ --trusted-host app.exampl
 
 打印的 URL 携带进程凭据，只应与预期用户分享。
 
-[Web 应用参考](../../../packages/bundle/web-app/README.zh.md#public-deployments)说明 `--public-url`、`--trusted-host` 与 `--tls-cert`/`--tls-key` 命令行选项。在 Web profile 中，`publicUrl` 配置在 `web-runtime` 行，`trustedHosts` 配置在 [Connection 行](../../../packages/client/connection/README.zh.md)，`tls` 配置在 [webserver 行](../../../docs/subsystems/web-server.zh.md#config)。
+[Web 应用参考](../../../packages/bundle/web-app/README.zh.md#public-deployments)说明 `--public-url`、`--trusted-host` 与 `--tls-cert`/`--tls-key` 命令行选项。在 Web profile 中，`publicUrl` 配置在 `web-runtime` 行，`trustedHosts` 配置在 [Connection 行](../../../packages/client/connection/README.zh.md)，`tls` 配置在 [webserver 行](../../subsystems/web-server.zh.md#config)。

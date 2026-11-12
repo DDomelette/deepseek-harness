@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
+  HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_OVERLAY } from './columns.ts'
 import { DocumentTitle } from './DocumentTitle.tsx'
@@ -67,12 +67,18 @@ interface SidebarGesture {
   width: number
 }
 
+/** Browser posture supplied by the root registration. */
+export interface AppFrameInjected {
+  hooks: { foldedLandscape: HostObservable<boolean> }
+}
+
 /** Full composed props: runtime share + child-slot render share + store share. */
 export type AppFrameProps =
   & PropsRuntime<'root'>
   & PropsRenderSlots<'sidebar' | 'main' | 'rightbar' | 'shell.bottom' | 'shell.overlay' | 'shell.leading'>
   & PropsStore<ReturnType<typeof createLayoutStore>>
   & PropsLocale<'common'>
+  & InjectFace<AppFrameInjected>
 
 /**
  * Attributes that take a column covered by the drawer out of the tab order and
@@ -175,6 +181,7 @@ export function AppFrame({
   useStore,
   useSessions,
   usePanelInfo,
+  useFoldedLandscape,
   actions,
   renderSlot,
   t,
@@ -186,6 +193,8 @@ export function AppFrame({
   // The control that held focus when the drawer opened (the drawer focus effect).
   const drawerReturnFocus = useRef<HTMLElement | null>(null)
   const viewport = layoutInfo.viewportWidth
+  const foldedLandscape = useFoldedLandscape(matches => matches)
+  const centeredSidebar = foldedLandscape && viewport >= SIDEBAR_OVERLAY
 
   // Track the frame's own box (not the window): rAF-throttled ResizeObserver.
   useLayoutEffect(() => {
@@ -218,7 +227,7 @@ export function AppFrame({
   // The overlay band: below it the closed sidebar owns no track and the frame
   // marks itself, so the rail's whole job collapses into the sidebar slot's
   // floating brand button.
-  const overlay = viewport < SIDEBAR_OVERLAY
+  const overlay = viewport < SIDEBAR_OVERLAY && !document.documentElement.hasAttribute('data-windows-titlebar')
   const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded : layoutInfo.sidebar === 0
   // Below the overlay breakpoint an expanded sidebar leaves the grid and floats
   // over the center as a drawer.
@@ -239,12 +248,14 @@ export function AppFrame({
     !layoutInfo.rightbarShown && narrow ? 0 : drawerOpen ? 0 : sidebarPreference,
     rightbarPreference,
     collapsedWidth,
+    centeredSidebar,
   )
   const solved = computeColumns(
     viewport,
     drawerOpen ? 0 : sidebarPreference,
     layoutInfo.rightbarTrack ? rightbarPreference : 0,
     collapsedWidth,
+    centeredSidebar,
   )
   // Below the overlay breakpoint the closed sidebar owns no track: the floating
   // brand button (the sidebar slot's fab flag) replaces the rail, so the solve's
@@ -283,7 +294,7 @@ export function AppFrame({
   // before paint — and the track slides from its old width instead of jumping.
   const [animating, setAnimating] = useState(0)
   const [committedCols, setCommittedCols] = useState(cols)
-  const trackToggle = `${sidebarCollapsed}:${layoutInfo.rightbarTrack}`
+  const trackToggle = `${sidebarCollapsed}:${layoutInfo.rightbarTrack}:${centeredSidebar}`
   const previousToggle = useRef(trackToggle)
   const previousViewport = useRef(viewport)
   useLayoutEffect(() => {
@@ -583,6 +594,7 @@ export function AppFrame({
     collapsed: drawerShown ? false : sidebarCollapsed,
     width: sidebarWidth,
     fab: overlay,
+    drawer: overlay,
   }), [renderSlot, drawerShown, sidebarCollapsed, sidebarWidth, overlay])
   const main = useMemo(() => (
     <MainPanel usePanelInfo={usePanelInfo} renderSlot={renderSlot} />
@@ -608,6 +620,7 @@ export function AppFrame({
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
       data-sidebar-fab={overlay || undefined}
+      data-sidebar-drawer={overlay || undefined}
       data-drawer={drawerOpen || undefined}
       data-rightbar-collapsed={committedCols.rightbar === 0 || undefined}
       data-rightbar-fullscreen={layoutInfo.rightbarFullscreen || undefined}
@@ -666,7 +679,7 @@ export function AppFrame({
         </div>
       )}
       {/* No resize handle on the fixed-width rail, and none beneath the overlay drawer. */}
-      {!overlay && !sidebarCollapsed && <DragHandle side="sidebar" left={committedCols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
+      {!overlay && !centeredSidebar && !sidebarCollapsed && <DragHandle side="sidebar" left={committedCols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
       {layoutInfo.rightbarShown && !layoutInfo.rightbarFullscreen && normal.rightbar > 0 && (
         <DragHandle side="rightbar" left={viewport - normal.rightbar} onStart={onRightbarStart} onDrag={onRightbarDrag} onEnd={onDragEnd} />
       )}

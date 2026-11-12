@@ -1757,7 +1757,7 @@ The startup warning for an all-interfaces bind keeps its wording and names the t
 - [Phone device pairing](2026-09-12-phone-device-pairing.md) remains the authority for who a phone is and how it is admitted; [browser launch-token authentication](../architecture/2026-08-24-browser-token-authentication.md) remains the authority for the launch-token cookie and the signing record.
 ```
 
-Then write `.agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.zh.md` as the section-for-section Chinese counterpart: keep the machine-checked header tokens `# Agent Note: ` and `Status: implemented` verbatim, mirror the link line as `[English](2026-09-13-device-lifetime-authority.md)`, and translate `## Problem`, `## Decision`, `## Alternatives considered`, and `## Consequences` one paragraph per paragraph under the [translation contract](../../../docs/i18n/README.md) and its terminology guide.
+Then write `.agents/notes/implemented/feature/2026-09-13-device-lifetime-authority.zh.md` as the section-for-section Chinese counterpart: keep the machine-checked header tokens `# Agent Note: ` and `Status: implemented` verbatim, mirror the link line as `[English](2026-09-13-device-lifetime-authority.md)`, and translate `## Problem`, `## Decision`, `## Alternatives considered`, and `## Consequences` one paragraph per paragraph under the [translation contract](../../i18n/README.md) and its terminology guide.
 
 - [x] **Step 2: Run the format and pairing gates to see them fail**
 

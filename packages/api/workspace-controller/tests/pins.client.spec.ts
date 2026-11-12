@@ -58,6 +58,19 @@ function modelOf(remote: FakePinsRemote): ClientSessionPinsModel {
 }
 
 describe('ClientSessionPinsModel', () => {
+  it('discards private state and in-flight reads when access is withdrawn', async () => {
+    const remote = new FakePinsRemote()
+    const model = modelOf(remote)
+    await model.reload()
+    const reply = Promise.withResolvers<RemoteResult<SessionPinsSnapshot>>()
+    remote.onList = () => reply.promise
+    const pending = model.reload()
+    model.clear()
+    reply.resolve(remoteOk(snapshot(['private'])))
+    await pending
+    expect(model.getSnapshot()).toEqual(snapshot([]))
+  })
+
   it.each(['toString', 'valueOf'])('replaces an empty group named %s with a different group', async (key) => {
     const remote = new FakePinsRemote()
     const model = modelOf(remote)

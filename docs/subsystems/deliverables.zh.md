@@ -2,9 +2,11 @@
 
 [English](deliverables.md) | 中文
 
-记录一轮交给用户的东西，由 [deliverables 包组](../../packages/deliverables/README.zh.md)拥有：模型通过 `present` 工具声明的文件，记在一个只写日志的 Session 事件里；这一轮改动的文件，由轮开始和轮结束时的 git 工作树快照对比得出，git 覆盖不到的路径则由文件工具每次编辑前后的整文件捕获得出，用一个只写日志的事件宣告，并在 Session 存活期间由 Host 服务连同每个所列文件在轮开始与轮结束时的对比一起提供。它们只由客户端读取，Web [产出物插件](../../packages/client/ui-deliverables/README.zh.md)在轮末渲染两者。工具行为、快照机制和配置见 [`tool-present`](../../packages/fs/tool-present/README.zh.md) 与 [`workspace-changes`](../../packages/deliverables/workspace-changes/README.zh.md) 的包 README。
+记录一轮交给用户的东西，由 [deliverables 包组](../../packages/deliverables/README.zh.md)拥有：模型通过 `present` 工具声明的文件，记在一个只写日志的 Session 事件里；这一轮改动的文件，由轮开始和轮结束时的 git 工作树快照对比得出，git 覆盖不到的路径则由文件工具每次编辑前后的整文件捕获得出，用一个只写日志的事件宣告，并在 Session 存活期间由 Host 服务连同每个所列文件在轮开始与轮结束时的对比一起提供。它们只由客户端读取，Web [产出物插件](../../packages/client/ui-deliverables/README.zh.md)在轮末渲染两者。工具行为、快照机制和配置见 [`tool-present`](../../packages/deliverables/tool-present/README.zh.md) 与 [`workspace-changes`](../../packages/deliverables/workspace-changes/README.zh.md) 的包 README。
 
-源码：[`packages/fs/tool-present/src/types.ts`](../../packages/fs/tool-present/src/types.ts)、[`packages/deliverables/workspace-changes/src/types.ts`](../../packages/deliverables/workspace-changes/src/types.ts)
+源码：[`packages/deliverables/tool-present/src/types.ts`](../../packages/deliverables/tool-present/src/types.ts)、[`packages/deliverables/workspace-changes/src/types.ts`](../../packages/deliverables/workspace-changes/src/types.ts)
+
+补丁调用使用相同的摘要与对比 API。对于 Git 覆盖之外的路径，移动形成源删除与目标新增；停止的提交只贡献实际文件净变化。[采集规则](../../packages/deliverables/workspace-changes/README.zh.md#use-this-package)定义路径选择与观察行为。
 
 ## `PresentedFile`：一条声明的交付
 

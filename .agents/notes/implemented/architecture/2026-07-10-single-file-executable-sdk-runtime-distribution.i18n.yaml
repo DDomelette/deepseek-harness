@@ -12,32 +12,32 @@
   en: a15c7c13f167e5ac
   zh: 63bcc2ef60c2f344
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/packaging-route-yao-pkg-pkg-s-sea-mode:
-  en: 89a90644ff942f4a
-  zh: 67b23f8c9681ce80
+  en: f1c2b60e9474111d
+  zh: 5de398b5e8554429
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/the-serving-interface-is-a-plugin-inside-the-dsh-application:
   en: 5fdde26e9e8c6108
   zh: 629559d733c1f0c5
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/plugin-resolution-the-vfs-holds-a-real-package-tree-the-closure-manifest-is-the-deploy-root:
-  en: db5aaf32d32e4641
-  zh: 97edf215cf320ec1
+  en: 985e0eb63f3d1fd6
+  zh: 337cc44fadc6227e
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/build-pipeline-and-artifacts:
-  en: ee95c07efbd3499b
-  zh: 7fcc3bea803d7ca3
+  en: 4a55602284b462e8
+  zh: 762c4f8b719f179c
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/python-sdk-distribution-two-carriers-exe-for-production-node-for-development:
-  en: f9e2e9ba7568003e
-  zh: 03df3d6789777db1
+  en: b2a740a1ab7a5002
+  zh: a48be6ca6fc65912
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/decision/naming-lineage:
   en: 31a5aecb8bf828bb
   zh: 2dffb6fd2e0f8194
-/agent-note-single-file-executable-sdk-runtime-distribution-single-exe/disposition-of-worker-style-plugins:
-  en: 75587e3d66ac62df
-  zh: e5289969903291dd
+/agent-note-single-file-executable-sdk-runtime-distribution-single-exe/packaged-workflow-and-code-execution:
+  en: 0426f598f3f44e64
+  zh: fc66728e17f3bcfb
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/testing:
-  en: 8b30cec9768ebdae
-  zh: 1da1c2abc18e08d3
+  en: 8e7f46bbb595afa9
+  zh: 4641894ed285d717
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/alternatives-considered:
   en: 50d965ca81a401ba
   zh: 0c6296245b97b9ac
 /agent-note-single-file-executable-sdk-runtime-distribution-single-exe/consequences:
-  en: aca7822b10f9e4f2
-  zh: 37c67fe13a3eeb78
+  en: 601a72b3a7a91fe4
+  zh: 5baaa866e789923e

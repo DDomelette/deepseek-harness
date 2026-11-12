@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-07-23-client-plugin-loading-model.md
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload:
-  en: 874618fd5ad1d06a
-  zh: a5e4bfad490fab34
+  en: 44c4ef732c381264
+  zh: ce375eb5efd6ce2d
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/problem:
   en: 46c4b208707e024e
   zh: b6f86a6374b251da
@@ -12,26 +12,29 @@
   en: a15c7c13f167e5ac
   zh: a15c7c13f167e5ac
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/package-membership-and-module-requests:
-  en: ba29fc10eb9a4b63
-  zh: bd127c0415b97dcc
+  en: 6af228b03e5e533f
+  zh: 276a522af6be5d7a
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/one-module-system-one-plugin-governor:
-  en: 92db25ee4e417a97
-  zh: 03ebca90a09dd9b3
+  en: 575aad62490f32e9
+  zh: a6c18eb63965fc1e
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/combo-external-script-arrival-and-source-maps:
-  en: cf16a15c9352ba21
-  zh: d7ebef049d21b425
+  en: 0a4240d88cca240a
+  zh: 8f5f1527caf571cd
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/the-loading-flow-end-to-end:
-  en: 90b94b3422bb1bd4
-  zh: 5b20f639e0d0e04c
+  en: dd05aa1ee608c414
+  zh: 2863ced0086e3122
+/agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/live-graph-reconciliation:
+  en: 37e2fa1fe5cb2b95
+  zh: 80e513db87709cb4
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/decision/hot-reload-one-driver-plugin-self-watched-bundles:
-  en: 22821648e1f5e5fe
-  zh: beaf5b34c7b6affe
+  en: c1fdcb3e6f074a7a
+  zh: b08c7b1ff25acb09
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/package-ownership:
   en: 94ca0d09e6fd1e3a
   zh: d5949a2bdec795ba
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/consequences:
-  en: f4e0ea1cd42843dd
-  zh: ef74fbad2cfb28a0
+  en: 624efdd136029771
+  zh: 7d60207147e631fe
 /agent-note-client-plugin-loading-lazy-factories-cordis-lifecycle-and-hot-reload/alternatives-considered:
-  en: 5f6cbcca4cdc2526
-  zh: 053102cadbfb414e
+  en: b8f036f50cff7cd8
+  zh: 6d623c4a1f4314b1

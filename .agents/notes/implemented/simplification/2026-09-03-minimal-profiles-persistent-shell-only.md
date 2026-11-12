@@ -20,7 +20,7 @@ The shared [persistent Bash consumer](../../../../packages/shell/tool-bash-persi
 
 Exact composition tests assert the single tool and the absence of a preset-local filesystem service. The `sdk-minimal` bundle test and built config dump assert that its row and dependency allowlists contain neither `fs-local` nor `dsh-tool-str-replace-editor`. Web and packaged-Python model-visible snapshots pin the one-tool schema roster. SDK profile smoke tests execute the guide's editor patch and verify file creation and viewing.
 
-This decision partially supersedes the tool selection in [the bare minimal runtime](../feature/2026-08-11-minimal-profiles-bare-two-tool-runtime.md) and the minimal exception in [the base editor decision](2026-09-05-base-default-file-editor.md). Those notes retain authority for prompt ownership, no-compaction behavior, and base-backed file editing. [The application architecture](../../../../docs/architecture.md) owns profile launch and bundle layering.
+This decision partially supersedes the tool selection in [the bare minimal runtime](../../archived/feature/2026-08-11-minimal-profiles-bare-two-tool-runtime.md) and the minimal exception in [the base editor decision](2026-09-05-base-default-file-editor.md). Those notes retain authority for prompt ownership, no-compaction behavior, and base-backed file editing. [The application architecture](../../../../docs/architecture.md) owns profile launch and bundle layering.
 
 ## Alternatives considered
 

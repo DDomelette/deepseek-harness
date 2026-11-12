@@ -202,8 +202,10 @@
   cursor: pointer;
 }
 
-.nameButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .nameButton:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .nameButton .editIcon {
@@ -212,9 +214,14 @@
   opacity: 0;
 }
 
-.nameButton:hover .editIcon,
 .nameButton:focus-visible .editIcon {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .nameButton:hover .editIcon {
+    opacity: 1;
+  }
 }
 
 .renameInput {
@@ -292,8 +299,10 @@
   cursor: pointer;
 }
 
-.selector:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .selector:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .selector svg {
@@ -353,8 +362,10 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.action:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .action:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .primary {
@@ -362,8 +373,10 @@
   color: var(--dsw-alias-label-primary-foreground);
 }
 
-.primary:hover:not(:disabled) {
-  background: var(--dsw-alias-button-primary-hover);
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: var(--dsw-alias-button-primary-hover);
+  }
 }
 
 /* Revoke reads as a real button: a quiet error-tinted outline, not bare text. */
@@ -373,8 +386,10 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-.danger:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover-danger);
+@media (hover: hover) {
+  .danger:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover-danger);
+  }
 }
 
 .dangerSolid {

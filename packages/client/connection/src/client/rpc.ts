@@ -12,8 +12,8 @@ const INTERNAL_BASE = 'http://dsh.internal'
 const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
 const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 
-/** Transport this caller posts through; same signature as the global `fetch`. */
-export type RpcFetch = (input: URL, init: RequestInit) => Promise<Response>
+/** Transport this caller posts through; given a route relative to its application mount. */
+export type RpcFetch = (input: string, init: RequestInit) => Promise<Response>
 
 /**
  * A unary call the carrier refused with an HTTP status. The status is the one
@@ -46,7 +46,7 @@ export type RpcStreamOpen = (
  * @returns caller that owns request correlation and response-envelope validation.
  */
 export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStreamOpen): ClientConnectionRpc {
-  const send: RpcFetch = doFetch ?? ((input, init) => globalThis.fetch(input, init))
+  const send: RpcFetch = doFetch ?? ((input, init) => globalThis.fetch(requestUrl(input), init))
   return {
     async call(channel, endpoint, payload, signal) {
       assertTarget(channel, endpoint)
@@ -58,7 +58,7 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
         payload,
       }
       const response = await send(
-        requestUrl(channel, endpoint),
+        `${channel.slice(1)}/${endpoint}`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -193,17 +193,14 @@ async function parseBinaryResponse(response: Response): Promise<{
 }
 
 /**
- * Resolve one channel call against the base, keeping it inside the mount.
- * The channel name leads with `/`, which URL resolution would anchor at the
- * origin; trimming it makes the route relative to the base instead.
- * @param channel - validated channel name.
- * @param endpoint - validated endpoint path.
+ * Resolve a default transport route inside the application mount.
+ * @param route - validated document-relative RPC route.
  * @returns the absolute request URL.
  */
-function requestUrl(channel: string, endpoint: string): URL {
+function requestUrl(route: string): URL {
   const base = resolveBase()
   const root = base.endsWith('/') ? base : `${base}/`
-  return new URL(`${channel.replace(/^\//u, '')}/${endpoint}`, root)
+  return new URL(route, root)
 }
 
 /**

@@ -6,11 +6,11 @@
   en: b63ecbd21fc1f427
   zh: 4990d96d76888802
 /agent-note-agent-scope-runtime-design-and-correctness/problem:
-  en: ae7b688bd991a6df
-  zh: 73b6b28755852054
+  en: d465b45366293417
+  zh: 5192cc869cfa5c6a
 /agent-note-agent-scope-runtime-design-and-correctness/decision:
-  en: cfd6abca8404c7d4
-  zh: a9372aae85e49f55
+  en: 8c1337669b1c179f
+  zh: b5af4909b03b57e9
 /agent-note-agent-scope-runtime-design-and-correctness/cordis-model-context-fiber-effect-receiver-and-waterfall:
   en: 4d4bdb629a57139d
   zh: 7b4d21d9eb42d94b
@@ -123,8 +123,8 @@
   en: 6d12f7929a9dfe74
   zh: 0a88238b31916c01
 /agent-note-agent-scope-runtime-design-and-correctness/alternatives-considered:
-  en: 5eef7873a795c8f0
-  zh: 3e8ba109a6e29ba5
+  en: 3a86508e131f30c3
+  zh: 27ecd1c090b838eb
 /agent-note-agent-scope-runtime-design-and-correctness/alternatives-considered/use-a-transparent-proxy-as-the-scope-carrier:
   en: 199c7345a237e7e9
   zh: b262d5ad0c7cb562
@@ -153,5 +153,5 @@
   en: eb2001592d7bd7b1
   zh: e534dbb6daa9af32
 /agent-note-agent-scope-runtime-design-and-correctness/consequences/costs-and-limits:
-  en: e9383713d56b9e10
-  zh: d3ab00aea8ecf4e0
+  en: de2a43ce6ba64628
+  zh: 56ab745a8aaaa68a

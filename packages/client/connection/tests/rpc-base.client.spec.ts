@@ -21,11 +21,12 @@ describe('RPC application base', () => {
     vi.stubGlobal('location', location)
     try {
       const urls: string[] = []
-      const rpc = createWebConnectionRpc(async (target, init) => {
+      vi.stubGlobal('fetch', async (target: URL, init: RequestInit) => {
         urls.push(target.href)
         const message = JSON.parse(init.body as string) as { rpcId: string }
         return Response.json({ type: 'server-response', rpcId: message.rpcId, result: { ok: true, value: 'done' } })
       })
+      const rpc = createWebConnectionRpc()
       expect(await rpc.call('/api', 'fixture/read', {})).toEqual({ ok: true, value: 'done' })
       expect(urls).toEqual([base + 'api/fixture/read'])
     } finally {

@@ -88,6 +88,13 @@ export class ClientSessionPinsModel implements SessionPinsSource {
     this.install(result.value)
   }
 
+  /** Discard private state and invalidate replies started before access was withdrawn. */
+  clear(): void {
+    this.readSeq++
+    this.mutationSeq++
+    this.install(EMPTY_SNAPSHOT)
+  }
+
   /**
    * Persist the complete pinned display order and install the committed result.
    * @param orderedIds - every pinned Session id, in display order.

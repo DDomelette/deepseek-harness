@@ -51,7 +51,7 @@
       "path": "../../mcp/mcp-manager"
     },
     {
-      "path": "../../notes/notes/tsconfig.host.json"
+      "path": "../../notes/notes/tsconfig.shared.json"
     },
     {
       "path": "../../skill/skill"
@@ -90,6 +90,12 @@
       "path": "../../boot/plugin-manager"
     },
     {
+      "path": "../../mcp/mcp-manager"
+    },
+    {
+      "path": "../../boot/plugin-market"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {
@@ -97,6 +103,9 @@
     },
     {
       "path": "../../credentials/deepseek-account"
+    },
+    {
+      "path": "../../web/web"
     },
     {
       "path": "../../client/connection/tsconfig.host.json"

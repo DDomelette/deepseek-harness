@@ -48,12 +48,12 @@ function devicePeer(): PeerScope {
  * @returns the response status.
  */
 async function call(connection: HostConnectionService, peer: PeerScope, endpoint: string): Promise<number> {
-  const handler = connection.createSharedFetchHandler('/api', peer)
+  const handler = connection.createSharedFetchHandler('/api')
   return (await handler.fetch(new Request(`http://host/api/${endpoint}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ type: 'client-request', rpcId: 'rpc-1', method: endpoint, payload: {} }),
-  }))).status
+  }), peer)).status
 }
 
 describe('operator-only shared-channel endpoints', () => {

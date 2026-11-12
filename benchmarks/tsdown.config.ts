@@ -16,6 +16,13 @@ const shared = {
 export default defineConfig([
   {
     ...shared,
+    entry: { 'terminal-io.worker': 'terminal-io/terminal-io.worker.ts' },
+    outDir: '.dsh-build/terminal-io',
+    clean: true,
+    tsconfig: 'tsconfig.host.json',
+  },
+  {
+    ...shared,
     entry: { 'reconnect.worker': 'active-stream-reconnect/reconnect.worker.client.ts' },
     outDir: '.dsh-build/active-stream-reconnect',
     clean: true,
@@ -56,6 +63,13 @@ export default defineConfig([
       'conversation-fold.worker': 'conversation-fold/conversation-fold.worker.client.ts',
     },
     outDir: '.dsh-build/conversation-fold',
+    clean: true,
+    tsconfig: 'tsconfig.client.json',
+  },
+  {
+    ...shared,
+    entry: { 'user-text.worker': 'user-text/user-text.worker.client.ts' },
+    outDir: '.dsh-build/user-text',
     clean: true,
     tsconfig: 'tsconfig.client.json',
   },

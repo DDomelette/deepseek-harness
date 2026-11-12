@@ -56,6 +56,8 @@ Only `POST application/json` is accepted. The adapter reads a bounded UTF-8 body
 
 The normal Web profile already owns `ctx.webServer`. Mount another `dsh-host-webserver` and this adapter inside a group that isolates only `webServer`; the adapter still inherits credentials and `webhookRuntime`. The [GitHub review guide](../../../docs/user/guide/github-review.md) uses `127.0.0.1:3081/github` behind a TLS reverse proxy while the UI remains on port 3080.
 
+The package distributes the example overlay and rule module under `examples/github-review/`. Install this package and its `dsh-webhook` peer into the profile before loading that installed overlay; the [guide](../../../docs/user/guide/github-review.md) gives the complete commands.
+
 <a id="model-experience"></a>
 ## Model Experience
 
@@ -78,11 +80,11 @@ Independent. Authentication and HTTP dispatch do not touch a model request; any 
 <a id="dev-note"></a>
 ### Dev Note
 
+No invariant companion is published because ingress dispatch delegates Session and Agent ownership to their services; the adapter keeps no second durable Session registry.
+
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. Authentication and input validation occur at the exact HTTP operation; dsh-host-webserver owns route/disposer symmetry.

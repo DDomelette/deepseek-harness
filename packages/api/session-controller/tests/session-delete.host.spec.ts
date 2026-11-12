@@ -43,7 +43,7 @@ const remote = (ctx: Context) => createSessionTestRemote(ctx, {
 describe('sessions.delete', () => {
   it('reports an unmounted deletion service instead of a transport failure', async () => {
     const ctx = await composed()
-    const response = await remote(ctx).delete({ sessionId: sid('anything') })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('anything') })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error.code).toBe('session/deletion-unavailable')
@@ -56,12 +56,12 @@ describe('sessions.delete', () => {
       deletedSessionIds: [sid('child'), sid('root')],
     }))
 
-    const response = await remote(ctx).delete({ sessionId: sid('root'), recursive: true })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('root'), recursive: true })
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.value).toEqual({ deletedSessionIds: [sid('child'), sid('root')] })
     expect(spy).toHaveBeenCalledWith({ sessionId: sid('root'), recursive: true })
 
-    await remote(ctx).delete({ sessionId: sid('root') })
+    await (await remote(ctx)).delete({ sessionId: sid('root') })
     expect(spy).toHaveBeenLastCalledWith({ sessionId: sid('root'), recursive: false })
   })
 
@@ -73,7 +73,7 @@ describe('sessions.delete', () => {
     provideDeletion(ctx, () => Promise.reject(
       new SessionDeletionError('session-running', 'session root is still attached', runningSessionIds),
     ))
-    const response = await remote(ctx).delete({ sessionId: sid('root'), recursive: true })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('root'), recursive: true })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error).toMatchObject({
@@ -87,7 +87,7 @@ describe('sessions.delete', () => {
     provideDeletion(ctx, () => Promise.reject(
       new SessionDeletionError('session-has-descendants', 'session root has subagent descendants'),
     ))
-    const response = await remote(ctx).delete({ sessionId: sid('root') })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('root') })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error).toMatchObject({
@@ -101,7 +101,7 @@ describe('sessions.delete', () => {
     provideDeletion(ctx, () => Promise.reject(
       new SessionDeletionError('session-not-found', 'session ghost does not exist'),
     ))
-    const response = await remote(ctx).delete({ sessionId: sid('ghost'), recursive: true })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('ghost'), recursive: true })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error).toMatchObject({
@@ -113,7 +113,7 @@ describe('sessions.delete', () => {
   it('does not disguise an unrelated storage failure as a business refusal', async () => {
     const ctx = await composed()
     provideDeletion(ctx, () => Promise.reject(new Error('storage unavailable')))
-    const response = await remote(ctx).delete({ sessionId: sid('root'), recursive: true })
+    const response = await (await remote(ctx)).delete({ sessionId: sid('root'), recursive: true })
     expect(response.ok).toBe(false)
     if (response.ok) return
     expect(response.error.code).toBe('gateway/internal')

@@ -60,5 +60,5 @@ Three questions must be answered before implementation, and none of them is sett
 
 - [Bounded cold blank verification](../../archived/bug-fix/2026-08-13-bounded-cold-blank-verification.md) — removes mtime ordering and defines the interim cache-only cold summary this proposal would make exact.
 - [The end-seed log boundary](../../implemented/architecture/2026-07-30-session-end-seed-log-boundary.md) — one of the non-prompt writes that made mtime unsuitable.
-- [Session persistence](../../implemented/architecture/2026-06-14-session-persistence.md) — the append-only and never-rewrite invariants that rule out a mutable JSONL header field.
+- [Session persistence](../../archived/architecture/2026-06-14-session-persistence.md) — the append-only and never-rewrite invariants that rule out a mutable JSONL header field.
 - [Handle-based session persistence](../../implemented/architecture/2026-08-27-handle-based-session-persistence.md) — the write-handle append path a stored field would hook into.

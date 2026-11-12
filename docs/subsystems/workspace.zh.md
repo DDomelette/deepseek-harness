@@ -25,9 +25,10 @@ type WorkspaceId = Branded<'WorkspaceId'>
 ```ts type-equiv
 /**
  * One workspace: a stable id over an existing directory, a display title, and
- * an ordered candidate account of sessions. Membership requires both an id in
- * that account and a session header whose canonical cwd equals the workspace
- * path. Consumers only see this interface; the implementation stays private.
+ * an ordered candidate account of sessions. Membership validates header cwd
+ * against the workspace path, but preserves an existing account when its
+ * fully qualified cwd is missing. Consumers only see this interface; the
+ * implementation stays private.
  */
 interface Workspace {
   /** Stable record id (generated uuid). */
@@ -54,8 +55,11 @@ interface Workspace {
    * prepended at attach, explicit reordering goes through
    * `insertSessionBefore`, and activity never reorders. The durable candidate
    * account is filtered synchronously: missing headers, invalid cwd values,
-   * and canonical cwd mismatches are never returned. A subsequent workspace
-   * mutation prunes those filtered candidates durably.
+   * and canonical cwd mismatches are never returned. A fully qualified cwd
+   * whose realpath or directory stat fails with ENOENT preserves an existing
+   * candidate, including a dangling symlink; other filesystem failures do not.
+   * A subsequent mutation prunes filtered candidates, not missing-directory
+   * candidates. This does not admit new sessions or recreate directories.
    */
   readonly sessionIds: readonly SessionId[]
 
@@ -113,13 +117,54 @@ interface Workspace {
 }
 ```
 
-所有权的真源是记录中有序的 `sessionIds`，绝不从会话 cwd 派生——但成员资格要求两者同时成立：账本上有其 id，且 header 的规范 cwd 等于工作区路径，因此一个会话在结构上至多属于一个工作区。失败的写入会拒绝（`insertSessionBefore` 的账本错误以 `WorkspaceMoveInvalidError` 拒绝，存储失败以普通错误拒绝）；每次被接受的变更都盖上 `updatedAt` 时间戳，并持久修剪不再通过成员资格检查的候选项。
+所有权的真源是记录中有序的 `sessionIds`，绝不从会话 cwd 派生。成员资格将记录的 header cwd 与工作区路径校验；已有候选的完全限定 cwd 在路径解析或目录 stat 时返回 `ENOENT`，仍保留其归属。这会保留目录缺失或符号链接失效时的记账关系，但不会接纳新会话。失败的写入会拒绝（`insertSessionBefore` 的账本错误以 `WorkspaceMoveInvalidError` 拒绝，存储失败以普通错误拒绝）；每次被接受的变更都盖上 `updatedAt` 时间戳，并持久修剪不再通过成员资格检查的候选项。
 
 ## 注册表：`ctx.workspaceRegistry`
 
-`WorkspaceRegistry`（[签名](#ctxworkspaceregistry--workspaceregistry)）拥有注册与解析。`create(path, title?)` 要求完全限定路径并将其规范化，拒绝不存在的路径（原样传出原始 `ENOENT`）或非目录；当规范路径已被拥有时原样返回既有实体；否则创建一条标题为 `title ?? defaultWorkspaceTitle(path)` 的记录并前插到持久的注册表顺序中（不同规范路径可以共享同一显示标题，没有最终路径段时使用根路径拼写）。`get(id)` 与有序的 `list()` 是同步缓存读取；`resolveByPath(path)` 应用同一套完全限定 realpath 规范但不创建。`delete(id)` 只移除注册记录、顺序条目和会话账本——目录、用户文件、实时会话和已持久化日志一概不动，因此这些会话变为 Ungrouped（[决策](../../.agents/notes/implemented/feature/2026-07-27-workspace-registration-deletion.zh.md)）；未知 id 返回 `false`。create 与 delete 会在其两次写入（记录 + 顺序）可能分叉之前先持久写入一个待定变更标记；启动时恰好解决被标记的那次变更——通过删除被标记的表行：这会补完被中断的 delete，并回滚被中断的 create（注册可以重建，因此回滚是安全方向）——而没有标记的顺序/表不一致则作为损坏大声失败。
+`WorkspaceRegistry`（[签名](#ctxworkspaceregistry--workspaceregistry)）拥有注册与解析。`create(path, title?)` 要求完全限定路径并将其规范化，拒绝不存在的路径（原样传出原始 `ENOENT`）或非目录；当规范路径已被拥有时原样返回既有实体；否则创建一条标题为 `title ?? defaultWorkspaceTitle(path)` 的记录并前插到持久的注册表顺序中（不同规范路径可以共享同一显示标题，没有最终路径段时使用根路径拼写）。`get(id)` 与有序的 `list()` 是同步缓存读取；`resolveByPath(path)` 应用同一套完全限定 realpath 规范但不创建。`delete(id)` 只移除注册记录、顺序条目和会话账本——目录、用户文件、实时会话和已持久化日志一概不动，因此这些会话变为 Ungrouped（[参考](../../packages/workspace/workspace/README.zh.md)）；未知 id 返回 `false`。create 与 delete 会在其两次写入（记录 + 顺序）可能分叉之前先持久写入一个待定变更标记；启动时恰好解决被标记的那次变更——通过删除被标记的表行：这会补完被中断的 delete，并回滚被中断的 create（注册可以重建，因此回滚是安全方向）——而没有标记的顺序/表不一致则作为损坏大声失败。
 
 会话的 cwd 在创建时由创建者赋予，而不是由本注册表赋予——API 网关从所选工作区的 `path` 解析新会话的 cwd（回退到显式或默认 cwd），先创建会话使 cwd 落入其不可变的 [`SessionHeader`](persistence.zh.md#sessionheader--metadata-beside-the-log)，再调用 `attachSession`，后者会把已存储的 header cwd 与工作区路径重新校验一遍。首次成功启动时，注册表仅凭已持久化的 header（`id`、`cwd`、`createdAt`——绝不读事件正文）引导历史：把规范 cwd 有效的会话按目录分组为工作区，最新的排在最前；「已初始化」标记最后写入，因此被中断的引导可以安全续跑。引导只发生这一次：没有 cwd 的历史遗留会话保持 Ungrouped，此后创建的会话只能通过 `attachSession` 加入工作区。
+
+## 默认工作区初始化
+
+控制器的 `initializeDefault` 不接受请求参数：它拥有固定目录名 `default-workspace`，解析 Documents 位置，并请求注册表执行一次初始化。注册表接收目录解析器，以所请求目录（而非规范路径）的最后一段作为初始标题，并将登记与持久化身份一起提交。语言不会传到 Host——浏览器消费方通过控制器的 `workspaceDisplayTitle` 为仍保留该自动标题的工作区加标签，因此只有屏幕上的名称跟随读者语言。[首次使用行为与配置](../../packages/api/workspace-controller/README.zh.md#first-use-workspace)说明复用和失败处理。
+
+## 会话置顶
+
+控制器的[传输类型](../../packages/api/workspace-controller/src/types.ts)定义了 `WorkspacePinSessionRequest` 和 `WorkspaceUnpinSessionRequest`，两者都携带一个 `sessionId`。两个操作都返回 `WorkspacePinValue`：完整的会话 id 数组 `pinnedSessionIds`，最近置顶的会话排在前面。置顶要求会话已知且未归档；对未置顶的 id 取消置顶会成功，且不改变集合。归档在同一次持久化写入中移除该会话的置顶，取消归档不会恢复置顶。
+
+## 归档准入
+
+归档是一个注册表全局的持久化集合，注册表拒绝把正在运行的工作藏在它后面。这条规则是本包声明并派发的两个宿主事件之上的能力接缝（[事件](#workspace-events)）：`workspace/session-activity`（waterfall）向已组合的提供方询问某会话还有什么在跑，`workspace/session-stop`（parallel）请它们停止这些工作。每个提供方像任何监听器一样在根上注册，因此本包不认识 agent、job 或 schedule 的词汇；各族是一个可合并扩展的 map 的键。
+
+```ts type-equiv
+/**
+ * Activity families a `workspace/session-activity` listener may report. This
+ * package declares none: each provider merges its own key from a module both
+ * its Host and Client faces import, so a consumer that renders the families
+ * sees exactly the keys its program compiled and falls through to a generic
+ * description for any other. The shipped providers merge `turn` (the Agent
+ * registry), `job` (the job registry seam), `subagent` (the Subagent
+ * runtime), and `schedule` (the Schedule plugin).
+ */
+interface SessionActivityKindMap {}
+```
+
+`SessionActivityKind` 即 `keyof SessionActivityKindMap`，因此一个没有编译任何提供方的程序看不到任何键。随附的键放在各自 client 可导入的类型模块里：`turn` 在 Agent 注册表的 `types.ts`，`job` 在任务注册表接缝的 `view.ts`，`subagent` 在 Subagent runtime 的 `control-types.ts`，`schedule` 在 Schedule 插件的 `types.ts`；渲染各族的消费方为其分支导入这些模块，并为其他任何键保留一条通用文案。提供方通过把自己的 `SessionActivity` 条目前置到 `next()` 的结果来回答 waterfall；注册表最内层的回调返回空列表，因此没有提供方的组合可自由归档。
+
+```ts type-equiv
+/**
+ * One reason a session counts as active for archive admission. Families with
+ * per-item identity list their items so a caller can name what must stop.
+ */
+interface SessionActivity {
+  readonly kind: SessionActivityKind
+  /** Active items of the family; absent for a family without per-item identity (`turn`). */
+  readonly items?: readonly SessionActivityItem[]
+}
+```
+
+`SessionActivityItem` 携带各族自己的 `id`（会话、任务或提醒 id）和可选的展示 `label`。`archiveSession(sessionId)` 在存在性检查之后只询问 waterfall 一次，对非空答案以 `WorkspaceActiveSessionError`（`sessionId`、`activity`）拒绝且不写入；控制器把它映射为 `workspace/session-active` 错误，其 details 携带同样的两个字段。`archiveSession(sessionId, { stopActivity: true })`——`ArchiveSessionOptions` 的这个字段由传输请求以 `stopActivity` 暴露——跳过检查、先写入归档、再派发 `workspace/session-stop`；提供方抛错只记日志，归档保留，被停止的工作从不等待收敛。已归档的 id 既不询问也不停止。随附的提供方、它们停止什么，以及让已归档会话不跑模型步的 `agent/pre-step` 门禁，记录在[注册表包](../../packages/workspace/workspace/README.zh.md#api-behavior)；决策记录见 [archive-stops-running-work Agent Note](../../.agents/notes/implemented/feature/2026-09-21-archive-stops-running-session-work.zh.md)。
 
 ## 消费方
 
@@ -183,6 +228,77 @@ Host service backing the generated `ctx.remote.directoryPicker` namespace. The s
 
 Source: [`packages/api/workspace-controller/src/directory-picker.ts`](../../packages/api/workspace-controller/src/directory-picker.ts)
 
+<a id="ctxsessionflags--sessionflagregistry"></a>
+
+### `ctx.sessionFlags` — `SessionFlagRegistry`
+
+Merges presentation-flag providers in registration order; later providers win per key.
+
+```ts cordis-catalog
+/**
+ * Register one flag provider. Provider ids are unique within the registry.
+ *
+ * @param provider - Synchronous source of flags keyed by session id.
+ * @returns Disposer that removes the provider.
+ */
+registerProvider(provider: SessionFlagProvider): () => void
+
+/**
+ * Merge providers in registration order. Failed providers are logged and skipped; if every
+ * provider fails, the registry returns the last complete snapshot when one is available.
+ *
+ * @returns Merged flags and whether every provider completed.
+ */
+snapshot(): SessionFlagsSnapshot
+```
+
+Types: [SessionFlagProvider](../../packages/session/session-flags/README.zh.md) · [SessionFlagsSnapshot](../../packages/session/session-flags/README.zh.md)
+
+Source: [`packages/session/session-flags/src/index.ts`](../../packages/session/session-flags/src/index.ts)
+
+<a id="ctxsessionpins--sessionpinsservice"></a>
+
+### `ctx.sessionPins` — `SessionPinsService`
+
+Durable pin set plus its Typert Remote.
+
+```ts cordis-catalog
+/**
+ * Read the current durable pin state without exposing its mutable storage arrays.
+ *
+ * @returns A detached snapshot of the pin set and its order overrides.
+ */
+@Remote('list') list(): SessionPinsSnapshot
+
+/**
+ * Add or remove one session id and persist the complete pin state.
+ *
+ * @param input - Session id and desired pin membership.
+ * @returns The committed pin snapshot.
+ */
+@Remote('setPinned') setPinned(input: { sessionId: string; pinned: boolean }): Promise<SessionPinsSnapshot>
+
+/**
+ * Persist an order override for the supplied pinned sessions in one group.
+ *
+ * @param input - Group key and pinned session ids in display order.
+ * @returns The committed pin snapshot.
+ */
+@Remote('reorderGroup') reorderGroup(input: { groupKey: string; orderedIds: string[] }): Promise<SessionPinsSnapshot>
+
+/**
+ * Persist the flat-view order for the complete pin set.
+ *
+ * @param input - Every pinned session id in display order.
+ * @returns The committed pin snapshot.
+ */
+@Remote('reorderFlat') reorderFlat(input: { orderedIds: string[] }): Promise<SessionPinsSnapshot>
+```
+
+Types: [SessionPinsSnapshot](../../packages/session/session-pins/README.zh.md)
+
+Source: [`packages/session/session-pins/src/index.ts`](../../packages/session/session-pins/src/index.ts)
+
 <a id="ctxterminalcontroller--terminalcontroller"></a>
 
 ### `ctx.terminalController` — `TerminalController`
@@ -232,35 +348,13 @@ Typed Remote control of transient Session-owned terminal processes.
 @Remote({ mode: 'stream' }) retain(sessionId: SessionId, id: WebTerminalId, signal: AbortSignal): AsyncIterable<TerminalRetentionFrame>
 
 /**
- * Attach to a terminal without binding its process lifetime to the transport.
+ * Attach terminal input and output to one physical Remote stream.
  * @param agent - Session owner supplied by the Gateway.
  * @param id - terminal identity.
- * @param attachmentId - new exclusive input attachment.
- * @param signal - physical stream cancellation.
- * @returns screen recovery followed by output and metadata changes.
+ * @param signal - attachment cancellation; the process remains alive and input is never replayed.
+ * @returns screen recovery, output, writable state and provider-acceptance acknowledgements.
  */
-@Remote({ mode: 'stream' }) follow(agent: Agent, id: WebTerminalId, attachmentId: TerminalAttachmentId, signal: AbortSignal): AsyncIterable<TerminalFrame>
-
-/**
- * Deliver raw input, including Tab completion and control characters.
- * @param agent - Session owner supplied by the Gateway.
- * @param id - terminal identity.
- * @param attachmentId - current writable attachment.
- * @param data - input bytes represented as UTF-8 text.
- * @returns after provider input acceptance.
- */
-@Remote async write(agent: Agent, id: WebTerminalId, attachmentId: TerminalAttachmentId, data: string): Promise<void>
-
-/**
- * Update the dimensions of the PTY and recovery screen.
- * @param agent - Session owner supplied by the Gateway.
- * @param id - terminal identity.
- * @param attachmentId - current writable attachment.
- * @param cols - column count.
- * @param rows - row count.
- * @returns after the resize completes.
- */
-@Remote async resize(agent: Agent, id: WebTerminalId, attachmentId: TerminalAttachmentId, cols: number, rows: number): Promise<void>
+@Remote({ mode: 'stream' }) attach(agent: Agent, id: WebTerminalId, signal: AbortSignal): RemoteStream<TerminalFrame, TerminalInput>
 
 /**
  * Rename a terminal without changing its shell.
@@ -279,7 +373,7 @@ Typed Remote control of transient Session-owned terminal processes.
 @Remote async close(agent: Agent, id: WebTerminalId): Promise<void>
 ```
 
-Types: [Agent](core.zh.md) · [SessionId](core.zh.md)
+Types: [Agent](core.zh.md) · [RemoteStream](typert.zh.md) · [SessionId](core.zh.md)
 
 Source: [`packages/api/terminal-controller/src/index.ts`](../../packages/api/terminal-controller/src/index.ts)
 
@@ -364,11 +458,17 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('unpinSession') unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue>
 
 /**
- * Stream a complete Workspace baseline followed by ordered increments.
+ * Stream a complete Workspace baseline followed by ordered increments. A
+ * non-owner receives only the Workspaces and Sessions `allows()` admits.
+ * When a delivered Workspace is no longer admitted at its next change or
+ * the next order change, the stream sends a `replace` frame with the
+ * complete filtered state instead of a `remove`, because a Client never
+ * resurrects a removed Workspace; a `remove` frame reports a deletion and
+ * reaches only a Client that received that Workspace.
  * @param signal - generation cancellation.
  * @returns baseline followed by ordered Workspace increments.
  */
-@Remote({ mode: 'stream' }) follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame>
+@Remote({ mode: 'stream' }) async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame>
 ```
 
 Source: [`packages/api/workspace-controller/src/index.ts`](../../packages/api/workspace-controller/src/index.ts)
@@ -577,6 +677,35 @@ async resolveByPath(path: string): Promise<Workspace | undefined>
 Types: [SessionId](core.zh.md)
 
 Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
+
+<a id="notes-events"></a>
+
+### `notes/*` events
+
+<a id="notesmaterial-settled--emit"></a>
+
+#### `notes/material-settled` — emit
+
+One or more materials left `analyzing` because the turn that carried them closed. The Host settles them on its own clock, so a browser that is still showing the material has no call to learn it from; this event is the answer's arrival, and a reader follows it by reading the material and its thread again. Emitted once per conversation per settled turn, after every settlement of that turn was written.
+
+```ts cordis-catalog
+/**
+ * One or more materials left `analyzing` because the turn that carried them
+ * closed. The Host settles them on its own clock, so a browser that is
+ * still showing the material has no call to learn it from; this event is
+ * the answer's arrival, and a reader follows it by reading the material and
+ * its thread again. Emitted once per conversation per settled turn, after
+ * every settlement of that turn was written.
+ * @param noteId - the conversation whose materials settled.
+ * @param materialIds - the materials this turn settled, in settle order.
+ * @mode emit
+ */
+'notes/material-settled'(noteId: NoteSessionId, materialIds: readonly MaterialId[]): void
+```
+
+Types: [MaterialId](../../packages/notes/notes/README.zh.md) · [NoteSessionId](../../packages/notes/notes/README.zh.md)
+
+Source: [`packages/notes/notes/src/types.ts`](../../packages/notes/notes/src/types.ts)
 
 <a id="workspace-events"></a>
 

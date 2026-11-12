@@ -1,8 +1,8 @@
-import { createServer, ServerResponse, type IncomingMessage } from 'node:http'
+import { createServer, type IncomingMessage } from 'node:http'
 import { PassThrough } from 'node:stream'
 import type { AddressInfo } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
-import type { IndexInjection, WebRoute, WebServer, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { IndexInjection, WebServer, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
 import open from 'open'
@@ -11,6 +11,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apply, Config, inject, name, startInspector } from '../src/index.ts'
 import { isPlainObject } from '../src/shared/json.ts'
 import { INSPECTOR_BOOTSTRAP_PATH } from '../src/shared/web.ts'
+
+/** The Peer an index render speaks for; this listener reads no field of it. */
+const PAGE_PEER = { principal: { kind: 'owner' } } as Parameters<WebServer['renderIndex']>[1]
 
 vi.mock('open', () => ({ default: vi.fn(async () => undefined), apps: { chrome: 'chrome' } }))
 
@@ -33,14 +36,18 @@ describe('experimental Inspector Host plugin', () => {
     context = new Context()
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const releaseRoute = vi.fn()
-    const registerRoute = vi.fn<(_route: WebRoute) => () => void>(() => releaseRoute)
+    const registerRoute = vi.fn(() => releaseRoute)
     const releaseUpgrade = vi.fn()
     const registerUpgrade = vi.fn<(_route: WebUpgradeRoute) => () => void>(() => releaseUpgrade)
     const routes: Pick<WebServer, 'register' | 'registerUpgrade'> = { register: registerRoute, registerUpgrade }
     let authenticated = false
-    const auth: Pick<BrowserAuth, 'isAuthenticated'> = { isAuthenticated: () => authenticated }
-    context.provide('webServer', routes as WebServer)
-    const connection = new HostConnectionService(context, [], auth as BrowserAuth, 1_048_576)
+    const auth: Pick<BrowserAuth, 'isLocalOperator' | 'deviceIdOf' | 'authenticateApi'> = {
+      deviceIdOf: () => undefined,
+      isLocalOperator: () => authenticated,
+      authenticateApi: () => undefined,
+    }
+    context.provide('webServer', { ...routes, host: '127.0.0.1', port: 0, protocol: 'http:' } as WebServer)
+    const connection = new HostConnectionService(context, [], auth as BrowserAuth)
     const fiber = context.plugin(
       { name, inject: [...inject], Config, apply },
       { port: 0, captureFetch: false },
@@ -48,36 +55,13 @@ describe('experimental Inspector Host plugin', () => {
     await fiber.await()
 
     const rows: IndexInjection[] = []
-    context.emit('webserver/index-inject', rows)
+    context.emit('webserver/index-inject', rows, PAGE_PEER)
     const bootstrap = rows.find(row => row.kind === 'global' && row.name === '__DSH_INSPECTOR__')
     expect(bootstrap).toMatchObject({ kind: 'global', name: '__DSH_INSPECTOR__' })
     expect(log).toHaveBeenCalledWith(expect.stringMatching(/^dsh inspector: devtools:\/\//u))
     expect(context.inspector).toBeDefined()
     expect(registerRoute).toHaveBeenCalledWith(expect.objectContaining({ kind: 'prefix', path: '/inspector/devtools' }))
     expect(registerUpgrade).toHaveBeenCalledWith(expect.objectContaining({ path: '/inspector/devtools/cdp' }))
-    const frontend = registerRoute.mock.calls.find(([route]) => route.path === '/inspector/devtools')?.[0]
-    if (frontend?.kind !== 'prefix') throw new Error('Inspector frontend route is missing')
-    const request = { method: 'GET', url: '/inspector/devtools', headers: { host: '127.0.0.1' } } as IncomingMessage
-    const denied = new ServerResponse(request)
-    vi.spyOn(connection, 'authorizeIndex').mockReturnValueOnce('auth-required')
-    await frontend.handler(request, denied)
-    expect(denied.statusCode).toBe(401)
-    expect(denied.writableEnded).toBe(true)
-    const answered = new ServerResponse(request)
-    vi.spyOn(connection, 'authorizeIndex').mockImplementationOnce((_request, response) => {
-      response.writeHead(403)
-      response.end()
-      return 'answered'
-    })
-    await frontend.handler(request, answered)
-    expect(answered.statusCode).toBe(403)
-    expect(answered.writableEnded).toBe(true)
-    const served = new ServerResponse(request)
-    const serveHeaders = vi.spyOn(served, 'writeHead')
-    vi.spyOn(connection, 'authorizeIndex').mockReturnValueOnce('serve')
-    await frontend.handler(request, served)
-    expect(served.statusCode).toBe(302)
-    expect(serveHeaders).toHaveBeenCalledWith(302, { location: 'devtools/devtools_app.html' })
     const upgrade = registerUpgrade.mock.calls[0]![0]
     for (const [origin, status] of [['http://127.0.0.1', 401], ['http://untrusted.invalid', 403]] as const) {
       const socket = new PassThrough()
@@ -101,8 +85,8 @@ describe('experimental Inspector Host plugin', () => {
     context.inspector.publish('host/plugin-probe', { ready: true })
 
     const value = bootstrap?.kind === 'global' ? bootstrap.value : undefined
-    const api = connection.createSharedFetchHandler('/api', connection.operator)
-    const fetched = await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`))
+    const api = connection.createSharedFetchHandler('/api')
+    const fetched = await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`), connection.browserPeer)
     expect(fetched.headers.get('cache-control')).toBe('no-store')
     expect(await fetched.json()).toEqual(value)
     expect(open).not.toHaveBeenCalled()
@@ -136,17 +120,17 @@ describe('experimental Inspector Host plugin', () => {
     expect(releaseUpgrade).toHaveBeenCalledOnce()
     expect(rows).toHaveLength(1)
     const afterDispose: IndexInjection[] = []
-    context.emit('webserver/index-inject', afterDispose)
+    context.emit('webserver/index-inject', afterDispose, PAGE_PEER)
     expect(afterDispose).toEqual([])
-    expect((await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`))).status).toBe(404)
+    expect((await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`), connection.browserPeer)).status).toBe(404)
   })
 
   it('closes the started Worker when a later plugin registration fails', async () => {
     const port = await availablePort()
     context = new Context()
     const routes: Pick<WebServer, 'register' | 'registerUpgrade'> = { register: () => () => {}, registerUpgrade: () => () => {} }
-    context.provide('webServer', routes as WebServer)
-    new HostConnectionService(context, [], {} as BrowserAuth, 1_048_576)
+    context.provide('webServer', { ...routes, host: '127.0.0.1', port: 0, protocol: 'http:' } as WebServer)
+    new HostConnectionService(context, [], {} as BrowserAuth)
     context.provide('inspector', {
       publish: () => undefined,
       cordis: { getTree: () => Promise.reject(new Error('unused test service')) },
@@ -166,9 +150,9 @@ describe('experimental Inspector Host plugin', () => {
   it('keeps inspection available when --inspect cannot open Chrome', async () => {
     context = new Context()
     const routes: Pick<WebServer, 'register' | 'registerUpgrade'> = { register: () => () => {}, registerUpgrade: () => () => {} }
-    context.provide('webServer', routes as WebServer)
+    context.provide('webServer', { ...routes, host: '127.0.0.1', port: 0, protocol: 'http:' } as WebServer)
     context.provide('cmdlineArgs', { get: () => ['--inspect'] })
-    const connection = new HostConnectionService(context, [], {} as BrowserAuth, 1_048_576)
+    const connection = new HostConnectionService(context, [], {} as BrowserAuth)
     vi.mocked(open).mockRejectedValueOnce(new Error('Chrome unavailable'))
     const fiber = context.plugin({ name, inject: [...inject], Config, apply }, { port: 0, captureFetch: false })
     await fiber.await()
@@ -177,8 +161,8 @@ describe('experimental Inspector Host plugin', () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^devtools:\/\//u), {
       app: { name: 'chrome' }, wait: false,
     })
-    const api = connection.createSharedFetchHandler('/api', connection.operator)
-    const response = await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`))
+    const api = connection.createSharedFetchHandler('/api')
+    const response = await api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`), connection.browserPeer)
     expect(response.status).toBe(200)
     expect(await response.json()).toHaveProperty('endpoint', expect.stringContaining('/ingest'))
   })

@@ -27,4 +27,4 @@ The handset band keeps the bar and reserves the gutter symmetrically: `[data-sid
 ## Related
 
 - [Handset device pass](../bug-fix/2026-10-08-handset-device-layout-fixes.md) — the hide this note partially reverses.
-- [Handset Session header: two-row title layout](../feature/2026-10-09-handset-session-header-two-rows.md) — the sibling handset-band change in the same iteration.
+- [Handset Session header: two-row title layout](2026-10-09-handset-session-header-two-rows.md) — the sibling handset-band change in the same iteration.

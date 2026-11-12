@@ -3,14 +3,17 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/permission-presets.md
 /permission-presets:
-  en: 254a9bceb7e7d307
-  zh: 8c57c57b79ad2a97
+  en: 936f306097ae3bcc
+  zh: 600da49564920881
 /permission-presets/the-preset-table:
-  en: b5f7230d3bc1b14b
-  zh: f0ce6c2c7e049a70
+  en: a89ee42910e0c4c9
+  zh: 5207c0de66e6e358
+/permission-presets/fixed-current-session-auto-registration:
+  en: c51707eb55b7ee05
+  zh: e62fea09c3c2324b
 /permission-presets/current-preset-and-the-derived-custom:
-  en: 37a04b897b8f4a13
-  zh: 866598e46b164e1d
+  en: 43a7b661b747091f
+  zh: ee6b4f1ddb8cf6f2
 /permission-presets/switching-and-the-permission-preset-event:
-  en: 871e3bd827e5a536
-  zh: 769e7d770c1dd27d
+  en: 71924a3f5f717704
+  zh: 0a7ecbbf8d801a32

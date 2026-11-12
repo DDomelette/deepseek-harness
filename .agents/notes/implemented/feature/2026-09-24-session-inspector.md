@@ -25,17 +25,9 @@ Debugging a Session requires its raw log, Chat structures, and rendered conversa
 
 The default-off `inspector-profile` optional bundle enables Session inspection and the NodeJS debugging Worker with unredacted Host fetch capture. Enabling the bundle requires no debugging argument or user override. The implementation and explicit source/built overlays remain available; Web startup accepts no new argument and Settings gains no debugging button.
 
-The published Inspector payload includes the embedded frontend so debugging does not require a runtime CDN. The fixed npm frontend remains a development dependency; installed environments serve its compiled files.
-
 The Host owns the debugging URL, Worker, and capture lifetime. When the composition supplies `--inspect`, the Host attempts to open Chrome; failure leaves the printed link usable. Closing the debugging window does not stop capture. Explicit activation permits local code execution and unredacted network capture, as disclosed in the [Inspector security section](../../../../packages/experimental/inspector/README.md#security).
 
-A Client loaded after the page obtains current ingest parameters through an authenticated document-relative Connection route. Initial injection still supports early connections. Connection resets refresh parameters; replacement releases the previous source, and disposal aborts and waits for outstanding work. A cached page suspends its source on `pagehide` and reconnects once on `pageshow`; the logical source id persists while the transport generation rotates. The Client never receives or launches the debugging URL.
-
-Cordis service-call shadow Contexts describe a receiver-specific view rather than a separate plugin lifetime. Inspector matches Fibers through canonical Context identities, preserving service-created plugins and inherited Context layers.
-
-Each embedded DevTools connection selects its embedding page's logical Client while retaining Host visibility. Each projection owns its subscriptions, so closing one window leaves sibling windows and the shared snapshot store live.
-
-Node forwards a fetch caller's abort signal while the wrapper Request remains reachable. A weak response-body association retains that Request for the caller's stream lifetime, including after capture stops, without making the observer retain every response.
+A Client loaded after the page obtains current ingest parameters through an authenticated document-relative Connection route. Initial injection still supports early connections. Connection resets refresh parameters; replacement releases the previous source, and disposal aborts and waits for outstanding work. The Client never receives or launches the debugging URL.
 
 ## Alternatives considered
 
@@ -62,7 +54,5 @@ The Inspector owns local filters, disclosures, selection, breadcrumbs, and highl
 The earlier [optional-bundle decision](../architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md) continues to own installation and provider-runtime trade-offs. This feature adds the Inspector profile to that list rather than making all experimental providers optional bundles.
 
 ## Testing
-
-Native fetch GC regressions isolate V8 flags in dedicated child processes and verify cancellation during capture, after its byte limit, and after disposal.
 
 Package tests exercise registration disposal, hierarchy and folding anchors, hidden-node ordering, filters, object navigation and cache invalidation, DOM scope, smooth scrolling, picking, and cancellation. Work-count regressions bound indexed first-page reads and prevent historical regrouping during append. Diagnostic tests cover Loader activation, injected and fetched bootstrap failures, reconnect recovery, registration rollback, failed window launch, and joined disposal. The Web scenario in `snapshots/web/session-inspector` replays a recorded Session through the optional bundle and checks log filtering, object details, and Chat Group order.

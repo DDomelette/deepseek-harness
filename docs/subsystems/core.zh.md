@@ -48,9 +48,9 @@ interface AgentHandle {
 }
 ```
 
-`CreateAgentOptions` 携带共享标识以及新 agent 发布前所需的一切：可选的存活 `parentAgent`、会话元数据（`meta`——已校验的 `cwd`、fork 谱系、`isSeeded` 标记、来源分类、委派深度与 `agentPreset`）、同级字段 `inheritedEventCount` 所表示的精确 fork cut、可选的 `seed` 回放前缀、按 agent 的 `AgentOptions`、仅创建期有效的取消 `signal`，以及 `setup`。`ResumeAgentOptions` 是持久标识的对应项：`resumeSessionId`、`parentAgent`、`agentOptions`、`signal` 与 `setup`。`setup` 回调（`AgentSetup`）在两个 id 均未发布时接收 `(agentCtx, agent)`：上下文拥有作用域注册，显式 Agent 提供确切的子 Session，Context 无需反向属性。凡经 `agentCtx` 注册的内容都先于 `agent/created` 与第一次提示词组装存在。Setup 可以返回在发布前一刻调用的同步 commit；setup 拒绝、commit 抛出或所有者 dispose（资源释放）都会回滚事务，两个 id 均不发布。
+`CreateAgentOptions` 携带共享标识以及新 agent 发布前所需的一切：会话元数据（`meta`——已校验的 `cwd`、fork 谱系、`isSeeded` 标记、来源分类、委派深度与 `agentPreset`）、同级字段 `inheritedEventCount` 所表示的精确 fork cut、可选的 `seed` 回放前缀、按 agent 的 `AgentOptions`、仅创建期有效的取消 `signal`，以及 `setup`。`ResumeAgentOptions` 是持久标识的对应项：`resumeSessionId`、`agentOptions`、`signal` 与 `setup`。`setup` 回调（`AgentSetup`）在 Session 入库且 `session/created` 完成后、Agent 注册前接收 `(agentCtx, agent)`：上下文拥有作用域注册，显式 Agent 提供确切的子 Session，Context 无需反向属性。凡经 `agentCtx` 注册的内容都先于 `agent/created` 与第一次提示词组装存在。Setup 可以返回在发布前一刻调用的同步 commit；setup 拒绝、commit 抛出或所有者 dispose（资源释放）都会撤销事务并移除 Session，同时保留恢复出的待处理输入及已存储事件。
 
-`AgentFactory` 是注册表背后的创建接口：循环经 `ctx.agents.setFactory()` 注册其工厂，因此消费方使用 `ctx.agents` 时无需依赖具体循环包。运行时子 Agent 的创建方设置 `options.parentAgent`；注册表把 options 与调用方 Context 传给工厂，不从其中一项推导另一项。确切的 `create`/`resume` 签名及回滚约定见下方[生成区块](#ctxagents--agentregistry)。
+`AgentFactory` 是注册表背后的创建接口：循环经 `ctx.agents.setFactory()` 注册其工厂，因此消费方使用 `ctx.agents` 时无需依赖具体循环包。注册表把创建选项和调用方 Context 传给工厂；调用方 Context 拥有返回句柄的生命周期。确切的 `create`/`resume` 签名及回滚约定见下方[生成区块](#ctxagents--agentregistry)。
 
 <a id="the-agent-handle"></a>
 
@@ -65,75 +65,84 @@ interface AgentHandle {
 interface Agent {
   /** Session-backed Agent identity. */
   readonly id: SessionId
-  /** The provider route and model this agent's requests use. */
+  /** Route fallback and output controls; live accessors apply until the Session records a selection or request. */
   readonly options: AgentOptions
   /** The live session this agent drives; its log is the durable source of truth. */
   readonly session: Session
+  /** Agent-owned access to durable model selection for future steps. */
+  readonly model: Model
   /** Agent-owned access to durable pending work. */
   readonly inbox: Inbox
   /** The current lifecycle state, mirrored on every `agent/status` transition. */
   readonly status: AgentStatus
   /** Agent-scoped context; its contributions are agent-local, unwind on disposal, and reject registration afterward. */
   readonly ctx: Context
+
   /**
-     * Clear queued and steering work — unless `keepInbox` — and abort the active
-     * turn or between-turn task. The first cause wins for that activity. With no
-     * active activity, cancellation is a no-op and does not arm later work.
-     * @param cause - the stable caller intent carried by the active operation signal.
-     * @param options - cancellation options; `keepInbox` preserves pending work.
-     */
+   * Clear queued and steering work — unless `keepInbox` — and abort the active
+   * turn or between-turn task. The first cause wins for that activity. With no
+   * active activity, cancellation is a no-op and does not arm later work.
+   * @param cause - the stable caller intent carried by the active operation signal.
+   * @param options - cancellation options; `keepInbox` preserves pending work.
+   */
   cancel(cause: AgentCancelCause, options?: CancelOptions): void
+
   /**
-     * Resolve after the current whole-agent activity reaches quiescence. This
-     * follows replacement work started before the observed driver retires,
-     * but does not identify the settlement of any particular message.
-     * @returns fulfillment after no active driver or maintenance task remains.
-     */
+   * Resolve after the current whole-agent activity reaches quiescence. This
+   * follows replacement work started before the observed driver retires,
+   * but does not identify the settlement of any particular message.
+   * @returns fulfillment after no active driver or maintenance task remains.
+   */
   whenIdle(): Promise<void>
+
   /**
-     * Run one non-turn maintenance task from the true idle phase. The task starts
-     * synchronously after claiming that phase; later waking input remains in the
-     * inbox until the task settles, while public status stays `idle`.
-     * `whenIdle()` follows both the task and any waking work released behind it.
-     * @param task - operation whose fulfillment or rejection is preserved, with a signal aborted by {@link cancel}.
-     * @throws synchronously when turn-driving or another maintenance task already owns the agent.
-     * @returns the task promise.
-     */
+   * Run one non-turn maintenance task from the true idle phase. The task starts
+   * synchronously after claiming that phase; later waking input remains in the
+   * inbox until the task settles, while public status stays `idle`.
+   * `whenIdle()` follows both the task and any waking work released behind it.
+   * @param task - operation whose fulfillment or rejection is preserved, with a signal aborted by {@link cancel}.
+   * @throws synchronously when turn-driving or another maintenance task already owns the agent.
+   * @returns the task promise.
+   */
   runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>
+
   /**
-     * Route identified input to an inbox boundary and optionally wake the driver.
-     * Waking input submitted after active cancellation is queued for the next
-     * turn and runs when the aborted activity converges to idle; a `disposed`
-     * cancel leaves it parked. A wake submitted while already idle always opens
-     * its turn boundary, even when its message is cleared before the driver
-     * claims ([driver wake convergence](../../agent-loop/src/agent.ts)).
-     * @param message - identified content and the source that supplied it.
-     * @param target - the preferred next-turn or next-step inbox boundary.
-     * @param wakeup - whether delivery may wake the driver.
-     */
+   * Route identified input to an inbox boundary and optionally wake the driver.
+   * Waking input submitted after active cancellation is queued for the next
+   * turn and runs when the aborted activity converges to idle; a `disposed`
+   * cancel leaves it parked. A wake submitted while already idle always opens
+   * its turn boundary, even when its message is cleared before the driver
+   * claims ([driver wake convergence](../../agent-loop/src/agent.ts)).
+   * @param message - identified content and the source that supplied it.
+   * @param target - the preferred next-turn or next-step inbox boundary.
+   * @param wakeup - whether delivery may wake the driver.
+   */
   send(message: UserMessage, target: InboxTarget, wakeup: boolean): void
+
   /**
-     * Queue an ordinary follow-up turn and wake the driver. The item becomes the
-     * sole ordinary message of its own turn.
-     * @param message - identified prompt content and the source that supplied it.
-     */
+   * Queue an ordinary follow-up turn and wake the driver. The item becomes the
+   * sole ordinary message of its own turn.
+   * @param message - identified prompt content and the source that supplied it.
+   */
   followup(message: UserMessage): void
+
   /**
-     * Submit steering for the nearest step. An idle driver starts a turn;
-     * a running driver consumes it at its next step boundary.
-     * A rejected step leaves steering parked in the inbox until the next
-     * wake; cancellation or disposal may discard pending steering.
-     * @param message - identified steering content and the source that supplied it.
-     */
+   * Submit steering for the nearest step. An idle driver starts a turn;
+   * a running driver consumes it at its next step boundary.
+   * A rejected step leaves steering parked in the inbox until the next
+   * wake; cancellation or disposal may discard pending steering.
+   * @param message - identified steering content and the source that supplied it.
+   */
   steer(message: UserMessage): void
+
   /**
-     * Queue model-facing context for the next pre-step without waking the
-     * driver. A running driver claims it at the nearest later step boundary;
-     * idle drivers leave it pending until follow-up or steering
-     * wakes them. It may miss a request whose pre-step already claimed its
-     * batch. Cancellation or disposal may discard pending context.
-     * @param message - identified injected context and the source that supplied it.
-     */
+   * Queue model-facing context for the next pre-step without waking the
+   * driver. A running driver claims it at the nearest later step boundary;
+   * idle drivers leave it pending until follow-up or steering
+   * wakes them. It may miss a request whose pre-step already claimed its
+   * batch. Cancellation or disposal may discard pending context.
+   * @param message - identified injected context and the source that supplied it.
+   */
   inject(message: UserMessage): void
 }
 ```
@@ -190,20 +199,86 @@ type AssistantStreamFrame =
 `running` 描述整个驱动器的排空区间，可能跨越连续的排队轮次；它不能证明某个轮次仍然打开。dispose 会把 agent 从注册表移除并发出 `agent/disposed`；它不是一个终态 status 值。`followup()` 不返回句柄：其 `MessageId` 标识的是持久的 inbox 插入、认领与丢弃事实，而非之后的助手输出或轮次结束。`whenIdle()` 观察的是整个 agent，因此只有当调用方明确拥有从回执到空闲的这段区间时，才能把它称为一次 run（[决策](../../.agents/notes/implemented/architecture/2026-07-30-followup-enqueue-and-owned-runs.zh.md)）。
 
 ```ts type-equiv
-/** Merge-extensible agent creation options. Persona belongs to system-prompt sections. */
+/**
+ * Merge-extensible agent options. Route fields may be live accessors until the
+ * Session records a selection or request; step preparation captures their value.
+ * Persona belongs to system-prompt sections.
+ */
 interface AgentOptions {
   /** Provider route (must have a registered adapter at call time). */
   provider?: string
   /** Model id interpreted by the selected provider adapter. */
   model?: string
   /** Adapter-owned reasoning effort for the selected provider/model route. */
-  reasoningEffort?: ReasoningEffortId
+  reasoningEffort?: ReasoningEffortId | undefined
   /** Maximum output tokens for each conversation-model request. */
   maxTokens?: number
 }
 ```
 
-在 `agent/request` 之后，分发要求 `provider` 与 `model` 都存在。显式 `reasoningEffort` 会为该路由的首次请求提供初始值；确切模型解析会校验该值，省略时则允许填入适配器默认值。提供 `maxTokens` 时，它必须是正安全整数，并限制每次对话模型请求的输出；省略时，系统会在写入请求 header 前填入确切模型的适配器默认值，否则提供方行为保持不变。agent 作用域的 `deployment:persona-prefix` 提示词段落可以遮蔽全局默认 persona。
+步骤准备在提示词组装前要求 `provider` 与 `model` 都存在。已弃用的 `agent/request` hook 可以更改请求控制参数，但必须保留该路由。显式 `reasoningEffort` 会为该路由的首次请求提供初始值；确切模型解析会校验该值，省略时则允许填入适配器默认值。提供 `maxTokens` 时，它必须是正安全整数，并限制每次对话模型请求的输出；省略时，系统会在写入请求 header 前填入确切模型的适配器默认值，否则提供方行为保持不变。agent 作用域的 `deployment:persona-prefix` 提示词段落可以遮蔽全局默认 persona。
+
+`AgentLoop` 在 `ctx.sessionProjections` 上注册 `modelSelection`，并通过每个 `agent.model` 实例提供选择操作。`model/selection` 记录完整选择，但不进入模型历史。匹配的请求头会清除 `pending`，最近请求仍保留为 `lastUsed`。适配器默认的推理强度会被省略，使后续请求重新解析默认值。只有尚未记录选择或请求时，`next` 才为 null，此时由 `AgentOptions` 提供路由。[Agent 模型 API](../../packages/core/agent/README.zh.md)说明选择优先级与恢复策略。
+
+```ts type-equiv
+/** Agent-owned access to the model choice for future steps. */
+interface Model {
+  /**
+   * Resolve the choice for the next step to begin preparation. Recorded choices
+   * take precedence over the last request and then the Agent's live options.
+   * This read neither starts a step nor changes an already-prepared step.
+   * @returns a detached choice, or undefined when no source names both provider and model.
+   */
+  current(): Readonly<ModelSelection> | undefined
+
+  /**
+   * Replace the next step's complete selection. Omitted effort follows adapter
+   * defaults without inheriting a previous effort or resolving defaults here.
+   * An equal recorded choice is a no-op; an options-only fallback is
+   * always recorded. Callers own model availability and capability validation.
+   * The append uses the Session's existing persistence and failure guarantees.
+   * @param selection - complete provider, model, and optional explicit effort.
+   */
+  select(selection: Readonly<ModelSelection>): void
+
+}
+```
+
+```ts type-equiv
+/** Complete provider, model, and optional reasoning effort chosen for one Session's model steps. */
+interface ModelSelection {
+  /** Registered provider route. */
+  provider: string
+  /** Provider-owned model id. */
+  model: string
+  /** Adapter-owned reasoning effort, or provider/default behavior when absent. */
+  reasoningEffort?: ReasoningEffortId
+}
+```
+
+```ts type-equiv
+/**
+ * Durable model-selection state for one Session. An effort the adapter
+ * defaulted on a recorded request is omitted, so later requests resolve the
+ * default again instead of pinning it as a choice.
+ */
+interface ModelSelectionProjectionState {
+  /** Selection used by the latest recorded model request. */
+  readonly lastUsed: ModelSelection | null
+  /** Later recorded selection not yet used by a matching model request. */
+  readonly pending: ModelSelection | null
+}
+```
+
+```ts type-equiv
+/** Client view of the durable model-selection fold. */
+interface ModelSelectionProjection {
+  /** Selection used by the latest recorded model request. */
+  readonly lastUsed: ModelSelection | null
+  /** Selection the next model step uses; null while the Agent's initial options supply the route. */
+  readonly next: ModelSelection | null
+}
+```
 
 inbox 即投递词汇——agent 以持久投影形式拥有的两条有序待处理消息列表：
 
@@ -269,7 +344,7 @@ interface Inbox {
 type InboxTarget = 'next-turn' | 'next-step'
 ```
 
-每个待处理入队项就是其 `UserMessage`；`MessageId` 是唯一标识。结构化 `Inbox` 方法会记录规范化的持久 `agent/inbox/spliced` 变更，并拒绝重复的待处理 id。`replace(messageId, newMessage)` 与 `remove(messageId)` 通过 `MessageId` 跨两份列表定位待处理消息；替换可以改变标识，并先将旧消息作为 discarded 发布，再将新消息作为 inserted 发布。普通删除和 `clear()` 都表示取消。在步骤边界，dsh-agent-loop 包内部的 `ReactLoopInbox` 会通过纯删除 splice 移除拟进入步骤的批次——全部 `next-step` 输入，外加轮次边界上的一条 `next-turn` 消息——且不发出 discarded 通知，随后逐条发出 claimed 通知。仅供循环使用的待处理检测与领取操作不属于 `Agent.inbox`。每个 `ReactLoopInbox` 构造函数都从其 agent 作用域贡献标准 `inbox` 投影；注册表通过引用计数在多个 agent 之间共享该定义，其 cell 是唯一 live 状态，同一份折叠也服务于冷消费方。该 fold 会拒绝不安全或越界的 splice 坐标，以及跨两份列表重复的标识，并通过事件 seq 指出格式错误的持久历史。跟踪单条消息的消费方使用精确的 `agent/inbox/inserted`、`claimed` 与 `discarded` 通知。
+每个待处理入队项就是其 `UserMessage`；`MessageId` 是唯一标识。结构化 `Inbox` 方法会记录规范化的持久 `agent/inbox/spliced` 变更，并拒绝重复的待处理 id。`replace(messageId, newMessage)` 与 `remove(messageId)` 通过 `MessageId` 跨两份列表定位待处理消息；替换可以改变标识，并先将旧消息作为 discarded 发布，再将新消息作为 inserted 发布。普通删除和 `clear()` 都表示取消。在步骤边界，dsh-agent-loop 包内部的 `ReactLoopInbox` 会通过纯删除 splice 移除拟进入步骤的批次——全部 `next-step` 输入，外加轮次边界上的一条 `next-turn` 消息——且不发出 discarded 通知，随后逐条发出 claimed 通知。仅供循环使用的待处理检测与领取操作不属于 `Agent.inbox`。`AgentLoop` 服务在发布工厂之前注册标准 `inbox` 投影；其 cell 是唯一 live 状态，同一份折叠在没有 Agent 时也服务于冷消费方。该 fold 会拒绝不安全或越界的 splice 坐标，以及跨两份列表重复的标识，并通过事件 seq 指出格式错误的持久历史。跟踪单条消息的消费方使用精确的 `agent/inbox/inserted`、`claimed` 与 `discarded` 通知。
 
 取消：
 
@@ -294,7 +369,7 @@ type AgentCancelCause =
   | { readonly kind: 'disposed' }
 ```
 
-cause 是由 TypeScript 强制约束的同进程输入。活跃的取消持有者会将它复制到仅运行时的 `AbortSignal.reason`；signal 不授予协作监听器任何分类权限。持久 `turn/end` 以 `{ kind: 'aborted', reason: TurnEndCancelCause }` 记录结果，取消原因随终态结果一起持久化。
+cause 是由 TypeScript 强制约束的同进程输入。活跃的取消持有者把同一个对象暴露为仅运行时的 `AbortSignal.reason`；signal 不授予协作监听器任何分类权限。持久 `turn/end` 以 `{ kind: 'aborted', reason: TurnEndCancelCause }` 记录结果，取消原因随终态结果一起持久化。
 
 [事件分类](../architecture.zh.md#events)负责 `agent/*` 生命周期、检查点与 waterfall（瀑布式事件）约定。轮次和步骤边界是持久会话事件，而不是 agent emit。
 
@@ -337,7 +412,7 @@ type RequestErrorAction = { kind: 'retry' } | undefined
 
 `agent/pre-step` 是请求推导前唯一的 waterfall（瀑布式）监听器链。`agent/turn-stopping` 在轮次没有工具或 steering（中途引导）后续时运行，先于最后一次 steering 排空。
 
-`agent/session-start` 携带 `SessionStartSource`（会话生命周期为何开始；桥接层据此匹配其 SessionStart）：
+`agent/created` 携带 `SessionStartSource`（会话生命周期为何开始；桥接层据此匹配其 SessionStart）：
 
 ```ts type-equiv
 /** Why a session lifecycle began; seeded creates are `startup`, while persisted loads are `resume`. */
@@ -355,6 +430,8 @@ type SessionStartSource = 'startup' | 'resume' | 'clear' | 'compact'
 唯一属于核心的流水线编写类型：每个已注册工具*是什么*——一个面向模型的 `ToolSchema` 加上一个 `execute` 函数，以及可选的最终内容回调与 UI 回调。工具作者很少手动构造它（`defineTool` DSL 会使用类型化参数构建），但它是注册表存储并由循环用于分发的约定。
 
 其完整字段、`defineTool`/`ValueSchemaSpec`/`ParameterSchemaSpec` 类型化 schema DSL、`ToolExecution`/`ToolExecutionResult` waterfall 类型，以及工具展示 UI 类型都在 **[tools.md](tools.zh.md)** 中。
+
+<a id="repo-wide-type-patterns"></a>
 
 ## 全仓通用类型模式
 
@@ -383,12 +460,13 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 ```
 
-五个规范 map 使用此模式；插件作者扩展它们：
+六个规范 map 使用此模式；插件作者扩展它们：
 
 | Map | 包 | 派生 | 目录 |
 |---|---|---|---|
 | `ContentBlockMap` | dsh-llm | `ContentBlock` | [llm-streaming.md](llm-streaming.zh.md#content-blocks-and-messages) |
 | `MessageSourceMap` | dsh-llm | `MessageSource` | [llm-streaming.md](llm-streaming.zh.md#content-blocks-and-messages) |
+| `LlmRequestPurposeMap` | dsh-llm | `LlmRequestPurpose` | [llm-streaming.zh.md](llm-streaming.zh.md#the-model-request-and-result) |
 | `FinishReasonMap` | dsh-llm | `FinishReason` | [llm-streaming.md](llm-streaming.zh.md#the-model-request-and-result) |
 | `TurnEndReasonMap` | dsh-session | `TurnEndReason` | [session.md](session.zh.md) |
 | `SessionEventMap` | dsh-session | `SessionEvent` | [session.md](session.zh.md) |
@@ -411,6 +489,26 @@ type Branded<B extends string> = string & { readonly [BRAND]: B }
 ```
 
 两个核心 ID 是 `ToolCallId`（关联工具调用及其结果；dsh-llm）和 `SessionId`（活跃 agent 与持久会话共享的标识；dsh-session）。能力包也会品牌化各自的 id，例如 [jobs.md](jobs.zh.md) 中的 `JobId`。
+
+## `TurnBoundaryProjection`
+
+`ctx.agents.turnBoundaryOf(session)` 读取已记录的轮次和步骤位置，无需活跃 Agent。注册表持有此状态；消费方不注册其投影定义。
+
+来源: [`packages/core/agent/src/types.ts`](../../packages/core/agent/src/types.ts)
+
+```ts type-equiv
+/** Turn and step positions recorded in a Session. */
+interface TurnBoundaryProjection {
+  /** Seq of the open turn's `turn/start`, or null between turns. */
+  readonly openTurnStartSeq: OptionalSessionSeq
+  /** Seq of the latest `step/start` event, or null before the first step. */
+  readonly lastStepStartSeq: OptionalSessionSeq
+  /** The latest step boundary (`step/start` or `step/end`) and its seq, or null before the first step boundary. */
+  readonly lastStepBoundary: { readonly kind: 'start' | 'end'; readonly seq: SessionSeq } | null
+  /** Turn number of the latest `turn/start`; 0 before the first turn. */
+  readonly lastTurn: number
+}
+```
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -492,6 +590,13 @@ Source: [`packages/core/agent-loop/src/index.ts`](../../packages/core/agent-loop
 Registry of YAML-declared presets and the revisions live Agents retain.
 
 ```ts cordis-catalog
+/**
+ * Read the preset recorded for a Session, including selections no longer in the roster.
+ * @param session - Session whose committed preset selection is read.
+ * @returns the recorded preset, or null when none was selected.
+ */
+presetForSession(session: Session): string | null
+
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
  * @returns Definition disposer after activation or its diagnostic settles; the declaring plugin owns it.
@@ -560,7 +665,9 @@ serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): 
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset before a session starts its first turn.
+/** Select a preset before a session starts its first turn. A Session whose
+ * log records the preset and whose Agent runs its current revision keeps its
+ * composition; nothing is logged or announced.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.
@@ -579,7 +686,7 @@ async acquireScope(id?: string): Promise<{ key: ScopeKey } & AsyncDisposable>
 compositionInventory(): Promise<AgentPresetComposition[]>
 ```
 
-Types: [ScopeKey](scope.zh.md)
+Types: [ScopeKey](scope.zh.md) · [Session](session.zh.md)
 
 Source: [`packages/preset/agent-preset-registry/src/index.ts`](../../packages/preset/agent-preset-registry/src/index.ts)
 
@@ -592,6 +699,13 @@ Agent service (`ctx.agents`): tracks live agents and carries the initiating Agen
 Initiator methods provide same-process causal attribution only. Ambient presence is neither liveness proof nor authorization; subjects and owners remain explicit, as does identity at worker, process, persistence, and wire boundaries. Returned Promise boundaries drain during teardown, except a nested lineage that starts an owning-fiber unload is excluded from its own drain.
 
 ```ts cordis-catalog
+/**
+ * Read the turn and step positions recorded in a Session.
+ * @param session - Session whose committed events are read.
+ * @returns the current turn and step positions; do not mutate the returned value.
+ */
+turnBoundaryOf(session: Session): TurnBoundaryProjection
+
 /**
  * Read the Agent that initiated the inherited asynchronous driver chain.
  * Use this optional form for logging, tracing, metrics, or host attribution
@@ -662,7 +776,7 @@ setFactory(factory: AgentFactory): () => void
  * agent): this constructs the agent and its session. Rejects if no factory is
  * registered or creation/setup fails. The resolved {@link AgentHandle} lets
  * the owner tear down exactly this agent.
- * @param options - shared identity, optional live parent, session seed/metadata, and agent options.
+ * @param options - shared identity, session seed/metadata, and agent options.
  * @returns the handle after setup, rollback-covered publication, and loop start complete.
  */
 async create(options: CreateAgentOptions): Promise<AgentHandle>
@@ -671,7 +785,7 @@ async create(options: CreateAgentOptions): Promise<AgentHandle>
  * Load a persisted session and resume an agent on it through the registered
  * factory. Rejects if no factory is registered; the factory rejects if
  * session persistence is not configured or persistence/setup fails.
- * @param options - persisted identity, optional live parent, configuration, and setup.
+ * @param options - persisted identity, configuration, and setup.
  * @returns the handle after setup, rollback-covered publication, and loop start complete.
  */
 async resume(options: ResumeAgentOptions): Promise<AgentHandle>
@@ -683,8 +797,7 @@ async resume(options: ResumeAgentOptions): Promise<AgentHandle>
  * (`scopeTarget(agent, agent)`): the subject is the agent in hand, so the
  * emits are scope-filtered regardless of which context invoked `register`
  * (calling through `agent.ctx` scopes EFFECTS; dispatch scoping always
- * requires passing the carrier). The entry is a runtime root; factory-backed
- * creation uses `options.parentAgent` for child ownership. Await the registration before using the agent.
+ * requires passing the carrier). Await registration before using the agent.
  * @param agent - the already-constructed agent to record in the store.
  * @returns the awaitable Cordis effect disposer (single-shot; a repeat call
  *   returns undefined without awaiting an in-flight teardown). Exact
@@ -704,15 +817,12 @@ register(agent: Agent): ReturnType<Context['effect']>
  * returned detach closure into its pre-installed composite teardown before
  * calling {@link announce}. Ordinary callers use {@link register}.
  * @param agent - the prepared, unpublished agent.
- * @param owner - explicitly supplied live runtime owner, or
- *   undefined for a top-level runtime root. This is runtime ownership, not
- *   the resumed session's durable parent lineage.
  * @returns an idempotent closure that removes this exact entry and emits
  *   `agent/disposed` with listener failures contained. When called from a
  *   `agent/created` listener, removal and disposal wait until the serial
  *   creation dispatch settles.
  */
-enter(agent: Agent, owner: Agent | undefined): () => void
+enter(agent: Agent): () => void
 
 /**
  * Announce an agent previously inserted with {@link enter}.
@@ -734,29 +844,13 @@ async announce(agent: Agent, source: SessionStartSource, signal?: AbortSignal): 
 get(id: SessionId): Agent | undefined
 
 /**
- * Test whether a live agent was created through one exact parent agent's
- * scoped context. Runtime ownership is independent of durable session
- * lineage and remains unambiguous when unrelated providers reuse an id.
- * @param id - the candidate child agent's shared agent/session id.
- * @param owner - the expected runtime creator agent.
- * @returns true only while the exact child entry is live under that owner.
- */
-isOwnedBy(id: SessionId, owner: Agent): boolean
-
-/**
  * All live agents, in registration order.
  * @returns a fresh array; mutating it does not affect the registry.
  */
 list(): Agent[]
-
-/**
- * All live top-level agents in registration order. A top-level agent was
- * created without an owning agent context; durable session lineage does not
- * affect this runtime relation, so a resumed fork may still be a root.
- * @returns a fresh array; mutating it does not affect the registry.
- */
-roots(): Agent[]
 ```
+
+Types: [Session](session.zh.md)
 
 Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index.ts)
 
@@ -941,43 +1035,14 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
  * @param payload.turn - the turn that will own the step.
  * @param payload.step - the step proposed by the loop.
  * @param payload.signal - the current turn's cancellation signal.
+ * @param payload.modelSelection - captured step selection, retained across retries; omitted effort uses adapter defaults.
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
-'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
+'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal; modelSelection: Readonly<ModelSelection> }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
 ```
 
 Types: [Scoped](scope.zh.md) · [UserMessage](session.zh.md)
-
-Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
-
-<a id="agentrequest--waterfall"></a>
-
-#### `agent/request` — waterfall
-
-Replace the frozen call configuration. `await next()` yields the config the machine would use (agent options on the first request, the logged header afterwards); return a replacement to switch. On step admission, this runs after assembly and `step/start`, before the system prompt and accepted user batch are committed. Cancellation here or during subsequent `prepareCall()` resolution commits neither. The prepared call capability governs prompt admission. Model-visible content must use logged channels; this waterfall cannot mutate messages.
-
-```ts cordis-catalog
-/**
- * Replace the frozen call configuration. `await next()` yields the config
- * the machine would use (agent options on the first request, the logged
- * header afterwards); return a replacement to switch. On step admission,
- * this runs after assembly and `step/start`, before the system prompt and
- * accepted user batch are committed. Cancellation here or during subsequent
- * `prepareCall()` resolution commits neither. The prepared call capability
- * governs prompt admission. Model-visible content must use logged channels;
- * this waterfall cannot mutate messages.
- * @param payload.agent - the agent making the model call.
- * @param payload.turn - the open turn number.
- * @param payload.step - the step whose request this is.
- * @param payload.signal - the current turn's explicit abort signal.
- * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
- * @mode waterfall
-*/
-'agent/request'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; signal: AbortSignal }, next: () => Promise<LlmCallConfig>): Promise<LlmCallConfig>
-```
-
-Types: [LlmCallConfig](llm-streaming.zh.md) · [Scoped](scope.zh.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 

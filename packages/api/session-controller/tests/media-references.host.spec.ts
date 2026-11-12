@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
-import { HostConnectionService } from '@deepseek-ai/dsh-client-connection/src/rpc-host.ts'
-import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '@deepseek-ai/dsh-client-connection/src/http-bridge.ts'
 import { SessionMediaReferences } from '../src/media-references.ts'
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
@@ -49,41 +47,21 @@ describe('SessionMediaReferences /api/file', () => {
       if (handler === undefined) throw new Error('route not registered')
       return handler(new Request(url, init))
     }
+    const url = (path: string) => `http://127.0.0.1/api/file?path=${encodeURIComponent(path)}`
     return {
-      call: (path: string, init?: RequestInit) => raw(`http://127.0.0.1/api/file?path=${encodeURIComponent(path)}`, init),
+      /** Request a path and follow its version redirect, as an image element does. */
+      call: async (path: string, init?: RequestInit) => {
+        const first = await raw(url(path), init)
+        const location = first.headers.get('location')
+        return location === null ? first : raw(new URL(location, url(path)).href, init)
+      },
+      url,
       raw,
       fs: ctx.fs as LocalFileSystem,
       unregister,
       dispose: () => ctx.fiber.dispose(),
     }
   }
-
-  it('registers GET and HEAD with the real Connection and withdraws both on disposal', async () => {
-    const ctx = new Context()
-    contexts.push(ctx)
-    ctx.provide('attachments', { imageLimits: { maxImageBytes: DEFAULT_LIMIT } } as never)
-    await ctx.plugin((pluginCtx) => {
-      // Fetch dispatch is already authenticated; this test never enters BrowserAuth.
-      new HostConnectionService(pluginCtx, [], {} as never, DEFAULT_MAX_REQUEST_BODY_BYTES)
-    }).await()
-    await ctx.plugin(LocalFileSystem, { cwd: root }).await()
-    const media = ctx.plugin(SessionMediaReferences)
-    await media.await()
-    const connection = ctx.connection
-    const shared = connection.createSharedFetchHandler('/api', connection.operator)
-    const path = join(root, 'image.png')
-    await writeFile(path, PNG_BYTES)
-    const url = new URL(`http://127.0.0.1/api/file?path=${encodeURIComponent(path)}`)
-    for (const method of ['GET', 'HEAD']) {
-      expect(shared.requestBodyMode({ method, url })).toBe('none')
-      const response = await shared.fetch(new Request(url, { method }))
-      expect(response.status).toBe(200)
-      if (method === 'GET') expect(await responseBytes(response)).toEqual(PNG_BYTES)
-      else expect(response.body).toBeNull()
-    }
-    await media.dispose()
-    expect((await shared.fetch(new Request(url))).status).toBe(404)
-  })
 
   it('serves the inclusive image cap and refuses larger images for GET, HEAD and Range', async () => {
     const route = await mount(PNG_BYTES.length)
@@ -134,7 +112,7 @@ describe('SessionMediaReferences /api/file', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe(mediaType)
     expect(response.headers.get('content-length')).toBe(String(PNG_BYTES.length))
-    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(response.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
     expect(response.headers.get('x-content-type-options')).toBe('nosniff')
     expect(response.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'")
     expect(await responseBytes(response)).toEqual(PNG_BYTES)
@@ -148,6 +126,29 @@ describe('SessionMediaReferences /api/file', () => {
     await appendFile(path, new Uint8Array(1))
     expect((await route.call(path)).status).toBe(413)
     expect((await route.call(path, { method: 'HEAD' })).status).toBe(413)
+  })
+
+  it('redirects uncached to the current version and serves versioned URLs as immutable', async () => {
+    const route = await mount()
+    const path = join(root, 'chart.png')
+    await writeFile(path, PNG_BYTES)
+    const first = await route.raw(`${route.url(path)}&load=7`)
+    expect(first.status).toBe(302)
+    expect(first.headers.get('cache-control')).toBe('private, no-store')
+    expect(first.body).toBeNull()
+    const location = new URL(first.headers.get('location')!, route.url(path))
+    expect(location.pathname).toBe('/api/file')
+    expect([...location.searchParams.keys()]).toEqual(['path', 'v'])
+    expect(location.searchParams.get('path')).toBe(path)
+    const versioned = await route.raw(location.href)
+    expect(versioned.status).toBe(200)
+    expect(await responseBytes(versioned)).toEqual(PNG_BYTES)
+    await writeFile(path, new Uint8Array([...PNG_BYTES, 9]))
+    const stale = await route.raw(location.href)
+    expect(stale.status).toBe(302)
+    const next = new URL(stale.headers.get('location')!, route.url(path))
+    expect(next.searchParams.get('v')).not.toBe(location.searchParams.get('v'))
+    expect((await responseBytes(await route.raw(next.href))).at(-1)).toBe(9)
   })
 
   it('ignores Range headers and returns complete bodies without advertising ranges', async () => {
@@ -221,6 +222,7 @@ describe('SessionMediaReferences /api/file', () => {
     const route = await mount()
     const target = { targetKey: FsTargetKey('opaque-remote-id'), displayPath: '/remote/photo.png' }
     vi.spyOn(route.fs, 'resolve').mockResolvedValue(target)
+    vi.spyOn(route.fs, 'stat').mockResolvedValue({ type: 'file', version: FsVersion('r1') })
     const read = vi.spyOn(route.fs, 'readBytes').mockResolvedValue(PNG_BYTES)
     expect(await responseBytes(await route.call('/remote/photo.png'))).toEqual(PNG_BYTES)
     expect(read).toHaveBeenCalledWith(target, expect.any(AbortSignal), DEFAULT_LIMIT)

@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-session-title",
   "description": "Log-backed session title service and provider registry for the DeepSeek Harness",
-  "version": "0.2.1-alpha.2",
+  "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
@@ -30,10 +30,12 @@
       "types": "./lib/types/client.d.ts",
       "default": "./lib/types/client.js"
     },
-    "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./src/*": "./src/*"
   },
   "files": [
+    "locale/*.json",
     "lib/index.js",
     "lib/invariant.js",
     "lib/types/**/*.js",
@@ -52,7 +54,7 @@
   "dependencies": {
     "@deepseek-ai/dsh-util-values": "workspace:*",
     "@deepseek-ai/schemastery": "workspace:~",
-    "zod": "^4.4.3"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:~",

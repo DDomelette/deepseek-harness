@@ -8,8 +8,7 @@ import type {
   McpSettingsTabInjected,
   McpSettingsTabProps,
 } from '../src/client/McpSettingsTab.tsx'
-import { McpTabController, type McpServersSettings } from '../src/client/mcp-tab-controller.ts'
-import type { McpServerSettingsEntry } from '../src/client/mcp-tab-controller.ts'
+import { McpTabController, type McpServerSettingsEntry, type McpServersSettings } from '../src/client/mcp-tab-controller.ts'
 import type { NewServerDraft } from '../src/client/AddServerForm.tsx'
 import { en, type McpLocaleKey } from '../src/client/locales.ts'
 import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -312,7 +311,6 @@ describe('McpTabController', () => {
       user: undefined,
       revision: 1,
       writable: true,
-      mode: 'host',
     }
     const set = vi.fn<ConfigForm<McpServersSettings>['set']>().mockResolvedValue(true)
     const unset = vi.fn<ConfigForm<McpServersSettings>['unset']>().mockResolvedValue(true)

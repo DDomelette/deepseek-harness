@@ -8,7 +8,7 @@ English | [中文](2026-07-27-web-subagent-conversations.zh.md)
 
 Session-backed subagents have durable identities, persisted transcripts, and a direct-child catalog, but ordinary session lineage cannot distinguish them from forks or prove their descriptor mode and continuation authority. Generic Agent-bound Host operations can otherwise resume or drive a child outside its direct-parent continuation owner.
 
-The browser must preserve the [continuable subagent contract](../../implemented/feature/2026-07-28-continuable-subagent-conversations.md): a continuable child has at most one process-local Activation, accepts later work only through the exact live direct parent, and uses the Agent inbox as its sole FIFO. Viewing history must not create an Activation. Once an inbox message is accepted, the HTTP caller neither owns its execution nor gains a cancellation handle.
+The browser must preserve the [continuable subagent contract](2026-07-28-continuable-subagent-conversations.md): a continuable child has at most one process-local Activation, accepts later work only through the exact live direct parent, and uses the Agent inbox as its sole FIFO. Viewing history must not create an Activation. Once an inbox message is accepted, the HTTP caller neither owns its execution nor gains a cancellation handle.
 
 The UI must also preserve the membership, modes, and diagnostics of the [durable catalog](../../archived/feature/2026-07-22-durable-subagent-catalog-and-list-agents.md). The shared service reports live-preferred corpus activity, while the Web projection replaces it with the exact child Agent driver's `running` or `inactive` state. Neither activity is a durable outcome or a promise that continuation will succeed.
 

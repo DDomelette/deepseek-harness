@@ -129,7 +129,7 @@ ctx.plugin(FsInvariant)
 
 - [运行时不变量子系统](../../../docs/subsystems/invariants.zh.md)——`Config`、installer、服务与配套入口约定的生成参考。
 - [生成的配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-invariants)——每个受支持配置字段及其源声明。
-- [运行时不变量约定 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-19-package-invariant-runtime-contracts.zh.md)——运行时不变量可以断言什么，以及强制配套入口接线的机械门禁。
+- [运行时不变量约定 Agent Note](../../../.agents/notes/archived/architecture/2026-07-19-package-invariant-runtime-contracts.md)——运行时不变量可以断言什么，以及强制配套入口接线的机械门禁。
 - [runtime-diagnostics 组地图](../../README.zh.md)——相邻的诊断包。
 
 -----

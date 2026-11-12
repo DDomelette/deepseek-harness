@@ -92,8 +92,10 @@
   cursor: pointer;
 }
 
-.conversation:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .conversation:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .conversationTitle {
@@ -109,9 +111,11 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.back:hover,
-.tool:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .back:hover,
+  .tool:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .body {

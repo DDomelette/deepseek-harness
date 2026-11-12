@@ -23,6 +23,8 @@ Model Context Protocol (MCP) connects the model to tools supplied by external se
 
 MCP servers are opt-in. Configure one `@deepseek-ai/dsh-mcp-client` entry per server in the intended Cordis scope. Every shipped profile supplies the [tool registry](tools.md) and mounts the shared resource service once; users configure only client entries. Callers with no visible configured server receive no MCP prompt text or tools in native or PTC mode.
 
+The Web and Desktop profiles also mount the [MCP server manager](../../packages/mcp/mcp-manager/README.md) once. It runs servers configured through Settings and servers that installed plugins register for their own lifetime, and serves their status, restart, and probe operations to Remote clients.
+
 | Choice | Configuration owner |
 |---|---|
 | Server identity, local process or HTTP endpoint, credentials, and process environment | [Client configuration](../../packages/mcp/mcp-client/README.md#use-this-package) |
@@ -38,11 +40,13 @@ Protocol negotiation follows the SDK's supported revisions; there is no product 
 <a id="responsibilities-and-scope"></a>
 ## Responsibilities and scope
 
-The client is a per-server connection plugin and a consumer of the harness tool registry. It does not publish a shared `ctx.mcp` service. The external server implements MCP operations; the SDK owns protocol exchange; the client adapts discovered tools to harness execution.
+The client is a per-server connection plugin and a consumer of the harness tool registry. It does not publish a shared `ctx.mcp` service; the manager publishes `ctx.mcpManager` for the Host-global servers it mounts. The external server implements MCP operations; the SDK owns protocol exchange; the client adapts discovered tools to harness execution.
 
 `mcp-resources` owns the shared resource tools and selects providers in the caller's scope. Each MCP client supplies resource operations through its own connection. The first provider in a scope enables the local shared tools, and removing the last removes them; inherited providers remain visible. The service owns these tool registrations independently of any one client. Connection failures do not remove shared resource tools while a visible client entry remains active.
 
 Configured `serverName` identifies a server in its registration scope. Two entries in that scope cannot reserve the same name; separate Agent scopes can reuse it. Public tool names include the configured server name, so equally named tools from different servers remain distinct. Registration effects own names and discovered tools; plugin disposal closes the connection and removes its contributions.
+
+The [native Cua Driver provider](../../packages/experimental/computer-use-cua-driver-native/README.md) shares the client's exported result adapter without opening an MCP connection. Desktop provider selection belongs to the [computer-use subsystem](computer-use.md).
 
 -----
 
@@ -58,7 +62,7 @@ The result adapter retains canonical MCP JSON for programmatic callers and prepa
 <a id="resources-and-instructions"></a>
 ## Resources and instructions
 
-Resource calls require an explicit configured server name. When system-prompt assembly is available, the resource service lists caller-visible names from the same registry used for dispatch, including servers with no tools or instructions. The shared registry resolves that name in the calling Agent's scope before dispatch; unavailable servers fail without a network request. Discovery and reads are on demand, including for servers that expose resources without tools. The [resource package](../../packages/mcp/mcp-resources/README.md) owns pagination and content rendering.
+Resource calls require an explicit configured server name. When system-prompt assembly is available, the resource service lists caller-visible names from the same registry used for dispatch, including servers with no tools or instructions. The shared registry resolves that name in the calling Agent's scope before dispatch; unavailable servers fail without a network request. Discovery and reads are on demand, including for servers that expose resources without tools. The [resource package](../../packages/mcp/mcp-resources/README.md) owns pagination and content rendering; its generated tool schemas live in the [tool catalog](../tool-catalog.md#deepseek-aidsh-mcp-resources).
 
 Resource providers remain connection-owned. Scope disposal removes registrations; the MCP client controls cancellation and recovery. Canonical results retain complete JSON for programmatic callers, while the text projection replaces binary blobs with descriptions. Returned text enters ordinary tool history; content is not fetched merely because a server connects.
 
@@ -105,6 +109,7 @@ MCP prompt templates, human-input elicitation, task-based execution, and resourc
 
 - [MCP package group](../../packages/mcp/README.md) — package entry points.
 - [MCP resources](../../packages/mcp/mcp-resources/README.md) — shared tools and resource-provider semantics.
+- [MCP manager](../../packages/mcp/mcp-manager/README.md) — Settings-configured and plugin-registered servers, status, and Remote operations.
 - [Resource visibility reference](../../packages/mcp/mcp-resources/README.md) — shared profile mounting and visibility from configured servers.
 - [Third-party memory servers](../user/guide/mcp-memory.md) — product configuration guide.
 - [Protocol negotiation reference](../../packages/mcp/mcp-client/README.md) — SDK ownership and compatibility decisions.
@@ -116,6 +121,71 @@ MCP prompt templates, human-input elicitation, task-based execution, and resourc
 ## Cordis API
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxmcpmanager--mcpservermanager"></a>
+
+### `ctx.mcpManager` — `McpServerManager`
+
+The manager service. Reconciliation and `restart` serialize instance replacement. Probes run independently and are cancelled before replacement or disposal waits for their cleanup.
+
+```ts cordis-catalog
+/**
+ * Read configured and registered servers and retained runtime records without mounting or probing.
+ * @returns configured entries in document order, then registered entries, then retained records for removed entries.
+ */
+list(): McpManagedServerView[]
+
+/**
+ * Contribute one server for the calling plugin's lifetime. A registered
+ * entry is enabled while registered; its removal awaits the instance's
+ * unmount, so plugin disposal withdraws the server's tools before settling.
+ * @param name - server key and tool namespace, unique across configured and registered servers.
+ * @param entry - transport, endpoint, and budgets, validated like a configured entry.
+ * @returns an idempotent disposer that removes the registration.
+ * @throws when the name is taken, the entry is invalid, or the manager is disposed.
+ */
+register(name: string, entry: McpServerRegistration): () => void
+
+/**
+ * Stream server views for a management surface: the current list on
+ * subscription, then the complete list again after each status or entry change.
+ * @param signal - subscription lifetime; aborting ends only this stream.
+ * @returns coalesced server lists until the subscriber or the manager stops.
+ */
+@Remote({ mode: 'stream' }) async* watch(signal: AbortSignal): AsyncIterable<McpManagedServerView[]>
+
+/**
+ * Rebuild one server from its current entry: dispose the live instance (if
+ * any) and mount a fresh one with a fresh reconnect budget. Incomplete
+ * cleanup blocks replacement until the Host restarts.
+ * @param name - the configured or registered server key.
+ * @throws when the manager is disposed, no such entry exists, or cleanup is incomplete.
+ */
+@Remote async restart(name: string): Promise<void>
+
+/**
+ * Probe one server for a management surface; see {@link McpServerManager.probe}.
+ * @param name - the configured or registered server key.
+ * @param signal - caller cancellation.
+ * @returns the stage-classified probe outcome and independent cleanup result.
+ */
+@Remote('probe') probeFromClient(name: string, signal: AbortSignal): Promise<McpProbeResult>
+
+/**
+ * Probe one configured server without touching its live instance: resolve
+ * the entry's templates, connect, list tools, close. A disabled entry can be
+ * probed — that is how a management surface tests it before enabling.
+ * Configuration changes and manager disposal cancel the probe.
+ * @param name - the configured or registered server key.
+ * @param options - probe budget, listing caps, and abort signal.
+ * @returns the stage-classified probe outcome and independent cleanup result.
+ * @throws when the manager is disposed, the entry is absent or changing, cleanup is
+ * incomplete, options are invalid, or a required credentials provider is missing.
+ */
+async probe(name: string, options?: McpProbeOptions): Promise<McpProbeResult>
+```
+
+Source: [`packages/mcp/mcp-manager/src/index.ts`](../../packages/mcp/mcp-manager/src/index.ts)
 
 <a id="ctxmcpresources--mcpresourceruntime"></a>
 
@@ -134,4 +204,53 @@ register(server: string, provider: McpResourceProvider): () => void
 ```
 
 Source: [`packages/mcp/mcp-resources/src/index.ts`](../../packages/mcp/mcp-resources/src/index.ts)
+
+<a id="mcp-manager-events"></a>
+
+### `mcp-manager/*` events
+
+<a id="mcp-managerstatus--parallel"></a>
+
+#### `mcp-manager/status` — parallel
+
+One managed server's status transitioned. Emitted for every published change while the manager is live and either the entry is configured or registered, or a runtime record remains. Removed entries may emit cleanup failures; `watch` and `list()` report removals. Lifecycle operations do not wait for listeners. Synchronous throws and returned promise rejections are logged without skipping other listeners.
+
+```ts cordis-catalog
+/**
+ * One managed server's status transitioned. Emitted for every published
+ * change while the manager is live and either the entry is configured or
+ * registered, or a runtime record remains. Removed entries may emit cleanup
+ * failures; `watch` and `list()` report removals.
+ * Lifecycle operations do not wait for listeners. Synchronous throws and
+ * returned promise rejections are logged without skipping other listeners.
+ * @param name - the configured `servers` key or registered name.
+ * @param status - the status now current for that server.
+ * @mode parallel
+ */
+'mcp-manager/status'(name: string, status: McpManagedServerStatus): void | Promise<void>
+```
+
+Source: [`packages/mcp/mcp-manager/src/types.ts`](../../packages/mcp/mcp-manager/src/types.ts)
+
+<a id="mcp-servers-events"></a>
+
+### `mcp-servers/*` events
+
+<a id="mcp-serverschange--emit"></a>
+
+#### `mcp-servers/change` — emit
+
+The settings-managed MCP roster or one mount lifecycle state changed. This is an unfiltered invalidation notification; consumers refetch the roster through `mcpServers.list()`.
+
+```ts cordis-catalog
+/**
+ * The settings-managed MCP roster or one mount lifecycle state changed.
+ * This is an unfiltered invalidation notification; consumers refetch the
+ * roster through `mcpServers.list()`.
+ * @mode emit
+ */
+'mcp-servers/change'(): void
+```
+
+Source: [`packages/mcp/mcp-manager/src/types.ts`](../../packages/mcp/mcp-manager/src/types.ts)
 <!-- END GENERATED cordis-surface -->

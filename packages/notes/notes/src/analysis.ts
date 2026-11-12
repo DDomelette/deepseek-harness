@@ -18,11 +18,13 @@
  * @module @deepseek-ai/dsh-notes/analysis
  */
 
+import { randomUUID } from 'node:crypto'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, UserMessage } from '@deepseek-ai/dsh-llm'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import type { ContentBlock, MessageId, UserMessage } from '@deepseek-ai/dsh-llm'
+import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { actionFor, composeContent } from './compose.ts'
@@ -272,7 +274,7 @@ export class Analysis extends Service {
    *
    * The order is deliberate. `Agent.followup()` returns void, so the sequence a
    * message lands on is never knowable at the call site; its id is knowable
-   * before the send because `createUserMessage` mints it. Recording first means
+   * before the send because the caller mints it. Recording first means
    * no committed message can exist without its id already stored. The rollback
    * keeps a refused send from parking the material in `analyzing` forever, since
    * `analyse` reads a non-empty `messageIds` as "already sent".
@@ -293,10 +295,12 @@ export class Analysis extends Service {
     let message: UserMessage | undefined
     await this.materials.update(id, (record) => {
       if (claim !== undefined && record.messageIds.length > 0) return record
-      message = createUserMessage({
+      message = deepFreeze(structuredClone<UserMessage>({
+        id: brandString<MessageId>(randomUUID()),
+        role: 'user',
         content: claim === undefined ? content : claim(record),
         source: { kind: 'notes' },
-      })
+      }))
       return {
         ...record,
         status: 'analyzing',

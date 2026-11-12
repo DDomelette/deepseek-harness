@@ -2,9 +2,9 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/user/develop/practice/dynamic-cordis.md
-/extend-a-running-agent-with-cordis-tools:
-  en: 0d73bc28adbed42f
-  zh: 786ef852c56242d0
-/extend-a-running-agent-with-cordis-tools/run-it:
-  en: fd349bf98b82b0e3
-  zh: 4f7b3405c5035837
+/configure-persistent-plugins-from-a-prompt:
+  en: d50e336357663f75
+  zh: 4364e91403387e2a
+/configure-persistent-plugins-from-a-prompt/connect-an-mcp-server:
+  en: f9fefda94ba8a005
+  zh: f1a9a977a0732fc0

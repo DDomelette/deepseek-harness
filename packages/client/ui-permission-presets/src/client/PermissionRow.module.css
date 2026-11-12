@@ -17,16 +17,11 @@
   padding-right: 48px;
 }
 
-/* Handset single-pane: the description keeps the full row and the selector
-   drops to its own line below it. */
+/* Narrow settings panel: the 48px gutter separates the label from its control
+   across a wide row and only squeezes the label here. */
 @media (max-width: 767px) {
-  .row {
-    flex-wrap: wrap;
-  }
-
-  .rowText {
-    flex: 1 1 100%;
-    padding-right: 0;
+  :global(html:not([data-windows-titlebar]):not([data-platform='darwin'])) .rowText {
+    padding-right: 16px;
   }
 }
 
@@ -60,8 +55,10 @@
   cursor: pointer;
 }
 
-.selector:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .selector:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .selector:disabled {

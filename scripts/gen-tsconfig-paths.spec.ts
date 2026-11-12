@@ -16,11 +16,10 @@ describe('generated tsconfig package aliases', () => {
   it('maps each package to its own source directory', () => {
     const aliases = collectPackageAliases()
     expect(aliases.length).toBeGreaterThan(100)
-    const manager = aliases.find(alias => alias.specifier === '@deepseek-ai/dsh-mcp-manager')
-    expect(manager).toEqual({
-      specifier: '@deepseek-ai/dsh-mcp-manager',
-      source: './packages/mcp/mcp-manager/src',
-      hasInvariant: true,
+    const session = aliases.find(alias => alias.specifier === '@deepseek-ai/dsh-session')
+    expect(session).toEqual({
+      specifier: '@deepseek-ai/dsh-session',
+      source: './packages/core/session/src',
     })
     // Sorted, so a package added anywhere lands in a stable spot in the diff.
     expect([...aliases].sort((a, b) => a.specifier.localeCompare(b.specifier))).toEqual(aliases)
@@ -29,17 +28,23 @@ describe('generated tsconfig package aliases', () => {
     expect(aliases.some(alias => alias.specifier === '@deepseek-ai/dsh-typert-protocol')).toBe(false)
   })
 
+  it('resolves invariant companions from source on a clean checkout', () => {
+    expect(collectPackageAliases()).toContainEqual({
+      specifier: '@deepseek-ai/dsh-fs/invariant', source: './packages/fs/fs/src/invariant.ts',
+    })
+  })
+
   it('yields to a hand-written alias and closes without a trailing comma', () => {
     const aliases = [
-      { specifier: '@deepseek-ai/dsh-a', source: './packages/g/a/src', hasInvariant: true },
-      { specifier: '@deepseek-ai/dsh-b', source: './packages/g/b/src', hasInvariant: false },
+      { specifier: '@deepseek-ai/dsh-a', source: './packages/g/a/src' },
+      { specifier: '@deepseek-ai/dsh-b', source: './packages/g/b/src' },
+      { specifier: '@deepseek-ai/dsh-c', source: './packages/g/c/src' },
     ]
     const body = renderAliases(aliases, new Set(['@deepseek-ai/dsh-a']))
 
-    // The hand-written bare alias is skipped; its /invariant sibling is not.
     expect(body).toBe([
-      '      "@deepseek-ai/dsh-a/invariant": ["./packages/g/a/src/invariant.ts"]',
       '      "@deepseek-ai/dsh-b": ["./packages/g/b/src"]',
+      '      "@deepseek-ai/dsh-c": ["./packages/g/c/src"]',
     ].join(',\n'))
     expect(body.endsWith(',')).toBe(false)
   })
@@ -72,7 +77,7 @@ describe('generated tsconfig package aliases', () => {
     // resolve through the workspace symlink to built lib/types instead.
     expect(uncoveredPackages(
       ['@deepseek-ai/dsh-a', '@deepseek-ai/dsh-b'],
-      new Set(['@deepseek-ai/dsh-a', '@deepseek-ai/dsh-a/invariant']),
+      new Set(['@deepseek-ai/dsh-a']),
     )).toEqual(['@deepseek-ai/dsh-b'])
 
     expect(uncoveredPackages(['@deepseek-ai/dsh-a'], new Set(['@deepseek-ai/dsh-a']))).toEqual([])
@@ -89,10 +94,9 @@ describe('generated tsconfig package aliases', () => {
 
   it('leaves no wildcard that probes every package group', () => {
     const config = readFileSync(resolve(root, 'tsconfig.base.json'), 'utf8')
-    // These two listed one candidate per group, so resolving a package late in
-    // the list cost a filesystem probe — and under tsx a decorated module
+    // A wildcard lists one candidate per group, so resolving a package late in
+    // the list costs a filesystem probe — and under tsx a decorated module
     // error — for every group before it.
     expect(config).not.toContain('"@deepseek-ai/dsh-*":')
-    expect(config).not.toContain('"@deepseek-ai/dsh-*/invariant":')
   })
 })

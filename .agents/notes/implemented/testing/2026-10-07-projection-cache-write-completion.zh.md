@@ -28,4 +28,4 @@ session-projection-cache 的两个测试套件都用字面量 `vi.waitFor` 轮�
 
 ## 后果
 
-session-projection-cache 的套件不再持有任何字面量 `vi.waitFor` 死线；车道给每个用例的预算成为唯一 guard，而它现在约束的是一个真实完成点，而不是轮询。`settled` 是一个服务的公开 API，而该服务的后台写入此前不可观察；`write(session)` 本就服务于测试与承载方，`settled` 服务同一批使用者。[CI 断言决定](2026-09-08-ci-readiness-and-completion.zh.md)、[CI fixture 完成与隔离](2026-09-08-ci-completion-observations.zh.md) 与 [publint 生命周期决定](2026-09-07-publint-test-subprocess-lifetime.zh.md) 在同族问题上拥有各自的结论；若某个套件观察的介质没有可 await 的完成点，它仍然需要那一类方案，而不是本方法。
+session-projection-cache 的套件不再持有任何字面量 `vi.waitFor` 死线；车道给每个用例的预算成为唯一 guard，而它现在约束的是一个真实完成点，而不是轮询。`settled` 是一个服务的公开 API，而该服务的后台写入此前不可观察；`write(session)` 本就服务于测试与承载方，`settled` 服务同一批使用者。[CI 断言决定](2026-09-08-ci-readiness-and-completion.zh.md)、[CI fixture 完成与隔离](2026-09-08-ci-completion-observations.zh.md) 与 [publint 生命周期决定](../../archived/testing/2026-09-07-publint-test-subprocess-lifetime.md) 在同族问题上拥有各自的结论；若某个套件观察的介质没有可 await 的完成点，它仍然需要那一类方案，而不是本方法。

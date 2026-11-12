@@ -71,6 +71,10 @@ function mount(
     useSessionRetainInfo={unused as never}
     useSessions={unused as never}
     useWorkspaces={unused as never}
+    useRemoteAccess={unused as never}
+    useSessionAccess={unused as never}
+    useContextMenu={unused as never}
+    useWorkspaceAccess={unused as never}
     t={t}
     joinUrl={async () => ({ ok: true, value: JOIN_URL })}
     api={api}

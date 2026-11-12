@@ -59,6 +59,8 @@ agent 可以创建文件、覆盖文件，或通过替换一段字面量文本�
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
+提供者实现带条件保护的 `patchText`、`deleteFile` 和 `moveFile` 操作。补丁应用使用共享文件系统补丁库并保留换行符。`diffBasisMaxBytes` 默认为 10 MiB，达到或超过上限的文件不返回差异文本。移动操作按固定顺序锁定两个目标，在发布前检查源与目标版本；若删除源文件失败，则保留已发布的目标，并通过 `sourceFailure` 报告部分完成的结果。
+
 <details>
 <summary>实现细节——点击展开</summary>
 

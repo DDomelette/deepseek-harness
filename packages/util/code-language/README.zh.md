@@ -1,6 +1,6 @@
 ---
 description: "Client 代码界面与 Host read 卡片共享的唯一「扩展名 → 语法高亮语言」表。"
-kind: "package-reference"
+kind: "package-library"
 ---
 
 # dsh-util-code-language

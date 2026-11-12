@@ -10,7 +10,7 @@ Assistant prose can reference an image by its filesystem path, but browsers cann
 
 ## Decision
 
-Local media paths in Session prose render through a same-origin file route. This note owns the renderer vocabulary and its placement; [authenticated filesystem reads](2026-09-08-file-display-through-filesystem.md) owns the current serving policy and supersedes the workspace/media restrictions described below.
+Local media paths in Session prose render through a same-origin file route. This note owns the renderer vocabulary and its placement; [authenticated filesystem reads](../../archived/feature/2026-09-08-file-display-through-filesystem.md) owns the current serving policy and supersedes the workspace/media restrictions described below.
 
 `ui-primitives` owns the `MarkdownPathImages` vocabulary on `MarkdownText`. Like `fileMentions`, it applies only after a message settles so frozen streaming blocks cannot cache a vocabulary handler. The settled pass rewrites image destinations outside the remote-URL allowlist and emits only absolute `http(s)`, `blob`, or `data` results. Without a vocabulary, local destinations retain inert alt text. Failed loads replace the image with authored alt text, or its original destination when alt is empty; a different source can load again.
 

@@ -2,11 +2,11 @@
 
 [English](jobs.md) | 中文
 
-长时间运行的生产方、`ctx.jobs` 与任务控制命令共用的类型。[运行时 Agent Note](../../.agents/notes/implemented/architecture/2026-06-20-generic-long-running-tool-runtime.zh.md) 负责设计；本页记录 [`packages/jobs/jobs/src/types.ts`](../../packages/jobs/jobs/src/types.ts) 中的确切字段和变体。
+长时间运行的生产方、`ctx.jobs` 与任务控制命令共用的类型。[seam 收敛 Agent Note](../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.zh.md) 负责当前设计，[运行时 reference](../../packages/jobs/jobs/README.zh.md) 记录其起源；本页记录 [`packages/jobs/jobs/src/types.ts`](../../packages/jobs/jobs/src/types.ts) 与客户端安全叶子 [`view.ts`](../../packages/jobs/jobs/src/view.ts) 中的确切字段与变体。
 
 ## ID 与状态
 
-`JobId` 是按 `<kind>-N` 生成的[品牌化 id](core.zh.md#branded-ids)。访问控制依赖拥有者授权，而非 id 的保密性。`JobKind` 派生自可合并扩展的 map；注册表将各个 kind 视为不透明的 id 命名空间。
+`JobId` 是按 `<kind>-<short-uuid>` 生成的[品牌化 id](core.zh.md#branded-ids)，kind 后是 UUID 的 16 位小写十六进制字符。访问控制依赖拥有者授权，而非 id 的保密性。`JobKind` 派生自可合并扩展的 map；注册表将各个 kind 视为不透明的 id 命名空间。
 
 ```ts type-equiv
 /**
@@ -18,11 +18,65 @@ interface JobKindMap {
 }
 ```
 
-`JobStatus` 为 `'running' | 'stopping' | 'completed' | 'killed' | 'failed'`；生产方特有的事实归入 `JobView.detail`。
+`JobStatus` 为 `'running' | 'stopping' | 'completed' | 'killed' | 'failed'`；生产方特有的事实在运行期间归入 `JobView.progress`，结算后归入 `JobView.detail`。
+
+<a id="session-lifecycle-records"></a>
+
+## Session 生命周期记录
+
+有所有者的 job 在原始所有者 Session 中发布 `job/registered` 与 `job/settled`。全局唯一的 `jobId` 同时配对这两条记录并控制运行中的 job。SDK 通过 `session.event` 转发这些仅日志记录，不依赖输出读取。时间戳描述注册表提交时刻，不是 CPU 时间或精确的 OS 进程边界；缺少结算时保持不完整。`producerReported` 表示生产方通过兑现 `done` 报告了终态；强制销毁或 promise 拒绝时为 false，不独立确认资源已释放。
+
+`job/settled` 可能出现在 `turn/end` 之后。SDK run 结果只覆盖自身观测窗口；需要较晚结算的消费方应保留 Session 订阅或读取持久化历史。轮次完成不表示所有有主 job 都已停止。
+
+应用销毁可能在有主 job 的最后一条结算写入存储前停止 Session 事件路由或关闭写句柄。正常的一次性运行结束、信号关停和进程硬退出都可能出现这种情况。即使运行期注册表报告了终止，缺少 `job/settled` 的区间仍不完整；消费方不得虚构结束时间戳。
+
+```ts type-equiv
+/** Durable identity and registration time of one owned job execution. */
+interface JobRegisteredData {
+  /** Unique execution id accepted by job controls and retained in Session history. */
+  readonly jobId: JobId
+  /** Original owner; copied history does not transfer execution ownership. */
+  readonly owner: SessionId
+  /** Producer kind. */
+  readonly kind: string
+  /** Producer-supplied label. */
+  readonly label: string
+  /** Unix epoch milliseconds when registration committed. */
+  readonly startedAt: number
+  /** Creating tool invocation, when the producer was called through a tool. */
+  readonly toolCall?: JobToolCall
+}
+```
+
+```ts type-equiv
+/** Registry settlement, including whether the producer reported a terminal outcome. */
+interface JobSettledData extends JobRegisteredData {
+  /** Unix epoch milliseconds when the registry committed the terminal record. */
+  readonly finishedAt: number
+  /** Recorded terminal outcome. */
+  readonly status: JobOutcome['status']
+  /** Source of the termination request, or producer completion. */
+  readonly cause: JobSettleCause
+  /** True when done fulfilled; false for rejection or forced failure. Does not certify resource release. */
+  readonly producerReported: boolean
+  /** Terminal reason, including a recorded kill reason when applicable. */
+  readonly detail?: string
+}
+```
 
 ## 生产方约定
 
-`JobSpec` 声明身份和启动器。运行时会在调用 `run()` 前完成预检，随后提交注册，不再执行可能失败的步骤。生产方拥有执行资源；运行时拥有身份、访问权限和生命周期状态。
+`JobSpec` 声明身份、拥有者会话、可选的拉取式 `output` 源与启动器。运行时会在完成预检后携带该 job 的 `JobHandle` 调用 `run()`，随后提交注册，不再执行可能失败的步骤。生产方拥有执行资源；运行时拥有身份、访问、生命周期状态与输出环。
+
+```ts type-equiv
+/** Tool dispatch that created a job; nested calls retain their root invocation. */
+interface JobToolCall {
+  /** Exact invocation, including a PTC sub-call when applicable. */
+  readonly callId: SessionEventMap['tool/call']['callId']
+  /** Root model-requested invocation owning this execution. */
+  readonly rootCallId: SessionEventMap['tool/call']['callId']
+}
+```
 
 ```ts type-equiv
 /**
@@ -43,6 +97,8 @@ interface JobSpec {
    * caller until service disposal.
    */
   owner?: SessionId
+  /** Creating tool invocation, retained in the durable lifecycle records. */
+  toolCall?: JobToolCall
   /**
    * Optional UTF-8 byte cap for each complete model-facing completion notice or
    * output read, including controller status metadata. Independent of ring
@@ -66,7 +122,35 @@ interface JobSpec {
 }
 ```
 
-`JobHooks.done` 会在生产方释放其资源后 resolve，而不是仅在工作完成时 resolve。可选的 `readOutput` 用来区分会消费输出的流式任务和仅有最终输出的任务。
+```ts type-equiv
+/**
+ * Producer face of one registered job, handed to {@link JobSpec.run} and
+ * valid for the job's whole life. All methods are synchronous. Writes staged
+ * inside the starter call are retained and become visible with the
+ * registration commit; after settlement — the producer's own outcome, a kill,
+ * or a registry-forced teardown end — writes log and drop instead of
+ * throwing, so a producer's trailing flush cannot break its own teardown path.
+ */
+interface JobHandle {
+  /** The registry-issued id (`<kind>-<short-uuid>`). */
+  readonly id: JobId
+  /**
+   * Append one chunk to the output ring. Offsets advance by the chunk's UTF-8
+   * byte length; an empty chunk is dropped without waking observers.
+   * @param text - the chunk text, exactly as produced.
+   * @param options - stream label and gap marker.
+   */
+  append(text: string, options?: JobAppendOptions): void
+  /**
+   * Replace the live progress line (`3/10`, the current phase). Settlement
+   * clears it; the terminal reason travels in {@link JobOutcome.detail}.
+   * @param line - the new progress line.
+   */
+  updateProgress(line: string): void
+}
+```
+
+`JobHooks.done` 会在生产方释放其资源后 resolve，而不是仅在工作完成时 resolve。结果是一个值而非流的 job——workflow 渲染出的结果——把它作为 `JobOutcome.result` 返回；模型在结算后的第一次读取携带它一次。
 
 ```ts type-equiv
 /** Hooks through which the runtime controls and observes producer work. */
@@ -106,9 +190,83 @@ interface JobOutcome {
 }
 ```
 
+拉取源把一个非消耗的偏移读取器——子进程的 `readFrom` 家族——交给注册表。注册表按自己的节奏（`dsh-jobs-local` 的 `pumpPollMs`）泵送每个源，并在结算封环之前再排干一次，因此生产方不需要把任何东西折进 `done`。
+
+```ts type-equiv
+/**
+ * A pull source the registry pumps into the job's output ring — the subprocess
+ * `readFrom` family. The registry owns the cadence and drains every source one
+ * last time before settlement closes the ring, so a producer folds nothing
+ * into its `done`.
+ */
+interface JobOutputSource {
+  /** Stream label attached to every chunk this source yields. */
+  channel?: JobChannel
+  /**
+   * Read everything captured since `fromByte` without consuming it.
+   * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 first).
+   * @returns the delta text, the next offset, the lossy flag, and the spill path the source currently keeps.
+   */
+  read(fromByte: number): JobSourceRead
+}
+```
+
+```ts type-equiv
+/** One incremental read from a {@link JobOutputSource}. */
+interface JobSourceRead {
+  /** Text captured since the requested offset (the whole retained tail when lossy). */
+  text: string
+  /** Whole-stream offset to resume from on the next read. */
+  nextOffset: number
+  /** True when the requested offset slid out of the source's retained window. */
+  lossy: boolean
+  /**
+   * Host path of a file holding the complete stream, when the source
+   * currently keeps an intact one. Reported on every read, so the registry
+   * tracks it as source metadata: a later read without it withdraws the file.
+   */
+  spillPath?: string
+}
+```
+
+## 输出环
+
+每个 job 拥有一个有界的环。拉取源被泵入其中，`JobHandle.append` 的推送整块落地；模型通过注册表保管的游标（`JobRegistry.read`）消耗该环，任意数量的观察者按绝对字节偏移读取它（`JobRegistry.readAt`），二者互不干扰。`JobChannel` 标记 `stdout`、`stderr` 与 `log`；`log` 是只到达观察者、从不进入模型消耗式读取的生产方叙述。结算即封流并把保留量裁剪到结算上限——环没有独立的生命周期。拉取源保留的 spill 文件是 job 元数据（`JobView.output.spillPaths`，每次泵读取都会刷新），不是逐块元数据，所以环淘汰了字节之后、甚至缺口 chunk 本身也被淘汰之后，模型的丢失输出提示仍能点名该文件。浏览器通过 [`dsh-api-job-controller`](../../packages/api/job-controller/README.zh.md) 的 Remote 流 `job.list` 与 `job.follow` 触达名册与环，其帧列于下文的 Cordis API 一节。
+
+```ts type-equiv
+/** One chunk of a job's output ring: absolute offset, text, channel, and loss marker. */
+interface JobChunk {
+  /** Absolute offset of the chunk's first byte; offsets never move once assigned. */
+  readonly at: number
+  /** Chunk text exactly as appended (possibly tail-trimmed by retention). */
+  readonly text: string
+  /** Stream label, when the producer supplied one. */
+  readonly channel?: JobChannel
+  /** Bytes immediately before this chunk were lost, at the producer or to retention. */
+  readonly gapBefore?: true
+}
+```
+
+```ts type-equiv
+/** Result of one non-consuming {@link JobRegistry.readAt}. */
+interface JobOutputRead {
+  /** Retained chunks overlapping `[from, total)`, in offset order. */
+  chunks: readonly JobChunk[]
+  /**
+   * Offset to resume from — the ring's current `total`. Always a chunk
+   * boundary: appends land whole and trimming only advances chunk starts, and
+   * consumers concatenate `chunks` under that assumption, so a provider
+   * serving partial chunks would silently duplicate text.
+   */
+  next: number
+  /** True when `from` fell below the oldest retained byte, so bytes are missing before `chunks`. */
+  lossy: boolean
+}
+```
+
 ## 消费方视图
 
-快照是每次新建的只读投影。`ownerSession` 携带用于授权的共享 `SessionId`；完成监听器则会另行收到用于生命周期清理的确切拥有者对象。另一个接口已经交付终止状态或承诺交付时，`reported` 会抑制完成通知；排空 owner 或服务的 teardown 取消同样计入。
+`JobView` 是每个读者都消费的唯一投影：模型工具、浏览器名册与观测流。`owner` 携带划定访问边界的会话 id；注册表为生命周期清理解析其背后的活体 `Agent`，从不把该对象交出去。`progress` 是生产方的实时行，结算时清除；`detail` 是终态原因，合并了记录下来的 kill 原因。
 
 ```ts type-equiv
 /**
@@ -117,7 +275,7 @@ interface JobOutcome {
  * stream all consume this one shape.
  */
 interface JobView {
-  /** The registry-issued id (`<kind>-N`). */
+  /** The registry-issued id (`<kind>-<short-uuid>`). */
   readonly id: JobId
   /**
    * The producer kind the job was registered with: a Host-registered
@@ -154,6 +312,8 @@ interface JobView {
 }
 ```
 
+`JobRegistry` 的 `list`、`get`、`read`、`readAt`、`kill` 和 `wait` 各自接收调用方的 `SessionId`；省略调用方时仅可访问无主 job，传入会话时还可访问该会话拥有的 job。
+
 ```ts type-equiv
 /** Output and post-read state returned by the consuming {@link JobRegistry.read}. */
 interface JobRead {
@@ -168,9 +328,62 @@ interface JobRead {
 }
 ```
 
+## 事件
+
+注册表通过一条带过滤的流宣布每次提交。生命周期事件携带其所宣布的提交之后的投影；`settled` 标出原因，完成播报方据此跳过 teardown；`output` 只携带 id 与新的 total，观察者从自己的游标读取，注册表从不推送负载。
+
+```ts type-equiv
+/**
+ * One lifecycle or output event. Lifecycle events carry the job's projection
+ * after the commit they announce; `output` carries only the id and the new
+ * total, so an observer schedules a {@link JobRegistry.readAt} from its own
+ * cursor and the registry never pushes payloads.
+ */
+type JobEvent =
+  | {
+    /** Registration commit, progress line change, stopping transition, or removal from the visible set. */
+    readonly type: 'registered' | 'progress' | 'stopping' | 'removed'
+    readonly job: JobView
+  }
+  | {
+    readonly type: 'settled'
+    readonly job: JobView
+    readonly cause: JobSettleCause
+    /**
+     * Whether this settlement released a live {@link JobRegistry.wait}. That
+     * waiter's caller receives the terminal projection as its own result, so
+     * a completion reporter treats an awaited settlement as already delivered
+     * and reports only the unawaited ones. A wait that timed out or was
+     * aborted before the settlement does not count.
+     */
+    readonly awaited: boolean
+  }
+  | {
+    readonly type: 'output'
+    readonly id: JobId
+    /** Owning session, absent for an unowned job. */
+    readonly owner?: SessionId
+    /** The ring's total after the append (or at settlement, which ends the stream). */
+    readonly total: number
+  }
+```
+
+```ts type-equiv
+/**
+ * Who a subscription hears about. `{ owner }` delivers that session's jobs
+ * plus every unowned job (the set that session can see). `{ owners: 'scope' }`
+ * delivers the owners composed under the subscribing context — one registry
+ * serves every composition in the process, and a mount under one preset must
+ * not hear another preset's agents. `{ owners: 'all' }` delivers everything.
+ */
+type JobEventFilter =
+  | { readonly owner: SessionId }
+  | { readonly owners: 'all' | 'scope' }
+```
+
 ## 服务行为
 
-抽象的 [`JobRegistry`](../../packages/jobs/jobs/src/index.ts) Service Definition 规定原子 `start`、限定调用方作用域的 `get` 和 `list`、`read`、`kill`、有界 `wait`、故障隔离的 `onJobDone` 与 `onJobsChanged` 监听器，以及 `attachController`；[`LocalJobRegistry`](../../packages/jobs/jobs-local/src/index.ts) 是其进程局部 Service Provider。授权会比较拥有者会话；拥有者清理与准入会使用确切的已注册 `Agent` 实例。本地 Service Provider 的 `maxConcurrentJobsPerOwner` 配置必须是正的安全整数，默认值为 `10`；它按确切 owner 统计 `running` 与 `stopping` 记录，所有无 owner 任务共享一个服务级桶，并在生产方终止结算后释放容量。Service Definition 约定见 [`dsh-jobs`](../../packages/jobs/jobs/README.zh.md)，注册表生命周期与准入策略见 [`dsh-jobs-local`](../../packages/jobs/jobs-local/README.zh.md)，面向模型的 Consumer 见 [`dsh-tool-jobs`](../../packages/jobs/tool-jobs/README.zh.md)。
+抽象的 [`JobRegistry`](../../packages/jobs/jobs/src/index.ts) Service Definition 规定了原子化的 `start`、各自接收调用方的 `list`、`get`、消耗式 `read`、非消耗的 `readAt`、`kill` 与有界的 `wait`、带过滤的 `events` 流，以及 `attachController`；[`LocalJobRegistry`](../../packages/jobs/jobs-local/src/index.ts) 是进程本地的 Service Provider。授权比较拥有者会话；拥有者清理与准入使用 job 启动时登记在该拥有者会话下的活体 `Agent`。本地提供方的正安全整数配置 `maxConcurrentJobsPerOwner` 默认为 `10`，按精确拥有者统计 `running` 加 `stopping` 记录，无主任务共享一个桶；生产方的终态结算释放容量；`retainBytes`（默认 262144）与 `settledRetainBytes`（默认 16384）约束每个环的运行期与结算后保留量，`pumpPollMs`（默认 150）是拉取节奏。参见 [`dsh-jobs`](../../packages/jobs/jobs/README.zh.md) 了解 Service Definition 约定，[`dsh-jobs-local`](../../packages/jobs/jobs-local/README.zh.md) 了解注册表生命周期与准入策略，[`dsh-tool-jobs`](../../packages/jobs/tool-jobs/README.zh.md) 了解面向模型的 Consumer。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -248,7 +461,7 @@ Implementations must honor these semantics:
  * rejection leaves no job id or execution resource. A throwing starter
  * leaves nothing registered; after it returns, registration cannot fail.
  * @param spec - job identity, owner, output sources, and synchronous starter.
- * @returns the registry-issued `<kind>-N` id.
+ * @returns the registry-issued `<kind>-<short-uuid>` id.
  */
 abstract start(spec: JobSpec): JobId
 

@@ -24,15 +24,29 @@ const UNAVAILABLE = fileURLToPath(new URL('./expected/phone-pairing/unavailable.
  */
 async function openPairing(page: Page, welcomePending = false): Promise<Locator> {
   await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-  if (welcomePending) {
-    const welcome = page.getByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+  const welcome = page.getByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+  if (welcomePending && await welcome.isVisible()) {
     await welcome.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }).click()
     await welcome.waitFor({ state: 'detached' })
   }
-  const drawer = page.getByRole('button', { name: '打开侧边栏' })
-  if (await drawer.isVisible()) await drawer.click()
-  await page.getByRole('button', { name: '设置', exact: true }).click()
-  await page.getByRole('button', { name: '连接手机', exact: true }).click()
+  // The desktop shell keeps Settings in the account menu; a handset folds the
+  // rail into the drawer, whose bottom More entry opens the same menu. A wide
+  // drawer renders the Settings row itself.
+  const settingsItem = page.getByRole('menuitem', { name: '设置', exact: true })
+  const account = page.getByRole('button', { name: '账号菜单', exact: true })
+  if (await account.isVisible()) {
+    await account.click()
+  } else {
+    await page.getByRole('button', { name: '打开侧边栏' }).click()
+    // The drawer opens with an animation; the row exists as soon as it settles.
+    const row = page.getByRole('button', { name: '设置', exact: true })
+    const drawerSettled = await row.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false)
+    if (drawerSettled) await row.click()
+    else await page.getByRole('button', { name: '更多' }).last().click()
+  }
+  const menuOpened = await settingsItem.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false)
+  if (menuOpened) await settingsItem.click()
+  await page.getByRole('navigation').getByRole('button', { name: '连接手机', exact: true }).click()
   return page.getByRole('region', { name: '配对', exact: true })
 }
 
@@ -73,6 +87,11 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
       await handset.getByText('请在电脑端确认这台手机以完成配对。').waitFor()
       await management.getByRole('button', { name: '允许', exact: true }).click()
       await handset.waitForURL(scaffold.baseUrl + '/')
+      // The device credential, not the viewport, decides what this page may
+      // manage; assert it in the desktop shell whose settings entry is the
+      // account menu. The handset shell has its own scenario.
+      await handset.setViewportSize({ width: 1440, height: 1000 })
+      await handset.reload()
       const restricted = await openPairing(handset, true)
       await restricted.getByText('请打开启动器提供的认证链接来管理配对。已配对设备不能管理其他设备').waitFor()
       expect(await restricted.getByRole('button', { name: '生成配对码' }).count()).toBe(0)

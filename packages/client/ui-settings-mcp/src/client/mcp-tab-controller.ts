@@ -1,6 +1,6 @@
 ﻿/**
  * Bridge between the MCP roster tab and its two data sources: the
- * `mcp-servers` settings scope (enablement writes) and the `mcpServers`
+ * `mcp-manager` settings scope (enablement writes) and the `mcpServers`
  * Remote (roster reads). The tab never sees ctx; this controller is the
  * apply-closure half that turns both services into the tab's injected face.
  */
@@ -22,10 +22,10 @@ import type { ReconnectDraft } from './ReconnectFields.tsx'
  * Settings namespace owning the panel-managed MCP roster. Spelled here rather
  * than imported: a client package must not depend on a Host package.
  */
-export const MCP_SERVERS_NS = 'mcp-servers'
+export const MCP_SERVERS_NS = 'mcp-manager'
 
 /**
- * The redacted fields of one `mcp-servers` section entry this tab reads. The
+ * The redacted fields of one `mcp-manager` section entry this tab reads. The
  * section entry also carries `env`/`headers` secrets the wire never returns;
  * every write therefore names the leaf fields it means instead of rebuilding
  * the entry.
@@ -50,13 +50,13 @@ export interface McpServerSettingsEntry {
 }
 
 /**
- * The `mcp-servers` section as the scope snapshot presents it: the roster lives
+ * The `mcp-manager` section as the scope snapshot presents it: the roster lives
  * under the `servers` field of the manager's plugin Config, which is the
  * volatile node settings edits address.
  */
 export type McpServersSettings = { readonly servers: Record<string, McpServerSettingsEntry> }
 
-/** Config field carrying the roster inside the `mcp-servers` section. */
+/** Config field carrying the roster inside the `mcp-manager` section. */
 const ROSTER_FIELD = 'servers'
 
 /** The generated `mcpServers` Remote namespace face, narrowed from ctx.remote. */
@@ -67,7 +67,7 @@ export type McpRosterState =
   | { readonly status: 'idle' | 'loading' | 'error' }
   | { readonly status: 'ready'; readonly snapshot: McpServerSnapshot }
 
-/** Bridges the `mcp-servers` scope and the mcpServers Remote onto the tab's injected face. */
+/** Bridges the `mcp-manager` scope and the mcpServers Remote onto the tab's injected face. */
 export class McpTabController {
   /** Stable observable bound to `useRoster` by the slot renderer. */
   readonly store: SnapshotStore<McpRosterState> = createSnapshotStore({ status: 'idle' })
@@ -75,7 +75,7 @@ export class McpTabController {
   private generation: number | undefined = 0
 
   /**
-   * @param scope - the bound settings scope of the `mcp-servers` namespace.
+   * @param scope - the bound settings scope of the `mcp-manager` namespace.
    * @param remote - the generated `mcpServers` Remote namespace face.
    */
   constructor(

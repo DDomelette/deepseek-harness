@@ -14,13 +14,11 @@ The term snapshot also covers unrelated ARIA, geometry, generator, and package-u
 
 Reserve the top-level `snapshots/` tree and `*.snapshot.ts` suffix for scenarios that own or explicitly reference recorded session JSONL. Each process-level scenario launches a shipped profile through `dsh`; a small adapter controls headless, SDK, ACP, or Web behavior without becoming another application entrypoint. A declarative `snapshot.yml` holds only profile, patch, lifecycle-control, platform, header-pin, and workspace facts that the completed session cannot express.
 
-This decision supersedes the ACP-specific placement and controller ownership in the [record-once/replay-deterministic decision](2026-06-19-acp-snapshot-tests.md), while that note remains authoritative for session-log replay, exceptional overrides, normalization, and ACP transcript comparison.
+This decision supersedes the ACP-specific placement and controller ownership in the [record-once/replay-deterministic reference](../../../../packages/test-support/session-snapshot/README.md), while that note remains authoritative for session-log replay, exceptional overrides, normalization, and ACP transcript comparison.
 
 The recorded session remains the primary input and, for current-generation scenarios, the expected output. Human-originated messages drive the selected public interface, recorded assistant chunks drive deterministic model replay, and the normalized persisted result must equal the fixture. Parent and child sessions share one typed redaction map. Committed fixtures contain relationship-preserving identity tokens and replace request system prompts and tool schemas with tokens; each distinct header class retains one explicit sidecar owner.
 
 Fixture decoding and comparison depend only on the selected JSONL content; filenames identify inventory roles but are not parser inputs. The same strict static catalog validates replay, seed, record, refresh, and normalized comparison paths.
-
-The snapshot kit resolves its replay provider from its own declared dependency before linking it into the isolated profile. The corpus has no package installation, and the production dsh dependency graph does not own test providers. Other bare plugins retain authored-patch or dsh resolution, so replay support does not broaden application dependency lookup.
 
 Headless stderr reconstruction expands embedded reasoning from both `assistant/message` and log-only `assistant/attempt` settlements, so failed or retried reasoning remains part of the projected process output.
 

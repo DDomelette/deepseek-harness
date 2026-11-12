@@ -79,7 +79,7 @@ describe('session.delete over the recursive-deletion service', () => {
   it('removes a parent, its child, and their workspace account in one recursive request', async () => {
     const h = await harness([header('root'), header('child', 'root'), header('unrelated')])
 
-    const response = await remote(h.ctx).delete({ sessionId: SessionId('root'), recursive: true })
+    const response = await (await remote(h.ctx)).delete({ sessionId: SessionId('root'), recursive: true })
 
     expect(response.ok).toBe(true)
     if (response.ok) {
@@ -95,7 +95,7 @@ describe('session.delete over the recursive-deletion service', () => {
   it('refuses a non-recursive request that would orphan the child', async () => {
     const h = await harness([header('root'), header('child', 'root')])
 
-    const response = await remote(h.ctx).delete({ sessionId: SessionId('root') })
+    const response = await (await remote(h.ctx)).delete({ sessionId: SessionId('root') })
 
     expect(response.ok).toBe(false)
     if (!response.ok) expect(response.error.code).toBe('session/has-descendants')
@@ -106,7 +106,7 @@ describe('session.delete over the recursive-deletion service', () => {
   it('answers session/not-found for an unknown Session without creating a plan', async () => {
     const h = await harness([])
 
-    const response = await remote(h.ctx).delete({ sessionId: SessionId('ghost'), recursive: true })
+    const response = await (await remote(h.ctx)).delete({ sessionId: SessionId('ghost'), recursive: true })
 
     expect(response.ok).toBe(false)
     if (!response.ok) expect(response.error.code).toBe('session/not-found')

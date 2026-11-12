@@ -24,7 +24,7 @@ import { NotesButton } from './NotesButton.tsx'
 import { NotesPanel } from './NotesPanel.tsx'
 import { SelectionBubble } from './SelectionBubble.tsx'
 import { createNotesStore } from './store.ts'
-import { en, zh } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh } from './locales.ts'
 
 export type { NotesPanelProps } from './NotesPanel.tsx'
 export type { NotesButtonProps, NotesButtonInjected } from './NotesButton.tsx'
@@ -55,7 +55,7 @@ export const inject = [
  */
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'notes: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'notes: dictionaries')
   ctx.effect(() => ctx.sidebarRightTabs.register(notesDefinition(t)), 'notes: tab type')
 
   // One handle for both seats: the bubble collects into the conversation and

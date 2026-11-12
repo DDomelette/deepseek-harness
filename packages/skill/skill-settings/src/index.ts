@@ -11,7 +11,7 @@
  * @module @deepseek-ai/dsh-skill-settings
  */
 
-import { Context, FiberState, type Fiber, type Volatile } from '@deepseek-ai/cordis'
+import { Context, FiberState, type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-settings'
 import { isSkillName, type SkillInvocationPolicy } from '@deepseek-ai/dsh-skill'
@@ -83,9 +83,9 @@ export function apply(ctx: Context, config: Config): void {
   // it is persisted. Only an active fiber is a write: activation accepts
   // whatever the composition stores, because a section that predates this
   // owner is the stored-section backstop's case.
-  ctx.on('internal/config', function (this: Fiber, _raw, next) {
+  ctx.on('internal/config', (fiber, next) => {
     const raw: unknown = next()
-    if (this.state !== FiberState.ACTIVE) return raw
+    if (fiber !== ctx.fiber || fiber.state !== FiberState.ACTIVE) return raw
     assertSkillNames(Config(raw as Config))
     return raw
   })

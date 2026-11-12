@@ -20,11 +20,6 @@
   config:
     maxBytes: 65536
 
-- id: tools
-  name: '@deepseek-ai/dsh-tools'
-  config:
-    mode: native
-
 - id: system-prompt
   name: '@deepseek-ai/dsh-system-prompt'
   config:

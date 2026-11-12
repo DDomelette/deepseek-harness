@@ -1,12 +1,14 @@
-/** Promise-based stream helpers from the maintained browser stream implementation. */
+/** Promise-based stream completion and pipelines from the shared readable-stream implementation. */
 import { promises } from '../stream.ts'
 
-/** Promise variants share the same stream classes and lifecycle as `node:stream`. */
-const { pipeline, finished } = promises
-export { pipeline, finished }
+/** Shared stream completion promise, including abort and listener cleanup options. */
+export const finished = promises.finished
+
+/** Shared stream pipeline promise, including backpressure and error propagation. */
+export const pipeline = promises.pipeline
 
 /** CommonJS interop marker consumed by the worker module loader. */
 export const __esModule = true
 
-/** CommonJS-compatible promise helper namespace. */
+/** CommonJS-compatible promise namespace. */
 export default promises

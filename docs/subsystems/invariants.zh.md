@@ -56,7 +56,7 @@ interface InvariantInstaller {
 
 ## 配套插件约定
 
-只有当包拥有某个可观察事件或某种可变数据关系时，它才发布 `./invariant` 配套插件（[包约定](../../packages/AGENTS.md)）；断言刻意不合成，因此没有可检查项的包会省略该配套插件及其发布接线，并在自己的 README 中记录该包具体的原因。`pnpm run verify-package-invariants` 机械地拒绝「生成文件」标记、空安装器、遗漏或忽略报告器的安装器、错误的注册名称、不完整的导出、发布、依赖或打包接线，以及省略配套插件后残留的接线（[机械规则 Agent Note](../../.agents/notes/implemented/architecture/2026-07-19-package-invariant-runtime-contracts.zh.md)）。可执行配套插件的目录见[包 README](../../packages/runtime-diagnostics/invariants/README.zh.md)。
+只有当包拥有某个可观察事件或某种可变数据关系时，它才发布 `./invariant` 配套插件（[包约定](../../packages/AGENTS.md)）；断言刻意不合成，因此没有可检查项的包会省略该配套插件及其发布接线，并在自己的 README 中记录该包具体的原因。`pnpm run verify-package-invariants` 机械地拒绝「生成文件」标记、空安装器、遗漏或忽略报告器的安装器、错误的注册名称、不完整的导出、发布、依赖或打包接线，以及省略配套插件后残留的接线（[机械规则 Agent Note](../../.agents/notes/archived/architecture/2026-07-19-package-invariant-runtime-contracts.md)）。可执行配套插件的目录见[包 README](../../packages/runtime-diagnostics/invariants/README.zh.md)。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

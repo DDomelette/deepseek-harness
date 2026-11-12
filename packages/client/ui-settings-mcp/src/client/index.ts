@@ -9,7 +9,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { McpSettingsTab, type McpSettingsTabInjected } from './McpSettingsTab.tsx'
 import { MCP_SERVERS_NS, McpTabController, type McpServersSettings } from './mcp-tab-controller.ts'
-import { en, zh, type McpLocaleKey } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh, type McpLocaleKey } from './locales.ts'
 
 export type { McpSettingsTabInjected, McpSettingsTabProps } from './McpSettingsTab.tsx'
 export type { McpLocaleKey } from './locales.ts'
@@ -29,7 +29,7 @@ export const inject = ['slots', 'locale', 'remote', 'remote.mcpServers', 'config
 
 /** Contribute the MCP roster as its own settings section. */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-mcp: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-mcp: dictionaries')
   const t = ctx.locale.bind(NS)
   const controller = new McpTabController(
     ctx.configForms.get<McpServersSettings>(MCP_SERVERS_NS),

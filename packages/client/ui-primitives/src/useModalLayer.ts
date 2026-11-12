@@ -65,9 +65,17 @@ function rendered(element: HTMLElement): boolean {
  */
 export function useModalLayer(dialog: RefObject<HTMLElement | null>, open: boolean, onClose: () => void): void {
   const close = useRef(onClose)
+  const pendingRestore = useRef<HTMLElement | undefined>(undefined)
   close.current = onClose
   useLayoutEffect(() => {
+    const target = pendingRestore.current
+    pendingRestore.current = undefined
     const element = dialog.current
+    // Restore only focus left inside the retained dialog, preserving the owner's chosen target.
+    if (!open && element?.contains(element.ownerDocument.activeElement)
+      && target?.isConnected && !target.closest('[inert], [hidden]') && !isBehindModal(target)) {
+      focusWithoutRing(target, { preventScroll: true })
+    }
     if (!open || element === null) return
     const document = element.ownerDocument
     const composition = observeComposition(document)
@@ -110,7 +118,10 @@ export function useModalLayer(dialog: RefObject<HTMLElement | null>, open: boole
       if (stack.length === 0) layers.delete(document)
       if (wasTop) {
         const target = previous instanceof HTMLElement && previous.isConnected ? previous : stack.at(-1)?.element
-        if (target !== undefined) focusWithoutRing(target)
+        if (target !== undefined) {
+          pendingRestore.current = target
+          focusWithoutRing(target)
+        }
       }
     }
   }, [dialog, open])

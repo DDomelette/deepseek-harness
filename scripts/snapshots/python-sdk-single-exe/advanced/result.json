@@ -3,32 +3,8 @@
   "final_response": "ADVANCED_EXECUTABLE_OK",
   "events": [
     {
-      "type": "permission/preset",
-      "seq": 0,
-      "time": 0,
-      "data": {
-        "preset": "danger-full-access"
-      }
-    },
-    {
-      "type": "sandbox/mode",
-      "seq": 1,
-      "time": 0,
-      "data": {
-        "mode": "danger-full-access"
-      }
-    },
-    {
-      "type": "approval/policy",
-      "seq": 2,
-      "time": 0,
-      "data": {
-        "policy": "never"
-      }
-    },
-    {
       "type": "agent/inbox/spliced",
-      "seq": 3,
+      "seq": 4,
       "time": 0,
       "data": {
         "target": "next-turn",
@@ -52,7 +28,7 @@
     },
     {
       "type": "turn/start",
-      "seq": 4,
+      "seq": 5,
       "time": 0,
       "data": {
         "turn": 1
@@ -60,7 +36,18 @@
     },
     {
       "type": "agent/inbox/spliced",
-      "seq": 5,
+      "seq": 6,
+      "time": 0,
+      "data": {
+        "target": "next-step",
+        "start": 0,
+        "removedCount": 1,
+        "inserted": []
+      }
+    },
+    {
+      "type": "agent/inbox/spliced",
+      "seq": 7,
       "time": 0,
       "data": {
         "target": "next-turn",
@@ -71,7 +58,7 @@
     },
     {
       "type": "step/start",
-      "seq": 6,
+      "seq": 8,
       "time": 0,
       "data": {
         "turn": 1,
@@ -80,7 +67,7 @@
     },
     {
       "type": "system/message",
-      "seq": 7,
+      "seq": 9,
       "time": 0,
       "data": {
         "turn": 1,
@@ -103,7 +90,26 @@
     },
     {
       "type": "user/message",
-      "seq": 8,
+      "seq": 10,
+      "time": 0,
+      "data": {
+        "id": "{{messageId}}",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+          }
+        ],
+        "source": {
+          "kind": "plugin:serial-created-fixture"
+        }
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "user/message",
+      "seq": 11,
       "time": 0,
       "data": {
         "content": [
@@ -122,7 +128,7 @@
     },
     {
       "type": "user/message",
-      "seq": 9,
+      "seq": 12,
       "time": 0,
       "data": {
         "content": [
@@ -155,8 +161,33 @@
       "surfaceOp": "append"
     },
     {
+      "type": "user/message",
+      "seq": 13,
+      "time": 0,
+      "data": {
+        "id": "{{messageId}}",
+        "role": "user",
+        "content": [
+          {
+            "type": "image",
+            "attachment": {
+              "attachmentId": "sha256:b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+              "mediaType": "image/png",
+              "width": 1,
+              "height": 1,
+              "bytes": 69
+            }
+          }
+        ],
+        "source": {
+          "kind": "python-snapshot-image-offload"
+        }
+      },
+      "surfaceOp": "append"
+    },
+    {
       "type": "request/header",
-      "seq": 10,
+      "seq": 14,
       "time": 0,
       "data": {
         "header": {
@@ -171,7 +202,15 @@
             "maxTokens": true
           },
           "tools": [
-            "run_code"
+            "cordis_inspect_list",
+            "cordis_inspect_query",
+            "job_kill",
+            "job_list",
+            "job_output",
+            "snapshot_double",
+            "subagent",
+            "workflow",
+            "working_directory"
           ]
         },
         "reason": "initial"
@@ -179,7 +218,7 @@
     },
     {
       "type": "request/context",
-      "seq": 11,
+      "seq": 15,
       "time": 0,
       "data": {
         "provider": "deepseek-official",
@@ -189,12 +228,12 @@
     },
     {
       "type": "session/title",
-      "seq": 12,
+      "seq": 16,
       "time": 0,
       "data": {
         "title": "Run the advanced packaged-runtime snapsh",
         "messageSeqs": [
-          8
+          11
         ],
         "source": {
           "kind": "fallback"
@@ -202,523 +241,49 @@
       }
     },
     {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 13,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 12
-      }
-    },
-    {
-      "type": "assistant/message",
-      "seq": 14,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 1,
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool-call",
-              "id": "advanced-define",
-              "name": "run_code",
-              "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-            }
-          ],
-          "source": {
-            "kind": "model",
-            "provider": "deepseek-official",
-            "model": "smoke-model",
-            "replayState": {
-              "response": {
-                "kind": "deepseek-messages",
-                "version": 1,
-                "model": "smoke-model"
-              },
-              "blocks": [
-                {
-                  "type": "tool-call"
-                }
-              ]
-            }
-          },
-          "id": "{{messageId}}"
-        },
-        "usage": {
-          "inputTokens": 3,
-          "outputTokens": 3,
-          "totalTokens": 6
-        },
-        "stream": [
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-start",
-              "index": 0,
-              "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-define",
-            "name": "run_code",
-            "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-define",
-            "args": [
-              "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-            ]
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-end",
-              "index": 0,
-              "block": {
-                "type": "tool-call",
-                "id": "advanced-define",
-                "name": "run_code",
-                "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "finish",
-              "reason": {
-                "kind": "tool-calls"
-              },
-              "replayState": {
-                "response": {
-                  "kind": "deepseek-messages",
-                  "version": 1,
-                  "model": "smoke-model"
-                },
-                "blocks": [
-                  {
-                    "type": "tool-call"
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "tool/call",
-      "seq": 15,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 1,
-        "callId": "advanced-define",
-        "name": "run_code",
-        "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 16,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-define",
-        "parentCallId": "advanced-define",
-        "subCallId": "advanced-define:ptc:1",
-        "name": "cordis_define",
-        "arguments": {
-          "plugin": {
-            "kind": "new",
-            "idPrefix": "snap"
-          },
-          "name": "Snapshot Double",
-          "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
-          "code": {
-            "host": "return (ctx) => {\n  harness.registerTool(ctx, harness.defineTool({\n    name: 'snapshot_double',\n    description: 'Double a number for executable snapshot verification.',\n    parameters: { value: { type: 'number', required: true } },\n    output: {\n      schema: { type: 'number' },\n      render(_args, value) {\n        return [{ type: 'text', text: String(value) }]\n      }\n    },\n    async execute(args) {\n      return args.value * 2\n    }\n  }))\n}\n"
-          }
-        }
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch",
+      "type": "assistant/attempt",
       "seq": 17,
       "time": 0,
       "data": {
-        "rootCallId": "advanced-define",
-        "parentCallId": "advanced-define",
-        "subCallId": "advanced-define:ptc:1",
-        "name": "cordis_define",
-        "arguments": {
-          "plugin": {
-            "kind": "new",
-            "idPrefix": "snap"
-          },
-          "name": "Snapshot Double",
-          "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
-          "code": {
-            "host": "return (ctx) => {\n  harness.registerTool(ctx, harness.defineTool({\n    name: 'snapshot_double',\n    description: 'Double a number for executable snapshot verification.',\n    parameters: { value: { type: 'number', required: true } },\n    output: {\n      schema: { type: 'number' },\n      render(_args, value) {\n        return [{ type: 'text', text: String(value) }]\n      }\n    },\n    async execute(args) {\n      return args.value * 2\n    }\n  }))\n}\n"
-          }
-        },
-        "isError": false,
-        "content": [
-          {
-            "type": "text",
-            "text": "Defined snap-1/pkg-1 (Snapshot Double); it is not running yet. Use cordis_run to activate this Package."
-          }
-        ],
-        "meta": {
-          "pluginId": "snap-1",
-          "packageId": "pkg-1"
-        }
-      }
-    },
-    {
-      "type": "tool/result",
-      "seq": 18,
-      "time": 0,
-      "data": {
         "turn": 1,
         "step": 1,
-        "message": {
-          "role": "tool",
-          "source": {
-            "kind": "tool",
-            "callId": "advanced-define"
-          },
-          "toolCallId": "advanced-define",
-          "content": [
-            {
-              "type": "text",
-              "text": "DEFINED"
-            }
-          ],
-          "isError": false,
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        15
-      ],
-      "surfaceOp": "append"
-    },
-    {
-      "type": "step/end",
-      "seq": 19,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 1
-      }
-    },
-    {
-      "type": "step/start",
-      "seq": 20,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 2
-      }
-    },
-    {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 21,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 20
-      }
-    },
-    {
-      "type": "assistant/message",
-      "seq": 22,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 2,
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool-call",
-              "id": "advanced-run",
-              "name": "run_code",
-              "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-            }
-          ],
-          "source": {
-            "kind": "model",
-            "provider": "deepseek-official",
-            "model": "smoke-model",
-            "replayState": {
-              "response": {
-                "kind": "deepseek-messages",
-                "version": 1,
-                "model": "smoke-model"
-              },
-              "blocks": [
-                {
-                  "type": "tool-call"
-                }
-              ]
-            }
-          },
-          "id": "{{messageId}}"
-        },
-        "usage": {
-          "inputTokens": 3,
-          "outputTokens": 3,
-          "totalTokens": 6
-        },
         "stream": [
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-start",
-              "index": 0,
-              "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-run",
-            "name": "run_code",
-            "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-run",
-            "args": [
-              "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-            ]
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-end",
-              "index": 0,
-              "block": {
-                "type": "tool-call",
-                "id": "advanced-run",
-                "name": "run_code",
-                "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
-            }
-          },
           {
             "type": "chunk",
             "time": 0,
             "chunk": {
               "type": "finish",
               "reason": {
-                "kind": "tool-calls"
-              },
-              "replayState": {
-                "response": {
-                  "kind": "deepseek-messages",
-                  "version": 1,
-                  "model": "smoke-model"
-                },
-                "blocks": [
-                  {
-                    "type": "tool-call"
-                  }
-                ]
+                "kind": "error",
+                "failure": {
+                  "code": "IMAGE_OFFLOAD_REQUIRED",
+                  "message": "authored image budget failure",
+                  "offloadImages": 1
+                }
               }
             }
           }
         ]
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "tool/call",
-      "seq": 23,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 2,
-        "callId": "advanced-run",
-        "name": "run_code",
-        "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
       }
     },
     {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 24,
+      "type": "image/offload",
+      "seq": 18,
       "time": 0,
       "data": {
-        "rootCallId": "advanced-run",
-        "parentCallId": "advanced-run",
-        "subCallId": "advanced-run:ptc:1",
-        "name": "cordis_run",
-        "arguments": {
-          "pluginId": "snap-1",
-          "packageId": "pkg-1",
-          "mode": "run"
-        }
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch",
-      "seq": 25,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-run",
-        "parentCallId": "advanced-run",
-        "subCallId": "advanced-run:ptc:1",
-        "name": "cordis_run",
-        "arguments": {
-          "pluginId": "snap-1",
-          "packageId": "pkg-1",
-          "mode": "run"
-        },
-        "isError": false,
-        "content": [
+        "targets": [
           {
-            "type": "text",
-            "text": "snap-1/pkg-1 is running (run-1)."
+            "seq": 13,
+            "imageIndexes": [
+              0
+            ]
           }
-        ],
-        "meta": {
-          "pluginId": "snap-1",
-          "packageId": "pkg-1",
-          "pluginRunId": "run-1"
-        }
-      }
-    },
-    {
-      "type": "tool/result",
-      "seq": 26,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 2,
-        "message": {
-          "role": "tool",
-          "source": {
-            "kind": "tool",
-            "callId": "advanced-run"
-          },
-          "toolCallId": "advanced-run",
-          "content": [
-            {
-              "type": "text",
-              "text": "RUNNING"
-            }
-          ],
-          "isError": false,
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        23
-      ],
-      "surfaceOp": "append"
-    },
-    {
-      "type": "step/end",
-      "seq": 27,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 2
-      }
-    },
-    {
-      "type": "step/start",
-      "seq": 28,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 3
-      }
-    },
-    {
-      "type": "system/message",
-      "seq": 29,
-      "time": 0,
-      "data": {
-        "turn": 1,
-        "step": 3,
-        "message": {
-          "role": "system",
-          "content": [
-            {
-              "type": "text",
-              "text": "{{system}}"
-            }
-          ],
-          "source": {
-            "kind": "system-prompt"
-          },
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        7
-      ],
-      "surfaceOp": {
-        "op": "replace",
-        "startSeq": 7,
-        "endSeq": 7
+        ]
       }
     },
     {
       "type": "request/header",
-      "seq": 30,
+      "seq": 19,
       "time": 0,
       "data": {
         "header": {
@@ -733,7 +298,15 @@
             "maxTokens": true
           },
           "tools": [
-            "run_code"
+            "cordis_inspect_list",
+            "cordis_inspect_query",
+            "job_kill",
+            "job_list",
+            "job_output",
+            "snapshot_double",
+            "subagent",
+            "workflow",
+            "working_directory"
           ]
         },
         "reason": "series"
@@ -741,29 +314,29 @@
     },
     {
       "type": "session-log-deepseek/delivery-accepted",
-      "seq": 31,
+      "seq": 20,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "sessionFormatVersion": 4,
-        "throughSeq": 30
+        "throughSeq": 19
       }
     },
     {
       "type": "assistant/message",
-      "seq": 32,
+      "seq": 21,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 3,
+        "step": 1,
         "message": {
           "role": "assistant",
           "content": [
             {
               "type": "tool-call",
-              "id": "advanced-code",
-              "name": "run_code",
-              "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+              "id": "advanced-native",
+              "name": "snapshot_double",
+              "arguments": "{\"value\": 21}"
             }
           ],
           "source": {
@@ -805,8 +378,8 @@
             "time0": 0,
             "index": 0,
             "dt": [],
-            "id": "advanced-code",
-            "name": "run_code",
+            "id": "advanced-native",
+            "name": "snapshot_double",
             "args": [
               ""
             ]
@@ -816,9 +389,9 @@
             "time0": 0,
             "index": 0,
             "dt": [],
-            "id": "advanced-code",
+            "id": "advanced-native",
             "args": [
-              "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+              "{\"value\": 21}"
             ]
           },
           {
@@ -829,9 +402,9 @@
               "index": 0,
               "block": {
                 "type": "tool-call",
-                "id": "advanced-code",
-                "name": "run_code",
-                "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+                "id": "advanced-native",
+                "name": "snapshot_double",
+                "arguments": "{\"value\": 21}"
               }
             }
           },
@@ -875,65 +448,66 @@
     },
     {
       "type": "tool/call",
-      "seq": 33,
+      "seq": 22,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 3,
-        "callId": "advanced-code",
-        "name": "run_code",
-        "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+        "step": 1,
+        "callId": "advanced-native",
+        "name": "snapshot_double",
+        "arguments": "{\"value\": 21}"
       }
     },
     {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 34,
+      "type": "job/registered",
+      "seq": 23,
       "time": 0,
       "data": {
-        "rootCallId": "advanced-code",
-        "parentCallId": "advanced-code",
-        "subCallId": "advanced-code:ptc:1",
-        "name": "snapshot_double",
-        "arguments": {
-          "value": 21
+        "jobId": "{{id:1}}",
+        "owner": "{{parent}}",
+        "kind": "snapshot",
+        "label": "snapshot_double",
+        "startedAt": 0,
+        "toolCall": {
+          "callId": "advanced-native",
+          "rootCallId": "advanced-native"
         }
       }
     },
     {
-      "type": "tool/ptc-dispatch",
-      "seq": 35,
+      "type": "job/settled",
+      "seq": 24,
       "time": 0,
       "data": {
-        "rootCallId": "advanced-code",
-        "parentCallId": "advanced-code",
-        "subCallId": "advanced-code:ptc:1",
-        "name": "snapshot_double",
-        "arguments": {
-          "value": 21
+        "jobId": "{{id:1}}",
+        "owner": "{{parent}}",
+        "kind": "snapshot",
+        "label": "snapshot_double",
+        "startedAt": 0,
+        "toolCall": {
+          "callId": "advanced-native",
+          "rootCallId": "advanced-native"
         },
-        "isError": false,
-        "content": [
-          {
-            "type": "text",
-            "text": "42"
-          }
-        ]
+        "finishedAt": 0,
+        "status": "completed",
+        "cause": "producer",
+        "producerReported": true
       }
     },
     {
       "type": "tool/result",
-      "seq": 36,
+      "seq": 25,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 3,
+        "step": 1,
         "message": {
           "role": "tool",
           "source": {
             "kind": "tool",
-            "callId": "advanced-code"
+            "callId": "advanced-native"
           },
-          "toolCallId": "advanced-code",
+          "toolCallId": "advanced-native",
           "content": [
             {
               "type": "text",
@@ -945,53 +519,53 @@
         }
       },
       "sourceEventSeqs": [
-        33
+        22
       ],
       "surfaceOp": "append"
     },
     {
       "type": "step/end",
-      "seq": 37,
+      "seq": 26,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 3
+        "step": 1
       }
     },
     {
       "type": "step/start",
-      "seq": 38,
+      "seq": 27,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4
+        "step": 2
       }
     },
     {
       "type": "session-log-deepseek/delivery-accepted",
-      "seq": 39,
+      "seq": 28,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "sessionFormatVersion": 4,
-        "throughSeq": 38
+        "throughSeq": 27
       }
     },
     {
       "type": "assistant/message",
-      "seq": 40,
+      "seq": 29,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4,
+        "step": 2,
         "message": {
           "role": "assistant",
           "content": [
             {
               "type": "tool-call",
-              "id": "advanced-direct-child",
-              "name": "run_code",
-              "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+              "id": "advanced-denied-native",
+              "name": "snapshot_double",
+              "arguments": "{\"value\": -1}"
             }
           ],
           "source": {
@@ -1033,8 +607,8 @@
             "time0": 0,
             "index": 0,
             "dt": [],
-            "id": "advanced-direct-child",
-            "name": "run_code",
+            "id": "advanced-denied-native",
+            "name": "snapshot_double",
             "args": [
               ""
             ]
@@ -1044,9 +618,9 @@
             "time0": 0,
             "index": 0,
             "dt": [],
-            "id": "advanced-direct-child",
+            "id": "advanced-denied-native",
             "args": [
-              "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+              "{\"value\": -1}"
             ]
           },
           {
@@ -1057,9 +631,9 @@
               "index": 0,
               "block": {
                 "type": "tool-call",
-                "id": "advanced-direct-child",
-                "name": "run_code",
-                "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+                "id": "advanced-denied-native",
+                "name": "snapshot_double",
+                "arguments": "{\"value\": -1}"
               }
             }
           },
@@ -1103,135 +677,93 @@
     },
     {
       "type": "tool/call",
-      "seq": 41,
+      "seq": 30,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4,
-        "callId": "advanced-direct-child",
-        "name": "run_code",
-        "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 42,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-direct-child",
-        "parentCallId": "advanced-direct-child",
-        "subCallId": "advanced-direct-child:ptc:1",
-        "name": "subagent",
-        "arguments": {
-          "description": "Check direct child",
-          "prompt": "Reply with exactly DIRECT_CHILD_OK and nothing else."
-        }
-      }
-    },
-    {
-      "type": "subagent/catalog",
-      "seq": 43,
-      "time": 0,
-      "data": {
-        "version": 0,
-        "childId": "{{child-1}}",
-        "childCreatedAt": 0,
-        "mode": "continuable",
-        "label": "Check direct child"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch",
-      "seq": 44,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-direct-child",
-        "parentCallId": "advanced-direct-child",
-        "subCallId": "advanced-direct-child:ptc:1",
-        "name": "subagent",
-        "arguments": {
-          "description": "Check direct child",
-          "prompt": "Reply with exactly DIRECT_CHILD_OK and nothing else."
-        },
-        "isError": false,
-        "content": [
-          {
-            "type": "text",
-            "text": "started subagent {{child-1}}"
-          }
-        ]
+        "step": 2,
+        "callId": "advanced-denied-native",
+        "name": "snapshot_double",
+        "arguments": "{\"value\": -1}"
       }
     },
     {
       "type": "tool/result",
-      "seq": 45,
+      "seq": 31,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4,
+        "step": 2,
         "message": {
           "role": "tool",
           "source": {
             "kind": "tool",
-            "callId": "advanced-direct-child"
+            "callId": "advanced-denied-native"
           },
-          "toolCallId": "advanced-direct-child",
+          "toolCallId": "advanced-denied-native",
           "content": [
             {
               "type": "text",
-              "text": "{\n  \"kind\": \"activation\",\n  \"subagentId\": \"{{child-1}}\"\n}"
+              "text": "Error: Auto review rejected tool \"snapshot_double\"; its body was not executed"
             }
           ],
-          "isError": false,
+          "isError": true,
           "id": "{{messageId}}"
+        },
+        "error": {
+          "name": "AutoReviewDeniedError",
+          "code": "AUTO_REVIEW_DENIED",
+          "reason": "  transport raw\r\nreason  "
         }
       },
       "sourceEventSeqs": [
-        41
+        30
       ],
       "surfaceOp": "append"
     },
     {
       "type": "step/end",
-      "seq": 46,
+      "seq": 32,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 4
+        "step": 2
       }
     },
     {
       "type": "step/start",
-      "seq": 47,
+      "seq": 33,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 5
+        "step": 3
       }
     },
     {
       "type": "session-log-deepseek/delivery-accepted",
-      "seq": 48,
+      "seq": 34,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "sessionFormatVersion": 4,
-        "throughSeq": 47
+        "throughSeq": 33
       }
     },
     {
       "type": "assistant/message",
-      "seq": 49,
+      "seq": 35,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 5,
+        "step": 3,
         "message": {
           "role": "assistant",
           "content": [
             {
-              "type": "text",
-              "text": "Waiting for the direct child to finish."
+              "type": "tool-call",
+              "id": "advanced-direct-child",
+              "name": "subagent",
+              "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
             }
           ],
           "source": {
@@ -1246,12 +778,12 @@
               },
               "blocks": [
                 {
-                  "type": "text"
+                  "type": "tool-call"
                 }
               ]
             }
           },
-          "id": "{{message:1}}"
+          "id": "{{messageId}}"
         },
         "usage": {
           "inputTokens": 3,
@@ -1265,16 +797,28 @@
             "chunk": {
               "type": "block-start",
               "index": 0,
-              "blockType": "text"
+              "blockType": "tool-call"
             }
           },
           {
-            "type": "text-chunks",
+            "type": "tool-call-chunks",
             "time0": 0,
             "index": 0,
             "dt": [],
-            "texts": [
-              "Waiting for the direct child to finish."
+            "id": "advanced-direct-child",
+            "name": "subagent",
+            "args": [
+              ""
+            ]
+          },
+          {
+            "type": "tool-call-chunks",
+            "time0": 0,
+            "index": 0,
+            "dt": [],
+            "id": "advanced-direct-child",
+            "args": [
+              "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
             ]
           },
           {
@@ -1284,8 +828,10 @@
               "type": "block-end",
               "index": 0,
               "block": {
-                "type": "text",
-                "text": "Waiting for the direct child to finish."
+                "type": "tool-call",
+                "id": "advanced-direct-child",
+                "name": "subagent",
+                "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
               }
             }
           },
@@ -1307,7 +853,7 @@
             "chunk": {
               "type": "finish",
               "reason": {
-                "kind": "stop"
+                "kind": "tool-calls"
               },
               "replayState": {
                 "response": {
@@ -1317,7 +863,7 @@
                 },
                 "blocks": [
                   {
-                    "type": "text"
+                    "type": "tool-call"
                   }
                 ]
               }
@@ -1328,118 +874,104 @@
       "surfaceOp": "append"
     },
     {
+      "type": "tool/call",
+      "seq": 36,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 3,
+        "callId": "advanced-direct-child",
+        "name": "subagent",
+        "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
+      }
+    },
+    {
+      "type": "subagent/catalog",
+      "seq": 37,
+      "time": 0,
+      "data": {
+        "version": 3,
+        "childId": "{{child-1}}",
+        "childCreatedAt": 0,
+        "mode": "continuable",
+        "label": "Check direct child",
+        "name": "agent-1"
+      }
+    },
+    {
+      "type": "tool/result",
+      "seq": 38,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 3,
+        "message": {
+          "role": "tool",
+          "source": {
+            "kind": "tool",
+            "callId": "advanced-direct-child"
+          },
+          "toolCallId": "advanced-direct-child",
+          "content": [
+            {
+              "type": "text",
+              "text": "started subagent agent-1"
+            }
+          ],
+          "isError": false,
+          "id": "{{messageId}}"
+        },
+        "meta": {
+          "kind": "activation",
+          "name": "agent-1"
+        }
+      },
+      "sourceEventSeqs": [
+        36
+      ],
+      "surfaceOp": "append"
+    },
+    {
       "type": "step/end",
-      "seq": 50,
+      "seq": 39,
       "time": 0,
       "data": {
         "turn": 1,
-        "step": 5
+        "step": 3
       }
     },
     {
-      "type": "command/run",
-      "seq": 51,
-      "time": 0,
-      "data": {
-        "commandId": "{{command:1}}",
-        "name": "feedback",
-        "source": {
-          "kind": "user"
-        }
-      }
-    },
-    {
-      "type": "feedback/record",
-      "seq": 52,
-      "time": 0,
-      "data": {
-        "text": "The session needs a clearer explanation."
-      }
-    },
-    {
-      "type": "command/done",
-      "seq": 53,
-      "time": 0,
-      "data": {
-        "commandId": "{{command:1}}",
-        "kind": "success",
-        "text": "Feedback recorded for session {{parent}}\nAnonymous user: {{anonymous-user}}."
-      }
-    },
-    {
-      "type": "feedback/record",
-      "seq": 54,
-      "time": 0,
-      "data": {
-        "category": "other"
-      }
-    },
-    {
-      "type": "feedback/message-put",
-      "seq": 55,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "item": {
-          "messageId": "{{message:1}}",
-          "rating": "negative",
-          "note": "Explain the result.",
-          "category": "task-result",
-          "version": "{{feedback-version:1}}",
-          "createdAt": 0,
-          "updatedAt": 0
-        }
-      }
-    },
-    {
-      "type": "feedback/message-put",
-      "seq": 56,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "item": {
-          "messageId": "{{message:1}}",
-          "rating": "positive",
-          "note": "The explanation is clear now.",
-          "version": "{{feedback-version:2}}",
-          "createdAt": 0,
-          "updatedAt": 0
-        }
-      }
-    },
-    {
-      "type": "feedback/message-delete",
-      "seq": 57,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "messageId": "{{message:1}}"
-      }
-    },
-    {
-      "type": "turn/end",
-      "seq": 58,
+      "type": "step/start",
+      "seq": 40,
       "time": 0,
       "data": {
         "turn": 1,
-        "reason": {
-          "kind": "completed"
-        }
+        "step": 4
+      }
+    },
+    {
+      "type": "session-log-deepseek/delivery-accepted",
+      "seq": 41,
+      "time": 0,
+      "data": {
+        "sessionId": "{{parent}}",
+        "sessionFormatVersion": 4,
+        "throughSeq": 40
       }
     },
     {
       "type": "agent/inbox/spliced",
-      "seq": 59,
+      "seq": 42,
       "time": 0,
       "data": {
-        "target": "next-turn",
+        "target": "next-step",
         "start": 0,
         "inserted": [
           {
             "content": [
               {
                 "type": "text",
-                "text": "Background subagent {{child-1}} finished and will do no further work unless you send it more."
+                "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
               },
               {
                 "type": "text",
@@ -1453,7 +985,8 @@
             "source": {
               "kind": "subagent-settled",
               "form": "notice",
-              "summary": "Background subagent {{child-1}} finished and will do no further work unless you send it more.",
+              "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+              "stopReason": "completed",
               "senderSessionId": "{{child-1}}"
             },
             "role": "user",
@@ -1463,19 +996,238 @@
       }
     },
     {
-      "type": "turn/start",
-      "seq": 60,
+      "type": "assistant/message",
+      "seq": 43,
       "time": 0,
       "data": {
-        "turn": 2
+        "turn": 1,
+        "step": 4,
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool-call",
+              "id": "advanced-workflow",
+              "name": "workflow",
+              "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
+            }
+          ],
+          "source": {
+            "kind": "model",
+            "provider": "deepseek-official",
+            "model": "smoke-model",
+            "replayState": {
+              "response": {
+                "kind": "deepseek-messages",
+                "version": 1,
+                "model": "smoke-model"
+              },
+              "blocks": [
+                {
+                  "type": "tool-call"
+                }
+              ]
+            }
+          },
+          "id": "{{messageId}}"
+        },
+        "usage": {
+          "inputTokens": 3,
+          "outputTokens": 3,
+          "totalTokens": 6
+        },
+        "stream": [
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "block-start",
+              "index": 0,
+              "blockType": "tool-call"
+            }
+          },
+          {
+            "type": "tool-call-chunks",
+            "time0": 0,
+            "index": 0,
+            "dt": [],
+            "id": "advanced-workflow",
+            "name": "workflow",
+            "args": [
+              ""
+            ]
+          },
+          {
+            "type": "tool-call-chunks",
+            "time0": 0,
+            "index": 0,
+            "dt": [],
+            "id": "advanced-workflow",
+            "args": [
+              "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
+            ]
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "block-end",
+              "index": 0,
+              "block": {
+                "type": "tool-call",
+                "id": "advanced-workflow",
+                "name": "workflow",
+                "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "usage",
+              "usage": {
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "totalTokens": 6
+              }
+            }
+          },
+          {
+            "type": "chunk",
+            "time": 0,
+            "chunk": {
+              "type": "finish",
+              "reason": {
+                "kind": "tool-calls"
+              },
+              "replayState": {
+                "response": {
+                  "kind": "deepseek-messages",
+                  "version": 1,
+                  "model": "smoke-model"
+                },
+                "blocks": [
+                  {
+                    "type": "tool-call"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "surfaceOp": "append"
+    },
+    {
+      "type": "tool/call",
+      "seq": 44,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 4,
+        "callId": "advanced-workflow",
+        "name": "workflow",
+        "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
+      }
+    },
+    {
+      "type": "tool-workflow/run-start",
+      "seq": 45,
+      "time": 0,
+      "data": {
+        "runId": "{{workflow-run}}",
+        "name": "advanced-exe-snapshot"
+      }
+    },
+    {
+      "type": "subagent/catalog",
+      "seq": 46,
+      "time": 0,
+      "data": {
+        "version": 3,
+        "childId": "{{child-2}}",
+        "childCreatedAt": 0,
+        "mode": "continuable",
+        "label": "advanced-exe-snapshot child 1",
+        "name": "agent-2"
+      }
+    },
+    {
+      "type": "tool-workflow/agent-start",
+      "seq": 47,
+      "time": 0,
+      "data": {
+        "runId": "{{workflow-run}}",
+        "seq": 1,
+        "label": "workflow-child",
+        "phase": "Delegate",
+        "childId": "{{child-2}}"
+      }
+    },
+    {
+      "type": "tool-workflow/agent-end",
+      "seq": 48,
+      "time": 0,
+      "data": {
+        "runId": "{{workflow-run}}",
+        "seq": 1,
+        "outcome": "completed"
+      }
+    },
+    {
+      "type": "tool-workflow/run-end",
+      "seq": 49,
+      "time": 0,
+      "data": {
+        "runId": "{{workflow-run}}",
+        "stopReason": "completed"
+      }
+    },
+    {
+      "type": "tool/result",
+      "seq": 50,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 4,
+        "message": {
+          "role": "tool",
+          "source": {
+            "kind": "tool",
+            "callId": "advanced-workflow"
+          },
+          "toolCallId": "advanced-workflow",
+          "content": [
+            {
+              "type": "text",
+              "text": "workflow \"advanced-exe-snapshot\" completed (1 agent).\nReturn value:\n{\n  \"reply\": \"WORKFLOW_CHILD_OK\"\n}"
+            }
+          ],
+          "isError": false,
+          "id": "{{messageId}}"
+        }
+      },
+      "sourceEventSeqs": [
+        44
+      ],
+      "surfaceOp": "append"
+    },
+    {
+      "type": "step/end",
+      "seq": 51,
+      "time": 0,
+      "data": {
+        "turn": 1,
+        "step": 4
       }
     },
     {
       "type": "agent/inbox/spliced",
-      "seq": 61,
+      "seq": 52,
       "time": 0,
       "data": {
-        "target": "next-turn",
+        "target": "next-step",
         "start": 0,
         "removedCount": 1,
         "inserted": []
@@ -1483,22 +1235,22 @@
     },
     {
       "type": "step/start",
-      "seq": 62,
+      "seq": 53,
       "time": 0,
       "data": {
-        "turn": 2,
-        "step": 1
+        "turn": 1,
+        "step": 5
       }
     },
     {
       "type": "user/message",
-      "seq": 63,
+      "seq": 54,
       "time": 0,
       "data": {
         "content": [
           {
             "type": "text",
-            "text": "Background subagent {{child-1}} finished and will do no further work unless you send it more."
+            "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
           },
           {
             "type": "text",
@@ -1512,7 +1264,8 @@
         "source": {
           "kind": "subagent-settled",
           "form": "notice",
-          "summary": "Background subagent {{child-1}} finished and will do no further work unless you send it more.",
+          "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+          "stopReason": "completed",
           "senderSessionId": "{{child-1}}"
         },
         "role": "user",
@@ -1522,550 +1275,21 @@
     },
     {
       "type": "session-log-deepseek/delivery-accepted",
-      "seq": 64,
+      "seq": 55,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "sessionFormatVersion": 4,
-        "throughSeq": 63
+        "throughSeq": 54
       }
     },
     {
       "type": "assistant/message",
-      "seq": 65,
+      "seq": 56,
       "time": 0,
       "data": {
-        "turn": 2,
-        "step": 1,
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool-call",
-              "id": "advanced-workflow",
-              "name": "run_code",
-              "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
-            }
-          ],
-          "source": {
-            "kind": "model",
-            "provider": "deepseek-official",
-            "model": "smoke-model",
-            "replayState": {
-              "response": {
-                "kind": "deepseek-messages",
-                "version": 1,
-                "model": "smoke-model"
-              },
-              "blocks": [
-                {
-                  "type": "tool-call"
-                }
-              ]
-            }
-          },
-          "id": "{{messageId}}"
-        },
-        "usage": {
-          "inputTokens": 3,
-          "outputTokens": 3,
-          "totalTokens": 6
-        },
-        "stream": [
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-start",
-              "index": 0,
-              "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-workflow",
-            "name": "run_code",
-            "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-workflow",
-            "args": [
-              "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
-            ]
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-end",
-              "index": 0,
-              "block": {
-                "type": "tool-call",
-                "id": "advanced-workflow",
-                "name": "run_code",
-                "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "finish",
-              "reason": {
-                "kind": "tool-calls"
-              },
-              "replayState": {
-                "response": {
-                  "kind": "deepseek-messages",
-                  "version": 1,
-                  "model": "smoke-model"
-                },
-                "blocks": [
-                  {
-                    "type": "tool-call"
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "tool/call",
-      "seq": 66,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 1,
-        "callId": "advanced-workflow",
-        "name": "run_code",
-        "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 67,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-workflow",
-        "parentCallId": "advanced-workflow",
-        "subCallId": "advanced-workflow:ptc:1",
-        "name": "workflow",
-        "arguments": {
-          "script": "phase('Delegate')\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\nreturn { reply }",
-          "meta": {
-            "name": "advanced-exe-snapshot",
-            "description": "exercise one packaged workflow child"
-          }
-        }
-      }
-    },
-    {
-      "type": "subagent/catalog",
-      "seq": 68,
-      "time": 0,
-      "data": {
-        "version": 0,
-        "childId": "{{child-2}}",
-        "childCreatedAt": 0,
-        "mode": "continuable",
-        "label": "advanced-exe-snapshot child 1"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch",
-      "seq": 69,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-workflow",
-        "parentCallId": "advanced-workflow",
-        "subCallId": "advanced-workflow:ptc:1",
-        "name": "workflow",
-        "arguments": {
-          "script": "phase('Delegate')\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\nreturn { reply }",
-          "meta": {
-            "name": "advanced-exe-snapshot",
-            "description": "exercise one packaged workflow child"
-          }
-        },
-        "isError": false,
-        "content": [
-          {
-            "type": "text",
-            "text": "workflow \"advanced-exe-snapshot\" completed (1 agent).\nReturn value:\n{\n  \"reply\": \"WORKFLOW_CHILD_OK\"\n}"
-          }
-        ]
-      }
-    },
-    {
-      "type": "tool/result",
-      "seq": 70,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 1,
-        "message": {
-          "role": "tool",
-          "source": {
-            "kind": "tool",
-            "callId": "advanced-workflow"
-          },
-          "toolCallId": "advanced-workflow",
-          "content": [
-            {
-              "type": "text",
-              "text": "{\n  \"kind\": \"foreground\",\n  \"runId\": \"{{workflow-run}}\",\n  \"agentsStarted\": 1,\n  \"result\": {\n    \"reply\": \"WORKFLOW_CHILD_OK\"\n  }\n}"
-            }
-          ],
-          "isError": false,
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        66
-      ],
-      "surfaceOp": "append"
-    },
-    {
-      "type": "step/end",
-      "seq": 71,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 1
-      }
-    },
-    {
-      "type": "step/start",
-      "seq": 72,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 2
-      }
-    },
-    {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 73,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 72
-      }
-    },
-    {
-      "type": "assistant/message",
-      "seq": 74,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 2,
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool-call",
-              "id": "advanced-undefine",
-              "name": "run_code",
-              "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-            }
-          ],
-          "source": {
-            "kind": "model",
-            "provider": "deepseek-official",
-            "model": "smoke-model",
-            "replayState": {
-              "response": {
-                "kind": "deepseek-messages",
-                "version": 1,
-                "model": "smoke-model"
-              },
-              "blocks": [
-                {
-                  "type": "tool-call"
-                }
-              ]
-            }
-          },
-          "id": "{{messageId}}"
-        },
-        "usage": {
-          "inputTokens": 3,
-          "outputTokens": 3,
-          "totalTokens": 6
-        },
-        "stream": [
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-start",
-              "index": 0,
-              "blockType": "tool-call"
-            }
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-undefine",
-            "name": "run_code",
-            "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-undefine",
-            "args": [
-              "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-            ]
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "block-end",
-              "index": 0,
-              "block": {
-                "type": "tool-call",
-                "id": "advanced-undefine",
-                "name": "run_code",
-                "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "usage",
-              "usage": {
-                "inputTokens": 3,
-                "outputTokens": 3,
-                "totalTokens": 6
-              }
-            }
-          },
-          {
-            "type": "chunk",
-            "time": 0,
-            "chunk": {
-              "type": "finish",
-              "reason": {
-                "kind": "tool-calls"
-              },
-              "replayState": {
-                "response": {
-                  "kind": "deepseek-messages",
-                  "version": 1,
-                  "model": "smoke-model"
-                },
-                "blocks": [
-                  {
-                    "type": "tool-call"
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "surfaceOp": "append"
-    },
-    {
-      "type": "tool/call",
-      "seq": 75,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 2,
-        "callId": "advanced-undefine",
-        "name": "run_code",
-        "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch-start",
-      "seq": 76,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-undefine",
-        "parentCallId": "advanced-undefine",
-        "subCallId": "advanced-undefine:ptc:1",
-        "name": "cordis_undefine",
-        "arguments": {
-          "pluginId": "snap-1"
-        }
-      }
-    },
-    {
-      "type": "tool/ptc-dispatch",
-      "seq": 77,
-      "time": 0,
-      "data": {
-        "rootCallId": "advanced-undefine",
-        "parentCallId": "advanced-undefine",
-        "subCallId": "advanced-undefine:ptc:1",
-        "name": "cordis_undefine",
-        "arguments": {
-          "pluginId": "snap-1"
-        },
-        "isError": false,
-        "content": [
-          {
-            "type": "text",
-            "text": "Removed dynamic Plugin snap-1 and all of its Packages."
-          }
-        ]
-      }
-    },
-    {
-      "type": "tool/result",
-      "seq": 78,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 2,
-        "message": {
-          "role": "tool",
-          "source": {
-            "kind": "tool",
-            "callId": "advanced-undefine"
-          },
-          "toolCallId": "advanced-undefine",
-          "content": [
-            {
-              "type": "text",
-              "text": "REMOVED"
-            }
-          ],
-          "isError": false,
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        75
-      ],
-      "surfaceOp": "append"
-    },
-    {
-      "type": "step/end",
-      "seq": 79,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 2
-      }
-    },
-    {
-      "type": "step/start",
-      "seq": 80,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 3
-      }
-    },
-    {
-      "type": "system/message",
-      "seq": 81,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 3,
-        "message": {
-          "role": "system",
-          "content": [
-            {
-              "type": "text",
-              "text": "{{system}}"
-            }
-          ],
-          "source": {
-            "kind": "system-prompt"
-          },
-          "id": "{{messageId}}"
-        }
-      },
-      "sourceEventSeqs": [
-        29
-      ],
-      "surfaceOp": {
-        "op": "replace",
-        "startSeq": 29,
-        "endSeq": 29
-      }
-    },
-    {
-      "type": "request/header",
-      "seq": 82,
-      "time": 0,
-      "data": {
-        "header": {
-          "config": {
-            "provider": "deepseek-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
-          },
-          "tools": [
-            "run_code"
-          ]
-        },
-        "reason": "series"
-      }
-    },
-    {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 83,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 82
-      }
-    },
-    {
-      "type": "assistant/message",
-      "seq": 84,
-      "time": 0,
-      "data": {
-        "turn": 2,
-        "step": 3,
+        "turn": 1,
+        "step": 5,
         "message": {
           "role": "assistant",
           "content": [
@@ -2091,7 +1315,7 @@
               ]
             }
           },
-          "id": "{{message:2}}"
+          "id": "{{message:1}}"
         },
         "usage": {
           "inputTokens": 3,
@@ -2169,19 +1393,19 @@
     },
     {
       "type": "step/end",
-      "seq": 85,
+      "seq": 57,
       "time": 0,
       "data": {
-        "turn": 2,
-        "step": 3
+        "turn": 1,
+        "step": 5
       }
     },
     {
       "type": "command/run",
-      "seq": 86,
+      "seq": 58,
       "time": 0,
       "data": {
-        "commandId": "{{command:2}}",
+        "commandId": "{{command:1}}",
         "name": "feedback",
         "source": {
           "kind": "user"
@@ -2190,7 +1414,7 @@
     },
     {
       "type": "feedback/record",
-      "seq": 87,
+      "seq": 59,
       "time": 0,
       "data": {
         "text": "The session needs a clearer explanation."
@@ -2198,17 +1422,17 @@
     },
     {
       "type": "command/done",
-      "seq": 88,
+      "seq": 60,
       "time": 0,
       "data": {
-        "commandId": "{{command:2}}",
+        "commandId": "{{command:1}}",
         "kind": "success",
         "text": "Feedback recorded for session {{parent}}\nAnonymous user: {{anonymous-user}}."
       }
     },
     {
       "type": "feedback/record",
-      "seq": 89,
+      "seq": 61,
       "time": 0,
       "data": {
         "category": "other"
@@ -2216,16 +1440,16 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 90,
+      "seq": 62,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "item": {
-          "messageId": "{{message:2}}",
+          "messageId": "{{message:1}}",
           "rating": "negative",
           "note": "Explain the result.",
           "category": "task-result",
-          "version": "{{feedback-version:3}}",
+          "version": "{{feedback-version:1}}",
           "createdAt": 0,
           "updatedAt": 0
         }
@@ -2233,15 +1457,15 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 91,
+      "seq": 63,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
         "item": {
-          "messageId": "{{message:2}}",
+          "messageId": "{{message:1}}",
           "rating": "positive",
           "note": "The explanation is clear now.",
-          "version": "{{feedback-version:4}}",
+          "version": "{{feedback-version:2}}",
           "createdAt": 0,
           "updatedAt": 0
         }
@@ -2249,19 +1473,19 @@
     },
     {
       "type": "feedback/message-delete",
-      "seq": 92,
+      "seq": 64,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
-        "messageId": "{{message:2}}"
+        "messageId": "{{message:1}}"
       }
     },
     {
       "type": "turn/end",
-      "seq": 93,
+      "seq": 65,
       "time": 0,
       "data": {
-        "turn": 2,
+        "turn": 1,
         "reason": {
           "kind": "completed"
         }
@@ -2274,50 +1498,8 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "permission/preset",
-          "seq": 0,
-          "time": 0,
-          "data": {
-            "preset": "danger-full-access"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "sandbox/mode",
-          "seq": 1,
-          "time": 0,
-          "data": {
-            "mode": "danger-full-access"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "approval/policy",
-          "seq": 2,
-          "time": 0,
-          "data": {
-            "policy": "never"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "agent/inbox/spliced",
-          "seq": 3,
+          "seq": 4,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -2354,7 +1536,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "turn/start",
-          "seq": 4,
+          "seq": 5,
           "time": 0,
           "data": {
             "turn": 1
@@ -2368,7 +1550,24 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "agent/inbox/spliced",
-          "seq": 5,
+          "seq": 6,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "removedCount": 1,
+            "inserted": []
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 7,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -2385,7 +1584,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/start",
-          "seq": 6,
+          "seq": 8,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2400,7 +1599,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "system/message",
-          "seq": 7,
+          "seq": 9,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2429,7 +1628,32 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "user/message",
-          "seq": 8,
+          "seq": 10,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed. Ordinary and nested forks are independent; historical fork metadata remains readable."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "user/message",
+          "seq": 11,
           "time": 0,
           "data": {
             "content": [
@@ -2454,7 +1678,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "user/message",
-          "seq": 9,
+          "seq": 12,
           "time": 0,
           "data": {
             "content": [
@@ -2493,8 +1717,39 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
+          "type": "user/message",
+          "seq": 13,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "image",
+                "attachment": {
+                  "attachmentId": "sha256:b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+                  "mediaType": "image/png",
+                  "width": 1,
+                  "height": 1,
+                  "bytes": 69
+                }
+              }
+            ],
+            "source": {
+              "kind": "python-snapshot-image-offload"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
           "type": "request/header",
-          "seq": 10,
+          "seq": 14,
           "time": 0,
           "data": {
             "header": {
@@ -2509,7 +1764,15 @@
                 "maxTokens": true
               },
               "tools": [
-                "run_code"
+                "cordis_inspect_list",
+                "cordis_inspect_query",
+                "job_kill",
+                "job_list",
+                "job_output",
+                "snapshot_double",
+                "subagent",
+                "workflow",
+                "working_directory"
               ]
             },
             "reason": "initial"
@@ -2523,7 +1786,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "request/context",
-          "seq": 11,
+          "seq": 15,
           "time": 0,
           "data": {
             "provider": "deepseek-official",
@@ -2539,12 +1802,12 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "session/title",
-          "seq": 12,
+          "seq": 16,
           "time": 0,
           "data": {
             "title": "Run the advanced packaged-runtime snapsh",
             "messageSeqs": [
-              8
+              11
             ],
             "source": {
               "kind": "fallback"
@@ -2558,457 +1821,29 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 13,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 12
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "assistant/message",
-          "seq": 14,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 1,
-            "message": {
-              "role": "assistant",
-              "content": [
-                {
-                  "type": "tool-call",
-                  "id": "advanced-define",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-                }
-              ],
-              "source": {
-                "kind": "model",
-                "provider": "deepseek-official",
-                "model": "smoke-model",
-                "replayState": {
-                  "response": {
-                    "kind": "deepseek-messages",
-                    "version": 1,
-                    "model": "smoke-model"
-                  },
-                  "blocks": [
-                    {
-                      "type": "tool-call"
-                    }
-                  ]
-                }
-              },
-              "id": "{{messageId}}"
-            },
-            "usage": {
-              "inputTokens": 3,
-              "outputTokens": 3,
-              "totalTokens": 6
-            },
-            "stream": [
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-start",
-                  "index": 0,
-                  "blockType": "tool-call"
-                }
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-define",
-                "name": "run_code",
-                "args": [
-                  ""
-                ]
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-define",
-                "args": [
-                  "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-                ]
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-end",
-                  "index": 0,
-                  "block": {
-                    "type": "tool-call",
-                    "id": "advanced-define",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "finish",
-                  "reason": {
-                    "kind": "tool-calls"
-                  },
-                  "replayState": {
-                    "response": {
-                      "kind": "deepseek-messages",
-                      "version": 1,
-                      "model": "smoke-model"
-                    },
-                    "blocks": [
-                      {
-                        "type": "tool-call"
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/call",
-          "seq": 15,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 1,
-            "callId": "advanced-define",
-            "name": "run_code",
-            "arguments": "{\"code\": \"const value = await tools.cordis_define({\\\"plugin\\\": {\\\"kind\\\": \\\"new\\\", \\\"idPrefix\\\": \\\"snap\\\"}, \\\"name\\\": \\\"Snapshot Double\\\", \\\"purpose\\\": \\\"Expose a deterministic doubling tool for executable snapshot verification.\\\", \\\"code\\\": {\\\"host\\\": \\\"return (ctx) => {\\\\n  harness.registerTool(ctx, harness.defineTool({\\\\n    name: 'snapshot_double',\\\\n    description: 'Double a number for executable snapshot verification.',\\\\n    parameters: { value: { type: 'number', required: true } },\\\\n    output: {\\\\n      schema: { type: 'number' },\\\\n      render(_args, value) {\\\\n        return [{ type: 'text', text: String(value) }]\\\\n      }\\\\n    },\\\\n    async execute(args) {\\\\n      return args.value * 2\\\\n    }\\\\n  }))\\\\n}\\\\n\\\"}}); if (value.pluginId !== 'snap-1' || value.packageId !== 'pkg-1') throw new Error('unexpected Package ids'); return 'DEFINED';\", \"description\": \"Define the temporary Plugin\"}"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 16,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-define",
-            "parentCallId": "advanced-define",
-            "subCallId": "advanced-define:ptc:1",
-            "name": "cordis_define",
-            "arguments": {
-              "plugin": {
-                "kind": "new",
-                "idPrefix": "snap"
-              },
-              "name": "Snapshot Double",
-              "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
-              "code": {
-                "host": "return (ctx) => {\n  harness.registerTool(ctx, harness.defineTool({\n    name: 'snapshot_double',\n    description: 'Double a number for executable snapshot verification.',\n    parameters: { value: { type: 'number', required: true } },\n    output: {\n      schema: { type: 'number' },\n      render(_args, value) {\n        return [{ type: 'text', text: String(value) }]\n      }\n    },\n    async execute(args) {\n      return args.value * 2\n    }\n  }))\n}\n"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch",
+          "type": "assistant/attempt",
           "seq": 17,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-define",
-            "parentCallId": "advanced-define",
-            "subCallId": "advanced-define:ptc:1",
-            "name": "cordis_define",
-            "arguments": {
-              "plugin": {
-                "kind": "new",
-                "idPrefix": "snap"
-              },
-              "name": "Snapshot Double",
-              "purpose": "Expose a deterministic doubling tool for executable snapshot verification.",
-              "code": {
-                "host": "return (ctx) => {\n  harness.registerTool(ctx, harness.defineTool({\n    name: 'snapshot_double',\n    description: 'Double a number for executable snapshot verification.',\n    parameters: { value: { type: 'number', required: true } },\n    output: {\n      schema: { type: 'number' },\n      render(_args, value) {\n        return [{ type: 'text', text: String(value) }]\n      }\n    },\n    async execute(args) {\n      return args.value * 2\n    }\n  }))\n}\n"
-              }
-            },
-            "isError": false,
-            "content": [
-              {
-                "type": "text",
-                "text": "Defined snap-1/pkg-1 (Snapshot Double); it is not running yet. Use cordis_run to activate this Package."
-              }
-            ],
-            "meta": {
-              "pluginId": "snap-1",
-              "packageId": "pkg-1"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/result",
-          "seq": 18,
-          "time": 0,
-          "data": {
             "turn": 1,
             "step": 1,
-            "message": {
-              "role": "tool",
-              "source": {
-                "kind": "tool",
-                "callId": "advanced-define"
-              },
-              "toolCallId": "advanced-define",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "DEFINED"
-                }
-              ],
-              "isError": false,
-              "id": "{{messageId}}"
-            }
-          },
-          "sourceEventSeqs": [
-            15
-          ],
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/end",
-          "seq": 19,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 1
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/start",
-          "seq": 20,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 2
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 21,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 20
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "assistant/message",
-          "seq": 22,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 2,
-            "message": {
-              "role": "assistant",
-              "content": [
-                {
-                  "type": "tool-call",
-                  "id": "advanced-run",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-                }
-              ],
-              "source": {
-                "kind": "model",
-                "provider": "deepseek-official",
-                "model": "smoke-model",
-                "replayState": {
-                  "response": {
-                    "kind": "deepseek-messages",
-                    "version": 1,
-                    "model": "smoke-model"
-                  },
-                  "blocks": [
-                    {
-                      "type": "tool-call"
-                    }
-                  ]
-                }
-              },
-              "id": "{{messageId}}"
-            },
-            "usage": {
-              "inputTokens": 3,
-              "outputTokens": 3,
-              "totalTokens": 6
-            },
             "stream": [
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-start",
-                  "index": 0,
-                  "blockType": "tool-call"
-                }
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-run",
-                "name": "run_code",
-                "args": [
-                  ""
-                ]
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-run",
-                "args": [
-                  "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-                ]
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-end",
-                  "index": 0,
-                  "block": {
-                    "type": "tool-call",
-                    "id": "advanced-run",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
-                }
-              },
               {
                 "type": "chunk",
                 "time": 0,
                 "chunk": {
                   "type": "finish",
                   "reason": {
-                    "kind": "tool-calls"
-                  },
-                  "replayState": {
-                    "response": {
-                      "kind": "deepseek-messages",
-                      "version": 1,
-                      "model": "smoke-model"
-                    },
-                    "blocks": [
-                      {
-                        "type": "tool-call"
-                      }
-                    ]
+                    "kind": "error",
+                    "failure": {
+                      "code": "IMAGE_OFFLOAD_REQUIRED",
+                      "message": "authored image budget failure",
+                      "offloadImages": 1
+                    }
                   }
                 }
               }
             ]
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/call",
-          "seq": 23,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 2,
-            "callId": "advanced-run",
-            "name": "run_code",
-            "arguments": "{\"code\": \"const value = await tools.cordis_run({ pluginId: 'snap-1', packageId: 'pkg-1', mode: 'run' }); if (value.status !== 'running' || value.pluginRunId !== 'run-1') throw new Error('Plugin did not start'); return 'RUNNING';\", \"description\": \"Run the temporary Plugin\"}"
           }
         }
       }
@@ -3018,154 +1853,18 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 24,
+          "type": "image/offload",
+          "seq": 18,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-run",
-            "parentCallId": "advanced-run",
-            "subCallId": "advanced-run:ptc:1",
-            "name": "cordis_run",
-            "arguments": {
-              "pluginId": "snap-1",
-              "packageId": "pkg-1",
-              "mode": "run"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch",
-          "seq": 25,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-run",
-            "parentCallId": "advanced-run",
-            "subCallId": "advanced-run:ptc:1",
-            "name": "cordis_run",
-            "arguments": {
-              "pluginId": "snap-1",
-              "packageId": "pkg-1",
-              "mode": "run"
-            },
-            "isError": false,
-            "content": [
+            "targets": [
               {
-                "type": "text",
-                "text": "snap-1/pkg-1 is running (run-1)."
+                "seq": 13,
+                "imageIndexes": [
+                  0
+                ]
               }
-            ],
-            "meta": {
-              "pluginId": "snap-1",
-              "packageId": "pkg-1",
-              "pluginRunId": "run-1"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/result",
-          "seq": 26,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 2,
-            "message": {
-              "role": "tool",
-              "source": {
-                "kind": "tool",
-                "callId": "advanced-run"
-              },
-              "toolCallId": "advanced-run",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "RUNNING"
-                }
-              ],
-              "isError": false,
-              "id": "{{messageId}}"
-            }
-          },
-          "sourceEventSeqs": [
-            23
-          ],
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/end",
-          "seq": 27,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 2
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/start",
-          "seq": 28,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 3
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "system/message",
-          "seq": 29,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 3,
-            "message": {
-              "role": "system",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "{{system}}"
-                }
-              ],
-              "source": {
-                "kind": "system-prompt"
-              },
-              "id": "{{messageId}}"
-            }
-          },
-          "sourceEventSeqs": [
-            7
-          ],
-          "surfaceOp": {
-            "op": "replace",
-            "startSeq": 7,
-            "endSeq": 7
+            ]
           }
         }
       }
@@ -3176,7 +1875,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "request/header",
-          "seq": 30,
+          "seq": 19,
           "time": 0,
           "data": {
             "header": {
@@ -3191,7 +1890,15 @@
                 "maxTokens": true
               },
               "tools": [
-                "run_code"
+                "cordis_inspect_list",
+                "cordis_inspect_query",
+                "job_kill",
+                "job_list",
+                "job_output",
+                "snapshot_double",
+                "subagent",
+                "workflow",
+                "working_directory"
               ]
             },
             "reason": "series"
@@ -3205,12 +1912,12 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 31,
+          "seq": 20,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 30
+            "throughSeq": 19
           }
         }
       }
@@ -3221,19 +1928,19 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "assistant/message",
-          "seq": 32,
+          "seq": 21,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 3,
+            "step": 1,
             "message": {
               "role": "assistant",
               "content": [
                 {
                   "type": "tool-call",
-                  "id": "advanced-code",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+                  "id": "advanced-native",
+                  "name": "snapshot_double",
+                  "arguments": "{\"value\": 21}"
                 }
               ],
               "source": {
@@ -3275,8 +1982,8 @@
                 "time0": 0,
                 "index": 0,
                 "dt": [],
-                "id": "advanced-code",
-                "name": "run_code",
+                "id": "advanced-native",
+                "name": "snapshot_double",
                 "args": [
                   ""
                 ]
@@ -3286,9 +1993,9 @@
                 "time0": 0,
                 "index": 0,
                 "dt": [],
-                "id": "advanced-code",
+                "id": "advanced-native",
                 "args": [
-                  "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+                  "{\"value\": 21}"
                 ]
               },
               {
@@ -3299,9 +2006,9 @@
                   "index": 0,
                   "block": {
                     "type": "tool-call",
-                    "id": "advanced-code",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+                    "id": "advanced-native",
+                    "name": "snapshot_double",
+                    "arguments": "{\"value\": 21}"
                   }
                 }
               },
@@ -3351,14 +2058,14 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 33,
+          "seq": 22,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 3,
-            "callId": "advanced-code",
-            "name": "run_code",
-            "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Run the temporary Plugin tool\"}"
+            "step": 1,
+            "callId": "advanced-native",
+            "name": "snapshot_double",
+            "arguments": "{\"value\": 21}"
           }
         }
       }
@@ -3368,16 +2075,18 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 34,
+          "type": "job/registered",
+          "seq": 23,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-code",
-            "parentCallId": "advanced-code",
-            "subCallId": "advanced-code:ptc:1",
-            "name": "snapshot_double",
-            "arguments": {
-              "value": 21
+            "jobId": "{{id:1}}",
+            "owner": "{{parent}}",
+            "kind": "snapshot",
+            "label": "snapshot_double",
+            "startedAt": 0,
+            "toolCall": {
+              "callId": "advanced-native",
+              "rootCallId": "advanced-native"
             }
           }
         }
@@ -3388,24 +2097,23 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "tool/ptc-dispatch",
-          "seq": 35,
+          "type": "job/settled",
+          "seq": 24,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-code",
-            "parentCallId": "advanced-code",
-            "subCallId": "advanced-code:ptc:1",
-            "name": "snapshot_double",
-            "arguments": {
-              "value": 21
+            "jobId": "{{id:1}}",
+            "owner": "{{parent}}",
+            "kind": "snapshot",
+            "label": "snapshot_double",
+            "startedAt": 0,
+            "toolCall": {
+              "callId": "advanced-native",
+              "rootCallId": "advanced-native"
             },
-            "isError": false,
-            "content": [
-              {
-                "type": "text",
-                "text": "42"
-              }
-            ]
+            "finishedAt": 0,
+            "status": "completed",
+            "cause": "producer",
+            "producerReported": true
           }
         }
       }
@@ -3416,18 +2124,18 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 36,
+          "seq": 25,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 3,
+            "step": 1,
             "message": {
               "role": "tool",
               "source": {
                 "kind": "tool",
-                "callId": "advanced-code"
+                "callId": "advanced-native"
               },
-              "toolCallId": "advanced-code",
+              "toolCallId": "advanced-native",
               "content": [
                 {
                   "type": "text",
@@ -3439,7 +2147,7 @@
             }
           },
           "sourceEventSeqs": [
-            33
+            22
           ],
           "surfaceOp": "append"
         }
@@ -3451,7 +2159,256 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 37,
+          "seq": 26,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/start",
+          "seq": 27,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "session-log-deepseek/delivery-accepted",
+          "seq": 28,
+          "time": 0,
+          "data": {
+            "sessionId": "{{parent}}",
+            "sessionFormatVersion": 4,
+            "throughSeq": 27
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "assistant/message",
+          "seq": 29,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "message": {
+              "role": "assistant",
+              "content": [
+                {
+                  "type": "tool-call",
+                  "id": "advanced-denied-native",
+                  "name": "snapshot_double",
+                  "arguments": "{\"value\": -1}"
+                }
+              ],
+              "source": {
+                "kind": "model",
+                "provider": "deepseek-official",
+                "model": "smoke-model",
+                "replayState": {
+                  "response": {
+                    "kind": "deepseek-messages",
+                    "version": 1,
+                    "model": "smoke-model"
+                  },
+                  "blocks": [
+                    {
+                      "type": "tool-call"
+                    }
+                  ]
+                }
+              },
+              "id": "{{messageId}}"
+            },
+            "usage": {
+              "inputTokens": 3,
+              "outputTokens": 3,
+              "totalTokens": 6
+            },
+            "stream": [
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "block-start",
+                  "index": 0,
+                  "blockType": "tool-call"
+                }
+              },
+              {
+                "type": "tool-call-chunks",
+                "time0": 0,
+                "index": 0,
+                "dt": [],
+                "id": "advanced-denied-native",
+                "name": "snapshot_double",
+                "args": [
+                  ""
+                ]
+              },
+              {
+                "type": "tool-call-chunks",
+                "time0": 0,
+                "index": 0,
+                "dt": [],
+                "id": "advanced-denied-native",
+                "args": [
+                  "{\"value\": -1}"
+                ]
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "block-end",
+                  "index": 0,
+                  "block": {
+                    "type": "tool-call",
+                    "id": "advanced-denied-native",
+                    "name": "snapshot_double",
+                    "arguments": "{\"value\": -1}"
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "usage",
+                  "usage": {
+                    "inputTokens": 3,
+                    "outputTokens": 3,
+                    "totalTokens": 6
+                  }
+                }
+              },
+              {
+                "type": "chunk",
+                "time": 0,
+                "chunk": {
+                  "type": "finish",
+                  "reason": {
+                    "kind": "tool-calls"
+                  },
+                  "replayState": {
+                    "response": {
+                      "kind": "deepseek-messages",
+                      "version": 1,
+                      "model": "smoke-model"
+                    },
+                    "blocks": [
+                      {
+                        "type": "tool-call"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "tool/call",
+          "seq": 30,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "callId": "advanced-denied-native",
+            "name": "snapshot_double",
+            "arguments": "{\"value\": -1}"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "tool/result",
+          "seq": 31,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "message": {
+              "role": "tool",
+              "source": {
+                "kind": "tool",
+                "callId": "advanced-denied-native"
+              },
+              "toolCallId": "advanced-denied-native",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Error: Auto review rejected tool \"snapshot_double\"; its body was not executed"
+                }
+              ],
+              "isError": true,
+              "id": "{{messageId}}"
+            },
+            "error": {
+              "name": "AutoReviewDeniedError",
+              "code": "AUTO_REVIEW_DENIED",
+              "reason": "  transport raw\r\nreason  "
+            }
+          },
+          "sourceEventSeqs": [
+            30
+          ],
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/end",
+          "seq": 32,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/start",
+          "seq": 33,
           "time": 0,
           "data": {
             "turn": 1,
@@ -3465,28 +2422,13 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "step/start",
-          "seq": 38,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 4
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 39,
+          "seq": 34,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 38
+            "throughSeq": 33
           }
         }
       }
@@ -3497,19 +2439,19 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "assistant/message",
-          "seq": 40,
+          "seq": 35,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 4,
+            "step": 3,
             "message": {
               "role": "assistant",
               "content": [
                 {
                   "type": "tool-call",
                   "id": "advanced-direct-child",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+                  "name": "subagent",
+                  "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
                 }
               ],
               "source": {
@@ -3552,7 +2494,7 @@
                 "index": 0,
                 "dt": [],
                 "id": "advanced-direct-child",
-                "name": "run_code",
+                "name": "subagent",
                 "args": [
                   ""
                 ]
@@ -3564,7 +2506,7 @@
                 "dt": [],
                 "id": "advanced-direct-child",
                 "args": [
-                  "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+                  "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
                 ]
               },
               {
@@ -3576,8 +2518,8 @@
                   "block": {
                     "type": "tool-call",
                     "id": "advanced-direct-child",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
+                    "name": "subagent",
+                    "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
                   }
                 }
               },
@@ -3627,35 +2569,14 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 41,
+          "seq": 36,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 4,
+            "step": 3,
             "callId": "advanced-direct-child",
-            "name": "run_code",
-            "arguments": "{\"code\": \"return await tools.subagent({\\\"description\\\": \\\"Check direct child\\\", \\\"prompt\\\": \\\"Reply with exactly DIRECT_CHILD_OK and nothing else.\\\"})\", \"description\": \"Check direct child\"}"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 42,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-direct-child",
-            "parentCallId": "advanced-direct-child",
-            "subCallId": "advanced-direct-child:ptc:1",
             "name": "subagent",
-            "arguments": {
-              "description": "Check direct child",
-              "prompt": "Reply with exactly DIRECT_CHILD_OK and nothing else."
-            }
+            "arguments": "{\"description\": \"Check direct child\", \"prompt\": \"Reply with exactly DIRECT_CHILD_OK and nothing else.\"}"
           }
         }
       }
@@ -3672,8 +2593,102 @@
       "payload": {
         "sessionId": "{{child-1}}",
         "event": {
+          "type": "subagent/descriptor",
+          "seq": 0,
+          "time": 0,
+          "data": {
+            "version": 3,
+            "mode": "continuable",
+            "provider": "spawn",
+            "label": "Check direct child",
+            "agentProvider": "deepseek-official",
+            "agentModel": "smoke-model",
+            "agentReasoningEffort": "high"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "sandbox/mode",
+          "seq": 1,
+          "time": 0,
+          "data": {
+            "mode": "danger-full-access",
+            "source": "delegation"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "approval/policy",
+          "seq": 2,
+          "time": 0,
+          "data": {
+            "policy": "never",
+            "source": "delegation"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "permission/preset",
+          "seq": 3,
+          "time": 0,
+          "data": {
+            "preset": "danger-full-access"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
           "type": "agent/inbox/spliced",
           "seq": 4,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "inserted": [
+              {
+                "id": "{{messageId}}",
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Serial agent creation completed."
+                  }
+                ],
+                "source": {
+                  "kind": "plugin:serial-created-fixture"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 5,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -3684,6 +2699,10 @@
                   {
                     "type": "text",
                     "text": "Reply with exactly DIRECT_CHILD_OK and nothing else."
+                  },
+                  {
+                    "type": "text",
+                    "text": "Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message."
                   }
                 ],
                 "source": {
@@ -3710,7 +2729,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "turn/start",
-          "seq": 5,
+          "seq": 6,
           "time": 0,
           "data": {
             "turn": 1
@@ -3724,7 +2743,24 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "agent/inbox/spliced",
-          "seq": 6,
+          "seq": 7,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "removedCount": 1,
+            "inserted": []
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 8,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -3741,42 +2777,15 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "subagent/catalog",
-          "seq": 43,
+          "seq": 37,
           "time": 0,
           "data": {
-            "version": 0,
+            "version": 3,
             "childId": "{{child-1}}",
             "childCreatedAt": 0,
             "mode": "continuable",
-            "label": "Check direct child"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch",
-          "seq": 44,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-direct-child",
-            "parentCallId": "advanced-direct-child",
-            "subCallId": "advanced-direct-child:ptc:1",
-            "name": "subagent",
-            "arguments": {
-              "description": "Check direct child",
-              "prompt": "Reply with exactly DIRECT_CHILD_OK and nothing else."
-            },
-            "isError": false,
-            "content": [
-              {
-                "type": "text",
-                "text": "started subagent {{child-1}}"
-              }
-            ]
+            "label": "Check direct child",
+            "name": "agent-1"
           }
         }
       }
@@ -3787,11 +2796,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 45,
+          "seq": 38,
           "time": 0,
           "data": {
             "turn": 1,
-            "step": 4,
+            "step": 3,
             "message": {
               "role": "tool",
               "source": {
@@ -3802,15 +2811,19 @@
               "content": [
                 {
                   "type": "text",
-                  "text": "{\n  \"kind\": \"activation\",\n  \"subagentId\": \"{{child-1}}\"\n}"
+                  "text": "started subagent agent-1"
                 }
               ],
               "isError": false,
               "id": "{{messageId}}"
+            },
+            "meta": {
+              "kind": "activation",
+              "name": "agent-1"
             }
           },
           "sourceEventSeqs": [
-            41
+            36
           ],
           "surfaceOp": "append"
         }
@@ -3822,7 +2835,22 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 46,
+          "seq": 39,
+          "time": 0,
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "step/start",
+          "seq": 40,
           "time": 0,
           "data": {
             "turn": 1,
@@ -3836,305 +2864,15 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "step/start",
-          "seq": 47,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 5
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 48,
+          "seq": 41,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 47
+            "throughSeq": 40
           }
         }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "assistant/message",
-          "seq": 49,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 5,
-            "message": {
-              "role": "assistant",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "Waiting for the direct child to finish."
-                }
-              ],
-              "source": {
-                "kind": "model",
-                "provider": "deepseek-official",
-                "model": "smoke-model",
-                "replayState": {
-                  "response": {
-                    "kind": "deepseek-messages",
-                    "version": 1,
-                    "model": "smoke-model"
-                  },
-                  "blocks": [
-                    {
-                      "type": "text"
-                    }
-                  ]
-                }
-              },
-              "id": "{{message:1}}"
-            },
-            "usage": {
-              "inputTokens": 3,
-              "outputTokens": 3,
-              "totalTokens": 6
-            },
-            "stream": [
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-start",
-                  "index": 0,
-                  "blockType": "text"
-                }
-              },
-              {
-                "type": "text-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "texts": [
-                  "Waiting for the direct child to finish."
-                ]
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-end",
-                  "index": 0,
-                  "block": {
-                    "type": "text",
-                    "text": "Waiting for the direct child to finish."
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "finish",
-                  "reason": {
-                    "kind": "stop"
-                  },
-                  "replayState": {
-                    "response": {
-                      "kind": "deepseek-messages",
-                      "version": 1,
-                      "model": "smoke-model"
-                    },
-                    "blocks": [
-                      {
-                        "type": "text"
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/end",
-          "seq": 50,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "step": 5
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "command/run",
-          "seq": 51,
-          "time": 0,
-          "data": {
-            "commandId": "{{command:1}}",
-            "name": "feedback",
-            "source": {
-              "kind": "user"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "feedback/record",
-          "seq": 52,
-          "time": 0,
-          "data": {
-            "text": "The session needs a clearer explanation."
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "command/done",
-          "seq": 53,
-          "time": 0,
-          "data": {
-            "commandId": "{{command:1}}",
-            "kind": "success",
-            "text": "Feedback recorded for session {{parent}}\nAnonymous user: {{anonymous-user}}."
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "feedback/record",
-          "seq": 54,
-          "time": 0,
-          "data": {
-            "category": "other"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "feedback/message-put",
-          "seq": 55,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "item": {
-              "messageId": "{{message:1}}",
-              "rating": "negative",
-              "note": "Explain the result.",
-              "category": "task-result",
-              "version": "{{feedback-version:1}}",
-              "createdAt": 0,
-              "updatedAt": 0
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "feedback/message-put",
-          "seq": 56,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "item": {
-              "messageId": "{{message:1}}",
-              "rating": "positive",
-              "note": "The explanation is clear now.",
-              "version": "{{feedback-version:2}}",
-              "createdAt": 0,
-              "updatedAt": 0
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "feedback/message-delete",
-          "seq": 57,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "messageId": "{{message:1}}"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "turn/end",
-          "seq": 58,
-          "time": 0,
-          "data": {
-            "turn": 1,
-            "reason": {
-              "kind": "completed"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.status",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "status": "idle"
       }
     },
     {
@@ -4143,7 +2881,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "step/start",
-          "seq": 7,
+          "seq": 9,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4158,7 +2896,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "system/message",
-          "seq": 8,
+          "seq": 10,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4187,13 +2925,42 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "user/message",
-          "seq": 9,
+          "seq": 11,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-1}}",
+        "event": {
+          "type": "user/message",
+          "seq": 12,
           "time": 0,
           "data": {
             "content": [
               {
                 "type": "text",
                 "text": "Reply with exactly DIRECT_CHILD_OK and nothing else."
+              },
+              {
+                "type": "text",
+                "text": "Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message."
               }
             ],
             "source": {
@@ -4212,13 +2979,13 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "user/message",
-          "seq": 10,
+          "seq": 13,
           "time": 0,
           "data": {
             "content": [
               {
                 "type": "text",
-                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).\n\nYou are a delegated subagent: your permission scope was fixed when you were started and cannot be widened from inside this session — operations that require approval are rejected automatically. When the task needs access beyond that scope, do not retry the denied operation; state the limitation in your reply so the delegating agent can handle it."
+                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).\n\nDelegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do not call `subagent` at this depth; carry out the work directly.\n\nYou are a delegated subagent: your permission scope was fixed when you were started and cannot be widened from inside this session — operations that require approval are rejected automatically. When the task needs access beyond that scope, do not retry the denied operation; state the limitation in your reply so the delegating agent can handle it."
               }
             ],
             "source": {
@@ -4236,6 +3003,10 @@
                 {
                   "name": "approval:policy",
                   "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+                },
+                {
+                  "name": "tool:subagent:depth",
+                  "text": "Delegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do not call `subagent` at this depth; carry out the work directly."
                 },
                 {
                   "name": "subagent:delegation",
@@ -4256,7 +3027,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "request/header",
-          "seq": 11,
+          "seq": 14,
           "time": 0,
           "data": {
             "header": {
@@ -4270,7 +3041,15 @@
                 "maxTokens": true
               },
               "tools": [
-                "run_code"
+                "cordis_inspect_list",
+                "cordis_inspect_query",
+                "job_kill",
+                "job_list",
+                "job_output",
+                "snapshot_double",
+                "subagent",
+                "workflow",
+                "working_directory"
               ]
             },
             "reason": "initial"
@@ -4284,7 +3063,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "request/context",
-          "seq": 12,
+          "seq": 15,
           "time": 0,
           "data": {
             "provider": "deepseek-official",
@@ -4300,12 +3079,12 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "session/title",
-          "seq": 13,
+          "seq": 16,
           "time": 0,
           "data": {
             "title": "Reply with exactly DIRECT_CHILD_OK and",
             "messageSeqs": [
-              9
+              12
             ],
             "source": {
               "kind": "fallback"
@@ -4320,12 +3099,12 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 14,
+          "seq": 17,
           "time": 0,
           "data": {
             "sessionId": "{{child-1}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 13
+            "throughSeq": 16
           }
         }
       }
@@ -4336,7 +3115,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "assistant/message",
-          "seq": 15,
+          "seq": 18,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4450,7 +3229,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "step/end",
-          "seq": 16,
+          "seq": 19,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4465,7 +3244,7 @@
         "sessionId": "{{child-1}}",
         "event": {
           "type": "turn/end",
-          "seq": 17,
+          "seq": 20,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4489,17 +3268,17 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "agent/inbox/spliced",
-          "seq": 59,
+          "seq": 42,
           "time": 0,
           "data": {
-            "target": "next-turn",
+            "target": "next-step",
             "start": 0,
             "inserted": [
               {
                 "content": [
                   {
                     "type": "text",
-                    "text": "Background subagent {{child-1}} finished and will do no further work unless you send it more."
+                    "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
                   },
                   {
                     "type": "text",
@@ -4513,51 +3292,14 @@
                 "source": {
                   "kind": "subagent-settled",
                   "form": "notice",
-                  "summary": "Background subagent {{child-1}} finished and will do no further work unless you send it more.",
+                  "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+                  "stopReason": "completed",
                   "senderSessionId": "{{child-1}}"
                 },
                 "role": "user",
                 "id": "{{messageId}}"
               }
             ]
-          }
-        }
-      }
-    },
-    {
-      "method": "session.status",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "status": "running"
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "turn/start",
-          "seq": 60,
-          "time": 0,
-          "data": {
-            "turn": 2
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "agent/inbox/spliced",
-          "seq": 61,
-          "time": 0,
-          "data": {
-            "target": "next-turn",
-            "start": 0,
-            "removedCount": 1,
-            "inserted": []
           }
         }
       }
@@ -4584,87 +3326,20 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "step/start",
-          "seq": 62,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 1
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "user/message",
-          "seq": 63,
-          "time": 0,
-          "data": {
-            "content": [
-              {
-                "type": "text",
-                "text": "Background subagent {{child-1}} finished and will do no further work unless you send it more."
-              },
-              {
-                "type": "text",
-                "text": "Its closing message:"
-              },
-              {
-                "type": "text",
-                "text": "DIRECT_CHILD_OK"
-              }
-            ],
-            "source": {
-              "kind": "subagent-settled",
-              "form": "notice",
-              "summary": "Background subagent {{child-1}} finished and will do no further work unless you send it more.",
-              "senderSessionId": "{{child-1}}"
-            },
-            "role": "user",
-            "id": "{{messageId}}"
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 64,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 63
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "assistant/message",
-          "seq": 65,
+          "seq": 43,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 1,
+            "turn": 1,
+            "step": 4,
             "message": {
               "role": "assistant",
               "content": [
                 {
                   "type": "tool-call",
                   "id": "advanced-workflow",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
+                  "name": "workflow",
+                  "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
                 }
               ],
               "source": {
@@ -4707,7 +3382,7 @@
                 "index": 0,
                 "dt": [],
                 "id": "advanced-workflow",
-                "name": "run_code",
+                "name": "workflow",
                 "args": [
                   ""
                 ]
@@ -4719,7 +3394,7 @@
                 "dt": [],
                 "id": "advanced-workflow",
                 "args": [
-                  "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
+                  "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
                 ]
               },
               {
@@ -4731,8 +3406,8 @@
                   "block": {
                     "type": "tool-call",
                     "id": "advanced-workflow",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
+                    "name": "workflow",
+                    "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
                   }
                 }
               },
@@ -4782,14 +3457,14 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 66,
+          "seq": 44,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 1,
+            "turn": 1,
+            "step": 4,
             "callId": "advanced-workflow",
-            "name": "run_code",
-            "arguments": "{\"code\": \"return await tools.workflow({\\\"script\\\": \\\"phase('Delegate')\\\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\\\nreturn { reply }\\\", \\\"meta\\\": {\\\"name\\\": \\\"advanced-exe-snapshot\\\", \\\"description\\\": \\\"exercise one packaged workflow child\\\"}})\", \"description\": \"Check workflow child\"}"
+            "name": "workflow",
+            "arguments": "{\"script\": \"phase('Delegate')\\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\\nreturn { reply }\", \"meta\": {\"name\": \"advanced-exe-snapshot\", \"description\": \"exercise one packaged workflow child\"}}"
           }
         }
       }
@@ -4799,21 +3474,12 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 67,
+          "type": "tool-workflow/run-start",
+          "seq": 45,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-workflow",
-            "parentCallId": "advanced-workflow",
-            "subCallId": "advanced-workflow:ptc:1",
-            "name": "workflow",
-            "arguments": {
-              "script": "phase('Delegate')\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\nreturn { reply }",
-              "meta": {
-                "name": "advanced-exe-snapshot",
-                "description": "exercise one packaged workflow child"
-              }
-            }
+            "runId": "{{workflow-run}}",
+            "name": "advanced-exe-snapshot"
           }
         }
       }
@@ -4830,8 +3496,102 @@
       "payload": {
         "sessionId": "{{child-2}}",
         "event": {
+          "type": "subagent/descriptor",
+          "seq": 0,
+          "time": 0,
+          "data": {
+            "version": 3,
+            "mode": "continuable",
+            "provider": "spawn",
+            "label": "advanced-exe-snapshot child 1",
+            "agentProvider": "deepseek-official",
+            "agentModel": "smoke-model",
+            "agentReasoningEffort": "high"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "sandbox/mode",
+          "seq": 1,
+          "time": 0,
+          "data": {
+            "mode": "danger-full-access",
+            "source": "delegation"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "approval/policy",
+          "seq": 2,
+          "time": 0,
+          "data": {
+            "policy": "never",
+            "source": "delegation"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "permission/preset",
+          "seq": 3,
+          "time": 0,
+          "data": {
+            "preset": "danger-full-access"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
           "type": "agent/inbox/spliced",
           "seq": 4,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "inserted": [
+              {
+                "id": "{{messageId}}",
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Serial agent creation completed."
+                  }
+                ],
+                "source": {
+                  "kind": "plugin:serial-created-fixture"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 5,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -4868,7 +3628,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "turn/start",
-          "seq": 5,
+          "seq": 6,
           "time": 0,
           "data": {
             "turn": 1
@@ -4882,7 +3642,24 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "agent/inbox/spliced",
-          "seq": 6,
+          "seq": 7,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "removedCount": 1,
+            "inserted": []
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 8,
           "time": 0,
           "data": {
             "target": "next-turn",
@@ -4899,14 +3676,33 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "subagent/catalog",
-          "seq": 68,
+          "seq": 46,
           "time": 0,
           "data": {
-            "version": 0,
+            "version": 3,
             "childId": "{{child-2}}",
             "childCreatedAt": 0,
             "mode": "continuable",
-            "label": "advanced-exe-snapshot child 1"
+            "label": "advanced-exe-snapshot child 1",
+            "name": "agent-2"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "tool-workflow/agent-start",
+          "seq": 47,
+          "time": 0,
+          "data": {
+            "runId": "{{workflow-run}}",
+            "seq": 1,
+            "label": "workflow-child",
+            "phase": "Delegate",
+            "childId": "{{child-2}}"
           }
         }
       }
@@ -4917,7 +3713,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "step/start",
-          "seq": 7,
+          "seq": 9,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4932,7 +3728,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "system/message",
-          "seq": 8,
+          "seq": 10,
           "time": 0,
           "data": {
             "turn": 1,
@@ -4961,7 +3757,32 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "user/message",
-          "seq": 9,
+          "seq": 11,
+          "time": 0,
+          "data": {
+            "id": "{{messageId}}",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Serial agent creation completed."
+              }
+            ],
+            "source": {
+              "kind": "plugin:serial-created-fixture"
+            }
+          },
+          "surfaceOp": "append"
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{child-2}}",
+        "event": {
+          "type": "user/message",
+          "seq": 12,
           "time": 0,
           "data": {
             "content": [
@@ -4986,13 +3807,13 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "user/message",
-          "seq": 10,
+          "seq": 13,
           "time": 0,
           "data": {
             "content": [
               {
                 "type": "text",
-                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).\n\nYou are a delegated subagent: your permission scope was fixed when you were started and cannot be widened from inside this session — operations that require approval are rejected automatically. When the task needs access beyond that scope, do not retry the denied operation; state the limitation in your reply so the delegating agent can handle it."
+                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).\n\nDelegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do not call `subagent` at this depth; carry out the work directly.\n\nYou are a delegated subagent: your permission scope was fixed when you were started and cannot be widened from inside this session — operations that require approval are rejected automatically. When the task needs access beyond that scope, do not retry the denied operation; state the limitation in your reply so the delegating agent can handle it."
               }
             ],
             "source": {
@@ -5010,6 +3831,10 @@
                 {
                   "name": "approval:policy",
                   "text": "Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+                },
+                {
+                  "name": "tool:subagent:depth",
+                  "text": "Delegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do not call `subagent` at this depth; carry out the work directly."
                 },
                 {
                   "name": "subagent:delegation",
@@ -5030,7 +3855,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "request/header",
-          "seq": 11,
+          "seq": 14,
           "time": 0,
           "data": {
             "header": {
@@ -5044,7 +3869,15 @@
                 "maxTokens": true
               },
               "tools": [
-                "run_code"
+                "cordis_inspect_list",
+                "cordis_inspect_query",
+                "job_kill",
+                "job_list",
+                "job_output",
+                "snapshot_double",
+                "subagent",
+                "workflow",
+                "working_directory"
               ]
             },
             "reason": "initial"
@@ -5058,7 +3891,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "request/context",
-          "seq": 12,
+          "seq": 15,
           "time": 0,
           "data": {
             "provider": "deepseek-official",
@@ -5074,12 +3907,12 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "session/title",
-          "seq": 13,
+          "seq": 16,
           "time": 0,
           "data": {
             "title": "Reply with exactly WORKFLOW_CHILD_OK and",
             "messageSeqs": [
-              9
+              12
             ],
             "source": {
               "kind": "fallback"
@@ -5094,12 +3927,12 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 14,
+          "seq": 17,
           "time": 0,
           "data": {
             "sessionId": "{{child-2}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 13
+            "throughSeq": 16
           }
         }
       }
@@ -5110,7 +3943,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "assistant/message",
-          "seq": 15,
+          "seq": 18,
           "time": 0,
           "data": {
             "turn": 1,
@@ -5224,7 +4057,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "step/end",
-          "seq": 16,
+          "seq": 19,
           "time": 0,
           "data": {
             "turn": 1,
@@ -5239,7 +4072,7 @@
         "sessionId": "{{child-2}}",
         "event": {
           "type": "turn/end",
-          "seq": 17,
+          "seq": 20,
           "time": 0,
           "data": {
             "turn": 1,
@@ -5279,28 +4112,28 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "tool/ptc-dispatch",
-          "seq": 69,
+          "type": "tool-workflow/agent-end",
+          "seq": 48,
           "time": 0,
           "data": {
-            "rootCallId": "advanced-workflow",
-            "parentCallId": "advanced-workflow",
-            "subCallId": "advanced-workflow:ptc:1",
-            "name": "workflow",
-            "arguments": {
-              "script": "phase('Delegate')\nconst reply = await agent('Reply with exactly WORKFLOW_CHILD_OK and nothing else.', { label: 'workflow-child' })\nreturn { reply }",
-              "meta": {
-                "name": "advanced-exe-snapshot",
-                "description": "exercise one packaged workflow child"
-              }
-            },
-            "isError": false,
-            "content": [
-              {
-                "type": "text",
-                "text": "workflow \"advanced-exe-snapshot\" completed (1 agent).\nReturn value:\n{\n  \"reply\": \"WORKFLOW_CHILD_OK\"\n}"
-              }
-            ]
+            "runId": "{{workflow-run}}",
+            "seq": 1,
+            "outcome": "completed"
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "tool-workflow/run-end",
+          "seq": 49,
+          "time": 0,
+          "data": {
+            "runId": "{{workflow-run}}",
+            "stopReason": "completed"
           }
         }
       }
@@ -5311,11 +4144,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 70,
+          "seq": 50,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 1,
+            "turn": 1,
+            "step": 4,
             "message": {
               "role": "tool",
               "source": {
@@ -5326,7 +4159,7 @@
               "content": [
                 {
                   "type": "text",
-                  "text": "{\n  \"kind\": \"foreground\",\n  \"runId\": \"{{workflow-run}}\",\n  \"agentsStarted\": 1,\n  \"result\": {\n    \"reply\": \"WORKFLOW_CHILD_OK\"\n  }\n}"
+                  "text": "workflow \"advanced-exe-snapshot\" completed (1 agent).\nReturn value:\n{\n  \"reply\": \"WORKFLOW_CHILD_OK\"\n}"
                 }
               ],
               "isError": false,
@@ -5334,7 +4167,7 @@
             }
           },
           "sourceEventSeqs": [
-            66
+            44
           ],
           "surfaceOp": "append"
         }
@@ -5346,11 +4179,28 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 71,
+          "seq": 51,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 1
+            "turn": 1,
+            "step": 4
+          }
+        }
+      }
+    },
+    {
+      "method": "session.event",
+      "payload": {
+        "sessionId": "{{parent}}",
+        "event": {
+          "type": "agent/inbox/spliced",
+          "seq": 52,
+          "time": 0,
+          "data": {
+            "target": "next-step",
+            "start": 0,
+            "removedCount": 1,
+            "inserted": []
           }
         }
       }
@@ -5361,11 +4211,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/start",
-          "seq": 72,
+          "seq": 53,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 2
+            "turn": 1,
+            "step": 5
           }
         }
       }
@@ -5375,243 +4225,34 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 73,
+          "type": "user/message",
+          "seq": 54,
           "time": 0,
           "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 72
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "assistant/message",
-          "seq": 74,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 2,
-            "message": {
-              "role": "assistant",
-              "content": [
-                {
-                  "type": "tool-call",
-                  "id": "advanced-undefine",
-                  "name": "run_code",
-                  "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-                }
-              ],
-              "source": {
-                "kind": "model",
-                "provider": "deepseek-official",
-                "model": "smoke-model",
-                "replayState": {
-                  "response": {
-                    "kind": "deepseek-messages",
-                    "version": 1,
-                    "model": "smoke-model"
-                  },
-                  "blocks": [
-                    {
-                      "type": "tool-call"
-                    }
-                  ]
-                }
-              },
-              "id": "{{messageId}}"
-            },
-            "usage": {
-              "inputTokens": 3,
-              "outputTokens": 3,
-              "totalTokens": 6
-            },
-            "stream": [
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-start",
-                  "index": 0,
-                  "blockType": "tool-call"
-                }
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-undefine",
-                "name": "run_code",
-                "args": [
-                  ""
-                ]
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-undefine",
-                "args": [
-                  "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-                ]
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "block-end",
-                  "index": 0,
-                  "block": {
-                    "type": "tool-call",
-                    "id": "advanced-undefine",
-                    "name": "run_code",
-                    "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "usage",
-                  "usage": {
-                    "inputTokens": 3,
-                    "outputTokens": 3,
-                    "totalTokens": 6
-                  }
-                }
-              },
-              {
-                "type": "chunk",
-                "time": 0,
-                "chunk": {
-                  "type": "finish",
-                  "reason": {
-                    "kind": "tool-calls"
-                  },
-                  "replayState": {
-                    "response": {
-                      "kind": "deepseek-messages",
-                      "version": 1,
-                      "model": "smoke-model"
-                    },
-                    "blocks": [
-                      {
-                        "type": "tool-call"
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          "surfaceOp": "append"
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/call",
-          "seq": 75,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 2,
-            "callId": "advanced-undefine",
-            "name": "run_code",
-            "arguments": "{\"code\": \"const value = await tools.cordis_undefine({ pluginId: 'snap-1' }); if (value.pluginId !== 'snap-1' || !value.wasRunning) throw new Error('Plugin was not removed'); return 'REMOVED';\", \"description\": \"Remove the temporary Plugin\"}"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch-start",
-          "seq": 76,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-undefine",
-            "parentCallId": "advanced-undefine",
-            "subCallId": "advanced-undefine:ptc:1",
-            "name": "cordis_undefine",
-            "arguments": {
-              "pluginId": "snap-1"
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/ptc-dispatch",
-          "seq": 77,
-          "time": 0,
-          "data": {
-            "rootCallId": "advanced-undefine",
-            "parentCallId": "advanced-undefine",
-            "subCallId": "advanced-undefine:ptc:1",
-            "name": "cordis_undefine",
-            "arguments": {
-              "pluginId": "snap-1"
-            },
-            "isError": false,
             "content": [
               {
                 "type": "text",
-                "text": "Removed dynamic Plugin snap-1 and all of its Packages."
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "tool/result",
-          "seq": 78,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 2,
-            "message": {
-              "role": "tool",
-              "source": {
-                "kind": "tool",
-                "callId": "advanced-undefine"
+                "text": "Background subagent agent-1 finished and will do no further work unless you send it more."
               },
-              "toolCallId": "advanced-undefine",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "REMOVED"
-                }
-              ],
-              "isError": false,
-              "id": "{{messageId}}"
-            }
+              {
+                "type": "text",
+                "text": "Its closing message:"
+              },
+              {
+                "type": "text",
+                "text": "DIRECT_CHILD_OK"
+              }
+            ],
+            "source": {
+              "kind": "subagent-settled",
+              "form": "notice",
+              "summary": "Background subagent agent-1 finished and will do no further work unless you send it more.",
+              "stopReason": "completed",
+              "senderSessionId": "{{child-1}}"
+            },
+            "role": "user",
+            "id": "{{messageId}}"
           },
-          "sourceEventSeqs": [
-            75
-          ],
           "surfaceOp": "append"
         }
       }
@@ -5621,108 +4262,13 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "step/end",
-          "seq": 79,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 2
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "step/start",
-          "seq": 80,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 3
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "system/message",
-          "seq": 81,
-          "time": 0,
-          "data": {
-            "turn": 2,
-            "step": 3,
-            "message": {
-              "role": "system",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "{{system}}"
-                }
-              ],
-              "source": {
-                "kind": "system-prompt"
-              },
-              "id": "{{messageId}}"
-            }
-          },
-          "sourceEventSeqs": [
-            29
-          ],
-          "surfaceOp": {
-            "op": "replace",
-            "startSeq": 29,
-            "endSeq": 29
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
-          "type": "request/header",
-          "seq": 82,
-          "time": 0,
-          "data": {
-            "header": {
-              "config": {
-                "provider": "deepseek-official",
-                "model": "smoke-model",
-                "maxTokens": 256000,
-                "reasoningEffort": "high"
-              },
-              "adapterDefaults": {
-                "reasoningEffort": true,
-                "maxTokens": true
-              },
-              "tools": [
-                "run_code"
-              ]
-            },
-            "reason": "series"
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "session-log-deepseek/delivery-accepted",
-          "seq": 83,
+          "seq": 55,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "sessionFormatVersion": 4,
-            "throughSeq": 82
+            "throughSeq": 54
           }
         }
       }
@@ -5733,11 +4279,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "assistant/message",
-          "seq": 84,
+          "seq": 56,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 3,
+            "turn": 1,
+            "step": 5,
             "message": {
               "role": "assistant",
               "content": [
@@ -5763,7 +4309,7 @@
                   ]
                 }
               },
-              "id": "{{message:2}}"
+              "id": "{{message:1}}"
             },
             "usage": {
               "inputTokens": 3,
@@ -5847,11 +4393,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 85,
+          "seq": 57,
           "time": 0,
           "data": {
-            "turn": 2,
-            "step": 3
+            "turn": 1,
+            "step": 5
           }
         }
       }
@@ -5862,10 +4408,10 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/run",
-          "seq": 86,
+          "seq": 58,
           "time": 0,
           "data": {
-            "commandId": "{{command:2}}",
+            "commandId": "{{command:1}}",
             "name": "feedback",
             "source": {
               "kind": "user"
@@ -5880,7 +4426,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 87,
+          "seq": 59,
           "time": 0,
           "data": {
             "text": "The session needs a clearer explanation."
@@ -5894,10 +4440,10 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/done",
-          "seq": 88,
+          "seq": 60,
           "time": 0,
           "data": {
-            "commandId": "{{command:2}}",
+            "commandId": "{{command:1}}",
             "kind": "success",
             "text": "Feedback recorded for session {{parent}}\nAnonymous user: {{anonymous-user}}."
           }
@@ -5910,7 +4456,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 89,
+          "seq": 61,
           "time": 0,
           "data": {
             "category": "other"
@@ -5924,16 +4470,16 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 90,
+          "seq": 62,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "item": {
-              "messageId": "{{message:2}}",
+              "messageId": "{{message:1}}",
               "rating": "negative",
               "note": "Explain the result.",
               "category": "task-result",
-              "version": "{{feedback-version:3}}",
+              "version": "{{feedback-version:1}}",
               "createdAt": 0,
               "updatedAt": 0
             }
@@ -5947,15 +4493,15 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 91,
+          "seq": 63,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
             "item": {
-              "messageId": "{{message:2}}",
+              "messageId": "{{message:1}}",
               "rating": "positive",
               "note": "The explanation is clear now.",
-              "version": "{{feedback-version:4}}",
+              "version": "{{feedback-version:2}}",
               "createdAt": 0,
               "updatedAt": 0
             }
@@ -5969,11 +4515,11 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-delete",
-          "seq": 92,
+          "seq": 64,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
-            "messageId": "{{message:2}}"
+            "messageId": "{{message:1}}"
           }
         }
       }
@@ -5984,10 +4530,10 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "turn/end",
-          "seq": 93,
+          "seq": 65,
           "time": 0,
           "data": {
-            "turn": 2,
+            "turn": 1,
             "reason": {
               "kind": "completed"
             }

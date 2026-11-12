@@ -18,9 +18,6 @@
       "path": "../../llm/llm"
     },
     {
-      "path": "../../llm/llm-deepseek"
-    },
-    {
       "path": "../../llm/llm-deepseek-api-key"
     },
     {
@@ -37,6 +34,24 @@
     },
     {
       "path": "../../subagent/subagent"
+    },
+    {
+      "path": "../../schedule/schedule"
+    },
+    {
+      "path": "../../interaction/user-questions"
+    },
+    {
+      "path": "../../interaction/user-approval"
+    },
+    {
+      "path": "../../interaction/commands"
+    },
+    {
+      "path": "../../goal/goal"
+    },
+    {
+      "path": "../../llm/llm-deepseek"
     },
     {
       "path": "../../boot/cmdline"

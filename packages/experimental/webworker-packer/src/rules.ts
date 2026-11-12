@@ -43,13 +43,12 @@ export const EXCLUDE_WORKSPACE: readonly string[] = [
  * Image paths that belong to the PAGE, not to the worker's loader.
  *
  * A package's `lib/client.js` entry and `lib/client.*.js` sibling chunks are
- * its browser bundles behind the `./client` export: the page's own module
- * system evaluates them with its own wrapper, which has no ambient-store
- * parameter. Transforming those bodies would inject calls the page cannot
- * resolve, so they ship untransformed — the only change is the trailing
- * debugger-name line every JavaScript entry gains — and the manifest's
- * all-or-nothing claim stays true, because the worker loader never evaluates
- * them (the tunnel serves them as bytes).
+ * browser bundles behind the `./client` export: the page's own module system evaluates them with its own wrapper,
+ * which has no ambient-store parameter. Transforming those bodies would
+ * inject calls the page cannot resolve, so they ship untransformed — their
+ * only change is the trailing debugger-name line every JavaScript entry
+ * gains — and the manifest's all-or-nothing claim stays true, because the
+ * worker loader never evaluates them (the tunnel serves them as bytes).
  */
 export const PAGE_ASSETS: readonly string[] = [
   'node_modules/*/lib/client.js',
@@ -59,7 +58,7 @@ export const PAGE_ASSETS: readonly string[] = [
 ]
 
 /**
- * Image specifiers the worker assembly requires directly, beyond the composed
+ * Image specifiers the worker assembly requires directly, beyond the
  * roster: they are requested by worker-bundle code, so no image file
  * references them and the reachability sweep must seed them as roots. Keep in
  * step with the literal `require`/`resolve` calls in the runtime's
@@ -68,7 +67,6 @@ export const PAGE_ASSETS: readonly string[] = [
 export const IMAGE_ENTRY_SEEDS: readonly string[] = [
   '@deepseek-ai/dsh-app-boot',
   '@deepseek-ai/dsh-cmdline',
+  '@deepseek-ai/dsh-launch-environment',
   '@deepseek-ai/cordis',
-  '@deepseek-ai/cordis-plugin-include',
-  'js-yaml',
 ]
