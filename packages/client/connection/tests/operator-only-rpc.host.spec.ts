@@ -35,9 +35,15 @@ function bench(): Bench {
   return { ctx, connection, calls }
 }
 
-/** A Peer that is not the operator's: the identity a paired device is admitted as. */
-function devicePeer(): PeerScope {
-  return { id: 'device-peer' } as unknown as PeerScope
+/**
+ * A Peer that is not the operator's: the identity a paired device is admitted
+ * as. Admitting one over HTTP mints exactly this — its own scope, a principal
+ * the Host fixed at creation, and an id that is not the operator's.
+ * @param connection - the service under test.
+ * @returns a typed Peer owned by the test context.
+ */
+function devicePeer(connection: HostConnectionService): PeerScope {
+  return connection.createPeer({ principal: { kind: 'owner' } })
 }
 
 /**
@@ -61,12 +67,12 @@ describe('operator-only shared-channel endpoints', () => {
     const { connection, calls } = bench()
     const release = connection.reserveOperatorOnly('settings/mutate')
 
-    expect(await call(connection, devicePeer(), 'settings/mutate')).toBe(403)
+    expect(await call(connection, devicePeer(connection), 'settings/mutate')).toBe(403)
     expect(calls).toEqual([])
 
     // The same device keeps every unreserved endpoint: pairing authenticates
     // using the agent, and only administration is reserved.
-    expect(await call(connection, devicePeer(), 'session/list')).toBe(200)
+    expect(await call(connection, devicePeer(connection), 'session/list')).toBe(200)
     expect(calls).toEqual(['session/list'])
 
     // The operator's own Peer keeps the reserved endpoint.
@@ -74,7 +80,7 @@ describe('operator-only shared-channel endpoints', () => {
     expect(calls).toEqual(['session/list', 'settings/mutate'])
 
     release()
-    expect(await call(connection, devicePeer(), 'settings/mutate')).toBe(200)
+    expect(await call(connection, devicePeer(connection), 'settings/mutate')).toBe(200)
   })
 
   it('releases every reservation on disposal and rejects malformed endpoint names', () => {
@@ -83,6 +89,6 @@ describe('operator-only shared-channel endpoints', () => {
     expect(() => connection.reserveOperatorOnly('')).toThrow('is not a shared-channel endpoint')
     expect(() => connection.reserveOperatorOnly('settings/mutate?x=1')).toThrow('is not a shared-channel endpoint')
     release()
-    return expect(call(connection, devicePeer(), 'settings/mutate')).resolves.toBe(200)
+    return expect(call(connection, devicePeer(connection), 'settings/mutate')).resolves.toBe(200)
   })
 })
