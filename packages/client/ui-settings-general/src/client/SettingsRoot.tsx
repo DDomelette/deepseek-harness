@@ -1,8 +1,7 @@
 /**
  * Settings shell root: the sidebar-foot trigger row plus the centered modal
- * panel with the section nav rail. In browsers below 768px the panel fills
- * the viewport and the rail turns into a horizontal strip; Windows and macOS
- * desktop windows retain the rail
+ * panel with the section nav rail. Below 768px the panel fills the viewport
+ * and shows either the section list or the selected section
  * (SettingsRoot.module.css). The shell is a pure composition face —
  * slot-owned text (trigger label, panel title, close label, sections) arrives
  * from registrants through slots; accessible names resolve from localized
@@ -19,7 +18,8 @@ import clsx from 'clsx'
 import {
   ConnectionIndicator, Tooltip, useModalLayer,
   IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconChevronLeftOutlineRegular, IconCloseOutlineRegular,
-  IconDataOutlineMedium, IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  IconCordisPluginOutlineMedium, IconDataOutlineMedium, IconPhoneOutlineMedium, IconPluginPinwheelOutlineMedium,
+  IconSettingsOutlineMedium, IconSkillOutlineMedium, IconSlidersTwoOutlineMedium, IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
@@ -35,10 +35,14 @@ const CONNECTING_MIN_VISIBLE_MS = 800
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
   if (id === 'account') return <IconUserOutlineMedium size={16} />
+  if (id === 'general') return <IconSlidersTwoOutlineMedium size={16} />
   if (id === 'models') return <IconDataOutlineMedium size={16} />
+  if (id === 'mobile') return <IconPhoneOutlineMedium size={16} />
   if (id === 'agent-presets') return <IconAgentPresetOutlineMedium size={16} />
-  if (id === 'plugins') return <IconPersonalizationOutlineMedium size={16} />
-  if (id === 'archived-sessions') return <IconArchiveOutlineMedium size={16} />
+  if (id === 'plugins') return <IconPluginPinwheelOutlineMedium size={16} />
+  if (id === 'skills') return <IconSkillOutlineMedium size={16} />
+  if (id === 'mcp') return <IconCordisPluginOutlineMedium size={16} />
+  if (id === 'archived') return <IconArchiveOutlineMedium size={16} />
   return <IconSettingsOutlineMedium size={16} />
 }
 

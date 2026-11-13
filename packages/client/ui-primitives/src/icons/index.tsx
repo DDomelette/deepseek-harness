@@ -594,6 +594,12 @@ export const IconSlidersTwoOutlineRegular = productIcon('sliders-two-outline', '
 /** Medium IconSlidersTwoOutline artwork with a 1.3px stroke. */
 export const IconSlidersTwoOutlineMedium = productIcon('sliders-two-outline', 'medium')
 
+/** Regular one-pixel IconPhoneOutline artwork. */
+export const IconPhoneOutlineRegular = productIcon('phone-outline', 'regular')
+
+/** Medium IconPhoneOutline artwork with a 1.3px stroke. */
+export const IconPhoneOutlineMedium = productIcon('phone-outline', 'medium')
+
 /** Microphone with uniform one-pixel strokes. */
 export const IconMicrophoneOutlineRegular = productIcon('microphone-outline', 'regular')
 

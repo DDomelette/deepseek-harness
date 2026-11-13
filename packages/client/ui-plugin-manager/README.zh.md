@@ -27,7 +27,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-宽度小于 768px 时，页面使用 20px 的左右内边距，与会话页头对齐。
+宽度小于 768px 时，页面使用 20px 的左右内边距，与会话页头对齐。侧栏变为抽屉时，列表标题以及“更多”页和详情页的首行会避让悬浮抽屉按钮。
 
 [Ralph 循环](../../experimental/ralph-bundle/README.zh.md)和[会话搜索](../../experimental/session-search/README.zh.md)仍随包提供，但默认不在两个插件列表中展示，只有 profile 启用或另行安装后才显示。已有的启用状态仍可管理；关闭随安装提供的版本后，它会再次隐藏。在**添加插件**中输入准确包名，再选择**立即启用**，即可使用随包提供的版本，无需再次下载。侧栏会话搜索独立于此功能。LiveShare 在其 bundle manifest 中声明相同的默认隐藏意图（`dsh.bundle.listedByDefault: false`），因此在自身声明的行开始运行或被启用前，它不会出现在两个列表（含**更多**页）中。页面的 manifest 规则是通用的：未声明 `listedByDefault: false` 的组合包会列出；声明了的，只有在 profile 启用、安装随附版本被选中，或它声明的某一行开始运行时才列出；隐藏的组合包也不能通过 ID 打开详情。
 

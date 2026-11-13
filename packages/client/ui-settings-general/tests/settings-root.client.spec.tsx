@@ -521,22 +521,24 @@ describe('SettingsPanel navigation', () => {
       rows: [
         { id: 'general', order: 0, label: 'General' },
         { id: 'models', order: 10, label: 'Models' },
-        { id: 'agent-presets', order: 20, label: 'Agent presets' },
-        { id: 'plugins', order: 30, label: 'Plugins' },
-        { id: 'archived-sessions', order: 40, label: 'Archived sessions' },
-        { id: 'contributed', order: 50, label: 'Contributed' },
+        { id: 'mobile', order: 20, label: 'Connect phone' },
+        { id: 'agent-presets', order: 30, label: 'Agent presets' },
+        { id: 'plugins', order: 40, label: 'Plugins' },
+        { id: 'skills', order: 50, label: 'Skills' },
+        { id: 'mcp', order: 60, label: 'MCP' },
+        { id: 'archived', order: 70, label: 'Archived sessions' },
+        { id: 'contributed', order: 80, label: 'Contributed' },
       ],
     })
     openPanel()
     // Each product glyph names its sprite symbol id in data-icon.
-    const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Archived sessions', 'Contributed']
+    const labels = ['General', 'Models', 'Connect phone', 'Agent presets', 'Plugins', 'Skills', 'MCP', 'Archived sessions']
+    const glyphs = [...labels, 'Contributed']
       .map(name => screen.getByRole('button', { name }).querySelector('svg')?.getAttribute('data-icon'))
 
     expect(glyphs.every(glyph => glyph !== undefined && glyph !== '')).toBe(true)
-    // The four ids the shell names get their own glyph; every other section —
-    // including one this package never heard of — shares the gear.
-    expect(new Set(glyphs.slice(0, 5)).size).toBe(5)
-    expect(glyphs[5]).toBe(glyphs[0])
+    expect(new Set(glyphs.slice(0, labels.length)).size).toBe(labels.length)
+    expect(glyphs.at(-1)).toBe('dsw-icon-settings-outline-medium')
   })
 
   it('switches the rendered section on nav click', () => {

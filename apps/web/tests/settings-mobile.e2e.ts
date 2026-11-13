@@ -11,7 +11,7 @@ import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
-import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
+import { revealNavigationDrawer, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
 /** A handset viewport: below the panel's 768px single-pane breakpoint. */
 const HANDSET = { width: 390, height: 844 }
@@ -19,14 +19,13 @@ const HANDSET = { width: 390, height: 844 }
 const DESKTOP = { width: 1680, height: 1000 }
 
 /**
- * Open the settings dialog at a handset viewport. Below the 768px overlay
- * breakpoint the rail is gone: the Settings trigger lives in the drawer,
- * which the floating brand button opens.
+ * Open Settings through the account launcher, revealing the handset drawer when needed.
  * @param page - the scenario page.
  */
-async function openHandsetSettings(page: Page): Promise<void> {
-  await page.getByRole('button', { name: '打开侧边栏' }).click()
-  await page.getByRole('button', { name: '设置', exact: true }).click()
+async function openSettings(page: Page): Promise<void> {
+  await revealNavigationDrawer(page, 'zh')
+  await page.getByRole('button', { name: '账号菜单', exact: true }).click()
+  await page.getByRole('menuitem', { name: '设置', exact: true }).click()
 }
 
 /**
@@ -75,7 +74,7 @@ describe('web e2e: settings at a handset viewport', () => {
 
   it('lists the sections, opens one on its own pane, and returns to the list', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-handset'))
-    await openHandsetSettings(page)
+    await openSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
 
@@ -86,8 +85,17 @@ describe('web e2e: settings at a handset viewport', () => {
     // The sheet spans the raw viewport: this browser reports no notch, so every
     // safe-area inset the sheet asks for resolves to no padding.
     expect(await dialog.boundingBox()).toEqual({ x: 0, y: 0, ...HANDSET })
+    const navigation = dialog.locator('[class*="navList"]')
+    expect(await navigation.evaluate(element => getComputedStyle(element).flexDirection)).toBe('column')
+    expect(await navigation.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     const row = dialog.getByRole('button', { name: '通用设置' })
-    expect((await row.boundingBox())?.width ?? 0).toBeGreaterThan(HANDSET.width * 0.6)
+    const rowBox = await row.boundingBox()
+    expect(rowBox?.width ?? 0).toBeGreaterThan(HANDSET.width * 0.6)
+    expect(rowBox?.x ?? -1).toBeGreaterThanOrEqual(0)
+    expect((rowBox?.x ?? 0) + (rowBox?.width ?? HANDSET.width + 1)).toBeLessThanOrEqual(HANDSET.width)
+    const lastRow = dialog.getByRole('button', { name: '已归档', exact: true })
+    await lastRow.scrollIntoViewIfNeeded()
+    expect((await lastRow.boundingBox())?.width ?? 0).toBe(rowBox?.width)
     expect(await dialog.getByText('语言', { exact: true }).isVisible()).toBe(false)
     // Nothing spills sideways out of the viewport.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
@@ -124,13 +132,14 @@ describe('web e2e: settings at a handset viewport', () => {
     expect(Math.max(...cubeYs) - Math.min(...cubeYs)).toBeLessThan(1)
     for (const box of cubeBoxes) expect(box.height).toBeLessThan(80)
 
-    // Permission: the description keeps the full row and the selector drops
-    // to its own line below it.
+    // Permission: the description and selector share one row without overlap,
+    // and the selector remains inside the handset viewport.
     const description = await dialog.getByText('选择新会话的默认权限模式').boundingBox()
     const selector = await dialog.getByRole('button', { name: /仅可查看|工作区内修改|完全权限/ }).boundingBox()
     expect(description).not.toBeNull()
     expect(selector).not.toBeNull()
-    expect(selector!.y).toBeGreaterThanOrEqual(description!.y + description!.height - 0.5)
+    expect(selector!.x).toBeGreaterThanOrEqual(description!.x + description!.width - 0.5)
+    expect(selector!.x + selector!.width).toBeLessThanOrEqual(HANDSET.width)
 
     // Back returns to the list without closing the dialog; the close control
     // then leaves both.
@@ -144,7 +153,7 @@ describe('web e2e: settings at a handset viewport', () => {
   it('keeps both columns on a desktop viewport and offers no back control there', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-desktop'))
     await page.setViewportSize(DESKTOP)
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await openSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
 
@@ -169,7 +178,7 @@ describe('web e2e: settings at a handset viewport', () => {
   it('gives the handset settings controls the 44px touch floor', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-touch-targets'))
     await page.setViewportSize(HANDSET)
-    await openHandsetSettings(page)
+    await openSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
 
@@ -193,6 +202,12 @@ describe('web e2e: settings at a handset viewport', () => {
     // 44px touch floor is asserted on the control that renders.
     const switcher = await dialog.getByRole('button', { name: '选择要查看的 Agent 预设' }).boundingBox()
     expect(switcher?.height ?? 0, 'preset switcher').toBeGreaterThanOrEqual(44)
+
+    await dialog.getByRole('button', { name: '返回' }).click()
+    await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
+    const mcpSearch = dialog.getByRole('searchbox', { name: '搜索 MCP 服务器', exact: true })
+    await mcpSearch.waitFor({ timeout: 10_000 })
+    expect(await mcpSearch.evaluate(element => getComputedStyle(element).fontSize)).toBe('16px')
 
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)

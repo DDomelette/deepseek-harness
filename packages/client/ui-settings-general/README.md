@@ -24,7 +24,7 @@ Use this package to give the dsh web client a Settings panel, connection-recover
 
 The Settings panel uses a shared 800 × 800 layout, bounded by the viewport. Longer sections scroll inside the content column; the Account entry uses the account icon. The panel portals beside `#root` rather than inside it, so a macOS window drag region a chrome row declares later in document order cannot swallow its controls.
 
-In browsers below 768px viewport width, the panel fills the viewport and navigation becomes a horizontal strip: the title shares the first row with the header's action and close seats, the registered section cells scroll sideways on the second, and the active section fills the rest. Cells grow into spare width and hold a minimum width, and the strip scrolls instead of truncating, so a registrant's label length or a longer section roster cannot wrap or clip a name; the selected cell carries initial focus, which brings it into the strip's view. Section content keeps a 16px inline padding at that width, and the 48px gutter separating a preference label from its control narrows with it.
+Below 768px viewport width, section content keeps a 16px inline padding, and the 48px gutter separating a preference label from its control narrows with the viewport.
 
 <a id="use-this-package"></a>
 ## Use this package
@@ -33,11 +33,11 @@ Users reach the shell through the sidebar's bottom Settings control; feature plu
 
 In a browser below 768px, the body-portaled panel fills the CSS layout viewport without additional safe-area padding and covers the mask. It keeps a fixed layout height rather than measuring the software keyboard; focused controls rely on the browser’s native viewport panning.
 
-Windows and macOS desktop windows at every width, and wider browser windows, use the [frame’s shared overlay inset](../ui-layout/README.md#window-chrome-seat) and keep at least 24px of viewport margin. The mask leaves the Windows caption unpainted; the full-viewport layer still blocks background clicks. Linux windows follow the browser layout.
+Windows and macOS desktop windows at least 768px wide, and browser windows at least 768px wide, use the [frame’s shared overlay inset](../ui-layout/README.md#window-chrome-seat) and keep at least 24px of viewport margin. Narrower windows use the full-viewport layout. The mask leaves the Windows caption unpainted; the full-viewport layer still blocks background clicks. Linux windows follow the browser layout.
 
 When the page reconnects to a Host running another release, a **Service version changed** dialog draws two lines: **Service** from the Host's previous release (gray) to its current release, joined by a thin solid green arrow because the Host already switched, and **Page** from the release this page booted from to the Host's release (gray), joined by an equally thin dashed gray arrow because only a reload completes it. A line shows versions when its two versions differ and commits otherwise. The page applies no plugin update from that release. **Reload to load the new version** loads it; **Not now**, the close control, a mask click, and Escape keep the page at its own release and stop asking about that Host release. When the Host returns to the page's release, the dialog closes and live updates resume.
 
-When the section navigation exceeds the panel's available height, the list scrolls independently of the settings content and keeps the Settings title fixed; in browsers below 768px the strip scrolls along its own axis the same way.
+When the section navigation exceeds the panel's available height, the list scrolls independently of the settings content and keeps the Settings title fixed; below 768px the list scrolls vertically the same way.
 
 In Desktop, the account-row update control shows availability, progress, verification, readiness, and persistent retry feedback. It shares the connection indicator’s 28px height, 8px corners, 14px icon slot, 4px icon gap, and 12px medium text with an 18px line height; update-state border, fill, and text colors remain independently defined. Retry text and its dot use the same brand blue as other update labels; numeric download progress has no ellipsis. The preload carries semantic phase, version, progress, and classified failures; the component resolves every visible and accessible string from the active `settings` locale, including after an in-application language change. Selecting an available update starts downloading; installation requires a separate shell-owned confirmation. A collapsed sidebar shows the same status as a brand-blue dot on its top expand button, including failures. Connection feedback takes priority except during shell-reported installation, when the expected backend disconnect must not hide update status. Failure restores connection feedback. Both controls share one carrier subscription; browser code cannot choose packages or authorize installation. [Desktop updates](../../../apps/desktop/README.md) owns the release workflow. Checking, verifying, and preparing-to-restart tooltips show only the supplied version; without a version, they retain the state label. Desktop update tooltips preserve the complete version and prerelease suffix without adding v or V; their error summaries match the shell update dialogs, including guidance to exit fullscreen and retry after a fullscreen-transition timeout.
 
@@ -73,7 +73,7 @@ The shell declares settings.launcher for an account-owned sidebar menu and retai
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The shell owns the chrome and the projections; it contributes the Coding Tools and Current version rows, while feature registrants own their additional content and copy. The panel's four seats — title, header, navigation, section — are its direct children and take their places from its grid, so one markup tree serves both the desktop rail and the mobile strip.
+The shell owns the chrome and the projections; it contributes the Coding Tools and Current version rows, while feature registrants own their additional content and copy. The panel's four seats — title, header, navigation, section — are its direct children and take their places from its grid, so one markup tree serves both the desktop rail and the mobile single-pane layout.
 
 ### Ledger projections
 

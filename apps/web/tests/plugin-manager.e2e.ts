@@ -141,6 +141,7 @@ describe('web e2e: plugin manager', () => {
             }
             const actionRect = actions.getBoundingClientRect()
             const headerRect = element.getBoundingClientRect()
+            const fabRect = document.querySelector('[data-sidebar-opener]')?.getBoundingClientRect()
             const intrinsicHeading = heading.cloneNode(true) as HTMLElement
             intrinsicHeading.querySelectorAll('[data-plugin-header-part]').forEach((part) => {
               part.removeAttribute('data-plugin-header-part')
@@ -190,10 +191,11 @@ describe('web e2e: plugin manager', () => {
               infoFollowsText: info.left >= lastText.right && info.left - lastText.right <= 5
                 && info.top < lastText.bottom && info.bottom > lastText.top,
               focused: buttons.includes(document.activeElement as HTMLButtonElement),
+              clearsFab: fabRect === undefined || titleRect.left >= fabRect.right + 12,
             }
           })
           const validLayout = (layout: Awaited<ReturnType<typeof measure>>) =>
-            layout.singleLine && layout.contained && layout.infoFollowsText && layout.focused
+            layout.singleLine && layout.contained && layout.infoFollowsText && layout.focused && layout.clearsFab
             && layout.placement === (layout.fitsBeside ? 'beside' : 'below')
           for (const width of [1680, 768, 520, 440, 390, 430, 1024]) {
             await probe.setViewportSize({ width, height: 1000 })

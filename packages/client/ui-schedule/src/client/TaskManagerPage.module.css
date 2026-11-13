@@ -62,6 +62,11 @@
   margin-bottom: 24px;
 }
 
+/* The handset drawer button occupies the first 46px of the frame. */
+[data-sidebar-fab] .pageHeading {
+  padding-left: 40px;
+}
+
 /* macOS hiddenInset titlebar: the Plugins page's head carries the frame's top
    clearance above its own 28px inset, so both pages keep the same 76px total. */
 :global([data-platform='darwin']) .pageHeading {

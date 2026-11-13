@@ -87,6 +87,12 @@
   box-shadow: 0 0 0 var(--dsw-focus-ring-width) var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
 }
 
+@media (pointer: coarse) {
+  .search input {
+    font-size: 16px;
+  }
+}
+
 /* Icon-only square; the radius matches the roster cards below it. */
 .addButton {
   flex: none;

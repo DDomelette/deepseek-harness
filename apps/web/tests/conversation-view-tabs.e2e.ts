@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { createChatScrollFixture } from './chat-scroll-fixture.ts'
 import { launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newEnglishPage, revealNavigationDrawer, saveFailureShot } from './support.ts'
 
 const FIXTURE = createChatScrollFixture({
   markerPrefix: 'VIEW_TABS',
@@ -107,4 +107,26 @@ describe('web e2e: conversation view tabs', () => {
     expect(trajectory.ownsBarOverhang).toBe(true)
     expect(tripwire.pageErrors).toEqual([])
   })
+
+  it('keeps Trajectory search at the touch text size on a phone', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, locale: 'en-US' })
+    try {
+      const phone = await context.newPage()
+      const phoneConsole = watchConsole(phone)
+      await phone.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      await phone.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      await revealNavigationDrawer(phone, 'en')
+      await openSeededSession(phone)
+      const scrim = phone.locator('[data-drawer-scrim]')
+      if (await scrim.count() > 0) await scrim.waitFor({ state: 'detached' })
+      await phone.getByRole('tab', { name: 'Trajectory', exact: true }).click()
+      const search = phone.getByRole('searchbox', { name: 'Search trajectory', exact: true })
+      await search.waitFor({ timeout: 30_000 })
+      expect(await search.evaluate(element => getComputedStyle(element).fontSize)).toBe('16px')
+      expect(phoneConsole.pageErrors).toEqual([])
+      expect(phoneConsole.warnings).toEqual([])
+    } finally {
+      await context.close()
+    }
+  }, 120_000)
 })
