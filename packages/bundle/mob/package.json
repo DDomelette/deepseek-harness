@@ -2,6 +2,7 @@
   "name": "@deepseek-ai/dsh-mob",
   "description": "Phone access for the DeepSeek Harness Web UI: the settings join entry and the LAN join-URL Remote namespace.",
   "version": "0.2.2-rc.1",
+  "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
   },
@@ -36,6 +37,7 @@
     "./src/*": "./src/*"
   },
   "files": [
+    "icon.svg",
     "locale/*.json",
     "lib/index.js",
     "lib/client.js",
@@ -87,6 +89,7 @@
     "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
     "@deepseek-ai/dsh-host-frontend-static": "workspace:*",
     "@deepseek-ai/dsh-host-webserver": "workspace:*",
+    "@deepseek-ai/dsh-settings": "workspace:*",
     "@deepseek-ai/dsh-web-app": "workspace:*",
     "@testing-library/react": "^16.0.0",
     "@types/qrcode": "^1.5",

@@ -1,5 +1,6 @@
 {
   "meta": {
-    "title": "Panel de notas"
+    "title": "Acceso desde el teléfono",
+    "description": "La entrada de Ajustes que vincula un teléfono en la LAN con un código de un solo uso, y las pantallas de vinculación y sesión que abre el teléfono."
   }
 }

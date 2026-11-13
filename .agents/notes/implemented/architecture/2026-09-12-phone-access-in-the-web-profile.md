@@ -10,7 +10,7 @@ Phone access needs the same listener, browser authentication, and Host/Origin ch
 
 ## Decision
 
-The shipped `web` profile composes `@deepseek-ai/dsh-mob` after `@deepseek-ai/dsh-web-app`. Its insert-only patch registers the settings entry, the `mob` Remote namespace, and the pairing routes; it changes no listener or authentication policy. The [concrete bind decision](2026-09-19-concrete-web-bind-address.md) owns the loopback default and the explicit interface selection.
+The shipped `web` profile composes `@deepseek-ai/dsh-mob` after `@deepseek-ai/dsh-web-app`. Its insert-only patch registers the settings page, the `mob` Remote namespace, and the pairing routes; it changes no listener or authentication policy. The [concrete bind decision](2026-09-19-concrete-web-bind-address.md) owns the loopback default and the explicit interface selection.
 
 The token-free join root prefers `--public-url`, then the first `--trusted-host` with its explicit port or the listener's port, then the concrete non-loopback bind address. The listener supplies the transport. A loopback or zoned non-loopback listener without an advertised authority reports `mob/no-advertised-origin`; the settings notice names `dsh web --host <LAN-IP>` and `--public-url`. No interface discovery extends trust.
 
@@ -26,6 +26,6 @@ The panel resolves the join root before creating a short code. A missing address
 
 ## Consequences
 
-The operator starts `dsh web --host <LAN-IP>`, opens the authenticated URL printed by the launcher, and approves the phone in Settings → General → Connect phone. Ordinary `dsh web` remains local by default. A proxy can advertise its root through `--public-url` and declare its authority through `--trusted-host`.
+The operator starts `dsh web --host <LAN-IP>`, opens the authenticated URL printed by the launcher, and approves the phone in Settings → Connect phone. Ordinary `dsh web` remains local by default. A proxy can advertise its root through `--public-url` and declare its authority through `--trusted-host`.
 
 Package tests cover URL composition, permission reads, failure recovery, and Loader disposal. The browser scenario exercises a non-loopback authority with separate operator and phone contexts and records the permission and missing-address notices beside its owning test.

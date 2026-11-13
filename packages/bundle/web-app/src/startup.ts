@@ -4,11 +4,19 @@
  * and its `--help` text, then provides the immutable values as
  * {@link WEB_STARTUP_SERVICE}. Ordinary rows inject that service before
  * reading it from lazy config.
+ *
+ * The same entry owns the persistent bind policy applied when the invocation
+ * names no `--host`: its `bindMode`/`bindHost` Config fields are editable from
+ * Settings → Connect phone, so a deployment can keep one address across
+ * launches. `loopback` is the default; `auto` scans the interfaces and skips
+ * the virtual adapters a development machine lists beside the routed link.
  * @module @deepseek-ai/dsh-web-app/startup
  */
 
+import { networkInterfaces } from 'node:os'
 import { Command } from 'commander'
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
 import { isWildcardHost, type TlsConfig } from '@deepseek-ai/dsh-host-webserver'
 import { parsePublicUrl } from './public-url.ts'
@@ -21,6 +29,36 @@ export const inject = ['cmdlineArgs']
 
 /** Service provided by this ordinary plugin and injected by flag-configured rows. */
 export const WEB_STARTUP_SERVICE = 'webStartup'
+
+/** How the listener picks its bind address when the invocation names no `--host`. */
+export type BindMode = 'loopback' | 'auto' | 'fixed'
+
+/** The bind policy in force for this deployment. */
+export interface BindValues {
+  /** Policy that produced {@link BindValues.host}. */
+  mode: BindMode
+  /** Address the listener binds when the invocation named no `--host`. */
+  host: string
+}
+
+/** Configurable fallback bind policy. */
+export interface Config {
+  /**
+   * How a launch without `--host` chooses its address. `loopback` keeps the
+   * server on this machine, `fixed` uses {@link Config.bindHost}, and `auto`
+   * takes the address of the interface the default route uses, falling back to
+   * {@link Config.bindHost} and then to this machine.
+   */
+  bindMode: Volatile<BindMode>
+  /** Concrete local address `fixed` binds; `auto` uses it when detection finds nothing, and `loopback` ignores it. */
+  bindHost: Volatile<string>
+}
+
+/** Validated fallback bind policy; both fields are editable from Settings. */
+export const Config = z.object({
+  bindMode: z.union([z.const('loopback'), z.const('auto'), z.const('fixed')]).default('loopback').volatile(),
+  bindHost: z.string().default('').volatile(),
+})
 
 /** What the web rows read from {@link WEB_STARTUP_SERVICE}. */
 export interface WebStartupValues {
@@ -39,6 +77,8 @@ export interface WebStartupValues {
   trustedHosts: string[]
   /** Server certificate chain and unencrypted private key supplied together. */
   tls?: TlsConfig
+  /** Fallback the listener binds when `--host` is absent. */
+  bind: BindValues
 }
 
 /** The web flag family, as commander parsed it. */
@@ -52,6 +92,62 @@ interface WebOptions {
   tlsKey?: string
 }
 
+/** Address a listener binds when no interface is named. */
+const LOOPBACK_HOST = '127.0.0.1'
+
+/** Interface names that carry a virtual or tunnel adapter rather than the routed link. */
+const VIRTUAL_ADAPTER = /^(?:br-|docker|veth|virbr|vmnet|vboxnet|vEthernet|vmware|hyper-v|utun|tun|tap|wg|zt|tailscale|loopback)/i
+
+/**
+ * Address the listener binds under `auto`, or undefined when this machine has
+ * no usable network interface. A development machine lists virtual adapters
+ * (Docker, VMware, a WSL switch) beside the routed link, so those interface
+ * names are skipped before the first remaining IPv4 address is taken; a
+ * machine that exposes only virtual adapters still binds one of them.
+ * @returns a local IPv4 address, or undefined when no interface qualifies.
+ */
+export function detectLanAddress(): Promise<string | undefined> {
+  const candidates: { name: string; address: string }[] = []
+  for (const [name, entries] of Object.entries(networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family !== 'IPv4' || entry.internal) continue
+      if (entry.address.startsWith('169.254.')) continue
+      candidates.push({ name, address: entry.address })
+    }
+  }
+  const routed = candidates.find(candidate => !VIRTUAL_ADAPTER.test(candidate.name))
+  return Promise.resolve((routed ?? candidates[0])?.address)
+}
+
+/**
+ * Compose the fallback bind address from the saved policy.
+ * @param config - the deployment's bind policy.
+ * @param detect - address discovery for `auto`; tests substitute it.
+ * @returns the mode in force and the address it resolves to. `auto` prefers
+ *   the detected interface address and falls back to `bindHost`, which keeps
+ *   the page's address field meaningful in that mode.
+ * @throws when `fixed` names no address, so a saved edit cannot silently fall
+ *   back to loopback while the page shows an address.
+ */
+export async function resolveBind(
+  config: { bindMode: BindMode; bindHost: string },
+  detect: () => Promise<string | undefined> = detectLanAddress,
+): Promise<BindValues> {
+  const mode = config.bindMode
+  if (mode === 'loopback') return { mode, host: LOOPBACK_HOST }
+  if (mode === 'fixed') {
+    const host = config.bindHost.trim()
+    if (host === '') {
+      throw new Error('web-startup: bindMode "fixed" needs bindHost; set the address in Settings → Connect phone, or pass --host')
+    }
+    return { mode, host }
+  }
+  const detected = await detect()
+  if (detected !== undefined) return { mode, host: detected }
+  const saved = config.bindHost.trim()
+  return { mode, host: saved === '' ? LOOPBACK_HOST : saved }
+}
+
 /**
  * This app's command: its flags, its description, and its help text.
  * @returns a fresh program, so one process can parse more than once (tests).
@@ -61,7 +157,7 @@ function webCommand(): Command {
     .name('dsh --profile web')
     .description('Serve the DeepSeek Harness browser UI.')
     .helpOption('-h, --help', 'show this help')
-    .option('--host <host>', 'bind address: one concrete IPv4 or IPv6 literal of a local interface; wildcard addresses are rejected')
+    .option('--host <host>', 'bind address: one concrete IPv4 or IPv6 literal of a local interface; wildcard addresses are rejected, and this overrides the address saved in Settings')
     .option('--no-open', 'do not open the Web UI in the default browser')
     .option('--port <port>', 'listen port; pass 0 to let the OS pick a free one')
     .option('--public-url <url>', 'advertise this HTTP(S) root in the printed, opened, runtime-context, and DSH_WEB_URL forms; grants no trust')
@@ -83,13 +179,19 @@ Examples:
 
 /**
  * Parse and provide the Web invocation as an ordinary Cordis service. The
- * command's action publishes the flags this invocation named. Invalid flags,
- * including an unpaired TLS certificate or key, are usage errors; rejection
- * and `--help` provide no service.
+ * command's action records the flags this invocation named; the service is
+ * published once the fallback bind address is known, so a dependent row's
+ * config expression reads a settled value. Invalid flags, including an unpaired
+ * TLS certificate or key, are usage errors; rejection and `--help` provide no
+ * service.
  * @param ctx - plugin context carrying the command line.
+ * @param config - validated fallback bind policy.
+ * @returns settlement after the service is published, or nothing when the
+ *   invocation asked for help or was rejected.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config): Promise<void> | undefined {
   const program = webCommand()
+  let invocation: Omit<WebStartupValues, 'bind'> | undefined
   program.action(() => {
     const options = program.opts<WebOptions>()
     if (options.host !== undefined && isWildcardHost(options.host)) {
@@ -111,14 +213,32 @@ export function apply(ctx: Context): void {
         program.error(`error: ${(error as Error).message}`)
       }
     }
-    ctx.provide(WEB_STARTUP_SERVICE, {
+    invocation = {
       openBrowser: options.open,
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
       ...options.publicUrl !== undefined && { publicUrl: options.publicUrl },
       ...tls !== undefined && { tls },
       trustedHosts: options.trustedHost ?? [],
-    } satisfies WebStartupValues)
+    }
   })
   parseCmdline(ctx, program)
+  if (invocation === undefined) return undefined
+  return publish(ctx, invocation, config)
+}
+
+/**
+ * Publish the parsed invocation once the fallback bind address settles.
+ * @param ctx - plugin context providing the service.
+ * @param invocation - the flag values this invocation named.
+ * @param config - validated fallback bind policy.
+ * @returns settlement after publication.
+ */
+async function publish(
+  ctx: Context,
+  invocation: Omit<WebStartupValues, 'bind'>,
+  config: Config,
+): Promise<void> {
+  const bind = await resolveBind({ bindMode: config.bindMode.get(), bindHost: config.bindHost.get() })
+  ctx.provide(WEB_STARTUP_SERVICE, { ...invocation, bind } satisfies WebStartupValues)
 }

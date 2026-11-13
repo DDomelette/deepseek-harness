@@ -932,10 +932,12 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       baseUrl = `http://${publicHost}:${String(publicProxy.port)}${publicPrefix}`
     }
     authenticatedUrl = ctx.connection.authenticatedUrl(baseUrl)
-    // Chromium resolves *.localhost itself; Node may not. Both scaffold
-    // listeners bind loopback, including the optional prefix proxy.
+    // Chromium resolves the *.localhost aliases itself; Node may not, so those
+    // exchanges go over loopback. A declared listener (bindHost) is reachable
+    // under its own authority, and the cookie it returns must name that
+    // authority because the browser visits it.
     const loginUrl = new URL(authenticatedUrl)
-    loginUrl.hostname = '127.0.0.1'
+    if (loginUrl.hostname.endsWith('.localhost')) loginUrl.hostname = '127.0.0.1'
     const login = await fetch(loginUrl, { redirect: 'manual' })
     const setCookie = login.headers.get('set-cookie')
     if (login.status !== 303 || login.headers.get('location') !== './' || setCookie === null) {

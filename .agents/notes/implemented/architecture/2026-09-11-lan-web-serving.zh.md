@@ -14,7 +14,7 @@ Status: implemented
 
 `web` profile 组合了手机接入组合包（`@deepseek-ai/dsh-mob`），因此在局域网提供服务只有上面这条 CLI 路径：该组合包不打任何补丁，绑定来自该次调用的 host 或行回退值，挂载时的 stderr 警告伴随该绑定。该层自身的决策归[手机接入归入 web profile](2026-09-12-phone-access-in-the-web-profile.zh.md)所有。
 
-`mob` bundle 同时携带浏览器半层：设置 → 通用设置中的「连接手机」行打开配对面板，它通过 `POST /pair/session` 向 Host 申请一次性短码，把不带进程令牌的 `/pair?c=<code>` 链接（局域网 origin）渲染成二维码，并把待确认的请求与已配对的设备并列展示。[手机设备配对](../feature/2026-09-12-phone-device-pairing.zh.md)拥有该握手及其签发的设备 cookie；`mob.joinUrl` Remote 方法仍经共享的 `resolveJoinUrl` helper 从同一份栅栏快照拼出局域网 origin。快照为空时，loopback 绑定以 `mob/loopback-only` 失败，而 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败，因为两者的纠正方式不同（启用局域网绑定，或修复本机网络）。
+`mob` bundle 同时携带浏览器半层：设置中的「连接手机」页面打开配对面板，它通过 `POST /pair/session` 向 Host 申请一次性短码，把不带进程令牌的 `/pair?c=<code>` 链接（局域网 origin）渲染成二维码，并把待确认的请求与已配对的设备并列展示。[手机设备配对](../feature/2026-09-12-phone-device-pairing.zh.md)拥有该握手及其签发的设备 cookie；`mob.joinUrl` Remote 方法仍经共享的 `resolveJoinUrl` helper 从同一份栅栏快照拼出局域网 origin。快照为空时，loopback 绑定以 `mob/loopback-only` 失败，而 all-interfaces 绑定推导不出可达地址时以 `mob/no-lan-address` 失败，因为两者的纠正方式不同（启用局域网绑定，或修复本机网络）。
 
 ## 曾考虑的替代方案
 

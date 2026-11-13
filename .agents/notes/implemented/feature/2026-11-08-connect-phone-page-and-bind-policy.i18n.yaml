@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for 2026-11-08-connect-phone-page-and-bind-policy.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-11-08-connect-phone-page-and-bind-policy.md
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy:
+  en: 4546d2579b73c3e9
+  zh: 891e2d85d4b85954
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/problem:
+  en: de4cd6347dec3d21
+  zh: 736aa0bb134df30b
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/decision:
+  en: e913fb84b8a4413d
+  zh: 43afaa30341ef4f1
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/alternatives-considered:
+  en: 5c6fc59a61028078
+  zh: 7946e8d132f502b3
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/consequences:
+  en: e988dc0ab46bc7c5
+  zh: bf0b8cd5a3d456bf
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/testing:
+  en: 43632f60bfd6c279
+  zh: 1be4351c7dd696ce
+/agent-note-connect-phone-settings-page-and-the-saved-bind-policy/related:
+  en: f159c40055f5b49e
+  zh: 90952559482f5507

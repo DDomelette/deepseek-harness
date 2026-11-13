@@ -15,7 +15,7 @@ vi.mock('qrcode/lib/browser.js', () => ({
 }))
 
 import { PairingPanel } from '../src/client/PairingPanel.tsx'
-import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
   PairedDeviceView, PairingApi, PairingResult, PairingSessionView, PendingPairingView,
 } from '../src/client/pairing-api.ts'
@@ -100,19 +100,26 @@ function fakeApi(script: Script = {}): FakeApi {
   const purge = vi.fn(async (): Promise<PairingResult<void>> => script.purge ?? { ok: true, value: undefined })
   const rename = vi.fn(async (): Promise<PairingResult<void>> => script.rename ?? { ok: true, value: undefined })
   const setLifetime = vi.fn(async (): Promise<PairingResult<void>> => script.setLifetime ?? { ok: true, value: undefined })
+  // The panel never opens the bind policy; the page owns it.
+  const bind = vi.fn(async (): Promise<PairingResult<{ bindMode: 'loopback'; bindHost: string }>> =>
+    ({ ok: true, value: { bindMode: 'loopback', bindHost: '' } }))
+  const saveBind = vi.fn(async (policy: { bindMode: 'loopback'; bindHost: string }) =>
+    ({ ok: true as const, value: policy }))
   return {
-    api: { open, requests, decide, devices, revoke, restore, purge, rename, setLifetime },
+    api: { open, requests, decide, devices, revoke, restore, purge, rename, setLifetime, bind, saveBind },
     open, requests, decide, devices, revoke, restore, purge, rename, setLifetime,
   }
 }
 
-const okJoin: ConnectPhoneRowInjected['joinUrl'] = async () => ({ ok: true, value: JOIN_URL })
-const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): ConnectPhoneRowInjected['joinUrl'] =>
+type JoinUrlRead = () => Promise<RemoteResult<string>>
+
+const okJoin: JoinUrlRead = async () => ({ ok: true, value: JOIN_URL })
+const refusedJoin = (code: 'mob/no-advertised-origin' | 'gateway/internal'): JoinUrlRead =>
   async () => ({ ok: false, error: new RemoteError(code, 'refused', {}) })
 
 async function mount(options: {
   api?: FakeApi
-  joinUrl?: ConnectPhoneRowInjected['joinUrl']
+  joinUrl?: JoinUrlRead
 } = {}): Promise<FakeApi> {
   const subject = options.api ?? fakeApi()
   await act(async () => { render(<PairingPanel

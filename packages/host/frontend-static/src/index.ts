@@ -194,6 +194,23 @@ export function apply(ctx: Context, config: Config): void {
       ? { access: admitted, response: new Response(body, { status, headers }) }
       : { access: admitted }
   }
+  // A named Host route serves its own page over this deployment's shell; the
+  // dist anchor stays here, so a caller never needs the build path.
+  ctx.provide(FRONTEND_SERVICE, {
+    renderIndex: async (): Promise<string | undefined> => {
+      let html: string
+      try {
+        html = await readFile(distIndex, 'utf8')
+      } catch (error) {
+        if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
+        return undefined
+      }
+      const rendered = ctx.webServer.renderIndex(html, ctx.connection.browserPeer)
+      // The dist is built for a relative base; a page served below the site
+      // root anchors its asset URLs there instead of under its own directory.
+      return rendered.replace(/<head(?:\s[^>]*)?>/i, open => open + '<base href="./">')
+    },
+  })
   ctx.effect(() => ctx.webServer.registerFallback({
     resource: (request, peer, remoteAddress) => {
       let authRequired = false

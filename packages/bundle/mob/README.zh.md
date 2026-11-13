@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-启动 `dsh web --host <LAN-IP>`，再打开 设置 → 通用设置 → 连接手机，即可为同一网络中的手机配对：面板申请一次性短码，把 `/pair?c=<code>` 链接渲染成二维码，并对每个请求的手机做出决定。该层在 `web` 表层之上加入这个加入入口与应答它的 `mob` Remote 命名空间；局域网绑定及其警告、操作者令牌交换与签名 cookie 认证仍是 `dsh web` 的行为。监听器支持 HTTP 和配置的 TLS；仅在可信网络上使用明文 HTTP。
+启动 `dsh web`，再打开 设置 → 连接手机，即可为同一网络中的手机配对：该页面保存下次启动所用的绑定地址、申请一次性短码、把 `/pair?c=<code>` 链接渲染成二维码，并对每个请求的手机做出决定。该层在 `web` 表层之上加入这个设置页与应答它的 `mob` Remote 命名空间；局域网绑定及其警告、操作者令牌交换与签名 cookie 认证仍是 `dsh web` 的行为。监听器支持 HTTP 和配置的 TLS；仅在可信网络上使用明文 HTTP。
 
 ## 目录
 
@@ -33,11 +33,11 @@ dsh web --host 192.168.1.5
 dsh web --host 192.168.1.5 --port 8080
 ```
 
-`web` profile 组合了本组合包。普通 `dsh web` 仅绑定回环地址；同一网络的手机接入时，请像上例一样用 `--host` 指定电脑的具体局域网 IP。`0.0.0.0` 等通配地址会被拒绝。在电脑上打开启动器打印的认证 URL，再打开 设置 → 通用设置 → 连接手机。直接访问绑定 IP 无需重复声明 `--trusted-host`；代理通过 `--public-url` 声明浏览器访问的根 URL，通过 `--trusted-host` 声明主体。启动令牌应保留在电脑上：手机通过配对获得自己的设备 cookie。
+`web` profile 组合了本组合包。普通 `dsh web` 仅绑定回环地址；同一网络的手机接入时，可以像上例那样用 `--host` 指定电脑的具体局域网 IP，也可以先打开「连接手机」页面选择「自动（局域网）」并重启——保存的策略会在启动时绑定默认路由网卡的地址，并跳过虚拟网卡。`--host` 在该次启动中覆盖保存的策略，两种方式都拒绝 `0.0.0.0` 之类的通配地址。在电脑上打开启动器打印的认证 URL，再打开 设置 → 连接手机。直接访问绑定 IP 无需重复声明 `--trusted-host`；代理通过 `--public-url` 声明浏览器访问的根 URL，通过 `--trusted-host` 声明主体。启动令牌应保留在电脑上：手机通过配对获得自己的设备 cookie。
 
 ### 从桌面会话交接
 
-浏览器半层在 设置 → 通用设置 中加入「连接手机」行，它是唯一的加入入口——终端不打印任何内容。该行打开配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以部署声明的 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——生成的短码只有在手机打开配对页面领取后才会进入列表，因此「允许」永远不会注册一台没有手机持有的设备；每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，每行带有可编辑的名称、批准时从 ARP 表解析到的 MAC 地址（解析得到时）、添加时间、最近一次通过认证的时间，以及一个「吊销凭证」按钮，把设备移入回收站：该设备的下一次请求即失效，而在操作者彻底删除之前，条目仍可恢复。面板先读取仅操作者可访问的设备列表：成功时启用管理操作，禁止访问时说明需要启动器凭据，临时读取失败时提供重试。通过局域网主体认证的操作者可以管理配对，已配对手机则不能。缺少手机访问地址时，`mob/no-advertised-origin` 提示配置具体的 `--host` 或对外声明的 `--public-url`，并且不会创建短码。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。决定与设备操作一次只跑一个：在途时落下的第二次点击会被忽略，因此双击不会被上报成失败，而后来的成功会清除失败提示；已决定的请求会立即离开列表。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、手机仍持有一张较短凭证（下一次请求即续期）时的 `{days} 天（手机凭证剩余 {remaining} 天）`、手机实际持有的凭证已经过期的「凭证已失效，需重新配对」、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的「凭证有效期」下拉菜单——`1`/`7`/`30`/`90` 天档位，以及用于任意天数的「自定义…」——会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长也在手机下一次请求时续期，前提是它当前的 cookie 仍然有效——已经失效的凭证必须重新配对。列表上方的一行文案提示：不再使用或经过不受信任网络的设备请吊销，吊销的设备会留在回收站，可以恢复或彻底删除。
+浏览器半层在「模型」旁边加入「连接手机」设置页，它是唯一的加入入口——终端不打印任何内容。页面先给出部署的地址——本页运行的地址、手机能否访问，以及保存的绑定方式（「仅本机」「自动（局域网）」「固定 IP」）与其地址输入框——输入框在任何模式下都保持可见，改动在 `dsh web` 重启后生效——然后是配对面板：「生成配对码」通过 `POST /pair/session` 向 Host 申请短码，以部署声明的 origin 拼出不带进程令牌的 `/pair?c=<code>` 链接，并把该链接渲染成二维码，旁边显示短码与剩余秒数。随后面板列出待确认的请求——生成的短码只有在手机打开配对页面领取后才会进入列表，因此「允许」永远不会注册一台没有手机持有的设备；每条都带有从手机 agent 推导出的设备名称，可在「允许」或「拒绝」之前修改——以及已配对的设备，每行带有可编辑的名称、批准时从 ARP 表解析到的 MAC 地址（解析得到时）、添加时间、最近一次通过认证的时间，以及一个「吊销凭证」按钮，把设备移入回收站：该设备的下一次请求即失效，而在操作者彻底删除之前，条目仍可恢复。面板先读取仅操作者可访问的设备列表：成功时启用管理操作，禁止访问时说明需要启动器凭据，临时读取失败时提供重试。通过局域网主体认证的操作者可以管理配对，已配对手机则不能。缺少手机访问地址时，`mob/no-advertised-origin` 指明要配置的地址——保存的绑定方式、`--host` 或对外声明的 `--public-url`——并且不会创建短码。所有操作都走手机端使用的同一批 `/pair*` 路由，因此守护「决定」的本机操作者认证规则只有一个执行点。决定与设备操作一次只跑一个：在途时落下的第二次点击会被忽略，因此双击不会被上报成失败，而后来的成功会清除失败提示；已决定的请求会立即离开列表。每条已配对设备还会显示寿命：`{days} 天（剩余 {remaining} 天）`、手机仍持有一张较短凭证（下一次请求即续期）时的 `{days} 天（手机凭证剩余 {remaining} 天）`、手机实际持有的凭证已经过期的「凭证已失效，需重新配对」、窗口已过的「已过期」，或旧条目在操作者设定天数之前的 `—`（旧条目仍按 cookie 载荷里的到期时间运行）。该行的「凭证有效期」下拉菜单——`1`/`7`/`30`/`90` 天档位，以及用于任意天数的「自定义…」——会重新开始该设备的倒计时；缩短在手机下一次请求即生效，延长也在手机下一次请求时续期，前提是它当前的 cookie 仍然有效——已经失效的凭证必须重新配对。列表上方的一行文案提示：不再使用或经过不受信任网络的设备请吊销，吊销的设备会留在回收站，可以恢复或彻底删除。
 
 ### 配对一台手机
 
@@ -61,17 +61,19 @@ dsh web --host 192.168.1.5 --port 8080
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-quick-join` 行，以 `webServer` 与 `webStartup` 注入挂载本包的插件，不改动其他任何内容。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置弹窗提供服务——以及承载配对握手的十一条 `/pair*` 具名路由。
+本组合包由一份只做插入的 patch 加一个双脸插件组成。patch 加入 `mob-join` 行，以 `webServer` 与 `connection` 注入挂载本包的插件，不改动其他任何内容；`mob` 命名空间背后的控制器在此之上还要求 `webStartup`，用来拼出对外公布的原点。插件的 apply 挂载两件东西：`MobJoinController`——`mob` Remote 命名空间背后的 Host 服务，其 `joinUrl` 方法为设置页提供服务——以及承载配对握手的十一条 `/pair*` 具名路由。
 
 ### 部署声明的 origin
 
 加入根 URL 依次优先使用部署的 `--public-url`、第一个 `--trusted-host` 和具体的非回环监听地址。受信主体保留其显式端口，否则使用绑定端口。监听器提供 HTTP 或 HTTPS 协议，IPv6 字面量使用方括号。回环绑定或带区域标识的非回环绑定在未声明外部主体时以 `mob/no-advertised-origin` 失败。该值不带进程令牌。
 
+页面里的「访问地址」通过经操作者认证的 `/pair/bind` 路由写入 `dsh-web-app` 启动项的 `bindMode`/`bindHost` 配置：「仅本机」保持 `127.0.0.1`，「自动（局域网）」在启动时解析默认路由网卡， 「固定 IP」绑定填写的地址。该解析与回落归 `dsh-web-app` 所有；本层只编辑策略，并报告 Host 声明的 origin 是否可达。
+
 ### 源码地图
 
 | 文件 | 作用 |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | `mob-quick-join` 插入；不针对任何既有行 |
+| [`cordis.patch.yml`](cordis.patch.yml) | `mob-join` 插入；不针对任何既有行 |
 | [`src/index.ts`](src/index.ts) | Host 半层：只挂载 `mob` Remote 命名空间 |
 | [`src/join-url.ts`](src/join-url.ts) | Remote 方法调用的共享 URL 拼装器 |
 | [`src/controller.ts`](src/controller.ts) | `MobJoinController`：`mob` Remote 命名空间的 `joinUrl`，把未声明 origin 的部署分类为 `mob/no-advertised-origin` |
@@ -79,9 +81,12 @@ dsh web --host 192.168.1.5 --port 8080
 | [`src/pairing.ts`](src/pairing.ts) | 配对会话：8 位短码、两分钟寿命、每码一次决定，以及只统计"未命中活动短码"读取的按来源限流 |
 | [`src/routes.ts`](src/routes.ts) | `/pair*` 具名路由：手机侧的外壳与无 cookie 状态读取，以及经操作者认证的决定 |
 | [`src/client/PairScreen.tsx`](src/client/PairScreen.tsx) | 手机端配对界面：启动事实、状态轮询与按决定显示的文案 |
-| [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」行、配对面板与 `settings.mobile` 字典 |
+| [`src/client/`](src/client/index.ts) | 浏览器半层：「连接手机」设置页、配对面板与 `settings.mobile` 字典 |
+| [`src/client/MobileSection.tsx`](src/client/MobileSection.tsx) | 设置页：部署地址与保存的绑定方式，位于配对面板上方 |
+| [`src/client/bind-settings.ts`](src/client/bind-settings.ts) | 启动项的设置命名空间，以及页面编辑的 `bindMode`/`bindHost` 字段 |
 | [`src/client/PairingPanel.tsx`](src/client/PairingPanel.tsx) | 电脑端配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`src/client/pairing-api.ts`](src/client/pairing-api.ts) | 面板调用 `/pair*` 路由的客户端半边，含设备名与配对 URL 两个 helper |
+| [`locale/*.json`](locale/en.json)、[`icon.svg`](icon.svg) | 插件管理页里本行的标题、描述与图标，从不激活插件的包导出资源读取 |
 | — | 不发布运行时不变量伴随件；每个可观察效果都在每次调用时从部署声明的 origin 推导（见下文不变量归属）。 |
 | [`tests/mob.spec.ts`](tests/mob.spec.ts) | Host 半层：命名空间注册、加入应答、销毁 |
 | [`tests/web-profile-composition.spec.ts`](tests/web-profile-composition.spec.ts) | 真实 Loader 组合的 `web` profile：部署声明的 origin 与 `mob/no-advertised-origin` |
@@ -91,8 +96,8 @@ dsh web --host 192.168.1.5 --port 8080
 | [`tests/pair.client.spec.tsx`](tests/pair.client.spec.tsx) | 配对界面：轮询、批准后跳转与各决定对应的文案 |
 | [`tests/panel.client.spec.tsx`](tests/panel.client.spec.tsx) | 配对面板：短码与倒计时、允许/拒绝、设备列表与回收站 |
 | [`tests/pairing-api.client.spec.ts`](tests/pairing-api.client.spec.ts) | 配对路由的客户端半边：请求形状、应答解析与 helper |
-| [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 行注册、延后槽位声明、注入的 `joinUrl` 与销毁 |
-| [`tests/row.client.spec.tsx`](tests/row.client.spec.tsx) | 行与弹窗：加载、二维码渲染、启动提示、关闭与重开 |
+| [`tests/apply.client.spec.ts`](tests/apply.client.spec.ts) | 设置页注册、延后槽位声明、注入的 `joinUrl` 与绑定写入、销毁 |
+| [`tests/section.client.spec.tsx`](tests/section.client.spec.tsx) | 设置页：地址状态、绑定方式写入、配对面板与只读部署 |
 
 ### 不变量归属
 
@@ -132,9 +137,11 @@ dsh web --host 192.168.1.5 --port 8080
 - **HTTP 会向网络暴露凭据**——请使用可信网络或配置监听器的 TLS 支持；[dsh-web-app](../web-app/README.zh.md) 负责传输与认证配置。
 - **局域网明文 HTTP 不是 secure context（安全上下文）**——手机浏览器在明文局域网 HTTP 下没有 `navigator.serviceWorker`，因此 service worker 不会注册、Android 不会出现安装提示；iOS 仍可靠支持通过 `apple-mobile-web-app-capable` 添加到主屏。请配置 HTTPS 以使用需要安全上下文的浏览器功能。
 - **iOS 主屏应用没有后台 WebSocket**——iOS 会在应用进入后台时将其挂起，回到前台时由现有 Connection generation 重连与 Remote journal stream 的恢复 cursor 恢复数据流。
-- **地址靠配置而非探测**——加入根 URL 使用 `--public-url`、受信主体或具体的非回环绑定地址。网卡扫描不会扩展信任。
+- **地址靠配置而非探测**——加入根 URL 使用 `--public-url`、受信主体或具体的非回环绑定地址。网卡扫描不会扩展信任；「自动（局域网）」绑定的是操作系统报告的默认路由网卡，而不是页面探测到的地址。
+- **保存的绑定方式在下次启动生效**——监听器在任何页面加载前就已绑定，因此页面只保存策略，并说明需要重启 `dsh web`。
+- **换地址或端口会让每台手机重新配对**——设备 cookie 的名称与签名都绑定它的 authority（`host:port`），因此改动绑定地址或 `--port` 都会让已配对手机失效：重新配对后把旧行吊销。`n- **已配对手机既不能读也不能改绑定策略**——该路由与其他决定走同一条操作者规则，因此手机只看到地址信息；操作者可以从自己打开的任何页面（包括局域网地址）修改策略。
 - **通配绑定会被拒绝**——`dsh web` 拒绝 `--host 0.0.0.0` 和 `--host ::`，请改用一个接口地址。
-- **未声明 origin 的部署不提供加入 URL**——「连接手机」弹窗以 `mob/no-advertised-origin` 失败并指出需要添加的旗标；`dsh-web-app` 的就绪行仍是唯一打印出的 URL。
+- **未声明 origin 的部署不提供加入 URL**——「连接手机」页面以 `mob/no-advertised-origin` 失败并指出可提供地址的模式；`dsh-web-app` 的就绪行仍是唯一打印出的 URL。
 
 <a id="dev-note"></a>
 ### 开发备注

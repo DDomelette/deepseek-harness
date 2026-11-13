@@ -106,6 +106,9 @@
     },
     {
       "path": "../../web/web"
+    },
+    {
+      "path": "../../client/connection/tsconfig.host.json"
     }
   ]
 }

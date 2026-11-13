@@ -45,6 +45,8 @@ Root and configured-index requests pass the HTTP socket address to `ctx.connecti
 
 Static files outside the index are public.
 
+A named Host route that serves its own page asks this package for the shell through the `frontend` service: `renderIndex()` returns the rendered index with the document base spliced in after the head tag, or `undefined` when the dist has no readable index, which the caller answers. [`dsh-mob`](../../bundle/mob/README.md) serves its `/pair` screen this way, so a phone receives the same boot manifest as `/`.
+
 Browsers revalidate every served file except the index. Such a response carries `cache-control: no-cache` and a weak ETag built from a SHA-1 of the file's bytes, so a file whose content changes gets a new ETag even when its name stays the same; a request whose `If-None-Match` equals the current ETag receives an empty 304. The rendered index carries no cache headers.
 
 ### Observable failures
@@ -61,7 +63,7 @@ Traversal returns 403 rather than an error page. An absent or non-file target in
 
 ### Design concept
 
-The package is one function plugin around `serveStatic`, which maps a Fetch `Request` to a `Response`: `apply` resolves the dist root from `distIndex` and registers a fallback resource under an effect scope. For each request the resource passes `serveStatic` an `authorizeIndex` closure, which runs `ctx.connection.authorizeIndex` only when no Peer came with the request, and a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html` for that Peer or the browser Peer and splices the document base in after the opening head tag (after the raw taps, so it precedes their markup too). The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
+The package is one function plugin around `serveStatic`, which maps a Fetch `Request` to a `Response`: `apply` resolves the dist root from `distIndex` and registers a fallback resource under an effect scope. For each request the resource passes `serveStatic` an `authorizeIndex` closure, which runs `ctx.connection.authorizeIndex` only when no Peer came with the request, and a `renderIndex` closure that runs `ctx.webServer.renderIndex` over the raw `index.html` for that Peer or the browser Peer and splices the document base in after the opening head tag (after the raw taps, so it precedes their markup too). `apply` also provides the `frontend` service, whose `renderIndex` runs that renderer for a named Host route's page. The seat is single-owner by the webserver's contract — a second registration throws — and effect-scoped, so disposing the fiber releases the seat.
 
 ### The traversal fence
 

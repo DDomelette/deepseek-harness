@@ -1157,6 +1157,22 @@ describe('connection device registry handle', () => {
     }
   })
 
+  it('keeps the operator on a declared authority that has no loopback listener', async () => {
+    const { connection, dispose } = await mounted(undefined, 'http:', { host: '192.168.0.126' })
+    try {
+      const authority = '192.168.0.126:3080'
+      const cookie = browserCookie(connection, authority)
+      const remote = fakeRequest({ host: authority, cookie })
+      Object.assign(remote.socket, { remoteAddress: '192.168.0.122' })
+      expect(connection.isLocalOperatorRequest(remote)).toBe(true)
+      const device = await connection.devices.register({ label: 'phone' })
+      const deviceCookie = connection.devices.issueCookie(fakeRequest({ host: authority }), device.id)!.split(';', 1)[0]!
+      expect(connection.isLocalOperatorRequest(fakeRequest({ host: authority, cookie: deviceCookie }))).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
   it('redeems the launch token on the bound listener authority', async () => {
     const { ctx, connection, dispose } = await mounted()
     Object.assign(ctx.get('webServer')!, { host: '192.0.2.10', port: 3080 })

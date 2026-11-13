@@ -15,7 +15,8 @@ import { isRemoteAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { isDeclaredAuthority } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import { listDevices, purgeDevice, registerDevice, renameDevice, restoreDevice, revokeDevice, setDeviceLifetime, touchDevice } from './devices.ts'
-import { isLoopbackPeer, requestAuthority } from './request-authority.ts'
+import { isLoopbackPeer, requestAuthority, requestHostname } from './request-authority.ts'
+import { isLoopbackHostname } from './loopback-hostname.ts'
 import type { PairedDeviceId } from './device-brand.ts'
 import type { ConnectionIndexAccess, HostConnectionDevices } from './rpc.ts'
 import type { BrowserAuth } from './browser-auth.ts'
@@ -81,6 +82,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
   private readonly devicePeers = new Map<PairedDeviceId, Peer>()
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
+  /** Shared-channel endpoints only the operator's browser Peer may invoke. */
+  private readonly operatorOnlyEndpoints = new Set<string>()
 
   readonly allowsRemoteAuthorities: boolean
 
@@ -247,6 +250,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
         const interceptor = this.interceptors.get(channel)
         if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
           return Promise.resolve(new Response('not found', { status: 404 }))
+        }
+        if (!this.allowsEndpoint(peer, endpoint)) {
+          return Promise.resolve(new Response('forbidden', { status: 403 }))
         }
         return interceptor.fetchHandler.fetch(request, peer)
       },
@@ -459,7 +465,40 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Whether the local operator's launch-token cookie authorizes device management. */
   isLocalOperatorRequest(request: ConnectionTrustRequest): boolean {
-    return isLoopbackPeer(request) && this.browserAuth.isLocalOperator(request, this.redeemsToken)
+    const hostname = requestHostname(request.headers)
+    if (hostname === undefined) return false
+    // A loopback authority also demands an actual loopback TCP peer; a declared
+    // authority (the bound address or --trusted-host) is reachable only through
+    // itself, and its launch-token cookie already proves the operator.
+    return this.browserAuth.isLocalOperator(request, this.redeemsToken)
+      && (!isLoopbackHostname(hostname) || isLoopbackPeer(request))
+  }
+
+  /**
+   * Reserve one shared-channel endpoint to the operator's browser Peer.
+   * @param endpoint - exact endpoint text after the channel, e.g. `settings/mutate`.
+   * @returns disposer releasing the reservation.
+   */
+  reserveOperatorOnly(endpoint: string): () => void {
+    if (endpoint === '' || endpoint.includes('?')) {
+      throw new Error(`connection: reserved endpoint ${JSON.stringify(endpoint)} is not a shared-channel endpoint`)
+    }
+    this.operatorOnlyEndpoints.add(endpoint)
+    return () => {
+      this.operatorOnlyEndpoints.delete(endpoint)
+    }
+  }
+
+  /**
+   * Whether an admitted Peer may invoke one shared-channel endpoint. A paired
+   * device authenticates the use of the agent, never the administration of the
+   * Host, so a reserved endpoint refuses every Peer but the operator's.
+   * @param peer - Peer the request was admitted as.
+   * @param endpoint - endpoint text after the channel.
+   * @returns true when the endpoint is unreserved or the caller is the operator.
+   */
+  private allowsEndpoint(peer: PeerScope, endpoint: string): boolean {
+    return peer === this.browserPeer || !this.operatorOnlyEndpoints.has(endpoint)
   }
 
   /** The launch-token caller scope; paired devices receive their own scopes. */

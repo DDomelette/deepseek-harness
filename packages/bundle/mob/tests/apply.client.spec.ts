@@ -1,4 +1,4 @@
-/** Connect-phone row registration: slot entry, locale dictionaries, injected joinUrl read, disposal. */
+/** Connect-phone settings page registration: slot entry, dictionaries, injected face, disposal. */
 
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -6,14 +6,13 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '../src/client/index.ts'
-import { ConnectPhoneRow } from '../src/client/ConnectPhoneRow.tsx'
-import type { ConnectPhoneRowInjected } from '../src/client/ConnectPhoneRow.tsx'
+import { MobileSection, type MobileSectionInjected } from '../src/client/MobileSection.tsx'
 import { AuthRequiredScreen, type AuthRequiredScreenInjected } from '../src/client/AuthRequiredScreen.tsx'
 import { PairScreen, type PairScreenInjected } from '../src/client/PairScreen.tsx'
 
 /** The children the shell declares for this suite's registrations. */
 const SHELL_CHILDREN = {
-  'settings.general.item': { kind: 'list', scope: 'root' },
+  'settings.section': { kind: 'list', scope: 'root' },
   'shell.overlay': { kind: 'list', scope: 'root' },
 } as const
 
@@ -48,36 +47,42 @@ describe('dsh-mob client apply', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.mob'])
   })
 
-  it('registers the Connect-phone row into the General item slot', async () => {
+  it('registers the Connect-phone page as a settings section', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.general.item')[0]!
-    expect(entry.component).toBe(ConnectPhoneRow)
-    expect(entry.options).toMatchObject({ id: 'connect-phone', order: 30 })
+    const entry = b.slots.entries('settings.section')[0]!
+    expect(entry.component).toBe(MobileSection)
+    expect(entry.options).toMatchObject({ id: 'mobile', order: 12 })
+    expect(typeof entry.options.label).toBe('function')
+    expect((entry.options.label as () => string)()).toBe('连接手机')
   })
 
   it('registers into a declaration that arrives after apply, and leaves on disposal', async () => {
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries('settings.general.item')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
 
     declare(b.slots)
-    await vi.waitFor(() => { expect(b.slots.entries('settings.general.item')).toHaveLength(1) })
+    await vi.waitFor(() => { expect(b.slots.entries('settings.section')).toHaveLength(1) })
 
     await fiber.dispose()
-    expect(b.slots.entries('settings.general.item')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
   })
 
-  it('reads the join URL through the mob Remote namespace', async () => {
+  it('reads the join URL through the mob Remote namespace and shares one pairing client', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.general.item')[0]!
-    const injected = entry.inject as unknown as () => ConnectPhoneRowInjected
+    const entry = b.slots.entries('settings.section')[0]!
+    const injected = entry.inject as unknown as () => MobileSectionInjected
     await expect(injected().joinUrl()).resolves.toEqual({ ok: true, value: 'http://192.168.1.5:3080/' })
     expect(b.joinUrl).toHaveBeenCalledOnce()
+    // The page and its pairing panel speak the same client, so one operator
+    // check and one route table serve both.
+    expect(typeof injected().api?.bind).toBe('function')
+    expect(typeof injected().api?.saveBind).toBe('function')
   })
 
   it('registers the pairing screen only when the page carries the pairing boot fact', async () => {

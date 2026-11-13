@@ -1,6 +1,7 @@
 /**
  * The Web command-line provider over a real Loader tree: its ordinary service
- * releases a consumer whose config reads `ctx.webStartup` directly.
+ * releases a consumer whose config reads `ctx.webStartup` directly, and the
+ * fallback bind policy decides the address a launch without `--host` uses.
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -11,14 +12,30 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import { internals, provideCmdline } from '@deepseek-ai/dsh-cmdline'
-import { afterEach, describe, expect, it } from 'vitest'
-import { apply, WEB_STARTUP_SERVICE, type WebStartupValues } from '../src/startup.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  apply, Config, detectLanAddress, resolveBind, WEB_STARTUP_SERVICE,
+  type BindMode, type WebStartupValues,
+} from '../src/startup.ts'
+
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  networkInterfaces: vi.fn(),
+}))
+
+const os = await import('node:os')
 
 /** What one fixture boot observed. */
 interface Observed {
   exits: number[]
   out: string
   readerConfig?: unknown
+}
+
+/** Fallback bind policy one fixture boot composes. */
+interface BindConfig {
+  bindMode: BindMode
+  bindHost: string
 }
 
 const disposers: (() => Promise<void>)[] = []
@@ -31,14 +48,19 @@ afterEach(async () => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
   internals.stdout = process.stdout
   internals.stderr = process.stderr
+  vi.clearAllMocks()
 })
 
 /**
  * Mount the real provider and a consumer using injection-ordered config.
  * @param args - the invocation's inner arguments.
+ * @param bind - fallback bind policy the fixture entry composes.
  * @returns the service value and observed consumer/process effects.
  */
-async function bootProvider(args: string[]): Promise<{
+async function bootProvider(
+  args: string[],
+  bind: BindConfig = { bindMode: 'loopback', bindHost: '' },
+): Promise<{
   values: WebStartupValues | undefined
   observed: Observed
 }> {
@@ -53,14 +75,15 @@ export function apply(_ctx, config) { globalThis.__webStartupObserved.readerConf
   writeFileSync(join(dir, 'provider.mjs'), `
 export const name = 'web-startup'
 export const inject = ['cmdlineArgs']
-export const apply = ctx => globalThis.__webStartupApply(ctx)
+export const Config = globalThis.__webStartupConfig
+export const apply = (ctx, config) => globalThis.__webStartupApply(ctx, config)
 `)
   writeFileSync(join(dir, 'cordis.yml'), [
     '- id: reader',
     `  name: ${pathToFileURL(join(dir, 'reader.mjs')).href}`,
     `  inject: [${WEB_STARTUP_SERVICE}]`,
     '  config:',
-    "    host: !!js ctx.webStartup.host ?? '127.0.0.1'",
+    '    host: !!js ctx.webStartup.host ?? ctx.webStartup.bind.host',
     '    openBrowser: !!js ctx.webStartup.openBrowser',
     '    port: !!js ctx.webStartup.port ?? 3080',
     '    publicUrl: !!js ctx.webStartup.publicUrl',
@@ -68,6 +91,9 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
     '    tls: !!js ctx.webStartup.tls',
     '- id: provider',
     `  name: ${pathToFileURL(join(dir, 'provider.mjs')).href}`,
+    '  config:',
+    `    bindMode: ${bind.bindMode}`,
+    `    bindHost: ${JSON.stringify(bind.bindHost)}`,
     '',
   ].join('\n'))
   const observing = { write: (chunk: string) => { observed.out += chunk; return true } }
@@ -75,9 +101,11 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
   internals.stderr = observing
   const globals = globalThis as unknown as {
     __webStartupApply: typeof apply
+    __webStartupConfig: typeof Config
     __webStartupObserved: Observed
   }
   globals.__webStartupApply = apply
+  globals.__webStartupConfig = Config
   globals.__webStartupObserved = observed
 
   const ctx = new Context()
@@ -110,8 +138,12 @@ describe('web command-line provider', () => {
       port: 8080,
       trustedHosts: ['lab.internal', 'lab-2.internal', '10.0.0.9'],
       tls: { certFile: 'fullchain.pem', keyFile: 'private-key.pem' },
+      bind: { mode: 'loopback', host: '127.0.0.1' },
     })
-    expect(observed.readerConfig).toEqual(values)
+    // The consumer names the fields it reads; `bind` is published for the rows
+    // whose config falls back to it, not copied into this reader.
+    const { bind: _bind, ...published } = values as WebStartupValues
+    expect(observed.readerConfig).toMatchObject(published)
     expect(observed.exits).toEqual([])
   })
 
@@ -127,13 +159,23 @@ describe('web command-line provider', () => {
 
   it('leaves deployment values to each consumer when flags omit them', async () => {
     const { values, observed } = await bootProvider([])
-    expect(values).toEqual({ openBrowser: true, trustedHosts: [] })
+    expect(values).toEqual({
+      openBrowser: true,
+      trustedHosts: [],
+      bind: { mode: 'loopback', host: '127.0.0.1' },
+    })
     expect(observed.readerConfig).toEqual({
       host: '127.0.0.1',
       openBrowser: true,
       port: 3080,
       trustedHosts: [],
     })
+  })
+
+  it('binds the address saved in the bind policy when the invocation names none', async () => {
+    const { values, observed } = await bootProvider([], { bindMode: 'fixed', bindHost: '192.168.1.5' })
+    expect(values?.bind).toEqual({ mode: 'fixed', host: '192.168.1.5' })
+    expect(observed.readerConfig).toMatchObject({ host: '192.168.1.5' })
   })
 
   it('prints its own help and leaves the consumer pending', async () => {
@@ -164,6 +206,7 @@ describe('web command-line provider', () => {
       openBrowser: true,
       publicUrl: 'https://web.example/ui',
       trustedHosts: ['lab.internal'],
+      bind: { mode: 'loopback', host: '127.0.0.1' },
     })
     expect(observed.readerConfig).toEqual({
       host: '127.0.0.1',
@@ -191,5 +234,72 @@ describe('web command-line provider', () => {
     expect(values).toBeUndefined()
     expect(observed.readerConfig).toBeUndefined()
     expect(observed.exits).toEqual([1])
+  })
+})
+
+describe('fallback bind policy', () => {
+  it('returns the loopback address without asking the network', async () => {
+    await expect(resolveBind({ bindMode: 'loopback', bindHost: '10.0.0.7' })).resolves.toEqual({
+      mode: 'loopback',
+      host: '127.0.0.1',
+    })
+  })
+
+  it('trims the fixed address and binds it verbatim', async () => {
+    await expect(resolveBind({ bindMode: 'fixed', bindHost: ' 192.168.1.5 ' })).resolves.toEqual({
+      mode: 'fixed',
+      host: '192.168.1.5',
+    })
+  })
+
+  it('refuses a fixed policy that names no address', async () => {
+    await expect(resolveBind({ bindMode: 'fixed', bindHost: '   ' })).rejects.toThrow(
+      'web-startup: bindMode "fixed" needs bindHost',
+    )
+  })
+
+  it('prefers detection in automatic mode and falls back to the saved address, then loopback', async () => {
+    const detector = vi.fn(async () => '192.168.1.9')
+    await expect(resolveBind({ bindMode: 'auto', bindHost: '10.0.0.7' }, detector)).resolves.toEqual({
+      mode: 'auto',
+      host: '192.168.1.9',
+    })
+    expect(detector).toHaveBeenCalledOnce()
+    await expect(resolveBind({ bindMode: 'auto', bindHost: ' 10.0.0.7 ' }, async () => undefined)).resolves.toEqual({
+      mode: 'auto',
+      host: '10.0.0.7',
+    })
+    await expect(resolveBind({ bindMode: 'auto', bindHost: '' }, async () => undefined)).resolves.toEqual({
+      mode: 'auto',
+      host: '127.0.0.1',
+    })
+  })
+})
+
+describe('interface detection', () => {
+  it('skips virtual adapters and takes the first routed interface', async () => {
+    vi.mocked(os.networkInterfaces).mockReturnValue({
+      'vEthernet (WSL)': [{ address: '172.20.0.1', family: 'IPv4', internal: false }],
+      'VMware Network Adapter VMnet8': [{ address: '192.168.229.1', family: 'IPv4', internal: false }],
+      WLAN: [{ address: '192.168.1.7', family: 'IPv4', internal: false }],
+    } as never)
+    await expect(detectLanAddress()).resolves.toBe('192.168.1.7')
+  })
+
+  it('ignores internal, link-local, IPv6 and empty entries', async () => {
+    vi.mocked(os.networkInterfaces).mockReturnValue({
+      lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+      link: [{ address: '169.254.10.2', family: 'IPv4', internal: false }],
+      v6: [{ address: 'fe80::1', family: 'IPv6', internal: false }],
+      ghost: undefined,
+    } as never)
+    await expect(detectLanAddress()).resolves.toBeUndefined()
+  })
+
+  it('binds a virtual adapter when no routed interface exists', async () => {
+    vi.mocked(os.networkInterfaces).mockReturnValue({
+      'vEthernet (Default Switch)': [{ address: '172.28.96.1', family: 'IPv4', internal: false }],
+    } as never)
+    await expect(detectLanAddress()).resolves.toBe('172.28.96.1')
   })
 })

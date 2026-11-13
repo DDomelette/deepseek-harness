@@ -45,6 +45,8 @@ kind: "package-reference"
 
 index 以外的静态文件可公开访问。
 
+服务自身页面的具名 Host 路由通过 `frontend` 服务向本包索取外壳：`renderIndex()` 返回拼接了文档 base 的渲染结果；dist 中没有可读 index 时返回 `undefined`，由调用方决定如何应答。[`dsh-mob`](../../bundle/mob/README.zh.md) 的 `/pair` 页面就是这样提供的，因此手机收到的启动 manifest 与 `/` 一致。
+
 除 index 外，所有提供的文件都由浏览器重新验证。这类响应携带 `cache-control: no-cache` 和由文件内容 SHA-1 生成的弱 ETag，因此文件内容变化后即使名字不变也会得到新的 ETag；`If-None-Match` 等于当前 ETag 的请求得到空的 304。渲染出的 index 不带缓存头。
 
 ### 可观察的失败
@@ -61,7 +63,7 @@ index 以外的静态文件可公开访问。
 
 ### 设计理念
 
-本包是围绕 `serveStatic` 的一个函数插件，`serveStatic` 把 Fetch `Request` 映射为 `Response`：`apply` 从 `distIndex` 解析出 dist 根目录，并在 effect 作用域下注册回退 resource。每个请求中，resource 交给 `serveStatic` 一个 `authorizeIndex` 闭包——只在请求没有携带 Peer 时运行 `ctx.connection.authorizeIndex`——以及一个 `renderIndex` 闭包：它为该 Peer 或浏览器 Peer 对原始 `index.html` 运行 `ctx.webServer.renderIndex`，并把文档 base 拼接在起始 head 标签之后（在原始转换之后执行，因此也先于其标记）。按 webserver 的约定，席位只有单一所有者——第二次注册会抛错——且受 effect 作用域约束，因此 dispose fiber 即释放席位。
+本包是围绕 `serveStatic` 的一个函数插件，`serveStatic` 把 Fetch `Request` 映射为 `Response`：`apply` 从 `distIndex` 解析出 dist 根目录，并在 effect 作用域下注册回退 resource。每个请求中，resource 交给 `serveStatic` 一个 `authorizeIndex` 闭包——只在请求没有携带 Peer 时运行 `ctx.connection.authorizeIndex`——以及一个 `renderIndex` 闭包：它为该 Peer 或浏览器 Peer 对原始 `index.html` 运行 `ctx.webServer.renderIndex`，并把文档 base 拼接在起始 head 标签之后（在原始转换之后执行，因此也先于其标记）。`apply` 还提供 `frontend` 服务，其 `renderIndex` 为具名 Host 路由的页面运行同一个渲染器。按 webserver 的约定，席位只有单一所有者——第二次注册会抛错——且受 effect 作用域约束，因此 dispose fiber 即释放席位。
 
 ### 遍历栅栏
 

@@ -28,6 +28,8 @@ The advertised URL uses IPv4 for mapped loopback binds, brackets other IPv6 bind
 
 An operator exposes exactly the interfaces named by `--host` and reaches the listener through that literal without further configuration; every other remote authority is a `--trusted-host` decision. Compositions that bound `0.0.0.0` fail at load with a message naming the rejected spelling. IPv6-only hosts are supported end to end, including the printed and opened URL.
 
+The [Connect-phone page decision](../feature/2026-11-08-connect-phone-page-and-bind-policy.md) adds a saved fallback for launches that name no `--host`; the concrete-literal and wildcard rules above are unchanged.
+
 The [native HTTPS listener decision](2026-09-23-native-https-web-listener.md) supersedes this note's HTTP-only transport assumption. The non-loopback warning applies only without TLS; bind-address validation and authority admission remain unchanged.
 
 ## Testing

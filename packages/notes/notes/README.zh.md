@@ -86,7 +86,7 @@ Host、Client 和 Remote 组装使用同一声明项目中的笔记事件载荷�
 
 本节说明宿主半边如何接线；可观察的行为见[使用本包](#use-this-package)。
 
-`./types` 和 `./remote-events` 子路径提供用于仅类型导入的声明。运行时调用方使用根宿主入口、`./client` 浏览器 bundle，或生成的 `./typert` 和 `./remote` 入口；浏览器样式包含在客户端 bundle 中。
+`./types` 子路径提供用于仅类型导入的声明，`./locale/*.json` 资源提供本插件在插件管理页里的标题、描述与图标。运行时调用方使用根宿主入口、`./client` 浏览器 bundle，或生成的 `./typert` 和 `./remote` 入口；浏览器样式包含在客户端 bundle 中。
 
 ### 存储
 
@@ -104,7 +104,7 @@ Host、Client 和 Remote 组装使用同一声明项目中的笔记事件载荷�
 
 ### 答复到达
 
-结算没有任何调用可以返回它：它发生在日志发布 `turn/end` 之时，没有浏览器操作在等它。因此 `Analysis` 发出 `notes/material-settled`，带上会话与发生移动的素材；`src/remote-events.ts` 把该事件名声明进 Remote 事件选择集，`packages/api/remotes/src/remote-events.ts` 再放行它——两者缺一，推送的事件名都到不了页面。浏览器半边跟随它，把它变成一个版本号，作为响应式事实发布在页签注册上，面板据此重读；该版本号刻意不放进 store：共用的 store 实例属于座位运行时，`apply` 再 mint 一个只会让面板渲染的与被告知的是两份不同快照。
+结算没有任何调用可以返回它：它发生在日志发布 `turn/end` 之时，没有浏览器操作在等它。因此 `Analysis` 发出 `notes/material-settled`，带上会话与发生移动的素材；`src/types.ts` 把该事件名声明进 Remote 事件选择集，`packages/api/remotes/src/remote-events.ts` 再放行它——两者缺一，推送的事件名都到不了页面。浏览器半边跟随它，把它变成一个版本号，作为响应式事实发布在页签注册上，面板据此重读；该版本号刻意不放进 store：共用的 store 实例属于座位运行时，`apply` 再 mint 一个只会让面板渲染的与被告知的是两份不同快照。
 
 列表读取期间收到强制刷新，会在当前读取结束后再读一次；并发刷新共用这次待执行的读取。调用者等待列表刷新后再读取打开的线程，较旧的线程响应不能覆盖较新的响应。
 

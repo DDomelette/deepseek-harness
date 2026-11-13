@@ -188,6 +188,17 @@ authenticatedUrl(baseUrl: string): string
  *   paired-device cookies never authorize management.
  */
 isLocalOperatorRequest(request: ConnectionTrustRequest): boolean
+
+/**
+ * Reserve one shared-channel RPC endpoint to the operator's own credential.
+ * A paired device authenticates the use of the agent, never the
+ * administration of the Host, so an endpoint that changes Host configuration
+ * refuses that device's Peer even though it is authenticated. Reservations
+ * survive until released and apply to the shared `/api` channel only.
+ * @param endpoint - exact endpoint text after the channel, e.g. `settings/mutate`.
+ * @returns disposer releasing the reservation.
+ */
+reserveOperatorOnly(endpoint: string): () => void
 ```
 
 Types: [ConnectionIndexAccess](../../packages/client/connection/README.zh.md) · [Principal](typert.zh.md)

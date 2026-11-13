@@ -1,6 +1,6 @@
 /** Operator authentication and paired-device restrictions through the shipped phone plugin. */
 import { fileURLToPath } from 'node:url'
-import type { Page } from 'playwright'
+import type { Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { compareOrRefreshGolden, launchWebScaffold, webSnapshotMode, WELCOME_NOTICE_COPY } from './scaffold.ts'
@@ -15,19 +15,39 @@ const MOB_ANCHOR = fileURLToPath(new URL('../../../packages/bundle/mob/package.j
 const EXPECTED = fileURLToPath(new URL('./expected/phone-pairing/access.expected.md', import.meta.url))
 const UNAVAILABLE = fileURLToPath(new URL('./expected/phone-pairing/unavailable.expected.md', import.meta.url))
 
-/** Open the phone settings dialog on either supported viewport. */
-async function openPairing(page: Page, welcomePending = false): Promise<void> {
+/**
+ * Open Settings on the Connect-phone page.
+ * @param page - the browser page holding a session.
+ * @param welcomePending - whether this page opens with the first-run notice, which is dismissed first.
+ * @returns the page's pairing region, the stable subtree both goldens capture
+ *   (the address block above it names the run's ephemeral port).
+ */
+async function openPairing(page: Page, welcomePending = false): Promise<Locator> {
   await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-  if (welcomePending) {
-    const welcome = page.getByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+  const welcome = page.getByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+  if (welcomePending && await welcome.isVisible()) {
     await welcome.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }).click()
     await welcome.waitFor({ state: 'detached' })
   }
-  const drawer = page.getByRole('button', { name: '打开侧边栏' })
-  if (await drawer.isVisible()) await drawer.click()
-  await page.getByRole('button', { name: '设置', exact: true }).click()
-  await page.getByRole('button', { name: '通用设置', exact: true }).click()
-  await page.getByRole('button', { name: '显示二维码', exact: true }).click()
+  // The desktop shell keeps Settings in the account menu; a handset folds the
+  // rail into the drawer, whose bottom More entry opens the same menu. A wide
+  // drawer renders the Settings row itself.
+  const settingsItem = page.getByRole('menuitem', { name: '设置', exact: true })
+  const account = page.getByRole('button', { name: '账号菜单', exact: true })
+  if (await account.isVisible()) {
+    await account.click()
+  } else {
+    await page.getByRole('button', { name: '打开侧边栏' }).click()
+    // The drawer opens with an animation; the row exists as soon as it settles.
+    const row = page.getByRole('button', { name: '设置', exact: true })
+    const drawerSettled = await row.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false)
+    if (drawerSettled) await row.click()
+    else await page.getByRole('button', { name: '更多' }).last().click()
+  }
+  const menuOpened = await settingsItem.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false)
+  if (menuOpened) await settingsItem.click()
+  await page.getByRole('navigation').getByRole('button', { name: '连接手机', exact: true }).click()
+  return page.getByRole('region', { name: '配对', exact: true })
 }
 
 describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
@@ -48,8 +68,10 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
       operator.on('pageerror', error => pageErrors.push(error.message))
       const navigation = await operator.goto(scaffold.authenticatedUrl)
       expect(navigation?.status()).toBe(200)
-      await openPairing(operator, true)
-      const management = operator.getByRole('dialog', { name: '连接手机', exact: true })
+      const management = await openPairing(operator, true)
+      // The bind policy is a deployment-wide decision this operator changes
+      // from whichever address they opened — the LAN one included.
+      expect(await operator.getByRole('combobox', { name: '绑定方式' }).isEnabled()).toBe(true)
       await management.getByRole('button', { name: '生成配对码' }).click()
       const link = management.getByRole('textbox', { name: '加入链接' })
       await link.waitFor()
@@ -65,10 +87,16 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
       await handset.getByText('请在电脑端确认这台手机以完成配对。').waitFor()
       await management.getByRole('button', { name: '允许', exact: true }).click()
       await handset.waitForURL(scaffold.baseUrl + '/')
-      await openPairing(handset, true)
-      const restricted = handset.getByRole('dialog', { name: '连接手机', exact: true })
+      // The device credential, not the viewport, decides what this page may
+      // manage; assert it in the desktop shell whose settings entry is the
+      // account menu. The handset shell has its own scenario.
+      await handset.setViewportSize({ width: 1440, height: 1000 })
+      await handset.reload()
+      const restricted = await openPairing(handset, true)
       await restricted.getByText('请打开启动器提供的认证链接来管理配对。已配对设备不能管理其他设备').waitFor()
       expect(await restricted.getByRole('button', { name: '生成配对码' }).count()).toBe(0)
+      // A paired phone sees the address facts but no policy controls.
+      expect(await handset.getByRole('combobox', { name: '绑定方式' }).count()).toBe(0)
       expect((await phone.request.get(new URL('/pair/devices', scaffold.baseUrl).href)).status()).toBe(403)
       await compareOrRefreshGolden(EXPECTED, await restricted.ariaSnapshot(), MODE)
       expect(pageErrors).toEqual([])
@@ -90,8 +118,7 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
     try {
       const page = await browser.newPage({ locale: ZH_BROWSER_LOCALE, viewport: { width: 1440, height: 1000 } })
       await page.goto(scaffold.authenticatedUrl)
-      await openPairing(page)
-      const panel = page.getByRole('dialog', { name: '连接手机', exact: true })
+      const panel = await openPairing(page)
       await panel.getByRole('button', { name: '生成配对码' }).click()
       await panel.getByRole('alert').waitFor()
       expect(await panel.getByRole('img').count()).toBe(0)

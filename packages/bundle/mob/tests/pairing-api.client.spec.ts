@@ -200,6 +200,45 @@ describe('pairing route client', () => {
     stub(json({ error: 'no' }, 403))
     await expect(createPairingApi().rename('device-1', 'phone')).resolves.toEqual({ ok: false, reason: 'forbidden' })
   })
+
+  it('reads and saves the bind policy through the operator-gated route', async () => {
+    const api = createPairingApi()
+    const fetchMock = stub(json({ bindMode: 'auto', bindHost: '192.168.1.9' }))
+    await expect(api.bind()).resolves.toEqual({ ok: true, value: { bindMode: 'auto', bindHost: '192.168.1.9' } })
+    expect(fetchMock).toHaveBeenCalledWith('/pair/bind', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    })
+
+    const save = stub(json({ bindMode: 'fixed', bindHost: '192.168.1.5' }))
+    await expect(api.saveBind({ bindMode: 'fixed', bindHost: '192.168.1.5' }))
+      .resolves.toEqual({ ok: true, value: { bindMode: 'fixed', bindHost: '192.168.1.5' } })
+    expect(save).toHaveBeenCalledWith('/pair/bind', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ bindMode: 'fixed', bindHost: '192.168.1.5' }),
+    })
+
+    // A paired phone is refused, and a deployment that saves no policy answers
+    // 404: both leave every control off the page.
+    stub(json({ error: 'no' }, 403))
+    await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'forbidden' })
+    stub(json({ error: 'no' }, 404))
+    await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'gone' })
+    stub(json({ error: 'no' }, 403))
+    await expect(api.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toEqual({ ok: false, reason: 'forbidden' })
+
+    for (const body of [[], {}, { bindMode: 'wildcard', bindHost: '' }, { bindMode: 'auto' }, { bindHost: 'x' }, { bindMode: 'auto', bindHost: 7 }]) {
+      stub(json(body))
+      await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'failed' })
+      // A Response body reads once, so the save needs its own stub to reach the
+      // parser instead of failing at the body decode.
+      stub(json(body))
+      await expect(api.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toEqual({ ok: false, reason: 'failed' })
+    }
+  })
 })
 
 describe('pairing helpers', () => {
