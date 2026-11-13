@@ -163,6 +163,11 @@
   padding-top: var(--plugin-page-top-inset);
 }
 
+/* The handset drawer button occupies the first 46px of the frame. */
+[data-sidebar-fab] .pageHead {
+  padding-left: 40px;
+}
+
 /* macOS hiddenInset titlebar: the frame's top clearance keeps the head below
    the window's top strip in both sidebar states so it never jumps, and the head
    owns the window drag over its own box — clearance included — so this page's
@@ -1405,6 +1410,7 @@ label.registryOption {
 .detailTop,
 .moreHead {
   display: flex;
+  box-sizing: border-box;
   /* The same top inset `.pageHead` carries, so the row starts at the window's
      top edge and the strip above the detail content drags the window. */
   padding-top: var(--plugin-page-top-inset);
@@ -1412,6 +1418,11 @@ label.registryOption {
 
 .detailTop {
   flex-direction: column;
+}
+
+[data-sidebar-fab] .detailTop,
+[data-sidebar-fab] .moreHead {
+  padding-left: 40px;
 }
 
 :global([data-platform='darwin']) .detailTop,

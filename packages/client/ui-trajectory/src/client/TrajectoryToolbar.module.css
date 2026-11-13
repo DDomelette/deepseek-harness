@@ -228,3 +228,9 @@
   height: 12px;
   cursor: pointer;
 }
+
+@media (pointer: coarse) {
+  .searchInput {
+    font-size: 16px;
+  }
+}

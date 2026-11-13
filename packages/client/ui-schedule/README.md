@@ -25,7 +25,7 @@ The Automation tasks page and right Sidebar task tab use the same editor for tas
 <a id="use-this-package"></a>
 ## Use this package
 
-Below 768px, the task list uses 20px horizontal insets, matching the Plugins page.
+Below 768px, the task list uses 20px horizontal insets, matching the Plugins page, and its heading clears the floating drawer button.
 
 The shipped Web composition mounts `ui-schedule` with Host Schedule. The Automation tasks sidebar entry opens the task list without selecting or activating a Session. New and the adjacent menu's Create in a session action both open a new conversation with a short task-creation prompt in the current UI language, ready for the user to complete and send. When a blank conversation is reused, the prompt is appended on a new line, preserving its text, inline references, and attachments. The same menu offers Create manually. Manual creation opens the same editor as an existing task, validates required fields, and saves a task without starting an Agent or sending the instruction. A failed request leaves the form and its values visible. The empty state shows a decorative document-and-clock illustration whose colors follow the theme.
 

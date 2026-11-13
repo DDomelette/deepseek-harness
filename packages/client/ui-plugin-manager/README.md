@@ -27,7 +27,7 @@ Use the **Plugins** entry in the Web sidebar to manage the profile's installed b
 <a id="use-this-package"></a>
 ## Use this package
 
-Below 768px, the page uses 20px horizontal insets to align with the conversation header.
+Below 768px, the page uses 20px horizontal insets to align with the conversation header. When the sidebar becomes a drawer, the list title and the leading rows of More and detail pages clear the floating drawer button.
 
 [Ralph loops](../../experimental/ralph-bundle/README.md) and [Session search](../../experimental/session-search/README.md) remain bundled but are hidden from both plugin lists unless the profile enables or separately installs them. Existing selections remain manageable; switching off an installation-carried copy hides it again. Enter either exact package name in **Add plugin**, then choose **Enable now** to use the shipped copy without downloading it again. Sidebar session search is independent. LiveShare declares the same default-hidden intent in its bundle manifest (`dsh.bundle.listedByDefault: false`), so it stays out of both lists, including **More**, until a declared row runs or it is enabled. The page's manifest rule is generic: a bundle whose manifest does not declare `listedByDefault: false` is listed; one that does is listed only when the profile enables it, the installation carries it selected, or one of its declared rows runs; a hidden bundle is not opened by its ID either.
 

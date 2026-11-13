@@ -91,6 +91,13 @@ it('keeps the automation page on screen with its text fields at the touch step',
       const phonePage = await phone.newPage()
       const phoneConsole = watchConsole(phonePage)
       const phonePanel = await openTaskManager(phonePage, url)
+      const [fabBox, titleBox] = await Promise.all([
+        phonePage.locator('[data-sidebar-opener]').boundingBox(),
+        phonePanel.getByRole('heading', { name: '自动化任务', exact: true }).boundingBox(),
+      ])
+      expect(fabBox).not.toBeNull()
+      expect(titleBox).not.toBeNull()
+      expect(titleBox!.x).toBeGreaterThanOrEqual(fabBox!.x + fabBox!.width + 12)
       await expect.poll(() => viewFacts(phonePage)).toEqual({
         width: PHONE_PAGE_WIDTH,
         documentWidth: PHONE_PAGE_WIDTH,
