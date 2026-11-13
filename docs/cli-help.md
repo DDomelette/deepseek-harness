@@ -184,7 +184,8 @@ Serve the DeepSeek Harness browser UI.
 Options:
   --host <host>                  bind address: one concrete IPv4 or IPv6 literal
                                  of a local interface; wildcard addresses are
-                                 rejected
+                                 rejected, and this overrides the address saved
+                                 in Settings
   --no-open                      do not open the Web UI in the default browser
   --port <port>                  listen port; pass 0 to let the OS pick a free
                                  one
