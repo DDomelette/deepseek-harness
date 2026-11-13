@@ -4,7 +4,6 @@
  * fallback bind policy decides the address a launch without `--host` uses.
  */
 
-import type { Socket } from 'node:dgram'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,13 +18,11 @@ import {
   type BindMode, type WebStartupValues,
 } from '../src/startup.ts'
 
-vi.mock('node:dgram', () => ({ createSocket: vi.fn() }))
 vi.mock('node:os', async importOriginal => ({
   ...await importOriginal<typeof import('node:os')>(),
   networkInterfaces: vi.fn(),
 }))
 
-const dgram = await import('node:dgram')
 const os = await import('node:os')
 
 /** What one fixture boot observed. */
@@ -279,58 +276,30 @@ describe('fallback bind policy', () => {
   })
 })
 
-/** One scripted UDP socket for the route probe; only the members detection reads exist. */
-function scriptedSocket(behavior: { address?: string | Error; fail?: boolean }): Socket {
-  const listeners = new Map<string, () => void>()
-  const socket = {
-    once: (event: string, listener: () => void) => {
-      listeners.set(event, listener)
-      return socket
-    },
-    connect: (_port: number, _host: string, connected: () => void) => {
-      if (behavior.fail === true) listeners.get('error')?.()
-      else connected()
-    },
-    address: () => {
-      if (behavior.address instanceof Error || behavior.address === undefined) {
-        throw behavior.address ?? new Error('unbound')
-      }
-      return { address: behavior.address }
-    },
-    close: vi.fn(),
-  }
-  return socket as unknown as Socket
-}
-
 describe('interface detection', () => {
-  it('takes the address the default route would use', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ address: '192.168.1.5' }))
-    await expect(detectLanAddress()).resolves.toBe('192.168.1.5')
-  })
-
-  it('falls back to the first usable interface when the route probe fails', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }))
+  it('skips virtual adapters and takes the first routed interface', async () => {
     vi.mocked(os.networkInterfaces).mockReturnValue({
-      lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
-      link: [{ address: '169.254.10.2', family: 'IPv4', internal: false }],
-      v6: [{ address: 'fe80::1', family: 'IPv6', internal: false }],
-      wlan: [{ address: '192.168.1.7', family: 'IPv4', internal: false }],
+      'vEthernet (WSL)': [{ address: '172.20.0.1', family: 'IPv4', internal: false }],
+      'VMware Network Adapter VMnet8': [{ address: '192.168.229.1', family: 'IPv4', internal: false }],
+      WLAN: [{ address: '192.168.1.7', family: 'IPv4', internal: false }],
     } as never)
     await expect(detectLanAddress()).resolves.toBe('192.168.1.7')
   })
 
-  it('treats an unbound probe socket and a loopback route as no route', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ address: new Error('EBADF') }))
-    vi.mocked(os.networkInterfaces).mockReturnValue({})
-    await expect(detectLanAddress()).resolves.toBeUndefined()
-
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ address: '127.0.0.1' }))
+  it('ignores internal, link-local, IPv6 and empty entries', async () => {
+    vi.mocked(os.networkInterfaces).mockReturnValue({
+      lo: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+      link: [{ address: '169.254.10.2', family: 'IPv4', internal: false }],
+      v6: [{ address: 'fe80::1', family: 'IPv6', internal: false }],
+      ghost: undefined,
+    } as never)
     await expect(detectLanAddress()).resolves.toBeUndefined()
   })
 
-  it('ignores empty interface entries', async () => {
-    vi.mocked(dgram.createSocket).mockReturnValue(scriptedSocket({ fail: true }))
-    vi.mocked(os.networkInterfaces).mockReturnValue({ ghost: undefined })
-    await expect(detectLanAddress()).resolves.toBeUndefined()
+  it('binds a virtual adapter when no routed interface exists', async () => {
+    vi.mocked(os.networkInterfaces).mockReturnValue({
+      'vEthernet (Default Switch)': [{ address: '172.28.96.1', family: 'IPv4', internal: false }],
+    } as never)
+    await expect(detectLanAddress()).resolves.toBe('172.28.96.1')
   })
 })

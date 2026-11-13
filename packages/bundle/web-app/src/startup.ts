@@ -8,13 +8,11 @@
  * The same entry owns the persistent bind policy applied when the invocation
  * names no `--host`: its `bindMode`/`bindHost` Config fields are editable from
  * Settings → Connect phone, so a deployment can keep one address across
- * launches. `loopback` is the default; `auto` takes the address of the
- * interface the default route uses, which avoids the virtual adapters a plain
- * interface scan picks on a development machine.
+ * launches. `loopback` is the default; `auto` scans the interfaces and skips
+ * the virtual adapters a development machine lists beside the routed link.
  * @module @deepseek-ai/dsh-web-app/startup
  */
 
-import { createSocket } from 'node:dgram'
 import { networkInterfaces } from 'node:os'
 import { Command } from 'commander'
 import type { Context, Volatile } from '@deepseek-ai/cordis'
@@ -97,59 +95,28 @@ interface WebOptions {
 /** Address a listener binds when no interface is named. */
 const LOOPBACK_HOST = '127.0.0.1'
 
-/** Port of the route probe; UDP sends no packet, so only the local address is read. */
-const ROUTE_PROBE_PORT = 53
-
-/** Public resolver the route probe names: any routed destination answers with the same local address. */
-const ROUTE_PROBE_HOST = '223.5.5.5'
-
-/**
- * Local address of the interface the operating system would use for outbound
- * traffic, or undefined when no route exists.
- * @returns the IPv4 source address of the default route.
- */
-function defaultRouteAddress(): Promise<string | undefined> {
-  const socket = createSocket('udp4')
-  return new Promise((resolve) => {
-    let settled = false
-    const settle = (address: string | undefined): void => {
-      if (settled) return
-      settled = true
-      socket.close()
-      resolve(address)
-    }
-    socket.once('error', () => { settle(undefined) })
-    socket.connect(ROUTE_PROBE_PORT, ROUTE_PROBE_HOST, () => {
-      try {
-        settle(socket.address().address)
-      } catch (_unbound) {
-        // A throwing address() means the socket never bound; the interface scan covers it.
-        settle(undefined)
-      }
-    })
-  })
-}
-
-/** First non-internal, non-link-local IPv4 address, for hosts with no default route. */
-function scannedAddress(): string | undefined {
-  for (const entries of Object.values(networkInterfaces())) {
-    for (const entry of entries ?? []) {
-      if (entry.family === 'IPv4' && !entry.internal && !entry.address.startsWith('169.254.')) return entry.address
-    }
-  }
-  return undefined
-}
+/** Interface names that carry a virtual or tunnel adapter rather than the routed link. */
+const VIRTUAL_ADAPTER = /^(?:br-|docker|veth|virbr|vmnet|vboxnet|vEthernet|vmware|hyper-v|utun|tun|tap|wg|zt|tailscale|loopback)/i
 
 /**
  * Address the listener binds under `auto`, or undefined when this machine has
- * no usable network interface. The route probe runs first because a machine
- * with virtual adapters (a Docker or VMware interface) lists them beside the
- * real one, and only the routing table says which address reaches the network.
- * @returns a local IPv4 address, preferring the default route's interface.
+ * no usable network interface. A development machine lists virtual adapters
+ * (Docker, VMware, a WSL switch) beside the routed link, so those interface
+ * names are skipped before the first remaining IPv4 address is taken; a
+ * machine that exposes only virtual adapters still binds one of them.
+ * @returns a local IPv4 address, or undefined when no interface qualifies.
  */
-export async function detectLanAddress(): Promise<string | undefined> {
-  const routed = await defaultRouteAddress()
-  return routed === undefined || routed.startsWith('127.') ? scannedAddress() : routed
+export function detectLanAddress(): Promise<string | undefined> {
+  const candidates: { name: string; address: string }[] = []
+  for (const [name, entries] of Object.entries(networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family !== 'IPv4' || entry.internal) continue
+      if (entry.address.startsWith('169.254.')) continue
+      candidates.push({ name, address: entry.address })
+    }
+  }
+  const routed = candidates.find(candidate => !VIRTUAL_ADAPTER.test(candidate.name))
+  return Promise.resolve((routed ?? candidates[0])?.address)
 }
 
 /**

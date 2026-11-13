@@ -1,6 +1,8 @@
-<svg width="36" height="36" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" stroke-width="1">
-  <rect x="4.4" y="1.4" width="7.2" height="13.2" rx="1.6" stroke="#658EFF"></rect>
-  <rect x="6.4" y="4.4" width="3.2" height="3.2" rx="0.4" stroke="#658EFF"></rect>
-  <rect x="7.3" y="5.3" width="1.4" height="1.4" fill="#658EFF"></rect>
-  <path d="M6.9 12.2h2.2" stroke="#658EFF" stroke-linecap="round"></path>
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" stroke-width="1">
+  <g transform="scale(2.25)">
+    <rect x="4.4" y="1.4" width="7.2" height="13.2" rx="1.6" stroke="#658EFF"></rect>
+    <rect x="6.4" y="4.4" width="3.2" height="3.2" rx="0.4" stroke="#658EFF"></rect>
+    <rect x="7.3" y="5.3" width="1.4" height="1.4" fill="#658EFF"></rect>
+    <path d="M6.9 12.2h2.2" stroke="#658EFF" stroke-linecap="round"></path>
+  </g>
 </svg>
