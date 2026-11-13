@@ -87,22 +87,21 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
   const current = draft ?? saved
   const fixedMissingAddress = current?.bindMode === 'fixed' && current.bindHost.trim() === ''
 
-  const choose = (bindMode: MobileBindMode): void => {
-    if (current === undefined) return
+  // The controls below render only once a policy is readable, so each handler
+  // receives that policy as its argument instead of re-checking it.
+  const choose = (policy: MobileBindSettings, bindMode: MobileBindMode): void => {
     setNotice(undefined)
-    setDraft({ bindMode, bindHost: current.bindHost })
+    setDraft({ bindMode, bindHost: policy.bindHost })
   }
 
-  const editHost = (bindHost: string): void => {
-    if (current === undefined) return
+  const editHost = (policy: MobileBindSettings, bindHost: string): void => {
     setNotice(undefined)
-    setDraft({ bindMode: current.bindMode, bindHost })
+    setDraft({ bindMode: policy.bindMode, bindHost })
   }
 
-  const save = async (): Promise<void> => {
-    if (current === undefined || busy) return
+  const save = async (policy: MobileBindSettings): Promise<void> => {
     setBusy(true)
-    const answer = await api.saveBind({ bindMode: current.bindMode, bindHost: current.bindHost.trim() })
+    const answer = await api.saveBind({ bindMode: policy.bindMode, bindHost: policy.bindHost.trim() })
     setBusy(false)
     setNotice(answer.ok ? 'saved' : 'failed')
     if (answer.ok) {
@@ -138,7 +137,7 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
                   className={css.select}
                   value={current.bindMode}
                   disabled={busy}
-                  onChange={(event) => { choose(event.currentTarget.value as MobileBindMode) }}
+                  onChange={(event) => { choose(current, event.currentTarget.value as MobileBindMode) }}
                 >
                   {BIND_MODES.map(mode => (
                     <option key={mode} value={mode}>{t(`access.mode.${mode}`)}</option>
@@ -155,7 +154,7 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
                   inputMode="decimal"
                   spellCheck={false}
                   disabled={busy || current.bindMode === 'loopback'}
-                  onChange={(event) => { editHost(event.currentTarget.value) }}
+                  onChange={(event) => { editHost(current, event.currentTarget.value) }}
                 />
               </label>
 
@@ -171,7 +170,7 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
                   type="button"
                   className={css.primary}
                   disabled={busy || fixedMissingAddress}
-                  onClick={() => { void save() }}
+                  onClick={() => { void save(current) }}
                 >
                   {t('access.save')}
                 </button>

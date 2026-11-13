@@ -32,11 +32,14 @@ afterEach(async () => {
 })
 
 /** Write a dist fixture and the authenticated Web rows, then boot them through the real Loader. */
-async function loadComposition(): Promise<Context> {
+async function loadComposition(options: { indexName?: string } = {}): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-frontend-static-'))
   const dist = join(root, 'dist')
   await mkdir(dist)
   const distIndex = join(dist, 'index.html')
+  // A configured index the filesystem cannot read: the named-route renderer
+  // must surface that failure instead of reporting an unbuilt dist.
+  const configuredIndex = options.indexName === undefined ? distIndex : join(dist, options.indexName)
   await writeFile(distIndex, '<head></head><body>shell</body>')
   await writeFile(join(dist, 'app.js'), 'export {}')
   await writeFile(join(dist, 'preview.html'), '<body>preview</body>')
@@ -65,7 +68,7 @@ async function loadComposition(): Promise<Context> {
     '- id: frontend',
     "  name: '@deepseek-ai/dsh-host-frontend-static'",
     '  config:',
-    `    distIndex: '${distIndex}'`,
+    `    distIndex: ${JSON.stringify(configuredIndex)}`,
     '',
   ].join('\n'))
 
@@ -429,5 +432,13 @@ describe('real Loader composition', () => {
     expect(await html.text()).toBe('<body>preview</body>')
     const index = await loaded.webServer.readResource(new Request(`${base}/`), reader)
     expect([index.status, index.headers.get('cache-control'), index.headers.get('etag')]).toEqual([200, null, null])
+  })
+  it('surfaces an index the filesystem refuses to read instead of an unbuilt dist', async () => {
+    // A configured index that exists but cannot be read at all (a NUL path is
+    // rejected by the filesystem itself) is a real failure, not "no dist".
+    const ctx = await loadComposition({ indexName: 'index' + String.fromCharCode(0) + '.html' })
+    const frontend = ctx.get('frontend') as FrontendStatic.FrontendService | undefined
+    expect(frontend).toBeDefined()
+    await expect(frontend!.renderIndex()).rejects.toThrow()
   })
 })

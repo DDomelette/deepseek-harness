@@ -61,9 +61,9 @@ function mount(
   bind: PairingResult<MobileBindSettings> = { ok: true, value: { bindMode: 'loopback', bindHost: '' } },
   face: Partial<MobileSectionInjected> = {},
   overrides: Partial<PairingApi> = {},
-): { api: PairingApi } {
+): { api: PairingApi; view: ReturnType<typeof render> } {
   const api = apiWith(bind, overrides)
-  render(<MobileSection
+  const view = render(<MobileSection
     close={() => {}}
     usePanelInfo={unused as never}
     useResource={unused as never}
@@ -80,7 +80,7 @@ function mount(
     api={api}
     {...face}
   />)
-  return { api }
+  return { api, view }
 }
 
 afterEach(cleanup)
@@ -204,5 +204,42 @@ describe('MobileSection', () => {
     expect(screen.getByText('ABCD2345')).toBeTruthy()
     expect(screen.getByRole('img')).toBeTruthy()
     expect(rename).not.toHaveBeenCalled()
+  })
+
+  it('uses its own pairing client when the slot injects none', async () => {
+    // The page is usable without an injected api; its own client reports the
+    // same refusal the Host would give a caller that cannot manage pairing.
+    const fetchStub = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 403 }))
+    try {
+      mount(undefined, { api: undefined })
+      expect(await screen.findByText(zh['access.readOnly'])).toBeTruthy()
+      expect(fetchStub).toHaveBeenCalledWith('/pair/bind', expect.anything())
+    } finally {
+      fetchStub.mockRestore()
+    }
+  })
+
+  it('ignores a join answer and a policy read that arrive after unmount', async () => {
+    let settleJoin: (value: { readonly ok: true; readonly value: string }) => void = () => {}
+    let settleBind: (value: PairingResult<MobileBindSettings>) => void = () => {}
+    const join = new Promise<{ readonly ok: true; readonly value: string }>((resolve) => { settleJoin = resolve })
+    const bind = new Promise<PairingResult<MobileBindSettings>>((resolve) => { settleBind = resolve })
+    const { view } = mount(undefined, { joinUrl: () => join }, { bind: () => bind })
+    view.unmount()
+    settleJoin({ ok: true, value: JOIN_URL })
+    settleBind({ ok: true, value: { bindMode: 'auto', bindHost: '' } })
+    await Promise.resolve()
+    expect(screen.queryByRole('heading', { name: '连接手机' })).toBeNull()
+  })
+
+  it('disables the save action while the write is in flight', async () => {
+    let release: (value: PairingResult<MobileBindSettings>) => void = () => {}
+    const saveBind = vi.fn(() => new Promise<PairingResult<MobileBindSettings>>((resolve) => { release = resolve }))
+    mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } }, {}, { saveBind })
+    await screen.findByLabelText('绑定方式')
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
+    release({ ok: true, value: { bindMode: 'auto', bindHost: '' } })
+    expect(await screen.findByText(zh['access.saved'])).toBeTruthy()
   })
 })

@@ -86,6 +86,8 @@ interface SettingsFixture {
   readonly absent?: boolean
   /** Whether the write rejects. */
   readonly writeFails?: boolean
+  /** Whether a successful write leaves the provider still describing no entry. */
+  readonly writeOnly?: boolean
 }
 
 function bench(options: ConnectionOptions = {}, settings: SettingsFixture = {}): Bench {
@@ -187,7 +189,7 @@ function bench(options: ConnectionOptions = {}, settings: SettingsFixture = {}):
       update: async (ns: string, patch: Record<string, unknown>) => {
         if (settings.writeFails === true) throw new Error('settings write failed')
         bindWrites.push({ ns, patch })
-        current = { bindMode: String(patch.bindMode), bindHost: String(patch.bindHost) }
+        if (settings.writeOnly !== true) current = { bindMode: String(patch.bindMode), bindHost: String(patch.bindHost) }
       },
     } as never)
   }
@@ -853,5 +855,17 @@ describe('pairing routes', () => {
       method: 'POST',
       body: { bindMode: 'auto', bindHost: '' },
     })).status).toBe(500)
+  })
+  it('confirms a write with the submitted policy when the provider describes no entry', async () => {
+    // A composition that accepts the write but never describes the startup
+    // entry still gets a policy back, so the page can settle its draft.
+    const subject = bench({}, { writeOnly: true })
+    const saved = await subject.call(PAIR_PATHS.bind, {
+      method: 'POST',
+      cookie: 'dsh-auth-test=session',
+      body: { bindMode: 'auto', bindHost: ' 10.0.0.7 ' },
+    })
+    expect(saved.status).toBe(200)
+    expect(JSON.parse(saved.body)).toEqual({ bindMode: 'auto', bindHost: '10.0.0.7' })
   })
 })

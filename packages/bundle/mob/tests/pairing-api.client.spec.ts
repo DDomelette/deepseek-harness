@@ -227,10 +227,15 @@ describe('pairing route client', () => {
     await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'forbidden' })
     stub(json({ error: 'no' }, 404))
     await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'gone' })
+    stub(json({ error: 'no' }, 403))
+    await expect(api.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toEqual({ ok: false, reason: 'forbidden' })
 
     for (const body of [[], {}, { bindMode: 'wildcard', bindHost: '' }, { bindMode: 'auto' }, { bindHost: 'x' }, { bindMode: 'auto', bindHost: 7 }]) {
       stub(json(body))
       await expect(api.bind()).resolves.toEqual({ ok: false, reason: 'failed' })
+      // A Response body reads once, so the save needs its own stub to reach the
+      // parser instead of failing at the body decode.
+      stub(json(body))
       await expect(api.saveBind({ bindMode: 'auto', bindHost: '' })).resolves.toEqual({ ok: false, reason: 'failed' })
     }
   })
