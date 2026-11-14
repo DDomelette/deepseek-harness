@@ -28,6 +28,19 @@ async function openSettings(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: '设置', exact: true }).click()
 }
 
+/** Open the shipped generic settings fields on the Plugins page.
+ * @param page - a page outside the Settings dialog.
+ * @returns the plugin panel containing the form.
+ */
+async function openWebSearchFields(page: Page): Promise<Locator> {
+  await revealNavigationDrawer(page, 'zh')
+  await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
+  const panel = page.locator('[data-plugin-panel]')
+  await panel.getByRole('button', { name: '查看 网页搜索与获取', exact: true }).click()
+  await panel.locator('#plugin-config-web-search-count').waitFor({ timeout: 10_000 })
+  return panel
+}
+
 /**
  * Assert that every native select the open settings dialog renders clears the
  * 44px touch-target floor. A pane that renders none fails here rather than
@@ -175,6 +188,45 @@ describe('web e2e: settings at a handset viewport', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
+  it('keeps form text compact with a fine pointer', async () => {
+    const desktopPage = await browser.newPage({ viewport: DESKTOP, locale: ZH_BROWSER_LOCALE })
+    const desktopErrors = watchConsole(desktopPage)
+    onTestFailed(() => saveFailureShot(desktopPage, 'web-e2e-settings-desktop-form-text'))
+    try {
+      await desktopPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      await openSettings(desktopPage)
+      const dialog = desktopPage.getByRole('dialog', { name: '设置' })
+      await dialog.getByRole('button', { name: '模型', exact: true }).click()
+      const add = dialog.getByRole('button', { name: '添加模型提供商' })
+      await expect.poll(async () => add.isEnabled(), { timeout: 10_000 }).toBe(true)
+      await add.click()
+      await dialog.getByLabel('提供商', { exact: true }).selectOption('minimax-cn')
+      const key = dialog.getByLabel('API 密钥', { exact: true })
+      await key.waitFor({ timeout: 10_000 })
+      expect(await key.evaluate(element => getComputedStyle(element).fontSize)).toBe('14px')
+
+      await dialog.getByRole('button', { name: '取消', exact: true }).click()
+      await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
+      await dialog.getByRole('button', { name: '添加 MCP 服务器', exact: true }).click()
+      const command = dialog.getByLabel('命令', { exact: true })
+      const args = dialog.getByLabel('参数', { exact: true })
+      await command.fill('node')
+      await args.fill('server.js')
+      expect(await command.evaluate(element => getComputedStyle(element).fontSize)).toBe('14px')
+      expect(await args.evaluate(element => getComputedStyle(element).fontSize)).toBe('13px')
+      await dialog.getByRole('button', { name: '取消', exact: true }).click()
+      await expect.poll(async () => dialog.getByRole('searchbox', { name: '搜索 MCP 服务器', exact: true }).isVisible()).toBe(true)
+      await dialog.getByRole('button', { name: '关闭' }).click()
+      const panel = await openWebSearchFields(desktopPage)
+      const count = panel.locator('#plugin-config-web-search-count')
+      await count.fill('12')
+      expect(await count.evaluate(element => getComputedStyle(element).fontSize)).toBe('13px')
+      expect(desktopErrors.pageErrors).toEqual([])
+    } finally {
+      await desktopPage.close()
+    }
+  })
+
   it('gives the handset settings controls the 44px touch floor', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-touch-targets'))
     await page.setViewportSize(HANDSET)
@@ -211,6 +263,76 @@ describe('web e2e: settings at a handset viewport', () => {
 
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('keeps handset form text readable without losing drafts or widening the pane', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-handset-form-text'))
+    await page.setViewportSize(HANDSET)
+    await openSettings(page)
+    const dialog = page.getByRole('dialog', { name: '设置' })
+    await dialog.waitFor({ timeout: 10_000 })
+    const undersized: { name: string; fontSize: string }[] = []
+    const inspectTextFields = async (): Promise<void> => {
+      const fields = await dialog.locator('input, textarea').evaluateAll(elements => elements.flatMap((element) => {
+        if (element.getClientRects().length === 0) return []
+        if (element instanceof HTMLInputElement && !['text', 'search', 'password', 'email', 'url', 'number', 'tel'].includes(element.type)) return []
+        return [{
+          name: element.getAttribute('aria-label') ?? element.closest('label')?.textContent?.trim() ?? element.id,
+          fontSize: getComputedStyle(element).fontSize,
+        }]
+      }))
+      expect(fields.length).toBeGreaterThan(0)
+      undersized.push(...fields.filter(field => field.fontSize !== '16px'))
+    }
+
+    await dialog.getByRole('button', { name: '模型', exact: true }).click()
+    const add = dialog.getByRole('button', { name: '添加模型提供商' })
+    await expect.poll(async () => add.isEnabled(), { timeout: 10_000 }).toBe(true)
+    await add.click()
+    await dialog.getByLabel('提供商', { exact: true }).selectOption('minimax-cn')
+    const key = dialog.getByRole('tabpanel', { name: '第三方模型提供商' }).getByLabel('API 密钥', { exact: true })
+    await key.fill('handset-draft')
+    await inspectTextFields()
+    await dialog.getByRole('tab', { name: '自定义模型 API' }).click()
+    const custom = dialog.getByRole('tabpanel', { name: '自定义模型 API' })
+    await custom.getByLabel('Provider ID').fill('handset-provider')
+    await custom.getByLabel('显示名称', { exact: true }).fill('手机模型提供商')
+    await inspectTextFields()
+    await dialog.getByRole('tab', { name: '第三方模型提供商' }).click()
+    expect(await key.inputValue()).toBe('handset-draft')
+    await dialog.getByRole('button', { name: '取消', exact: true }).click()
+    await expect.poll(async () => add.isVisible()).toBe(true)
+    expect(await dialog.getByText('minimax-cn', { exact: true }).count()).toBe(0)
+    expect(await dialog.locator('[class*="options"]').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+
+    await dialog.getByRole('button', { name: '返回' }).click()
+    await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
+    await dialog.getByRole('button', { name: '添加 MCP 服务器', exact: true }).click()
+    await dialog.getByLabel('名称', { exact: true }).fill('handset-probe')
+    await dialog.getByLabel('命令', { exact: true }).fill('node')
+    await dialog.getByLabel('参数', { exact: true }).fill('server.js\n--port 7100')
+    await inspectTextFields()
+    await expect.poll(async () => dialog.getByRole('button', { name: '保存', exact: true }).isEnabled()).toBe(true)
+    for (const width of [320, 768, 769, HANDSET.width]) {
+      await page.setViewportSize({ width, height: HANDSET.height })
+      expect(await dialog.locator('[class*="options"]').evaluate(element => element.scrollWidth <= element.clientWidth), `MCP form at ${String(width)}px`).toBe(true)
+    }
+    await dialog.getByRole('button', { name: '取消', exact: true }).click()
+    await expect.poll(async () => dialog.getByRole('searchbox', { name: '搜索 MCP 服务器', exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText('handset-probe', { exact: true }).count()).toBe(0)
+    expect(await dialog.locator('[class*="options"]').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+
+    // Collect both forms before failing so one run reports every missed field.
+    expect(undersized).toEqual([])
+    expect(tripwire.pageErrors).toEqual([])
+    await dialog.getByRole('button', { name: '关闭' }).click()
+    await expect.poll(async () => await dialog.count()).toBe(0)
+    const panel = await openWebSearchFields(page)
+    const count = panel.locator('#plugin-config-web-search-count')
+    await count.fill('12')
+    expect(await count.evaluate(element => getComputedStyle(element).fontSize)).toBe('16px')
+    expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     expect(tripwire.pageErrors).toEqual([])
   })
 })

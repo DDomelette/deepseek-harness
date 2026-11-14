@@ -50,14 +50,14 @@ export function ServerFormFields<State extends ServerFormState>(
             <span className={css.fieldLabel}>{t('commandLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('command')} value={state.command} onChange={edit('command')} placeholder={t('commandPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor={fieldId('args')}>
-            <span className={css.fieldLabel}>{t('argsLabel')}</span>
+          <div className={css.field}>
+            <label className={css.fieldLabel} htmlFor={fieldId('args')}>{t('argsLabel')}</label>
             <textarea id={fieldId('args')} className={css.multiline} value={state.args} onChange={edit('args')} placeholder={t('argsPlaceholder')} />
-          </label>
-          <label className={css.field} htmlFor={fieldId('env')}>
-            <span className={css.fieldLabel}>{t('envLabel')}</span>
+          </div>
+          <div className={css.field}>
+            <label className={css.fieldLabel} htmlFor={fieldId('env')}>{t('envLabel')}</label>
             <textarea id={fieldId('env')} className={css.multiline} value={state.env} onChange={edit('env')} placeholder={t(serverName === undefined ? 'envPlaceholder' : 'keepSecretHint')} />
-          </label>
+          </div>
           <label className={css.field} htmlFor={fieldId('cwd')}>
             <span className={css.fieldLabel}>{t('cwdLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('cwd')} value={state.cwd} onChange={edit('cwd')} />
@@ -69,10 +69,10 @@ export function ServerFormFields<State extends ServerFormState>(
             <span className={css.fieldLabel}>{t('urlLabel')}</span>
             <Input className={clsx(css.fieldInput)} id={fieldId('url')} value={state.url} onChange={edit('url')} placeholder={t('urlPlaceholder')} />
           </label>
-          <label className={css.field} htmlFor={fieldId('headers')}>
-            <span className={css.fieldLabel}>{t('headersLabel')}</span>
+          <div className={css.field}>
+            <label className={css.fieldLabel} htmlFor={fieldId('headers')}>{t('headersLabel')}</label>
             <textarea id={fieldId('headers')} className={css.multiline} value={state.headers} onChange={edit('headers')} placeholder={t(serverName === undefined ? 'headersPlaceholder' : 'keepSecretHint')} />
-          </label>
+          </div>
         </>
       )}
       <label className={css.field} htmlFor={fieldId('timeout')}>
