@@ -33,6 +33,13 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* Keep touch browsers from zooming the page when the input receives focus. */
+@media (pointer: coarse) {
+  .input {
+    font-size: 16px;
+  }
+}
+
 .input::placeholder {
   color: var(--dsw-alias-label-dimmed);
 }

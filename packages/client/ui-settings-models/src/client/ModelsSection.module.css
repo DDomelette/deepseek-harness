@@ -783,8 +783,12 @@ select.input {
   cursor: pointer;
 }
 
-/* Coarse pointers (touch): WCAG 2.5.5 target size. */
+/* Coarse pointers (touch): readable focus text and WCAG 2.5.5 target size. */
 @media (pointer: coarse) {
+  .input {
+    font-size: 16px;
+  }
+
   select.input {
     min-height: 44px;
   }

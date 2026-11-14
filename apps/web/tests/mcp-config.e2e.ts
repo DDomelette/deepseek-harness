@@ -68,7 +68,8 @@ describe('web e2e: MCP settings tab', () => {
       await page.keyboard.press('Escape')
       await expect.poll(() => page.getByRole('dialog', { name: '设置' }).count(), { timeout: 5_000 }).toBe(0)
     }
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await page.getByRole('button', { name: '账号菜单', exact: true }).click()
+    await page.getByRole('menuitem', { name: '设置', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
@@ -199,7 +200,8 @@ describe('web e2e: MCP settings tab declarative rows', () => {
 
   it('shows the cordis.yml-declared server as a read-only row', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-mcp-config-declarative'))
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await page.getByRole('button', { name: '账号菜单', exact: true }).click()
+    await page.getByRole('menuitem', { name: '设置', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'MCP', exact: true }).click()
