@@ -10,6 +10,7 @@ import { isBehindModal } from './useModalLayer.ts'
 import { observeComposition } from './keyboard-composition.ts'
 import { focusWithoutRing } from './focus.ts'
 import { MenuSurface } from './MenuSurface.tsx'
+import { useMenuFallbackPlacement } from './menu-placement.ts'
 import css from './Menu.module.css'
 
 /** Selectable row (optionally with a nested submenu). */
@@ -130,9 +131,10 @@ export function MenuItemButton({ onSelect, ...props }: MenuItemButtonProps) {
  * @param props.align - list alignment against the anchor (default 'start').
  * @param props.side - open below (`bottom`, default) or above (`top`) the anchor.
  * @param props.portal - render the list into document.body, fixed-positioned
- * with CSS anchor positioning; it follows browser zoom and may exceed the
- * visual viewport. Use when an ancestor's overflow clipping would crop the
- * in-place list; default false keeps the pure-CSS in-place behavior.
+ * with CSS anchor positioning or measured coordinates when that capability is
+ * unavailable; it follows browser zoom and may exceed the visual viewport. Use
+ * when an ancestor's overflow clipping would crop the in-place list; default
+ * false keeps the pure-CSS in-place behavior.
  * @param props.closeOnPointerLeave - close the list once the pointer has left
  * both trigger and list for the pointer grace (default false keeps it open
  * until outside click/Escape/selection). The grace makes the 4px trigger->list
@@ -286,6 +288,16 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
     const priority = element.style.getPropertyPriority('anchor-name')
     element.style.setProperty('anchor-name', anchorName)
     return () => { element.style.setProperty('anchor-name', previous, priority) }
+  })
+  useMenuFallbackPlacement({
+    active: open && portal && positioned,
+    menuRef: listRef,
+    anchorRef,
+    rootRef,
+    returnFocus,
+    side,
+    align,
+    minWidthFromAnchor,
   })
   useEffect(() => {
     if (!open || !portal || exiting !== undefined) return

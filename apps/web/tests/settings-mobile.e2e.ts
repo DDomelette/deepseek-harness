@@ -8,8 +8,8 @@
 // so there is no fixture and a stray stream would fail loud on the open llm
 // seam.
 import type { Browser, Locator, Page } from 'playwright'
-import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { chromium, webkit } from 'playwright'
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { revealNavigationDrawer, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
@@ -80,9 +80,127 @@ describe('web e2e: settings at a handset viewport', () => {
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 
+  afterEach(async () => {
+    await page.setViewportSize(HANDSET)
+    await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' })
+    if (await page.getByRole('menu').count() > 0) await page.keyboard.press('Escape')
+    const dialog = page.getByRole('dialog', { name: '设置' })
+    if (await dialog.count() > 0) await dialog.getByRole('button', { name: '关闭' }).click()
+  })
+
   afterAll(async () => {
     await browser?.close()
     await scaffold?.close()
+  })
+
+  it('anchors the account menu above its handset drawer trigger', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-account-menu-handset'))
+    for (const width of [320, HANDSET.width, 767]) {
+      await page.setViewportSize({ width, height: HANDSET.height })
+      await page.emulateMedia({ colorScheme: width === 320 ? 'dark' : 'light' })
+      await revealNavigationDrawer(page, 'zh')
+      const trigger = page.getByRole('button', { name: '账号菜单', exact: true })
+      await trigger.click()
+      const menu = page.getByRole('menu')
+      await menu.waitFor({ state: 'visible' })
+      const anchorBox = await trigger.boundingBox()
+      const menuBox = await menu.boundingBox()
+      expect(anchorBox).not.toBeNull()
+      expect(menuBox).not.toBeNull()
+      expect(menuBox!.x).toBe(Math.max(12, anchorBox!.x))
+      expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(anchorBox!.y - 3)
+      expect(menuBox!.x).toBeGreaterThanOrEqual(12)
+      expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(width - 12)
+
+      await page.locator('[data-drawer-scrim]').click({ position: { x: width - 12, y: 300 } })
+      await expect.poll(() => menu.count()).toBe(0)
+      await revealNavigationDrawer(page, 'zh')
+      await trigger.click()
+      await menu.waitFor({ state: 'visible' })
+      await page.keyboard.press('Escape')
+      await expect.poll(() => menu.count()).toBe(0)
+      await expect.poll(() => trigger.evaluate(element => element === document.activeElement)).toBe(true)
+    }
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('anchors the account menu above its handset trigger in WebKit', async () => {
+    const webkitBrowser = await webkit.launch()
+    try {
+      const context = await webkitBrowser.newContext({ viewport: HANDSET, hasTouch: true, locale: ZH_BROWSER_LOCALE })
+      const webkitPage = await context.newPage()
+      onTestFailed(() => saveFailureShot(webkitPage, 'web-e2e-account-menu-handset-webkit'))
+      const errors = watchConsole(webkitPage)
+      await webkitPage.goto(scaffold.authenticatedUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+      await webkitPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      await revealNavigationDrawer(webkitPage, 'zh')
+      const trigger = webkitPage.getByRole('button', { name: '账号菜单', exact: true })
+      await trigger.click()
+      const menu = webkitPage.getByRole('menu')
+      await menu.waitFor({ state: 'visible' })
+      const anchorBox = await trigger.boundingBox()
+      const menuBox = await menu.boundingBox()
+      expect(anchorBox).not.toBeNull()
+      expect(menuBox).not.toBeNull()
+      expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(anchorBox!.y - 3)
+      expect(menuBox!.x).toBe(Math.max(12, anchorBox!.x))
+      await webkitPage.keyboard.press('Escape')
+      await expect.poll(() => menu.count()).toBe(0)
+      await trigger.click()
+      await menu.waitFor({ state: 'visible' })
+      await webkitPage.getByRole('menuitem', { name: '设置', exact: true }).click()
+      expect(await webkitPage.getByRole('dialog', { name: '设置' }).count()).toBe(1)
+      expect(errors.pageErrors).toEqual([])
+    } finally {
+      await webkitBrowser.close()
+    }
+  })
+
+  it('keeps general settings selectors beside their triggers without CSS anchor positioning', async () => {
+    const legacyBrowser = await chromium.launch()
+    try {
+      const context = await legacyBrowser.newContext({ viewport: HANDSET, hasTouch: true, locale: ZH_BROWSER_LOCALE })
+      const legacyPage = await context.newPage()
+      onTestFailed(() => saveFailureShot(legacyPage, 'web-e2e-settings-menu-without-css-anchors'))
+      await legacyPage.addInitScript(() => {
+        const supports = CSS.supports.bind(CSS)
+        CSS.supports = (property: string, value?: string) => {
+          const declaration = `${property} ${value ?? ''}`
+          if (declaration.includes('position-anchor') || declaration.includes('anchor(') || declaration.includes('anchor-size(')) return false
+          return value === undefined ? supports(property) : supports(property, value)
+        }
+      })
+      await legacyPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      // Replace the declarations an engine without CSS Anchor Positioning drops;
+      // the component's compatibility placement still applies as inline styles.
+      await legacyPage.addStyleTag({ content: `[data-anchor-side][data-anchor-side] {
+        top: auto; bottom: 12px; left: 12px; right: 12px;
+      }` })
+      await legacyPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      await openSettings(legacyPage)
+      const dialog = legacyPage.getByRole('dialog', { name: '设置' })
+      await dialog.getByRole('button', { name: '通用设置' }).click()
+
+      for (const [initial, selected] of [['回答结束后', '下次有新消息时'], ['排队发送', '插话发送']] as const) {
+        const trigger = dialog.getByRole('button', { name: initial, exact: true })
+        await trigger.click()
+        const menu = legacyPage.getByRole('menu')
+        await menu.waitFor({ state: 'visible' })
+        const triggerBox = await trigger.boundingBox()
+        const menuBox = await menu.boundingBox()
+        expect(triggerBox).not.toBeNull()
+        expect(menuBox).not.toBeNull()
+        expect(Math.abs(menuBox!.x + menuBox!.width - triggerBox!.x - triggerBox!.width)).toBeLessThan(1)
+        expect(menuBox!.y).toBeGreaterThanOrEqual(triggerBox!.y + triggerBox!.height + 3)
+        expect(menuBox!.x).toBeGreaterThanOrEqual(12)
+        expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(HANDSET.width - 12)
+        await menu.getByRole('menuitem', { name: selected, exact: true }).click()
+        await expect.poll(() => menu.count()).toBe(0)
+        await expect.poll(() => dialog.getByRole('button', { name: selected, exact: true }).isVisible()).toBe(true)
+      }
+    } finally {
+      await legacyBrowser.close()
+    }
   })
 
   it('lists the sections, opens one on its own pane, and returns to the list', async () => {
@@ -124,6 +242,12 @@ describe('web e2e: settings at a handset viewport', () => {
     const options = dialog.locator('[class*="options"]')
     expect((await options.boundingBox())?.width ?? 0).toBeGreaterThan(HANDSET.width * 0.7)
     await expect.poll(async () => await options.getByText('语言', { exact: true }).isVisible()).toBe(true)
+    const sectionMotion = await options.locator(':scope > [class*="section"]').evaluate(element => ({
+      name: getComputedStyle(element).animationName,
+      duration: getComputedStyle(element).animationDuration,
+    }))
+    expect(sectionMotion.name).toContain('settings-pane-enter')
+    expect(sectionMotion.duration).toBe('0.16s')
 
     // Detail header on one bar: back + title + document action + close. The
     // action trades its label for a glyph (accessible name unchanged) so the
@@ -158,6 +282,8 @@ describe('web e2e: settings at a handset viewport', () => {
     // then leaves both.
     await back.click()
     await expect.poll(async () => await dialog.getAttribute('data-pane')).toBe('list')
+    expect(await navigation.evaluate(element => getComputedStyle(element).animationName)).toContain('settings-pane-enter')
+    await expect.poll(() => row.evaluate(element => element === document.activeElement)).toBe(true)
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
@@ -183,9 +309,25 @@ describe('web e2e: settings at a handset viewport', () => {
     // The section's own controls may carry the same label, so the header names
     // the open section.
     expect(await dialog.locator('[data-detail-title]').textContent()).toBe('模型')
+    expect(await dialog.locator('[class*="options"] > [class*="section"]').evaluate(element => getComputedStyle(element).animationName))
+      .toContain('settings-pane-enter')
     await dialog.getByRole('button', { name: '关闭' }).click()
     await expect.poll(async () => await dialog.count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('switches handset settings immediately when reduced motion is requested', async () => {
+    await page.setViewportSize(HANDSET)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openSettings(page)
+    const dialog = page.getByRole('dialog', { name: '设置' })
+    await dialog.getByRole('button', { name: '通用设置' }).click()
+    const section = dialog.locator('[class*="options"] > [class*="section"]')
+    expect(await section.evaluate(element => getComputedStyle(element).animationName)).toBe('none')
+    await dialog.getByRole('button', { name: '返回' }).click()
+    expect(await dialog.locator('[class*="navList"]').evaluate(element => getComputedStyle(element).animationName)).toBe('none')
+    await dialog.getByRole('button', { name: '关闭' }).click()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
   })
 
   it('keeps form text compact with a fine pointer', async () => {
