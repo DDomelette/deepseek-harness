@@ -16,7 +16,7 @@ import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import {
   launchWebScaffold, realizeSeedFixture, seedSession, watchConsole, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newEnglishPage, openSettings, saveFailureShot } from './support.ts'
 
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const PARENT_ID = 'archived-settings-parent'
@@ -93,7 +93,7 @@ describe('web e2e: archived sessions settings', () => {
 
   it('lists, restores, and recursively deletes archived conversations', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-archived-settings'))
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await openSettings(page, 'en')
     const dialog = page.getByRole('dialog', { name: 'Settings' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Archived' }).click()
@@ -137,7 +137,7 @@ describe('web e2e: archived sessions settings', () => {
     // Reopen the page for the cold parent/child pair, still archived.
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await openSettings(page, 'en')
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Archived' }).click()
     const deleteRow = dialog.locator('li').nth(0)

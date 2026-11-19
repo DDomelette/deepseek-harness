@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { IconChevronDownOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import { PairingPanel } from './PairingPanel.tsx'
 import type { MobileBindMode, MobileBindSettings } from './bind-settings.ts'
 import { createPairingApi, type PairingApi } from './pairing-api.ts'
@@ -59,6 +60,7 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
   const [notice, setNotice] = useState<'saved' | 'failed' | undefined>(undefined)
   const [attempt, setAttempt] = useState(0)
   const [reach, setReach] = useState<Reach>({ status: 'pending' })
+  const [accessExpanded, setAccessExpanded] = useState(false)
   // One read per mount: the answer changes only with a restart, and the injected
   // callback's identity follows the registration, so an effect keyed on it
   // would re-read on every render.
@@ -116,87 +118,114 @@ export function MobileSection({ joinUrl, api: providedApi, t }: MobileSectionPro
       <p className={css.intro}>{t('dialog.description')}</p>
 
       <section className={css.block}>
-        <h3 className={css.heading}>{t('access.title')}</h3>
+        <h3 className={css.heading}>
+          <button
+            type="button"
+            className={css.disclosure}
+            aria-expanded={accessExpanded}
+            aria-controls="mobile-access-details"
+            onClick={() => { setAccessExpanded(expanded => !expanded) }}
+          >
+            {t('access.title')}
+            <IconChevronDownOutlineMedium />
+          </button>
+        </h3>
         <dl className={css.facts}>
           <dt className={css.factLabel}>{t('access.current')}</dt>
           <dd className={css.factValue}>
             <code className={css.address}>{globalThis.location.host}</code>
           </dd>
-          <dt className={css.factLabel}>{t('access.phone')}</dt>
-          <dd className={css.factValue}>
-            {reach.status === 'reachable' ? t('access.reachable', { url: reach.url }) : t('access.unreachable')}
-          </dd>
+          {accessExpanded
+            ? (
+              <>
+                <dt className={css.factLabel}>{t('access.phone')}</dt>
+                <dd className={css.factValue}>
+                  {reach.status === 'reachable' ? t('access.reachable', { url: reach.url }) : t('access.unreachable')}
+                </dd>
+              </>
+            )
+            : null}
         </dl>
 
-        {saved !== undefined && current !== undefined
+        {accessExpanded
           ? (
-            <>
-              <label className={css.field}>
-                {t('access.mode')}
-                <select
-                  className={css.select}
-                  value={current.bindMode}
-                  disabled={busy}
-                  onChange={(event) => { choose(current, event.currentTarget.value as MobileBindMode) }}
-                >
-                  {BIND_MODES.map(mode => (
-                    <option key={mode} value={mode}>{t(`access.mode.${mode}`)}</option>
-                  ))}
-                </select>
-              </label>
+            <div id="mobile-access-details" className={css.accessDetails}>
+              {saved !== undefined && current !== undefined
+                ? (
+                  <>
+                    <div className={css.fields}>
+                      <label className={css.field}>
+                        {t('access.mode')}
+                        <select
+                          className={css.select}
+                          value={current.bindMode}
+                          disabled={busy}
+                          onChange={(event) => { choose(current, event.currentTarget.value as MobileBindMode) }}
+                        >
+                          {BIND_MODES.map(mode => (
+                            <option key={mode} value={mode}>{t(`access.mode.${mode}`)}</option>
+                          ))}
+                        </select>
+                      </label>
 
-              <label className={css.field}>
-                {t('access.host')}
-                <input
-                  className={css.input}
-                  value={current.bindHost}
-                  placeholder={t('access.hostPlaceholder')}
-                  inputMode="decimal"
-                  spellCheck={false}
-                  disabled={busy || current.bindMode === 'loopback'}
-                  onChange={(event) => { editHost(current, event.currentTarget.value) }}
-                />
-              </label>
+                      <label className={css.field}>
+                        {t('access.host')}
+                        <input
+                          className={css.input}
+                          value={current.bindHost}
+                          placeholder={t('access.hostPlaceholder')}
+                          inputMode="decimal"
+                          spellCheck={false}
+                          disabled={busy || current.bindMode === 'loopback'}
+                          onChange={(event) => { editHost(current, event.currentTarget.value) }}
+                        />
+                      </label>
+                    </div>
 
-              <p className={css.hint}>{t(`access.modeHint.${current.bindMode}`)}</p>
-              <p className={css.hint}>{t('access.restart')}</p>
-              {/* A paired cookie names its authority, so a new address or port
-                  strands it; saying so keeps the operator from pairing again
-                  without knowing why. */}
-              <p className={css.warning}>{t('access.rebind')}</p>
+                    <div className={css.notes}>
+                      <p className={css.hint}>{t(`access.modeHint.${current.bindMode}`)}</p>
+                      <p className={css.hint}>{t('access.restart')}</p>
+                      {/* A paired cookie names its authority, so a new address or port
+                          strands it; saying so keeps the operator from pairing again
+                          without knowing why. */}
+                      <p className={css.warning}>{t('access.rebind')}</p>
+                    </div>
 
-              <div className={css.actions}>
-                <button
-                  type="button"
-                  className={css.primary}
-                  disabled={busy || fixedMissingAddress}
-                  onClick={() => { void save(current) }}
-                >
-                  {t('access.save')}
-                </button>
-                {notice !== undefined && (
-                  <p className={notice === 'saved' ? css.saved : css.failed} role="status">
-                    {t(notice === 'saved' ? 'access.saved' : 'access.failed')}
-                  </p>
+                    <div className={css.actions}>
+                      <button
+                        type="button"
+                        className={css.primary}
+                        disabled={busy || fixedMissingAddress}
+                        onClick={() => { void save(current) }}
+                      >
+                        {t('access.save')}
+                      </button>
+                      {notice !== undefined && (
+                        <p className={notice === 'saved' ? css.saved : css.failed} role="status">
+                          {t(notice === 'saved' ? 'access.saved' : 'access.failed')}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )
+                : (
+                  <>
+                    <p className={css.hint}>
+                      {policy.status === 'failed' ? t('panel.loadFailed') : t('access.readOnly')}
+                    </p>
+                    {policy.status === 'failed' && (
+                      <div className={css.actions}>
+                        <button type="button" className={css.primary} onClick={() => {
+                          setPolicy({ status: 'loading' })
+                          setAttempt(current => current + 1)
+                        }}>{t('panel.retry')}</button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
-            </>
+            </div>
           )
-          : (
-            <>
-              <p className={css.hint}>
-                {policy.status === 'failed' ? t('panel.loadFailed') : t('access.readOnly')}
-              </p>
-              {policy.status === 'failed' && (
-                <div className={css.actions}>
-                  <button type="button" className={css.primary} onClick={() => {
-                    setPolicy({ status: 'loading' })
-                    setAttempt(current => current + 1)
-                  }}>{t('panel.retry')}</button>
-                </div>
-              )}
-            </>
-          )}
+          : null}
       </section>
 
       <section className={css.block} aria-label={t('panel.heading')}>

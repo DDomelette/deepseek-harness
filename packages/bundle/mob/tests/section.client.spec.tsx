@@ -85,29 +85,49 @@ function mount(
 
 afterEach(cleanup)
 
+/** Open the address disclosure without assuming whether its policy is editable. */
+function expandAccess(): void {
+  const trigger = screen.getByRole('button', { name: '访问地址' })
+  fireEvent.click(trigger)
+  expect(trigger.getAttribute('aria-expanded')).toBe('true')
+}
+
 describe('MobileSection', () => {
-  it('states this page’s address, the phone-reachable origin, and the address field in every mode', async () => {
+  it('collapses address settings to the current page and expands the phone origin and every bind mode', async () => {
     mount()
     expect(screen.getByRole('heading', { name: '连接手机' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
     expect(screen.getByText(globalThis.location.host)).toBeTruthy()
+    const disclosure = screen.getByRole('button', { name: '访问地址' })
+    expect(disclosure.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('手机访问')).toBeNull()
+    expect(screen.queryByLabelText('绑定方式')).toBeNull()
+
+    expandAccess()
     expect(await screen.findByText(`手机可打开 ${JOIN_URL}`)).toBeTruthy()
 
     // The address field stays on the page in every mode; loopback mode is the
     // one mode that does not read it, so it is shown disabled rather than gone.
-    expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', true)
+    expect(await screen.findByLabelText('IP 地址')).toHaveProperty('disabled', true)
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'auto' } })
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('disabled', false)
     // A new address or port strands the paired cookies, so the page says so.
     expect(screen.getByText(zh['access.rebind'])).toBeTruthy()
+
+    fireEvent.click(disclosure)
+    expect(disclosure.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByText(globalThis.location.host)).toBeTruthy()
+    expect(screen.queryByText('手机访问')).toBeNull()
+    expect(screen.queryByLabelText('绑定方式')).toBeNull()
     expect(await screen.findByRole('button', { name: '生成配对码' })).toBeTruthy()
   })
 
   it('saves the address typed in automatic mode as its fallback', async () => {
     const { api } = mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } })
     const saveBind = vi.spyOn(api, 'saveBind')
+    expandAccess()
     await screen.findByLabelText('绑定方式')
     fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: ' 192.168.1.9 ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -118,6 +138,7 @@ describe('MobileSection', () => {
   it('saves a fixed address and requires one before saving', async () => {
     const { api } = mount()
     const saveBind = vi.spyOn(api, 'saveBind')
+    expandAccess()
     await screen.findByLabelText('绑定方式')
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
@@ -132,6 +153,7 @@ describe('MobileSection', () => {
     mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } }, {}, {
       saveBind: async () => ({ ok: false, reason: 'failed' }),
     })
+    expandAccess()
     await screen.findByLabelText('绑定方式')
     fireEvent.change(screen.getByLabelText('绑定方式'), { target: { value: 'fixed' } })
     fireEvent.change(screen.getByLabelText('IP 地址'), { target: { value: '10.0.0.7' } })
@@ -139,6 +161,12 @@ describe('MobileSection', () => {
 
     expect(await screen.findByText(zh['access.failed'])).toBeTruthy()
     expect(screen.getByLabelText('IP 地址')).toHaveProperty('value', '10.0.0.7')
+
+    fireEvent.click(screen.getByRole('button', { name: '访问地址' }))
+    expect(screen.queryByLabelText('IP 地址')).toBeNull()
+    expandAccess()
+    expect(screen.getByLabelText('IP 地址')).toHaveProperty('value', '10.0.0.7')
+    expect(screen.getByText(zh['access.failed'])).toBeTruthy()
   })
 
   it('keeps the address block visible but read-only for a paired phone', async () => {
@@ -147,6 +175,7 @@ describe('MobileSection', () => {
     // deployment-wide policy from there; the controls simply are not offered.
     expect(screen.getByRole('heading', { name: '访问地址' })).toBeTruthy()
     expect(screen.getByText(globalThis.location.host)).toBeTruthy()
+    expandAccess()
     expect(await screen.findByText(zh['access.readOnly'])).toBeTruthy()
     expect(screen.queryByLabelText('绑定方式')).toBeNull()
     expect(screen.queryByLabelText('IP 地址')).toBeNull()
@@ -158,6 +187,7 @@ describe('MobileSection', () => {
       .mockResolvedValueOnce({ ok: false as const, reason: 'failed' as const })
       .mockResolvedValue({ ok: true as const, value: { bindMode: 'auto' as const, bindHost: '' } })
     mount(undefined, {}, { bind })
+    expandAccess()
     expect(await screen.findByText(zh['panel.loadFailed'])).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
     await waitFor(() => { expect(screen.getByLabelText('绑定方式')).toBeTruthy() })
@@ -178,6 +208,7 @@ describe('MobileSection', () => {
         error: new RemoteError('mob/no-advertised-origin', 'the deployment declares no reachable origin', {}),
       }),
     })
+    expandAccess()
     expect(await screen.findByText(zh['access.unreachable'])).toBeTruthy()
     fireEvent.click(await screen.findByRole('button', { name: '生成配对码' }))
     await waitFor(() => { expect(screen.getByText(zh['dialog.unavailable'])).toBeTruthy() })
@@ -212,6 +243,7 @@ describe('MobileSection', () => {
     const fetchStub = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 403 }))
     try {
       mount(undefined, { api: undefined })
+      expandAccess()
       expect(await screen.findByText(zh['access.readOnly'])).toBeTruthy()
       expect(fetchStub).toHaveBeenCalledWith('/pair/bind', expect.anything())
     } finally {
@@ -236,6 +268,7 @@ describe('MobileSection', () => {
     let release: (value: PairingResult<MobileBindSettings>) => void = () => {}
     const saveBind = vi.fn(() => new Promise<PairingResult<MobileBindSettings>>((resolve) => { release = resolve }))
     mount({ ok: true, value: { bindMode: 'auto', bindHost: '' } }, {}, { saveBind })
+    expandAccess()
     await screen.findByLabelText('绑定方式')
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(screen.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)

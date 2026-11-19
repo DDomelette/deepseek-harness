@@ -69,8 +69,10 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
       const navigation = await operator.goto(scaffold.authenticatedUrl)
       expect(navigation?.status()).toBe(200)
       const management = await openPairing(operator, true)
-      // The bind policy is a deployment-wide decision this operator changes
-      // from whichever address they opened — the LAN one included.
+      // The collapsed card keeps only the current address; expanding it reveals
+      // the deployment-wide policy this operator can change from the LAN page.
+      expect(await operator.getByRole('combobox', { name: '绑定方式' }).count()).toBe(0)
+      await operator.getByRole('button', { name: '访问地址', exact: true }).click()
       expect(await operator.getByRole('combobox', { name: '绑定方式' }).isEnabled()).toBe(true)
       await management.getByRole('button', { name: '生成配对码' }).click()
       const link = management.getByRole('textbox', { name: '加入链接' })
@@ -95,7 +97,9 @@ describe.skipIf(MODE === 'record')('web e2e: phone pairing', () => {
       const restricted = await openPairing(handset, true)
       await restricted.getByText('请打开启动器提供的认证链接来管理配对。已配对设备不能管理其他设备').waitFor()
       expect(await restricted.getByRole('button', { name: '生成配对码' }).count()).toBe(0)
-      // A paired phone sees the address facts but no policy controls.
+      // A paired phone can expand the address facts but gets no policy controls.
+      await handset.getByRole('button', { name: '访问地址', exact: true }).click()
+      await handset.getByText(/当前页面不是本机地址/u).waitFor()
       expect(await handset.getByRole('combobox', { name: '绑定方式' }).count()).toBe(0)
       expect((await phone.request.get(new URL('/pair/devices', scaffold.baseUrl).href)).status()).toBe(403)
       await compareOrRefreshGolden(EXPECTED, await restricted.ariaSnapshot(), MODE)
