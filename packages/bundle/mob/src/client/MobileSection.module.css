@@ -1,6 +1,5 @@
-/* Connect-phone settings page: the address block above the pairing panel, in
-   the settings-panel design language (14/22 body, 12/18 caption, border-l2
-   hairlines). Every color resolves through a `--dsw-alias-*` token. */
+/* Connect-phone settings page: a compact address disclosure above the pairing
+   panel, using the shared settings-card material and typography roles. */
 
 .section {
   display: flex;
@@ -29,9 +28,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  padding: 14px 16px;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
 }
 
 .heading {
@@ -42,9 +42,35 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.disclosure > svg {
+  flex: none;
+}
+
+.disclosure[aria-expanded='true'] > svg {
+  transform: rotate(180deg);
+}
+
 .facts {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 4px 12px;
   margin: 0;
   font-size: 12px;
@@ -59,6 +85,7 @@
 .factValue {
   margin: 0;
   min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -68,10 +95,26 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.accessDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 12px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
@@ -81,11 +124,10 @@
 .select {
   box-sizing: border-box;
   width: 100%;
-  max-width: 280px;
-  height: 30px;
+  height: 32px;
   padding: 4px 10px;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-module-platform);
   font: inherit;
   font-size: 13px;
@@ -101,6 +143,11 @@
 .select:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.notes {
+  display: grid;
+  gap: 4px;
 }
 
 .hint {
@@ -121,6 +168,7 @@
   padding: 0 16px;
   border: none;
   border-radius: 15px;
+  corner-shape: round;
   background: var(--dsw-alias-brand-primary);
   font-size: 13px;
   line-height: 20px;
@@ -153,4 +201,21 @@
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-state-warn-label);
+}
+
+@media (pointer: coarse) {
+  .disclosure {
+    min-height: 44px;
+  }
+
+  .input,
+  .select {
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .primary {
+    height: 44px;
+    border-radius: 22px;
+  }
 }

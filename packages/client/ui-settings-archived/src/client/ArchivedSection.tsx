@@ -153,13 +153,13 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
           : groups.length === 0
             ? <p className={css.empty}>{t('empty')}</p>
             : (
-              <div aria-live="polite">
+              <div className={css.groups} aria-live="polite">
                 {groups.map((group) => {
                   const groupTitle = group.key === UNGROUPED_KEY ? t('group.ungrouped') : group.title
                   return (
-                    <section key={group.key} aria-labelledby={`archived-group-${group.key}`}>
+                    <section className={css.group} key={group.key} aria-labelledby={`archived-group-${group.key}`}>
                       <h3 id={`archived-group-${group.key}`} className={css.groupTitle}>
-                        {groupTitle}
+                        <span className={css.groupName}>{groupTitle}</span>
                         <span className={css.count}>{String(group.rows.length)}</span>
                       </h3>
                       <ul className={css.list}>
@@ -178,8 +178,9 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                               <Tooltip label={t('row.details', { name: row.title })}>
                                 <span className={css.actionAnchor}>
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
+                                    className={css.action}
                                     aria-label={t('row.details', { name: row.title })}
                                     onClick={() => { setDetail({ row, groupTitle }) }}
                                   >
@@ -190,8 +191,9 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                               <Tooltip label={t('row.restore').replace('{name}', row.title)}>
                                 <span className={css.actionAnchor}>
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
+                                    className={css.action}
                                     aria-label={t('row.restore').replace('{name}', row.title)}
                                     disabled={busy.has(row.id)}
                                     onClick={() => { void onRestore(row.id) }}
@@ -206,8 +208,9 @@ export function ArchivedSection(props: ArchivedSectionProps): ReactNode {
                               >
                                 <span className={css.actionAnchor}>
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
+                                    className={css.action}
                                     aria-label={t('row.delete', { name: row.title })}
                                     disabled={busy.has(row.id) || row.running}
                                     onClick={() => { setPendingDelete({ row, groupTitle }) }}
